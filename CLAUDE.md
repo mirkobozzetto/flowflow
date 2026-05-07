@@ -39,24 +39,46 @@ Mirko Bozzetto — freelance full-stack developer, Brussels.
 | A | Minimal Dioxus iOS scaffold (hello world on simulator) | Done |
 | B | Audio capture iOS mic (cpal + hound, save WAV) | Done |
 | C | Soniox REST (upload WAV → transcription) | Done |
-| D | Local storage (SQLite + LanceDB on iOS) | — |
+| D | SQLite storage + UI refactor + Tailwind | Done |
 | E | On-device embeddings (ONNX, all-MiniLM-L6-v2) | — |
 | F | RAG + Chat (embed → search → context → LLM → response) | — |
-| G | UI (build as needed) | — |
 
-## Data Entities (from SuperPowerNotes, adapted)
+## Architecture (Clean Architecture)
 
-### VoiceNote (main entity)
-- id (UUID), transcription, tags[], duration, fileName, createdAt, modifiedAt
-- New: embedding vector (LanceDB), summary (LLM)
+```
+src/
+  main.rs              entry point
+  models/              domain entities (Note, Folder, NoteType)
+  db/                  persistence (Database, migrations, CRUD repos)
+  services/            business logic (AudioRecorder, SonioxClient)
+  platform/            OS-specific (iOS AVAudioSession, documents_dir)
+  ui/                  Dioxus components + Tailwind CSS
+    mod.rs             App, AppState, View enum, Stylesheet
+    layout.rs          TopBar, Sidebar drawer, FAB
+    notes.rs           NotesList, NoteCard, NoteDetail
+    recording.rs       RecordingView, RecordButton, StatusLine
+```
+
+## Data Entities
+
+### Note (global entity — voice and text are input modes, not types)
+- id (UUID), note_type (voice/text), title, content, tags[], duration, audio_file_path
+- Auto-titled with date+time when created on the fly
+- Speech-to-text available from any note
+- Future: embedding vector (LanceDB), summary (LLM)
 
 ### Folder (hierarchy)
-- id, name, description, parentId (self-ref), createdAt
-- N:N relation with VoiceNote via junction table
+- id, name, description, parent_id (self-ref), created_at
+- N:N relation with Note via junction table (notes_folders)
+- ON DELETE SET NULL for parent (children become root)
 
-### User (local-first)
-- id, name, timeLimit, currentPeriodRemainingTime, currentPeriodUsedTime, lastResetDate
-- No OAuth — biometric/PIN iOS auth
+## Styling
+
+- **Tailwind CSS V4** via Dioxus 0.7 auto-detection
+- `tailwind.css` at project root = input file
+- `dx serve` auto-compiles to `assets/tailwind.css`
+- Custom colors: `ios-green` (#34c759), `ios-red` (#ff3b30), `ios-blue` (#007aff)
+- Mobile-first: touch targets 44px, safe area insets, scroll fix on empty pages
 
 ## Main Pipeline
 
@@ -77,6 +99,10 @@ Mic capture → WAV/audio
 - tokio 1 (async runtime)
 - serde 1.0 + serde_json 1.0 (JSON serialization)
 - dotenvy 0.15 (.env loader)
+- rusqlite 0.34 (SQLite, bundled for iOS cross-compile)
+- uuid 1 (UUID v4 generation)
+- chrono 0.4 (ISO 8601 timestamps)
+- Tailwind CSS V4 (auto-detected by dx)
 - Rust 1.94.1
 - iOS targets: aarch64-apple-ios, aarch64-apple-ios-sim
 
