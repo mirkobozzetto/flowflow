@@ -17,3 +17,6 @@ ddev:
 
 desktop:
 	dx serve --desktop
+
+logs:
+	idevicesyslog | grep -i "audio\|flowflow\|FlowFlow"
