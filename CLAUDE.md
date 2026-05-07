@@ -38,7 +38,7 @@ Mirko Bozzetto — freelance full-stack developer, Brussels.
 |-------|-------------|--------|
 | A | Minimal Dioxus iOS scaffold (hello world on simulator) | Done |
 | B | Audio capture iOS mic (cpal + hound, save WAV) | Done |
-| C | Soniox REST (upload WAV → transcription) | — |
+| C | Soniox REST (upload WAV → transcription) | Done |
 | D | Local storage (SQLite + LanceDB on iOS) | — |
 | E | On-device embeddings (ONNX, all-MiniLM-L6-v2) | — |
 | F | RAG + Chat (embed → search → context → LLM → response) | — |
@@ -73,6 +73,10 @@ Mic capture → WAV/audio
 - Dioxus 0.7 (CLI dx 0.7.7)
 - cpal 0.17 (audio I/O via CoreAudio on iOS)
 - hound 3.5 (WAV file writing)
+- reqwest 0.12 (HTTP client, multipart + JSON)
+- tokio 1 (async runtime)
+- serde 1.0 + serde_json 1.0 (JSON serialization)
+- dotenvy 0.15 (.env loader)
 - Rust 1.94.1
 - iOS targets: aarch64-apple-ios, aarch64-apple-ios-sim
 
@@ -84,7 +88,19 @@ make format   # cargo fmt (80-char max)
 make check    # fmt check + clippy
 make dev      # dx serve --ios (simulator)
 make ddev     # dx serve --ios --device (physical iPhone)
+make desktop  # dx serve --desktop (Mac window, real mic)
+make logs     # iPhone device logs (idevicesyslog)
 ```
+
+## Environment Variables
+
+Create a `.env` file at the project root (never committed):
+
+```
+SONIOX_API_KEY=your_soniox_api_key
+```
+
+Get your API key at https://console.soniox.com
 
 ### Manual commands (if needed)
 
