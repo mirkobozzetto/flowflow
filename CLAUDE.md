@@ -1,92 +1,94 @@
 # CLAUDE.md — FlowFlow
 
-## Le Projet
+## Project
 
-**FlowFlow** — app mobile 100% Rust pour enregistrer des notes vocales, les transcrire, générer des tags/titres par IA, organiser en dossiers, et chatter avec ses notes via RAG local.
+**FlowFlow** — 100% Rust mobile app for recording voice notes, transcribing them, generating tags/titles via AI, organizing in folders, and chatting with notes via local RAG.
 
-Inspiré de SuperPowerNotes (app Next.js/TypeScript de Mirko). Voir `ANALYSIS.md` pour l'analyse complète de la codebase source.
+Inspired by SuperPowerNotes (Next.js/TypeScript app by Mirko). See `ANALYSIS.md` for full source codebase analysis.
 
 ## Owner
 
-Mirko Bozzetto — développeur full-stack freelance, Bruxelles.
+Mirko Bozzetto — freelance full-stack developer, Brussels.
 
-## Contraintes Techniques
+## Technical Constraints
 
-- **Langage** : 100% Rust. Zéro JavaScript, zéro TypeScript.
-- **UI** : Dioxus (support mobile natif + Tailwind intégré)
-- **Cible** : iOS uniquement (Android plus tard)
-- **Base vectorielle** : LanceDB (recherche sémantique locale)
-- **Métadonnées** : SQLite (rusqlite)
-- **Transcription** : Soniox REST API (async, pas WebSocket)
-- **Embeddings** : ONNX Runtime (ort) on-device (all-MiniLM-L6-v2)
-- **HTTP** : reqwest
-- **Async** : tokio
+- **Language**: 100% Rust. Zero JavaScript, zero TypeScript.
+- **UI**: Dioxus (native mobile support)
+- **Target**: iOS only (Android later)
+- **Vector DB**: LanceDB (local semantic search)
+- **Metadata**: SQLite (rusqlite)
+- **Transcription**: Soniox REST API (async)
+- **Embeddings**: ONNX Runtime (ort) on-device (all-MiniLM-L6-v2)
+- **HTTP**: reqwest
+- **Async**: tokio
 
-## Méthodologie de Travail
+## Work Methodology
 
-- Une seule étape à la fois. Après chaque étape → STOP → montrer le résultat → attendre validation de Mirko.
-- Pas de structure de fichiers prédéfinie au-delà de l'étape en cours.
-- Si ça ne compile pas ou ne fonctionne pas → corriger avant d'avancer.
-- Pas de suppositions sur ce qui marchera — tester.
-- Quand hésitation entre deux approches → exposer les options avec pour/contre → Mirko tranche.
-- Git : commit après chaque étape validée, messages descriptifs.
-- Noms de fichiers, structure, architecture évoluent au fur et à mesure. Rien n'est gravé.
+- One step at a time. After each step → STOP → show result → wait for Mirko's validation.
+- No predefined file structure beyond current step.
+- If it doesn't compile or work → fix before moving forward.
+- No assumptions — test everything.
+- When unsure between two approaches → present options with pros/cons → Mirko decides.
+- Git: commit after each validated step, descriptive messages.
+- File names, structure, architecture evolve as needed. Nothing is set in stone.
 
-## Pistes de Travail (ordre indicatif, Mirko décide)
+## Tracks (indicative order, Mirko decides)
 
-| Piste | Description | Statut |
+| Track | Description | Status |
 |-------|-------------|--------|
-| A | Scaffold minimal Dioxus iOS (hello world sur simulateur) | Fait |
-| B | Audio capture micro iOS (cpal + hound, sauver WAV) | Fait |
+| A | Minimal Dioxus iOS scaffold (hello world on simulator) | Done |
+| B | Audio capture iOS mic (cpal + hound, save WAV) | Done |
 | C | Soniox REST (upload WAV → transcription) | — |
-| D | Storage local (SQLite + LanceDB sur iOS) | — |
-| E | Embeddings on-device (ONNX, all-MiniLM-L6-v2) | — |
-| F | RAG + Chat (embed → search → contexte → LLM → réponse) | — |
-| G | UI (construire au fur et à mesure des besoins) | — |
+| D | Local storage (SQLite + LanceDB on iOS) | — |
+| E | On-device embeddings (ONNX, all-MiniLM-L6-v2) | — |
+| F | RAG + Chat (embed → search → context → LLM → response) | — |
+| G | UI (build as needed) | — |
 
-## Entités de Données (issues de SuperPowerNotes, adaptées)
+## Data Entities (from SuperPowerNotes, adapted)
 
-### VoiceNote (entité principale)
+### VoiceNote (main entity)
 - id (UUID), transcription, tags[], duration, fileName, createdAt, modifiedAt
-- Nouveau : embedding vector (LanceDB), summary (LLM)
+- New: embedding vector (LanceDB), summary (LLM)
 
-### Folder (hiérarchie)
+### Folder (hierarchy)
 - id, name, description, parentId (self-ref), createdAt
-- Relation N:N avec VoiceNote via junction table
+- N:N relation with VoiceNote via junction table
 
 ### User (local-first)
 - id, name, timeLimit, currentPeriodRemainingTime, currentPeriodUsedTime, lastResetDate
-- Pas d'OAuth — auth biometric/PIN iOS
+- No OAuth — biometric/PIN iOS auth
 
-## Pipeline Principal
+## Main Pipeline
 
 ```
-Capture micro → WAV/audio
+Mic capture → WAV/audio
     → Soniox REST API → transcription
-    → LLM API → titre + tags
+    → LLM API → title + tags
     → ONNX (ort) → embedding vector
-    → SQLite (métadonnées) + LanceDB (vecteur)
+    → SQLite (metadata) + LanceDB (vector)
 ```
 
 ## Stack Versions
 
 - Dioxus 0.7 (CLI dx 0.7.7)
+- cpal 0.17 (audio I/O via CoreAudio on iOS)
+- hound 3.5 (WAV file writing)
 - Rust 1.94.1
-- iOS targets : aarch64-apple-ios, aarch64-apple-ios-sim
+- iOS targets: aarch64-apple-ios, aarch64-apple-ios-sim
 
-## Commandes
+## Commands
 
 ```bash
 # Build
 cargo build --features mobile
 
-# Dev — simulateur iOS (dans un terminal séparé)
+# Dev — iOS simulator (run in a separate terminal)
 dx serve --ios
 
-# Dev — device physique (iPhone branché USB ou pairé Wi-Fi)
-dx serve --ios --device "iPhone de Mirko"
+# Dev — physical device (iPhone connected USB or paired Wi-Fi)
+dx serve --ios --device
 
-# Simulateur
+# Simulator management
 open /Applications/Xcode.app/Contents/Developer/Applications/Simulator.app
 xcrun simctl boot "iPhone 17 Pro"
 xcrun simctl shutdown all
@@ -96,33 +98,34 @@ xcrun devicectl list devices
 xcrun devicectl manage pair --device <DEVICE_ID>
 ```
 
-## Setup Device Physique (une seule fois)
+## Physical Device Setup (one-time)
 
-1. iPhone : Settings → Privacy & Security → Developer Mode → activer → redémarrer
-2. Brancher en USB, accepter "Trust This Computer"
-3. `xcrun devicectl manage pair --device <ID>` (résout le "no DDI")
-4. Xcode → Settings → Apple Accounts → clic sur compte → Manage Certificates → + → Apple Development
-5. Si certificat pas reconnu par codesigning : installer le certificat intermédiaire Apple WWDR :
+1. iPhone: Settings → Privacy & Security → Developer Mode → enable → restart
+2. Connect via USB, accept "Trust This Computer"
+3. `xcrun devicectl manage pair --device <ID>` (fixes the "no DDI" error)
+4. Xcode → Settings → Apple Accounts → click account → Manage Certificates → + → Apple Development
+5. If certificate not recognized by codesigning, install Apple WWDR intermediate cert:
    `curl -sO https://www.apple.com/certificateauthority/AppleWWDRCAG3.cer && security add-certificates AppleWWDRCAG3.cer && rm AppleWWDRCAG3.cer`
-6. Vérifier : `security find-identity -v -p codesigning` doit montrer "Apple Development"
-7. Créer le provisioning profile (obligatoire, compte gratuit) :
-   WORKAROUND : cette méthode est lourde. On cherche un moyen plus simple.
-   En attendant, cette étape crée un projet Swift/SwiftUI TEMPORAIRE dans Xcode.
-   C'est la seule façon de générer un provisioning profile avec un compte Apple gratuit.
-   Le profil est lié au bundle ID (com.mirkobozzetto.flowflow), pas au langage.
-   Une fois créé, on supprime le projet Xcode — le profil reste et `dx serve` l'utilise pour notre app Rust.
+6. Verify: `security find-identity -v -p codesigning` must show "Apple Development"
+7. Create provisioning profile (required for free Apple account):
+   WORKAROUND: this method is cumbersome. Looking for a simpler approach.
+   No existing Dioxus issue on this — worth opening one if dx doesn't improve this.
+   Ref: https://github.com/DioxusLabs/dioxus/issues/3817 (related App Store issue)
+   For now, create a TEMPORARY Swift/SwiftUI project in Xcode:
    - Xcode → File → New → Project → iOS → App
-   - Product Name : `flowflow`, Organization Identifier : `com.mirkobozzetto`, Team : Personal Team
-   - Interface : SwiftUI, Language : Swift (on s'en fiche, c'est temporaire)
-   - Sauver dans /tmp
-   - Sélectionner iPhone comme destination en haut de Xcode
-   - Cmd+R pour build — Xcode crée le provisioning profile automatiquement
-   - Accepter le profil dev sur iPhone : Settings → General → VPN & Device Management → Trust
-   - Fermer le projet Xcode (le profile reste dans ~/Library/Developer/Xcode/UserData/Provisioning Profiles/)
-8. Après premier pairing, Wi-Fi fonctionne (même réseau)
+   - Product Name: `flowflow`, Organization Identifier: `com.mirkobozzetto`, Team: Personal Team
+   - Interface: SwiftUI, Language: Swift (doesn't matter, it's temporary)
+   - Save to /tmp
+   - Select iPhone as destination at the top of Xcode
+   - Cmd+R to build — Xcode creates the provisioning profile automatically
+   - Trust the dev profile on iPhone: Settings → General → VPN & Device Management → Trust
+   - Close the Xcode project (profile stays in ~/Library/Developer/Xcode/UserData/Provisioning Profiles/)
+   The profile is tied to the bundle ID (com.mirkobozzetto.flowflow), not the language.
+   Once created, delete the Xcode project — the profile persists and `dx serve` uses it for the Rust app.
+8. After first pairing, Wi-Fi works (same network)
 
-## Références
+## References
 
-- `ANALYSIS.md` : analyse complète de SuperPowerNotes
-- `INSTRUCTIONS.md` : brief de démarrage pour la première session
-- SuperPowerNotes source : `/Users/mirkobozzetto/stuffs/superpowernotes`
+- `ANALYSIS.md`: full SuperPowerNotes analysis
+- `INSTRUCTIONS.md`: first session startup brief
+- SuperPowerNotes source: `/Users/mirkobozzetto/stuffs/superpowernotes`
