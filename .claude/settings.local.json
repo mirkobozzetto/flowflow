@@ -1,0 +1,18 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(rustup --version)",
+      "Bash(rustc --version)",
+      "Bash(rustup target *)",
+      "Bash(xcode-select *)",
+      "Bash(xcrun simctl *)",
+      "Bash(rtk ls *)",
+      "Bash(cargo *)",
+      "Bash(dx --version)",
+      "Bash(rtk cargo *)",
+      "Bash(rtk git *)",
+      "Bash(rtk read *)",
+      "Bash(rtk grep *)"
+    ]
+  }
+}
