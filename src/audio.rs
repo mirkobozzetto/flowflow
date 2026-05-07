@@ -29,18 +29,24 @@ impl AudioRecorder {
     }
 
     pub fn start(&mut self) -> Result<(), String> {
+        eprintln!("[audio] start recording");
         let host = cpal::default_host();
         let device = host
             .default_input_device()
             .ok_or("No input device available")?;
 
-        let supported = device
-            .default_input_config()
-            .map_err(|e| format!("Input config error: {e}"))?;
+        let supported = device.default_input_config().map_err(|e| {
+            eprintln!("[audio] input config error: {e}");
+            format!("Input config error: {e}")
+        })?;
 
         let config = supported.config();
         self.sample_rate = config.sample_rate;
         self.channels = config.channels;
+        eprintln!(
+            "[audio] config: {}Hz, {} ch",
+            self.sample_rate, self.channels
+        );
 
         let samples = self.samples.clone();
         samples.lock().unwrap().clear();
@@ -53,26 +59,41 @@ impl AudioRecorder {
                         buf.extend_from_slice(data);
                     }
                 },
-                |err| eprintln!("Stream error: {err}"),
+                |err| eprintln!("[audio] stream error: {err}"),
                 None,
             )
-            .map_err(|e| format!("Build stream error: {e}"))?;
+            .map_err(|e| {
+                eprintln!("[audio] build stream error: {e}");
+                format!("No mic available (simulator?): {e}")
+            })?;
 
-        stream.play().map_err(|e| format!("Play error: {e}"))?;
+        stream.play().map_err(|e| {
+            eprintln!("[audio] play error: {e}");
+            format!("Play error: {e}")
+        })?;
         self.stream = Some(stream);
+        eprintln!("[audio] recording started");
         Ok(())
     }
 
     pub fn stop(&mut self, output_dir: &str) -> Result<PathBuf, String> {
+        eprintln!("[audio] stop recording");
         self.stream.take();
 
         let samples = self.samples.lock().unwrap();
         if samples.is_empty() {
+            eprintln!("[audio] no data recorded");
             return Err("No audio data recorded".into());
         }
 
         let path = wav_path(output_dir);
+        eprintln!(
+            "[audio] writing {} samples to {}",
+            samples.len(),
+            path.display()
+        );
         write_wav(&path, &samples, self.sample_rate, self.channels)?;
+        eprintln!("[audio] saved {}", path.display());
         Ok(path)
     }
 
