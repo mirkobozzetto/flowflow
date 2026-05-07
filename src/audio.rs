@@ -8,6 +8,8 @@ pub enum RecordingState {
     Idle,
     Recording,
     Stopped(PathBuf),
+    Transcribing,
+    Transcribed(String),
     Error(String),
 }
 
@@ -109,24 +111,6 @@ impl AudioRecorder {
 pub fn has_input_device() -> bool {
     let host = cpal::default_host();
     host.default_input_device().is_some()
-}
-
-pub fn generate_test_wav(output_dir: &str) -> Result<PathBuf, String> {
-    let sample_rate = 44100_u32;
-    let duration_secs = 3.0_f32;
-    let frequency = 440.0_f32;
-    let num_samples = (duration_secs * sample_rate as f32) as usize;
-
-    let samples: Vec<f32> = (0..num_samples)
-        .map(|i| {
-            let t = i as f32 / sample_rate as f32;
-            (t * frequency * 2.0 * std::f32::consts::PI).sin()
-        })
-        .collect();
-
-    let path = PathBuf::from(output_dir).join("test_sine_440hz.wav");
-    write_wav(&path, &samples, sample_rate, 1)?;
-    Ok(path)
 }
 
 fn wav_path(output_dir: &str) -> PathBuf {

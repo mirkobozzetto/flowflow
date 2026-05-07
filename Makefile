@@ -10,13 +10,13 @@ check:
 	cargo fmt --check && cargo clippy --features mobile
 
 dev:
-	dx serve --ios
+	set -a && . ./.env && dx serve --ios
 
 ddev:
-	dx serve --ios --device
+	set -a && . ./.env && dx serve --ios --device
 
 desktop:
-	dx serve --desktop
+	set -a && . ./.env && dx serve --desktop
 
 logs:
 	idevicesyslog | grep -i "audio\|flowflow\|FlowFlow"

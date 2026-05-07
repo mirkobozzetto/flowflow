@@ -6,3 +6,4 @@
 *.xcworkspace
 *.xcuserstate
 flowflow/
+.env

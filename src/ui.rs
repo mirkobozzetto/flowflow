@@ -1,11 +1,33 @@
 use crate::audio::{self, AudioRecorder, RecordingState};
+use crate::soniox::SonioxClient;
 use dioxus::prelude::*;
+use std::path::PathBuf;
 use std::sync::{Arc, Mutex};
 
 fn output_dir() -> String {
     let mut dir = std::env::temp_dir();
     dir.push("flowflow");
     dir.to_string_lossy().to_string()
+}
+
+fn start_transcription(path: PathBuf, mut state: Signal<RecordingState>) {
+    spawn(async move {
+        let client = match SonioxClient::from_env() {
+            Ok(c) => c,
+            Err(e) => {
+                state.set(RecordingState::Error(e));
+                return;
+            }
+        };
+        match client.transcribe(&path).await {
+            Ok(text) => {
+                state.set(RecordingState::Transcribed(text));
+            }
+            Err(e) => {
+                state.set(RecordingState::Error(e));
+            }
+        }
+    });
 }
 
 #[component]
@@ -19,7 +41,10 @@ pub fn App() -> Element {
         div {
             style: "display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100vh; font-family: -apple-system, BlinkMacSystemFont, sans-serif; gap: 24px; padding: 20px;",
 
-            h1 { style: "font-size: 2rem; margin: 0;", "FlowFlow" }
+            h1 {
+                style: "font-size: 2rem; margin: 0;",
+                "FlowFlow"
+            }
 
             if has_mic() {
                 RecordButton {
@@ -32,17 +57,40 @@ pub fn App() -> Element {
                             RecordingState::Recording => {
                                 match rec.stop(&output_dir()) {
                                     Ok(path) => {
-                                        last_file.set(path.display().to_string());
-                                        state.set(RecordingState::Stopped(path));
+                                        last_file.set(
+                                            path.display()
+                                                .to_string(),
+                                        );
+                                        state.set(
+                                            RecordingState::Transcribing,
+                                        );
+                                        start_transcription(
+                                            path, state,
+                                        );
                                     }
-                                    Err(e) => state.set(RecordingState::Error(e)),
+                                    Err(e) => {
+                                        state.set(
+                                            RecordingState::Error(e),
+                                        );
+                                    }
                                 }
                             }
                             _ => {
-                                std::fs::create_dir_all(&output_dir()).ok();
+                                std::fs::create_dir_all(
+                                    output_dir(),
+                                )
+                                .ok();
                                 match rec.start() {
-                                    Ok(()) => state.set(RecordingState::Recording),
-                                    Err(e) => state.set(RecordingState::Error(e)),
+                                    Ok(()) => {
+                                        state.set(
+                                            RecordingState::Recording,
+                                        );
+                                    }
+                                    Err(e) => {
+                                        state.set(
+                                            RecordingState::Error(e),
+                                        );
+                                    }
                                 }
                             }
                         }
@@ -51,26 +99,15 @@ pub fn App() -> Element {
             } else {
                 p {
                     style: "font-size: 0.85rem; color: #999; text-align: center; max-width: 280px;",
-                    "No microphone detected (simulator). Use \"Generate test WAV\" to test the pipeline."
+                    "No microphone detected."
                 }
             }
 
-            StatusLine { state: state(), file: last_file() }
-
-            if !matches!(state(), RecordingState::Recording) {
-                TestWavButton {
-                    on_generate: move |_| {
-                        std::fs::create_dir_all(&output_dir()).ok();
-                        match audio::generate_test_wav(&output_dir()) {
-                            Ok(path) => {
-                                last_file.set(path.display().to_string());
-                                state.set(RecordingState::Stopped(path));
-                            }
-                            Err(e) => state.set(RecordingState::Error(e)),
-                        }
-                    },
-                }
+            StatusLine {
+                state: state(),
+                file: last_file(),
             }
+
         }
     }
 }
@@ -79,13 +116,15 @@ pub fn App() -> Element {
 fn RecordButton(state: RecordingState, on_toggle: EventHandler<()>) -> Element {
     let is_recording = state == RecordingState::Recording;
     let bg = if is_recording { "#ff3b30" } else { "#34c759" };
-    let icon = if is_recording { "⏹" } else { "⏺" };
+    let radius = if is_recording { "4px" } else { "50%" };
 
     rsx! {
         button {
-            style: "width: 80px; height: 80px; border-radius: 50%; border: none; font-size: 2rem; cursor: pointer; background: {bg}; color: white;",
+            style: "width: 80px; height: 80px; border-radius: 50%; border: none; cursor: pointer; background: {bg}; display: flex; align-items: center; justify-content: center;",
             onclick: move |_| on_toggle.call(()),
-            "{icon}"
+            div {
+                style: "width: 24px; height: 24px; border-radius: {radius}; background: white;",
+            }
         }
     }
 }
@@ -95,22 +134,20 @@ fn StatusLine(state: RecordingState, file: String) -> Element {
     let text = match &state {
         RecordingState::Idle => "Tap to record".to_string(),
         RecordingState::Recording => "Recording...".to_string(),
-        RecordingState::Stopped(_) => format!("Saved: {file}"),
-        RecordingState::Error(e) => format!("Error: {e}"),
+        RecordingState::Stopped(_) => {
+            format!("Saved: {file}")
+        }
+        RecordingState::Transcribing => "Transcribing...".to_string(),
+        RecordingState::Transcribed(text) => text.clone(),
+        RecordingState::Error(e) => {
+            format!("Error: {e}")
+        }
     };
 
     rsx! {
-        p { style: "font-size: 0.9rem; color: #888; margin: 0; text-align: center; word-break: break-all;", "{text}" }
-    }
-}
-
-#[component]
-fn TestWavButton(on_generate: EventHandler<()>) -> Element {
-    rsx! {
-        button {
-            style: "padding: 12px 24px; border: 1px solid #ccc; border-radius: 8px; background: none; font-size: 0.9rem; cursor: pointer;",
-            onclick: move |_| on_generate.call(()),
-            "Generate test WAV (sine 440Hz)"
+        p {
+            style: "font-size: 0.9rem; color: #888; margin: 0; text-align: center; word-break: break-all; max-width: 320px;",
+            "{text}"
         }
     }
 }
