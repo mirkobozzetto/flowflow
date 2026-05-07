@@ -79,11 +79,11 @@ Mic capture → WAV/audio
 ## Commands (use Makefile)
 
 ```bash
-make build          # cargo build --features mobile
-make fmt            # cargo fmt (80-char max)
-make check          # fmt check + clippy
-make serve          # dx serve --ios (simulator)
-make serve-device   # dx serve --ios --device (physical iPhone)
+make build    # cargo build --features mobile
+make format   # cargo fmt (80-char max)
+make check    # fmt check + clippy
+make dev      # dx serve --ios (simulator)
+make ddev     # dx serve --ios --device (physical iPhone)
 ```
 
 ### Manual commands (if needed)

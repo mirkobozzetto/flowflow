@@ -3,14 +3,14 @@
 build:
 	cargo build --features mobile
 
-fmt:
+format:
 	cargo fmt
 
 check:
 	cargo fmt --check && cargo clippy --features mobile
 
-serve:
+dev:
 	dx serve --ios
 
-serve-device:
+ddev:
 	dx serve --ios --device
