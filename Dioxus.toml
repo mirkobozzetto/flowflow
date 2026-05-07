@@ -1,0 +1,6 @@
+[application]
+name = "FlowFlow"
+
+[bundle]
+identifier = "com.mirkobozzetto.flowflow"
+publisher = "Mirko Bozzetto"
