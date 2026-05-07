@@ -96,7 +96,9 @@ impl SonioxClient {
 
         let body = serde_json::json!({
             "model": "stt-async-v4",
-            "file_id": file_id
+            "file_id": file_id,
+            "language_hints": ["fr"],
+            "language_hints_strict": true
         });
 
         let resp = self
