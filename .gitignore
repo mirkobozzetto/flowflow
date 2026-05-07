@@ -7,3 +7,4 @@
 *.xcuserstate
 flowflow/
 .env
+assets/tailwind.css
