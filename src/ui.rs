@@ -2,7 +2,11 @@ use crate::audio::{self, AudioRecorder, RecordingState};
 use dioxus::prelude::*;
 use std::sync::{Arc, Mutex};
 
-const OUTPUT_DIR: &str = "/tmp/flowflow";
+fn output_dir() -> String {
+    let mut dir = std::env::temp_dir();
+    dir.push("flowflow");
+    dir.to_string_lossy().to_string()
+}
 
 #[component]
 pub fn App() -> Element {
@@ -26,7 +30,7 @@ pub fn App() -> Element {
                         let current = state();
                         match current {
                             RecordingState::Recording => {
-                                match rec.stop(OUTPUT_DIR) {
+                                match rec.stop(&output_dir()) {
                                     Ok(path) => {
                                         last_file.set(path.display().to_string());
                                         state.set(RecordingState::Stopped(path));
@@ -35,7 +39,7 @@ pub fn App() -> Element {
                                 }
                             }
                             _ => {
-                                std::fs::create_dir_all(OUTPUT_DIR).ok();
+                                std::fs::create_dir_all(&output_dir()).ok();
                                 match rec.start() {
                                     Ok(()) => state.set(RecordingState::Recording),
                                     Err(e) => state.set(RecordingState::Error(e)),
@@ -56,8 +60,8 @@ pub fn App() -> Element {
             if !matches!(state(), RecordingState::Recording) {
                 TestWavButton {
                     on_generate: move |_| {
-                        std::fs::create_dir_all(OUTPUT_DIR).ok();
-                        match audio::generate_test_wav(OUTPUT_DIR) {
+                        std::fs::create_dir_all(&output_dir()).ok();
+                        match audio::generate_test_wav(&output_dir()) {
                             Ok(path) => {
                                 last_file.set(path.display().to_string());
                                 state.set(RecordingState::Stopped(path));

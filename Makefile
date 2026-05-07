@@ -1,4 +1,4 @@
-.PHONY: build fmt check serve serve-device
+.PHONY: build format check dev ddev desktop
 
 build:
 	cargo build --features mobile
@@ -14,3 +14,6 @@ dev:
 
 ddev:
 	dx serve --ios --device
+
+desktop:
+	dx serve --desktop
