@@ -2,7 +2,7 @@
 
 100% Rust mobile app for voice notes with transcription, folder organization, and AI features.
 
-Built with Dioxus 0.7 for iOS. Inspired by [SuperPowerNotes](https://github.com/mirkobozzetto).
+Built with Dioxus 0.7 for iOS. Inspired by [SuperPowerNotes](https://github.com/mirkobozzetto/superpowernotes).
 
 ## Features
 
