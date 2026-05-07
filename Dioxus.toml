@@ -4,3 +4,6 @@ name = "FlowFlow"
 [bundle]
 identifier = "com.mirkobozzetto.flowflow"
 publisher = "Mirko Bozzetto"
+
+[ios.plist]
+NSMicrophoneUsageDescription = "FlowFlow needs microphone access to record voice notes"

@@ -116,7 +116,12 @@ fn wav_path(output_dir: &str) -> PathBuf {
     PathBuf::from(output_dir).join(format!("recording_{ts}.wav"))
 }
 
-fn write_wav(path: &PathBuf, samples: &[f32], sample_rate: u32, channels: u16) -> Result<(), String> {
+fn write_wav(
+    path: &PathBuf,
+    samples: &[f32],
+    sample_rate: u32,
+    channels: u16,
+) -> Result<(), String> {
     let spec = WavSpec {
         channels,
         sample_rate,
@@ -124,8 +129,8 @@ fn write_wav(path: &PathBuf, samples: &[f32], sample_rate: u32, channels: u16) -
         sample_format: SampleFormat::Int,
     };
 
-    let mut writer =
-        WavWriter::create(path, spec).map_err(|e| format!("Create WAV error: {e}"))?;
+    let mut writer = WavWriter::create(path, spec)
+        .map_err(|e| format!("Create WAV error: {e}"))?;
 
     for &s in samples {
         let amplitude = (s * i16::MAX as f32) as i16;

@@ -8,8 +8,8 @@ const OUTPUT_DIR: &str = "/tmp/flowflow";
 pub fn App() -> Element {
     let recorder = use_signal(|| Arc::new(Mutex::new(AudioRecorder::new())));
     let mut state = use_signal(|| RecordingState::Idle);
-    let mut last_file = use_signal(|| String::new());
-    let has_mic = use_signal(|| audio::has_input_device());
+    let mut last_file = use_signal(String::new);
+    let has_mic = use_signal(audio::has_input_device);
 
     rsx! {
         div {

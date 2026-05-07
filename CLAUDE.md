@@ -76,18 +76,19 @@ Mic capture → WAV/audio
 - Rust 1.94.1
 - iOS targets: aarch64-apple-ios, aarch64-apple-ios-sim
 
-## Commands
+## Commands (use Makefile)
 
 ```bash
-# Build
-cargo build --features mobile
+make build          # cargo build --features mobile
+make fmt            # cargo fmt (80-char max)
+make check          # fmt check + clippy
+make serve          # dx serve --ios (simulator)
+make serve-device   # dx serve --ios --device (physical iPhone)
+```
 
-# Dev — iOS simulator (run in a separate terminal)
-dx serve --ios
+### Manual commands (if needed)
 
-# Dev — physical device (iPhone connected USB or paired Wi-Fi)
-dx serve --ios --device
-
+```bash
 # Simulator management
 open /Applications/Xcode.app/Contents/Developer/Applications/Simulator.app
 xcrun simctl boot "iPhone 17 Pro"
