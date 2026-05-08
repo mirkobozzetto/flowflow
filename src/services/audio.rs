@@ -99,6 +99,26 @@ impl AudioRecorder {
         Ok(path)
     }
 
+    pub fn current_levels(&self, num_bars: usize) -> Vec<f32> {
+        let samples = self.samples.lock().unwrap();
+        let len = samples.len();
+        if len < 200 || num_bars == 0 {
+            return vec![0.0; num_bars];
+        }
+        let window = (num_bars * 300).min(len);
+        let start = len - window;
+        let chunk = window / num_bars;
+        let mut levels = vec![0.0f32; num_bars];
+        for i in 0..num_bars {
+            let from = start + i * chunk;
+            let to = from + chunk;
+            let rms: f32 = samples[from..to].iter().map(|s| s * s).sum::<f32>()
+                / chunk as f32;
+            levels[i] = (rms.sqrt() * 8.0).min(1.0);
+        }
+        levels
+    }
+
     pub fn duration_secs(&self) -> f32 {
         let count = self.samples.lock().unwrap().len();
         if self.sample_rate == 0 || self.channels == 0 {
