@@ -8,7 +8,6 @@ use std::sync::Arc;
 pub fn TopBar() -> Element {
     let mut app: AppState = use_context();
     let is_detail = matches!((app.view)(), View::NoteDetail { .. });
-    let is_recording = matches!((app.view)(), View::Recording);
 
     let title = match (app.view)() {
         View::NotesList => match (app.selected_folder_id)() {
@@ -16,12 +15,11 @@ pub fn TopBar() -> Element {
             None => "Toutes mes notes".to_string(),
         },
         View::NoteDetail { .. } => "Note".to_string(),
-        View::Recording => "Enregistrement".to_string(),
     };
 
     rsx! {
         div { class: "flex items-center px-4 py-3 bg-white border-b border-gray-200 sticky top-0 z-30 gap-3 min-h-[44px]",
-            if is_detail || is_recording {
+            if is_detail {
                 button {
                     class: "min-w-[44px] min-h-[44px] flex items-center justify-center",
                     onclick: move |_| app.view.set(View::NotesList),
@@ -147,38 +145,14 @@ fn FolderItem(folder: Folder, depth: u32) -> Element {
 #[component]
 pub fn FloatingActionButton() -> Element {
     let mut app: AppState = use_context();
-    let mut menu_open = use_signal(|| false);
 
     rsx! {
         div { class: "fixed bottom-6 right-4 z-20",
-            if menu_open() {
-                div {
-                    class: "fixed inset-0 z-19",
-                    onclick: move |_| menu_open.set(false),
-                }
-                div { class: "absolute bottom-[72px] right-0 bg-white rounded-xl shadow-xl min-w-[200px] overflow-hidden z-21",
-                    button {
-                        class: "flex items-center gap-2.5 w-full px-4 py-3.5 text-base text-gray-900",
-                        onclick: move |_| {
-                            menu_open.set(false);
-                            app.view.set(View::Recording);
-                        },
-                        "Note vocale"
-                    }
-                    div { class: "h-px bg-gray-200 mx-4" }
-                    button {
-                        class: "flex items-center gap-2.5 w-full px-4 py-3.5 text-base text-gray-900",
-                        onclick: move |_| {
-                            menu_open.set(false);
-                            app.view.set(View::NoteDetail { note_id: String::new() });
-                        },
-                        "Note texte"
-                    }
-                }
-            }
             button {
                 class: "w-14 h-14 rounded-full bg-ios-green flex items-center justify-center shadow-lg shadow-ios-green/40",
-                onclick: move |_| menu_open.set(!menu_open()),
+                onclick: move |_| {
+                    app.view.set(View::NoteDetail { note_id: String::new() });
+                },
                 div { class: "relative w-5 h-5",
                     div { class: "absolute top-1/2 left-0 w-full h-0.5 bg-white -translate-y-1/2" }
                     div { class: "absolute left-1/2 top-0 w-0.5 h-full bg-white -translate-x-1/2" }
