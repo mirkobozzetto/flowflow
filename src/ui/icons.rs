@@ -1,11 +1,29 @@
 use dioxus::prelude::*;
 
 #[component]
+pub fn IconNewNote(#[props(default = 28)] size: u32) -> Element {
+    rsx! {
+        svg {
+            width: "{size}", height: "{size}", view_box: "0 0 256 256", fill: "none",
+            path {
+                d: "M117.333 224H74.667C62.885 224 53.333 214.449 53.333 202.667V192V53.333C53.333 41.551 62.885 32 74.667 32H138.667M202.667 96L138.667 32M202.667 96H160C148.218 96 138.667 86.449 138.667 74.667V32M202.667 96V117.333M85.333 181.333H117.333M85.333 138.667H138.667M85.333 96H106.667",
+                stroke: "currentColor", stroke_width: "14", stroke_linecap: "round", stroke_linejoin: "round",
+            }
+            path {
+                d: "M181.333 213.333V160M208 186.667H154.667",
+                stroke: "#007aff", stroke_width: "14", stroke_linecap: "round", stroke_linejoin: "round",
+            }
+        }
+    }
+}
+
+#[component]
 pub fn IconMic(#[props(default = 20)] size: u32) -> Element {
     rsx! {
         svg {
-            width: "{size}", height: "{size}", view_box: "0 0 256 256", fill: "currentColor",
-            path { d: "M128,176a48.05,48.05,0,0,0,48-48V64a48,48,0,0,0-96,0v64A48.05,48.05,0,0,0,128,176ZM96,64a32,32,0,0,1,64,0v64a32,32,0,0,1-64,0Zm40,143.6V240a8,8,0,0,1-16,0V207.6A80.11,80.11,0,0,1,48,128a8,8,0,0,1,16,0,64,64,0,0,0,128,0,8,8,0,0,1,16,0A80.11,80.11,0,0,1,136,207.6Z" }
+            width: "{size}", height: "{size}", view_box: "0 0 24 24", fill: "none",
+            stroke: "currentColor", stroke_width: "2", stroke_linecap: "round", stroke_linejoin: "round",
+            path { d: "M12 3C10 3 10 5 10 5L10 11C10 11 10 13 12 13C14 13 14 11 14 11L14 5C14 5 14 3 12 3ZM5 10C5 10 5 17 12 17C19 17 19 10 19 10M12 17L12 21M9 21L15 21" }
         }
     }
 }
