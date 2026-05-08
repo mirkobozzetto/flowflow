@@ -8,3 +8,4 @@
 flowflow/
 .env
 assets/tailwind.css
+.hide/
