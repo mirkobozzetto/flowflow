@@ -149,6 +149,7 @@ pub fn NoteDetail() -> Element {
     let mut last_audio_path = use_signal(String::new);
     let mut selected_folder = use_signal(|| initial_folder_id.clone());
     let mut show_picker = use_signal(|| false);
+    let mut deleted = use_signal(|| false);
 
     let all_folders: Memo<Vec<Folder>> = use_memo(move || {
         let _v = (app.folders_version)();
@@ -163,6 +164,67 @@ pub fn NoteDetail() -> Element {
             .unwrap_or_else(|| "Dossier".to_string()),
         None => "Aucun dossier".to_string(),
     };
+
+    use_effect(move || {
+        let state = (app.recording_state)();
+        if state == RecordingState::Recording {
+            let rec = recorder();
+            spawn(async move {
+                loop {
+                    if (app.recording_state)() != RecordingState::Recording {
+                        app.audio_levels.set(vec![0.0; 12]);
+                        break;
+                    }
+                    let levels = rec.lock().unwrap().current_levels(12);
+                    app.audio_levels.set(levels);
+                    futures_timer::Delay::new(
+                        std::time::Duration::from_millis(80),
+                    )
+                    .await;
+                }
+            });
+        }
+    });
+
+    use_drop({
+        let note_id = note_id.clone();
+        move || {
+            if deleted() {
+                return;
+            }
+            let db = db();
+            let t = title();
+            let c = content();
+            if t.is_empty() && c.is_empty() {
+                return;
+            }
+            if note_id.is_empty() {
+                let new = NewTextNote {
+                    title: if t.is_empty() { None } else { Some(t) },
+                    content: c,
+                    tags: vec![],
+                };
+                if let Ok(created) = db.create_text_note(&new) {
+                    if let Some(ref fid) = selected_folder() {
+                        let _ = db.add_note_to_folder(&created.id, fid);
+                    }
+                }
+            } else {
+                let upd = UpdateNote {
+                    title: Some(t),
+                    content: Some(c),
+                    tags: None,
+                };
+                let _ = db.update_note(&note_id, &upd);
+                for old in db.folders_for_note(&note_id).unwrap_or_default() {
+                    let _ = db.remove_note_from_folder(&note_id, &old.id);
+                }
+                if let Some(ref fid) = selected_folder() {
+                    let _ = db.add_note_to_folder(&note_id, fid);
+                }
+            }
+        }
+    });
 
     use_effect(move || {
         if let RecordingState::Transcribed(text) = (app.recording_state)() {
@@ -239,17 +301,8 @@ pub fn NoteDetail() -> Element {
                 value: "{content}",
                 oninput: move |evt| content.set(evt.value()),
             }
-            if is_recording {
-                p { class: "text-sm text-ios-red text-center mt-3",
-                    "Enregistrement..."
-                }
-            } else if is_transcribing {
-                p { class: "text-sm text-gray-400 text-center mt-3",
-                    "Transcription..."
-                }
-            } else if let RecordingState::Error(ref e) = recording_state
-            {
-                p { class: "text-sm text-ios-red text-center mt-3",
+            if let RecordingState::Error(ref e) = recording_state {
+                p { class: "text-xs text-gray-400 text-center mt-3",
                     "Erreur : {e}"
                 }
             }
@@ -260,8 +313,14 @@ pub fn NoteDetail() -> Element {
                         onclick: {
                             let note_id = note_id.clone();
                             move |_| {
+                                deleted.set(true);
                                 let _ = db().delete_note(&note_id);
-                                app.view.set(View::NotesList);
+                                app.sliding_out.set(true);
+                                spawn(async move {
+                                    futures_timer::Delay::new(std::time::Duration::from_millis(150)).await;
+                                    app.sliding_out.set(false);
+                                    app.view.set(View::NotesList);
+                                });
                             }
                         },
                         IconTrash { size: 14 }
@@ -271,14 +330,14 @@ pub fn NoteDetail() -> Element {
             }
         }
         div { class: "fixed bottom-0 left-0 right-0 px-4 py-3 bg-white border-t border-gray-200 z-30",
-            div { class: "flex items-center justify-between",
+            div { class: "flex items-center justify-center",
                 button {
                     class: if is_transcribing {
-                        "w-11 h-11 rounded-full bg-gray-100 text-gray-300 flex items-center justify-center"
+                        "w-full flex items-center justify-center gap-2 h-12 rounded-full bg-gray-100 text-gray-400 text-sm"
                     } else if is_recording {
-                        "w-11 h-11 rounded-full bg-gray-100 text-ios-red flex items-center justify-center"
+                        "w-full flex items-center justify-center gap-3 h-12 rounded-full bg-gray-900 text-white text-sm shadow-lg"
                     } else {
-                        "w-11 h-11 rounded-full bg-gray-100 text-gray-600 flex items-center justify-center"
+                        "w-full flex items-center justify-center gap-2.5 h-12 rounded-full bg-ios-blue/10 text-ios-blue text-sm font-medium"
                     },
                     disabled: is_transcribing,
                     onclick: move |_| {
@@ -328,69 +387,34 @@ pub fn NoteDetail() -> Element {
                         }
                     },
                     if is_recording {
-                        IconStop { size: 20 }
-                    } else {
-                        IconMic { size: 20 }
-                    }
-                }
-                button {
-                    class: "flex items-center gap-2 px-5 py-2.5 rounded-full bg-ios-blue text-white text-sm font-medium",
-                    onclick: {
-                        let note_id = note_id.clone();
-                        move |_| {
-                            let db = db();
-                            if note_id.is_empty() {
-                                let new = NewTextNote {
-                                    title: if title().is_empty() {
-                                        None
-                                    } else {
-                                        Some(title())
-                                    },
-                                    content: content(),
-                                    tags: vec![],
-                                };
-                                if let Ok(created) =
-                                    db.create_text_note(&new)
-                                {
-                                    if let Some(ref fid) =
-                                        selected_folder()
-                                    {
-                                        let _ = db.add_note_to_folder(
-                                            &created.id,
-                                            fid,
-                                        );
+                        div { class: "w-2 h-2 rounded-full bg-ios-red" }
+                        {
+                            let levels = (app.audio_levels)();
+                            rsx! {
+                                div { class: "flex items-end gap-[3px] h-5",
+                                    for (i, &lvl) in levels.iter().enumerate() {
+                                        {
+                                            let h = 3.0 + lvl * 17.0;
+                                            let key = format!("bar-{i}");
+                                            rsx! {
+                                                div {
+                                                    key: "{key}",
+                                                    class: "w-[3px] bg-white rounded-full transition-all duration-75",
+                                                    style: "height: {h:.0}px;",
+                                                }
+                                            }
+                                        }
                                     }
                                 }
-                            } else {
-                                let upd = UpdateNote {
-                                    title: Some(title()),
-                                    content: Some(content()),
-                                    tags: None,
-                                };
-                                let _ =
-                                    db.update_note(&note_id, &upd);
-                                for old in db
-                                    .folders_for_note(&note_id)
-                                    .unwrap_or_default()
-                                {
-                                    let _ = db
-                                        .remove_note_from_folder(
-                                            &note_id, &old.id,
-                                        );
-                                }
-                                if let Some(ref fid) =
-                                    selected_folder()
-                                {
-                                    let _ = db.add_note_to_folder(
-                                        &note_id, fid,
-                                    );
-                                }
                             }
-                            app.view.set(View::NotesList);
                         }
-                    },
-                    IconFloppyDisk { size: 18 }
-                    "Sauvegarder"
+                        span { "Stop" }
+                    } else if is_transcribing {
+                        span { style: "animation: pulseSoft 1.5s ease-in-out infinite;", "Transcription..." }
+                    } else {
+                        IconMic { size: 22 }
+                        span { "Dicter" }
+                    }
                 }
             }
         }
