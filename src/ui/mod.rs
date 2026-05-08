@@ -1,3 +1,4 @@
+pub mod icons;
 mod layout;
 mod notes;
 
@@ -21,6 +22,7 @@ pub struct AppState {
     pub sidebar_open: Signal<bool>,
     pub selected_folder_id: Signal<Option<String>>,
     pub recording_state: Signal<RecordingState>,
+    pub folders_version: Signal<u32>,
 }
 
 #[component]
@@ -41,6 +43,7 @@ pub fn App() -> Element {
         sidebar_open: Signal::new(false),
         selected_folder_id: Signal::new(None),
         recording_state: Signal::new(RecordingState::Idle),
+        folders_version: Signal::new(0),
     });
 
     rsx! {
