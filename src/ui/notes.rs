@@ -32,6 +32,7 @@ pub fn NotesList() -> Element {
     let db: Signal<Arc<Database>> = use_context();
 
     let notes = use_memo(move || {
+        let _v = (app.notes_version)();
         let db = db();
         match (app.selected_folder_id)() {
             Some(fid) => db.list_notes_in_folder(&fid).unwrap_or_default(),
@@ -223,6 +224,7 @@ pub fn NoteDetail() -> Element {
                     let _ = db.add_note_to_folder(&note_id, fid);
                 }
             }
+            app.notes_version.set((app.notes_version)() + 1);
         }
     });
 
@@ -315,6 +317,7 @@ pub fn NoteDetail() -> Element {
                             move |_| {
                                 deleted.set(true);
                                 let _ = db().delete_note(&note_id);
+                                app.notes_version.set((app.notes_version)() + 1);
                                 app.sliding_out.set(true);
                                 spawn(async move {
                                     futures_timer::Delay::new(std::time::Duration::from_millis(150)).await;

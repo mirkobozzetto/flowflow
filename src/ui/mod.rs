@@ -25,6 +25,7 @@ pub struct AppState {
     pub folders_version: Signal<u32>,
     pub sliding_out: Signal<bool>,
     pub audio_levels: Signal<Vec<f32>>,
+    pub notes_version: Signal<u32>,
 }
 
 #[component]
@@ -48,6 +49,7 @@ pub fn App() -> Element {
         folders_version: Signal::new(0),
         sliding_out: Signal::new(false),
         audio_levels: Signal::new(vec![0.0; 12]),
+        notes_version: Signal::new(0),
     });
 
     rsx! {
