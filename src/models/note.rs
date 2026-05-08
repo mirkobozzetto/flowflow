@@ -1,4 +1,32 @@
+use chrono::{Datelike, Timelike};
 use serde::{Deserialize, Serialize};
+
+pub fn generate_auto_title() -> String {
+    let now = chrono::Local::now();
+    let months = [
+        "janvier",
+        "février",
+        "mars",
+        "avril",
+        "mai",
+        "juin",
+        "juillet",
+        "août",
+        "septembre",
+        "octobre",
+        "novembre",
+        "décembre",
+    ];
+    let month = months[now.month0() as usize];
+    format!(
+        "{} {} {}, {:02}:{:02}",
+        now.day(),
+        month,
+        now.year(),
+        now.hour(),
+        now.minute()
+    )
+}
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub enum NoteType {
