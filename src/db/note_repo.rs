@@ -155,6 +155,22 @@ impl Database {
         Ok(())
     }
 
+    pub fn update_audio_metadata(
+        &self,
+        id: &str,
+        audio_file_path: &str,
+        duration_secs: f64,
+    ) -> Result<(), String> {
+        let now = now_iso();
+        self.conn()
+            .execute(
+                "UPDATE notes SET audio_file_path = ?1, duration_secs = ?2, modified_at = ?3 WHERE id = ?4",
+                rusqlite::params![audio_file_path, duration_secs, now, id],
+            )
+            .map_err(|e| format!("Update audio: {e}"))?;
+        Ok(())
+    }
+
     pub fn delete_note(&self, id: &str) -> Result<(), String> {
         self.conn()
             .execute("DELETE FROM notes WHERE id = ?1", [id])

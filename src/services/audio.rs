@@ -112,6 +112,22 @@ pub fn has_input_device() -> bool {
     cpal::default_host().default_input_device().is_some()
 }
 
+pub fn output_dir() -> String {
+    #[cfg(target_os = "ios")]
+    {
+        let dir = crate::platform::ios::documents_dir().join("flowflow");
+        std::fs::create_dir_all(&dir).ok();
+        dir.to_string_lossy().to_string()
+    }
+    #[cfg(not(target_os = "ios"))]
+    {
+        let mut dir = std::env::temp_dir();
+        dir.push("flowflow");
+        std::fs::create_dir_all(&dir).ok();
+        dir.to_string_lossy().to_string()
+    }
+}
+
 fn wav_path(output_dir: &str) -> PathBuf {
     let ts = std::time::SystemTime::now()
         .duration_since(std::time::UNIX_EPOCH)
