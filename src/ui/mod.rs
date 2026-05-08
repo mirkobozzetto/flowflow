@@ -1,21 +1,18 @@
 mod layout;
 mod notes;
-mod recording;
 
 use crate::db::Database;
-use crate::services::audio::{self, AudioRecorder, RecordingState};
+use crate::services::audio::{AudioRecorder, RecordingState};
 use dioxus::prelude::*;
 use std::sync::{Arc, Mutex};
 
 use layout::{FloatingActionButton, SidebarOverlay, TopBar};
 use notes::{NoteDetail, NotesList};
-use recording::RecordingView;
 
 #[derive(Clone, Debug, PartialEq)]
 pub enum View {
     NotesList,
     NoteDetail { note_id: String },
-    Recording,
 }
 
 #[derive(Clone)]
@@ -46,8 +43,6 @@ pub fn App() -> Element {
         recording_state: Signal::new(RecordingState::Idle),
     });
 
-    let has_mic = use_signal(audio::has_input_device);
-
     rsx! {
         document::Stylesheet { href: asset!("/assets/tailwind.css") }
 
@@ -58,20 +53,11 @@ pub fn App() -> Element {
                 div {
                     class: match (app.view)() {
                         View::NotesList => "flex-1 overflow-y-auto px-4 py-3 pb-20",
-                        _ => "flex-1 overflow-hidden px-4 py-3",
+                        _ => "flex-1 flex flex-col min-h-0 px-4 py-3",
                     },
                     match (app.view)() {
                         View::NotesList => rsx! { NotesList {} },
                         View::NoteDetail { .. } => rsx! { NoteDetail {} },
-                        View::Recording => rsx! {
-                            if has_mic() {
-                                RecordingView {}
-                            } else {
-                                p { class: "text-sm text-gray-400 text-center pt-10",
-                                    "Pas de micro détecté."
-                                }
-                            }
-                        },
                     }
                 }
                 if (app.view)() == View::NotesList {

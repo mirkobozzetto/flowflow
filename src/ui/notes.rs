@@ -1,8 +1,27 @@
 use crate::db::Database;
-use crate::models::{NewTextNote, Note, NoteType, UpdateNote};
+use crate::models::{generate_auto_title, NewTextNote, Note, UpdateNote};
+use crate::services::audio::{self, AudioRecorder, RecordingState};
+use crate::services::transcription::SonioxClient;
 use crate::ui::{AppState, View};
 use dioxus::prelude::*;
-use std::sync::Arc;
+use std::path::PathBuf;
+use std::sync::{Arc, Mutex};
+
+fn start_transcription(path: PathBuf, mut state: Signal<RecordingState>) {
+    spawn(async move {
+        let client = match SonioxClient::from_env() {
+            Ok(c) => c,
+            Err(e) => {
+                state.set(RecordingState::Error(e));
+                return;
+            }
+        };
+        match client.transcribe(&path).await {
+            Ok(text) => state.set(RecordingState::Transcribed(text)),
+            Err(e) => state.set(RecordingState::Error(e)),
+        }
+    });
+}
 
 #[component]
 pub fn NotesList() -> Element {
@@ -50,11 +69,7 @@ fn NoteCard(note: Note) -> Element {
     };
 
     let date = &note.created_at[..10];
-
-    let type_badge = match note.note_type {
-        NoteType::Voice => "Vocale",
-        NoteType::Text => "Texte",
-    };
+    let has_audio = note.audio_file_path.is_some();
 
     rsx! {
         div {
@@ -64,7 +79,9 @@ fn NoteCard(note: Note) -> Element {
             },
             div { class: "flex justify-between items-center mb-2",
                 h3 { class: "font-semibold text-base text-gray-900", "{title}" }
-                span { class: "text-xs px-2 py-0.5 rounded-full bg-gray-100 text-gray-400", "{type_badge}" }
+                if has_audio {
+                    div { class: "w-2 h-2 rounded-full bg-ios-green" }
+                }
             }
             if !preview.is_empty() {
                 p { class: "text-gray-600 text-sm mb-2 line-clamp-2", "{preview}" }
@@ -78,6 +95,7 @@ fn NoteCard(note: Note) -> Element {
 pub fn NoteDetail() -> Element {
     let mut app: AppState = use_context();
     let db: Signal<Arc<Database>> = use_context();
+    let recorder: Signal<Arc<Mutex<AudioRecorder>>> = use_context();
 
     let note_id = match (app.view)() {
         View::NoteDetail { note_id } => note_id,
@@ -92,26 +110,36 @@ pub fn NoteDetail() -> Element {
         db().get_note(&note_id).ok().flatten()
     };
 
-    let initial_title = note
-        .as_ref()
-        .and_then(|n| n.title.clone())
-        .unwrap_or_default();
+    let initial_title = if is_new {
+        generate_auto_title()
+    } else {
+        note.as_ref()
+            .and_then(|n| n.title.clone())
+            .unwrap_or_default()
+    };
+
     let initial_content =
         note.as_ref().map(|n| n.content.clone()).unwrap_or_default();
 
     let mut title = use_signal(|| initial_title.clone());
     let mut content = use_signal(|| initial_content.clone());
+    let mut last_audio_path = use_signal(String::new);
 
-    let is_voice = note
-        .as_ref()
-        .map(|n| n.note_type == NoteType::Voice)
-        .unwrap_or(false);
+    use_effect(move || {
+        if let RecordingState::Transcribed(text) = (app.recording_state)() {
+            let current = content();
+            if current.is_empty() {
+                content.set(text);
+            } else {
+                content.set(format!("{}\n{}", current, text));
+            }
+            app.recording_state.set(RecordingState::Idle);
+        }
+    });
 
-    let duration = note
-        .as_ref()
-        .and_then(|n| n.duration_secs)
-        .map(|d| format!("{:.0}s", d))
-        .unwrap_or_default();
+    let recording_state = (app.recording_state)();
+    let is_recording = recording_state == RecordingState::Recording;
+    let is_transcribing = recording_state == RecordingState::Transcribing;
 
     let date = note
         .as_ref()
@@ -119,57 +147,130 @@ pub fn NoteDetail() -> Element {
         .unwrap_or_default();
 
     rsx! {
-        div { class: "flex flex-col gap-4 py-2",
+        div { class: "pb-20",
             input {
                 class: "text-xl font-semibold border-none outline-none py-2 text-gray-900 bg-transparent w-full",
                 placeholder: "Titre de la note",
                 value: "{title}",
                 oninput: move |evt| title.set(evt.value()),
             }
-            if is_voice {
-                div { class: "flex gap-3",
-                    span { class: "text-xs text-gray-400", "Vocale" }
-                    if !duration.is_empty() {
-                        span { class: "text-xs text-gray-400", "{duration}" }
-                    }
-                    if !date.is_empty() {
-                        span { class: "text-xs text-gray-400", "{date}" }
-                    }
-                }
-            } else if !date.is_empty() {
-                p { class: "text-xs text-gray-400", "{date}" }
+            if !date.is_empty() {
+                p { class: "text-xs text-gray-400 mb-3", "{date}" }
             }
             textarea {
-                class: "w-full min-h-[200px] border border-gray-200 rounded-xl p-3 text-sm resize-y font-sans outline-none text-gray-900",
+                class: "w-full min-h-[200px] border border-gray-200 rounded-xl p-3 text-sm resize-none font-sans outline-none text-gray-900",
                 placeholder: "Contenu de la note...",
                 value: "{content}",
                 oninput: move |evt| content.set(evt.value()),
             }
-            button {
-                class: "self-end px-6 py-2.5 rounded-full bg-ios-blue text-white text-sm font-medium",
-                onclick: {
-                    let note_id = note_id.clone();
-                    move |_| {
-                        let db = db();
-                        if note_id.is_empty() {
-                            let new = NewTextNote {
-                                title: if title().is_empty() { None } else { Some(title()) },
-                                content: content(),
-                                tags: vec![],
-                            };
-                            let _ = db.create_text_note(&new);
-                        } else {
-                            let upd = UpdateNote {
-                                title: Some(title()),
-                                content: Some(content()),
-                                tags: None,
-                            };
-                            let _ = db.update_note(&note_id, &upd);
+            if is_recording {
+                p { class: "text-sm text-ios-red text-center mt-3",
+                    "Enregistrement..."
+                }
+            } else if is_transcribing {
+                p { class: "text-sm text-gray-400 text-center mt-3",
+                    "Transcription..."
+                }
+            } else if let RecordingState::Error(ref e) = recording_state {
+                p { class: "text-sm text-ios-red text-center mt-3",
+                    "Erreur : {e}"
+                }
+            }
+        }
+        div { class: "fixed bottom-0 left-0 right-0 px-4 py-3 bg-white border-t border-gray-200 z-30",
+            div { class: "flex items-center justify-between",
+                button {
+                    class: if is_recording {
+                        "w-11 h-11 rounded-full bg-ios-red flex items-center justify-center"
+                    } else if is_transcribing {
+                        "w-11 h-11 rounded-full bg-gray-300 flex items-center justify-center"
+                    } else {
+                        "w-11 h-11 rounded-full bg-ios-green flex items-center justify-center"
+                    },
+                    disabled: is_transcribing,
+                    onclick: move |_| {
+                        let rec = recorder();
+                        let mut rec = rec.lock().unwrap();
+                        let current_state = (app.recording_state)();
+                        match current_state {
+                            RecordingState::Recording => {
+                                match rec.stop(&audio::output_dir()) {
+                                    Ok(path) => {
+                                        last_audio_path.set(
+                                            path.display().to_string(),
+                                        );
+                                        app.recording_state.set(
+                                            RecordingState::Transcribing,
+                                        );
+                                        start_transcription(
+                                            path,
+                                            app.recording_state,
+                                        );
+                                    }
+                                    Err(e) => {
+                                        app.recording_state.set(
+                                            RecordingState::Error(e),
+                                        );
+                                    }
+                                }
+                            }
+                            _ => {
+                                std::fs::create_dir_all(
+                                    audio::output_dir(),
+                                )
+                                .ok();
+                                match rec.start() {
+                                    Ok(()) => {
+                                        app.recording_state.set(
+                                            RecordingState::Recording,
+                                        );
+                                    }
+                                    Err(e) => {
+                                        app.recording_state.set(
+                                            RecordingState::Error(e),
+                                        );
+                                    }
+                                }
+                            }
                         }
-                        app.view.set(View::NotesList);
+                    },
+                    if is_recording {
+                        div { class: "w-4 h-4 rounded bg-white" }
+                    } else {
+                        div { class: "w-4 h-4 rounded-full bg-white" }
                     }
-                },
-                "Enregistrer"
+                }
+                button {
+                    class: "px-6 py-2.5 rounded-full bg-ios-blue text-white text-sm font-medium",
+                    onclick: {
+                        let note_id = note_id.clone();
+                        move |_| {
+                            let db = db();
+                            if note_id.is_empty() {
+                                let new = NewTextNote {
+                                    title: if title().is_empty() {
+                                        None
+                                    } else {
+                                        Some(title())
+                                    },
+                                    content: content(),
+                                    tags: vec![],
+                                };
+                                let _ = db.create_text_note(&new);
+                            } else {
+                                let upd = UpdateNote {
+                                    title: Some(title()),
+                                    content: Some(content()),
+                                    tags: None,
+                                };
+                                let _ =
+                                    db.update_note(&note_id, &upd);
+                            }
+                            app.view.set(View::NotesList);
+                        }
+                    },
+                    "Enregistrer"
+                }
             }
         }
     }
