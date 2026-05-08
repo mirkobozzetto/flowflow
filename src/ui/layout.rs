@@ -1,5 +1,6 @@
 use crate::db::Database;
-use crate::models::Folder;
+use crate::models::{Folder, NewFolder, UpdateFolder};
+use crate::ui::icons::*;
 use crate::ui::{AppState, View};
 use dioxus::prelude::*;
 use std::sync::Arc;
@@ -7,11 +8,17 @@ use std::sync::Arc;
 #[component]
 pub fn TopBar() -> Element {
     let mut app: AppState = use_context();
+    let db: Signal<Arc<Database>> = use_context();
     let is_detail = matches!((app.view)(), View::NoteDetail { .. });
 
     let title = match (app.view)() {
         View::NotesList => match (app.selected_folder_id)() {
-            Some(_) => "Dossier".to_string(),
+            Some(ref fid) => db()
+                .get_folder(fid)
+                .ok()
+                .flatten()
+                .map(|f| f.name)
+                .unwrap_or_else(|| "Dossier".to_string()),
             None => "Toutes mes notes".to_string(),
         },
         View::NoteDetail { .. } => "Note".to_string(),
@@ -21,17 +28,15 @@ pub fn TopBar() -> Element {
         div { class: "flex items-center px-4 py-3 bg-white border-b border-gray-200 sticky top-0 z-30 gap-3 min-h-[44px]",
             if is_detail {
                 button {
-                    class: "min-w-[44px] min-h-[44px] flex items-center justify-center",
+                    class: "min-w-[44px] min-h-[44px] flex items-center justify-center text-gray-700",
                     onclick: move |_| app.view.set(View::NotesList),
-                    div { class: "w-2.5 h-2.5 border-l-2 border-b-2 border-gray-700 rotate-45" }
+                    IconArrowLeft { size: 22 }
                 }
             } else {
                 button {
-                    class: "min-w-[44px] min-h-[44px] flex flex-col items-center justify-center gap-1",
+                    class: "min-w-[44px] min-h-[44px] flex items-center justify-center text-gray-700",
                     onclick: move |_| app.sidebar_open.set(true),
-                    div { class: "w-5 h-0.5 bg-gray-700" }
-                    div { class: "w-5 h-0.5 bg-gray-700" }
-                    div { class: "w-5 h-0.5 bg-gray-700" }
+                    IconList { size: 22 }
                 }
             }
             span { class: "text-lg font-semibold text-gray-900 flex-1", "{title}" }
@@ -51,7 +56,7 @@ pub fn SidebarOverlay() -> Element {
             onclick: move |_| app.sidebar_open.set(false),
         }
         div {
-            class: "fixed left-0 top-0 w-[280px] h-full bg-white z-50 p-4 overflow-y-auto border-r border-gray-200 transition-transform duration-200",
+            class: "fixed left-0 top-0 w-[85vw] max-w-[340px] h-full bg-white z-50 p-4 overflow-y-auto border-r border-gray-200 transition-transform duration-200",
             class: if is_open { "translate-x-0" } else { "-translate-x-full" },
             onclick: move |evt| evt.stop_propagation(),
 
@@ -69,23 +74,75 @@ pub fn SidebarOverlay() -> Element {
 
             div { class: "h-px bg-gray-200 mb-2" }
 
-            FolderTree {}
+            FolderSection {}
         }
     }
 }
 
 #[component]
-fn FolderTree() -> Element {
+fn FolderSection() -> Element {
     let db: Signal<Arc<Database>> = use_context();
-    let folders = use_signal(|| db().list_root_folders().unwrap_or_default());
+    let mut app: AppState = use_context();
+    let mut creating = use_signal(|| false);
+    let mut new_name = use_signal(String::new);
 
-    if folders().is_empty() {
-        return rsx! {
-            p { class: "text-xs text-gray-400 px-2 py-3", "Aucun dossier" }
-        };
-    }
+    let folders = use_memo(move || {
+        let _v = (app.folders_version)();
+        db().list_root_folders().unwrap_or_default()
+    });
 
     rsx! {
+        div { class: "flex items-center justify-between px-2 mb-2",
+            span { class: "text-xs font-medium text-gray-400 uppercase tracking-wide", "Dossiers" }
+            button {
+                class: "w-9 h-9 flex items-center justify-center rounded-full text-gray-500",
+                onclick: move |_| creating.set(!creating()),
+                IconPlus { size: 18 }
+            }
+        }
+        if creating() {
+            div { class: "flex items-center gap-2 px-2 mb-2",
+                input {
+                    class: "flex-1 text-sm border border-gray-200 rounded-lg px-2 py-1.5 outline-none",
+                    placeholder: "Nom du dossier",
+                    value: "{new_name}",
+                    oninput: move |evt| new_name.set(evt.value()),
+                    onkeypress: move |evt| {
+                        if evt.key() == Key::Enter && !new_name().trim().is_empty() {
+                            let folder = NewFolder {
+                                name: new_name().trim().to_string(),
+                                description: None,
+                                parent_id: None,
+                            };
+                            let _ = db().create_folder(&folder);
+                            new_name.set(String::new());
+                            creating.set(false);
+                            app.folders_version.set((app.folders_version)() + 1);
+                        }
+                    },
+                }
+                button {
+                    class: "w-9 h-9 flex items-center justify-center rounded-lg bg-ios-blue text-white",
+                    onclick: move |_| {
+                        if !new_name().trim().is_empty() {
+                            let folder = NewFolder {
+                                name: new_name().trim().to_string(),
+                                description: None,
+                                parent_id: None,
+                            };
+                            let _ = db().create_folder(&folder);
+                            new_name.set(String::new());
+                            creating.set(false);
+                            app.folders_version.set((app.folders_version)() + 1);
+                        }
+                    },
+                    IconCheck { size: 18 }
+                }
+            }
+        }
+        if folders().is_empty() && !creating() {
+            p { class: "text-xs text-gray-400 px-2 py-3", "Aucun dossier" }
+        }
         for folder in folders() {
             FolderItem { folder: folder, depth: 0 }
         }
@@ -97,45 +154,201 @@ fn FolderItem(folder: Folder, depth: u32) -> Element {
     let mut app: AppState = use_context();
     let db: Signal<Arc<Database>> = use_context();
     let mut expanded = use_signal(|| false);
-    let children =
-        use_signal(|| db().list_subfolders(&folder.id).unwrap_or_default());
-    let has_children = !children().is_empty();
-    let folder_id = folder.id.clone();
+    let mut creating_sub = use_signal(|| false);
+    let mut sub_name = use_signal(String::new);
+    let mut editing = use_signal(|| false);
+    let mut edit_name = use_signal(|| folder.name.clone());
+    let mut confirm_delete = use_signal(|| false);
+    let mut show_actions = use_signal(|| false);
 
+    let folder_id = folder.id.clone();
+    let folder_id_for_delete = folder.id.clone();
+    let folder_id_for_sub = folder.id.clone();
+    let folder_id_for_sub2 = folder.id.clone();
+    let folder_id_for_rename = folder.id.clone();
+    let folder_id_for_rename2 = folder.id.clone();
+
+    let children = use_memo(move || {
+        let _v = (app.folders_version)();
+        db().list_subfolders(&folder_id).unwrap_or_default()
+    });
+    let has_children = !children().is_empty();
+
+    let folder_id_nav = folder.id.clone();
     let is_selected =
-        (app.selected_folder_id)().as_deref() == Some(folder_id.as_str());
+        (app.selected_folder_id)().as_deref() == Some(folder_id_nav.as_str());
 
     let margin = format!("margin-left: {}px", depth * 16);
 
     rsx! {
         div { style: "{margin}",
-            div { class: "flex items-center",
-                if has_children {
+            if editing() {
+                div { class: "flex items-center gap-2 py-1",
+                    input {
+                        class: "flex-1 text-sm border border-gray-200 rounded-lg px-2 py-1.5 outline-none",
+                        value: "{edit_name}",
+                        oninput: move |evt| edit_name.set(evt.value()),
+                        onkeypress: move |evt| {
+                            if evt.key() == Key::Enter && !edit_name().trim().is_empty() {
+                                let upd = UpdateFolder {
+                                    name: Some(edit_name().trim().to_string()),
+                                    description: None,
+                                    parent_id: None,
+                                };
+                                let _ = db().update_folder(&folder_id_for_rename, &upd);
+                                editing.set(false);
+                                app.folders_version.set((app.folders_version)() + 1);
+                            }
+                        },
+                    }
                     button {
-                        class: "min-w-[32px] min-h-[44px] flex items-center justify-center",
-                        onclick: move |_| expanded.set(!expanded()),
-                        div {
-                            class: "w-1.5 h-1.5 border-r-2 border-b-2 border-gray-400 transition-transform duration-150",
-                            class: if expanded() { "rotate-45" } else { "-rotate-45" },
+                        class: "w-8 h-8 flex items-center justify-center rounded-lg bg-ios-blue text-white text-xs font-medium",
+                        onclick: move |_| {
+                            if !edit_name().trim().is_empty() {
+                                let upd = UpdateFolder {
+                                    name: Some(edit_name().trim().to_string()),
+                                    description: None,
+                                    parent_id: None,
+                                };
+                                let _ = db().update_folder(&folder_id_for_rename2, &upd);
+                                editing.set(false);
+                                app.folders_version.set((app.folders_version)() + 1);
+                            }
+                        },
+                        IconCheck { size: 18 }
+                    }
+                    button {
+                        class: "w-9 h-9 flex items-center justify-center text-gray-400",
+                        onclick: move |_| editing.set(false),
+                        IconX { size: 16 }
+                    }
+                }
+            } else if confirm_delete() {
+                div { class: "flex items-center gap-2 py-2 px-2",
+                    span { class: "flex-1 text-sm text-gray-600", "Supprimer ?" }
+                    button {
+                        class: "px-3 py-1 rounded-lg bg-ios-red text-white text-xs font-medium",
+                        onclick: move |_| {
+                            let _ = db().delete_folder(&folder_id_for_delete);
+                            if (app.selected_folder_id)().as_deref() == Some(folder_id_for_delete.as_str()) {
+                                app.selected_folder_id.set(None);
+                            }
+                            app.folders_version.set((app.folders_version)() + 1);
+                        },
+                        "Oui"
+                    }
+                    button {
+                        class: "px-3 py-1 rounded-lg bg-gray-200 text-gray-600 text-xs",
+                        onclick: move |_| confirm_delete.set(false),
+                        "Non"
+                    }
+                }
+            } else {
+                div { class: "flex items-center",
+                    if has_children {
+                        button {
+                            class: "min-w-[32px] min-h-[44px] flex items-center justify-center",
+                            onclick: move |_| expanded.set(!expanded()),
+                            div {
+                                class: "w-1.5 h-1.5 border-r-2 border-b-2 border-gray-400 transition-transform duration-150",
+                                class: if expanded() { "rotate-45" } else { "-rotate-45" },
+                            }
+                        }
+                    } else {
+                        div { class: "w-8 min-w-[32px]" }
+                    }
+                    button {
+                        class: "flex-1 text-left px-2 py-2.5 text-sm text-gray-900 rounded-lg min-h-[44px]",
+                        class: if is_selected { "bg-gray-100" },
+                        onclick: move |_| {
+                            app.selected_folder_id.set(Some(folder_id_nav.clone()));
+                            app.view.set(View::NotesList);
+                            app.sidebar_open.set(false);
+                        },
+                        "{folder.name}"
+                    }
+                    button {
+                        class: "w-9 h-9 flex items-center justify-center text-gray-400",
+                        onclick: move |_| show_actions.set(!show_actions()),
+                        IconDotsThree { size: 20 }
+                    }
+                }
+                if show_actions() {
+                    div { class: "flex items-center gap-0 px-2 py-1 ml-8",
+                        button {
+                            class: "w-10 h-10 flex items-center justify-center text-gray-500",
+                            onclick: move |_| {
+                                show_actions.set(false);
+                                editing.set(true);
+                            },
+                            IconPencil { size: 18 }
+                        }
+                        button {
+                            class: "w-10 h-10 flex items-center justify-center text-gray-500",
+                            onclick: move |_| {
+                                show_actions.set(false);
+                                creating_sub.set(true);
+                            },
+                            IconFolderPlus { size: 18 }
+                        }
+                        button {
+                            class: "w-10 h-10 flex items-center justify-center text-gray-400",
+                            onclick: move |_| {
+                                show_actions.set(false);
+                                confirm_delete.set(true);
+                            },
+                            IconTrash { size: 18 }
                         }
                     }
-                } else {
-                    div { class: "w-8 min-w-[32px]" }
-                }
-                button {
-                    class: "flex-1 text-left px-2 py-2.5 text-sm text-gray-900 rounded-lg min-h-[44px]",
-                    class: if is_selected { "bg-gray-100" },
-                    onclick: move |_| {
-                        app.selected_folder_id.set(Some(folder_id.clone()));
-                        app.view.set(View::NotesList);
-                        app.sidebar_open.set(false);
-                    },
-                    "{folder.name}"
                 }
             }
-            if expanded() {
-                for child in children() {
-                    FolderItem { folder: child, depth: depth + 1 }
+            if creating_sub() {
+                div { class: "flex items-center gap-2 px-2 py-1 ml-8",
+                    input {
+                        class: "flex-1 text-sm border border-gray-200 rounded-lg px-2 py-1.5 outline-none",
+                        placeholder: "Sous-dossier",
+                        value: "{sub_name}",
+                        oninput: move |evt| sub_name.set(evt.value()),
+                        onkeypress: move |evt| {
+                            if evt.key() == Key::Enter && !sub_name().trim().is_empty() {
+                                let folder = NewFolder {
+                                    name: sub_name().trim().to_string(),
+                                    description: None,
+                                    parent_id: Some(folder_id_for_sub.clone()),
+                                };
+                                let _ = db().create_folder(&folder);
+                                sub_name.set(String::new());
+                                creating_sub.set(false);
+                                expanded.set(true);
+                                app.folders_version.set((app.folders_version)() + 1);
+                            }
+                        },
+                    }
+                    button {
+                        class: "w-8 h-8 flex items-center justify-center rounded-lg bg-ios-blue text-white text-xs font-medium",
+                        onclick: move |_| {
+                            if !sub_name().trim().is_empty() {
+                                let folder = NewFolder {
+                                    name: sub_name().trim().to_string(),
+                                    description: None,
+                                    parent_id: Some(folder_id_for_sub2.clone()),
+                                };
+                                let _ = db().create_folder(&folder);
+                                sub_name.set(String::new());
+                                creating_sub.set(false);
+                                expanded.set(true);
+                                app.folders_version.set((app.folders_version)() + 1);
+                            }
+                        },
+                        IconCheck { size: 18 }
+                    }
+                }
+            }
+            if expanded() || has_children {
+                if expanded() {
+                    for child in children() {
+                        FolderItem { folder: child, depth: depth + 1 }
+                    }
                 }
             }
         }
@@ -149,13 +362,12 @@ pub fn FloatingActionButton() -> Element {
     rsx! {
         div { class: "fixed bottom-6 right-4 z-20",
             button {
-                class: "w-14 h-14 rounded-full bg-ios-green flex items-center justify-center shadow-lg shadow-ios-green/40",
+                class: "w-14 h-14 rounded-full bg-ios-blue flex items-center justify-center shadow-lg shadow-ios-blue/30",
                 onclick: move |_| {
                     app.view.set(View::NoteDetail { note_id: String::new() });
                 },
-                div { class: "relative w-5 h-5",
-                    div { class: "absolute top-1/2 left-0 w-full h-0.5 bg-white -translate-y-1/2" }
-                    div { class: "absolute left-1/2 top-0 w-0.5 h-full bg-white -translate-x-1/2" }
+                div { class: "text-white",
+                    IconPlus { size: 24 }
                 }
             }
         }

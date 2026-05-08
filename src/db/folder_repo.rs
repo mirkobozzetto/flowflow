@@ -43,6 +43,21 @@ impl Database {
         }
     }
 
+    pub fn list_all_folders(&self) -> Result<Vec<Folder>, String> {
+        let conn = self.conn();
+        let mut stmt = conn
+            .prepare("SELECT * FROM folders ORDER BY name ASC")
+            .map_err(|e| format!("Prepare: {e}"))?;
+        let rows = stmt
+            .query_map([], row_to_folder)
+            .map_err(|e| format!("Query: {e}"))?;
+        let mut folders = Vec::new();
+        for row in rows {
+            folders.push(row.map_err(|e| format!("Row: {e}"))?);
+        }
+        Ok(folders)
+    }
+
     pub fn list_root_folders(&self) -> Result<Vec<Folder>, String> {
         let conn = self.conn();
         let mut stmt = conn
