@@ -29,7 +29,14 @@ pub fn TopBar() -> Element {
             if is_detail {
                 button {
                     class: "min-w-[44px] min-h-[44px] flex items-center justify-center text-gray-700",
-                    onclick: move |_| app.view.set(View::NotesList),
+                    onclick: move |_| {
+                        app.sliding_out.set(true);
+                        spawn(async move {
+                            futures_timer::Delay::new(std::time::Duration::from_millis(150)).await;
+                            app.sliding_out.set(false);
+                            app.view.set(View::NotesList);
+                        });
+                    },
                     IconArrowLeft { size: 22 }
                 }
             } else {
@@ -362,12 +369,12 @@ pub fn FloatingActionButton() -> Element {
     rsx! {
         div { class: "fixed bottom-6 right-4 z-20",
             button {
-                class: "w-14 h-14 rounded-full bg-ios-blue flex items-center justify-center shadow-lg shadow-ios-blue/30",
+                class: "w-20 h-20 rounded-full bg-white flex items-center justify-center shadow-xl shadow-gray-400/40",
                 onclick: move |_| {
                     app.view.set(View::NoteDetail { note_id: String::new() });
                 },
-                div { class: "text-white",
-                    IconPlus { size: 24 }
+                div { class: "text-gray-700",
+                    IconNewNote { size: 40 }
                 }
             }
         }

@@ -23,6 +23,8 @@ pub struct AppState {
     pub selected_folder_id: Signal<Option<String>>,
     pub recording_state: Signal<RecordingState>,
     pub folders_version: Signal<u32>,
+    pub sliding_out: Signal<bool>,
+    pub audio_levels: Signal<Vec<f32>>,
 }
 
 #[component]
@@ -44,6 +46,8 @@ pub fn App() -> Element {
         selected_folder_id: Signal::new(None),
         recording_state: Signal::new(RecordingState::Idle),
         folders_version: Signal::new(0),
+        sliding_out: Signal::new(false),
+        audio_levels: Signal::new(vec![0.0; 12]),
     });
 
     rsx! {
@@ -53,14 +57,22 @@ pub fn App() -> Element {
             SidebarOverlay {}
             div { class: "flex flex-col h-screen",
                 TopBar {}
-                div {
-                    class: match (app.view)() {
-                        View::NotesList => "flex-1 overflow-y-auto px-4 py-3 pb-20",
-                        _ => "flex-1 flex flex-col min-h-0 px-4 py-3",
-                    },
-                    match (app.view)() {
-                        View::NotesList => rsx! { NotesList {} },
-                        View::NoteDetail { .. } => rsx! { NoteDetail {} },
+                div { class: "flex-1 overflow-hidden relative",
+                    div {
+                        class: "absolute inset-0 overflow-y-auto px-4 py-3 pb-20",
+                        class: if matches!((app.view)(), View::NoteDetail { .. }) { "pointer-events-none" } else { "" },
+                        NotesList {}
+                    }
+                    if matches!((app.view)(), View::NoteDetail { .. }) {
+                        div {
+                            class: "absolute inset-0 flex flex-col min-h-0 px-4 py-3 bg-gray-100",
+                            style: if (app.sliding_out)() {
+                                "animation: slideOutRight 0.15s ease-in forwards;"
+                            } else {
+                                "animation: slideInRight 0.15s ease-out;"
+                            },
+                            NoteDetail {}
+                        }
                     }
                 }
                 if (app.view)() == View::NotesList {
