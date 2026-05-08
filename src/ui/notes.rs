@@ -1,7 +1,10 @@
 use crate::db::Database;
-use crate::models::{generate_auto_title, NewTextNote, Note, UpdateNote};
+use crate::models::{
+    generate_auto_title, Folder, NewTextNote, Note, UpdateNote,
+};
 use crate::services::audio::{self, AudioRecorder, RecordingState};
 use crate::services::transcription::SonioxClient;
+use crate::ui::icons::*;
 use crate::ui::{AppState, View};
 use dioxus::prelude::*;
 use std::path::PathBuf;
@@ -55,6 +58,7 @@ pub fn NotesList() -> Element {
 #[component]
 fn NoteCard(note: Note) -> Element {
     let mut app: AppState = use_context();
+    let db: Signal<Arc<Database>> = use_context();
     let note_id = note.id.clone();
 
     let title = note
@@ -71,6 +75,11 @@ fn NoteCard(note: Note) -> Element {
     let date = &note.created_at[..10];
     let has_audio = note.audio_file_path.is_some();
 
+    let folder_name = db()
+        .folders_for_note(&note.id)
+        .ok()
+        .and_then(|f| f.first().map(|f| f.name.clone()));
+
     rsx! {
         div {
             class: "bg-white p-4 border border-gray-200 rounded-xl mb-2.5",
@@ -86,7 +95,13 @@ fn NoteCard(note: Note) -> Element {
             if !preview.is_empty() {
                 p { class: "text-gray-600 text-sm mb-2 line-clamp-2", "{preview}" }
             }
-            p { class: "text-gray-400 text-xs", "{date}" }
+            div { class: "flex items-center gap-2",
+                span { class: "text-gray-400 text-xs", "{date}" }
+                if let Some(ref fname) = folder_name {
+                    span { class: "text-xs text-gray-400", "·" }
+                    span { class: "text-xs text-ios-blue", "{fname}" }
+                }
+            }
         }
     }
 }
@@ -121,9 +136,33 @@ pub fn NoteDetail() -> Element {
     let initial_content =
         note.as_ref().map(|n| n.content.clone()).unwrap_or_default();
 
+    let initial_folder_id: Option<String> = if is_new {
+        (app.selected_folder_id)()
+    } else {
+        db().folders_for_note(&note_id)
+            .ok()
+            .and_then(|f| f.first().map(|f| f.id.clone()))
+    };
+
     let mut title = use_signal(|| initial_title.clone());
     let mut content = use_signal(|| initial_content.clone());
     let mut last_audio_path = use_signal(String::new);
+    let mut selected_folder = use_signal(|| initial_folder_id.clone());
+    let mut show_picker = use_signal(|| false);
+
+    let all_folders: Memo<Vec<Folder>> = use_memo(move || {
+        let _v = (app.folders_version)();
+        db().list_all_folders().unwrap_or_default()
+    });
+
+    let folder_display = match selected_folder() {
+        Some(ref fid) => all_folders()
+            .iter()
+            .find(|f| f.id == *fid)
+            .map(|f| f.name.clone())
+            .unwrap_or_else(|| "Dossier".to_string()),
+        None => "Aucun dossier".to_string(),
+    };
 
     use_effect(move || {
         if let RecordingState::Transcribed(text) = (app.recording_state)() {
@@ -155,7 +194,44 @@ pub fn NoteDetail() -> Element {
                 oninput: move |evt| title.set(evt.value()),
             }
             if !date.is_empty() {
-                p { class: "text-xs text-gray-400 mb-3", "{date}" }
+                p { class: "text-xs text-gray-400 mb-2", "{date}" }
+            }
+            div { class: "mb-3",
+                button {
+                    class: "inline-flex items-center px-3 py-1.5 rounded-full border border-gray-200 text-xs text-gray-600",
+                    onclick: move |_| show_picker.set(!show_picker()),
+                    "{folder_display}"
+                }
+                if show_picker() {
+                    div { class: "mt-1 border border-gray-200 rounded-xl bg-white overflow-hidden",
+                        button {
+                            class: "w-full text-left px-3 py-2.5 text-sm text-gray-500 border-b border-gray-100",
+                            onclick: move |_| {
+                                selected_folder.set(None);
+                                show_picker.set(false);
+                            },
+                            "Aucun dossier"
+                        }
+                        for folder in all_folders() {
+                            {
+                                let fid = folder.id.clone();
+                                let fname = folder.name.clone();
+                                let is_current = selected_folder() == Some(fid.clone());
+                                rsx! {
+                                    button {
+                                        class: "w-full text-left px-3 py-2.5 text-sm",
+                                        class: if is_current { "text-ios-blue font-medium bg-blue-50" } else { "text-gray-900" },
+                                        onclick: move |_| {
+                                            selected_folder.set(Some(fid.clone()));
+                                            show_picker.set(false);
+                                        },
+                                        "{fname}"
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
             }
             textarea {
                 class: "w-full min-h-[200px] border border-gray-200 rounded-xl p-3 text-sm resize-none font-sans outline-none text-gray-900",
@@ -171,21 +247,38 @@ pub fn NoteDetail() -> Element {
                 p { class: "text-sm text-gray-400 text-center mt-3",
                     "Transcription..."
                 }
-            } else if let RecordingState::Error(ref e) = recording_state {
+            } else if let RecordingState::Error(ref e) = recording_state
+            {
                 p { class: "text-sm text-ios-red text-center mt-3",
                     "Erreur : {e}"
+                }
+            }
+            if !is_new {
+                div { class: "mt-6 pt-4 border-t border-gray-100",
+                    button {
+                        class: "flex items-center gap-1.5 text-xs text-gray-400",
+                        onclick: {
+                            let note_id = note_id.clone();
+                            move |_| {
+                                let _ = db().delete_note(&note_id);
+                                app.view.set(View::NotesList);
+                            }
+                        },
+                        IconTrash { size: 14 }
+                        "Supprimer"
+                    }
                 }
             }
         }
         div { class: "fixed bottom-0 left-0 right-0 px-4 py-3 bg-white border-t border-gray-200 z-30",
             div { class: "flex items-center justify-between",
                 button {
-                    class: if is_recording {
-                        "w-11 h-11 rounded-full bg-ios-red flex items-center justify-center"
-                    } else if is_transcribing {
-                        "w-11 h-11 rounded-full bg-gray-300 flex items-center justify-center"
+                    class: if is_transcribing {
+                        "w-11 h-11 rounded-full bg-gray-100 text-gray-300 flex items-center justify-center"
+                    } else if is_recording {
+                        "w-11 h-11 rounded-full bg-gray-100 text-ios-red flex items-center justify-center"
                     } else {
-                        "w-11 h-11 rounded-full bg-ios-green flex items-center justify-center"
+                        "w-11 h-11 rounded-full bg-gray-100 text-gray-600 flex items-center justify-center"
                     },
                     disabled: is_transcribing,
                     onclick: move |_| {
@@ -235,13 +328,13 @@ pub fn NoteDetail() -> Element {
                         }
                     },
                     if is_recording {
-                        div { class: "w-4 h-4 rounded bg-white" }
+                        IconStop { size: 20 }
                     } else {
-                        div { class: "w-4 h-4 rounded-full bg-white" }
+                        IconMic { size: 20 }
                     }
                 }
                 button {
-                    class: "px-6 py-2.5 rounded-full bg-ios-blue text-white text-sm font-medium",
+                    class: "flex items-center gap-2 px-5 py-2.5 rounded-full bg-ios-blue text-white text-sm font-medium",
                     onclick: {
                         let note_id = note_id.clone();
                         move |_| {
@@ -256,7 +349,18 @@ pub fn NoteDetail() -> Element {
                                     content: content(),
                                     tags: vec![],
                                 };
-                                let _ = db.create_text_note(&new);
+                                if let Ok(created) =
+                                    db.create_text_note(&new)
+                                {
+                                    if let Some(ref fid) =
+                                        selected_folder()
+                                    {
+                                        let _ = db.add_note_to_folder(
+                                            &created.id,
+                                            fid,
+                                        );
+                                    }
+                                }
                             } else {
                                 let upd = UpdateNote {
                                     title: Some(title()),
@@ -265,11 +369,28 @@ pub fn NoteDetail() -> Element {
                                 };
                                 let _ =
                                     db.update_note(&note_id, &upd);
+                                for old in db
+                                    .folders_for_note(&note_id)
+                                    .unwrap_or_default()
+                                {
+                                    let _ = db
+                                        .remove_note_from_folder(
+                                            &note_id, &old.id,
+                                        );
+                                }
+                                if let Some(ref fid) =
+                                    selected_folder()
+                                {
+                                    let _ = db.add_note_to_folder(
+                                        &note_id, fid,
+                                    );
+                                }
                             }
                             app.view.set(View::NotesList);
                         }
                     },
-                    "Enregistrer"
+                    IconFloppyDisk { size: 18 }
+                    "Sauvegarder"
                 }
             }
         }
