@@ -18,7 +18,7 @@ Mirko Bozzetto — freelance full-stack developer, Brussels.
 - **Vector DB**: LanceDB (local semantic search)
 - **Metadata**: SQLite (rusqlite)
 - **Transcription**: Soniox REST API (async)
-- **Embeddings**: ONNX Runtime (ort) on-device (all-MiniLM-L6-v2)
+- **Embeddings**: OpenAI API (text-embedding-3-small)
 - **HTTP**: reqwest
 - **Async**: tokio
 
@@ -40,7 +40,7 @@ Mirko Bozzetto — freelance full-stack developer, Brussels.
 | B | Audio capture iOS mic (cpal + hound, save WAV) | Done |
 | C | Soniox REST (upload WAV → transcription) | Done |
 | D | SQLite storage + UI refactor + Tailwind | Done |
-| E | On-device embeddings (ONNX, all-MiniLM-L6-v2) | — |
+| E | Embeddings (OpenAI text-embedding-3-small + LanceDB) | — |
 | F | RAG + Chat (embed → search → context → LLM → response) | — |
 
 ## Architecture (Clean Architecture)
@@ -86,7 +86,7 @@ src/
 Mic capture → WAV/audio
     → Soniox REST API → transcription
     → LLM API → title + tags
-    → ONNX (ort) → embedding vector
+    → OpenAI API → embedding vector
     → SQLite (metadata) + LanceDB (vector)
 ```
 
@@ -176,7 +176,7 @@ xcrun devicectl manage pair --device <DEVICE_ID>
 <!-- gitnexus:start -->
 # GitNexus — Code Intelligence
 
-This project is indexed by GitNexus as **flowflow** (251 symbols, 447 relationships, 13 execution flows). Use the GitNexus MCP tools to understand code, assess impact, and navigate safely.
+This project is indexed by GitNexus as **flowflow** (265 symbols, 462 relationships, 13 execution flows). Use the GitNexus MCP tools to understand code, assess impact, and navigate safely.
 
 > If any GitNexus tool warns the index is stale, run `npx gitnexus analyze` in terminal first.
 
