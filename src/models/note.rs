@@ -35,13 +35,6 @@ pub enum NoteType {
 }
 
 impl NoteType {
-    pub fn as_str(&self) -> &str {
-        match self {
-            NoteType::Voice => "voice",
-            NoteType::Text => "text",
-        }
-    }
-
     pub fn from_str(s: &str) -> Self {
         match s {
             "text" => NoteType::Text,
@@ -61,14 +54,6 @@ pub struct Note {
     pub tags: Vec<String>,
     pub created_at: String,
     pub modified_at: String,
-}
-
-pub struct NewVoiceNote {
-    pub title: Option<String>,
-    pub content: String,
-    pub audio_file_path: String,
-    pub duration_secs: f64,
-    pub tags: Vec<String>,
 }
 
 pub struct NewTextNote {

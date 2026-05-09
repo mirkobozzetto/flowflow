@@ -7,7 +7,6 @@ use std::sync::{Arc, Mutex};
 pub enum RecordingState {
     Idle,
     Recording,
-    Stopped(PathBuf),
     Transcribing,
     Transcribed(String),
     Error(String),
@@ -126,10 +125,6 @@ impl AudioRecorder {
         }
         count as f32 / (self.sample_rate as f32 * self.channels as f32)
     }
-}
-
-pub fn has_input_device() -> bool {
-    cpal::default_host().default_input_device().is_some()
 }
 
 pub fn output_dir() -> String {

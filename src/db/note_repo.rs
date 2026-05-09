@@ -1,5 +1,5 @@
 use crate::db::{now_iso, Database};
-use crate::models::{NewTextNote, NewVoiceNote, Note, NoteType, UpdateNote};
+use crate::models::{NewTextNote, Note, NoteType, UpdateNote};
 use uuid::Uuid;
 
 fn row_to_note(row: &rusqlite::Row) -> rusqlite::Result<Note> {
@@ -21,29 +21,6 @@ fn row_to_note(row: &rusqlite::Row) -> rusqlite::Result<Note> {
 }
 
 impl Database {
-    pub fn create_voice_note(
-        &self,
-        note: &NewVoiceNote,
-    ) -> Result<Note, String> {
-        let id = Uuid::new_v4().to_string();
-        let now = now_iso();
-        let tags_json = serde_json::to_string(&note.tags)
-            .unwrap_or_else(|_| "[]".to_string());
-        self.conn()
-            .execute(
-                "INSERT INTO notes
-                 (id, note_type, title, content, audio_file_path, duration_secs, tags, created_at, modified_at)
-                 VALUES (?1,?2,?3,?4,?5,?6,?7,?8,?9)",
-                rusqlite::params![
-                    id, "voice", note.title, note.content, note.audio_file_path,
-                    note.duration_secs, tags_json, now, now,
-                ],
-            )
-            .map_err(|e| format!("Insert note: {e}"))?;
-        self.get_note(&id)?
-            .ok_or_else(|| "Note not found after insert".into())
-    }
-
     pub fn create_text_note(&self, note: &NewTextNote) -> Result<Note, String> {
         let id = Uuid::new_v4().to_string();
         let now = now_iso();
