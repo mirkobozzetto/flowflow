@@ -13,6 +13,7 @@ Research and development documentation for FlowFlow, a 100% Rust iOS app for voi
 | [05 — AI Features](05-ai-features.md) | LLM integration | Auto-titles, cleanup, tags, embeddings, RAG chat |
 | [06 — Dioxus Platform](06-dioxus-platform.md) | Framework analysis | Limitations, objc2 patterns, roadmap 0.8 |
 | [07 — Vision](07-vision.md) | Product direction | RAG architecture, chat scoping, tag interconnection, future API |
+| [08 — Embedded Server & MCP](08-embedded-server-mcp.md) | Local API & MCP mobile | HTTP server on iOS, MCP protocol, Claude Desktop integration, use cases |
 
 ## MVP Focus
 
