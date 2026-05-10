@@ -5,6 +5,7 @@ use dioxus::prelude::*;
 pub enum View {
     NotesList,
     NoteDetail { note_id: String },
+    Chat,
 }
 
 #[derive(Clone)]

@@ -1,3 +1,5 @@
+mod chat;
+mod chat_input;
 mod fab;
 mod folder_picker;
 pub mod icons;
@@ -16,6 +18,7 @@ use crate::services::audio::{AudioRecorder, RecordingState};
 use dioxus::prelude::*;
 use std::sync::{Arc, Mutex};
 
+use chat::ChatView;
 use fab::FloatingActionButton;
 use note_detail::NoteDetail;
 use note_list::NotesList;
@@ -56,7 +59,7 @@ pub fn App() -> Element {
                 div { class: "flex-1 overflow-hidden relative",
                     div {
                         class: "absolute inset-0 overflow-y-auto px-4 py-3 pb-20",
-                        class: if matches!((app.view)(), View::NoteDetail { .. }) { "pointer-events-none" } else { "" },
+                        class: if !matches!((app.view)(), View::NotesList) { "pointer-events-none" } else { "" },
                         NotesList {}
                     }
                     if matches!((app.view)(), View::NoteDetail { .. }) {
@@ -68,6 +71,17 @@ pub fn App() -> Element {
                                 "animation: slideInRight 0.15s ease-out;"
                             },
                             NoteDetail {}
+                        }
+                    }
+                    if matches!((app.view)(), View::Chat) {
+                        div {
+                            class: "absolute inset-0 flex flex-col min-h-0 bg-gray-100",
+                            style: if (app.sliding_out)() {
+                                "animation: slideOutRight 0.15s ease-in forwards;"
+                            } else {
+                                "animation: slideInRight 0.15s ease-out;"
+                            },
+                            ChatView {}
                         }
                     }
                 }

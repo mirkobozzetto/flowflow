@@ -2,37 +2,82 @@
 @source "./src/**/*.{rs,html,css}";
 
 @theme {
-  --color-ios-green: #34c759;
-  --color-ios-red: #ff3b30;
-  --color-ios-blue: #007aff;
+    --color-ios-green: #34c759;
+    --color-ios-red: #ff3b30;
+    --color-ios-blue: #007aff;
 }
 
 @layer base {
-  * {
-    -webkit-tap-highlight-color: transparent;
-    -webkit-text-size-adjust: 100%;
-  }
-  html, body {
-    overflow: hidden;
-    height: 100%;
-    position: fixed;
-    width: 100%;
-  }
+    * {
+        -webkit-tap-highlight-color: transparent;
+        -webkit-text-size-adjust: 100%;
+    }
+    html,
+    body {
+        overflow: hidden;
+        height: 100%;
+        position: fixed;
+        width: 100%;
+    }
 
-  @keyframes audioBar {
-    0%, 100% { transform: scaleY(0.3); }
-    50% { transform: scaleY(1); }
-  }
-  @keyframes pulseSoft {
-    0%, 100% { opacity: 1; }
-    50% { opacity: 0.4; }
-  }
-  @keyframes slideInRight {
-    from { transform: translateX(100%); opacity: 0.8; }
-    to { transform: translateX(0); opacity: 1; }
-  }
-  @keyframes slideOutRight {
-    from { transform: translateX(0); opacity: 1; }
-    to { transform: translateX(100%); opacity: 0.8; }
-  }
+    @keyframes audioBar {
+        0%,
+        100% {
+            transform: scaleY(0.3);
+        }
+        50% {
+            transform: scaleY(1);
+        }
+    }
+    @keyframes pulseSoft {
+        0%,
+        100% {
+            opacity: 1;
+        }
+        50% {
+            opacity: 0.4;
+        }
+    }
+    @keyframes slideInRight {
+        from {
+            transform: translateX(100%);
+            opacity: 0.8;
+        }
+        to {
+            transform: translateX(0);
+            opacity: 1;
+        }
+    }
+    @keyframes slideOutRight {
+        from {
+            transform: translateX(0);
+            opacity: 1;
+        }
+        to {
+            transform: translateX(100%);
+            opacity: 0.8;
+        }
+    }
+    @keyframes fadeInUp {
+        from {
+            transform: translateY(8px);
+            opacity: 0;
+        }
+        to {
+            transform: translateY(0);
+            opacity: 1;
+        }
+    }
+    @keyframes typingDot {
+        0%,
+        60%,
+        100% {
+            transform: translateY(0);
+            opacity: 0.4;
+        }
+        30% {
+            transform: translateY(-4px);
+            opacity: 1;
+        }
+    }
 }
