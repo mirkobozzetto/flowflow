@@ -19,6 +19,8 @@ pub fn NoteDetail() -> Element {
         _ => return rsx! {},
     };
 
+    app.current_note_id.set(Some(note_id.clone()));
+
     let is_new = note_id.is_empty();
 
     let note = if is_new {
@@ -60,7 +62,10 @@ pub fn NoteDetail() -> Element {
             let db = db();
             let t = title();
             let c = content();
-            if t.is_empty() && c.is_empty() {
+            if note_id.is_empty() && c.is_empty() {
+                return;
+            }
+            if !note_id.is_empty() && t.is_empty() && c.is_empty() {
                 return;
             }
             let saved_id = if note_id.is_empty() {

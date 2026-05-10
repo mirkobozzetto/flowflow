@@ -75,6 +75,7 @@ pub fn embed_note(note_id: String, title: String, content: String) {
                     }
                 }
             }
+            let _ = store.delete_note_chunks(&note_id).await;
             match store.store_chunks(entries).await {
                 Ok(()) => log(&format!("embed done for {note_id}")),
                 Err(e) => log(&format!("embed store: {e}")),

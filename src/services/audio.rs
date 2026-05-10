@@ -108,12 +108,12 @@ impl AudioRecorder {
         let start = len - window;
         let chunk = window / num_bars;
         let mut levels = vec![0.0f32; num_bars];
-        for i in 0..num_bars {
+        for (i, level) in levels.iter_mut().enumerate().take(num_bars) {
             let from = start + i * chunk;
             let to = from + chunk;
             let rms: f32 = samples[from..to].iter().map(|s| s * s).sum::<f32>()
                 / chunk as f32;
-            levels[i] = (rms.sqrt() * 8.0).min(1.0);
+            *level = (rms.sqrt() * 8.0).min(1.0);
         }
         levels
     }

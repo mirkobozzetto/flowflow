@@ -1,3 +1,4 @@
+use crate::db::Database;
 use crate::services::audio::{self, AudioRecorder, RecordingState};
 use crate::services::transcription::SonioxClient;
 use crate::ui::icons::*;
@@ -26,7 +27,9 @@ fn start_transcription(path: PathBuf, mut state: Signal<RecordingState>) {
 pub fn RecordingBar() -> Element {
     let mut app: AppState = use_context();
     let recorder: Signal<Arc<Mutex<AudioRecorder>>> = use_context();
+    let db: Signal<Arc<Database>> = use_context();
     let mut last_audio_path = use_signal(String::new);
+    let mut duration = use_signal(|| 0.0f32);
 
     use_effect(move || {
         let state = (app.recording_state)();
@@ -40,6 +43,7 @@ pub fn RecordingBar() -> Element {
                     }
                     let levels = rec.lock().unwrap().current_levels(12);
                     app.audio_levels.set(levels);
+                    duration.set(rec.lock().unwrap().duration_secs());
                     futures_timer::Delay::new(
                         std::time::Duration::from_millis(80),
                     )
@@ -54,7 +58,7 @@ pub fn RecordingBar() -> Element {
     let is_transcribing = recording_state == RecordingState::Transcribing;
 
     rsx! {
-        div { class: "fixed bottom-0 left-0 right-0 px-4 py-3 bg-white border-t border-gray-200 z-30",
+        div { class: "fixed bottom-0 left-0 right-0 px-4 py-3 bg-white border-t border-gray-200 z-30 keyboard-aware",
             div { class: "flex items-center justify-center",
                 button {
                     class: if is_transcribing {
@@ -71,11 +75,18 @@ pub fn RecordingBar() -> Element {
                         let current_state = (app.recording_state)();
                         match current_state {
                             RecordingState::Recording => {
+                                let dur = rec.duration_secs();
                                 match rec.stop(&audio::output_dir()) {
                                     Ok(path) => {
-                                        last_audio_path.set(
-                                            path.display().to_string(),
-                                        );
+                                        let path_str = path.display().to_string();
+                                        last_audio_path.set(path_str.clone());
+                                        if let Some(ref nid) = (app.current_note_id)() {
+                                            let _ = db().update_audio_metadata(
+                                                nid,
+                                                &path_str,
+                                                dur as f64,
+                                            );
+                                        }
                                         app.recording_state.set(
                                             RecordingState::Transcribing,
                                         );
@@ -131,7 +142,12 @@ pub fn RecordingBar() -> Element {
                                 }
                             }
                         }
-                        span { "Stop" }
+                        {
+                            let secs = duration() as u32;
+                            let m = secs / 60;
+                            let s = secs % 60;
+                            rsx! { span { "{m}:{s:02}" } }
+                        }
                     } else if is_transcribing {
                         span { style: "animation: pulseSoft 1.5s ease-in-out infinite;", "Transcription..." }
                     } else {

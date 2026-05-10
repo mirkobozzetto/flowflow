@@ -18,4 +18,5 @@ pub struct AppState {
     pub sliding_out: Signal<bool>,
     pub audio_levels: Signal<Vec<f32>>,
     pub notes_version: Signal<u32>,
+    pub current_note_id: Signal<Option<String>>,
 }
