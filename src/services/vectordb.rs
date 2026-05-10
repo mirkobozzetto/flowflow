@@ -173,6 +173,7 @@ impl VectorStore {
         let batches: Vec<RecordBatch> = table
             .vector_search(query_vector)
             .map_err(|e| format!("VectorDB search init: {e}"))?
+            .distance_type(lancedb::DistanceType::Cosine)
             .limit(top_k)
             .execute()
             .await
