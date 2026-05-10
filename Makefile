@@ -10,13 +10,14 @@ check:
 	cargo fmt --check && cargo clippy --features mobile
 
 dev:
-	set -a && . ./.env && dx serve --ios
+	set -a && . ./.env && IPHONEOS_DEPLOYMENT_TARGET=16.0 dx serve --ios
 
 ddev:
-	set -a && . ./.env && dx serve --ios --device
+	set -a && . ./.env && IPHONEOS_DEPLOYMENT_TARGET=16.0 dx serve --ios --device
 
 desktop:
 	set -a && . ./.env && dx serve --desktop
 
+# Device logs: open Console.app, select iPhone, filter "flowflow"
 logs:
-	idevicesyslog | grep -i "audio\|flowflow\|FlowFlow"
+	open -a Console
