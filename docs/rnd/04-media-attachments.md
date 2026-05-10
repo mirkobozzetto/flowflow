@@ -1,188 +1,140 @@
-# 04 — Media Attachments
+# 04 — Document Import
 
-How to implement photo capture, photo import, file attachments, and screenshots in FlowFlow (Dioxus 0.7, WKWebView, 100% Rust).
+How to import external documents (PDF, TXT, DOC) into FlowFlow for RAG indexing.
 
-## The Good News
+## Purpose
 
-WKWebView natively supports `<input type="file">` which opens the iOS photo picker or camera without any objc2 code. This is the simplest path.
+Imported documents become part of the knowledge base alongside voice/text notes. They get chunked, embedded, and are searchable via RAG chat. This is not about media display — it's about feeding the intelligence layer.
 
-## Approach 1: HTML File Input (Recommended — Zero objc2)
+## Import Mechanism
 
-### Photo Import from Library
+### WKWebView File Input (Zero objc2)
 
-```html
-<input type="file" accept="image/*" />
-```
-
-In WKWebView on iOS, this opens the native PHPicker (Photos library picker). The user selects a photo, and the browser returns the file data via the `change` event.
-
-Dioxus RSX:
 ```rust
 input {
     r#type: "file",
-    accept: "image/*",
+    accept: ".pdf,.txt,.doc,.docx,.md,.csv,.json",
     onchange: move |evt| {
-        // evt.files() returns FileEngine with file data
-        // Read bytes, save to Documents dir, store path in DB
+        // Read file data
+        // Save to Documents dir
+        // Extract text content
+        // Store in documents table
+        // Trigger embedding pipeline
     },
 }
 ```
 
-### Camera Capture
+On iOS WKWebView, `<input type="file">` opens the native Files app picker. No objc2 needed.
 
-```html
-<input type="file" accept="image/*" capture="camera" />
-```
+### Supported Formats
 
-Opens the camera directly. Requires `NSCameraUsageDescription` in `Dioxus.toml`:
-```toml
-[ios.plist]
-NSCameraUsageDescription = "FlowFlow needs camera access to attach photos to notes"
-```
+| Format | Extension | Text Extraction | Rust Crate |
+|--------|-----------|----------------|------------|
+| Plain text | .txt, .md, .csv | Direct read | None (std::fs) |
+| PDF | .pdf | Parse + extract | `pdf-extract` or `lopdf` |
+| Word | .docx | XML parse | `docx-rs` |
+| JSON | .json | Structured parse | `serde_json` (already used) |
 
-### Generic File Import
-
-```html
-<input type="file" accept="*/*" />
-```
-
-Opens the iOS Files app picker. User can select PDFs, documents, etc.
-
-### Multiple Files
-
-```html
-<input type="file" accept="image/*" multiple />
-```
-
-Allows selecting multiple photos at once.
-
-## Approach 2: objc2 PHPickerViewController (Fallback)
-
-If `<input type="file">` doesn't work well in Dioxus WKWebView (needs testing), fall back to objc2:
-
-```rust
-// ~80 lines of objc2 code
-// Uses PHPickerViewController (iOS 14+) or UIImagePickerController
-// Pattern documented in Dioxus issue #3849
-```
-
-Effort: ~1 day. Same pattern as existing `hide_keyboard_accessory()` in `src/platform/ios.rs`.
+Priority: TXT first (trivial), PDF second (most common), DOCX third.
 
 ## Data Model
 
 ### SQLite Schema (V2 migration)
 
 ```sql
-CREATE TABLE IF NOT EXISTS attachments (
+CREATE TABLE IF NOT EXISTS documents (
     id TEXT PRIMARY KEY,
-    note_id TEXT NOT NULL,
+    title TEXT NOT NULL,
     file_name TEXT NOT NULL,
     file_path TEXT NOT NULL,
     mime_type TEXT NOT NULL,
-    size_bytes INTEGER NOT NULL,
-    width INTEGER,
-    height INTEGER,
-    thumbnail_path TEXT,
+    content_text TEXT NOT NULL DEFAULT '',
+    tags TEXT NOT NULL DEFAULT '[]',
+    size_bytes INTEGER NOT NULL DEFAULT 0,
+    folder_id TEXT,
     created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')),
-    FOREIGN KEY (note_id) REFERENCES notes(id) ON DELETE CASCADE
+    modified_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')),
+    FOREIGN KEY (folder_id) REFERENCES folders(id) ON DELETE SET NULL
 );
-CREATE INDEX IF NOT EXISTS idx_attachments_note ON attachments(note_id);
+CREATE INDEX IF NOT EXISTS idx_documents_folder ON documents(folder_id);
 ```
 
 ### Rust Model
 
 ```rust
-pub struct Attachment {
+pub struct Document {
     pub id: String,
-    pub note_id: String,
+    pub title: String,
     pub file_name: String,
     pub file_path: String,
     pub mime_type: String,
+    pub content_text: String,
+    pub tags: Vec<String>,
     pub size_bytes: i64,
-    pub width: Option<i32>,
-    pub height: Option<i32>,
-    pub thumbnail_path: Option<String>,
+    pub folder_id: Option<String>,
     pub created_at: String,
-}
-
-pub struct NewAttachment {
-    pub note_id: String,
-    pub file_name: String,
-    pub file_path: String,
-    pub mime_type: String,
-    pub size_bytes: i64,
-    pub width: Option<i32>,
-    pub height: Option<i32>,
+    pub modified_at: String,
 }
 ```
 
 ## Storage
 
-### File Location
-- iOS: `~/Documents/flowflow/attachments/{note_id}/{uuid}.{ext}`
-- Desktop: `/tmp/flowflow/attachments/{note_id}/{uuid}.{ext}`
+- Files saved to: `~/Documents/flowflow/imports/{uuid}.{ext}`
 - Same pattern as audio files in `src/services/audio.rs:output_dir()`
+- Extracted text stored in SQLite `content_text` field
+- Original file kept for reference
 
-### Thumbnails
-- Generate thumbnails for images (200x200px) using the `image` crate
-- Store in `~/Documents/flowflow/thumbnails/{uuid}_thumb.jpg`
-- Display thumbnails in NoteCard and NoteDetail attachment list
-- Full-size on tap (lightbox or fullscreen view)
+## Import Pipeline
 
-## Rust Crates Needed
+```
+File selected via <input type="file">
+  → Save raw file to Documents dir
+  → Detect MIME type (extension-based)
+  → Extract text content:
+      TXT → read directly
+      PDF → pdf-extract crate
+      DOCX → docx-rs crate
+  → Generate title from filename (or first line)
+  → Store in documents table
+  → Auto-generate tags via LLM (same call as notes)
+  → Chunk text (512 tokens)
+  → Embed chunks via OpenAI
+  → Store vectors in LanceDB with metadata (doc_id, folder_id, tags)
+  → Document now searchable via RAG
+```
 
-| Crate | Purpose | Size |
-|-------|---------|------|
-| `image` | Decode/encode images, generate thumbnails | ~2MB |
-| `mime_guess` | Detect MIME type from file extension | ~100KB |
+## Integration with Notes
 
-Add to `Cargo.toml`:
+### Attach to Note
+A note can reference imported documents:
+- Junction table `notes_documents (note_id, document_id)`
+- Or simpler: document has optional `note_id` field
+- In NoteDetail: "Import" button adds document linked to current note
+- Linked documents visible in note view
+
+### Standalone Import
+- From sidebar "Documents" section
+- Import without linking to a note
+- Assign to folder, add tags
+- Document exists as independent entity in RAG
+
+## Cargo Dependencies
+
 ```toml
-image = { version = "0.25", default-features = false, features = ["jpeg", "png"] }
-mime_guess = "2"
+# PDF text extraction
+pdf-extract = "0.7"
+
+# DOCX parsing (if needed)
+docx-rs = "0.4"
 ```
 
-## UI Integration
+Start with TXT only (zero new deps), add PDF extraction when validated.
 
-### NoteDetail — Attachment Button
-- Add paperclip/image icon button next to the mic button in the fixed bottom toolbar
-- Tap → shows options: "Photo Library", "Camera", "File"
-- Each option triggers the appropriate `<input type="file">` variant
+## RAG Integration
 
-### NoteDetail — Attachment Display
-- Below the textarea, show attached images as a horizontal scrollable row
-- Thumbnails: 80x80px rounded, tap for full-size
-- Non-image files: icon + filename + size
-- Delete button (X) on each attachment
-
-### NoteCard — Attachment Badge
-- Paperclip icon or image count badge on cards with attachments
-- "3 photos" or paperclip icon in the metadata row (next to date and folder)
-
-## Dioxus File Upload Flow
-
-```
-User taps "Photo" button
-  → Hidden <input type="file" accept="image/*"> triggered via JS
-  → iOS photo picker opens natively
-  → User selects photo(s)
-  → onchange fires with FileEngine data
-  → Read file bytes in Rust
-  → Generate UUID filename
-  → Save to Documents/flowflow/attachments/
-  → Generate thumbnail (image crate)
-  → Insert into attachments table
-  → Display in NoteDetail
-  → Auto-save links attachment to note
-```
-
-## Testing Notes
-
-- **Must test on real iOS device** — simulator may not have camera
-- Photo picker works differently on simulator (uses Photos.app with sample images)
-- Check file size limits (WKWebView may have memory constraints for large images)
-- Consider image compression before storage (JPEG quality 80% saves ~60% space)
-
-## Priority
-
-Medium effort (1-2 days). Implement after pin notes, search, and AI titles. The `<input type="file">` approach needs validation on a real iOS device first — if it works in WKWebView, this becomes a quick win.
+Imported documents are treated identically to notes in the RAG pipeline:
+- Same chunking logic (512 tokens)
+- Same embedding model (text-embedding-3-small)
+- Same LanceDB storage
+- Differentiated by `entity_type: "document"` in vector metadata
+- Searchable alongside notes in chat (global, folder-scoped, tag-scoped)

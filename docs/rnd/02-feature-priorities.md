@@ -1,114 +1,187 @@
 # 02 — Feature Priorities
 
-Ranked features by impact/effort for FlowFlow. Bucket classification: A = pure Dioxus (HTML/CSS/Rust), B = needs objc2 FFI, C = needs Swift bridge or native extension.
+Core MVP features for FlowFlow. Cosmetic UI polish deferred — focus is on intelligence layer.
 
-## Impact / Effort Matrix
+## Priority Matrix
 
-| # | Feature | Impact | Effort | Score | Bucket |
-|---|---------|--------|--------|-------|--------|
-| 1 | Pin notes | 5 | 1 | +4 | A |
-| 2 | Full-text search (FTS5) with highlights | 5 | 2 | +3 | A |
-| 3 | AI auto-title (replace datetime with LLM-generated title) | 5 | 2 | +3 | A |
-| 4 | Toast undo after deletion (soft delete) | 4 | 1 | +3 | A |
-| 5 | Transcript cleanup via LLM (remove hesitations) | 5 | 2 | +3 | A |
-| 6 | Daily timeline grouping (notes grouped by day) | 4 | 1 | +3 | A |
-| 7 | Inline tags `#tag` + auto-extraction | 4 | 2 | +2 | A |
-| 8 | Continue/Append voice on existing note | 4 | 2 | +2 | A |
-| 9 | Summary templates (meeting, journal, brainstorm) | 4 | 2 | +2 | A |
-| 10 | Photo/file attachments | 4 | 2 | +2 | A/B |
-| 11 | Date display below AI title | 3 | 1 | +2 | A |
-| 12 | Search by criteria (date, tag, folder, has-audio) | 4 | 3 | +1 | A |
-| 13 | Tags inside folders (filter by tag within folder) | 3 | 2 | +1 | A |
-| 14 | RAG local + Chat with notes (Track F) | 5 | 4 | +1 | A |
-| 15 | Long-press action sheet on note cards | 3 | 2 | +1 | A |
-| 16 | Sort/filter via bottom sheet | 3 | 2 | +1 | A |
-| 17 | Markdown rendering (basic: bold, italic, lists, headings) | 3 | 3 | 0 | A |
-| 18 | Biometric lock per note (Face ID) | 3 | 2 | +1 | B |
-| 19 | Share sheet (native iOS) | 3 | 2 | +1 | B |
-| 20 | Camera capture in notes | 3 | 1 | +2 | A |
+| # | Feature | Impact | Effort | Priority |
+|---|---------|--------|--------|----------|
+| 1 | **Document import** (PDF, TXT, DOC) | 5 | 2 | Critical |
+| 2 | **Tags system** (auto + manual, linked to folders/RAG) | 5 | 2 | Critical |
+| 3 | **AI post-processing** (title + cleanup + tags, single call) | 5 | 2 | Critical |
+| 4 | **Embeddings + LanceDB** (Track E) | 5 | 3 | Critical |
+| 5 | **RAG Chat** — global scope (Track F) | 5 | 3 | Critical |
+| 6 | **RAG Chat** — folder-scoped | 4 | 1 | High |
+| 7 | **RAG Chat** — tag-scoped | 4 | 1 | High |
+| 8 | **Full-text search** (FTS5, hybrid with semantic) | 4 | 2 | High |
+| 9 | **Continue/Append voice** on existing note | 3 | 1 | Medium |
+| 10 | **Future: REST API / web interface** | 4 | 4 | Deferred |
 
-## Quick Wins (1-2 hours each)
+## 1. Document Import System
 
-### 1. Pin Notes
-- Add `pinned BOOLEAN DEFAULT 0` + `pinned_at TEXT` to `notes` table (V2 migration)
-- Sort: `ORDER BY pinned DESC, modified_at DESC`
-- Pin icon on `NoteCard`, toggle in `NoteDetail` or long-press menu
-- "Pinned" section header in `NotesList` when at least one note is pinned
+### Concept
+Two entry points for importing documents:
+- **Inside a note**: attach files to an existing note (import section in note editor)
+- **Standalone**: import documents directly from the sidebar "Documents" section
 
-### 2. Toast Undo After Deletion
-- Replace hard `DELETE` with soft delete: add `deleted_at TEXT` column
-- Show Toast component (slide-up, 5s timer, "Undo" button)
-- Purge on app start: `DELETE FROM notes WHERE deleted_at < datetime('now', '-1 hour')`
-- CSS animation: slide-up 150ms (consistent with existing transitions)
+### Data Model
+```sql
+CREATE TABLE IF NOT EXISTS documents (
+    id TEXT PRIMARY KEY,
+    title TEXT NOT NULL,
+    file_path TEXT NOT NULL,
+    mime_type TEXT NOT NULL,
+    content_text TEXT NOT NULL DEFAULT '',
+    tags TEXT NOT NULL DEFAULT '[]',
+    folder_id TEXT,
+    created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')),
+    modified_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')),
+    FOREIGN KEY (folder_id) REFERENCES folders(id) ON DELETE SET NULL
+);
+```
 
-### 3. Daily Timeline Grouping
-- Group notes by date in `NotesList` ("Today", "Yesterday", "8 May 2026")
-- Sticky section headers via CSS `position: sticky`
-- French date format (consistent with existing `generate_auto_title()`)
+### Text Extraction
+- **TXT**: read directly
+- **PDF**: Rust crate `pdf-extract` or `lopdf` for text extraction
+- **DOC/DOCX**: Rust crate `docx-rs` for OOXML parsing
+- Extracted text stored in `content_text` → fed into embeddings pipeline
 
-### 4. Date Below AI Title
-- When note has an AI-generated title (not datetime), show the creation date below it
-- Format: "8 mai 2026, 14:30" in gray-400 text-xs (already used in NoteCard)
-- When title IS the datetime auto-title, don't duplicate — show nothing below
+### Import Flow
+```
+User taps "Import" → <input type="file"> → iOS Files picker
+  → Read file bytes → Save to Documents dir
+  → Extract text content (PDF/TXT/DOC)
+  → Store in documents table
+  → Auto-generate tags via LLM
+  → Chunk + embed into LanceDB
+  → Available in RAG search
+```
 
-### 5. Empty States
-- "No notes" state: SVG illustration + "Tap + to start" + CTA button
-- "No search results" state: "No matches" + "Clear search" link
-- "Empty folder" state: folder icon + "This folder is empty"
+## 2. Tags System
 
-## Medium-Term (1-2 days each)
+### Architecture
+Tags are the connective tissue between notes, documents, folders, and RAG.
 
-### 6. Full-Text Search (FTS5)
-- Enable FTS5 virtual table: `CREATE VIRTUAL TABLE notes_fts USING fts5(title, content, content=notes, content_rowid=rowid)`
-- Trigger to sync on INSERT/UPDATE/DELETE
-- SearchBar component in TopBar with 200ms debounce
-- Highlight matches via SQLite `snippet()` function
-- Filter results: all notes, current folder, specific tag
+- **On notes**: auto-extracted by LLM after transcription, manually editable
+- **On documents**: auto-generated by LLM after import, manually editable
+- **On folders**: default tags (new notes in folder inherit them)
+- **In RAG**: tags as metadata filter on vector search
 
-### 7. Inline Tags `#tag`
-- Parse `#[a-zA-ZÀ-ÿ0-9_-]+` regex from content on save
-- Store in `tags TEXT DEFAULT '[]'` (already exists in schema)
-- Auto-extract on save, display as colored chips in NoteCard
-- Tag cloud view in sidebar drawer (below folders)
-- Tap tag → filter notes by tag
-- Tags inside folders: filter notes within a specific folder by tag
+### Storage
+Reuse existing `tags TEXT DEFAULT '[]'` JSON field on `notes` table.
+Same field on `documents` table.
+Optional: separate `tags` table for fast lookups:
+```sql
+CREATE TABLE IF NOT EXISTS tags (
+    id TEXT PRIMARY KEY,
+    name TEXT NOT NULL UNIQUE,
+    created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now'))
+);
+CREATE TABLE IF NOT EXISTS entity_tags (
+    tag_id TEXT NOT NULL,
+    entity_id TEXT NOT NULL,
+    entity_type TEXT NOT NULL CHECK (entity_type IN ('note', 'document')),
+    PRIMARY KEY (tag_id, entity_id),
+    FOREIGN KEY (tag_id) REFERENCES tags(id) ON DELETE CASCADE
+);
+```
 
-### 8. AI Auto-Title + Transcript Cleanup
-- OpenAI API call after Soniox transcription completes
-- Single prompt: "Generate a short title (max 6 words) and clean up the transcript (remove hesitations, false starts, restructure into paragraphs)"
-- Async, non-blocking — note remains usable during processing
-- Visual indicator: spinner or "AI" badge on card while processing
-- Fallback: keep datetime title if API fails
-- Rewrite intensity control: low (minimal cleanup) / medium / high (full restructure)
+### Tag Interconnection
+- Filter notes by tag within a folder: "all #meeting in Work folder"
+- RAG scoped by tag: "search only #budget content"
+- Tag cloud in sidebar drawer
+- Tap tag → filter view
 
-### 9. Continue/Append Voice
-- Mic button in NoteDetail already exists
-- When recording on an existing note, append transcription to content with separator
-- Re-trigger auto-title + tags if note content changed significantly
-- UX: same mic button, but now it says "Continue" instead of "Dictate" on existing notes
+## 3. AI Post-Processing
 
-### 10. Search by Criteria
-- Advanced search: date range, tag filter, folder filter, has-audio, has-attachment
-- Bottom sheet with filter controls
-- Combine with FTS5 for text search + metadata filters
-- Save frequent searches as "Smart Folders" (dynamic, like Apple Notes)
+Single OpenAI API call after transcription or document import:
+```json
+{
+  "title": "short title, 6 words max",
+  "tags": ["tag1", "tag2", "tag3"],
+  "cleaned": "cleaned transcript text (notes only)"
+}
+```
 
-## Deferred (Track E/F)
+- **Auto-title**: replaces datetime with meaningful title
+- **Transcript cleanup**: removes hesitations, restructures (notes with voice only)
+- **Auto-tags**: 3-5 relevant tags extracted from content
+- Cost: ~$0.001 per note (GPT-4o-mini)
+- Async, non-blocking — note/document remains usable during processing
 
-### 11. Embeddings + LanceDB (Track E)
-- OpenAI text-embedding-3-small API call on note save/update
-- Store vectors in LanceDB (local file-based vector DB)
-- Chunk long notes (512 tokens per chunk)
-- Re-embed on significant content changes
+## 4. Embeddings + LanceDB (Track E)
 
-### 12. RAG + Chat (Track F)
-- Semantic search: query → embed → top-k similar chunks from LanceDB
-- Chat: user question → retrieve relevant chunks → build context → LLM response
-- Display sources with citations
-- "Related notes" sidebar via vector similarity
+### Pipeline
+```
+Content saved/imported
+  → Chunk into 512-token segments
+  → Call OpenAI text-embedding-3-small → 1536-dim vectors
+  → Store in LanceDB with metadata (id, type, folder_id, tags)
+  → Re-embed on significant content change
+```
 
-### 13. Summary Templates
-- 4 presets: Meeting, Journal, Brainstorm, Interview
-- Different LLM prompts per template (action items for meeting, mood for journal)
-- Picker in NoteDetail before or after recording
-- Store summary separately from raw content
+### Metadata in Vectors
+Each chunk stored with:
+- `entity_id`: note or document ID
+- `entity_type`: "note" or "document"
+- `folder_id`: for folder-scoped search
+- `tags`: for tag-scoped search
+- `chunk_index`: position in source content
+- `text`: raw chunk text (for display in citations)
+
+## 5. RAG Chat (Track F)
+
+### Scoping
+| Context | How it works | UX |
+|---------|-------------|-----|
+| **Global** | Search all vectors | Chat accessible from main view |
+| **Folder-scoped** | Filter vectors by `folder_id` | Chat from within a folder (auto-scoped, no reference needed) |
+| **Tag-scoped** | Filter vectors by tag | Use `@#tag` in chat or select tag filter |
+
+### Pipeline
+```
+User question
+  → Embed question (OpenAI)
+  → Top-5 chunks from LanceDB (filtered by scope)
+  → Build prompt: system + chunks as context + question
+  → OpenAI chat completion
+  → Response with source citations (note title, document name)
+```
+
+### Reference System in Chat
+- `@folder-name` → narrow to that folder
+- `@#tag` → narrow to that tag
+- No prefix → use current scope (folder if in folder view, global otherwise)
+
+### Chat UI
+- Separate view (not mixed with note editor)
+- Message history (user questions + AI responses)
+- Source citations: "Based on: Note X (8 May), Document Y.pdf"
+- Input field at bottom, send button
+
+## 6. Full-Text Search (FTS5)
+
+Hybrid search combining keyword + semantic:
+- FTS5 virtual table on notes + documents content
+- Keyword results ranked by BM25
+- Semantic results from LanceDB cosine similarity
+- Merged ranking (Reciprocal Rank Fusion or simple weighted score)
+- Filter by folder, tag, date, content type (note/document)
+
+## 7. Future: REST API / Web Interface
+
+Architecture consideration — don't block this:
+- Core logic in `services/` layer (no Dioxus dependency)
+- Could expose via `actix-web` or `axum` as REST API
+- Web interface to chat with notes from browser
+- Sync/migration between devices
+- Not MVP, but keep `services/` layer clean and reusable
+
+## Implementation Order
+
+1. **AI service** (`src/services/ai.rs`) — OpenAI client for titles + tags + cleanup + embeddings
+2. **Document import** — `documents` table, file import UI, text extraction
+3. **Tags system** — auto-generation, manual editing, folder defaults
+4. **Embeddings** — chunk + embed on save/import, LanceDB storage
+5. **FTS5** — keyword search as stepping stone
+6. **RAG Chat** — chat UI + pipeline (global first, then folder/tag scoping)

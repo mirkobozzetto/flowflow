@@ -1,237 +1,240 @@
 # 05 — AI Features
 
-LLM-powered features for FlowFlow. All use OpenAI API (already planned for embeddings). Async, non-blocking — notes remain usable while AI processes.
+LLM-powered intelligence layer for FlowFlow. All features use OpenAI API via reqwest (same pattern as Soniox client).
 
 ## Current State
 
-- Transcription: Soniox REST API (stt-async-v4, French-optimized)
-- Auto-title: datetime format ("8 mai 2026, 14:30") — functional but not intelligent
-- Tags: stored as JSON array in SQLite, but never auto-generated
+- Transcription: Soniox REST API (stt-async-v4, French) — working
+- Auto-title: datetime format ("8 mai 2026, 14:30") — functional, not intelligent
+- Tags: stored as JSON array in SQLite, never auto-generated
 - Embeddings: planned (OpenAI text-embedding-3-small + LanceDB)
 
-## Feature 1: AI Auto-Title
+## AI Service Architecture
 
-### Problem
-Datetime titles are functional but uninformative. "8 mai 2026, 14:30" tells you when, not what.
-
-### Solution
-After transcription completes, call OpenAI to generate a short, meaningful title.
+Single service handling all OpenAI interactions:
 
 ```
-Prompt: "Generate a title for this note in 6 words or less. The note is in French.
-Return ONLY the title, no quotes, no explanation.
-
-Note content:
-{content}"
+src/services/ai.rs
+  ├── OpenAiClient (reqwest-based, same pattern as SonioxClient)
+  ├── process_note(content) → { title, tags, cleaned_text }
+  ├── process_document(content) → { title, tags }
+  ├── embed(text) → Vec<f32> (1536 dimensions)
+  └── chat(question, context_chunks) → response
 ```
 
-### Display
-- AI-generated title replaces the datetime title
-- Creation date shown below the title in smaller gray text (always visible)
-- If AI fails, keep the datetime title as fallback
-- Visual indicator while processing: subtle spinner or "..." placeholder
+Environment variable: `OPENAI_API_KEY` in `.env`
 
-### Implementation
-- New service: `src/services/ai.rs` — OpenAI client (reuse reqwest)
-- Call after Soniox transcription in `NoteDetail`'s `use_effect`
-- Update note title via `db.update_note()`
-- Environment variable: `OPENAI_API_KEY` in `.env`
+## Feature 1: AI Post-Processing (Single Call)
 
-## Feature 2: Transcript Cleanup
-
-### Problem
-Raw transcriptions contain hesitations ("euh", "hmm"), false starts, repetitions, and run-on sentences.
-
-### Solution
-LLM cleans up the transcript while preserving the speaker's voice and meaning.
-
-### Rewrite Intensity Levels
-Inspired by AudioPen:
-
-| Level | What changes | What stays |
-|-------|-------------|------------|
-| **Low** | Remove "euh/hmm/ah", fix punctuation | Everything else verbatim |
-| **Medium** | + Split run-on sentences, fix grammar | Key phrases, tone, personality |
-| **High** | + Restructure into paragraphs, improve flow | Core meaning, facts, decisions |
+After transcription completes OR document is imported, one API call handles everything:
 
 ```
-Prompt (medium): "Clean up this French voice transcription.
-Remove hesitations (euh, hmm, ah, ben), fix punctuation, split run-on sentences.
-Keep the speaker's voice and tone. Do not add information.
-Return ONLY the cleaned text.
-
-Transcript:
-{content}"
+POST https://api.openai.com/v1/chat/completions
+Model: gpt-4o-mini
 ```
 
-### UX
-- Toggle in NoteDetail: "Clean up" button (or automatic after transcription)
-- Store both raw transcript and cleaned version
-- Allow switching between raw and clean
-- Or: apply cleanup directly, keep raw in a hidden field for re-processing
-
-## Feature 3: Auto-Tags Extraction
-
-### Problem
-Tags exist in the data model (`tags: Vec<String>`) but are never auto-generated.
-
-### Solution
-Extract 3-5 relevant tags from note content via LLM.
-
+### Prompt (notes with voice)
 ```
-Prompt: "Extract 3-5 tags from this French note. Tags should be single words or short phrases.
-Return as comma-separated list, no # prefix, no explanation.
-
-Note:
-{content}"
-```
-
-### Implementation
-- Call in the same API request as auto-title (batch: title + tags in one prompt)
-- Parse comma-separated response → `Vec<String>`
-- Save via `db.update_note()` with `tags: Some(tags)`
-- Display as colored chips in NoteCard and NoteDetail
-- Tap a tag → filter notes by that tag
-
-### Combined Prompt (Title + Tags + Cleanup)
-
-Single API call for all three:
-```
-Prompt: "Process this French voice note. Return JSON only, no explanation.
-
+Process this French voice note. Return JSON only.
 {
   "title": "short title, 6 words max",
   "tags": ["tag1", "tag2", "tag3"],
-  "cleaned": "cleaned transcript text"
+  "cleaned": "transcript with hesitations removed, properly punctuated"
 }
 
-Note:
-{content}"
+Content:
+{content}
 ```
 
-This reduces API calls from 3 to 1 and cuts latency.
-
-## Feature 4: Action Items Extraction
-
-### Problem
-Voice notes from meetings contain action items buried in text.
-
-### Solution
-Extract action items as a structured checklist.
-
+### Prompt (imported documents)
 ```
-Prompt: "Extract action items from this French note as a bullet list.
-Each item: who does what by when (if mentioned).
-If no action items, return 'none'.
+Process this document. Return JSON only.
+{
+  "title": "short descriptive title, 6 words max",
+  "tags": ["tag1", "tag2", "tag3"]
+}
 
-Note:
-{content}"
+Content (first 2000 chars):
+{content_preview}
 ```
-
-### Storage
-- Store as separate field or as a dedicated section at the top of the note
-- Or: create linked "task" entities (future: tasks table)
-- Display: checkbox list in NoteDetail
-
-## Feature 5: Summary Templates
-
-### Templates
-
-| Template | Focus | Example Output |
-|----------|-------|---------------|
-| **Meeting** | Decisions, action items, attendees, next steps | Structured meeting minutes |
-| **Journal** | Mood, reflections, key events | Personal journal entry |
-| **Brainstorm** | Ideas grouped by theme, top 3 priorities | Organized idea map |
-| **Interview** | Key quotes, impressions, follow-up questions | Interview debrief |
 
 ### Implementation
-- Enum `SummaryTemplate` stored in SQLite (or just a string field)
-- Picker in NoteDetail: dropdown or chips before/after recording
-- Different LLM prompt per template
-- Store summary separately from raw content (`summary TEXT` column)
+- Async, non-blocking — note/document remains usable during processing
+- Fallback: keep datetime title if API fails
+- Cost: ~$0.001 per note (GPT-4o-mini)
+- At 100 notes/month: ~$0.10/month
 
-## Feature 6: Continue / Append Voice
+## Feature 2: Embeddings (Track E)
 
-### Problem
-Currently, recording always creates context for a new dictation. No way to add to an existing note's audio.
-
-### Solution
-When in NoteDetail of an existing note, the mic button says "Continue" instead of "Dictate". New transcription appends to existing content.
-
-### Implementation
-- Same mic button, different label based on `is_new`
-- Append with separator: `\n\n` or timestamp marker
-- Re-trigger AI processing (title + tags) after append if content changed significantly
-- Audio files: save as separate WAV, link both to the same note via `update_audio_metadata`
-
-## Feature 7: Semantic Search (Track E)
-
-### Stack
-- **Embeddings**: OpenAI text-embedding-3-small (1536 dimensions, ~$0.02/1M tokens)
-- **Vector DB**: LanceDB (local, file-based, Rust-native)
-- **Chunking**: 512 tokens per chunk for long notes
-
-### Flow
+### Pipeline
 ```
-Note saved/updated
-  → Chunk content (if > 512 tokens)
-  → Call OpenAI embeddings API
-  → Store vectors in LanceDB with note_id + chunk_id
-  → On search: embed query → top-k cosine similarity → return notes
+Content saved or imported
+  → Split into chunks (512 tokens, overlap 50 tokens)
+  → POST https://api.openai.com/v1/embeddings
+      model: text-embedding-3-small
+      → 1536-dimension vector per chunk
+  → Store in LanceDB with metadata
+  → Re-embed on significant content change (>20% diff)
 ```
 
-### Hybrid Search
-Combine FTS5 (keyword match) + LanceDB (semantic match) for best results. Rank by weighted score.
-
-## Feature 8: Chat with Notes (Track F)
-
-### Flow
-```
-User asks question
-  → Embed question via OpenAI
-  → Retrieve top-5 relevant chunks from LanceDB
-  → Build context: system prompt + chunks + question
-  → Call OpenAI chat completion
-  → Display response with source citations
+### Chunking Strategy
+```rust
+fn chunk_text(text: &str, chunk_size: usize, overlap: usize) -> Vec<String> {
+    // Split by sentences first, then group into ~512 token chunks
+    // Overlap of ~50 tokens between chunks for context continuity
+}
 ```
 
-### UX
-- Chat view: separate from note editor
-- Accessible from sidebar or dedicated tab
-- Shows sources: "Based on: Note X (8 May), Note Y (3 May)"
-- Follow-up questions in same thread
+### LanceDB Storage
+Each vector record contains:
+```rust
+struct ChunkRecord {
+    vector: Vec<f32>,        // 1536 dimensions
+    entity_id: String,       // note or document ID
+    entity_type: String,     // "note" or "document"
+    folder_id: Option<String>,
+    tags: Vec<String>,
+    chunk_index: u32,
+    text: String,            // raw chunk text for citations
+}
+```
 
-## Feature 9: Related Notes (Proactive)
+### Tracking Table (SQLite)
+```sql
+CREATE TABLE IF NOT EXISTS embeddings_log (
+    entity_id TEXT NOT NULL,
+    entity_type TEXT NOT NULL CHECK (entity_type IN ('note', 'document')),
+    content_hash TEXT NOT NULL,
+    chunk_count INTEGER NOT NULL,
+    embedded_at TEXT NOT NULL,
+    PRIMARY KEY (entity_id, entity_type)
+);
+```
 
-Inspired by Mem "Heads Up":
-- When editing a note, sidebar shows 3-5 related notes (by vector similarity)
-- Updates as content changes
-- Tap to open related note
-- Helps build connections between ideas
+Skip re-embedding if `content_hash` hasn't changed.
+
+### Crate
+```toml
+lancedb = "0.x"  # check latest version compatible with iOS/aarch64
+```
+
+LanceDB is file-based (no server). Store in `~/Documents/flowflow/vectors/`.
+
+## Feature 3: RAG Chat (Track F)
+
+### Pipeline
+```
+User asks: "What did we discuss about the budget?"
+  → Embed question via OpenAI (same model)
+  → Query LanceDB: top-5 chunks by cosine similarity
+      Filter by scope:
+        Global → no filter
+        Folder → WHERE folder_id = ?
+        Tag → WHERE tags CONTAINS ?
+  → Build prompt:
+      System: "Answer based on the provided context. Cite sources."
+      Context: [chunk1, chunk2, ..., chunk5]
+      User: question
+  → POST OpenAI chat completion
+  → Parse response
+  → Display with source citations
+```
+
+### Chat Prompt Template
+```
+You are a helpful assistant that answers questions based on the user's notes and documents.
+Use ONLY the provided context to answer. If the answer is not in the context, say so.
+Always cite which note or document the information comes from.
+Answer in French.
+
+Context:
+---
+[Note: "Réunion budget Q3" (8 mai 2026)]
+{chunk text}
+---
+[Document: "Budget_Q3.pdf"]
+{chunk text}
+---
+
+Question: {user_question}
+```
+
+### Chat Data Model
+```sql
+CREATE TABLE IF NOT EXISTS chat_messages (
+    id TEXT PRIMARY KEY,
+    scope_type TEXT NOT NULL CHECK (scope_type IN ('global', 'folder', 'tag')),
+    scope_value TEXT,
+    role TEXT NOT NULL CHECK (role IN ('user', 'assistant')),
+    content TEXT NOT NULL,
+    sources TEXT DEFAULT '[]',
+    created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now'))
+);
+```
+
+Persist chat history per scope. User can review past conversations.
+
+### Source Citations
+Each AI response includes source references:
+```rust
+struct ChatSource {
+    entity_id: String,
+    entity_type: String,  // "note" or "document"
+    title: String,
+    chunk_preview: String, // first 100 chars of matched chunk
+}
+```
+
+Displayed as tappable links below the AI response → navigates to source note/document.
+
+## Feature 4: Document Content Extraction for RAG
+
+Imported documents need text extraction before embedding:
+
+| Format | Method | Crate |
+|--------|--------|-------|
+| TXT/MD/CSV | Direct read | std::fs |
+| PDF | Text extraction | `pdf-extract` |
+| DOCX | XML parsing | `docx-rs` |
+| JSON | Structured → flat text | `serde_json` |
+
+Extracted text stored in `documents.content_text` and fed into same embedding pipeline as notes.
+
+## Feature 5: Tag-Based RAG Filtering
+
+Tags stored as metadata in LanceDB vectors enable scoped search:
+
+```rust
+// Global search
+let results = vector_store.search(query_vector, 5, None, None);
+
+// Folder-scoped
+let results = vector_store.search(query_vector, 5, Some(folder_id), None);
+
+// Tag-scoped
+let results = vector_store.search(query_vector, 5, None, Some("#meeting"));
+
+// Combined: folder + tag
+let results = vector_store.search(query_vector, 5, Some(folder_id), Some("#budget"));
+```
+
+This is the "smart context" system — tags and folders are not just organization tools, they're RAG filters.
 
 ## API Cost Estimates
 
-| Feature | API | Cost per note |
+| Feature | API | Cost per call |
 |---------|-----|--------------|
 | Title + Tags + Cleanup | GPT-4o-mini | ~$0.001 |
-| Embeddings | text-embedding-3-small | ~$0.0001 |
-| Chat (Track F) | GPT-4o-mini | ~$0.005 per question |
+| Embedding (per chunk) | text-embedding-3-small | ~$0.00002 |
+| Chat (per question) | GPT-4o-mini | ~$0.005 |
 
-At 100 notes/month: ~$0.10/month for AI features. Negligible.
-
-## Environment Variables
-
-```
-OPENAI_API_KEY=sk-...
-```
-
-Add to `.env` (never committed). Add to `Dioxus.toml` plist if needed for iOS sandbox.
+At 100 notes/month + 50 questions/month: ~$0.35/month total.
 
 ## Implementation Order
 
-1. **AI service** (`src/services/ai.rs`): OpenAI client, title+tags+cleanup combined prompt
-2. **Wire into NoteDetail**: call after transcription, update note
-3. **Display**: AI title + date below + tag chips
-4. **Continue/Append**: mic button label change, content append
-5. **Track E**: LanceDB + embeddings on save
-6. **Track F**: Chat view + RAG pipeline
+1. `src/services/ai.rs` — OpenAI client (title + tags + cleanup)
+2. Wire into NoteDetail — call after transcription
+3. `src/services/vectordb.rs` — LanceDB wrapper (store, search, delete)
+4. Embed on note save + document import
+5. `src/services/chat.rs` — RAG pipeline
+6. `src/ui/chat.rs` — Chat view with scope selection
