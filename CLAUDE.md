@@ -40,8 +40,7 @@ Mirko Bozzetto — freelance full-stack developer, Brussels.
 | B | Audio capture iOS mic (cpal + hound, save WAV) | Done |
 | C | Soniox REST (upload WAV → transcription) | Done |
 | D | SQLite storage + UI refactor + Tailwind | Done |
-| E | Embeddings (OpenAI text-embedding-3-small + LanceDB) | In progress |
-| F | RAG + Chat (embed → search → context → LLM → response) | — |
+| E | Embeddings + RAG + Chat | In progress |
 
 ### Track E Progress
 
@@ -52,9 +51,9 @@ Mirko Bozzetto — freelance full-stack developer, Brussels.
 | 3 | Auto-embed on note save (validated on iPhone) | Done |
 | 4 | Settings UI for API keys (in-app) | — |
 | 5 | Tags UI on NoteDetail (chips, add/remove, LLM auto-gen) | — |
-| 6 | Chat UI + RAG pipeline (search → context → response) | — |
+| 6 | Chat UI + RAG pipeline (search → context → response) | Done |
 
-## Architecture (Clean Architecture, SRP)
+## Architecture (Clean Architecture, SRP — 31 modules)
 
 ```
 src/
@@ -68,26 +67,29 @@ src/
     note_repo.rs         CRUD notes
     folder_repo.rs       CRUD folders
   services/              business logic
-    constants.rs         OpenAI config (models, dims, chunk sizes)
+    constants.rs         AI config (models, dims, chunks, RAG prompt, top_k)
     ai.rs                OpenAIClient (embed, chat), chunk_text
     vectordb.rs          VectorStore (LanceDB: store, search, delete)
     embed.rs             embed_note, delete_note_embeddings (background)
+    rag.rs               RAG pipeline (embed query → vector search → context → LLM)
     audio.rs             AudioRecorder (cpal, WAV capture)
     transcription.rs     SonioxClient (upload, poll, transcribe)
   platform/              OS-specific
     ios.rs               AVAudioSession, documents_dir
   ui/                    Dioxus components (1 component = 1 file)
-    mod.rs               App root component
-    state.rs             AppState, View enum
-    top_bar.rs           TopBar (navigation, back button)
+    mod.rs               App root component + view routing
+    state.rs             AppState, View enum (NotesList, NoteDetail, Chat)
+    top_bar.rs           TopBar (navigation, back button, chat icon)
     sidebar.rs           SidebarOverlay, FolderSection, FolderItem
-    fab.rs               FloatingActionButton
+    fab.rs               FloatingActionButton (new note)
     note_list.rs         NotesList
     note_card.rs         NoteCard
-    note_detail.rs       NoteDetail (orchestrator)
+    note_detail.rs       NoteDetail (orchestrator, auto-embed on save)
     folder_picker.rs     FolderPicker (dropdown)
-    recording_bar.rs     RecordingBar, start_transcription
-    icons.rs             Phosphor SVG icons
+    recording_bar.rs     RecordingBar (voice recording in notes)
+    chat.rs              ChatView (RAG chat orchestrator, messages, typing indicator)
+    chat_input.rs        ChatInputBar (mic, text input, send, transcription)
+    icons.rs             Phosphor SVG icons (ChatAi, HeadCircuit, PaperPlaneRight, etc.)
 ```
 
 ## Data Entities
@@ -110,15 +112,22 @@ src/
 - `dx serve` auto-compiles to `assets/tailwind.css`
 - Custom colors: `ios-green` (#34c759), `ios-red` (#ff3b30), `ios-blue` (#007aff)
 - Mobile-first: touch targets 44px, safe area insets, scroll fix on empty pages
+- Animations: slideInRight/slideOutRight (views), fadeInUp (chat messages), typingDot (loading), pulseSoft (transcription)
 
-## Main Pipeline
+## Main Pipelines
 
 ```
-Mic capture → WAV/audio
-    → Soniox REST API → transcription
-    → LLM API → title + tags
-    → OpenAI API → embedding vector
-    → SQLite (metadata) + LanceDB (vector)
+Note Pipeline:
+  Mic capture → WAV → Soniox REST → transcription
+    → SQLite (metadata) + auto-embed on save
+    → OpenAI embed → chunk → LanceDB (vector)
+
+RAG Chat Pipeline:
+  User question → OpenAI embed (query vector)
+    → LanceDB vector search (top 5 chunks)
+    → Build context from matched notes
+    → OpenAI chat (system prompt + context + question)
+    → Response with source citations
 ```
 
 ## Stack Versions
@@ -213,7 +222,7 @@ xcrun devicectl manage pair --device <DEVICE_ID>
 <!-- gitnexus:start -->
 # GitNexus — Code Intelligence
 
-This project is indexed by GitNexus as **flowflow** (563 symbols, 854 relationships, 16 execution flows). Use the GitNexus MCP tools to understand code, assess impact, and navigate safely.
+This project is indexed by GitNexus as **flowflow** (606 symbols, 964 relationships, 26 execution flows). Use the GitNexus MCP tools to understand code, assess impact, and navigate safely.
 
 > If any GitNexus tool warns the index is stale, run `npx gitnexus analyze` in terminal first.
 
