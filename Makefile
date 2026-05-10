@@ -18,6 +18,6 @@ ddev:
 desktop:
 	set -a && . ./.env && dx serve --desktop
 
-# Device logs: open Console.app, select iPhone, filter "flowflow"
+# Device logs: Console.app → select iPhone → filter "FlowFlow"
 logs:
 	open -a Console
