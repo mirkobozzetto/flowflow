@@ -38,7 +38,7 @@ pub fn ChatInputBar(
     let is_transcribing = recording_state == RecordingState::Transcribing;
 
     rsx! {
-        div { class: "fixed bottom-0 left-0 right-0 px-4 py-3 bg-white border-t border-gray-200 z-30",
+        div { class: "fixed bottom-0 left-0 right-0 px-4 py-3 bg-white border-t border-gray-200 z-30 keyboard-aware",
             div { class: "flex items-center gap-2",
                 button {
                     class: if is_recording {

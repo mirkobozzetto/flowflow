@@ -2,12 +2,24 @@ use crate::services::audio::RecordingState;
 use crate::services::rag;
 use crate::ui::chat_input::ChatInputBar;
 use crate::ui::icons::*;
+use crate::ui::state::View;
 use crate::ui::AppState;
 use dioxus::prelude::*;
 
+fn md_to_html(md: &str) -> String {
+    use pulldown_cmark::{html, Parser};
+    let parser = Parser::new(md);
+    let mut html_output = String::new();
+    html::push_html(&mut html_output, parser);
+    html_output
+}
+
 #[derive(Clone)]
 struct ChatSource {
+    note_id: String,
     title: String,
+    chunk_text: String,
+    distance: f32,
 }
 
 #[derive(Clone)]
@@ -35,7 +47,10 @@ fn send_question(
                     .sources
                     .iter()
                     .map(|s| ChatSource {
+                        note_id: s.note_id.clone(),
                         title: s.title.clone(),
+                        chunk_text: s.chunk_text.clone(),
+                        distance: s.distance,
                     })
                     .collect();
                 msgs.write().push(ChatMsg::Bot {
@@ -73,16 +88,26 @@ pub fn ChatView() -> Element {
         }
     });
 
+    use_effect(move || {
+        let _len = messages().len();
+        dioxus::document::eval(
+            r#"
+            let el = document.getElementById('chat-messages');
+            if (el) el.scrollTop = el.scrollHeight;
+        "#,
+        );
+    });
+
     let is_empty = messages().is_empty();
 
     rsx! {
-        div { class: "pb-20",
-            div { class: "overflow-y-auto px-4 py-4",
-                style: "min-height: calc(100vh - 120px);",
+        div {
+            class: "overflow-hidden pb-20",
+            style: "height: calc(100% - var(--keyboard-inset, 0px));",
+            div { id: "chat-messages", class: "h-full overflow-y-auto px-4 pt-4 pb-4",
                 if is_empty && !loading() {
                     div {
-                        class: "flex flex-col items-center justify-center px-6",
-                        style: "min-height: calc(100vh - 200px);",
+                        class: "flex flex-col items-center justify-center px-6 h-full",
                         div { class: "text-gray-800 mb-5",
                             IconHeadCircuit { size: 80 }
                         }
@@ -102,7 +127,7 @@ pub fn ChatView() -> Element {
                                         key: "{i}",
                                         class: "flex justify-end",
                                         style: "animation: fadeInUp 0.15s ease-out;",
-                                        div { class: "bg-ios-blue text-white rounded-2xl rounded-br-md px-4 py-2.5 max-w-[80%] text-sm leading-relaxed",
+                                        div { class: "bg-ios-blue text-white rounded-2xl rounded-br-md px-4 py-2.5 max-w-[80%] text-sm leading-relaxed break-words",
                                             "{text}"
                                         }
                                     }
@@ -113,16 +138,33 @@ pub fn ChatView() -> Element {
                                         class: "flex justify-start",
                                         style: "animation: fadeInUp 0.15s ease-out;",
                                         div { class: "bg-white rounded-2xl rounded-bl-md px-4 py-2.5 max-w-[85%] shadow-sm",
-                                            p { class: "text-sm text-gray-900 leading-relaxed whitespace-pre-wrap",
-                                                "{text}"
+                                            div {
+                                                class: "text-sm text-gray-900 leading-relaxed break-words prose prose-sm",
+                                                dangerous_inner_html: md_to_html(text),
                                             }
                                             if !sources.is_empty() {
-                                                div { class: "mt-2 pt-2 border-t border-gray-100 flex flex-wrap gap-1.5",
-                                                    {sources.iter().enumerate().map(|(j, src)| rsx! {
-                                                        span {
-                                                            key: "{j}",
-                                                            class: "inline-flex px-2 py-0.5 rounded-full bg-ios-blue/8 text-[11px] text-ios-blue",
-                                                            "{src.title}"
+                                                div { class: "mt-2 pt-2 border-t border-gray-100 flex flex-col gap-1.5",
+                                                    {sources.iter().enumerate().map(|(j, src)| {
+                                                        let nid = src.note_id.clone();
+                                                        let preview = if src.chunk_text.chars().count() > 80 {
+                                                            let s: String = src.chunk_text.chars().take(80).collect();
+                                                            format!("{s}...")
+                                                        } else {
+                                                            src.chunk_text.clone()
+                                                        };
+                                                        let pct = ((1.0 - src.distance) * 100.0).round() as u32;
+                                                        let mut app = app.clone();
+                                                        rsx! {
+                                                            button {
+                                                                key: "{j}",
+                                                                class: "w-full text-left px-2.5 py-1.5 rounded-lg bg-ios-blue/5 active:bg-ios-blue/12",
+                                                                onclick: move |_| app.view.set(View::NoteDetail { note_id: nid.clone() }),
+                                                                div { class: "flex items-center justify-between",
+                                                                    span { class: "text-[11px] font-medium text-ios-blue", "{src.title}" }
+                                                                    span { class: "text-[10px] text-gray-400", "{pct}%" }
+                                                                }
+                                                                p { class: "text-[10px] text-gray-400 leading-tight mt-0.5 line-clamp-1", "{preview}" }
+                                                            }
                                                         }
                                                     })}
                                                 }
