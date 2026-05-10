@@ -1,0 +1,51 @@
+use crate::db::Database;
+use crate::ui::icons::*;
+use crate::ui::{AppState, View};
+use dioxus::prelude::*;
+use std::sync::Arc;
+
+#[component]
+pub fn TopBar() -> Element {
+    let mut app: AppState = use_context();
+    let db: Signal<Arc<Database>> = use_context();
+    let is_detail = matches!((app.view)(), View::NoteDetail { .. });
+
+    let title = match (app.view)() {
+        View::NotesList => match (app.selected_folder_id)() {
+            Some(ref fid) => db()
+                .get_folder(fid)
+                .ok()
+                .flatten()
+                .map(|f| f.name)
+                .unwrap_or_else(|| "Dossier".to_string()),
+            None => "Toutes mes notes".to_string(),
+        },
+        View::NoteDetail { .. } => "Note".to_string(),
+    };
+
+    rsx! {
+        div { class: "flex items-center px-4 py-3 bg-white border-b border-gray-200 sticky top-0 z-30 gap-3 min-h-[44px]",
+            if is_detail {
+                button {
+                    class: "min-w-[44px] min-h-[44px] flex items-center justify-center text-gray-700",
+                    onclick: move |_| {
+                        app.sliding_out.set(true);
+                        spawn(async move {
+                            futures_timer::Delay::new(std::time::Duration::from_millis(150)).await;
+                            app.sliding_out.set(false);
+                            app.view.set(View::NotesList);
+                        });
+                    },
+                    IconArrowLeft { size: 22 }
+                }
+            } else {
+                button {
+                    class: "min-w-[44px] min-h-[44px] flex items-center justify-center text-gray-700",
+                    onclick: move |_| app.sidebar_open.set(true),
+                    IconList { size: 22 }
+                }
+            }
+            span { class: "text-lg font-semibold text-gray-900 flex-1", "{title}" }
+        }
+    }
+}

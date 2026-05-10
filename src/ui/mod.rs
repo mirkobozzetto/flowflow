@@ -1,32 +1,24 @@
+mod fab;
 pub mod icons;
-mod layout;
-mod notes;
+mod note_card;
+mod note_detail;
+mod note_list;
+mod sidebar;
+mod state;
+mod top_bar;
+
+pub use state::{AppState, View};
 
 use crate::db::Database;
 use crate::services::audio::{AudioRecorder, RecordingState};
 use dioxus::prelude::*;
 use std::sync::{Arc, Mutex};
 
-use layout::{FloatingActionButton, SidebarOverlay, TopBar};
-use notes::{NoteDetail, NotesList};
-
-#[derive(Clone, Debug, PartialEq)]
-pub enum View {
-    NotesList,
-    NoteDetail { note_id: String },
-}
-
-#[derive(Clone)]
-pub struct AppState {
-    pub view: Signal<View>,
-    pub sidebar_open: Signal<bool>,
-    pub selected_folder_id: Signal<Option<String>>,
-    pub recording_state: Signal<RecordingState>,
-    pub folders_version: Signal<u32>,
-    pub sliding_out: Signal<bool>,
-    pub audio_levels: Signal<Vec<f32>>,
-    pub notes_version: Signal<u32>,
-}
+use fab::FloatingActionButton;
+use note_detail::NoteDetail;
+use note_list::NotesList;
+use sidebar::SidebarOverlay;
+use top_bar::TopBar;
 
 #[component]
 pub fn App() -> Element {

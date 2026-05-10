@@ -1,7 +1,5 @@
 use crate::db::Database;
-use crate::models::{
-    generate_auto_title, Folder, NewTextNote, Note, UpdateNote,
-};
+use crate::models::{generate_auto_title, Folder, NewTextNote, UpdateNote};
 use crate::services::audio::{self, AudioRecorder, RecordingState};
 use crate::services::transcription::SonioxClient;
 use crate::ui::icons::*;
@@ -24,87 +22,6 @@ fn start_transcription(path: PathBuf, mut state: Signal<RecordingState>) {
             Err(e) => state.set(RecordingState::Error(e)),
         }
     });
-}
-
-#[component]
-pub fn NotesList() -> Element {
-    let app: AppState = use_context();
-    let db: Signal<Arc<Database>> = use_context();
-
-    let notes = use_memo(move || {
-        let _v = (app.notes_version)();
-        let db = db();
-        match (app.selected_folder_id)() {
-            Some(fid) => db.list_notes_in_folder(&fid).unwrap_or_default(),
-            None => db.list_notes().unwrap_or_default(),
-        }
-    });
-
-    rsx! {
-        if notes().is_empty() {
-            div { class: "flex-1 flex flex-col items-center justify-center gap-2 h-[60vh]",
-                p { class: "text-lg text-gray-400", "Aucune note" }
-                p { class: "text-sm text-gray-400", "Appuyez sur + pour commencer" }
-            }
-        } else {
-            div {
-                for note in notes() {
-                    NoteCard { note: note }
-                }
-            }
-        }
-    }
-}
-
-#[component]
-fn NoteCard(note: Note) -> Element {
-    let mut app: AppState = use_context();
-    let db: Signal<Arc<Database>> = use_context();
-    let note_id = note.id.clone();
-
-    let title = note
-        .title
-        .clone()
-        .unwrap_or_else(|| "Sans titre".to_string());
-
-    let preview = if note.content.len() > 120 {
-        format!("{}...", &note.content[..120])
-    } else {
-        note.content.clone()
-    };
-
-    let date = &note.created_at[..10];
-    let has_audio = note.audio_file_path.is_some();
-
-    let folder_name = db()
-        .folders_for_note(&note.id)
-        .ok()
-        .and_then(|f| f.first().map(|f| f.name.clone()));
-
-    rsx! {
-        div {
-            class: "bg-white p-4 border border-gray-200 rounded-xl mb-2.5",
-            onclick: move |_| {
-                app.view.set(View::NoteDetail { note_id: note_id.clone() });
-            },
-            div { class: "flex justify-between items-center mb-2",
-                h3 { class: "font-semibold text-base text-gray-900", "{title}" }
-                if has_audio {
-                    div { class: "w-2 h-2 rounded-full bg-ios-green" }
-                }
-            }
-            if !preview.is_empty() {
-                p { class: "text-gray-600 text-sm mb-2 line-clamp-2", "{preview}" }
-            }
-            div { class: "flex items-center gap-2",
-                span { class: "text-gray-400 text-xs", "{date}" }
-                if let Some(ref fname) = folder_name {
-                    span { class: "text-xs text-gray-400", "·" }
-                    span { class: "text-xs text-ios-blue", "{fname}" }
-                }
-            }
-        }
-    }
 }
 
 #[component]
