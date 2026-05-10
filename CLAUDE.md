@@ -40,23 +40,54 @@ Mirko Bozzetto — freelance full-stack developer, Brussels.
 | B | Audio capture iOS mic (cpal + hound, save WAV) | Done |
 | C | Soniox REST (upload WAV → transcription) | Done |
 | D | SQLite storage + UI refactor + Tailwind | Done |
-| E | Embeddings (OpenAI text-embedding-3-small + LanceDB) | — |
+| E | Embeddings (OpenAI text-embedding-3-small + LanceDB) | In progress |
 | F | RAG + Chat (embed → search → context → LLM → response) | — |
 
-## Architecture (Clean Architecture)
+### Track E Progress
+
+| Step | Description | Status |
+|------|-------------|--------|
+| 1 | OpenAI client (embed + chat + chunking) | Done |
+| 2 | LanceDB VectorStore (store, search, delete) | Done |
+| 3 | Auto-embed on note save (validated on iPhone) | Done |
+| 4 | Settings UI for API keys (in-app) | — |
+| 5 | Tags UI on NoteDetail (chips, add/remove, LLM auto-gen) | — |
+| 6 | Chat UI + RAG pipeline (search → context → response) | — |
+
+## Architecture (Clean Architecture, SRP)
 
 ```
 src/
-  main.rs              entry point
-  models/              domain entities (Note, Folder, NoteType)
-  db/                  persistence (Database, migrations, CRUD repos)
-  services/            business logic (AudioRecorder, SonioxClient)
-  platform/            OS-specific (iOS AVAudioSession, documents_dir)
-  ui/                  Dioxus components + Tailwind CSS
-    mod.rs             App, AppState, View enum, Stylesheet
-    layout.rs          TopBar, Sidebar drawer, FAB
-    notes.rs           NotesList, NoteCard, NoteDetail
-    recording.rs       RecordingView, RecordButton, StatusLine
+  main.rs                entry point (dotenvy + dioxus::launch)
+  models/                domain entities
+    note.rs              Note, NewTextNote, UpdateNote, NoteType
+    folder.rs            Folder, NewFolder, UpdateFolder
+  db/                    persistence layer
+    mod.rs               Database struct, open, conn, migrate
+    schema.rs            SQL schemas, MIGRATIONS const
+    note_repo.rs         CRUD notes
+    folder_repo.rs       CRUD folders
+  services/              business logic
+    constants.rs         OpenAI config (models, dims, chunk sizes)
+    ai.rs                OpenAIClient (embed, chat), chunk_text
+    vectordb.rs          VectorStore (LanceDB: store, search, delete)
+    embed.rs             embed_note, delete_note_embeddings (background)
+    audio.rs             AudioRecorder (cpal, WAV capture)
+    transcription.rs     SonioxClient (upload, poll, transcribe)
+  platform/              OS-specific
+    ios.rs               AVAudioSession, documents_dir
+  ui/                    Dioxus components (1 component = 1 file)
+    mod.rs               App root component
+    state.rs             AppState, View enum
+    top_bar.rs           TopBar (navigation, back button)
+    sidebar.rs           SidebarOverlay, FolderSection, FolderItem
+    fab.rs               FloatingActionButton
+    note_list.rs         NotesList
+    note_card.rs         NoteCard
+    note_detail.rs       NoteDetail (orchestrator)
+    folder_picker.rs     FolderPicker (dropdown)
+    recording_bar.rs     RecordingBar, start_transcription
+    icons.rs             Phosphor SVG icons
 ```
 
 ## Data Entities
@@ -65,7 +96,7 @@ src/
 - id (UUID), note_type (voice/text), title, content, tags[], duration, audio_file_path
 - Auto-titled with date+time when created on the fly
 - Speech-to-text available from any note
-- Future: embedding vector (LanceDB), summary (LLM)
+- Embedding: auto-embedded on save (>50 chars) → chunked → OpenAI → LanceDB
 
 ### Folder (hierarchy)
 - id, name, description, parent_id (self-ref), created_at
@@ -103,19 +134,23 @@ Mic capture → WAV/audio
 - uuid 1 (UUID v4 generation)
 - chrono 0.4 (ISO 8601 timestamps)
 - Tailwind CSS V4 (auto-detected by dx)
+- lancedb 0.27.2 (vector DB, default-features = false for iOS)
+- arrow-array 57 + arrow-schema 57 (must match lancedb's arrow version)
+- futures 0.3.32 (stream collect for LanceDB queries)
 - Rust 1.94.1
 - iOS targets: aarch64-apple-ios, aarch64-apple-ios-sim
+- IPHONEOS_DEPLOYMENT_TARGET=16.0 (required for lancedb/zstd-sys)
 
 ## Commands (use Makefile)
 
 ```bash
 make build    # cargo build --features mobile
-make format   # cargo fmt (80-char max)
+make format   # cargo fmt
 make check    # fmt check + clippy
-make dev      # dx serve --ios (simulator)
-make ddev     # dx serve --ios --device (physical iPhone)
+make dev      # dx serve --ios (simulator, IPHONEOS_DEPLOYMENT_TARGET=16.0)
+make ddev     # dx serve --ios --device (physical iPhone, WiFi OK)
 make desktop  # dx serve --desktop (Mac window, real mic)
-make logs     # iPhone device logs (idevicesyslog)
+make logs     # open Console.app (select iPhone, filter "FlowFlow")
 ```
 
 ## Environment Variables
@@ -124,9 +159,11 @@ Create a `.env` file at the project root (never committed):
 
 ```
 SONIOX_API_KEY=your_soniox_api_key
+OPENAI_API_KEY=your_openai_api_key
 ```
 
-Get your API key at https://console.soniox.com
+Keys are captured at compile time via `option_env!()` (iOS has no runtime env vars).
+Soniox: https://console.soniox.com — OpenAI: https://platform.openai.com/api-keys
 
 ### Manual commands (if needed)
 
