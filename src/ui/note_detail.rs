@@ -1,34 +1,18 @@
 use crate::db::Database;
-use crate::models::{generate_auto_title, Folder, NewTextNote, UpdateNote};
-use crate::services::audio::{self, AudioRecorder, RecordingState};
-use crate::services::transcription::SonioxClient;
+use crate::models::{generate_auto_title, NewTextNote, UpdateNote};
+use crate::services::audio::RecordingState;
+use crate::services::embed::{delete_note_embeddings, embed_note};
+use crate::ui::folder_picker::FolderPicker;
 use crate::ui::icons::*;
+use crate::ui::recording_bar::RecordingBar;
 use crate::ui::{AppState, View};
 use dioxus::prelude::*;
-use std::path::PathBuf;
-use std::sync::{Arc, Mutex};
-
-fn start_transcription(path: PathBuf, mut state: Signal<RecordingState>) {
-    spawn(async move {
-        let client = match SonioxClient::from_env() {
-            Ok(c) => c,
-            Err(e) => {
-                state.set(RecordingState::Error(e));
-                return;
-            }
-        };
-        match client.transcribe(&path).await {
-            Ok(text) => state.set(RecordingState::Transcribed(text)),
-            Err(e) => state.set(RecordingState::Error(e)),
-        }
-    });
-}
+use std::sync::Arc;
 
 #[component]
 pub fn NoteDetail() -> Element {
     let mut app: AppState = use_context();
     let db: Signal<Arc<Database>> = use_context();
-    let recorder: Signal<Arc<Mutex<AudioRecorder>>> = use_context();
 
     let note_id = match (app.view)() {
         View::NoteDetail { note_id } => note_id,
@@ -64,45 +48,8 @@ pub fn NoteDetail() -> Element {
 
     let mut title = use_signal(|| initial_title.clone());
     let mut content = use_signal(|| initial_content.clone());
-    let mut last_audio_path = use_signal(String::new);
-    let mut selected_folder = use_signal(|| initial_folder_id.clone());
-    let mut show_picker = use_signal(|| false);
+    let selected_folder = use_signal(|| initial_folder_id.clone());
     let mut deleted = use_signal(|| false);
-
-    let all_folders: Memo<Vec<Folder>> = use_memo(move || {
-        let _v = (app.folders_version)();
-        db().list_all_folders().unwrap_or_default()
-    });
-
-    let folder_display = match selected_folder() {
-        Some(ref fid) => all_folders()
-            .iter()
-            .find(|f| f.id == *fid)
-            .map(|f| f.name.clone())
-            .unwrap_or_else(|| "Dossier".to_string()),
-        None => "Aucun dossier".to_string(),
-    };
-
-    use_effect(move || {
-        let state = (app.recording_state)();
-        if state == RecordingState::Recording {
-            let rec = recorder();
-            spawn(async move {
-                loop {
-                    if (app.recording_state)() != RecordingState::Recording {
-                        app.audio_levels.set(vec![0.0; 12]);
-                        break;
-                    }
-                    let levels = rec.lock().unwrap().current_levels(12);
-                    app.audio_levels.set(levels);
-                    futures_timer::Delay::new(
-                        std::time::Duration::from_millis(80),
-                    )
-                    .await;
-                }
-            });
-        }
-    });
 
     use_drop({
         let note_id = note_id.clone();
@@ -116,21 +63,25 @@ pub fn NoteDetail() -> Element {
             if t.is_empty() && c.is_empty() {
                 return;
             }
-            if note_id.is_empty() {
+            let saved_id = if note_id.is_empty() {
                 let new = NewTextNote {
-                    title: if t.is_empty() { None } else { Some(t) },
-                    content: c,
+                    title: if t.is_empty() { None } else { Some(t.clone()) },
+                    content: c.clone(),
                     tags: vec![],
                 };
-                if let Ok(created) = db.create_text_note(&new) {
-                    if let Some(ref fid) = selected_folder() {
-                        let _ = db.add_note_to_folder(&created.id, fid);
+                match db.create_text_note(&new) {
+                    Ok(created) => {
+                        if let Some(ref fid) = selected_folder() {
+                            let _ = db.add_note_to_folder(&created.id, fid);
+                        }
+                        Some(created.id)
                     }
+                    Err(_) => None,
                 }
             } else {
                 let upd = UpdateNote {
-                    title: Some(t),
-                    content: Some(c),
+                    title: Some(t.clone()),
+                    content: Some(c.clone()),
                     tags: None,
                 };
                 let _ = db.update_note(&note_id, &upd);
@@ -140,8 +91,12 @@ pub fn NoteDetail() -> Element {
                 if let Some(ref fid) = selected_folder() {
                     let _ = db.add_note_to_folder(&note_id, fid);
                 }
-            }
+                Some(note_id.clone())
+            };
             app.notes_version.set((app.notes_version)() + 1);
+            if let Some(id) = saved_id {
+                embed_note(id, t, c);
+            }
         }
     });
 
@@ -158,8 +113,6 @@ pub fn NoteDetail() -> Element {
     });
 
     let recording_state = (app.recording_state)();
-    let is_recording = recording_state == RecordingState::Recording;
-    let is_transcribing = recording_state == RecordingState::Transcribing;
 
     let date = note
         .as_ref()
@@ -177,43 +130,7 @@ pub fn NoteDetail() -> Element {
             if !date.is_empty() {
                 p { class: "text-xs text-gray-400 mb-2", "{date}" }
             }
-            div { class: "mb-3",
-                button {
-                    class: "inline-flex items-center px-3 py-1.5 rounded-full border border-gray-200 text-xs text-gray-600",
-                    onclick: move |_| show_picker.set(!show_picker()),
-                    "{folder_display}"
-                }
-                if show_picker() {
-                    div { class: "mt-1 border border-gray-200 rounded-xl bg-white overflow-hidden",
-                        button {
-                            class: "w-full text-left px-3 py-2.5 text-sm text-gray-500 border-b border-gray-100",
-                            onclick: move |_| {
-                                selected_folder.set(None);
-                                show_picker.set(false);
-                            },
-                            "Aucun dossier"
-                        }
-                        for folder in all_folders() {
-                            {
-                                let fid = folder.id.clone();
-                                let fname = folder.name.clone();
-                                let is_current = selected_folder() == Some(fid.clone());
-                                rsx! {
-                                    button {
-                                        class: "w-full text-left px-3 py-2.5 text-sm",
-                                        class: if is_current { "text-ios-blue font-medium bg-blue-50" } else { "text-gray-900" },
-                                        onclick: move |_| {
-                                            selected_folder.set(Some(fid.clone()));
-                                            show_picker.set(false);
-                                        },
-                                        "{fname}"
-                                    }
-                                }
-                            }
-                        }
-                    }
-                }
-            }
+            FolderPicker { selected: selected_folder }
             textarea {
                 class: "w-full min-h-[200px] border border-gray-200 rounded-xl p-3 text-sm resize-none font-sans outline-none text-gray-900",
                 placeholder: "Contenu de la note...",
@@ -234,6 +151,7 @@ pub fn NoteDetail() -> Element {
                             move |_| {
                                 deleted.set(true);
                                 let _ = db().delete_note(&note_id);
+                                delete_note_embeddings(note_id.clone());
                                 app.notes_version.set((app.notes_version)() + 1);
                                 app.sliding_out.set(true);
                                 spawn(async move {
@@ -249,94 +167,6 @@ pub fn NoteDetail() -> Element {
                 }
             }
         }
-        div { class: "fixed bottom-0 left-0 right-0 px-4 py-3 bg-white border-t border-gray-200 z-30",
-            div { class: "flex items-center justify-center",
-                button {
-                    class: if is_transcribing {
-                        "w-full flex items-center justify-center gap-2 h-12 rounded-full bg-gray-100 text-gray-400 text-sm"
-                    } else if is_recording {
-                        "w-full flex items-center justify-center gap-3 h-12 rounded-full bg-gray-900 text-white text-sm shadow-lg"
-                    } else {
-                        "w-full flex items-center justify-center gap-2.5 h-12 rounded-full bg-ios-blue/10 text-ios-blue text-sm font-medium"
-                    },
-                    disabled: is_transcribing,
-                    onclick: move |_| {
-                        let rec = recorder();
-                        let mut rec = rec.lock().unwrap();
-                        let current_state = (app.recording_state)();
-                        match current_state {
-                            RecordingState::Recording => {
-                                match rec.stop(&audio::output_dir()) {
-                                    Ok(path) => {
-                                        last_audio_path.set(
-                                            path.display().to_string(),
-                                        );
-                                        app.recording_state.set(
-                                            RecordingState::Transcribing,
-                                        );
-                                        start_transcription(
-                                            path,
-                                            app.recording_state,
-                                        );
-                                    }
-                                    Err(e) => {
-                                        app.recording_state.set(
-                                            RecordingState::Error(e),
-                                        );
-                                    }
-                                }
-                            }
-                            _ => {
-                                std::fs::create_dir_all(
-                                    audio::output_dir(),
-                                )
-                                .ok();
-                                match rec.start() {
-                                    Ok(()) => {
-                                        app.recording_state.set(
-                                            RecordingState::Recording,
-                                        );
-                                    }
-                                    Err(e) => {
-                                        app.recording_state.set(
-                                            RecordingState::Error(e),
-                                        );
-                                    }
-                                }
-                            }
-                        }
-                    },
-                    if is_recording {
-                        div { class: "w-2 h-2 rounded-full bg-ios-red" }
-                        {
-                            let levels = (app.audio_levels)();
-                            rsx! {
-                                div { class: "flex items-end gap-[3px] h-5",
-                                    for (i, &lvl) in levels.iter().enumerate() {
-                                        {
-                                            let h = 3.0 + lvl * 17.0;
-                                            let key = format!("bar-{i}");
-                                            rsx! {
-                                                div {
-                                                    key: "{key}",
-                                                    class: "w-[3px] bg-white rounded-full transition-all duration-75",
-                                                    style: "height: {h:.0}px;",
-                                                }
-                                            }
-                                        }
-                                    }
-                                }
-                            }
-                        }
-                        span { "Stop" }
-                    } else if is_transcribing {
-                        span { style: "animation: pulseSoft 1.5s ease-in-out infinite;", "Transcription..." }
-                    } else {
-                        IconMic { size: 22 }
-                        span { "Dicter" }
-                    }
-                }
-            }
-        }
+        RecordingBar {}
     }
 }

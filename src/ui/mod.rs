@@ -1,8 +1,10 @@
 mod fab;
+mod folder_picker;
 pub mod icons;
 mod note_card;
 mod note_detail;
 mod note_list;
+mod recording_bar;
 mod sidebar;
 mod state;
 mod top_bar;
