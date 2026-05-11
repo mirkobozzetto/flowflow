@@ -1,5 +1,6 @@
 use crate::db::Database;
 use crate::models::{generate_auto_title, NewTextNote, UpdateNote};
+use crate::services::ai::OpenAIClient;
 use crate::services::audio::RecordingState;
 use crate::services::embed::{delete_note_embeddings, embed_note};
 use crate::ui::folder_picker::FolderPicker;
@@ -48,9 +49,15 @@ pub fn NoteDetail() -> Element {
             .and_then(|f| f.first().map(|f| f.id.clone()))
     };
 
+    let initial_tags: Vec<String> =
+        note.as_ref().map(|n| n.tags.clone()).unwrap_or_default();
+
     let mut title = use_signal(|| initial_title.clone());
     let mut content = use_signal(|| initial_content.clone());
     let selected_folder = use_signal(|| initial_folder_id.clone());
+    let mut tags: Signal<Vec<String>> = use_signal(|| initial_tags.clone());
+    let mut tag_input = use_signal(String::new);
+    let mut tagging = use_signal(|| false);
     let mut deleted = use_signal(|| false);
 
     use_drop({
@@ -72,7 +79,7 @@ pub fn NoteDetail() -> Element {
                 let new = NewTextNote {
                     title: if t.is_empty() { None } else { Some(t.clone()) },
                     content: c.clone(),
-                    tags: vec![],
+                    tags: tags(),
                 };
                 match db.create_text_note(&new) {
                     Ok(created) => {
@@ -87,7 +94,7 @@ pub fn NoteDetail() -> Element {
                 let upd = UpdateNote {
                     title: Some(t.clone()),
                     content: Some(c.clone()),
-                    tags: None,
+                    tags: Some(tags()),
                 };
                 let _ = db.update_note(&note_id, &upd);
                 for old in db.folders_for_note(&note_id).unwrap_or_default() {
@@ -138,6 +145,81 @@ pub fn NoteDetail() -> Element {
                 p { class: "text-xs text-gray-400 mb-2", "{date}" }
             }
             FolderPicker { selected: selected_folder }
+            div { class: "flex flex-wrap items-center gap-1.5 mb-2",
+                for (i, tag) in tags().iter().enumerate() {
+                    {
+                        let tag_display = tag.clone();
+                        rsx! {
+                            span {
+                                key: "{i}",
+                                class: "inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-ios-blue/10 text-ios-blue text-xs font-medium",
+                                "{tag_display}"
+                                button {
+                                    class: "ml-0.5 text-ios-blue/60 hover:text-ios-blue",
+                                    onclick: move |_| {
+                                        let mut t = tags();
+                                        t.remove(i);
+                                        tags.set(t);
+                                    },
+                                    IconX { size: 12 }
+                                }
+                            }
+                        }
+                    }
+                }
+                div { class: "inline-flex items-center gap-1",
+                    input {
+                        class: "w-24 text-xs border border-gray-200 rounded-full px-2.5 py-1 outline-none",
+                        placeholder: "+ tag",
+                        value: "{tag_input}",
+                        oninput: move |evt| tag_input.set(evt.value()),
+                        onkeypress: move |evt| {
+                            if evt.key() == Key::Enter {
+                                let v = tag_input().trim().to_string();
+                                if !v.is_empty() && !tags().contains(&v) {
+                                    let mut t = tags();
+                                    t.push(v);
+                                    tags.set(t);
+                                    tag_input.set(String::new());
+                                }
+                            }
+                        },
+                    }
+                    button {
+                        class: if tagging() {
+                            "px-2.5 py-1 rounded-full bg-gray-100 text-gray-400 text-xs"
+                        } else {
+                            "px-2.5 py-1 rounded-full bg-ios-blue/10 text-ios-blue text-xs font-medium"
+                        },
+                        disabled: tagging() || content().trim().len() < 20,
+                        onclick: move |_| {
+                            tagging.set(true);
+                            let c = content();
+                            spawn(async move {
+                                match OpenAIClient::from_env() {
+                                    Ok(client) => {
+                                        match client.generate_tags(&c).await {
+                                            Ok(new_tags) => {
+                                                let mut current = tags();
+                                                for t in new_tags {
+                                                    if !current.contains(&t) {
+                                                        current.push(t);
+                                                    }
+                                                }
+                                                tags.set(current);
+                                            }
+                                            Err(_) => {}
+                                        }
+                                    }
+                                    Err(_) => {}
+                                }
+                                tagging.set(false);
+                            });
+                        },
+                        if tagging() { "..." } else { "Auto-tag" }
+                    }
+                }
+            }
             textarea {
                 class: "w-full min-h-[200px] border border-gray-200 rounded-xl p-3 text-sm resize-none font-sans outline-none text-gray-900",
                 placeholder: "Contenu de la note...",

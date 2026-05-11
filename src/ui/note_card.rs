@@ -44,6 +44,15 @@ pub fn NoteCard(note: Note) -> Element {
             if !preview.is_empty() {
                 p { class: "text-gray-600 text-sm mb-2 line-clamp-2", "{preview}" }
             }
+            if !note.tags.is_empty() {
+                div { class: "flex flex-wrap gap-1 mb-1.5",
+                    for tag in note.tags.iter() {
+                        span { class: "px-2 py-0.5 rounded-full bg-ios-blue/10 text-ios-blue text-[10px] font-medium",
+                            "{tag}"
+                        }
+                    }
+                }
+            }
             div { class: "flex items-center gap-2",
                 span { class: "text-gray-400 text-xs", "{date}" }
                 if let Some(ref fname) = folder_name {
