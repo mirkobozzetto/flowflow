@@ -41,14 +41,21 @@ Mirko Bozzetto — freelance full-stack developer, Brussels.
 | C | Soniox REST (upload WAV → transcription) | Done |
 | D | SQLite storage + UI refactor + Tailwind | Done |
 | E | Embeddings + RAG + Chat + Settings + Tags | Done |
-| F | RIG framework + agent tools + multi-provider | Planned |
+| F | RIG framework + agent tools + multi-provider | In progress |
+
+### Track F Progress
+
+| Step | Description | Status |
+|------|-------------|--------|
+| 1 | RIG migration (LlmClient replaces OpenAIClient) | Done |
+| 2 | Agent tools + reqwest unification | Done |
+| 3 | Multi-provider (Anthropic, Ollama) | Planned |
 
 ### Track F — Future
 
-- Integrate `rig-core` crate for LLM abstraction (multi-provider: OpenAI, Anthropic, Ollama)
-- Agent with tools: create notes, search by date, summarize folders from chat
-- Replace manual OpenAI client (ai.rs) and RAG pipeline (rag.rs) with RIG agents
-- Prerequisite: validate iOS cross-compilation (`cargo add rig-core` + build aarch64-apple-ios)
+- Multi-provider support (Anthropic, Ollama) via rig-core abstractions
+- Additional agent tools (search by date, link notes, batch tag generation)
+- Prerequisite: validate iOS cross-compilation on each new tool
 
 ### Track E Progress
 
@@ -62,7 +69,7 @@ Mirko Bozzetto — freelance full-stack developer, Brussels.
 | 6 | Chat UI + RAG pipeline (search → context → response) | Done |
 | 7 | Chat history persistence (SQLite, sidebar tabs, CRUD) | Done |
 
-## Architecture (Clean Architecture, SRP — 35 modules)
+## Architecture (Clean Architecture, SRP — 38 modules)
 
 ```
 src/
@@ -79,11 +86,14 @@ src/
     settings_repo.rs       get/set settings (key-value store)
     conversation_repo.rs   CRUD conversations + messages
   services/                business logic
-    constants.rs           AI config (models, dims, chunks, RAG + tags prompts)
-    ai.rs                  OpenAIClient (embed, chat, generate_tags), chunk_text
+    constants.rs           AI config (models, dims, chunks, RAG_AGENT_SYSTEM_PROMPT, SUMMARIZE_FOLDER_PROMPT, tags prompt)
+    ai.rs                  chunk_text (sliding-window chunker)
+    llm.rs                 LlmClient (rig-core wrapper: embed, chat, generate_tags, parse_tags)
+    error.rs               LlmError enum (NotConfigured, Embedding, Completion, TagParsing)
+    tools.rs               SearchNotes, CreateNote, SummarizeFolder (rig Tool trait) + prompt_agent_with_tools
     vectordb.rs            VectorStore (LanceDB: store, search, delete)
     embed.rs               embed_note, delete_note_embeddings (background)
-    rag.rs                 RAG pipeline (embed query → vector search → context → LLM)
+    rag.rs                 RAG pipeline (embed query → vector search → context → agent with tools)
     audio.rs               AudioRecorder (cpal, WAV capture)
     transcription.rs       SonioxClient (upload, poll, transcribe)
   platform/                OS-specific
@@ -148,7 +158,8 @@ RAG Chat Pipeline:
   User question → OpenAI embed (query vector)
     → LanceDB vector search (top 5 chunks)
     → Build context from matched notes
-    → OpenAI chat (system prompt + context + question)
+    → Agent with tools (search_notes, create_note, summarize_folder)
+    → OpenAI chat (system prompt + context + question, up to 4 tool turns)
     → Response with source citations
 ```
 
@@ -157,7 +168,8 @@ RAG Chat Pipeline:
 - Dioxus 0.7 (CLI dx 0.7.7)
 - cpal 0.17 (audio I/O via CoreAudio on iOS)
 - hound 3.5 (WAV file writing)
-- reqwest 0.12 (HTTP client, multipart + JSON)
+- reqwest 0.13 (HTTP client, multipart + JSON, unified with rig-core)
+- rig-core 0.36 (LLM abstraction, agent + tools, rustls feature)
 - tokio 1 (async runtime)
 - serde 1.0 + serde_json 1.0 (JSON serialization)
 - dotenvy 0.15 (.env loader)
