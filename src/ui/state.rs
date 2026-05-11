@@ -21,4 +21,5 @@ pub struct AppState {
     pub notes_version: Signal<u32>,
     pub current_note_id: Signal<Option<String>>,
     pub previous_view: Signal<Option<View>>,
+    pub search_query: Signal<String>,
 }
