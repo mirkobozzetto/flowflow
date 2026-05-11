@@ -32,6 +32,29 @@ pub fn ChatInputBar(
 ) -> Element {
     let mut app: AppState = use_context();
     let recorder: Signal<Arc<Mutex<AudioRecorder>>> = use_context();
+    let mut duration = use_signal(|| 0.0f32);
+
+    use_effect(move || {
+        let state = (app.recording_state)();
+        if state == RecordingState::Recording {
+            let rec = recorder();
+            spawn(async move {
+                loop {
+                    if (app.recording_state)() != RecordingState::Recording {
+                        app.audio_levels.set(vec![0.0; 12]);
+                        break;
+                    }
+                    let levels = rec.lock().unwrap().current_levels(12);
+                    app.audio_levels.set(levels);
+                    duration.set(rec.lock().unwrap().duration_secs());
+                    futures_timer::Delay::new(
+                        std::time::Duration::from_millis(80),
+                    )
+                    .await;
+                }
+            });
+        }
+    });
 
     let recording_state = (app.recording_state)();
     let is_recording = recording_state == RecordingState::Recording;
@@ -39,18 +62,13 @@ pub fn ChatInputBar(
 
     rsx! {
         div { class: "fixed bottom-0 left-0 right-0 px-4 py-3 bg-white border-t border-gray-200 z-30 keyboard-aware",
-            div { class: "flex items-center gap-2",
-                button {
-                    class: if is_recording {
-                        "w-10 h-10 rounded-full bg-ios-red/10 flex items-center justify-center text-ios-red transition-colors duration-150"
-                    } else {
-                        "w-10 h-10 rounded-full bg-gray-100 flex items-center justify-center text-gray-500 transition-colors duration-150"
-                    },
-                    disabled: is_transcribing || disabled,
-                    onclick: move |_| {
-                        let rec = recorder();
-                        let mut rec = rec.lock().unwrap();
-                        if is_recording {
+            if is_recording {
+                div { class: "flex items-center justify-center",
+                    button {
+                        class: "w-full flex items-center justify-center gap-3 h-12 rounded-full bg-gray-900 text-white text-sm shadow-lg",
+                        onclick: move |_| {
+                            let rec = recorder();
+                            let mut rec = rec.lock().unwrap();
                             match rec.stop(&audio::output_dir()) {
                                 Ok(path) => {
                                     app.recording_state
@@ -65,7 +83,51 @@ pub fn ChatInputBar(
                                         .set(RecordingState::Error(e));
                                 }
                             }
-                        } else {
+                        },
+                        div { class: "w-2 h-2 rounded-full bg-ios-red" }
+                        {
+                            let levels = (app.audio_levels)();
+                            rsx! {
+                                div { class: "flex items-end gap-[3px] h-5",
+                                    for (i, &lvl) in levels.iter().enumerate() {
+                                        {
+                                            let h = 3.0 + lvl * 17.0;
+                                            let key = format!("bar-{i}");
+                                            rsx! {
+                                                div {
+                                                    key: "{key}",
+                                                    class: "w-[3px] bg-white rounded-full transition-all duration-75",
+                                                    style: "height: {h:.0}px;",
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                        {
+                            let secs = duration() as u32;
+                            let m = secs / 60;
+                            let s = secs % 60;
+                            rsx! { span { "{m}:{s:02}" } }
+                        }
+                    }
+                }
+            } else if is_transcribing {
+                div { class: "flex items-center justify-center",
+                    div {
+                        class: "w-full flex items-center justify-center gap-2 h-12 rounded-full bg-gray-100 text-gray-400 text-sm",
+                        span { style: "animation: pulseSoft 1.5s ease-in-out infinite;", "Transcription en cours..." }
+                    }
+                }
+            } else {
+                div { class: "flex items-end gap-2",
+                    button {
+                        class: "w-10 h-10 shrink-0 rounded-full bg-gray-100 flex items-center justify-center text-gray-500 transition-colors duration-150",
+                        disabled: disabled,
+                        onclick: move |_| {
+                            let rec = recorder();
+                            let mut rec = rec.lock().unwrap();
                             std::fs::create_dir_all(audio::output_dir()).ok();
                             match rec.start() {
                                 Ok(()) => {
@@ -77,53 +139,46 @@ pub fn ChatInputBar(
                                         .set(RecordingState::Error(e));
                                 }
                             }
-                        }
-                    },
-                    if is_recording {
-                        IconStop { size: 18 }
-                    } else {
+                        },
                         IconMic { size: 18 }
                     }
+                    textarea {
+                        class: "chat-textarea flex-1 bg-gray-100 rounded-2xl px-4 py-2.5 text-sm outline-none text-gray-900 placeholder-gray-400 resize-none overflow-y-auto",
+                        style: "max-height: 120px; min-height: 40px;",
+                        rows: "1",
+                        placeholder: "Pose une question...",
+                        value: "{input}",
+                        oninput: move |evt| {
+                            input.set(evt.value());
+                            dioxus::document::eval(
+                                r#"
+                                var ta = document.querySelector('.chat-textarea');
+                                if (ta) { ta.style.height = 'auto'; ta.style.height = ta.scrollHeight + 'px'; }
+                                "#,
+                            );
+                        },
+                    }
+                    button {
+                        class: if disabled || input().trim().is_empty() {
+                            "w-10 h-10 shrink-0 rounded-full bg-gray-200 flex items-center justify-center text-gray-400 transition-colors duration-150"
+                        } else {
+                            "w-10 h-10 shrink-0 rounded-full bg-ios-blue flex items-center justify-center text-white transition-colors duration-150"
+                        },
+                        disabled: disabled || input().trim().is_empty(),
+                        onclick: move |_| {
+                            let q = input().trim().to_string();
+                            if !q.is_empty() && !disabled {
+                                input.set(String::new());
+                                on_send.call(q);
+                            }
+                        },
+                        IconPaperPlaneRight { size: 16 }
+                    }
                 }
-                input {
-                    class: "flex-1 bg-gray-100 rounded-full px-4 py-2.5 text-sm outline-none text-gray-900 placeholder-gray-400",
-                    placeholder: if is_transcribing { "Transcription..." } else { "Pose une question..." },
-                    value: "{input}",
-                    disabled: is_transcribing,
-                    oninput: move |evt| input.set(evt.value()),
-                }
-                button {
-                    class: if disabled || input().trim().is_empty() {
-                        "w-10 h-10 rounded-full bg-gray-200 flex items-center justify-center text-gray-400 transition-colors duration-150"
-                    } else {
-                        "w-10 h-10 rounded-full bg-ios-blue flex items-center justify-center text-white transition-colors duration-150"
-                    },
-                    disabled: disabled || input().trim().is_empty(),
-                    onclick: move |_| {
-                        let q = input().trim().to_string();
-                        if !q.is_empty() && !disabled {
-                            input.set(String::new());
-                            on_send.call(q);
-                        }
-                    },
-                    IconPaperPlaneRight { size: 16 }
-                }
-            }
-            if is_transcribing {
-                p {
-                    class: "text-xs text-gray-400 text-center mt-2",
-                    style: "animation: pulseSoft 1.5s ease-in-out infinite;",
-                    "Transcription en cours..."
-                }
-            }
-            if is_recording {
-                p { class: "text-xs text-ios-red text-center mt-2",
-                    "Enregistrement..."
-                }
-            }
-            if let RecordingState::Error(ref e) = recording_state {
-                p { class: "text-xs text-ios-red text-center mt-2",
-                    "{e}"
+                if let RecordingState::Error(ref e) = recording_state {
+                    p { class: "text-xs text-ios-red text-center mt-2",
+                        "{e}"
+                    }
                 }
             }
         }

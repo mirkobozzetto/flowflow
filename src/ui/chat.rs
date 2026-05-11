@@ -102,7 +102,7 @@ pub fn ChatView() -> Element {
 
     rsx! {
         div {
-            class: "overflow-hidden pb-20",
+            class: "overflow-hidden pb-24",
             style: "height: calc(100% - var(--keyboard-inset, 0px));",
             div { id: "chat-messages", class: "h-full overflow-y-auto px-4 pt-4 pb-4",
                 if is_empty && !loading() {
