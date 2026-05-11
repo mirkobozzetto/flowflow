@@ -1,23 +1,27 @@
 # FlowFlow
 
-100% Rust mobile app for voice notes with transcription, folder organization, and AI features.
+Mobile voice notes app with AI chat — 100% Rust, Dioxus iOS, local-first (SQLite + LanceDB).
 
 Built with Dioxus 0.7 for iOS. Inspired by [SuperPowerNotes](https://github.com/mirkobozzetto/superpowernotes).
 
 ## Features
 
 - **Unified note editor** — text + voice in a single view, auto-save on exit via `use_drop`
-- **Voice dictation** — tap to record, real-time audio visualization (12-bar voice-reactive waveform via RMS analysis)
-- **Transcription** — Soniox REST API (stt-async-v4, French-optimized with `language_hints_strict`)
-- **Auto-append transcription** — dictated text appends to note content automatically
-- **French auto-title** — notes auto-titled with local date ("8 mai 2026, 14:30")
+- **Voice dictation** — tap to record, real-time audio visualization (12-bar waveform, 80ms polling)
+- **Transcription** — Soniox REST API (stt-async-v4, French-optimized)
+- **Auto-embed** — notes auto-embedded on save (>50 chars) → chunked → OpenAI → LanceDB
+- **AI tags** — LLM auto-generated tags (3-5 per note) + manual add/remove chips
+- **RAG chat** — ask questions about your notes, AI answers with source references
+- **Chat history** — persistent conversations in SQLite, sidebar tabs Notes/Chats
+- **Markdown responses** — AI chat renders bold, lists, code blocks (pulldown-cmark)
+- **Clickable sources** — tap a source card to jump to the referenced note, back returns to chat
+- **In-app settings** — API keys stored in SQLite (no .env recompile needed)
 - **Folder management** — create, rename, delete folders and subfolders from sidebar drawer
-- **Folder assignment** — inline picker in note editor, auto-assign from folder context
-- **Note deletion** — with `deleted` flag to prevent auto-save re-creation
+- **French auto-title** — notes auto-titled with local date ("8 mai 2026, 14:30")
 - **Slide transitions** — iOS-style push/pop animations (150ms, CSS keyframes)
-- **Phosphor + Josemi icons** — 14 SVG icon components (monochrome gray/blue/white palette)
-- **iOS keyboard toolbar hidden** — objc2 method swizzle on WKContentView `inputAccessoryView`
-- **SQLite storage** — local-first with WAL mode, foreign keys, versioned migrations
+- **iOS keyboard handling** — visualViewport API with cached keyboard height
+- **Phosphor icons** — 18 SVG icon components (monochrome gray/blue/white palette)
+- **SQLite storage** — local-first with WAL mode, foreign keys, versioned migrations (V1 + V2)
 - **Tailwind CSS V4** — utility-first styling via Dioxus 0.7 auto-detection
 
 ## Stack
@@ -30,6 +34,10 @@ Built with Dioxus 0.7 for iOS. Inspired by [SuperPowerNotes](https://github.com/
 | Audio | cpal 0.17 + hound 3.5 |
 | Transcription | Soniox REST API (stt-async-v4) |
 | Database | SQLite (rusqlite 0.34, bundled) |
+| Vector DB | LanceDB 0.27.2 (local semantic search) |
+| Embeddings | OpenAI API (text-embedding-3-small, 1536 dims) |
+| Chat | OpenAI API (gpt-4o-mini) |
+| Markdown | pulldown-cmark 0.12 |
 | HTTP | reqwest 0.12 (multipart + JSON) |
 | Async | tokio 1 + futures-timer 3 |
 | Serialization | serde 1.0 + serde_json 1.0 |
@@ -37,62 +45,83 @@ Built with Dioxus 0.7 for iOS. Inspired by [SuperPowerNotes](https://github.com/
 | UUID | uuid 1 (v4) |
 | Env | dotenvy 0.15 |
 | iOS Platform | objc2 + objc2-avf-audio |
-| Icons | Phosphor Icons + Josemi Icons (MIT) |
+| Icons | Phosphor Icons (MIT) |
 | Target | iOS (aarch64-apple-ios, aarch64-apple-ios-sim) |
 
 ## Architecture
 
 ```
-src/                          16 files, ~2100 lines Rust
-  main.rs                     entry point (dotenv, AVAudioSession, keyboard hack, launch)
+src/                          35 files, ~4500 lines Rust
+  main.rs                     entry point (dotenv, AVAudioSession, launch)
   models/
-    mod.rs                    re-exports
-    note.rs                   Note, NoteType, NewVoiceNote, NewTextNote, UpdateNote, generate_auto_title()
+    note.rs                   Note, NoteType, NewTextNote, UpdateNote
     folder.rs                 Folder, NewFolder, UpdateFolder
+    conversation.rs           Conversation, ConversationMessage
   db/
-    mod.rs                    Database struct, migrations (V1 schema), db_path(), now_iso()
-    note_repo.rs              CRUD notes (create voice/text, get, list, list_in_folder, update, update_audio_metadata, delete)
-    folder_repo.rs            CRUD folders (create, get, list_all, list_root, list_subfolders, update, delete, add/remove_note, folders_for_note)
+    mod.rs                    Database struct, migrations (V1 + V2), db_path()
+    schema.rs                 SQL schemas (notes, folders, settings, conversations)
+    note_repo.rs              CRUD notes
+    folder_repo.rs            CRUD folders
+    settings_repo.rs          get/set settings (key-value store)
+    conversation_repo.rs      CRUD conversations + messages
   services/
-    mod.rs                    re-exports
-    audio.rs                  AudioRecorder (cpal stream, samples buffer, start/stop/current_levels/duration), output_dir(), WAV writing
-    transcription.rs          SonioxClient (upload_file, create_transcription, poll_transcript, fetch_transcript, transcribe)
+    constants.rs              AI config (models, dims, chunks, RAG + tags prompts)
+    ai.rs                     OpenAIClient (embed, chat, generate_tags), chunk_text
+    vectordb.rs               VectorStore (LanceDB: store, search, delete, cosine)
+    embed.rs                  embed_note, delete_note_embeddings (background thread)
+    rag.rs                    RAG pipeline (embed query → vector search → context → LLM)
+    audio.rs                  AudioRecorder (cpal stream, samples, levels, duration)
+    transcription.rs          SonioxClient (upload, poll, transcribe)
   platform/
-    mod.rs                    re-exports
-    ios.rs                    configure_audio_session(), hide_keyboard_accessory(), documents_dir()
+    ios.rs                    AVAudioSession, documents_dir
   ui/
-    mod.rs                    App component, AppState (8 signals), View enum, slide transition overlay
-    icons.rs                  14 SVG components (IconNewNote, IconMic, IconStop, IconTrash, IconPencil, IconFolderPlus, IconFolder, IconDotsThree, IconPlus, IconArrowLeft, IconList, IconCheck, IconX, IconFloppyDisk)
-    layout.rs                 TopBar (back/menu, folder name), SidebarOverlay (drawer), FolderSection (create), FolderItem (rename/subfolder/delete/expand), FloatingActionButton (80px)
-    notes.rs                  NotesList (filtered by folder), NoteCard (preview, folder badge), NoteDetail (editor, folder picker, inline recording, auto-save, delete)
+    mod.rs                    App component, view routing, keyboard handler
+    state.rs                  AppState (11 signals), View enum (4 variants)
+    top_bar.rs                TopBar (contextual back, chat icon)
+    sidebar.rs                Tabs (Notes/Chats), ConversationItem, FolderItem
+    fab.rs                    FloatingActionButton
+    note_list.rs              NotesList (filtered by folder)
+    note_card.rs              NoteCard (preview, tags, folder badge)
+    note_detail.rs            NoteDetail (tags chips, auto-tag, recording, auto-save)
+    folder_picker.rs          FolderPicker (dropdown)
+    recording_bar.rs          RecordingBar (audio visualization + timer)
+    settings.rs               SettingsView (API keys form)
+    chat.rs                   ChatView (persistent conversations, markdown, sources)
+    chat_input.rs             ChatInputBar (mic, textarea, send, transcription)
+    icons.rs                  18 Phosphor SVG icon components
 ```
 
 ## Data Model
 
-### SQLite Schema (V1 migration)
+### SQLite Schema (V1 + V2 migrations)
 
 ```
 notes (id, note_type, title, content, audio_file_path, duration_secs, tags[], created_at, modified_at)
 folders (id, name, description, parent_id → self-ref, created_at, modified_at)
 notes_folders (folder_id, note_id) — N:N junction, CASCADE on delete
+settings (key PK, value) — API keys stored locally
+conversations (id, title, created_at, modified_at)
+conversation_messages (id, conversation_id → CASCADE, role, content, sources_json, created_at)
 ```
 
-- `parent_id` ON DELETE SET NULL (orphaned children become root)
-- WAL journal mode, foreign keys enabled
-- Tags stored as JSON array
+### Pipelines
 
-### Execution Flows (GitNexus, 13 processes)
+```
+Note Pipeline:
+  Mic → cpal → WAV → Soniox REST → transcription
+    → SQLite + auto-embed on save
+    → chunked → OpenAI embed → LanceDB (cosine)
 
-| Flow | Path |
-|------|------|
-| App startup | `main → dotenv → AVAudioSession → hide_keyboard → launch(App)` |
-| DB init | `App → Database.open → db_path → documents_dir → migrate` |
-| Recording | `NoteDetail → AudioRecorder.start → cpal stream → samples buffer` |
-| Stop + transcribe | `AudioRecorder.stop → write_wav → start_transcription → SonioxClient.transcribe` |
-| Transcription pipeline | `upload_file → create_transcription → poll_transcript → fetch_transcript` |
-| Auto-save | `NoteDetail unmount (use_drop) → create_text_note / update_note + folder assignment` |
-| Folder tree | `FolderSection → list_root_folders → FolderItem → list_subfolders (recursive)` |
-| Note listing | `NotesList → list_notes / list_notes_in_folder (reactive via notes_version)` |
+RAG Chat Pipeline:
+  User question → OpenAI embed (query vector)
+    → LanceDB search (top 5 chunks, cosine)
+    → Build context from matched notes
+    → OpenAI chat (system prompt + context + question)
+    → Markdown response + source cards
+
+API Key Fallback:
+  SQLite settings → env var → option_env!() compile-time
+```
 
 ## Setup
 
@@ -106,10 +135,15 @@ notes_folders (folder_id, note_id) — N:N junction, CASCADE on delete
 
 ```bash
 cp .env.example .env
-# Add your Soniox API key
+# Add your API keys (or configure later in-app via Settings)
+SONIOX_API_KEY=your_key
+OPENAI_API_KEY=your_key
 ```
 
-Get a Soniox API key at https://console.soniox.com
+- Soniox: https://console.soniox.com
+- OpenAI: https://platform.openai.com/api-keys
+
+API keys can also be set in-app (sidebar → Settings) — stored in SQLite, no recompile needed.
 
 ### Run
 
@@ -117,6 +151,7 @@ Get a Soniox API key at https://console.soniox.com
 make dev      # iOS simulator
 make ddev     # physical iPhone (USB or Wi-Fi)
 make desktop  # macOS desktop (real mic)
+make check    # cargo fmt + clippy
 ```
 
 ### Physical iPhone setup
@@ -133,32 +168,27 @@ make desktop  # macOS desktop (real mic)
 
 - [x] Track A — Dioxus iOS scaffold
 - [x] Track B — Audio capture (cpal + hound, WAV recording)
-- [x] Track C — Soniox transcription (French, batch quality, stt-async-v4)
+- [x] Track C — Soniox transcription (French, stt-async-v4)
 - [x] Track D — SQLite + folders + UI refactor + Tailwind
+- [x] Track E — Embeddings + RAG + Chat + Settings + Tags
 - [x] Unified note editor (text + inline voice dictation)
 - [x] Auto-save on exit (use_drop hook)
-- [x] Auto-append transcription to note content after dictation
-- [x] French auto-title (date format: "8 mai 2026, 14:30")
-- [x] Folder management (create/rename/delete/subfolders from drawer)
-- [x] Folder assignment + picker in note editor
-- [x] Note deletion (with deleted flag protection)
-- [x] Slide transitions (push/pop iOS style, 150ms)
-- [x] Phosphor + Josemi icon system (14 SVG components)
-- [x] Voice-reactive audio visualization (12 bars, real-time RMS, 80ms polling)
-- [x] iOS keyboard toolbar hidden (objc2 swizzle on WKContentView)
-- [x] Monochrome design system (gray/blue/white)
-- [x] iOS AVAudioSession (PlayAndRecord category)
-- [x] Platform-specific paths (iOS Documents dir vs temp)
+- [x] Auto-embed notes on save (chunked → OpenAI → LanceDB)
+- [x] AI auto-tagging (LLM generates 3-5 tags per note)
+- [x] RAG chat with markdown rendering and source cards
+- [x] Chat history persistence (SQLite, sidebar tabs)
+- [x] In-app API key settings (no .env recompile)
+- [x] iOS keyboard handling (visualViewport API)
+- [x] Contextual back navigation (Chat → Note → back to Chat)
+- [x] Conversation management (rename, delete, same UX as folders)
 
 ### Next
 
-- [ ] Document import (PDF, TXT, DOC) — import files into notes or as standalone documents
-- [ ] Tags system — auto-generated by LLM, manual editing, interconnected with folders and RAG
-- [ ] AI post-processing — auto-title LLM, transcript cleanup, auto-tags (single API call)
-- [ ] Track E — Embeddings (OpenAI text-embedding-3-small + LanceDB) on notes + imported documents
-- [ ] Track F — RAG + Chat (folder-scoped, tag-scoped, or global context)
+- [ ] Track F — RIG framework (multi-provider LLM, agent tools)
+- [ ] Agent tools — create notes, search by date, summarize folders from chat
+- [ ] Document import (PDF, TXT, DOC)
 - [ ] Full-text search (SQLite FTS5) — hybrid with semantic search
-- [ ] Future: REST API / web interface for remote chat with notes
+- [ ] Multi-provider support (OpenAI, Anthropic, Ollama)
 
 ## License
 

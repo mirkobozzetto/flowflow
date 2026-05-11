@@ -41,6 +41,14 @@ Mirko Bozzetto — freelance full-stack developer, Brussels.
 | C | Soniox REST (upload WAV → transcription) | Done |
 | D | SQLite storage + UI refactor + Tailwind | Done |
 | E | Embeddings + RAG + Chat + Settings + Tags | Done |
+| F | RIG framework + agent tools + multi-provider | Planned |
+
+### Track F — Future
+
+- Integrate `rig-core` crate for LLM abstraction (multi-provider: OpenAI, Anthropic, Ollama)
+- Agent with tools: create notes, search by date, summarize folders from chat
+- Replace manual OpenAI client (ai.rs) and RAG pipeline (rag.rs) with RIG agents
+- Prerequisite: validate iOS cross-compilation (`cargo add rig-core` + build aarch64-apple-ios)
 
 ### Track E Progress
 
