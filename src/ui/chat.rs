@@ -1,3 +1,4 @@
+use crate::db::Database;
 use crate::services::audio::RecordingState;
 use crate::services::rag;
 use crate::ui::chat_input::ChatInputBar;
@@ -5,6 +6,7 @@ use crate::ui::icons::*;
 use crate::ui::state::View;
 use crate::ui::AppState;
 use dioxus::prelude::*;
+use std::sync::Arc;
 
 fn md_to_html(md: &str) -> String {
     use pulldown_cmark::{html, Parser};
@@ -35,15 +37,25 @@ fn send_question(
     question: String,
     messages: &mut Signal<Vec<ChatMsg>>,
     loading: &mut Signal<bool>,
+    conversation_id: Signal<Option<String>>,
+    db: Signal<Arc<Database>>,
 ) {
     messages.write().push(ChatMsg::User(question.clone()));
     loading.set(true);
+
+    let conv_id = conversation_id();
+    if let Some(ref cid) = conv_id {
+        let _ = db().add_message(cid, "user", &question, None);
+        let _ = db().touch_conversation(cid);
+    }
+
     let mut msgs = *messages;
     let mut ld = *loading;
+    let conv_signal = conversation_id;
     spawn(async move {
         match rag::query(&question).await {
             Ok(r) => {
-                let sources = r
+                let sources: Vec<ChatSource> = r
                     .sources
                     .iter()
                     .map(|s| ChatSource {
@@ -53,14 +65,45 @@ fn send_question(
                         distance: s.distance,
                     })
                     .collect();
+
+                let sources_json = if sources.is_empty() {
+                    None
+                } else {
+                    let src_data: Vec<serde_json::Value> = sources
+                        .iter()
+                        .map(|s| {
+                            serde_json::json!({
+                                "note_id": s.note_id,
+                                "title": s.title,
+                                "chunk_text": s.chunk_text,
+                                "distance": s.distance,
+                            })
+                        })
+                        .collect();
+                    Some(serde_json::to_string(&src_data).unwrap_or_default())
+                };
+
+                if let Some(ref cid) = conv_signal() {
+                    let _ = db().add_message(
+                        cid,
+                        "bot",
+                        &r.answer,
+                        sources_json.as_deref(),
+                    );
+                }
+
                 msgs.write().push(ChatMsg::Bot {
                     text: r.answer,
                     sources,
                 });
             }
             Err(e) => {
+                let err_msg = format!("Erreur : {e}");
+                if let Some(ref cid) = conv_signal() {
+                    let _ = db().add_message(cid, "bot", &err_msg, None);
+                }
                 msgs.write().push(ChatMsg::Bot {
-                    text: format!("Erreur : {e}"),
+                    text: err_msg,
                     sources: vec![],
                 });
             }
@@ -69,10 +112,71 @@ fn send_question(
     });
 }
 
+fn load_messages_from_db(db: &Database, conversation_id: &str) -> Vec<ChatMsg> {
+    let db_msgs = db.list_messages(conversation_id).unwrap_or_default();
+    db_msgs
+        .into_iter()
+        .map(|m| {
+            if m.role == "user" {
+                ChatMsg::User(m.content)
+            } else {
+                let sources = m
+                    .sources_json
+                    .as_deref()
+                    .and_then(|json| {
+                        serde_json::from_str::<Vec<serde_json::Value>>(json)
+                            .ok()
+                    })
+                    .map(|arr| {
+                        arr.into_iter()
+                            .map(|v| ChatSource {
+                                note_id: v["note_id"]
+                                    .as_str()
+                                    .unwrap_or_default()
+                                    .to_string(),
+                                title: v["title"]
+                                    .as_str()
+                                    .unwrap_or_default()
+                                    .to_string(),
+                                chunk_text: v["chunk_text"]
+                                    .as_str()
+                                    .unwrap_or_default()
+                                    .to_string(),
+                                distance: v["distance"].as_f64().unwrap_or(0.0)
+                                    as f32,
+                            })
+                            .collect()
+                    })
+                    .unwrap_or_default();
+                ChatMsg::Bot {
+                    text: m.content,
+                    sources,
+                }
+            }
+        })
+        .collect()
+}
+
 #[component]
 pub fn ChatView() -> Element {
     let mut app: AppState = use_context();
-    let mut messages: Signal<Vec<ChatMsg>> = use_signal(Vec::new);
+    let db: Signal<Arc<Database>> = use_context();
+
+    let initial_conv_id = match (app.view)() {
+        View::Chat { conversation_id } => conversation_id,
+        _ => None,
+    };
+
+    let mut conversation_id: Signal<Option<String>> =
+        use_signal(|| initial_conv_id.clone());
+
+    let initial_msgs = if let Some(ref cid) = initial_conv_id {
+        load_messages_from_db(&db(), cid)
+    } else {
+        vec![]
+    };
+
+    let mut messages: Signal<Vec<ChatMsg>> = use_signal(|| initial_msgs);
     let mut input = use_signal(String::new);
     let mut loading = use_signal(|| false);
 
@@ -102,9 +206,9 @@ pub fn ChatView() -> Element {
 
     rsx! {
         div {
-            class: "overflow-hidden pb-24",
+            class: "overflow-hidden",
             style: "height: calc(100% - var(--keyboard-inset, 0px));",
-            div { id: "chat-messages", class: "h-full overflow-y-auto px-4 pt-4 pb-4",
+            div { id: "chat-messages", class: "h-full overflow-y-auto px-4 pt-4 pb-40",
                 if is_empty && !loading() {
                     div {
                         class: "flex flex-col items-center justify-center px-6 h-full",
@@ -154,11 +258,15 @@ pub fn ChatView() -> Element {
                                                         };
                                                         let pct = ((1.0 - src.distance) * 100.0).round() as u32;
                                                         let mut app = app.clone();
+                                                        let conv_for_back = conversation_id();
                                                         rsx! {
                                                             button {
                                                                 key: "{j}",
                                                                 class: "w-full text-left px-2.5 py-1.5 rounded-lg bg-ios-blue/5 active:bg-ios-blue/12",
-                                                                onclick: move |_| app.view.set(View::NoteDetail { note_id: nid.clone() }),
+                                                                onclick: move |_| {
+                                                                    app.previous_view.set(Some(View::Chat { conversation_id: conv_for_back.clone() }));
+                                                                    app.view.set(View::NoteDetail { note_id: nid.clone() });
+                                                                },
                                                                 div { class: "flex items-center justify-between",
                                                                     span { class: "text-[11px] font-medium text-ios-blue", "{src.title}" }
                                                                     span { class: "text-[10px] text-gray-400", "{pct}%" }
@@ -204,7 +312,14 @@ pub fn ChatView() -> Element {
             input: input,
             disabled: loading(),
             on_send: move |q: String| {
-                send_question(q, &mut messages, &mut loading);
+                if conversation_id().is_none() {
+                    let title: String = q.chars().take(50).collect();
+                    if let Ok(conv) = db().create_conversation(&title) {
+                        let cid = conv.id.clone();
+                        conversation_id.set(Some(cid));
+                    }
+                }
+                send_question(q, &mut messages, &mut loading, conversation_id, db);
             },
         }
     }
