@@ -196,22 +196,18 @@ pub fn NoteDetail() -> Element {
                             tagging.set(true);
                             let c = content();
                             spawn(async move {
-                                match LlmClient::from_env() {
-                                    Ok(client) => {
-                                        match client.generate_tags(&c).await {
-                                            Ok(new_tags) => {
-                                                let mut current = tags();
-                                                for t in new_tags {
-                                                    if !current.contains(&t) {
-                                                        current.push(t);
-                                                    }
-                                                }
-                                                tags.set(current);
+                                if let Ok(client) = LlmClient::from_env() {
+                                    if let Ok(new_tags) =
+                                        client.generate_tags(&c).await
+                                    {
+                                        let mut current = tags();
+                                        for t in new_tags {
+                                            if !current.contains(&t) {
+                                                current.push(t);
                                             }
-                                            Err(_) => {}
                                         }
+                                        tags.set(current);
                                     }
-                                    Err(_) => {}
                                 }
                                 tagging.set(false);
                             });

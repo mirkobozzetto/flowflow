@@ -99,7 +99,7 @@ pub fn SidebarOverlay() -> Element {
 fn ConversationSection() -> Element {
     let mut app: AppState = use_context();
     let db: Signal<Arc<Database>> = use_context();
-    let mut version = use_signal(|| 0u32);
+    let version = use_signal(|| 0u32);
 
     let conversations = use_memo(move || {
         let _v = version();
