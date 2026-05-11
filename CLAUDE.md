@@ -42,6 +42,7 @@ Mirko Bozzetto — freelance full-stack developer, Brussels.
 | D | SQLite storage + UI refactor + Tailwind | Done |
 | E | Embeddings + RAG + Chat + Settings + Tags | Done |
 | F | RIG framework + agent tools + multi-provider | Done |
+| G | Document attachments (TXT, MD, CSV, PDF, DOCX) | Done |
 
 ### Track F Progress
 
@@ -57,6 +58,18 @@ Mirko Bozzetto — freelance full-stack developer, Brussels.
 - Additional agent tools (search by date, link notes, batch tag generation)
 - Prerequisite: validate iOS cross-compilation on each new tool
 
+### Track G Progress
+
+| Step | Description | Status |
+|------|-------------|--------|
+| 1 | SQLite V3 migration + Attachment model + repo | Done |
+| 2 | Attachment cards UI in NoteDetail + modal viewer | Done |
+| 3 | Native iOS file picker (UIDocumentPickerViewController) | Done |
+| 4 | PDF parsing via pdf-extract | Done |
+| 5 | DOCX parsing via zip + quick-xml | Done |
+| 6 | Auto-embed attachments on import (chunked, scheme `att:{id}:{idx}`) | Done |
+| 7 | Tests (migration V3, CRUD, cascade delete, DOCX, PDF crate) | Done |
+
 ### Track E Progress
 
 | Step | Description | Status |
@@ -69,7 +82,7 @@ Mirko Bozzetto — freelance full-stack developer, Brussels.
 | 6 | Chat UI + RAG pipeline (search → context → response) | Done |
 | 7 | Chat history persistence (SQLite, sidebar tabs, CRUD) | Done |
 
-## Architecture (Clean Architecture, SRP — 38 modules)
+## Architecture (Clean Architecture, SRP — 42 modules)
 
 LlmClient dispatches on `Provider` enum: OpenAI (embeddings + chat/agent) or Anthropic (chat/agent only, embeddings always OpenAI). Provider, OpenAI key, and Anthropic key persisted in SQLite via Settings UI.
 
@@ -77,30 +90,33 @@ LlmClient dispatches on `Provider` enum: OpenAI (embeddings + chat/agent) or Ant
 ```
 src/
   main.rs                  entry point (dotenvy + dioxus::launch)
+  lib.rs                   pub mod exports (enables integration tests)
   models/                  domain entities
     note.rs                Note, NewTextNote, UpdateNote, NoteType
     folder.rs              Folder, NewFolder, UpdateFolder
     conversation.rs        Conversation, ConversationMessage
+    attachment.rs          Attachment, NewAttachment
   db/                      persistence layer
-    mod.rs                 Database struct, open, conn, migrate
-    schema.rs              SQL schemas, MIGRATIONS (V1 + V2)
+    mod.rs                 Database struct, open, open_at, conn, migrate
+    schema.rs              SQL schemas, MIGRATIONS (V1 + V2 + V3)
     note_repo.rs           CRUD notes
     folder_repo.rs         CRUD folders
     settings_repo.rs       get/set settings (key-value store)
     conversation_repo.rs   CRUD conversations + messages
+    attachment_repo.rs     CRUD attachments (create, get, list_for_note, delete, delete_for_note)
   services/                business logic
     constants.rs           AI config (OpenAI + Anthropic models, dims, chunks, RAG_AGENT_SYSTEM_PROMPT, SUMMARIZE_FOLDER_PROMPT, tags prompt)
     ai.rs                  chunk_text (sliding-window chunker)
     llm.rs                 LlmClient + Provider enum (OpenAi/Anthropic dispatch: embed, chat, generate_tags, prompt_with_agent, parse_tags)
     error.rs               LlmError enum (NotConfigured, Embedding, Completion, TagParsing)
     tools.rs               SearchNotes, CreateNote, SummarizeFolder (rig Tool trait) + prompt_agent_with_tools
-    vectordb.rs            VectorStore (LanceDB: store, search, delete)
-    embed.rs               embed_note, delete_note_embeddings (background)
+    vectordb.rs            VectorStore (LanceDB: store, search, delete, delete_attachment_chunks)
+    embed.rs               embed_note, embed_attachment, delete_note_embeddings, delete_attachment_embeddings (background)
     rag.rs                 RAG pipeline (embed query → vector search → context → agent with tools)
     audio.rs               AudioRecorder (cpal, WAV capture)
     transcription.rs       SonioxClient (upload, poll, transcribe)
   platform/                OS-specific
-    ios.rs                 AVAudioSession, documents_dir
+    ios.rs                 AVAudioSession, documents_dir, open_file_picker (UIDocumentPickerViewController), read_file_as_text (txt/md/csv/pdf/docx)
   ui/                      Dioxus components (1 component = 1 file)
     mod.rs                 App root component + view routing + keyboard handler
     state.rs               AppState, View enum (NotesList, NoteDetail, Chat, Settings)
@@ -109,13 +125,14 @@ src/
     fab.rs                 FloatingActionButton (new note)
     note_list.rs           NotesList
     note_card.rs           NoteCard (with tag chips)
-    note_detail.rs         NoteDetail (tags UI, auto-tag, auto-embed on save)
+    note_detail.rs         NoteDetail (tags UI, auto-tag, attachment cards, import, auto-embed on save)
+    attachment_modal.rs    AttachmentModal (bottom sheet, filename + date + full text)
     folder_picker.rs       FolderPicker (dropdown)
     recording_bar.rs       RecordingBar (voice recording in notes)
     settings.rs            SettingsView (provider picker OpenAI/Anthropic, API keys form, DB persistence)
     chat.rs                ChatView (persistent conversations, markdown, sources)
     chat_input.rs          ChatInputBar (mic, textarea, send, transcription)
-    icons.rs               Phosphor SVG icons (16 icons)
+    icons.rs               Phosphor SVG icons
 ```
 
 ## Data Entities
@@ -135,6 +152,14 @@ src/
 - id (UUID), title (auto from first question, 50 chars), created_at, modified_at
 - Messages: id, conversation_id (FK CASCADE), role (user/bot), content, sources_json
 - Sidebar tabs Notes/Chats with rename/delete (same UX as folders)
+
+### Attachment (imported document linked to a note)
+- id (UUID), note_id (FK CASCADE on parent note), filename, content_text, imported_at
+- Stored in SQLite (V3 migration), one-to-many with Note via `attachments.note_id`
+- Auto-embedded on import (>50 chars) → chunked → OpenAI → LanceDB
+  - Vector chunk id scheme: `att:{attachment_id}:{chunk_idx}` (distinct from note chunks)
+- Supported formats: TXT, MD, CSV (direct), PDF (pdf-extract), DOCX (zip + quick-xml)
+- CASCADE delete on parent note removal
 
 ### Settings (key-value)
 - key (PK), value — stores API keys and `llm_provider` in SQLite
@@ -185,6 +210,9 @@ RAG Chat Pipeline:
 - lancedb 0.27.2 (vector DB, default-features = false for iOS)
 - arrow-array 57 + arrow-schema 57 (must match lancedb's arrow version)
 - pulldown-cmark 0.12 (markdown → HTML for chat responses)
+- pdf-extract 0.10 (PDF text extraction)
+- zip 2 (DOCX archive reading)
+- quick-xml 0.36 (DOCX word/document.xml parser)
 - futures 0.3.32 (stream collect for LanceDB queries)
 - Rust 1.94.1
 - iOS targets: aarch64-apple-ios, aarch64-apple-ios-sim
@@ -265,7 +293,7 @@ xcrun devicectl manage pair --device <DEVICE_ID>
 <!-- gitnexus:start -->
 # GitNexus — Code Intelligence
 
-This project is indexed by GitNexus as **flowflow** (667 symbols, 1103 relationships, 34 execution flows). Use the GitNexus MCP tools to understand code, assess impact, and navigate safely.
+This project is indexed by GitNexus as **flowflow** (1002 symbols, 2000 relationships, 85 execution flows). Use the GitNexus MCP tools to understand code, assess impact, and navigate safely.
 
 > If any GitNexus tool warns the index is stale, run `npx gitnexus analyze` in terminal first.
 
