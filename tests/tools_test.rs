@@ -1,8 +1,10 @@
 use flowflow::services::tools::{
     CreateNote, CreateNoteArgs, CreateNoteResult, SearchNotesArgs,
-    SearchNotesHit, SummarizeFolderArgs, SummarizeFolderResult, ToolFailure,
+    SearchNotesHit, SummarizeFolderArgs, SummarizeFolderResult, ToolEvent,
+    ToolFailure, ToolStatusHook,
 };
 use rig::tool::Tool;
+use tokio::sync::mpsc;
 
 #[test]
 fn test_tool_failure_display() {
@@ -185,4 +187,46 @@ fn test_create_note_default_impl() {
 fn test_create_note_clone() {
     let tool = CreateNote::new();
     let _cloned = tool.clone();
+}
+
+#[test]
+fn test_tool_event_clone() {
+    let started = ToolEvent::Started("search_notes".to_string());
+    let cloned = started.clone();
+    match (started, cloned) {
+        (ToolEvent::Started(a), ToolEvent::Started(b)) => assert_eq!(a, b),
+        _ => panic!("expected Started variants"),
+    }
+}
+
+#[test]
+fn test_tool_event_debug_format() {
+    let started = ToolEvent::Started("create_note".to_string());
+    let dbg = format!("{started:?}");
+    assert!(dbg.contains("Started"));
+    assert!(dbg.contains("create_note"));
+
+    let finished = ToolEvent::Finished("summarize_folder".to_string());
+    let dbg = format!("{finished:?}");
+    assert!(dbg.contains("Finished"));
+    assert!(dbg.contains("summarize_folder"));
+}
+
+#[test]
+fn test_tool_event_is_send_sync() {
+    fn assert_send_sync<T: Send + Sync>() {}
+    assert_send_sync::<ToolEvent>();
+}
+
+#[test]
+fn test_tool_status_hook_is_send_sync() {
+    fn assert_send_sync<T: Send + Sync>() {}
+    assert_send_sync::<ToolStatusHook>();
+}
+
+#[test]
+fn test_tool_status_hook_is_clone() {
+    let (tx, _rx) = mpsc::unbounded_channel::<ToolEvent>();
+    let hook = ToolStatusHook::new(tx);
+    let _cloned = hook.clone();
 }

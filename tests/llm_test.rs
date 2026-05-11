@@ -1,5 +1,6 @@
 use flowflow::services::error::LlmError;
-use flowflow::services::llm::parse_tags;
+use flowflow::services::llm::{parse_tags, Provider};
+use std::str::FromStr;
 
 #[test]
 fn test_parse_tags_plain_array() {
@@ -111,4 +112,93 @@ fn test_llm_error_debug_format() {
     let err = LlmError::NotConfigured("k".into());
     let dbg = format!("{err:?}");
     assert!(dbg.contains("NotConfigured"));
+}
+
+#[test]
+fn test_provider_default_is_openai() {
+    assert_eq!(Provider::default(), Provider::OpenAi);
+}
+
+#[test]
+fn test_provider_display_openai() {
+    assert_eq!(format!("{}", Provider::OpenAi), "openai");
+}
+
+#[test]
+fn test_provider_display_anthropic() {
+    assert_eq!(format!("{}", Provider::Anthropic), "anthropic");
+}
+
+#[test]
+fn test_provider_as_str_openai() {
+    assert_eq!(Provider::OpenAi.as_str(), "openai");
+}
+
+#[test]
+fn test_provider_as_str_anthropic() {
+    assert_eq!(Provider::Anthropic.as_str(), "anthropic");
+}
+
+#[test]
+fn test_provider_from_str_openai_canonical() {
+    assert_eq!(Provider::from_str("openai").unwrap(), Provider::OpenAi);
+}
+
+#[test]
+fn test_provider_from_str_openai_variants() {
+    assert_eq!(Provider::from_str("OpenAI").unwrap(), Provider::OpenAi);
+    assert_eq!(Provider::from_str("open_ai").unwrap(), Provider::OpenAi);
+    assert_eq!(Provider::from_str("open-ai").unwrap(), Provider::OpenAi);
+    assert_eq!(Provider::from_str("  openai  ").unwrap(), Provider::OpenAi);
+}
+
+#[test]
+fn test_provider_from_str_anthropic_canonical() {
+    assert_eq!(
+        Provider::from_str("anthropic").unwrap(),
+        Provider::Anthropic
+    );
+}
+
+#[test]
+fn test_provider_from_str_anthropic_variants() {
+    assert_eq!(
+        Provider::from_str("Anthropic").unwrap(),
+        Provider::Anthropic
+    );
+    assert_eq!(Provider::from_str("claude").unwrap(), Provider::Anthropic);
+    assert_eq!(Provider::from_str("CLAUDE").unwrap(), Provider::Anthropic);
+}
+
+#[test]
+fn test_provider_from_str_invalid() {
+    assert!(Provider::from_str("gemini").is_err());
+    assert!(Provider::from_str("").is_err());
+    assert!(Provider::from_str("unknown").is_err());
+}
+
+#[test]
+fn test_provider_roundtrip_via_as_str() {
+    for p in [Provider::OpenAi, Provider::Anthropic] {
+        let parsed = Provider::from_str(p.as_str()).unwrap();
+        assert_eq!(parsed, p);
+    }
+}
+
+#[test]
+fn test_provider_clone_copy_eq() {
+    let p = Provider::Anthropic;
+    let q = p;
+    let r = p;
+    assert_eq!(p, q);
+    assert_eq!(p, r);
+    assert_ne!(Provider::OpenAi, Provider::Anthropic);
+}
+
+#[test]
+fn test_provider_debug_format() {
+    let dbg = format!("{:?}", Provider::OpenAi);
+    assert!(dbg.contains("OpenAi"));
+    let dbg = format!("{:?}", Provider::Anthropic);
+    assert!(dbg.contains("Anthropic"));
 }
