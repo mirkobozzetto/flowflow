@@ -236,4 +236,25 @@ impl VectorStore {
         eprintln!("[vectordb] deleted chunks for note {note_id}");
         Ok(())
     }
+
+    pub async fn delete_attachment_chunks(
+        &self,
+        attachment_id: &str,
+    ) -> Result<(), String> {
+        let table = match self.db.open_table(VECTOR_TABLE_NAME).execute().await
+        {
+            Ok(t) => t,
+            Err(_) => return Ok(()),
+        };
+
+        let escaped = attachment_id.replace('\'', "''");
+        let filter = format!("id LIKE 'att:{escaped}:%'");
+        table
+            .delete(&filter)
+            .await
+            .map_err(|e| format!("VectorDB delete attachment: {e}"))?;
+
+        eprintln!("[vectordb] deleted chunks for attachment {attachment_id}");
+        Ok(())
+    }
 }
