@@ -59,8 +59,9 @@ pub fn NotesList() -> Element {
                     p { class: "text-lg text-stone-400", "Aucun résultat" }
                     p { class: "text-sm text-stone-400", "Essayez un autre terme" }
                 } else {
-                    p { class: "text-lg text-stone-400", "Aucune note" }
-                    p { class: "text-sm text-stone-400", "Appuyez sur + pour commencer" }
+                    img { src: asset!("/assets/flowflow-icon-300.png"), width: "200", height: "200", class: "mb-6 rounded-3xl" }
+                    p { class: "text-lg font-semibold text-stone-900", "Bienvenue" }
+                    p { class: "text-sm text-stone-400 mt-1", "Appuie sur + pour ta première note" }
                 }
             }
         } else {
