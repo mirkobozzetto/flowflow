@@ -40,8 +40,10 @@ impl SonioxClient {
     }
 
     pub fn from_env() -> Result<Self, String> {
-        let key = std::env::var("SONIOX_API_KEY")
+        let key = crate::db::Database::open()
             .ok()
+            .and_then(|db| db.get_setting("soniox_api_key"))
+            .or_else(|| std::env::var("SONIOX_API_KEY").ok())
             .or_else(|| option_env!("SONIOX_API_KEY").map(String::from))
             .unwrap_or_default();
         if key.is_empty() || key == "your_key_here" {

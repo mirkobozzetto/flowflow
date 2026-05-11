@@ -1,3 +1,4 @@
+pub mod conversation;
 pub mod folder;
 pub mod note;
 

@@ -1,32 +1,31 @@
+mod chat;
+mod chat_input;
+mod fab;
+mod folder_picker;
 pub mod icons;
-mod layout;
-mod notes;
+mod note_card;
+mod note_detail;
+mod note_list;
+mod recording_bar;
+mod settings;
+mod sidebar;
+mod state;
+mod top_bar;
+
+pub use state::{AppState, View};
 
 use crate::db::Database;
 use crate::services::audio::{AudioRecorder, RecordingState};
 use dioxus::prelude::*;
 use std::sync::{Arc, Mutex};
 
-use layout::{FloatingActionButton, SidebarOverlay, TopBar};
-use notes::{NoteDetail, NotesList};
-
-#[derive(Clone, Debug, PartialEq)]
-pub enum View {
-    NotesList,
-    NoteDetail { note_id: String },
-}
-
-#[derive(Clone)]
-pub struct AppState {
-    pub view: Signal<View>,
-    pub sidebar_open: Signal<bool>,
-    pub selected_folder_id: Signal<Option<String>>,
-    pub recording_state: Signal<RecordingState>,
-    pub folders_version: Signal<u32>,
-    pub sliding_out: Signal<bool>,
-    pub audio_levels: Signal<Vec<f32>>,
-    pub notes_version: Signal<u32>,
-}
+use chat::ChatView;
+use fab::FloatingActionButton;
+use note_detail::NoteDetail;
+use note_list::NotesList;
+use settings::SettingsView;
+use sidebar::SidebarOverlay;
+use top_bar::TopBar;
 
 #[component]
 pub fn App() -> Element {
@@ -50,6 +49,65 @@ pub fn App() -> Element {
         sliding_out: Signal::new(false),
         audio_levels: Signal::new(vec![0.0; 12]),
         notes_version: Signal::new(0),
+        current_note_id: Signal::new(None),
+        previous_view: Signal::new(None),
+    });
+
+    use_effect(|| {
+        dioxus::document::eval(
+            r#"
+            (function() {
+                var cachedKeyboardH = 0;
+
+                function applyOffset(offset) {
+                    document.documentElement.style.setProperty('--keyboard-inset', offset + 'px');
+                    var els = document.querySelectorAll('.keyboard-aware');
+                    for (var i = 0; i < els.length; i++) {
+                        els[i].style.bottom = offset + 'px';
+                    }
+                }
+
+                function measureKeyboard() {
+                    if (!window.visualViewport) return 0;
+                    var vv = window.visualViewport;
+                    return Math.max(0, window.innerHeight - vv.height - vv.offsetTop);
+                }
+
+                if (window.visualViewport) {
+                    var handler = function() {
+                        var offset = measureKeyboard();
+                        if (offset > 50) cachedKeyboardH = offset;
+                        applyOffset(offset);
+                    };
+                    window.visualViewport.addEventListener('resize', handler);
+                    window.visualViewport.addEventListener('scroll', handler);
+                }
+
+                document.addEventListener('focusin', function(e) {
+                    if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') {
+                        if (cachedKeyboardH > 0) {
+                            applyOffset(cachedKeyboardH);
+                        }
+                        setTimeout(function() {
+                            var h = measureKeyboard();
+                            if (h > 50) {
+                                cachedKeyboardH = h;
+                                applyOffset(h);
+                            }
+                            e.target.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+                        }, 400);
+                    }
+                });
+
+                document.addEventListener('focusout', function() {
+                    applyOffset(0);
+                    requestAnimationFrame(function() {
+                        window.scrollTo(0, window.scrollY);
+                    });
+                });
+            })();
+            "#,
+        );
     });
 
     rsx! {
@@ -62,7 +120,7 @@ pub fn App() -> Element {
                 div { class: "flex-1 overflow-hidden relative",
                     div {
                         class: "absolute inset-0 overflow-y-auto px-4 py-3 pb-20",
-                        class: if matches!((app.view)(), View::NoteDetail { .. }) { "pointer-events-none" } else { "" },
+                        class: if !matches!((app.view)(), View::NotesList) { "pointer-events-none" } else { "" },
                         NotesList {}
                     }
                     if matches!((app.view)(), View::NoteDetail { .. }) {
@@ -74,6 +132,28 @@ pub fn App() -> Element {
                                 "animation: slideInRight 0.15s ease-out;"
                             },
                             NoteDetail {}
+                        }
+                    }
+                    if matches!((app.view)(), View::Chat { .. }) {
+                        div {
+                            class: "absolute inset-0 flex flex-col min-h-0 bg-gray-100",
+                            style: if (app.sliding_out)() {
+                                "animation: slideOutRight 0.15s ease-in forwards;"
+                            } else {
+                                "animation: slideInRight 0.15s ease-out;"
+                            },
+                            ChatView {}
+                        }
+                    }
+                    if matches!((app.view)(), View::Settings) {
+                        div {
+                            class: "absolute inset-0 flex flex-col min-h-0 px-4 py-3 bg-gray-100",
+                            style: if (app.sliding_out)() {
+                                "animation: slideOutRight 0.15s ease-in forwards;"
+                            } else {
+                                "animation: slideInRight 0.15s ease-out;"
+                            },
+                            SettingsView {}
                         }
                     }
                 }

@@ -8,9 +8,7 @@ use lancedb::connect;
 use lancedb::query::{ExecutableQuery, QueryBase};
 use std::sync::Arc;
 
-async fn open_store(
-    path: &str,
-) -> Result<lancedb::Connection, lancedb::Error> {
+async fn open_store(path: &str) -> Result<lancedb::Connection, lancedb::Error> {
     connect(path).execute().await
 }
 
@@ -38,12 +36,14 @@ async fn create_table(
 
     let id_array = Arc::new(StringArray::from(ids));
     let vector_array =
-        Arc::new(FixedSizeListArray::from_iter_primitive::<Float32Type, _, _>(
-            vectors
-                .into_iter()
-                .map(|v| Some(v.into_iter().map(Some).collect::<Vec<_>>())),
-            dim as i32,
-        ));
+        Arc::new(
+            FixedSizeListArray::from_iter_primitive::<Float32Type, _, _>(
+                vectors
+                    .into_iter()
+                    .map(|v| Some(v.into_iter().map(Some).collect::<Vec<_>>())),
+                dim as i32,
+            ),
+        );
     let text_array = Arc::new(StringArray::from(texts));
 
     let batch = RecordBatch::try_new(
@@ -90,12 +90,13 @@ async fn lancedb_roundtrip() {
         "Appel client important".to_string(),
     ];
 
-    create_table(&db, "chunks", ids, vectors, texts).await.unwrap();
+    create_table(&db, "chunks", ids, vectors, texts)
+        .await
+        .unwrap();
 
-    let results =
-        vector_search(&db, "chunks", vec![1.0, 0.0, 0.0, 0.0], 1)
-            .await
-            .unwrap();
+    let results = vector_search(&db, "chunks", vec![1.0, 0.0, 0.0, 0.0], 1)
+        .await
+        .unwrap();
     assert!(!results.is_empty());
     assert_eq!(results[0].num_rows(), 1);
 }
@@ -121,12 +122,13 @@ async fn lancedb_multi_search() {
         "Appel fournisseur".to_string(),
     ];
 
-    create_table(&db, "chunks", ids, vectors, texts).await.unwrap();
+    create_table(&db, "chunks", ids, vectors, texts)
+        .await
+        .unwrap();
 
-    let results =
-        vector_search(&db, "chunks", vec![1.0, 0.0, 0.0, 0.0], 2)
-            .await
-            .unwrap();
+    let results = vector_search(&db, "chunks", vec![1.0, 0.0, 0.0, 0.0], 2)
+        .await
+        .unwrap();
     assert!(!results.is_empty());
     let total_rows: usize = results.iter().map(|b| b.num_rows()).sum();
     assert_eq!(total_rows, 2);
