@@ -1,4 +1,4 @@
-.PHONY: build format check dev ddev desktop
+.PHONY: build format check dev ddev desktop clean clean-all
 
 build:
 	cargo build --features mobile
@@ -21,3 +21,9 @@ desktop:
 # Device logs: Console.app → select iPhone → filter "FlowFlow"
 logs:
 	open -a Console
+
+clean:
+	rm -rf target/dx target/ios-dev target/desktop-dev target/flycheck0 target/tmp
+
+clean-all:
+	cargo clean
