@@ -11,6 +11,7 @@ Built with Dioxus 0.7 for iOS. Inspired by [SuperPowerNotes](https://github.com/
 - **Transcription** — Soniox REST API (stt-async-v4, French-optimized)
 - **Auto-embed** — notes auto-embedded on save (>50 chars) → chunked → OpenAI → LanceDB
 - **AI tags** — LLM auto-generated tags (3-5 per note) + manual add/remove chips
+- **Multi-provider LLM** — OpenAI (gpt-4o-mini) or Anthropic (Claude Haiku 4.5), picked in Settings
 - **RAG chat** — ask questions about your notes, AI answers with source references
 - **Agent tools** — chat can search notes, create notes, and summarize folders on demand
 - **Tool call status** — chat shows real-time tool activity ("Recherche dans les notes...", etc.)
@@ -29,28 +30,28 @@ Built with Dioxus 0.7 for iOS. Inspired by [SuperPowerNotes](https://github.com/
 
 ## Stack
 
-| Layer | Tech |
-|-------|------|
-| Language | Rust 1.94 |
-| UI Framework | Dioxus 0.7 (WKWebView on iOS) |
-| Styling | Tailwind CSS V4 |
-| Audio | cpal 0.17 + hound 3.5 |
-| Transcription | Soniox REST API (stt-async-v4) |
-| Database | SQLite (rusqlite 0.34, bundled) |
-| Vector DB | LanceDB 0.27.2 (local semantic search) |
-| LLM Framework | rig-core 0.36 (OpenAI provider) |
-| Embeddings | OpenAI API (text-embedding-3-small, 1536 dims) |
-| Chat | OpenAI API (gpt-4o-mini) via rig agent |
-| Markdown | pulldown-cmark 0.12 |
-| HTTP | reqwest 0.13 (multipart + JSON + rustls) |
-| Async | tokio 1 + futures-timer 3 |
-| Serialization | serde 1.0 + serde_json 1.0 |
-| Date/Time | chrono 0.4 |
-| UUID | uuid 1 (v4) |
-| Env | dotenvy 0.15 |
-| iOS Platform | objc2 + objc2-avf-audio |
-| Icons | Phosphor Icons (MIT) |
-| Target | iOS (aarch64-apple-ios, aarch64-apple-ios-sim) |
+| Layer         | Tech                                                            |
+| ------------- | --------------------------------------------------------------- |
+| Language      | Rust 1.94                                                       |
+| UI Framework  | Dioxus 0.7 (WKWebView on iOS)                                   |
+| Styling       | Tailwind CSS V4                                                 |
+| Audio         | cpal 0.17 + hound 3.5                                           |
+| Transcription | Soniox REST API (stt-async-v4)                                  |
+| Database      | SQLite (rusqlite 0.34, bundled)                                 |
+| Vector DB     | LanceDB 0.27.2 (local semantic search)                          |
+| LLM Framework | rig-core 0.36 (OpenAI + Anthropic providers)                    |
+| Embeddings    | OpenAI API (text-embedding-3-small, 1536 dims) — always OpenAI  |
+| Chat          | OpenAI gpt-4o-mini OR Anthropic Claude Sonnet 4.6 via rig agent |
+| Markdown      | pulldown-cmark 0.12                                             |
+| HTTP          | reqwest 0.13 (multipart + JSON + rustls)                        |
+| Async         | tokio 1 + futures-timer 3                                       |
+| Serialization | serde 1.0 + serde_json 1.0                                      |
+| Date/Time     | chrono 0.4                                                      |
+| UUID          | uuid 1 (v4)                                                     |
+| Env           | dotenvy 0.15                                                    |
+| iOS Platform  | objc2 + objc2-avf-audio                                         |
+| Icons         | Phosphor Icons (MIT)                                            |
+| Target        | iOS (aarch64-apple-ios, aarch64-apple-ios-sim)                  |
 
 ## Architecture
 
@@ -72,7 +73,7 @@ src/                          38 modules, ~5000 lines Rust
   services/
     constants.rs              AI config (models, dims, prompts: RAG, tags, agent, summarize)
     ai.rs                     chunk_text (text splitting with overlap)
-    llm.rs                    LlmClient (rig-core wrapper: embed, chat, generate_tags)
+    llm.rs                    LlmClient + Provider enum (OpenAi/Anthropic: embed, chat, generate_tags, prompt_with_agent)
     error.rs                  LlmError enum (NotConfigured, Embedding, Completion, TagParsing)
     tools.rs                  Agent tools: SearchNotes, CreateNote, SummarizeFolder (rig Tool trait)
     vectordb.rs               VectorStore (LanceDB: store, search, delete, cosine)
@@ -93,7 +94,7 @@ src/                          38 modules, ~5000 lines Rust
     note_detail.rs            NoteDetail (tags chips, auto-tag, recording, auto-save)
     folder_picker.rs          FolderPicker (dropdown)
     recording_bar.rs          RecordingBar (audio visualization + timer)
-    settings.rs               SettingsView (API keys form)
+    settings.rs               SettingsView (provider picker OpenAI/Anthropic + API keys)
     chat.rs                   ChatView (persistent conversations, markdown, sources)
     chat_input.rs             ChatInputBar (mic, textarea, send, transcription)
     icons.rs                  18 Phosphor SVG icon components
@@ -107,7 +108,7 @@ src/                          38 modules, ~5000 lines Rust
 notes (id, note_type, title, content, audio_file_path, duration_secs, tags[], created_at, modified_at)
 folders (id, name, description, parent_id → self-ref, created_at, modified_at)
 notes_folders (folder_id, note_id) — N:N junction, CASCADE on delete
-settings (key PK, value) — API keys stored locally
+settings (key PK, value) — API keys + llm_provider stored locally
 conversations (id, title, created_at, modified_at)
 conversation_messages (id, conversation_id → CASCADE, role, content, sources_json, created_at)
 ```
@@ -121,10 +122,11 @@ Note Pipeline:
     → chunked → OpenAI embed → LanceDB (cosine)
 
 RAG Chat Pipeline:
-  User question → OpenAI embed (query vector)
+  User question → OpenAI embed (query vector, always OpenAI)
     → LanceDB search (top 5 chunks, cosine)
     → Build context from matched notes
     → rig Agent with tools (search_notes, create_note, summarize_folder)
+    → Provider dispatch: OpenAI gpt-4o-mini OR Anthropic Claude Sonnet 4.6
     → Up to 4 tool turns, then final response
     → Markdown response + source cards
 
@@ -147,12 +149,15 @@ cp .env.example .env
 # Add your API keys (or configure later in-app via Settings)
 SONIOX_API_KEY=your_key
 OPENAI_API_KEY=your_key
+ANTHROPIC_API_KEY=your_key   # optional, only if you pick Anthropic in Settings
 ```
 
 - Soniox: https://console.soniox.com
 - OpenAI: https://platform.openai.com/api-keys
+- Anthropic: https://console.anthropic.com
 
-API keys can also be set in-app (sidebar → Settings) — stored in SQLite, no recompile needed.
+API keys and LLM provider can also be set in-app (sidebar → Settings) — stored in SQLite, no recompile needed.
+OpenAI key is always required (used for embeddings). Anthropic key is required only when Provider = Anthropic.
 
 ### Run
 
@@ -168,8 +173,8 @@ make clean-all # cargo clean (full nuke)
 ### Tests
 
 ```bash
-cargo test                    # 65 tests (unit + integration)
-cargo test -- --ignored       # E2E tests (needs OPENAI_API_KEY)
+cargo test                    # 83 tests (unit + integration)
+cargo test -- --ignored       # E2E tests (needs OPENAI_API_KEY and/or ANTHROPIC_API_KEY)
 ```
 
 ### Physical iPhone setup
@@ -191,6 +196,7 @@ cargo test -- --ignored       # E2E tests (needs OPENAI_API_KEY)
 - [x] Track E — Embeddings + RAG + Chat + Settings + Tags
 - [x] Track F Step 1 — RIG framework migration (LlmClient, LlmError, 40 tests)
 - [x] Track F Step 2 — Agent tools (SearchNotes, CreateNote, SummarizeFolder), reqwest 0.13
+- [x] Track F Step 3 — Multi-provider LLM (OpenAI + Anthropic via rig, Provider enum, Settings UI picker)
 - [x] Unified note editor (text + inline voice dictation)
 - [x] Auto-save on exit (use_drop hook)
 - [x] Auto-embed notes on save (chunked → OpenAI → LanceDB)
@@ -208,8 +214,7 @@ cargo test -- --ignored       # E2E tests (needs OPENAI_API_KEY)
 
 ### Next
 
-- [ ] Track F Step 3 — Multi-provider LLM (Anthropic via rig)
-- [ ] Settings UI for LLM provider selection + Anthropic API key
+- [ ] Ollama provider (local LLM via rig)
 - [ ] Document import (PDF, TXT, DOC)
 - [ ] Full-text search (SQLite FTS5) — hybrid with semantic search
 

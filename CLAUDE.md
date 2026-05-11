@@ -41,7 +41,7 @@ Mirko Bozzetto — freelance full-stack developer, Brussels.
 | C | Soniox REST (upload WAV → transcription) | Done |
 | D | SQLite storage + UI refactor + Tailwind | Done |
 | E | Embeddings + RAG + Chat + Settings + Tags | Done |
-| F | RIG framework + agent tools + multi-provider | In progress |
+| F | RIG framework + agent tools + multi-provider | Done |
 
 ### Track F Progress
 
@@ -49,11 +49,11 @@ Mirko Bozzetto — freelance full-stack developer, Brussels.
 |------|-------------|--------|
 | 1 | RIG migration (LlmClient replaces OpenAIClient) | Done |
 | 2 | Agent tools + reqwest unification | Done |
-| 3 | Multi-provider (Anthropic, Ollama) | Planned |
+| 3 | Multi-provider (Anthropic) | Done |
 
 ### Track F — Future
 
-- Multi-provider support (Anthropic, Ollama) via rig-core abstractions
+- Mistral provider via rig-core abstractions
 - Additional agent tools (search by date, link notes, batch tag generation)
 - Prerequisite: validate iOS cross-compilation on each new tool
 
@@ -71,6 +71,9 @@ Mirko Bozzetto — freelance full-stack developer, Brussels.
 
 ## Architecture (Clean Architecture, SRP — 38 modules)
 
+LlmClient dispatches on `Provider` enum: OpenAI (embeddings + chat/agent) or Anthropic (chat/agent only, embeddings always OpenAI). Provider, OpenAI key, and Anthropic key persisted in SQLite via Settings UI.
+
+
 ```
 src/
   main.rs                  entry point (dotenvy + dioxus::launch)
@@ -86,9 +89,9 @@ src/
     settings_repo.rs       get/set settings (key-value store)
     conversation_repo.rs   CRUD conversations + messages
   services/                business logic
-    constants.rs           AI config (models, dims, chunks, RAG_AGENT_SYSTEM_PROMPT, SUMMARIZE_FOLDER_PROMPT, tags prompt)
+    constants.rs           AI config (OpenAI + Anthropic models, dims, chunks, RAG_AGENT_SYSTEM_PROMPT, SUMMARIZE_FOLDER_PROMPT, tags prompt)
     ai.rs                  chunk_text (sliding-window chunker)
-    llm.rs                 LlmClient (rig-core wrapper: embed, chat, generate_tags, parse_tags)
+    llm.rs                 LlmClient + Provider enum (OpenAi/Anthropic dispatch: embed, chat, generate_tags, prompt_with_agent, parse_tags)
     error.rs               LlmError enum (NotConfigured, Embedding, Completion, TagParsing)
     tools.rs               SearchNotes, CreateNote, SummarizeFolder (rig Tool trait) + prompt_agent_with_tools
     vectordb.rs            VectorStore (LanceDB: store, search, delete)
@@ -109,7 +112,7 @@ src/
     note_detail.rs         NoteDetail (tags UI, auto-tag, auto-embed on save)
     folder_picker.rs       FolderPicker (dropdown)
     recording_bar.rs       RecordingBar (voice recording in notes)
-    settings.rs            SettingsView (API keys form, DB persistence)
+    settings.rs            SettingsView (provider picker OpenAI/Anthropic, API keys form, DB persistence)
     chat.rs                ChatView (persistent conversations, markdown, sources)
     chat_input.rs          ChatInputBar (mic, textarea, send, transcription)
     icons.rs               Phosphor SVG icons (16 icons)
@@ -134,7 +137,8 @@ src/
 - Sidebar tabs Notes/Chats with rename/delete (same UX as folders)
 
 ### Settings (key-value)
-- key (PK), value — stores API keys in SQLite
+- key (PK), value — stores API keys and `llm_provider` in SQLite
+- Known keys: `openai_api_key`, `anthropic_api_key`, `soniox_api_key`, `llm_provider` (openai/anthropic)
 - Fallback chain: DB → env var → compile-time `option_env!()`
 
 ## Styling
@@ -155,11 +159,11 @@ Note Pipeline:
     → OpenAI embed → chunk → LanceDB (vector)
 
 RAG Chat Pipeline:
-  User question → OpenAI embed (query vector)
+  User question → OpenAI embed (query vector, always OpenAI)
     → LanceDB vector search (top 5 chunks)
     → Build context from matched notes
     → Agent with tools (search_notes, create_note, summarize_folder)
-    → OpenAI chat (system prompt + context + question, up to 4 tool turns)
+    → OpenAI or Anthropic chat per Provider setting (system prompt + context + question, up to 4 tool turns)
     → Response with source citations
 ```
 
@@ -169,7 +173,8 @@ RAG Chat Pipeline:
 - cpal 0.17 (audio I/O via CoreAudio on iOS)
 - hound 3.5 (WAV file writing)
 - reqwest 0.13 (HTTP client, multipart + JSON, unified with rig-core)
-- rig-core 0.36 (LLM abstraction, agent + tools, rustls feature)
+- rig-core 0.36 (LLM abstraction, agent + tools, rustls feature, OpenAI + Anthropic providers)
+- Anthropic provider (Claude Sonnet 4.6 default, max_tokens 4096, chat + agent + tools)
 - tokio 1 (async runtime)
 - serde 1.0 + serde_json 1.0 (JSON serialization)
 - dotenvy 0.15 (.env loader)
@@ -204,11 +209,13 @@ Create a `.env` file at the project root (never committed):
 ```
 SONIOX_API_KEY=your_soniox_api_key
 OPENAI_API_KEY=your_openai_api_key
+ANTHROPIC_API_KEY=your_anthropic_api_key
 ```
 
 Keys can be set in-app (Settings view → saved in SQLite) or via `.env` at compile time.
 Fallback chain: SQLite settings → env var → `option_env!()` compile-time.
-Soniox: https://console.soniox.com — OpenAI: https://platform.openai.com/api-keys
+OpenAI key is always required (used for embeddings). Anthropic key is required only when Provider is set to Anthropic in Settings.
+Soniox: https://console.soniox.com — OpenAI: https://platform.openai.com/api-keys — Anthropic: https://console.anthropic.com
 
 ### Manual commands (if needed)
 
