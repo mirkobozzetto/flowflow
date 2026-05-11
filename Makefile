@@ -1,4 +1,4 @@
-.PHONY: build format check dev ddev desktop clean clean-all
+.PHONY: build format check dev ddev deploy desktop icon clean clean-all
 
 build:
 	cargo build --features mobile
@@ -14,6 +14,12 @@ dev:
 
 ddev:
 	set -a && . ./.env && IPHONEOS_DEPLOYMENT_TARGET=16.0 dx serve --ios --device
+
+deploy:
+	set -a && . ./.env && IPHONEOS_DEPLOYMENT_TARGET=16.0 dx build --platform ios --device true && bash scripts/inject-icon.sh
+
+icon:
+	bash scripts/inject-icon.sh
 
 desktop:
 	set -a && . ./.env && dx serve --desktop
