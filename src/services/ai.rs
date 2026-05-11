@@ -43,8 +43,10 @@ impl OpenAIClient {
     }
 
     pub fn from_env() -> Result<Self, String> {
-        let key = std::env::var("OPENAI_API_KEY")
+        let key = crate::db::Database::open()
             .ok()
+            .and_then(|db| db.get_setting("openai_api_key"))
+            .or_else(|| std::env::var("OPENAI_API_KEY").ok())
             .or_else(|| option_env!("OPENAI_API_KEY").map(String::from))
             .unwrap_or_default();
         if key.is_empty() || key == "your_key_here" {
@@ -120,6 +122,24 @@ impl OpenAIClient {
             .next()
             .and_then(|c| c.message.content)
             .ok_or_else(|| "No response content".to_string())
+    }
+
+    pub async fn generate_tags(
+        &self,
+        content: &str,
+    ) -> Result<Vec<String>, String> {
+        use crate::services::constants::TAGS_SYSTEM_PROMPT;
+        let response = self.chat(TAGS_SYSTEM_PROMPT, content).await?;
+        let trimmed = response.trim();
+        serde_json::from_str::<Vec<String>>(trimmed).or_else(|_| {
+            if let Some(start) = trimmed.find('[') {
+                if let Some(end) = trimmed.rfind(']') {
+                    return serde_json::from_str(&trimmed[start..=end])
+                        .map_err(|e| format!("Parse tags: {e}"));
+                }
+            }
+            Err(format!("Invalid tags JSON: {trimmed}"))
+        })
     }
 }
 
