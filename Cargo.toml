@@ -21,6 +21,7 @@ futures = { version = "0.3.32", default-features = false }
 arrow-array = { version = "57", default-features = false }
 arrow-schema = { version = "57", default-features = false }
 pulldown-cmark = "0.12"
+rig-core = { version = "0.36", default-features = false, features = ["rustls"] }
 
 [target.'cfg(target_os = "ios")'.dependencies]
 objc2 = "0.6"
