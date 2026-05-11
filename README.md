@@ -13,6 +13,8 @@ Built with Dioxus 0.7 for iOS. Inspired by [SuperPowerNotes](https://github.com/
 - **AI tags** — LLM auto-generated tags (3-5 per note) + manual add/remove chips
 - **RAG chat** — ask questions about your notes, AI answers with source references
 - **Agent tools** — chat can search notes, create notes, and summarize folders on demand
+- **Tool call status** — chat shows real-time tool activity ("Recherche dans les notes...", etc.)
+- **Note search** — live search bar filters notes by title, content, and tags
 - **Chat history** — persistent conversations in SQLite, sidebar tabs Notes/Chats
 - **Markdown responses** — AI chat renders bold, lists, code blocks (pulldown-cmark)
 - **Clickable sources** — tap a source card to jump to the referenced note, back returns to chat
@@ -159,6 +161,8 @@ make dev      # iOS simulator
 make ddev     # physical iPhone (USB or Wi-Fi)
 make desktop  # macOS desktop (real mic)
 make check    # cargo fmt + clippy
+make clean    # remove dx caches (~2-3 GB)
+make clean-all # cargo clean (full nuke)
 ```
 
 ### Tests
@@ -198,14 +202,16 @@ cargo test -- --ignored       # E2E tests (needs OPENAI_API_KEY)
 - [x] Contextual back navigation (Chat → Note → back to Chat)
 - [x] Conversation management (rename, delete, same UX as folders)
 
+- [x] PromptHook — tool call status in chat UI (rig PromptHook trait, mpsc channel)
+- [x] Note search bar (live filter by title/content/tags)
+- [x] make clean / make clean-all targets
+
 ### Next
 
-- [ ] Track F Step 3 — Multi-provider LLM (Anthropic, Ollama via rig)
-- [ ] PromptHook — show "Searching..." / "Creating note..." in chat UI during tool calls
+- [ ] Track F Step 3 — Multi-provider LLM (Anthropic via rig)
+- [ ] Settings UI for LLM provider selection + Anthropic API key
 - [ ] Document import (PDF, TXT, DOC)
 - [ ] Full-text search (SQLite FTS5) — hybrid with semantic search
-- [ ] Note search bar in UI (filter by title/content)
-- [ ] Settings UI for LLM provider selection
 
 ## License
 
