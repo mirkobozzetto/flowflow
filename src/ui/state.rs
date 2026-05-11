@@ -5,7 +5,8 @@ use dioxus::prelude::*;
 pub enum View {
     NotesList,
     NoteDetail { note_id: String },
-    Chat,
+    Chat { conversation_id: Option<String> },
+    Settings,
 }
 
 #[derive(Clone)]
@@ -19,4 +20,5 @@ pub struct AppState {
     pub audio_levels: Signal<Vec<f32>>,
     pub notes_version: Signal<u32>,
     pub current_note_id: Signal<Option<String>>,
+    pub previous_view: Signal<Option<View>>,
 }
