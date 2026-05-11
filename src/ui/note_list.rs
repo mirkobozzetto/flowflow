@@ -64,7 +64,7 @@ pub fn NotesList() -> Element {
                 }
             }
         } else {
-            div {
+            div { class: "pb-32",
                 for note in notes() {
                     NoteCard { note: note }
                 }
