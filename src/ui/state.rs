@@ -1,3 +1,4 @@
+use crate::models::Attachment;
 use crate::services::audio::RecordingState;
 use dioxus::prelude::*;
 
@@ -23,4 +24,7 @@ pub struct AppState {
     pub previous_view: Signal<Option<View>>,
     pub search_query: Signal<String>,
     pub show_note_menu: Signal<bool>,
+    pub attachments_version: Signal<u32>,
+    pub attachment_modal: Signal<Option<Attachment>>,
+    pub show_chat_menu: Signal<bool>,
 }
