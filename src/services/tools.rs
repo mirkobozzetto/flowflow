@@ -6,12 +6,56 @@ use crate::services::constants::{
 use crate::services::embed::embed_note;
 use crate::services::llm::LlmClient;
 use crate::services::vectordb::VectorStore;
+use rig::agent::{HookAction, PromptHook, ToolCallHookAction};
 use rig::client::CompletionClient;
-use rig::completion::{Prompt, ToolDefinition};
+use rig::completion::{CompletionModel, Prompt, ToolDefinition};
 use rig::tool::Tool;
 use serde::{Deserialize, Serialize};
 use serde_json::json;
 use std::sync::Arc;
+use tokio::sync::mpsc;
+
+#[derive(Clone, Debug)]
+pub enum ToolEvent {
+    Started(String),
+    Finished(String),
+}
+
+#[derive(Clone)]
+pub struct ToolStatusHook {
+    tx: mpsc::UnboundedSender<ToolEvent>,
+}
+
+impl ToolStatusHook {
+    pub fn new(tx: mpsc::UnboundedSender<ToolEvent>) -> Self {
+        Self { tx }
+    }
+}
+
+impl<M: CompletionModel> PromptHook<M> for ToolStatusHook {
+    async fn on_tool_call(
+        &self,
+        tool_name: &str,
+        _tool_call_id: Option<String>,
+        _internal_call_id: &str,
+        _args: &str,
+    ) -> ToolCallHookAction {
+        let _ = self.tx.send(ToolEvent::Started(tool_name.to_string()));
+        ToolCallHookAction::Continue
+    }
+
+    async fn on_tool_result(
+        &self,
+        tool_name: &str,
+        _tool_call_id: Option<String>,
+        _internal_call_id: &str,
+        _args: &str,
+        _result: &str,
+    ) -> HookAction {
+        let _ = self.tx.send(ToolEvent::Finished(tool_name.to_string()));
+        HookAction::cont()
+    }
+}
 
 #[derive(Debug)]
 pub struct ToolFailure(pub String);
@@ -305,6 +349,7 @@ pub async fn prompt_agent_with_tools(
     llm: Arc<LlmClient>,
     preamble: &str,
     user_message: &str,
+    status_tx: Option<mpsc::UnboundedSender<ToolEvent>>,
 ) -> Result<String, crate::services::error::LlmError> {
     let agent = llm
         .inner()
@@ -315,7 +360,13 @@ pub async fn prompt_agent_with_tools(
         .tool(CreateNote::new())
         .tool(SummarizeFolder::new(llm.clone()))
         .build();
-    agent.prompt(user_message).max_turns(4).await.map_err(|e| {
+    let request = agent.prompt(user_message).max_turns(4);
+    let result = if let Some(tx) = status_tx {
+        request.with_hook(ToolStatusHook::new(tx)).await
+    } else {
+        request.await
+    };
+    result.map_err(|e| {
         crate::services::error::LlmError::Completion(e.to_string())
     })
 }

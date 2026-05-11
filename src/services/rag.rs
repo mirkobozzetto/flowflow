@@ -1,8 +1,9 @@
 use crate::services::constants::{RAG_AGENT_SYSTEM_PROMPT, RAG_TOP_K};
 use crate::services::llm::LlmClient;
-use crate::services::tools::prompt_agent_with_tools;
+use crate::services::tools::{prompt_agent_with_tools, ToolEvent};
 use crate::services::vectordb::{SearchResult, VectorStore};
 use std::sync::Arc;
+use tokio::sync::mpsc;
 
 #[derive(Clone)]
 pub struct RagSource {
@@ -31,7 +32,10 @@ pub fn build_context(results: &[SearchResult]) -> String {
     ctx
 }
 
-pub async fn query(question: &str) -> Result<RagResponse, String> {
+pub async fn query(
+    question: &str,
+    status_tx: Option<mpsc::UnboundedSender<ToolEvent>>,
+) -> Result<RagResponse, String> {
     let ai = Arc::new(LlmClient::from_env()?);
     let store = VectorStore::open().await?;
 
@@ -47,8 +51,13 @@ pub async fn query(question: &str) -> Result<RagResponse, String> {
     };
     let user_msg = format!("{context}\n--- Question ---\n{question}");
 
-    let answer =
-        prompt_agent_with_tools(ai, RAG_AGENT_SYSTEM_PROMPT, &user_msg).await?;
+    let answer = prompt_agent_with_tools(
+        ai,
+        RAG_AGENT_SYSTEM_PROMPT,
+        &user_msg,
+        status_tx,
+    )
+    .await?;
 
     let sources = results
         .into_iter()

@@ -223,6 +223,7 @@ async fn test_agent_with_tools_e2e() {
         llm,
         "Tu es un assistant qui répond brièvement en français.",
         "Bonjour, peux-tu juste dire 'pong' ?",
+        None,
     )
     .await
     .expect("agent prompt should succeed");

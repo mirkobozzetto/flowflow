@@ -33,15 +33,26 @@ enum ChatMsg {
     },
 }
 
+fn tool_label(name: &str) -> &str {
+    match name {
+        "search_notes" => "Recherche dans les notes...",
+        "create_note" => "Création de la note...",
+        "summarize_folder" => "Résumé du dossier...",
+        _ => "L'agent travaille...",
+    }
+}
+
 fn send_question(
     question: String,
     messages: &mut Signal<Vec<ChatMsg>>,
     loading: &mut Signal<bool>,
+    tool_status: &mut Signal<Option<String>>,
     conversation_id: Signal<Option<String>>,
     db: Signal<Arc<Database>>,
 ) {
     messages.write().push(ChatMsg::User(question.clone()));
     loading.set(true);
+    tool_status.set(None);
 
     let conv_id = conversation_id();
     if let Some(ref cid) = conv_id {
@@ -51,9 +62,26 @@ fn send_question(
 
     let mut msgs = *messages;
     let mut ld = *loading;
+    let mut ts = *tool_status;
     let conv_signal = conversation_id;
+
+    let (tx, mut rx) = tokio::sync::mpsc::unbounded_channel();
+
     spawn(async move {
-        match rag::query(&question).await {
+        while let Some(event) = rx.recv().await {
+            match event {
+                crate::services::tools::ToolEvent::Started(name) => {
+                    ts.set(Some(tool_label(&name).to_string()));
+                }
+                crate::services::tools::ToolEvent::Finished(_) => {
+                    ts.set(None);
+                }
+            }
+        }
+    });
+
+    spawn(async move {
+        match rag::query(&question, Some(tx)).await {
             Ok(r) => {
                 let sources: Vec<ChatSource> = r
                     .sources
@@ -108,6 +136,7 @@ fn send_question(
                 });
             }
         }
+        ts.set(None);
         ld.set(false);
     });
 }
@@ -179,6 +208,7 @@ pub fn ChatView() -> Element {
     let mut messages: Signal<Vec<ChatMsg>> = use_signal(|| initial_msgs);
     let mut input = use_signal(String::new);
     let mut loading = use_signal(|| false);
+    let mut tool_status: Signal<Option<String>> = use_signal(|| None);
 
     use_effect(move || {
         if let RecordingState::Transcribed(text) = (app.recording_state)() {
@@ -287,18 +317,28 @@ pub fn ChatView() -> Element {
                                 class: "flex justify-start",
                                 style: "animation: fadeInUp 0.15s ease-out;",
                                 div { class: "bg-white rounded-2xl rounded-bl-md px-5 py-3.5 shadow-sm",
-                                    div { class: "flex items-center gap-1.5",
-                                        span {
-                                            class: "w-1.5 h-1.5 rounded-full bg-gray-400",
-                                            style: "animation: typingDot 1.2s ease-in-out infinite;",
+                                    if let Some(ref status) = tool_status() {
+                                        div { class: "flex items-center gap-2",
+                                            span {
+                                                class: "w-1.5 h-1.5 rounded-full bg-ios-blue",
+                                                style: "animation: pulseSoft 1.2s ease-in-out infinite;",
+                                            }
+                                            span { class: "text-xs text-gray-500", "{status}" }
                                         }
-                                        span {
-                                            class: "w-1.5 h-1.5 rounded-full bg-gray-400",
-                                            style: "animation: typingDot 1.2s ease-in-out 0.12s infinite;",
-                                        }
-                                        span {
-                                            class: "w-1.5 h-1.5 rounded-full bg-gray-400",
-                                            style: "animation: typingDot 1.2s ease-in-out 0.24s infinite;",
+                                    } else {
+                                        div { class: "flex items-center gap-1.5",
+                                            span {
+                                                class: "w-1.5 h-1.5 rounded-full bg-gray-400",
+                                                style: "animation: typingDot 1.2s ease-in-out infinite;",
+                                            }
+                                            span {
+                                                class: "w-1.5 h-1.5 rounded-full bg-gray-400",
+                                                style: "animation: typingDot 1.2s ease-in-out 0.12s infinite;",
+                                            }
+                                            span {
+                                                class: "w-1.5 h-1.5 rounded-full bg-gray-400",
+                                                style: "animation: typingDot 1.2s ease-in-out 0.24s infinite;",
+                                            }
                                         }
                                     }
                                 }
@@ -319,7 +359,7 @@ pub fn ChatView() -> Element {
                         conversation_id.set(Some(cid));
                     }
                 }
-                send_question(q, &mut messages, &mut loading, conversation_id, db);
+                send_question(q, &mut messages, &mut loading, &mut tool_status, conversation_id, db);
             },
         }
     }
