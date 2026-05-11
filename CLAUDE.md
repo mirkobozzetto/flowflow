@@ -40,7 +40,7 @@ Mirko Bozzetto — freelance full-stack developer, Brussels.
 | B | Audio capture iOS mic (cpal + hound, save WAV) | Done |
 | C | Soniox REST (upload WAV → transcription) | Done |
 | D | SQLite storage + UI refactor + Tailwind | Done |
-| E | Embeddings + RAG + Chat | In progress |
+| E | Embeddings + RAG + Chat + Settings + Tags | Done |
 
 ### Track E Progress
 
@@ -49,47 +49,52 @@ Mirko Bozzetto — freelance full-stack developer, Brussels.
 | 1 | OpenAI client (embed + chat + chunking) | Done |
 | 2 | LanceDB VectorStore (store, search, delete) | Done |
 | 3 | Auto-embed on note save (validated on iPhone) | Done |
-| 4 | Settings UI for API keys (in-app) | — |
-| 5 | Tags UI on NoteDetail (chips, add/remove, LLM auto-gen) | — |
+| 4 | Settings UI for API keys (in-app, SQLite) | Done |
+| 5 | Tags UI on NoteDetail (chips, add/remove, LLM auto-gen) | Done |
 | 6 | Chat UI + RAG pipeline (search → context → response) | Done |
+| 7 | Chat history persistence (SQLite, sidebar tabs, CRUD) | Done |
 
-## Architecture (Clean Architecture, SRP — 31 modules)
+## Architecture (Clean Architecture, SRP — 35 modules)
 
 ```
 src/
-  main.rs                entry point (dotenvy + dioxus::launch)
-  models/                domain entities
-    note.rs              Note, NewTextNote, UpdateNote, NoteType
-    folder.rs            Folder, NewFolder, UpdateFolder
-  db/                    persistence layer
-    mod.rs               Database struct, open, conn, migrate
-    schema.rs            SQL schemas, MIGRATIONS const
-    note_repo.rs         CRUD notes
-    folder_repo.rs       CRUD folders
-  services/              business logic
-    constants.rs         AI config (models, dims, chunks, RAG prompt, top_k)
-    ai.rs                OpenAIClient (embed, chat), chunk_text
-    vectordb.rs          VectorStore (LanceDB: store, search, delete)
-    embed.rs             embed_note, delete_note_embeddings (background)
-    rag.rs               RAG pipeline (embed query → vector search → context → LLM)
-    audio.rs             AudioRecorder (cpal, WAV capture)
-    transcription.rs     SonioxClient (upload, poll, transcribe)
-  platform/              OS-specific
-    ios.rs               AVAudioSession, documents_dir
-  ui/                    Dioxus components (1 component = 1 file)
-    mod.rs               App root component + view routing
-    state.rs             AppState, View enum (NotesList, NoteDetail, Chat)
-    top_bar.rs           TopBar (navigation, back button, chat icon)
-    sidebar.rs           SidebarOverlay, FolderSection, FolderItem
-    fab.rs               FloatingActionButton (new note)
-    note_list.rs         NotesList
-    note_card.rs         NoteCard
-    note_detail.rs       NoteDetail (orchestrator, auto-embed on save)
-    folder_picker.rs     FolderPicker (dropdown)
-    recording_bar.rs     RecordingBar (voice recording in notes)
-    chat.rs              ChatView (RAG chat orchestrator, messages, typing indicator)
-    chat_input.rs        ChatInputBar (mic, text input, send, transcription)
-    icons.rs             Phosphor SVG icons (ChatAi, HeadCircuit, PaperPlaneRight, etc.)
+  main.rs                  entry point (dotenvy + dioxus::launch)
+  models/                  domain entities
+    note.rs                Note, NewTextNote, UpdateNote, NoteType
+    folder.rs              Folder, NewFolder, UpdateFolder
+    conversation.rs        Conversation, ConversationMessage
+  db/                      persistence layer
+    mod.rs                 Database struct, open, conn, migrate
+    schema.rs              SQL schemas, MIGRATIONS (V1 + V2)
+    note_repo.rs           CRUD notes
+    folder_repo.rs         CRUD folders
+    settings_repo.rs       get/set settings (key-value store)
+    conversation_repo.rs   CRUD conversations + messages
+  services/                business logic
+    constants.rs           AI config (models, dims, chunks, RAG + tags prompts)
+    ai.rs                  OpenAIClient (embed, chat, generate_tags), chunk_text
+    vectordb.rs            VectorStore (LanceDB: store, search, delete)
+    embed.rs               embed_note, delete_note_embeddings (background)
+    rag.rs                 RAG pipeline (embed query → vector search → context → LLM)
+    audio.rs               AudioRecorder (cpal, WAV capture)
+    transcription.rs       SonioxClient (upload, poll, transcribe)
+  platform/                OS-specific
+    ios.rs                 AVAudioSession, documents_dir
+  ui/                      Dioxus components (1 component = 1 file)
+    mod.rs                 App root component + view routing + keyboard handler
+    state.rs               AppState, View enum (NotesList, NoteDetail, Chat, Settings)
+    top_bar.rs             TopBar (navigation, back to previous_view, chat icon)
+    sidebar.rs             SidebarOverlay, tabs (Notes/Chats), ConversationItem, FolderItem
+    fab.rs                 FloatingActionButton (new note)
+    note_list.rs           NotesList
+    note_card.rs           NoteCard (with tag chips)
+    note_detail.rs         NoteDetail (tags UI, auto-tag, auto-embed on save)
+    folder_picker.rs       FolderPicker (dropdown)
+    recording_bar.rs       RecordingBar (voice recording in notes)
+    settings.rs            SettingsView (API keys form, DB persistence)
+    chat.rs                ChatView (persistent conversations, markdown, sources)
+    chat_input.rs          ChatInputBar (mic, textarea, send, transcription)
+    icons.rs               Phosphor SVG icons (16 icons)
 ```
 
 ## Data Entities
@@ -104,6 +109,15 @@ src/
 - id, name, description, parent_id (self-ref), created_at
 - N:N relation with Note via junction table (notes_folders)
 - ON DELETE SET NULL for parent (children become root)
+
+### Conversation (chat history)
+- id (UUID), title (auto from first question, 50 chars), created_at, modified_at
+- Messages: id, conversation_id (FK CASCADE), role (user/bot), content, sources_json
+- Sidebar tabs Notes/Chats with rename/delete (same UX as folders)
+
+### Settings (key-value)
+- key (PK), value — stores API keys in SQLite
+- Fallback chain: DB → env var → compile-time `option_env!()`
 
 ## Styling
 
@@ -145,6 +159,7 @@ RAG Chat Pipeline:
 - Tailwind CSS V4 (auto-detected by dx)
 - lancedb 0.27.2 (vector DB, default-features = false for iOS)
 - arrow-array 57 + arrow-schema 57 (must match lancedb's arrow version)
+- pulldown-cmark 0.12 (markdown → HTML for chat responses)
 - futures 0.3.32 (stream collect for LanceDB queries)
 - Rust 1.94.1
 - iOS targets: aarch64-apple-ios, aarch64-apple-ios-sim
@@ -171,7 +186,8 @@ SONIOX_API_KEY=your_soniox_api_key
 OPENAI_API_KEY=your_openai_api_key
 ```
 
-Keys are captured at compile time via `option_env!()` (iOS has no runtime env vars).
+Keys can be set in-app (Settings view → saved in SQLite) or via `.env` at compile time.
+Fallback chain: SQLite settings → env var → `option_env!()` compile-time.
 Soniox: https://console.soniox.com — OpenAI: https://platform.openai.com/api-keys
 
 ### Manual commands (if needed)
@@ -222,7 +238,7 @@ xcrun devicectl manage pair --device <DEVICE_ID>
 <!-- gitnexus:start -->
 # GitNexus — Code Intelligence
 
-This project is indexed by GitNexus as **flowflow** (606 symbols, 964 relationships, 26 execution flows). Use the GitNexus MCP tools to understand code, assess impact, and navigate safely.
+This project is indexed by GitNexus as **flowflow** (667 symbols, 1103 relationships, 34 execution flows). Use the GitNexus MCP tools to understand code, assess impact, and navigate safely.
 
 > If any GitNexus tool warns the index is stale, run `npx gitnexus analyze` in terminal first.
 
