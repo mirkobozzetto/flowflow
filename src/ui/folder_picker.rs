@@ -27,14 +27,14 @@ pub fn FolderPicker(selected: Signal<Option<String>>) -> Element {
     rsx! {
         div { class: "mb-3",
             button {
-                class: "inline-flex items-center px-3 py-1.5 rounded-full border border-gray-200 text-xs text-gray-600",
+                class: "inline-flex items-center px-3 py-1.5 rounded-full border border-stone-200 text-xs text-stone-600",
                 onclick: move |_| show.set(!show()),
                 "{display}"
             }
             if show() {
-                div { class: "mt-1 border border-gray-200 rounded-xl bg-white overflow-hidden",
+                div { class: "mt-1 border border-stone-200 rounded-xl bg-warm-white overflow-hidden",
                     button {
-                        class: "w-full text-left px-3 py-2.5 text-sm text-gray-500 border-b border-gray-100",
+                        class: "w-full text-left px-3 py-2.5 text-sm text-stone-500 border-b border-stone-100",
                         onclick: move |_| {
                             selected.set(None);
                             show.set(false);
@@ -49,7 +49,7 @@ pub fn FolderPicker(selected: Signal<Option<String>>) -> Element {
                             rsx! {
                                 button {
                                     class: "w-full text-left px-3 py-2.5 text-sm",
-                                    class: if is_current { "text-ios-blue font-medium bg-blue-50" } else { "text-gray-900" },
+                                    class: if is_current { "text-ios-orange-dark font-medium bg-ios-orange-50" } else { "text-stone-900" },
                                     onclick: move |_| {
                                         selected.set(Some(fid.clone()));
                                         show.set(false);

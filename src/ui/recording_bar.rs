@@ -58,15 +58,15 @@ pub fn RecordingBar() -> Element {
     let is_transcribing = recording_state == RecordingState::Transcribing;
 
     rsx! {
-        div { class: "fixed bottom-0 left-0 right-0 px-4 py-3 bg-white border-t border-gray-200 z-30 keyboard-aware",
+        div { class: "fixed bottom-0 left-0 right-0 px-4 py-3 bg-warm-white border-t border-stone-200 z-30 keyboard-aware",
             div { class: "flex items-center justify-center",
                 button {
                     class: if is_transcribing {
-                        "w-full flex items-center justify-center gap-2 h-12 rounded-full bg-gray-100 text-gray-400 text-sm"
+                        "w-full flex items-center justify-center gap-2 h-12 rounded-full bg-stone-100 text-stone-400 text-sm"
                     } else if is_recording {
-                        "w-full flex items-center justify-center gap-3 h-12 rounded-full bg-gray-900 text-white text-sm shadow-lg"
+                        "w-full flex items-center justify-center gap-3 h-12 rounded-full bg-stone-900 text-white text-sm shadow-lg"
                     } else {
-                        "w-full flex items-center justify-center gap-2.5 h-12 rounded-full bg-ios-blue/10 text-ios-blue text-sm font-medium"
+                        "w-full flex items-center justify-center gap-2.5 h-12 rounded-full bg-warm-white border border-ios-orange/25 text-ios-orange-dark text-sm font-medium"
                     },
                     disabled: is_transcribing,
                     onclick: move |_| {
@@ -133,7 +133,7 @@ pub fn RecordingBar() -> Element {
                                             rsx! {
                                                 div {
                                                     key: "{key}",
-                                                    class: "w-[3px] bg-white rounded-full transition-all duration-75",
+                                                    class: "w-[3px] bg-warm-white rounded-full transition-all duration-75",
                                                     style: "height: {h:.0}px;",
                                                 }
                                             }

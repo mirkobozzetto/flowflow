@@ -61,11 +61,11 @@ pub fn ChatInputBar(
     let is_transcribing = recording_state == RecordingState::Transcribing;
 
     rsx! {
-        div { class: "fixed bottom-0 left-0 right-0 px-4 py-3 bg-white border-t border-gray-200 z-30 keyboard-aware",
+        div { class: "fixed bottom-0 left-0 right-0 px-4 py-3 bg-warm-white border-t border-stone-200 z-30 keyboard-aware",
             if is_recording {
                 div { class: "flex items-center justify-center",
                     button {
-                        class: "w-full flex items-center justify-center gap-3 h-12 rounded-full bg-gray-900 text-white text-sm shadow-lg",
+                        class: "w-full flex items-center justify-center gap-3 h-12 rounded-full bg-stone-900 text-white text-sm shadow-lg",
                         onclick: move |_| {
                             let rec = recorder();
                             let mut rec = rec.lock().unwrap();
@@ -96,7 +96,7 @@ pub fn ChatInputBar(
                                             rsx! {
                                                 div {
                                                     key: "{key}",
-                                                    class: "w-[3px] bg-white rounded-full transition-all duration-75",
+                                                    class: "w-[3px] bg-warm-white rounded-full transition-all duration-75",
                                                     style: "height: {h:.0}px;",
                                                 }
                                             }
@@ -116,14 +116,14 @@ pub fn ChatInputBar(
             } else if is_transcribing {
                 div { class: "flex items-center justify-center",
                     div {
-                        class: "w-full flex items-center justify-center gap-2 h-12 rounded-full bg-gray-100 text-gray-400 text-sm",
+                        class: "w-full flex items-center justify-center gap-2 h-12 rounded-full bg-stone-100 text-stone-400 text-sm",
                         span { style: "animation: pulseSoft 1.5s ease-in-out infinite;", "Transcription en cours..." }
                     }
                 }
             } else {
                 div { class: "flex items-end gap-2",
                     button {
-                        class: "w-10 h-10 shrink-0 rounded-full bg-gray-100 flex items-center justify-center text-gray-500 transition-colors duration-150",
+                        class: "w-10 h-10 shrink-0 rounded-full bg-stone-100 flex items-center justify-center text-stone-500 transition-colors duration-150",
                         disabled: disabled,
                         onclick: move |_| {
                             let rec = recorder();
@@ -143,7 +143,7 @@ pub fn ChatInputBar(
                         IconMic { size: 18 }
                     }
                     textarea {
-                        class: "chat-textarea flex-1 bg-gray-100 rounded-2xl px-4 py-2.5 text-sm outline-none text-gray-900 placeholder-gray-400 resize-none overflow-y-auto",
+                        class: "chat-textarea flex-1 bg-stone-100 rounded-2xl px-4 py-2.5 text-sm outline-none text-stone-900 placeholder-stone-400 resize-none overflow-y-auto",
                         style: "max-height: 120px; min-height: 40px;",
                         rows: "1",
                         placeholder: "Pose une question...",
@@ -160,9 +160,9 @@ pub fn ChatInputBar(
                     }
                     button {
                         class: if disabled || input().trim().is_empty() {
-                            "w-10 h-10 shrink-0 rounded-full bg-gray-200 flex items-center justify-center text-gray-400 transition-colors duration-150"
+                            "w-10 h-10 shrink-0 rounded-full bg-stone-200 flex items-center justify-center text-stone-400 transition-colors duration-150"
                         } else {
-                            "w-10 h-10 shrink-0 rounded-full bg-ios-blue flex items-center justify-center text-white transition-colors duration-150"
+                            "w-10 h-10 shrink-0 rounded-full bg-ios-orange flex items-center justify-center text-white transition-colors duration-150"
                         },
                         disabled: disabled || input().trim().is_empty(),
                         onclick: move |_| {

@@ -249,12 +249,12 @@ pub fn ChatView() -> Element {
                 },
             }
             div {
-                class: "absolute right-4 top-1 z-50 bg-white rounded-xl shadow-lg border border-gray-100 py-1 min-w-[220px]",
+                class: "absolute right-4 top-1 z-50 bg-warm-white rounded-xl shadow-lg border border-stone-100 py-1 min-w-[220px]",
                 if renaming() {
                     div { class: "px-4 py-3",
-                        p { class: "text-[10px] font-medium text-gray-400 uppercase tracking-wide mb-2", "Renommer" }
+                        p { class: "text-[10px] font-medium text-stone-400 uppercase tracking-wide mb-2", "Renommer" }
                         input {
-                            class: "w-full text-sm border border-gray-200 rounded-lg px-3 py-2 outline-none focus:border-ios-blue",
+                            class: "w-full text-sm border border-stone-200 rounded-lg px-3 py-2 outline-none focus:border-ios-orange-dark",
                             value: "{rename_input}",
                             oninput: move |evt| rename_input.set(evt.value()),
                             onkeypress: move |evt| {
@@ -272,7 +272,7 @@ pub fn ChatView() -> Element {
                         }
                         div { class: "flex gap-2 mt-2",
                             button {
-                                class: "flex-1 h-8 text-sm text-gray-600 bg-gray-100 rounded-lg active:bg-gray-200",
+                                class: "flex-1 h-8 text-sm text-stone-600 bg-stone-100 rounded-lg active:bg-stone-200",
                                 onclick: move |_| {
                                     renaming.set(false);
                                     app.show_chat_menu.set(false);
@@ -280,7 +280,7 @@ pub fn ChatView() -> Element {
                                 "Annuler"
                             }
                             button {
-                                class: "flex-1 h-8 text-sm text-white bg-ios-blue rounded-lg active:opacity-80",
+                                class: "flex-1 h-8 text-sm text-white bg-ios-orange rounded-lg active:opacity-80",
                                 onclick: move |_| {
                                     let v = rename_input().trim().to_string();
                                     if !v.is_empty() {
@@ -297,11 +297,11 @@ pub fn ChatView() -> Element {
                     }
                 } else if confirm_delete() {
                     div { class: "px-4 py-3",
-                        p { class: "text-[10px] font-medium text-gray-400 uppercase tracking-wide mb-1", "Supprimer ce chat ?" }
-                        p { class: "text-xs text-gray-500 mb-3", "Cette action est irréversible." }
+                        p { class: "text-[10px] font-medium text-stone-400 uppercase tracking-wide mb-1", "Supprimer ce chat ?" }
+                        p { class: "text-xs text-stone-500 mb-3", "Cette action est irréversible." }
                         div { class: "flex gap-2",
                             button {
-                                class: "flex-1 h-9 text-sm font-medium text-gray-900 bg-gray-100 rounded-full active:bg-gray-200",
+                                class: "flex-1 h-9 text-sm font-medium text-stone-900 bg-stone-100 rounded-full active:bg-stone-200",
                                 onclick: move |_| {
                                     confirm_delete.set(false);
                                     app.show_chat_menu.set(false);
@@ -329,7 +329,7 @@ pub fn ChatView() -> Element {
                     }
                 } else {
                     button {
-                        class: "w-full flex items-center gap-3 px-4 py-3 text-sm text-gray-700 active:bg-gray-50",
+                        class: "w-full flex items-center gap-3 px-4 py-3 text-sm text-stone-700 active:bg-stone-50",
                         disabled: !has_conversation,
                         onclick: move |_| {
                             if let Some(ref cid) = conversation_id() {
@@ -345,7 +345,7 @@ pub fn ChatView() -> Element {
                         "Renommer"
                     }
                     button {
-                        class: "w-full flex items-center gap-3 px-4 py-3 text-sm text-ios-red active:bg-gray-50",
+                        class: "w-full flex items-center gap-3 px-4 py-3 text-sm text-ios-red active:bg-stone-50",
                         disabled: !has_conversation,
                         onclick: move |_| {
                             confirm_delete.set(true);
@@ -363,13 +363,11 @@ pub fn ChatView() -> Element {
                 if is_empty && !loading() {
                     div {
                         class: "flex flex-col items-center justify-center px-6 h-full",
-                        div { class: "text-gray-800 mb-5",
-                            IconHeadCircuit { size: 80 }
-                        }
-                        p { class: "text-gray-900 font-semibold text-base mb-1",
+                        img { src: asset!("/assets/flowflow-icon-300.png"), width: "150", height: "150", class: "mb-6 rounded-3xl" }
+                        p { class: "text-stone-900 font-semibold text-base mb-1",
                             "Chat avec tes notes"
                         }
-                        p { class: "text-gray-400 text-sm text-center",
+                        p { class: "text-stone-400 text-sm text-center",
                             "Pose une question, je cherche dans tes notes."
                         }
                     }
@@ -382,7 +380,7 @@ pub fn ChatView() -> Element {
                                         key: "{i}",
                                         class: "flex justify-end",
                                         style: "animation: fadeInUp 0.15s ease-out;",
-                                        div { class: "bg-ios-blue text-white rounded-2xl rounded-br-md px-4 py-2.5 max-w-[80%] text-sm leading-relaxed break-words",
+                                        div { class: "bg-ios-orange text-white rounded-2xl rounded-br-md px-4 py-2.5 max-w-[80%] text-sm leading-relaxed break-words",
                                             "{text}"
                                         }
                                     }
@@ -392,13 +390,13 @@ pub fn ChatView() -> Element {
                                         key: "{i}",
                                         class: "flex justify-start",
                                         style: "animation: fadeInUp 0.15s ease-out;",
-                                        div { class: "bg-white rounded-2xl rounded-bl-md px-4 py-2.5 max-w-[85%] shadow-sm",
+                                        div { class: "bg-warm-white border border-ios-orange/10 rounded-2xl rounded-bl-md px-4 py-2.5 max-w-[85%] shadow-sm",
                                             div {
-                                                class: "text-sm text-gray-900 leading-relaxed break-words prose prose-sm",
+                                                class: "text-sm text-stone-900 leading-relaxed break-words prose prose-sm",
                                                 dangerous_inner_html: md_to_html(text),
                                             }
                                             if !sources.is_empty() {
-                                                div { class: "mt-2 pt-2 border-t border-gray-100 flex flex-col gap-1.5",
+                                                div { class: "mt-2 pt-2 border-t border-stone-100 flex flex-col gap-1.5",
                                                     {sources.iter().enumerate().map(|(j, src)| {
                                                         let nid = src.note_id.clone();
                                                         let preview = if src.chunk_text.chars().count() > 80 {
@@ -413,16 +411,16 @@ pub fn ChatView() -> Element {
                                                         rsx! {
                                                             button {
                                                                 key: "{j}",
-                                                                class: "w-full text-left px-2.5 py-1.5 rounded-lg bg-ios-blue/5 active:bg-ios-blue/12",
+                                                                class: "w-full text-left px-2.5 py-1.5 rounded-lg bg-warm-white border border-ios-orange/20 active:bg-ios-orange-50",
                                                                 onclick: move |_| {
                                                                     app.previous_view.set(Some(View::Chat { conversation_id: conv_for_back.clone() }));
                                                                     app.view.set(View::NoteDetail { note_id: nid.clone() });
                                                                 },
                                                                 div { class: "flex items-center justify-between",
-                                                                    span { class: "text-[11px] font-medium text-ios-blue", "{src.title}" }
-                                                                    span { class: "text-[10px] text-gray-400", "{pct}%" }
+                                                                    span { class: "text-[11px] font-medium text-ios-orange-dark", "{src.title}" }
+                                                                    span { class: "text-[10px] text-stone-400", "{pct}%" }
                                                                 }
-                                                                p { class: "text-[10px] text-gray-400 leading-tight mt-0.5 line-clamp-1", "{preview}" }
+                                                                p { class: "text-[10px] text-stone-400 leading-tight mt-0.5 line-clamp-1", "{preview}" }
                                                             }
                                                         }
                                                     })}
@@ -437,27 +435,27 @@ pub fn ChatView() -> Element {
                             div {
                                 class: "flex justify-start",
                                 style: "animation: fadeInUp 0.15s ease-out;",
-                                div { class: "bg-white rounded-2xl rounded-bl-md px-5 py-3.5 shadow-sm",
+                                div { class: "bg-warm-white border border-ios-orange/10 rounded-2xl rounded-bl-md px-5 py-3.5 shadow-sm",
                                     if let Some(ref status) = tool_status() {
                                         div { class: "flex items-center gap-2",
                                             span {
-                                                class: "w-1.5 h-1.5 rounded-full bg-ios-blue",
+                                                class: "w-1.5 h-1.5 rounded-full bg-ios-orange",
                                                 style: "animation: pulseSoft 1.2s ease-in-out infinite;",
                                             }
-                                            span { class: "text-xs text-gray-500", "{status}" }
+                                            span { class: "text-xs text-stone-500", "{status}" }
                                         }
                                     } else {
                                         div { class: "flex items-center gap-1.5",
                                             span {
-                                                class: "w-1.5 h-1.5 rounded-full bg-gray-400",
+                                                class: "w-1.5 h-1.5 rounded-full bg-ios-orange/60",
                                                 style: "animation: typingDot 1.2s ease-in-out infinite;",
                                             }
                                             span {
-                                                class: "w-1.5 h-1.5 rounded-full bg-gray-400",
+                                                class: "w-1.5 h-1.5 rounded-full bg-ios-orange/60",
                                                 style: "animation: typingDot 1.2s ease-in-out 0.12s infinite;",
                                             }
                                             span {
-                                                class: "w-1.5 h-1.5 rounded-full bg-gray-400",
+                                                class: "w-1.5 h-1.5 rounded-full bg-ios-orange/60",
                                                 style: "animation: typingDot 1.2s ease-in-out 0.24s infinite;",
                                             }
                                         }

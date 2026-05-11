@@ -11,7 +11,7 @@ pub fn IconNewNote(#[props(default = 28)] size: u32) -> Element {
             }
             path {
                 d: "M181.333 213.333V160M208 186.667H154.667",
-                stroke: "#007aff", stroke_width: "14", stroke_linecap: "round", stroke_linejoin: "round",
+                stroke: "#E86A10", stroke_width: "14", stroke_linecap: "round", stroke_linejoin: "round",
             }
         }
     }
@@ -149,7 +149,7 @@ pub fn IconChatAi(#[props(default = 20)] size: u32) -> Element {
             }
             path {
                 d: "M172,112a8,8,0,0,1-8,8H96a8,8,0,0,1,0-16h68A8,8,0,0,1,172,112ZM164,136H96a8,8,0,0,0,0,16h68a8,8,0,0,0,0-16Z",
-                fill: "#007aff",
+                fill: "#E86A10",
             }
         }
     }

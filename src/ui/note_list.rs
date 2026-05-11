@@ -35,18 +35,18 @@ pub fn NotesList() -> Element {
     rsx! {
         div { class: "mb-3",
             div { class: "relative",
-                div { class: "absolute left-3 top-1/2 -translate-y-1/2 text-gray-400",
+                div { class: "absolute left-3 top-1/2 -translate-y-1/2 text-stone-400",
                     IconMagnifyingGlass { size: 16 }
                 }
                 input {
-                    class: "w-full bg-white border border-gray-200 rounded-xl pl-9 pr-9 py-2.5 text-sm outline-none text-gray-900 placeholder-gray-400",
+                    class: "w-full bg-warm-white border border-stone-200 rounded-xl pl-9 pr-9 py-2.5 text-sm outline-none text-stone-900 placeholder-stone-400",
                     placeholder: "Chercher mes notes...",
                     value: "{app.search_query}",
                     oninput: move |evt| app.search_query.set(evt.value()),
                 }
                 if has_query {
                     button {
-                        class: "absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 active:text-gray-600 p-1",
+                        class: "absolute right-2 top-1/2 -translate-y-1/2 text-stone-400 active:text-stone-600 p-1",
                         onclick: move |_| app.search_query.set(String::new()),
                         IconX { size: 14 }
                     }
@@ -56,11 +56,11 @@ pub fn NotesList() -> Element {
         if notes().is_empty() {
             div { class: "flex-1 flex flex-col items-center justify-center gap-2 h-[60vh]",
                 if has_query {
-                    p { class: "text-lg text-gray-400", "Aucun résultat" }
-                    p { class: "text-sm text-gray-400", "Essayez un autre terme" }
+                    p { class: "text-lg text-stone-400", "Aucun résultat" }
+                    p { class: "text-sm text-stone-400", "Essayez un autre terme" }
                 } else {
-                    p { class: "text-lg text-gray-400", "Aucune note" }
-                    p { class: "text-sm text-gray-400", "Appuyez sur + pour commencer" }
+                    p { class: "text-lg text-stone-400", "Aucune note" }
+                    p { class: "text-sm text-stone-400", "Appuyez sur + pour commencer" }
                 }
             }
         } else {

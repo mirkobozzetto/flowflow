@@ -186,9 +186,9 @@ pub fn NoteDetail() -> Element {
                 onclick: move |_| app.show_note_menu.set(false),
             }
             div {
-                class: "absolute right-4 top-1 z-50 bg-white rounded-xl shadow-lg border border-gray-100 py-1 min-w-[200px]",
+                class: "absolute right-4 top-1 z-50 bg-warm-white rounded-xl shadow-lg border border-stone-100 py-1 min-w-[200px]",
                 button {
-                    class: "w-full flex items-center gap-3 px-4 py-3 text-sm text-gray-700 active:bg-gray-50",
+                    class: "w-full flex items-center gap-3 px-4 py-3 text-sm text-stone-700 active:bg-stone-50",
                     onclick: move |_| {
                         app.show_note_menu.set(false);
                         let db = db();
@@ -249,7 +249,7 @@ pub fn NoteDetail() -> Element {
                     "Importer un document"
                 }
                 button {
-                    class: "w-full flex items-center gap-3 px-4 py-3 text-sm text-ios-red active:bg-gray-50",
+                    class: "w-full flex items-center gap-3 px-4 py-3 text-sm text-ios-red active:bg-stone-50",
                     onclick: {
                         let note_id = note_id.clone();
                         move |_| {
@@ -275,13 +275,13 @@ pub fn NoteDetail() -> Element {
             class: "overflow-y-auto pb-20",
             style: "height: calc(100% - var(--keyboard-inset, 0px));",
             input {
-                class: "text-xl font-semibold border-none outline-none py-2 text-gray-900 bg-transparent w-full",
+                class: "text-xl font-semibold border-none outline-none py-2 text-stone-900 bg-transparent w-full",
                 placeholder: "Titre de la note",
                 value: "{title}",
                 oninput: move |evt| title.set(evt.value()),
             }
             if !date.is_empty() {
-                p { class: "text-xs text-gray-400 mb-2", "{date}" }
+                p { class: "text-xs text-stone-400 mb-2", "{date}" }
             }
             FolderPicker { selected: selected_folder }
             div { class: "flex flex-wrap items-center gap-1.5 mb-2",
@@ -291,10 +291,10 @@ pub fn NoteDetail() -> Element {
                         rsx! {
                             span {
                                 key: "{i}",
-                                class: "inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-ios-blue/10 text-ios-blue text-xs font-medium",
+                                class: "inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-warm-white border border-ios-orange/25 text-ios-orange-dark text-xs font-medium",
                                 "{tag_display}"
                                 button {
-                                    class: "ml-0.5 text-ios-blue/60 hover:text-ios-blue",
+                                    class: "ml-0.5 text-ios-orange-dark hover:text-ios-orange-dark",
                                     onclick: move |_| {
                                         let mut t = tags();
                                         t.remove(i);
@@ -308,7 +308,7 @@ pub fn NoteDetail() -> Element {
                 }
                 div { class: "inline-flex items-center gap-1",
                     input {
-                        class: "w-24 text-xs border border-gray-200 rounded-full px-2.5 py-1 outline-none",
+                        class: "w-24 text-xs border border-stone-200 rounded-full px-2.5 py-1 outline-none",
                         placeholder: "+ tag",
                         value: "{tag_input}",
                         oninput: move |evt| tag_input.set(evt.value()),
@@ -326,9 +326,9 @@ pub fn NoteDetail() -> Element {
                     }
                     button {
                         class: if tagging() {
-                            "px-2.5 py-1 rounded-full bg-gray-100 text-gray-400 text-xs"
+                            "px-2.5 py-1 rounded-full bg-stone-100 text-stone-400 text-xs"
                         } else {
-                            "px-2.5 py-1 rounded-full bg-ios-blue/10 text-ios-blue text-xs font-medium"
+                            "px-2.5 py-1 rounded-full bg-warm-white border border-ios-orange/25 text-ios-orange-dark text-xs font-medium"
                         },
                         disabled: tagging() || content().trim().len() < 20,
                         onclick: move |_| {
@@ -356,7 +356,7 @@ pub fn NoteDetail() -> Element {
                 }
             }
             textarea {
-                class: "w-full min-h-[200px] border border-gray-200 rounded-xl p-3 text-sm resize-none font-sans outline-none text-gray-900",
+                class: "w-full min-h-[200px] border border-stone-200 rounded-xl p-3 text-sm resize-none font-sans outline-none text-stone-900",
                 placeholder: "Contenu de la note...",
                 value: "{content}",
                 oninput: move |evt| content.set(evt.value()),
@@ -373,21 +373,21 @@ pub fn NoteDetail() -> Element {
                     rsx! {
                         div {
                             key: "{att.id}",
-                            class: "relative overflow-hidden bg-white border border-gray-200 rounded-xl h-[60px] flex items-center px-3 mt-2 active:bg-gray-50",
+                            class: "relative overflow-hidden bg-warm-white border border-stone-200 rounded-xl h-[60px] flex items-center px-3 mt-2 active:bg-stone-50",
                             onclick: move |_| {
                                 if !is_confirming {
                                     app.attachment_modal.set(Some(att_card.clone()));
                                 }
                             },
-                            div { class: "w-9 h-9 rounded-lg bg-blue-50 flex items-center justify-center flex-shrink-0",
+                            div { class: "w-9 h-9 rounded-lg bg-warm-white border border-ios-orange/20 flex items-center justify-center flex-shrink-0",
                                 IconFileArrowUp { size: 18 }
                             }
                             div { class: "flex-1 min-w-0 ml-3",
-                                p { class: "text-sm font-medium text-gray-900 truncate leading-tight", "{att_name}" }
-                                p { class: "text-xs text-gray-400 leading-tight", "{date}" }
+                                p { class: "text-sm font-medium text-stone-900 truncate leading-tight", "{att_name}" }
+                                p { class: "text-xs text-stone-400 leading-tight", "{date}" }
                             }
                             button {
-                                class: "w-11 h-11 flex items-center justify-center rounded-full text-gray-400 -mr-1 active:bg-gray-100",
+                                class: "w-11 h-11 flex items-center justify-center rounded-full text-stone-400 -mr-1 active:bg-stone-100",
                                 onclick: {
                                     move |evt: Event<MouseData>| {
                                         evt.stop_propagation();
@@ -398,15 +398,15 @@ pub fn NoteDetail() -> Element {
                             }
                             if is_confirming {
                                 div {
-                                    class: "absolute inset-0 z-10 flex items-center px-3 bg-white/95 backdrop-blur-sm",
+                                    class: "absolute inset-0 z-10 flex items-center px-3 bg-warm-white/95 backdrop-blur-sm",
                                     onclick: move |evt| evt.stop_propagation(),
                                     div { class: "flex-1 min-w-0 mr-3",
-                                        p { class: "text-[10px] font-medium text-gray-400 uppercase tracking-wide leading-tight", "Supprimer ?" }
-                                        p { class: "text-sm font-medium text-gray-600 truncate leading-tight", "{att_name_confirm}" }
+                                        p { class: "text-[10px] font-medium text-stone-400 uppercase tracking-wide leading-tight", "Supprimer ?" }
+                                        p { class: "text-sm font-medium text-stone-600 truncate leading-tight", "{att_name_confirm}" }
                                     }
                                     div { class: "flex items-center gap-2",
                                         button {
-                                            class: "h-9 px-4 flex items-center justify-center text-sm font-medium text-gray-900 bg-gray-100 rounded-full active:bg-gray-200",
+                                            class: "h-9 px-4 flex items-center justify-center text-sm font-medium text-stone-900 bg-stone-100 rounded-full active:bg-stone-200",
                                             onclick: move |evt| {
                                                 evt.stop_propagation();
                                                 confirm_delete_att.set(None);
@@ -434,7 +434,7 @@ pub fn NoteDetail() -> Element {
                 }
             }
             if let RecordingState::Error(ref e) = recording_state {
-                p { class: "text-xs text-gray-400 text-center mt-3",
+                p { class: "text-xs text-stone-400 text-center mt-3",
                     "Erreur : {e}"
                 }
             }

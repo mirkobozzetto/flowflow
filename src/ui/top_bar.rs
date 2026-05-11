@@ -29,10 +29,10 @@ pub fn TopBar() -> Element {
     };
 
     rsx! {
-        div { class: "flex items-center px-4 py-3 bg-white border-b border-gray-200 sticky top-0 z-30 gap-3 min-h-[44px]",
+        div { class: "flex items-center px-4 py-3 bg-warm-white border-b border-stone-200 sticky top-0 z-30 gap-3 min-h-[44px]",
             if is_inner {
                 button {
-                    class: "min-w-[44px] min-h-[44px] flex items-center justify-center text-gray-700",
+                    class: "min-w-[44px] min-h-[44px] flex items-center justify-center text-stone-700",
                     onclick: move |_| {
                         app.sliding_out.set(true);
                         let target = (app.previous_view)()
@@ -48,15 +48,15 @@ pub fn TopBar() -> Element {
                 }
             } else {
                 button {
-                    class: "min-w-[44px] min-h-[44px] flex items-center justify-center text-gray-700",
+                    class: "min-w-[44px] min-h-[44px] flex items-center justify-center text-stone-700",
                     onclick: move |_| app.sidebar_open.set(true),
                     IconList { size: 22 }
                 }
             }
-            span { class: "text-lg font-semibold text-gray-900 flex-1", "{title}" }
+            span { class: "text-lg font-semibold text-stone-900 flex-1", "{title}" }
             if is_detail {
                 button {
-                    class: "min-w-[44px] min-h-[44px] flex items-center justify-center text-gray-700",
+                    class: "min-w-[44px] min-h-[44px] flex items-center justify-center text-stone-700",
                     onclick: move |_| {
                         let cur = (app.show_note_menu)();
                         app.show_note_menu.set(!cur);
@@ -65,7 +65,7 @@ pub fn TopBar() -> Element {
                 }
             } else if is_chat {
                 button {
-                    class: "min-w-[44px] min-h-[44px] flex items-center justify-center text-gray-700",
+                    class: "min-w-[44px] min-h-[44px] flex items-center justify-center text-stone-700",
                     onclick: move |_| {
                         let cur = (app.show_chat_menu)();
                         app.show_chat_menu.set(!cur);
@@ -74,7 +74,7 @@ pub fn TopBar() -> Element {
                 }
             } else if !is_inner {
                 button {
-                    class: "min-w-[44px] min-h-[44px] flex items-center justify-center text-gray-900",
+                    class: "min-w-[44px] min-h-[44px] flex items-center justify-center text-stone-900",
                     onclick: move |_| {
                         app.view.set(View::Chat { conversation_id: None });
                     },

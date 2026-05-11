@@ -14,12 +14,12 @@ pub fn SettingsView() -> Element {
 
     rsx! {
         div { class: "space-y-6",
-            h2 { class: "text-lg font-semibold text-gray-900", "Clés API" }
+            h2 { class: "text-lg font-semibold text-stone-900", "Clés API" }
             div { class: "space-y-4",
                 div {
-                    label { class: "block text-sm font-medium text-gray-700 mb-1", "OpenAI API Key" }
+                    label { class: "block text-sm font-medium text-stone-700 mb-1", "OpenAI API Key" }
                     input {
-                        class: "w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm outline-none text-gray-900 bg-white",
+                        class: "w-full border border-stone-200 rounded-xl px-3 py-2.5 text-sm outline-none text-stone-900 bg-warm-white",
                         r#type: "password",
                         placeholder: "sk-...",
                         value: "{openai_key}",
@@ -30,9 +30,9 @@ pub fn SettingsView() -> Element {
                     }
                 }
                 div {
-                    label { class: "block text-sm font-medium text-gray-700 mb-1", "Soniox API Key" }
+                    label { class: "block text-sm font-medium text-stone-700 mb-1", "Soniox API Key" }
                     input {
-                        class: "w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm outline-none text-gray-900 bg-white",
+                        class: "w-full border border-stone-200 rounded-xl px-3 py-2.5 text-sm outline-none text-stone-900 bg-warm-white",
                         r#type: "password",
                         placeholder: "Clé Soniox",
                         value: "{soniox_key}",
@@ -47,7 +47,7 @@ pub fn SettingsView() -> Element {
                 class: if saved() {
                     "w-full py-2.5 rounded-xl text-sm font-medium bg-ios-green text-white"
                 } else {
-                    "w-full py-2.5 rounded-xl text-sm font-medium bg-ios-blue text-white"
+                    "w-full py-2.5 rounded-xl text-sm font-medium bg-ios-orange text-white"
                 },
                 onclick: move |_| {
                     let ok = openai_key().trim().to_string();
@@ -62,7 +62,7 @@ pub fn SettingsView() -> Element {
                 },
                 if saved() { "Enregistré ✓" } else { "Enregistrer" }
             }
-            p { class: "text-xs text-gray-400 text-center",
+            p { class: "text-xs text-stone-400 text-center",
                 "Les clés sont stockées localement sur cet appareil."
             }
         }

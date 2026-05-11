@@ -120,7 +120,7 @@ pub fn App() -> Element {
     rsx! {
         document::Stylesheet { href: asset!("/assets/tailwind.css") }
 
-        div { class: "h-screen w-full overflow-hidden font-sans bg-gray-100",
+        div { class: "h-screen w-full overflow-hidden font-sans bg-stone-100",
             SidebarOverlay {}
             AttachmentModal {}
             div { class: "flex flex-col h-screen",
@@ -133,7 +133,7 @@ pub fn App() -> Element {
                     }
                     if matches!((app.view)(), View::NoteDetail { .. }) {
                         div {
-                            class: "absolute inset-0 flex flex-col min-h-0 px-4 py-3 bg-gray-100",
+                            class: "absolute inset-0 flex flex-col min-h-0 px-4 py-3 bg-stone-100",
                             style: if (app.sliding_out)() {
                                 "animation: slideOutRight 0.15s ease-in forwards;"
                             } else {
@@ -144,7 +144,7 @@ pub fn App() -> Element {
                     }
                     if matches!((app.view)(), View::Chat { .. }) {
                         div {
-                            class: "absolute inset-0 flex flex-col min-h-0 bg-gray-100",
+                            class: "absolute inset-0 flex flex-col min-h-0 bg-stone-100",
                             style: if (app.sliding_out)() {
                                 "animation: slideOutRight 0.15s ease-in forwards;"
                             } else {
@@ -155,7 +155,7 @@ pub fn App() -> Element {
                     }
                     if matches!((app.view)(), View::Settings) {
                         div {
-                            class: "absolute inset-0 flex flex-col min-h-0 px-4 py-3 bg-gray-100",
+                            class: "absolute inset-0 flex flex-col min-h-0 px-4 py-3 bg-stone-100",
                             style: if (app.sliding_out)() {
                                 "animation: slideOutRight 0.15s ease-in forwards;"
                             } else {

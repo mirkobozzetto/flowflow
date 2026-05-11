@@ -4,7 +4,11 @@
 @theme {
     --color-ios-green: #34c759;
     --color-ios-red: #ff3b30;
-    --color-ios-blue: #007aff;
+    --color-ios-orange-50: oklch(0.97 0.04 50);
+    --color-ios-orange-100: oklch(0.92 0.07 50);
+    --color-ios-orange: oklch(0.60 0.22 50);
+    --color-ios-orange-dark: oklch(0.48 0.16 50);
+    --color-warm-white: oklch(0.99 0.005 50);
 }
 
 @layer base {
@@ -120,13 +124,13 @@
         margin: 0.75em 0 0.25em;
     }
     .prose code {
-        background: #f3f4f6;
+        background: oklch(0.96 0.008 50);
         padding: 0.15em 0.3em;
         border-radius: 0.25em;
         font-size: 0.85em;
     }
     .prose pre {
-        background: #f3f4f6;
+        background: oklch(0.96 0.008 50);
         padding: 0.75em;
         border-radius: 0.5em;
         overflow-x: auto;
@@ -137,6 +141,6 @@
         padding: 0;
     }
     .prose a {
-        color: #007aff;
+        color: oklch(0.48 0.16 50);
     }
 }
