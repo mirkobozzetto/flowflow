@@ -1,4 +1,5 @@
-pub const MIGRATIONS: &[(i64, &str)] = &[(1, V1_SCHEMA), (2, V2_SCHEMA)];
+pub const MIGRATIONS: &[(i64, &str)] =
+    &[(1, V1_SCHEMA), (2, V2_SCHEMA), (3, V3_SCHEMA)];
 
 const V1_SCHEMA: &str = "
 CREATE TABLE IF NOT EXISTS notes (
@@ -75,4 +76,18 @@ CREATE TABLE IF NOT EXISTS conversation_messages (
 );
 CREATE INDEX IF NOT EXISTS idx_cm_conversation
     ON conversation_messages(conversation_id);
+";
+
+const V3_SCHEMA: &str = "
+CREATE TABLE IF NOT EXISTS attachments (
+    id TEXT PRIMARY KEY,
+    note_id TEXT NOT NULL
+        REFERENCES notes(id) ON DELETE CASCADE,
+    filename TEXT NOT NULL,
+    content_text TEXT NOT NULL DEFAULT '',
+    imported_at TEXT NOT NULL
+        DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now'))
+);
+CREATE INDEX IF NOT EXISTS idx_attachments_note
+    ON attachments(note_id);
 ";
