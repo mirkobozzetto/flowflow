@@ -1,14 +1,11 @@
 use crate::db::Database;
 use crate::models::NewTextNote;
-use crate::services::constants::{
-    CHAT_MODEL, RAG_TOP_K, SUMMARIZE_FOLDER_PROMPT,
-};
+use crate::services::constants::{RAG_TOP_K, SUMMARIZE_FOLDER_PROMPT};
 use crate::services::embed::embed_note;
 use crate::services::llm::LlmClient;
 use crate::services::vectordb::VectorStore;
 use rig::agent::{HookAction, PromptHook, ToolCallHookAction};
-use rig::client::CompletionClient;
-use rig::completion::{CompletionModel, Prompt, ToolDefinition};
+use rig::completion::{CompletionModel, ToolDefinition};
 use rig::tool::Tool;
 use serde::{Deserialize, Serialize};
 use serde_json::json;
@@ -351,22 +348,6 @@ pub async fn prompt_agent_with_tools(
     user_message: &str,
     status_tx: Option<mpsc::UnboundedSender<ToolEvent>>,
 ) -> Result<String, crate::services::error::LlmError> {
-    let agent = llm
-        .inner()
-        .agent(CHAT_MODEL)
-        .preamble(preamble)
-        .temperature(0.3)
-        .tool(SearchNotes::new(llm.clone()))
-        .tool(CreateNote::new())
-        .tool(SummarizeFolder::new(llm.clone()))
-        .build();
-    let request = agent.prompt(user_message).max_turns(4);
-    let result = if let Some(tx) = status_tx {
-        request.with_hook(ToolStatusHook::new(tx)).await
-    } else {
-        request.await
-    };
-    result.map_err(|e| {
-        crate::services::error::LlmError::Completion(e.to_string())
-    })
+    llm.prompt_with_agent(preamble, user_message, status_tx)
+        .await
 }
