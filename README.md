@@ -12,6 +12,7 @@ Built with Dioxus 0.7 for iOS. Inspired by [SuperPowerNotes](https://github.com/
 - **Auto-embed** — notes auto-embedded on save (>50 chars) → chunked → OpenAI → LanceDB
 - **AI tags** — LLM auto-generated tags (3-5 per note) + manual add/remove chips
 - **RAG chat** — ask questions about your notes, AI answers with source references
+- **Agent tools** — chat can search notes, create notes, and summarize folders on demand
 - **Chat history** — persistent conversations in SQLite, sidebar tabs Notes/Chats
 - **Markdown responses** — AI chat renders bold, lists, code blocks (pulldown-cmark)
 - **Clickable sources** — tap a source card to jump to the referenced note, back returns to chat
@@ -35,10 +36,11 @@ Built with Dioxus 0.7 for iOS. Inspired by [SuperPowerNotes](https://github.com/
 | Transcription | Soniox REST API (stt-async-v4) |
 | Database | SQLite (rusqlite 0.34, bundled) |
 | Vector DB | LanceDB 0.27.2 (local semantic search) |
+| LLM Framework | rig-core 0.36 (OpenAI provider) |
 | Embeddings | OpenAI API (text-embedding-3-small, 1536 dims) |
-| Chat | OpenAI API (gpt-4o-mini) |
+| Chat | OpenAI API (gpt-4o-mini) via rig agent |
 | Markdown | pulldown-cmark 0.12 |
-| HTTP | reqwest 0.12 (multipart + JSON) |
+| HTTP | reqwest 0.13 (multipart + JSON + rustls) |
 | Async | tokio 1 + futures-timer 3 |
 | Serialization | serde 1.0 + serde_json 1.0 |
 | Date/Time | chrono 0.4 |
@@ -51,10 +53,11 @@ Built with Dioxus 0.7 for iOS. Inspired by [SuperPowerNotes](https://github.com/
 ## Architecture
 
 ```
-src/                          35 files, ~4500 lines Rust
+src/                          38 modules, ~5000 lines Rust
   main.rs                     entry point (dotenv, AVAudioSession, launch)
+  lib.rs                      pub mod exports (enables integration tests)
   models/
-    note.rs                   Note, NoteType, NewTextNote, UpdateNote
+    note.rs                   Note, NoteType (FromStr), NewTextNote, UpdateNote
     folder.rs                 Folder, NewFolder, UpdateFolder
     conversation.rs           Conversation, ConversationMessage
   db/
@@ -65,11 +68,14 @@ src/                          35 files, ~4500 lines Rust
     settings_repo.rs          get/set settings (key-value store)
     conversation_repo.rs      CRUD conversations + messages
   services/
-    constants.rs              AI config (models, dims, chunks, RAG + tags prompts)
-    ai.rs                     OpenAIClient (embed, chat, generate_tags), chunk_text
+    constants.rs              AI config (models, dims, prompts: RAG, tags, agent, summarize)
+    ai.rs                     chunk_text (text splitting with overlap)
+    llm.rs                    LlmClient (rig-core wrapper: embed, chat, generate_tags)
+    error.rs                  LlmError enum (NotConfigured, Embedding, Completion, TagParsing)
+    tools.rs                  Agent tools: SearchNotes, CreateNote, SummarizeFolder (rig Tool trait)
     vectordb.rs               VectorStore (LanceDB: store, search, delete, cosine)
     embed.rs                  embed_note, delete_note_embeddings (background thread)
-    rag.rs                    RAG pipeline (embed query → vector search → context → LLM)
+    rag.rs                    RAG pipeline (embed → search → context → agent with tools)
     audio.rs                  AudioRecorder (cpal stream, samples, levels, duration)
     transcription.rs          SonioxClient (upload, poll, transcribe)
   platform/
@@ -116,7 +122,8 @@ RAG Chat Pipeline:
   User question → OpenAI embed (query vector)
     → LanceDB search (top 5 chunks, cosine)
     → Build context from matched notes
-    → OpenAI chat (system prompt + context + question)
+    → rig Agent with tools (search_notes, create_note, summarize_folder)
+    → Up to 4 tool turns, then final response
     → Markdown response + source cards
 
 API Key Fallback:
@@ -154,6 +161,13 @@ make desktop  # macOS desktop (real mic)
 make check    # cargo fmt + clippy
 ```
 
+### Tests
+
+```bash
+cargo test                    # 65 tests (unit + integration)
+cargo test -- --ignored       # E2E tests (needs OPENAI_API_KEY)
+```
+
 ### Physical iPhone setup
 
 1. Enable Developer Mode: Settings > Privacy & Security > Developer Mode
@@ -171,6 +185,8 @@ make check    # cargo fmt + clippy
 - [x] Track C — Soniox transcription (French, stt-async-v4)
 - [x] Track D — SQLite + folders + UI refactor + Tailwind
 - [x] Track E — Embeddings + RAG + Chat + Settings + Tags
+- [x] Track F Step 1 — RIG framework migration (LlmClient, LlmError, 40 tests)
+- [x] Track F Step 2 — Agent tools (SearchNotes, CreateNote, SummarizeFolder), reqwest 0.13
 - [x] Unified note editor (text + inline voice dictation)
 - [x] Auto-save on exit (use_drop hook)
 - [x] Auto-embed notes on save (chunked → OpenAI → LanceDB)
@@ -184,11 +200,12 @@ make check    # cargo fmt + clippy
 
 ### Next
 
-- [ ] Track F — RIG framework (multi-provider LLM, agent tools)
-- [ ] Agent tools — create notes, search by date, summarize folders from chat
+- [ ] Track F Step 3 — Multi-provider LLM (Anthropic, Ollama via rig)
+- [ ] PromptHook — show "Searching..." / "Creating note..." in chat UI during tool calls
 - [ ] Document import (PDF, TXT, DOC)
 - [ ] Full-text search (SQLite FTS5) — hybrid with semantic search
-- [ ] Multi-provider support (OpenAI, Anthropic, Ollama)
+- [ ] Note search bar in UI (filter by title/content)
+- [ ] Settings UI for LLM provider selection
 
 ## License
 
