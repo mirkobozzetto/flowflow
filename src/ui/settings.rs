@@ -1,5 +1,6 @@
 use crate::db::Database;
 use crate::services::llm::Provider;
+use crate::ui::icons::{IconAnthropic, IconOpenAi};
 use dioxus::prelude::*;
 use std::str::FromStr;
 use std::sync::Arc;
@@ -28,26 +29,28 @@ pub fn SettingsView() -> Element {
             div { class: "grid grid-cols-2 gap-2",
                 button {
                     class: if provider() == Provider::OpenAi {
-                        "py-2.5 rounded-xl text-sm font-medium bg-ios-blue text-white"
+                        "flex items-center justify-center gap-2 py-2.5 rounded-xl text-sm font-medium bg-ios-blue text-white"
                     } else {
-                        "py-2.5 rounded-xl text-sm font-medium bg-gray-100 text-gray-700"
+                        "flex items-center justify-center gap-2 py-2.5 rounded-xl text-sm font-medium bg-gray-100 text-gray-700"
                     },
                     onclick: move |_| {
                         provider.set(Provider::OpenAi);
                         saved.set(false);
                     },
+                    IconOpenAi { size: 16 }
                     "OpenAI"
                 }
                 button {
                     class: if provider() == Provider::Anthropic {
-                        "py-2.5 rounded-xl text-sm font-medium bg-ios-blue text-white"
+                        "flex items-center justify-center gap-2 py-2.5 rounded-xl text-sm font-medium bg-ios-blue text-white"
                     } else {
-                        "py-2.5 rounded-xl text-sm font-medium bg-gray-100 text-gray-700"
+                        "flex items-center justify-center gap-2 py-2.5 rounded-xl text-sm font-medium bg-gray-100 text-gray-700"
                     },
                     onclick: move |_| {
                         provider.set(Provider::Anthropic);
                         saved.set(false);
                     },
+                    IconAnthropic { size: 16 }
                     "Anthropic"
                 }
             }
