@@ -7,6 +7,7 @@ mod note_card;
 mod note_detail;
 mod note_list;
 mod recording_bar;
+mod settings;
 mod sidebar;
 mod state;
 mod top_bar;
@@ -22,6 +23,7 @@ use chat::ChatView;
 use fab::FloatingActionButton;
 use note_detail::NoteDetail;
 use note_list::NotesList;
+use settings::SettingsView;
 use sidebar::SidebarOverlay;
 use top_bar::TopBar;
 
@@ -48,6 +50,7 @@ pub fn App() -> Element {
         audio_levels: Signal::new(vec![0.0; 12]),
         notes_version: Signal::new(0),
         current_note_id: Signal::new(None),
+        previous_view: Signal::new(None),
     });
 
     use_effect(|| {
@@ -131,7 +134,7 @@ pub fn App() -> Element {
                             NoteDetail {}
                         }
                     }
-                    if matches!((app.view)(), View::Chat) {
+                    if matches!((app.view)(), View::Chat { .. }) {
                         div {
                             class: "absolute inset-0 flex flex-col min-h-0 bg-gray-100",
                             style: if (app.sliding_out)() {
@@ -140,6 +143,17 @@ pub fn App() -> Element {
                                 "animation: slideInRight 0.15s ease-out;"
                             },
                             ChatView {}
+                        }
+                    }
+                    if matches!((app.view)(), View::Settings) {
+                        div {
+                            class: "absolute inset-0 flex flex-col min-h-0 px-4 py-3 bg-gray-100",
+                            style: if (app.sliding_out)() {
+                                "animation: slideOutRight 0.15s ease-in forwards;"
+                            } else {
+                                "animation: slideInRight 0.15s ease-out;"
+                            },
+                            SettingsView {}
                         }
                     }
                 }
