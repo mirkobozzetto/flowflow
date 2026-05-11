@@ -10,6 +10,26 @@ use crate::ui::{AppState, View};
 use dioxus::prelude::*;
 use std::sync::Arc;
 
+async fn import_file_content() -> Option<String> {
+    #[cfg(target_os = "ios")]
+    {
+        use crate::platform::ios::{open_file_picker, read_file_as_text};
+        let paths = open_file_picker(&["txt", "md", "csv"]).await?;
+        let path = paths.first()?;
+        match read_file_as_text(path) {
+            Ok(text) => Some(text),
+            Err(e) => {
+                eprintln!("[import] {e}");
+                None
+            }
+        }
+    }
+    #[cfg(not(target_os = "ios"))]
+    {
+        None
+    }
+}
+
 #[component]
 pub fn NoteDetail() -> Element {
     let mut app: AppState = use_context();
@@ -131,7 +151,59 @@ pub fn NoteDetail() -> Element {
         .map(|n| n.created_at[..10].to_string())
         .unwrap_or_default();
 
+    let show_menu = (app.show_note_menu)();
+
     rsx! {
+        if show_menu {
+            div {
+                class: "fixed inset-0 z-40",
+                onclick: move |_| app.show_note_menu.set(false),
+            }
+            div {
+                class: "absolute right-4 top-1 z-50 bg-white rounded-xl shadow-lg border border-gray-100 py-1 min-w-[200px]",
+                button {
+                    class: "w-full flex items-center gap-3 px-4 py-3 text-sm text-gray-700 active:bg-gray-50",
+                    onclick: move |_| {
+                        app.show_note_menu.set(false);
+                        let mut content_sig = content;
+                        spawn(async move {
+                            let imported = import_file_content().await;
+                            if let Some(text) = imported {
+                                let mut c = content_sig();
+                                if !c.is_empty() {
+                                    c.push_str("\n\n");
+                                }
+                                c.push_str(&text);
+                                content_sig.set(c);
+                            }
+                        });
+                    },
+                    IconFileArrowUp { size: 18 }
+                    "Importer un document"
+                }
+                button {
+                    class: "w-full flex items-center gap-3 px-4 py-3 text-sm text-ios-red active:bg-gray-50",
+                    onclick: {
+                        let note_id = note_id.clone();
+                        move |_| {
+                            app.show_note_menu.set(false);
+                            deleted.set(true);
+                            let _ = db().delete_note(&note_id);
+                            delete_note_embeddings(note_id.clone());
+                            app.notes_version.set((app.notes_version)() + 1);
+                            app.sliding_out.set(true);
+                            spawn(async move {
+                                futures_timer::Delay::new(std::time::Duration::from_millis(150)).await;
+                                app.sliding_out.set(false);
+                                app.view.set(View::NotesList);
+                            });
+                        }
+                    },
+                    IconTrash { size: 18 }
+                    "Supprimer la note"
+                }
+            }
+        }
         div {
             class: "overflow-y-auto pb-20",
             style: "height: calc(100% - var(--keyboard-inset, 0px));",
@@ -225,30 +297,6 @@ pub fn NoteDetail() -> Element {
             if let RecordingState::Error(ref e) = recording_state {
                 p { class: "text-xs text-gray-400 text-center mt-3",
                     "Erreur : {e}"
-                }
-            }
-            if !is_new {
-                div { class: "mt-6 pt-4 border-t border-gray-100",
-                    button {
-                        class: "flex items-center gap-1.5 text-xs text-gray-400",
-                        onclick: {
-                            let note_id = note_id.clone();
-                            move |_| {
-                                deleted.set(true);
-                                let _ = db().delete_note(&note_id);
-                                delete_note_embeddings(note_id.clone());
-                                app.notes_version.set((app.notes_version)() + 1);
-                                app.sliding_out.set(true);
-                                spawn(async move {
-                                    futures_timer::Delay::new(std::time::Duration::from_millis(150)).await;
-                                    app.sliding_out.set(false);
-                                    app.view.set(View::NotesList);
-                                });
-                            }
-                        },
-                        IconTrash { size: 14 }
-                        "Supprimer"
-                    }
                 }
             }
         }
