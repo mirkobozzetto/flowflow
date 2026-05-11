@@ -125,7 +125,9 @@ pub fn NoteDetail() -> Element {
         .unwrap_or_default();
 
     rsx! {
-        div { class: "pb-20",
+        div {
+            class: "overflow-y-auto pb-20",
+            style: "height: calc(100% - var(--keyboard-inset, 0px));",
             input {
                 class: "text-xl font-semibold border-none outline-none py-2 text-gray-900 bg-transparent w-full",
                 placeholder: "Titre de la note",
