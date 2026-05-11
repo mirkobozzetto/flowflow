@@ -22,6 +22,9 @@ arrow-array = { version = "57", default-features = false }
 arrow-schema = { version = "57", default-features = false }
 pulldown-cmark = "0.12"
 rig-core = { version = "0.36", default-features = false, features = ["rustls"] }
+pdf-extract = "0.10"
+zip = { version = "2", default-features = false, features = ["deflate"] }
+quick-xml = "0.36"
 
 [target.'cfg(target_os = "ios")'.dependencies]
 objc2 = "0.6"
