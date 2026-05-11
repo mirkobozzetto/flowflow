@@ -34,12 +34,14 @@ pub enum NoteType {
     Text,
 }
 
-impl NoteType {
-    pub fn from_str(s: &str) -> Self {
-        match s {
+impl std::str::FromStr for NoteType {
+    type Err = std::convert::Infallible;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        Ok(match s {
             "text" => NoteType::Text,
             _ => NoteType::Voice,
-        }
+        })
     }
 }
 

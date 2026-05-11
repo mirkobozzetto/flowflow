@@ -1,5 +1,6 @@
 use crate::db::{now_iso, Database};
 use crate::models::{NewTextNote, Note, NoteType, UpdateNote};
+use std::str::FromStr;
 use uuid::Uuid;
 
 fn row_to_note(row: &rusqlite::Row) -> rusqlite::Result<Note> {
@@ -9,7 +10,7 @@ fn row_to_note(row: &rusqlite::Row) -> rusqlite::Result<Note> {
     let note_type_str: String = row.get("note_type")?;
     Ok(Note {
         id: row.get("id")?,
-        note_type: NoteType::from_str(&note_type_str),
+        note_type: NoteType::from_str(&note_type_str).unwrap(),
         title: row.get("title")?,
         content: row.get("content")?,
         audio_file_path: row.get("audio_file_path")?,

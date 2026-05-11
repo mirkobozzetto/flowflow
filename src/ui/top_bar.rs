@@ -54,7 +54,25 @@ pub fn TopBar() -> Element {
                 }
             }
             span { class: "text-lg font-semibold text-gray-900 flex-1", "{title}" }
-            if !is_inner {
+            if is_detail {
+                button {
+                    class: "min-w-[44px] min-h-[44px] flex items-center justify-center text-gray-700",
+                    onclick: move |_| {
+                        let cur = (app.show_note_menu)();
+                        app.show_note_menu.set(!cur);
+                    },
+                    IconDotsThreeVertical { size: 22 }
+                }
+            } else if is_chat {
+                button {
+                    class: "min-w-[44px] min-h-[44px] flex items-center justify-center text-gray-700",
+                    onclick: move |_| {
+                        let cur = (app.show_chat_menu)();
+                        app.show_chat_menu.set(!cur);
+                    },
+                    IconDotsThreeVertical { size: 22 }
+                }
+            } else if !is_inner {
                 button {
                     class: "min-w-[44px] min-h-[44px] flex items-center justify-center text-gray-900",
                     onclick: move |_| {

@@ -1,3 +1,4 @@
+pub mod attachment_repo;
 pub mod conversation_repo;
 pub mod folder_repo;
 pub mod note_repo;
@@ -36,7 +37,10 @@ pub fn now_iso() -> String {
 
 impl Database {
     pub fn open() -> Result<Self, String> {
-        let path = db_path();
+        Self::open_at(db_path())
+    }
+
+    pub fn open_at(path: PathBuf) -> Result<Self, String> {
         eprintln!("[db] opening {}", path.display());
         let conn =
             Connection::open(&path).map_err(|e| format!("DB open: {e}"))?;
@@ -81,7 +85,7 @@ impl Database {
                 conn.execute_batch(sql)
                     .map_err(|e| format!("Migration v{version}: {e}"))?;
                 conn.execute(
-                    "INSERT INTO _migrations (version) VALUES (?1)",
+                    "INSERT OR IGNORE INTO _migrations (version) VALUES (?1)",
                     [version],
                 )
                 .map_err(|e| format!("Record v{version}: {e}"))?;

@@ -68,6 +68,14 @@
             opacity: 1;
         }
     }
+    @keyframes slideInUp {
+        from {
+            transform: translateY(100%);
+        }
+        to {
+            transform: translateY(0);
+        }
+    }
     @keyframes typingDot {
         0%,
         60%,

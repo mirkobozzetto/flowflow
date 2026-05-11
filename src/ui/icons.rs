@@ -216,11 +216,41 @@ pub fn IconGear(#[props(default = 20)] size: u32) -> Element {
 }
 
 #[component]
+pub fn IconMagnifyingGlass(#[props(default = 20)] size: u32) -> Element {
+    rsx! {
+        svg {
+            width: "{size}", height: "{size}", view_box: "0 0 256 256", fill: "currentColor",
+            path { d: "M229.66,218.34l-50.07-50.06a88.11,88.11,0,1,0-11.31,11.31l50.06,50.07a8,8,0,0,0,11.32-11.32ZM40,112a72,72,0,1,1,72,72A72.08,72.08,0,0,1,40,112Z" }
+        }
+    }
+}
+
+#[component]
 pub fn IconX(#[props(default = 20)] size: u32) -> Element {
     rsx! {
         svg {
             width: "{size}", height: "{size}", view_box: "0 0 256 256", fill: "currentColor",
             path { d: "M205.66,194.34a8,8,0,0,1-11.32,11.32L128,139.31,61.66,205.66a8,8,0,0,1-11.32-11.32L116.69,128,50.34,61.66A8,8,0,0,1,61.66,50.34L128,116.69l66.34-66.35a8,8,0,0,1,11.32,11.32L139.31,128Z" }
+        }
+    }
+}
+
+#[component]
+pub fn IconDotsThreeVertical(#[props(default = 20)] size: u32) -> Element {
+    rsx! {
+        svg {
+            width: "{size}", height: "{size}", view_box: "0 0 256 256", fill: "currentColor",
+            path { d: "M140,128a12,12,0,1,1-12-12A12,12,0,0,1,140,128ZM128,72a12,12,0,1,0-12-12A12,12,0,0,0,128,72Zm0,112a12,12,0,1,0,12,12A12,12,0,0,0,128,184Z" }
+        }
+    }
+}
+
+#[component]
+pub fn IconFileArrowUp(#[props(default = 20)] size: u32) -> Element {
+    rsx! {
+        svg {
+            width: "{size}", height: "{size}", view_box: "0 0 256 256", fill: "currentColor",
+            path { d: "M213.66,82.34l-56-56A8,8,0,0,0,152,24H56A16,16,0,0,0,40,40V216a16,16,0,0,0,16,16H200a16,16,0,0,0,16-16V88A8,8,0,0,0,213.66,82.34ZM160,51.31,188.69,80H160ZM200,216H56V40h88V88a8,8,0,0,0,8,8h48V216Zm-42.34-77.66a8,8,0,0,1-11.32,11.32L136,139.31V184a8,8,0,0,1-16,0V139.31l-10.34,10.35a8,8,0,0,1-11.32-11.32l24-24a8,8,0,0,1,11.32,0Z" }
         }
     }
 }

@@ -19,6 +19,12 @@ pub struct AudioRecorder {
     channels: u16,
 }
 
+impl Default for AudioRecorder {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl AudioRecorder {
     pub fn new() -> Self {
         Self {

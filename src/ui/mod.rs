@@ -1,3 +1,4 @@
+mod attachment_modal;
 mod chat;
 mod chat_input;
 mod fab;
@@ -19,6 +20,7 @@ use crate::services::audio::{AudioRecorder, RecordingState};
 use dioxus::prelude::*;
 use std::sync::{Arc, Mutex};
 
+use attachment_modal::AttachmentModal;
 use chat::ChatView;
 use fab::FloatingActionButton;
 use note_detail::NoteDetail;
@@ -51,6 +53,11 @@ pub fn App() -> Element {
         notes_version: Signal::new(0),
         current_note_id: Signal::new(None),
         previous_view: Signal::new(None),
+        search_query: Signal::new(String::new()),
+        show_note_menu: Signal::new(false),
+        attachments_version: Signal::new(0),
+        attachment_modal: Signal::new(None),
+        show_chat_menu: Signal::new(false),
     });
 
     use_effect(|| {
@@ -115,6 +122,7 @@ pub fn App() -> Element {
 
         div { class: "h-screen w-full overflow-hidden font-sans bg-gray-100",
             SidebarOverlay {}
+            AttachmentModal {}
             div { class: "flex flex-col h-screen",
                 TopBar {}
                 div { class: "flex-1 overflow-hidden relative",
