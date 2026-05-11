@@ -1,8 +1,8 @@
 use crate::db::Database;
 use crate::models::{generate_auto_title, NewTextNote, UpdateNote};
-use crate::services::ai::OpenAIClient;
 use crate::services::audio::RecordingState;
 use crate::services::embed::{delete_note_embeddings, embed_note};
+use crate::services::llm::LlmClient;
 use crate::ui::folder_picker::FolderPicker;
 use crate::ui::icons::*;
 use crate::ui::recording_bar::RecordingBar;
@@ -196,7 +196,7 @@ pub fn NoteDetail() -> Element {
                             tagging.set(true);
                             let c = content();
                             spawn(async move {
-                                match OpenAIClient::from_env() {
+                                match LlmClient::from_env() {
                                     Ok(client) => {
                                         match client.generate_tags(&c).await {
                                             Ok(new_tags) => {

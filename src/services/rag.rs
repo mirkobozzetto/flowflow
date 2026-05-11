@@ -1,5 +1,5 @@
-use crate::services::ai::OpenAIClient;
 use crate::services::constants::{RAG_SYSTEM_PROMPT, RAG_TOP_K};
+use crate::services::llm::LlmClient;
 use crate::services::vectordb::{SearchResult, VectorStore};
 
 #[derive(Clone)]
@@ -16,7 +16,7 @@ pub struct RagResponse {
     pub sources: Vec<RagSource>,
 }
 
-fn build_context(results: &[SearchResult]) -> String {
+pub fn build_context(results: &[SearchResult]) -> String {
     let mut ctx = String::from("--- Notes de l'utilisateur ---\n\n");
     for (i, r) in results.iter().enumerate() {
         ctx.push_str(&format!(
@@ -30,7 +30,7 @@ fn build_context(results: &[SearchResult]) -> String {
 }
 
 pub async fn query(question: &str) -> Result<RagResponse, String> {
-    let ai = OpenAIClient::from_env()?;
+    let ai = LlmClient::from_env()?;
     let store = VectorStore::open().await?;
 
     let query_vector = ai.embed(question).await?;

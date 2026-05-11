@@ -1,4 +1,5 @@
-use crate::services::ai::{chunk_text, OpenAIClient};
+use crate::services::ai::chunk_text;
+use crate::services::llm::LlmClient;
 use crate::services::vectordb::{Chunk, VectorStore};
 
 fn log(msg: &str) {
@@ -33,7 +34,7 @@ pub fn embed_note(note_id: String, title: String, content: String) {
                 log("embed skip: too short");
                 return;
             }
-            let ai = match OpenAIClient::from_env() {
+            let ai = match LlmClient::from_env() {
                 Ok(c) => c,
                 Err(e) => {
                     log(&format!("embed skip: {e}"));
