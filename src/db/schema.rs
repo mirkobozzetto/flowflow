@@ -1,4 +1,4 @@
-pub const MIGRATIONS: &[(i64, &str)] = &[(1, V1_SCHEMA)];
+pub const MIGRATIONS: &[(i64, &str)] = &[(1, V1_SCHEMA), (2, V2_SCHEMA)];
 
 const V1_SCHEMA: &str = "
 CREATE TABLE IF NOT EXISTS notes (
@@ -46,4 +46,33 @@ CREATE INDEX IF NOT EXISTS idx_nf_folder
     ON notes_folders(folder_id);
 CREATE INDEX IF NOT EXISTS idx_nf_note
     ON notes_folders(note_id);
+";
+
+const V2_SCHEMA: &str = "
+CREATE TABLE IF NOT EXISTS settings (
+    key TEXT PRIMARY KEY,
+    value TEXT NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS conversations (
+    id TEXT PRIMARY KEY,
+    title TEXT NOT NULL,
+    created_at TEXT NOT NULL
+        DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')),
+    modified_at TEXT NOT NULL
+        DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now'))
+);
+
+CREATE TABLE IF NOT EXISTS conversation_messages (
+    id TEXT PRIMARY KEY,
+    conversation_id TEXT NOT NULL
+        REFERENCES conversations(id) ON DELETE CASCADE,
+    role TEXT NOT NULL CHECK (role IN ('user', 'bot')),
+    content TEXT NOT NULL,
+    sources_json TEXT,
+    created_at TEXT NOT NULL
+        DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now'))
+);
+CREATE INDEX IF NOT EXISTS idx_cm_conversation
+    ON conversation_messages(conversation_id);
 ";

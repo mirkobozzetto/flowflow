@@ -1,6 +1,8 @@
+pub mod conversation_repo;
 pub mod folder_repo;
 pub mod note_repo;
 mod schema;
+pub mod settings_repo;
 
 use rusqlite::Connection;
 use schema::MIGRATIONS;
