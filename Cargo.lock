@@ -3212,6 +3212,7 @@ dependencies = [
  "pdf-extract",
  "pulldown-cmark",
  "quick-xml",
+ "regex",
  "reqwest 0.13.3",
  "rig-core",
  "rusqlite",
