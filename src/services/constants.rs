@@ -7,6 +7,12 @@ pub const CHUNK_OVERLAP_WORDS: usize = 37;
 pub const VECTOR_TABLE_NAME: &str = "chunks";
 pub const RAG_TOP_K: usize = 5;
 
+pub const TAGS_SYSTEM_PROMPT: &str = "\
+Extract 3 to 5 short tags (1-3 words each) from the text below.\n\
+Return ONLY a JSON array of strings, nothing else.\n\
+Example: [\"meeting notes\", \"project alpha\", \"deadline\"]\n\
+Tags must be in the same language as the text.";
+
 pub const RAG_SYSTEM_PROMPT: &str = "\
 You are a personal assistant that answers questions based on the user's notes provided below as context.\n\
 \n\
