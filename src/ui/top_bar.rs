@@ -9,8 +9,9 @@ pub fn TopBar() -> Element {
     let mut app: AppState = use_context();
     let db: Signal<Arc<Database>> = use_context();
     let is_detail = matches!((app.view)(), View::NoteDetail { .. });
-    let is_chat = matches!((app.view)(), View::Chat);
-    let is_inner = is_detail || is_chat;
+    let is_chat = matches!((app.view)(), View::Chat { .. });
+    let is_settings = matches!((app.view)(), View::Settings);
+    let is_inner = is_detail || is_chat || is_settings;
 
     let title = match (app.view)() {
         View::NotesList => match (app.selected_folder_id)() {
@@ -23,7 +24,8 @@ pub fn TopBar() -> Element {
             None => "Toutes mes notes".to_string(),
         },
         View::NoteDetail { .. } => "Note".to_string(),
-        View::Chat => "Chat".to_string(),
+        View::Chat { .. } => "Chat".to_string(),
+        View::Settings => "Réglages".to_string(),
     };
 
     rsx! {
@@ -33,10 +35,13 @@ pub fn TopBar() -> Element {
                     class: "min-w-[44px] min-h-[44px] flex items-center justify-center text-gray-700",
                     onclick: move |_| {
                         app.sliding_out.set(true);
+                        let target = (app.previous_view)()
+                            .unwrap_or(View::NotesList);
                         spawn(async move {
                             futures_timer::Delay::new(std::time::Duration::from_millis(150)).await;
                             app.sliding_out.set(false);
-                            app.view.set(View::NotesList);
+                            app.previous_view.set(None);
+                            app.view.set(target);
                         });
                     },
                     IconArrowLeft { size: 22 }
@@ -53,7 +58,7 @@ pub fn TopBar() -> Element {
                 button {
                     class: "min-w-[44px] min-h-[44px] flex items-center justify-center text-gray-900",
                     onclick: move |_| {
-                        app.view.set(View::Chat);
+                        app.view.set(View::Chat { conversation_id: None });
                     },
                     IconChatAi { size: 28 }
                 }
