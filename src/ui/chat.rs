@@ -209,6 +209,9 @@ pub fn ChatView() -> Element {
     let mut input = use_signal(String::new);
     let mut loading = use_signal(|| false);
     let mut tool_status: Signal<Option<String>> = use_signal(|| None);
+    let mut renaming = use_signal(|| false);
+    let mut rename_input = use_signal(String::new);
+    let mut confirm_delete = use_signal(|| false);
 
     use_effect(move || {
         if let RecordingState::Transcribed(text) = (app.recording_state)() {
@@ -233,8 +236,126 @@ pub fn ChatView() -> Element {
     });
 
     let is_empty = messages().is_empty();
+    let show_menu = (app.show_chat_menu)();
+    let has_conversation = conversation_id().is_some();
 
     rsx! {
+        if show_menu {
+            div {
+                class: "fixed inset-0 z-40",
+                onclick: move |_| {
+                    app.show_chat_menu.set(false);
+                    renaming.set(false);
+                },
+            }
+            div {
+                class: "absolute right-4 top-1 z-50 bg-white rounded-xl shadow-lg border border-gray-100 py-1 min-w-[220px]",
+                if renaming() {
+                    div { class: "px-4 py-3",
+                        p { class: "text-[10px] font-medium text-gray-400 uppercase tracking-wide mb-2", "Renommer" }
+                        input {
+                            class: "w-full text-sm border border-gray-200 rounded-lg px-3 py-2 outline-none focus:border-ios-blue",
+                            value: "{rename_input}",
+                            oninput: move |evt| rename_input.set(evt.value()),
+                            onkeypress: move |evt| {
+                                if evt.key() == Key::Enter {
+                                    let v = rename_input().trim().to_string();
+                                    if !v.is_empty() {
+                                        if let Some(ref cid) = conversation_id() {
+                                            let _ = db().update_conversation_title(cid, &v);
+                                        }
+                                    }
+                                    renaming.set(false);
+                                    app.show_chat_menu.set(false);
+                                }
+                            },
+                        }
+                        div { class: "flex gap-2 mt-2",
+                            button {
+                                class: "flex-1 h-8 text-sm text-gray-600 bg-gray-100 rounded-lg active:bg-gray-200",
+                                onclick: move |_| {
+                                    renaming.set(false);
+                                    app.show_chat_menu.set(false);
+                                },
+                                "Annuler"
+                            }
+                            button {
+                                class: "flex-1 h-8 text-sm text-white bg-ios-blue rounded-lg active:opacity-80",
+                                onclick: move |_| {
+                                    let v = rename_input().trim().to_string();
+                                    if !v.is_empty() {
+                                        if let Some(ref cid) = conversation_id() {
+                                            let _ = db().update_conversation_title(cid, &v);
+                                        }
+                                    }
+                                    renaming.set(false);
+                                    app.show_chat_menu.set(false);
+                                },
+                                "OK"
+                            }
+                        }
+                    }
+                } else if confirm_delete() {
+                    div { class: "px-4 py-3",
+                        p { class: "text-[10px] font-medium text-gray-400 uppercase tracking-wide mb-1", "Supprimer ce chat ?" }
+                        p { class: "text-xs text-gray-500 mb-3", "Cette action est irréversible." }
+                        div { class: "flex gap-2",
+                            button {
+                                class: "flex-1 h-9 text-sm font-medium text-gray-900 bg-gray-100 rounded-full active:bg-gray-200",
+                                onclick: move |_| {
+                                    confirm_delete.set(false);
+                                    app.show_chat_menu.set(false);
+                                },
+                                "Annuler"
+                            }
+                            button {
+                                class: "flex-1 h-9 text-sm font-medium text-white bg-ios-red rounded-full active:opacity-80",
+                                onclick: move |_| {
+                                    if let Some(ref cid) = conversation_id() {
+                                        let _ = db().delete_conversation(cid);
+                                    }
+                                    confirm_delete.set(false);
+                                    app.show_chat_menu.set(false);
+                                    app.sliding_out.set(true);
+                                    spawn(async move {
+                                        futures_timer::Delay::new(std::time::Duration::from_millis(150)).await;
+                                        app.sliding_out.set(false);
+                                        app.view.set(View::NotesList);
+                                    });
+                                },
+                                "Supprimer"
+                            }
+                        }
+                    }
+                } else {
+                    button {
+                        class: "w-full flex items-center gap-3 px-4 py-3 text-sm text-gray-700 active:bg-gray-50",
+                        disabled: !has_conversation,
+                        onclick: move |_| {
+                            if let Some(ref cid) = conversation_id() {
+                                if let Ok(convs) = db().list_conversations() {
+                                    if let Some(conv) = convs.iter().find(|c| &c.id == cid) {
+                                        rename_input.set(conv.title.clone());
+                                    }
+                                }
+                            }
+                            renaming.set(true);
+                        },
+                        IconPencil { size: 18 }
+                        "Renommer"
+                    }
+                    button {
+                        class: "w-full flex items-center gap-3 px-4 py-3 text-sm text-ios-red active:bg-gray-50",
+                        disabled: !has_conversation,
+                        onclick: move |_| {
+                            confirm_delete.set(true);
+                        },
+                        IconTrash { size: 18 }
+                        "Supprimer le chat"
+                    }
+                }
+            }
+        }
         div {
             class: "overflow-hidden",
             style: "height: calc(100% - var(--keyboard-inset, 0px));",

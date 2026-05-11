@@ -63,6 +63,15 @@ pub fn TopBar() -> Element {
                     },
                     IconDotsThreeVertical { size: 22 }
                 }
+            } else if is_chat {
+                button {
+                    class: "min-w-[44px] min-h-[44px] flex items-center justify-center text-gray-700",
+                    onclick: move |_| {
+                        let cur = (app.show_chat_menu)();
+                        app.show_chat_menu.set(!cur);
+                    },
+                    IconDotsThreeVertical { size: 22 }
+                }
             } else if !is_inner {
                 button {
                     class: "min-w-[44px] min-h-[44px] flex items-center justify-center text-gray-900",
