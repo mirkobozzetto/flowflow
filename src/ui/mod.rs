@@ -52,6 +52,7 @@ pub fn App() -> Element {
         current_note_id: Signal::new(None),
         previous_view: Signal::new(None),
         search_query: Signal::new(String::new()),
+        show_note_menu: Signal::new(false),
     });
 
     use_effect(|| {
