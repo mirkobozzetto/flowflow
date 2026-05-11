@@ -10,6 +10,10 @@ pub struct LlmClient {
 }
 
 impl LlmClient {
+    pub fn inner(&self) -> &openai::Client {
+        &self.client
+    }
+
     pub fn from_env() -> Result<Self, LlmError> {
         let key = crate::db::Database::open()
             .ok()

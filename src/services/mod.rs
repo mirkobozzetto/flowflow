@@ -5,5 +5,6 @@ pub mod embed;
 pub mod error;
 pub mod llm;
 pub mod rag;
+pub mod tools;
 pub mod transcription;
 pub mod vectordb;
