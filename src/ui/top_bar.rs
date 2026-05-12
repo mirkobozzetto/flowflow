@@ -74,7 +74,7 @@ pub fn TopBar() -> Element {
                 }
             } else if !is_inner {
                 button {
-                    class: "min-w-[44px] min-h-[44px] flex items-center justify-center text-stone-900",
+                    class: "min-w-[44px] min-h-[44px] flex items-center justify-center text-ios-orange-dark",
                     onclick: move |_| {
                         app.view.set(View::Chat { conversation_id: None });
                     },
