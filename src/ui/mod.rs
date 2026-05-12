@@ -7,7 +7,7 @@ pub mod icons;
 mod note_card;
 mod note_detail;
 mod note_list;
-mod recording_bar;
+mod recording;
 mod settings;
 mod sidebar;
 mod state;
@@ -126,18 +126,32 @@ pub fn App() -> Element {
             div { class: "flex flex-col h-screen",
                 TopBar {}
                 div { class: "flex-1 overflow-hidden relative",
-                    div {
-                        class: "absolute inset-0 overflow-y-auto px-4 py-3 pb-20",
-                        class: if !matches!((app.view)(), View::NotesList) { "pointer-events-none" } else { "" },
-                        NotesList {}
+                    {
+                        let is_bg = !matches!((app.view)(), View::NotesList);
+                        let is_note = matches!((app.view)(), View::NoteDetail { .. });
+                        let sliding_back = (app.sliding_out)();
+                        let shifted = is_bg && !sliding_back;
+                        let shift_dir = if is_note { "30%" } else { "-30%" };
+                        rsx! {
+                            div {
+                                class: "absolute inset-0 overflow-y-auto px-4 py-3 pb-20",
+                                class: if is_bg { "pointer-events-none" } else { "" },
+                                style: if shifted {
+                                    format!("transform: translateX({shift_dir}); opacity: 0.5; transition: transform 0.15s ease, opacity 0.15s ease;")
+                                } else {
+                                    "transform: translateX(0); opacity: 1; transition: transform 0.15s ease, opacity 0.15s ease;".to_string()
+                                },
+                                NotesList {}
+                            }
+                        }
                     }
                     if matches!((app.view)(), View::NoteDetail { .. }) {
                         div {
                             class: "absolute inset-0 flex flex-col min-h-0 px-4 py-3 bg-stone-100",
                             style: if (app.sliding_out)() {
-                                "animation: slideOutRight 0.15s ease-in forwards;"
+                                "animation: slideOutToLeft 0.15s ease-in forwards;"
                             } else {
-                                "animation: slideInRight 0.15s ease-out;"
+                                "animation: slideInFromLeft 0.15s ease-out;"
                             },
                             NoteDetail {}
                         }

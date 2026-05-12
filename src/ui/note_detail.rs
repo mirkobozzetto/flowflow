@@ -7,7 +7,7 @@ use crate::services::embed::{
 use crate::services::llm::LlmClient;
 use crate::ui::folder_picker::FolderPicker;
 use crate::ui::icons::*;
-use crate::ui::recording_bar::RecordingBar;
+use crate::ui::recording::RecordingBar;
 use crate::ui::{AppState, View};
 use dioxus::prelude::*;
 use std::sync::Arc;
