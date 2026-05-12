@@ -222,6 +222,14 @@ pub fn ChatView() -> Element {
                 input.set(format!("{} {}", current, text));
             }
             app.recording_state.set(RecordingState::Idle);
+            dioxus::document::eval(
+                r#"
+                requestAnimationFrame(() => {
+                    var ta = document.querySelector('.chat-textarea');
+                    if (ta) { ta.style.height = 'auto'; ta.style.height = ta.scrollHeight + 'px'; }
+                });
+                "#,
+            );
         }
     });
 
@@ -406,7 +414,7 @@ pub fn ChatView() -> Element {
                                                             src.chunk_text.clone()
                                                         };
                                                         let pct = ((1.0 - src.distance) * 100.0).round() as u32;
-                                                        let mut app = app.clone();
+                                                        let mut app = app;
                                                         let conv_for_back = conversation_id();
                                                         rsx! {
                                                             button {
