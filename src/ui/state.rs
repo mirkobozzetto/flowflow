@@ -10,7 +10,7 @@ pub enum View {
     Settings,
 }
 
-#[derive(Clone)]
+#[derive(Clone, Copy)]
 pub struct AppState {
     pub view: Signal<View>,
     pub sidebar_open: Signal<bool>,

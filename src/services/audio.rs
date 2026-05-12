@@ -7,6 +7,7 @@ use std::sync::{Arc, Mutex};
 pub enum RecordingState {
     Idle,
     Recording,
+    Paused,
     Transcribing,
     Transcribed(String),
     Error(String),
@@ -35,8 +36,10 @@ impl AudioRecorder {
         }
     }
 
-    pub fn start(&mut self) -> Result<(), String> {
-        eprintln!("[audio] start recording");
+    fn build_stream(&mut self) -> Result<(), String> {
+        #[cfg(target_os = "ios")]
+        crate::platform::ios::configure_audio_session();
+
         let host = cpal::default_host();
         let device = host
             .default_input_device()
@@ -56,8 +59,6 @@ impl AudioRecorder {
         );
 
         let samples = self.samples.clone();
-        samples.lock().unwrap().clear();
-
         let stream = device
             .build_input_stream(
                 &config,
@@ -79,8 +80,33 @@ impl AudioRecorder {
             format!("Play error: {e}")
         })?;
         self.stream = Some(stream);
+        Ok(())
+    }
+
+    pub fn start(&mut self) -> Result<(), String> {
+        eprintln!("[audio] start recording");
+        self.samples.lock().unwrap().clear();
+        self.build_stream()?;
         eprintln!("[audio] recording started");
         Ok(())
+    }
+
+    pub fn pause(&mut self) {
+        eprintln!("[audio] pause recording");
+        self.stream.take();
+    }
+
+    pub fn resume(&mut self) -> Result<(), String> {
+        eprintln!("[audio] resume recording");
+        self.build_stream()?;
+        eprintln!("[audio] recording resumed");
+        Ok(())
+    }
+
+    pub fn cancel(&mut self) {
+        eprintln!("[audio] cancel recording");
+        self.stream.take();
+        self.samples.lock().unwrap().clear();
     }
 
     pub fn stop(&mut self, output_dir: &str) -> Result<PathBuf, String> {
