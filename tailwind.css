@@ -42,6 +42,26 @@
             opacity: 0.4;
         }
     }
+    @keyframes slideInFromLeft {
+        from {
+            transform: translateX(-100%);
+            opacity: 0.8;
+        }
+        to {
+            transform: translateX(0);
+            opacity: 1;
+        }
+    }
+    @keyframes slideOutToLeft {
+        from {
+            transform: translateX(0);
+            opacity: 1;
+        }
+        to {
+            transform: translateX(-100%);
+            opacity: 0.8;
+        }
+    }
     @keyframes slideInRight {
         from {
             transform: translateX(100%);
