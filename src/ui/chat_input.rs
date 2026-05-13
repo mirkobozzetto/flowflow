@@ -68,7 +68,7 @@ pub fn ChatInputBar(
                     p { class: "text-xs text-ios-red text-center mt-1", "{e}" }
                 }
             } else {
-                RecordingControls { pending_audio: dummy_pending_audio }
+                RecordingControls { pending_audio: dummy_pending_audio, transcribe_only: true }
             }
         }
     }
