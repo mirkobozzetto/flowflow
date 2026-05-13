@@ -195,10 +195,14 @@ impl Database {
             for entry in entries.flatten() {
                 let path = entry.path();
                 if path.extension().and_then(|e| e.to_str()) == Some("wav") {
-                    let path_str = path.to_string_lossy().to_string();
-                    if !known.contains(&path_str) {
+                    let filename = path
+                        .file_name()
+                        .and_then(|n| n.to_str())
+                        .unwrap_or_default()
+                        .to_string();
+                    if !known.contains(&filename) {
                         let _ = std::fs::remove_file(&path);
-                        eprintln!("[cleanup] removed orphan: {path_str}");
+                        eprintln!("[cleanup] removed orphan: {filename}");
                     }
                 }
             }

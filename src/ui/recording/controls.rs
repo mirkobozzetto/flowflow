@@ -172,11 +172,11 @@ pub fn RecordingControls(
                         match rec.stop(&audio::output_dir()) {
                             Ok(path) => {
                                 if !transcribe_only {
-                                    let path_str = path.display().to_string();
+                                    let filename = audio::audio_filename(&path.display().to_string());
                                     if let Some(ref nid) = (app.current_note_id)().filter(|id| !id.is_empty()) {
-                                        let _ = db().update_audio_metadata(nid, &path_str, dur as f64);
+                                        let _ = db().update_audio_metadata(nid, &filename, dur as f64);
                                     }
-                                    pending_audio.set(Some((path_str, dur as f64)));
+                                    pending_audio.set(Some((filename, dur as f64)));
                                 }
                                 let gen = transcription_gen() + 1;
                                 transcription_gen.set(gen);

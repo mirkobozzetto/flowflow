@@ -83,7 +83,7 @@ fn test_migration_v3_recorded() {
             |row| row.get(0),
         )
         .expect("query");
-    assert_eq!(max_version, 3, "max migration version should be 3");
+    assert_eq!(max_version, 4, "max migration version should be 4");
 }
 
 #[test]

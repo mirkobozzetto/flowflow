@@ -1,6 +1,6 @@
 use crate::db::Database;
 use crate::models::{generate_auto_title, Attachment, NewTextNote, UpdateNote};
-use crate::services::audio::RecordingState;
+use crate::services::audio::{self, RecordingState};
 use crate::services::embed::embed_note;
 use crate::ui::folder_picker::FolderPicker;
 use crate::ui::notes::attachments::AttachmentSection;
@@ -215,16 +215,16 @@ pub fn NoteDetail() -> Element {
                 oninput: move |evt| content.set(evt.value()),
             }
             {
-                if let Some((ref audio_path, dur)) = audio_state() {
-                    let path_clone = audio_path.clone();
+                if let Some((ref audio_filename, dur)) = audio_state() {
+                    let resolved = audio::resolve_audio_path(audio_filename);
                     let note_id_clone = note_id.clone();
                     rsx! {
                         AudioPlayer {
-                            audio_path: path_clone,
+                            audio_path: resolved,
                             duration_secs: Some(dur),
                             on_delete: move |_| {
-                                if let Some((ref p, _)) = audio_state() {
-                                    let _ = std::fs::remove_file(p);
+                                if let Some((ref f, _)) = audio_state() {
+                                    let _ = std::fs::remove_file(audio::resolve_audio_path(f));
                                 }
                                 let _ = db().clear_audio_metadata(&note_id_clone);
                                 audio_state.set(None);

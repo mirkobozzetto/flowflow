@@ -175,6 +175,19 @@ pub fn output_dir() -> String {
     }
 }
 
+pub fn resolve_audio_path(filename: &str) -> String {
+    let dir = output_dir();
+    format!("{dir}/{filename}")
+}
+
+pub fn audio_filename(absolute_path: &str) -> String {
+    std::path::Path::new(absolute_path)
+        .file_name()
+        .and_then(|n| n.to_str())
+        .unwrap_or(absolute_path)
+        .to_string()
+}
+
 fn wav_path(output_dir: &str) -> PathBuf {
     let ts = std::time::SystemTime::now()
         .duration_since(std::time::UNIX_EPOCH)
