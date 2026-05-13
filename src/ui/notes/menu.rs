@@ -83,6 +83,8 @@ pub fn NoteMenu(
                                     title: if t.is_empty() { None } else { Some(t.clone()) },
                                     content: c.clone(),
                                     tags: tg.clone(),
+                                    audio_file_path: None,
+                                    duration_secs: None,
                                 };
                                 match db.create_text_note(&new) {
                                     Ok(created) => {

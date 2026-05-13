@@ -192,6 +192,8 @@ async fn test_summarize_folder_real() {
                 Réunion prévue mardi pour faire le point."
                 .to_string(),
             tags: vec![],
+            audio_file_path: None,
+            duration_secs: None,
         })
         .expect("create note");
     db.add_note_to_folder(&note.id, &folder.id).expect("link");

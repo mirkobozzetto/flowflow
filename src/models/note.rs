@@ -62,6 +62,8 @@ pub struct NewTextNote {
     pub title: Option<String>,
     pub content: String,
     pub tags: Vec<String>,
+    pub audio_file_path: Option<String>,
+    pub duration_secs: Option<f64>,
 }
 
 pub struct UpdateNote {

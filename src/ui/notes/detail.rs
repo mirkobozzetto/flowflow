@@ -4,6 +4,7 @@ use crate::services::audio::RecordingState;
 use crate::services::embed::embed_note;
 use crate::ui::folder_picker::FolderPicker;
 use crate::ui::notes::attachments::AttachmentSection;
+use crate::ui::notes::audio_player::AudioPlayer;
 use crate::ui::notes::menu::NoteMenu;
 use crate::ui::notes::tags::TagsSection;
 use crate::ui::recording::RecordingBar;
@@ -62,6 +63,7 @@ pub fn NoteDetail() -> Element {
     let deleted = use_signal(|| false);
     let confirm_delete_att: Signal<Option<String>> = use_signal(|| None);
     let local_note_id = use_signal(|| note_id.clone());
+    let pending_audio: Signal<Option<(String, f64)>> = use_signal(|| None);
 
     let attachments_version = (app.attachments_version)();
     let attachments: Vec<Attachment> = {
@@ -83,7 +85,8 @@ pub fn NoteDetail() -> Element {
             let db = db();
             let t = title();
             let c = content();
-            if note_id.is_empty() && c.is_empty() {
+            let pa = pending_audio();
+            if note_id.is_empty() && c.is_empty() && pa.is_none() {
                 return;
             }
             if !note_id.is_empty() && t.is_empty() && c.is_empty() {
@@ -94,6 +97,8 @@ pub fn NoteDetail() -> Element {
                     title: if t.is_empty() { None } else { Some(t.clone()) },
                     content: c.clone(),
                     tags: tags(),
+                    audio_file_path: pa.as_ref().map(|(p, _)| p.clone()),
+                    duration_secs: pa.as_ref().map(|(_, d)| *d),
                 };
                 match db.create_text_note(&new) {
                     Ok(created) => {
@@ -116,6 +121,9 @@ pub fn NoteDetail() -> Element {
                 }
                 if let Some(ref fid) = selected_folder() {
                     let _ = db.add_note_to_folder(&note_id, fid);
+                }
+                if let Some((p, d)) = pa {
+                    let _ = db.update_audio_metadata(&note_id, &p, d);
                 }
                 Some(note_id.clone())
             };
@@ -153,6 +161,12 @@ pub fn NoteDetail() -> Element {
         })
         .unwrap_or_default();
 
+    let audio_data = note.as_ref().and_then(|n| {
+        n.audio_file_path
+            .as_ref()
+            .map(|path| (path.clone(), n.duration_secs))
+    });
+
     let show_menu = (app.show_note_menu)();
 
     rsx! {
@@ -179,6 +193,30 @@ pub fn NoteDetail() -> Element {
             if !date.is_empty() {
                 p { class: "text-xs text-stone-400 mb-2", "{date}" }
             }
+            {
+                if let Some((audio_path, duration)) = audio_data {
+                    let note_id_clone = note_id.clone();
+                    rsx! {
+                        AudioPlayer {
+                            audio_path,
+                            duration_secs: duration,
+                            on_delete: move |_| {
+                                let db_ref = db();
+                                let _ = db_ref.update_audio_metadata(&note_id_clone, "", 0.0);
+                                if let Ok(Some(n)) = db_ref.get_note(&note_id_clone) {
+                                    if let Some(ref p) = n.audio_file_path {
+                                        let path = std::path::Path::new(p);
+                                        let _ = std::fs::remove_file(path);
+                                    }
+                                }
+                                app.notes_version.set((app.notes_version)() + 1);
+                            },
+                        }
+                    }
+                } else {
+                    rsx! {}
+                }
+            }
             FolderPicker { selected: selected_folder }
             TagsSection { tags, tag_input, tagging, content }
             textarea {
@@ -194,6 +232,6 @@ pub fn NoteDetail() -> Element {
                 }
             }
         }
-        RecordingBar {}
+        RecordingBar { pending_audio }
     }
 }

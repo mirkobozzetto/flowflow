@@ -62,7 +62,9 @@ pub fn start_recording(
 }
 
 #[component]
-pub fn RecordingControls() -> Element {
+pub fn RecordingControls(
+    pending_audio: Signal<Option<(String, f64)>>,
+) -> Element {
     let mut app: AppState = use_context();
     let recorder: Signal<Arc<Mutex<AudioRecorder>>> = use_context();
     let db: Signal<Arc<Database>> = use_context();
@@ -163,6 +165,8 @@ pub fn RecordingControls() -> Element {
                                 let path_str = path.display().to_string();
                                 if let Some(ref nid) = (app.current_note_id)() {
                                     let _ = db().update_audio_metadata(nid, &path_str, dur as f64);
+                                } else {
+                                    pending_audio.set(Some((path_str, dur as f64)));
                                 }
                                 let gen = transcription_gen() + 1;
                                 transcription_gen.set(gen);

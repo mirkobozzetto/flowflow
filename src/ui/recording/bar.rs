@@ -6,7 +6,7 @@ use dioxus::prelude::*;
 use std::sync::{Arc, Mutex};
 
 #[component]
-pub fn RecordingBar() -> Element {
+pub fn RecordingBar(pending_audio: Signal<Option<(String, f64)>>) -> Element {
     let app: AppState = use_context();
     let recorder: Signal<Arc<Mutex<AudioRecorder>>> = use_context();
     let recording_state = (app.recording_state)();
@@ -29,7 +29,7 @@ pub fn RecordingBar() -> Element {
                     p { class: "text-xs text-ios-red text-center mt-1", "{e}" }
                 }
             } else {
-                RecordingControls {}
+                RecordingControls { pending_audio }
             }
         }
     }

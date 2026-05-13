@@ -13,6 +13,8 @@ pub fn ChatInputBar(
 ) -> Element {
     let app: AppState = use_context();
     let recorder: Signal<Arc<Mutex<AudioRecorder>>> = use_context();
+    let dummy_pending_audio: Signal<Option<(String, f64)>> =
+        use_signal(|| None);
 
     let recording_state = (app.recording_state)();
     let is_idle = recording_state == RecordingState::Idle
@@ -66,7 +68,7 @@ pub fn ChatInputBar(
                     p { class: "text-xs text-ios-red text-center mt-1", "{e}" }
                 }
             } else {
-                RecordingControls {}
+                RecordingControls { pending_audio: dummy_pending_audio }
             }
         }
     }

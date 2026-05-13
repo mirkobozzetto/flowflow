@@ -30,14 +30,16 @@ impl Database {
         self.conn()
             .execute(
                 "INSERT INTO notes
-                 (id, note_type, title, content, tags, created_at, modified_at)
-                 VALUES (?1,?2,?3,?4,?5,?6,?7)",
+                 (id, note_type, title, content, tags, audio_file_path, duration_secs, created_at, modified_at)
+                 VALUES (?1,?2,?3,?4,?5,?6,?7,?8,?9)",
                 rusqlite::params![
                     id,
                     "text",
                     note.title,
                     note.content,
                     tags_json,
+                    note.audio_file_path,
+                    note.duration_secs,
                     now,
                     now
                 ],
