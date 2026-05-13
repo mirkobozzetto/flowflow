@@ -58,6 +58,12 @@ pub fn ChatInputBar(
                             let q = input().trim().to_string();
                             if !q.is_empty() && !disabled {
                                 input.set(String::new());
+                                dioxus::document::eval(
+                                    r#"
+                                    var ta = document.querySelector('.chat-textarea');
+                                    if (ta) { ta.style.height = 'auto'; }
+                                    "#,
+                                );
                                 on_send.call(q);
                             }
                         },
