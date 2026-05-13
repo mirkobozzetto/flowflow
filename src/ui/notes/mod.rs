@@ -1,4 +1,5 @@
 mod attachments;
+mod audio_player;
 mod detail;
 mod menu;
 mod tags;

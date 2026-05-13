@@ -254,3 +254,23 @@ pub fn IconFileArrowUp(#[props(default = 20)] size: u32) -> Element {
         }
     }
 }
+
+#[component]
+pub fn IconPlay(#[props(default = 20)] size: u32) -> Element {
+    rsx! {
+        svg {
+            width: "{size}", height: "{size}", view_box: "0 0 256 256", fill: "currentColor",
+            path { d: "M240,128a112,112,0,1,1-112-112A112,112,0,0,1,240,128ZM120,86.63,162.69,128,120,169.37Zm0,105.74V63.63L162.69,128Z" }
+        }
+    }
+}
+
+#[component]
+pub fn IconPause(#[props(default = 20)] size: u32) -> Element {
+    rsx! {
+        svg {
+            width: "{size}", height: "{size}", view_box: "0 0 256 256", fill: "currentColor",
+            path { d: "M240,128a112,112,0,1,1-112-112A112,112,0,0,1,240,128ZM96,80v96a8,8,0,0,0,16,0V80a8,8,0,0,0-16,0Zm64,0v96a8,8,0,0,0,16,0V80a8,8,0,0,0-16,0Z" }
+        }
+    }
+}
