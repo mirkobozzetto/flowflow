@@ -22,18 +22,26 @@ fn spawn_transcription(
     mut state: Signal<RecordingState>,
     generation: u64,
     gen_signal: Signal<u64>,
+    cleanup: bool,
 ) {
     spawn(async move {
         let client = match SonioxClient::from_env() {
             Ok(c) => c,
             Err(e) => {
+                if cleanup {
+                    let _ = std::fs::remove_file(&path);
+                }
                 if gen_signal() == generation {
                     state.set(RecordingState::Error(e));
                 }
                 return;
             }
         };
-        match client.transcribe(&path).await {
+        let result = client.transcribe(&path).await;
+        if cleanup {
+            let _ = std::fs::remove_file(&path);
+        }
+        match result {
             Ok(text) => {
                 if gen_signal() == generation {
                     state.set(RecordingState::Transcribed(text));
@@ -62,7 +70,10 @@ pub fn start_recording(
 }
 
 #[component]
-pub fn RecordingControls() -> Element {
+pub fn RecordingControls(
+    pending_audio: Signal<Option<(String, f64)>>,
+    #[props(default = false)] transcribe_only: bool,
+) -> Element {
     let mut app: AppState = use_context();
     let recorder: Signal<Arc<Mutex<AudioRecorder>>> = use_context();
     let db: Signal<Arc<Database>> = use_context();
@@ -160,14 +171,17 @@ pub fn RecordingControls() -> Element {
                         let dur = rec.duration_secs();
                         match rec.stop(&audio::output_dir()) {
                             Ok(path) => {
-                                let path_str = path.display().to_string();
-                                if let Some(ref nid) = (app.current_note_id)() {
-                                    let _ = db().update_audio_metadata(nid, &path_str, dur as f64);
+                                if !transcribe_only {
+                                    let filename = audio::audio_filename(&path.display().to_string());
+                                    if let Some(ref nid) = (app.current_note_id)().filter(|id| !id.is_empty()) {
+                                        let _ = db().update_audio_metadata(nid, &filename, dur as f64);
+                                    }
+                                    pending_audio.set(Some((filename, dur as f64)));
                                 }
                                 let gen = transcription_gen() + 1;
                                 transcription_gen.set(gen);
                                 app.recording_state.set(RecordingState::Transcribing);
-                                spawn_transcription(path, app.recording_state, gen, transcription_gen);
+                                spawn_transcription(path, app.recording_state, gen, transcription_gen, transcribe_only);
                             }
                             Err(e) => {
                                 app.recording_state.set(RecordingState::Error(e));

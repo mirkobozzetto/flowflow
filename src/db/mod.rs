@@ -82,8 +82,13 @@ impl Database {
         for &(version, sql) in MIGRATIONS {
             if version > current {
                 eprintln!("[db] applying migration v{version}");
-                conn.execute_batch(sql)
-                    .map_err(|e| format!("Migration v{version}: {e}"))?;
+                if !sql.is_empty() {
+                    conn.execute_batch(sql)
+                        .map_err(|e| format!("Migration v{version}: {e}"))?;
+                }
+                if version == 4 {
+                    self.migrate_audio_paths_to_relative(&conn);
+                }
                 conn.execute(
                     "INSERT OR IGNORE INTO _migrations (version) VALUES (?1)",
                     [version],
@@ -92,5 +97,32 @@ impl Database {
             }
         }
         Ok(())
+    }
+
+    fn migrate_audio_paths_to_relative(&self, conn: &Connection) {
+        let mut stmt = match conn
+            .prepare("SELECT id, audio_file_path FROM notes WHERE audio_file_path IS NOT NULL")
+        {
+            Ok(s) => s,
+            Err(_) => return,
+        };
+        let rows: Vec<(String, String)> = stmt
+            .query_map([], |row| Ok((row.get(0)?, row.get(1)?)))
+            .ok()
+            .map(|r| r.flatten().collect())
+            .unwrap_or_default();
+        for (id, path) in rows {
+            if path.contains('/') {
+                let filename = std::path::Path::new(&path)
+                    .file_name()
+                    .and_then(|n| n.to_str())
+                    .unwrap_or(&path);
+                let _ = conn.execute(
+                    "UPDATE notes SET audio_file_path = ?1 WHERE id = ?2",
+                    rusqlite::params![filename, id],
+                );
+                eprintln!("[db] v4 migrated audio path: {path} -> {filename}");
+            }
+        }
     }
 }

@@ -1,5 +1,9 @@
-pub const MIGRATIONS: &[(i64, &str)] =
-    &[(1, V1_SCHEMA), (2, V2_SCHEMA), (3, V3_SCHEMA)];
+pub const MIGRATIONS: &[(i64, &str)] = &[
+    (1, V1_SCHEMA),
+    (2, V2_SCHEMA),
+    (3, V3_SCHEMA),
+    (4, V4_SCHEMA),
+];
 
 const V1_SCHEMA: &str = "
 CREATE TABLE IF NOT EXISTS notes (
@@ -91,3 +95,5 @@ CREATE TABLE IF NOT EXISTS attachments (
 CREATE INDEX IF NOT EXISTS idx_attachments_note
     ON attachments(note_id);
 ";
+
+const V4_SCHEMA: &str = "";

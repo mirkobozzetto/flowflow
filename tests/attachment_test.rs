@@ -16,6 +16,8 @@ fn create_test_note(db: &Database, content: &str) -> String {
             title: Some("Test note".to_string()),
             content: content.to_string(),
             tags: vec![],
+            audio_file_path: None,
+            duration_secs: None,
         })
         .expect("create note");
     note.id
@@ -81,7 +83,7 @@ fn test_migration_v3_recorded() {
             |row| row.get(0),
         )
         .expect("query");
-    assert_eq!(max_version, 3, "max migration version should be 3");
+    assert_eq!(max_version, 4, "max migration version should be 4");
 }
 
 #[test]

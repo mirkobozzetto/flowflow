@@ -5,8 +5,8 @@ mod fab;
 mod folder_picker;
 pub mod icons;
 mod note_card;
-mod note_detail;
 mod note_list;
+mod notes;
 mod recording;
 mod settings;
 mod sidebar;
@@ -23,8 +23,8 @@ use std::sync::{Arc, Mutex};
 use attachment_modal::AttachmentModal;
 use chat::ChatView;
 use fab::FloatingActionButton;
-use note_detail::NoteDetail;
 use note_list::NotesList;
+use notes::NoteDetail;
 use settings::SettingsView;
 use sidebar::SidebarOverlay;
 use top_bar::TopBar;
@@ -32,9 +32,9 @@ use top_bar::TopBar;
 #[component]
 pub fn App() -> Element {
     let _db = use_context_provider(|| {
-        Signal::new(Arc::new(
-            Database::open().expect("Failed to open database"),
-        ))
+        let db = Arc::new(Database::open().expect("Failed to open database"));
+        db.cleanup_orphan_audio(&crate::services::audio::output_dir());
+        Signal::new(db)
     });
 
     let _recorder: Signal<Arc<Mutex<AudioRecorder>>> =
