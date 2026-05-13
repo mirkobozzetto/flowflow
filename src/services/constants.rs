@@ -10,9 +10,11 @@ pub const VECTOR_TABLE_NAME: &str = "chunks";
 pub const RAG_TOP_K: usize = 5;
 
 pub const TAGS_SYSTEM_PROMPT: &str = "\
-Extract 3 to 5 short tags (1-3 words each) from the text below.\n\
+Extract exactly 3 single-word keyword tags from the text below.\n\
+Each tag must be exactly one word, lowercase, no spaces, no hyphens.\n\
+Pick the 3 most searchable and distinctive keywords.\n\
 Return ONLY a JSON array of strings, nothing else.\n\
-Example: [\"meeting notes\", \"project alpha\", \"deadline\"]\n\
+Example: [\"budget\", \"planning\", \"deadline\"]\n\
 Tags must be in the same language as the text.";
 
 pub const RAG_SYSTEM_PROMPT: &str = "\
