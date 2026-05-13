@@ -1,5 +1,3 @@
-use crate::db::Database;
-use crate::models::NewTextNote;
 use crate::services::embed::delete_note_embeddings;
 use crate::ui::icons::*;
 use crate::ui::{AppState, View};
@@ -11,50 +9,85 @@ pub struct ImportedFile {
     pub content: String,
 }
 
-pub async fn import_file_content() -> Option<ImportedFile> {
+pub async fn import_file_content() -> Result<Option<ImportedFile>, String> {
     #[cfg(target_os = "ios")]
     {
-        use crate::platform::ios::{open_file_picker, read_file_as_text};
-        let paths =
-            open_file_picker(&["txt", "md", "csv", "pdf", "docx"]).await?;
-        let path = paths.first()?;
+        use crate::platform::ios::{
+            open_file_picker, read_file_as_text, read_pdf_text,
+        };
+        const MAX_FILE_SIZE: u64 = 20 * 1024 * 1024;
+        let paths = match open_file_picker(&["txt", "md", "csv", "pdf", "docx"])
+            .await
+        {
+            Some(p) => p,
+            None => return Ok(None),
+        };
+        let path = match paths.first() {
+            Some(p) => p,
+            None => return Ok(None),
+        };
+        let file_size = std::fs::metadata(path).map(|m| m.len()).unwrap_or(0);
+        if file_size > MAX_FILE_SIZE {
+            return Err(format!(
+                "Fichier trop volumineux ({} MB, max 20 MB)",
+                file_size / (1024 * 1024)
+            ));
+        }
         let filename = path
             .file_name()
             .and_then(|n| n.to_str())
             .unwrap_or("document")
             .to_string();
-        match read_file_as_text(path) {
-            Ok(content) => Some(ImportedFile { filename, content }),
-            Err(e) => {
-                eprintln!("[import] {e}");
-                None
+        let is_pdf = path
+            .extension()
+            .and_then(|e| e.to_str())
+            .is_some_and(|e| e.eq_ignore_ascii_case("pdf"));
+        let content = if is_pdf {
+            read_pdf_text(path)
+        } else {
+            let timeout_secs = 60 + (file_size / (1024 * 1024)) * 30;
+            let path_owned = path.clone();
+            let handle = tokio::task::spawn_blocking(move || {
+                read_file_as_text(&path_owned)
+            });
+            match tokio::time::timeout(
+                tokio::time::Duration::from_secs(timeout_secs),
+                handle,
+            )
+            .await
+            {
+                Ok(Ok(r)) => r,
+                Ok(Err(_)) => Err("Extraction interrompue".to_string()),
+                Err(_) => {
+                    let mins = timeout_secs / 60;
+                    Err(format!("Fichier trop complexe (timeout {mins}min)"))
+                }
             }
+        };
+        match content {
+            Ok(text) => Ok(Some(ImportedFile {
+                filename,
+                content: text,
+            })),
+            Err(e) => Err(e),
         }
     }
     #[cfg(not(target_os = "ios"))]
     {
-        None
+        Ok(None)
     }
 }
 
 #[component]
 pub fn NoteMenu(
     note_id: String,
-    title: Signal<String>,
-    content: Signal<String>,
-    tags: Signal<Vec<String>>,
-    selected_folder: Signal<Option<String>>,
-    local_note_id: Signal<String>,
+    import_requested: Signal<bool>,
     deleted: Signal<bool>,
 ) -> Element {
     let mut app: AppState = use_context();
-    let db: Signal<Arc<Database>> = use_context();
-    let title = title;
-    let content = content;
-    let tags = tags;
-    let selected_folder = selected_folder;
-    let mut local_note_id = local_note_id;
+    let db: Signal<Arc<crate::db::Database>> = use_context();
     let mut deleted = deleted;
+    let mut import_requested = import_requested;
 
     rsx! {
         div {
@@ -66,62 +99,8 @@ pub fn NoteMenu(
             button {
                 class: "w-full flex items-center gap-3 px-4 py-3 text-sm text-stone-700 active:bg-stone-50",
                 onclick: move |_| {
+                    import_requested.set(true);
                     app.show_note_menu.set(false);
-                    let db = db();
-                    let t = title();
-                    let c = content();
-                    let tg = tags();
-                    let folder = selected_folder();
-                    spawn(async move {
-                        let Some(file) = import_file_content().await else {
-                            return;
-                        };
-                        let target_id = {
-                            let current = local_note_id();
-                            if current.is_empty() {
-                                let new = NewTextNote {
-                                    title: if t.is_empty() { None } else { Some(t.clone()) },
-                                    content: c.clone(),
-                                    tags: tg.clone(),
-                                    audio_file_path: None,
-                                    duration_secs: None,
-                                };
-                                match db.create_text_note(&new) {
-                                    Ok(created) => {
-                                        if let Some(ref fid) = folder {
-                                            let _ = db.add_note_to_folder(&created.id, fid);
-                                        }
-                                        local_note_id.set(created.id.clone());
-                                        app.current_note_id.set(Some(created.id.clone()));
-                                        created.id
-                                    }
-                                    Err(e) => {
-                                        eprintln!("[import] save note: {e}");
-                                        return;
-                                    }
-                                }
-                            } else {
-                                current
-                            }
-                        };
-                        let new_att = crate::models::NewAttachment {
-                            note_id: target_id.clone(),
-                            filename: file.filename.clone(),
-                            content_text: file.content.clone(),
-                        };
-                        match db.create_attachment(&new_att) {
-                            Ok(att) => {
-                                app.attachments_version.set((app.attachments_version)() + 1);
-                                crate::services::embed::embed_attachment(
-                                    att.id.clone(),
-                                    target_id.clone(),
-                                    att.filename.clone(),
-                                    att.content_text.clone(),
-                                );
-                            }
-                            Err(e) => eprintln!("[import] create attachment: {e}"),
-                        }
-                    });
                 },
                 IconFileArrowUp { size: 18 }
                 "Importer un document"
