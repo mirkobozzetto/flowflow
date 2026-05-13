@@ -1,4 +1,4 @@
-use crate::ui::icons::{IconPause, IconPlay, IconTrash};
+use crate::ui::icons::IconDotsThree;
 use dioxus::prelude::*;
 
 #[component]
@@ -8,6 +8,7 @@ pub fn AudioPlayer(
     on_delete: EventHandler<()>,
 ) -> Element {
     let mut playing = use_signal(|| false);
+    let mut confirm_delete = use_signal(|| false);
 
     let dur = duration_secs.unwrap_or(0.0);
     let mins = (dur as u32) / 60;
@@ -16,7 +17,7 @@ pub fn AudioPlayer(
     rsx! {
         div { class: "flex items-center gap-3 bg-stone-50 border border-stone-200 rounded-xl px-3 py-2 mb-2",
             button {
-                class: "w-8 h-8 rounded-full bg-ios-green flex items-center justify-center flex-shrink-0 text-white",
+                class: "w-9 h-9 rounded-full bg-ios-orange/80 flex items-center justify-center flex-shrink-0 text-white",
                 onclick: move |_| {
                     if playing() {
                         #[cfg(target_os = "ios")]
@@ -29,21 +30,43 @@ pub fn AudioPlayer(
                     }
                 },
                 if playing() {
-                    IconPause { size: 14 }
+                    svg {
+                        width: "14", height: "14", view_box: "0 0 14 14", fill: "currentColor",
+                        rect { x: "1", y: "1", width: "4", height: "12", rx: "1" }
+                        rect { x: "9", y: "1", width: "4", height: "12", rx: "1" }
+                    }
                 } else {
-                    IconPlay { size: 14 }
+                    svg {
+                        width: "14", height: "14", view_box: "0 0 14 14", fill: "currentColor",
+                        polygon { points: "2,0 14,7 2,14" }
+                    }
                 }
             }
             span { class: "text-xs text-stone-500 tabular-nums flex-1", "{mins}:{secs:02}" }
-            button {
-                class: "text-ios-red hover:opacity-70",
-                onclick: move |_| {
-                    #[cfg(target_os = "ios")]
-                    crate::platform::ios::stop_audio();
-                    playing.set(false);
-                    on_delete.call(());
-                },
-                IconTrash { size: 16 }
+            if confirm_delete() {
+                button {
+                    class: "text-xs text-ios-red font-medium",
+                    onclick: move |_| {
+                        #[cfg(target_os = "ios")]
+                        crate::platform::ios::stop_audio();
+                        playing.set(false);
+                        confirm_delete.set(false);
+                        on_delete.call(());
+                    },
+                    "Supprimer ?"
+                }
+            } else {
+                button {
+                    class: "text-stone-400",
+                    onclick: move |_| {
+                        confirm_delete.set(true);
+                        spawn(async move {
+                            tokio::time::sleep(tokio::time::Duration::from_secs(3)).await;
+                            confirm_delete.set(false);
+                        });
+                    },
+                    IconDotsThree { size: 18 }
+                }
             }
         }
     }
