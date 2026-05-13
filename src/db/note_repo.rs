@@ -151,10 +151,57 @@ impl Database {
         Ok(())
     }
 
+    pub fn clear_audio_metadata(&self, id: &str) -> Result<(), String> {
+        let now = now_iso();
+        self.conn()
+            .execute(
+                "UPDATE notes SET audio_file_path = NULL, duration_secs = NULL, modified_at = ?1 WHERE id = ?2",
+                rusqlite::params![now, id],
+            )
+            .map_err(|e| format!("Clear audio: {e}"))?;
+        Ok(())
+    }
+
     pub fn delete_note(&self, id: &str) -> Result<(), String> {
         self.conn()
             .execute("DELETE FROM notes WHERE id = ?1", [id])
             .map_err(|e| format!("Delete note: {e}"))?;
         Ok(())
+    }
+
+    pub fn all_audio_paths(&self) -> Result<Vec<String>, String> {
+        let conn = self.conn();
+        let mut stmt = conn
+            .prepare("SELECT audio_file_path FROM notes WHERE audio_file_path IS NOT NULL")
+            .map_err(|e| format!("Prepare: {e}"))?;
+        let rows = stmt
+            .query_map([], |row| row.get::<_, String>(0))
+            .map_err(|e| format!("Query: {e}"))?;
+        let mut paths = Vec::new();
+        for row in rows {
+            paths.push(row.map_err(|e| format!("Row: {e}"))?);
+        }
+        Ok(paths)
+    }
+
+    pub fn cleanup_orphan_audio(&self, audio_dir: &str) {
+        let known: std::collections::HashSet<String> = self
+            .all_audio_paths()
+            .unwrap_or_default()
+            .into_iter()
+            .collect();
+        let dir = std::path::Path::new(audio_dir);
+        if let Ok(entries) = std::fs::read_dir(dir) {
+            for entry in entries.flatten() {
+                let path = entry.path();
+                if path.extension().and_then(|e| e.to_str()) == Some("wav") {
+                    let path_str = path.to_string_lossy().to_string();
+                    if !known.contains(&path_str) {
+                        let _ = std::fs::remove_file(&path);
+                        eprintln!("[cleanup] removed orphan: {path_str}");
+                    }
+                }
+            }
+        }
     }
 }

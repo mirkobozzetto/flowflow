@@ -133,6 +133,11 @@ pub fn NoteMenu(
                     move |_| {
                         app.show_note_menu.set(false);
                         deleted.set(true);
+                        if let Ok(Some(n)) = db().get_note(&note_id) {
+                            if let Some(ref p) = n.audio_file_path {
+                                let _ = std::fs::remove_file(p);
+                            }
+                        }
                         let _ = db().delete_note(&note_id);
                         delete_note_embeddings(note_id.clone());
                         app.notes_version.set((app.notes_version)() + 1);
