@@ -64,6 +64,20 @@ pub fn NoteDetail() -> Element {
     let confirm_delete_att: Signal<Option<String>> = use_signal(|| None);
     let local_note_id = use_signal(|| note_id.clone());
     let pending_audio: Signal<Option<(String, f64)>> = use_signal(|| None);
+    let mut audio_state: Signal<Option<(String, f64)>> = use_signal(|| {
+        note.as_ref().and_then(|n| {
+            n.audio_file_path
+                .as_ref()
+                .map(|path| (path.clone(), n.duration_secs.unwrap_or(0.0)))
+        })
+    });
+
+    use_effect(move || {
+        let pa = pending_audio();
+        if pa.is_some() {
+            audio_state.set(pa);
+        }
+    });
 
     let attachments_version = (app.attachments_version)();
     let attachments: Vec<Attachment> = {
@@ -147,6 +161,7 @@ pub fn NoteDetail() -> Element {
     });
 
     let recording_state = (app.recording_state)();
+    let is_transcribing = recording_state == RecordingState::Transcribing;
 
     let date = note
         .as_ref()
@@ -160,12 +175,6 @@ pub fn NoteDetail() -> Element {
             }
         })
         .unwrap_or_default();
-
-    let audio_data = note.as_ref().and_then(|n| {
-        n.audio_file_path
-            .as_ref()
-            .map(|path| (path.clone(), n.duration_secs))
-    });
 
     let show_menu = (app.show_note_menu)();
 
@@ -193,22 +202,32 @@ pub fn NoteDetail() -> Element {
             if !date.is_empty() {
                 p { class: "text-xs text-stone-400 mb-2", "{date}" }
             }
+            FolderPicker { selected: selected_folder }
+            TagsSection { tags, tag_input, tagging, content }
+            textarea {
+                class: if is_transcribing {
+                    "w-full min-h-[200px] border border-ios-orange/30 rounded-xl p-3 text-sm resize-none font-sans outline-none text-stone-900"
+                } else {
+                    "w-full min-h-[200px] border border-stone-200 rounded-xl p-3 text-sm resize-none font-sans outline-none text-stone-900"
+                },
+                placeholder: if is_transcribing { "Transcription en cours..." } else { "Contenu de la note..." },
+                value: "{content}",
+                oninput: move |evt| content.set(evt.value()),
+            }
             {
-                if let Some((audio_path, duration)) = audio_data {
+                if let Some((ref audio_path, dur)) = audio_state() {
+                    let path_clone = audio_path.clone();
                     let note_id_clone = note_id.clone();
                     rsx! {
                         AudioPlayer {
-                            audio_path,
-                            duration_secs: duration,
+                            audio_path: path_clone,
+                            duration_secs: Some(dur),
                             on_delete: move |_| {
-                                let db_ref = db();
-                                let _ = db_ref.update_audio_metadata(&note_id_clone, "", 0.0);
-                                if let Ok(Some(n)) = db_ref.get_note(&note_id_clone) {
-                                    if let Some(ref p) = n.audio_file_path {
-                                        let path = std::path::Path::new(p);
-                                        let _ = std::fs::remove_file(path);
-                                    }
+                                if let Some((ref p, _)) = audio_state() {
+                                    let _ = std::fs::remove_file(p);
                                 }
+                                let _ = db().clear_audio_metadata(&note_id_clone);
+                                audio_state.set(None);
                                 app.notes_version.set((app.notes_version)() + 1);
                             },
                         }
@@ -216,14 +235,6 @@ pub fn NoteDetail() -> Element {
                 } else {
                     rsx! {}
                 }
-            }
-            FolderPicker { selected: selected_folder }
-            TagsSection { tags, tag_input, tagging, content }
-            textarea {
-                class: "w-full min-h-[200px] border border-stone-200 rounded-xl p-3 text-sm resize-none font-sans outline-none text-stone-900",
-                placeholder: "Contenu de la note...",
-                value: "{content}",
-                oninput: move |evt| content.set(evt.value()),
             }
             AttachmentSection { attachments, confirm_delete_att }
             if let RecordingState::Error(ref e) = recording_state {
