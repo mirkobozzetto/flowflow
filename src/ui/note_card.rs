@@ -38,7 +38,7 @@ pub fn NoteCard(note: Note) -> Element {
             div { class: "flex justify-between items-center mb-2",
                 h3 { class: "font-semibold text-base text-stone-900", "{title}" }
                 if has_audio {
-                    div { class: "w-2 h-2 rounded-full bg-ios-green" }
+                    div { class: "w-2 h-2 rounded-full bg-ios-orange/50" }
                 }
             }
             if !preview.is_empty() {
