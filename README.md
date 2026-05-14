@@ -83,6 +83,48 @@ make check    # fmt + clippy
 
 API keys can be set in-app via Settings (stored in SQLite, no recompile). OpenAI is always required for embeddings. Anthropic is optional.
 
+## iOS Device Provisioning
+
+Running on a physical iPhone requires a valid provisioning profile. Apple enforces code signing for all device builds.
+
+**Free Apple account**: profiles expire after 7 days. **Paid Apple Developer Program** (€99/year): profiles last 1 year, plus App Store and TestFlight access.
+
+Generate or renew a provisioning profile from the terminal (no Xcode GUI needed):
+
+```bash
+# 1. Create a minimal throwaway project
+mkdir -p /tmp/ffprov/flowflow.xcodeproj /tmp/ffprov/flowflow
+cat > /tmp/ffprov/flowflow/flowflowApp.swift << 'EOF'
+import SwiftUI
+@main struct flowflowApp: App { var body: some Scene { WindowGroup { Text("ok") } } }
+EOF
+
+# 2. Get your team ID (shown in parentheses)
+security find-identity -v -p codesigning | grep "Apple Development"
+
+# 3. Get your device UDID
+xcrun xctrace list devices | grep iPhone
+
+# 4. Build to device — this generates the provisioning profile
+xcodebuild -project /tmp/ffprov/flowflow.xcodeproj \
+  -scheme flowflow \
+  -destination "id=YOUR_DEVICE_UDID" \
+  -allowProvisioningUpdates \
+  -allowProvisioningDeviceRegistration \
+  CODE_SIGN_STYLE=Automatic \
+  DEVELOPMENT_TEAM=YOUR_TEAM_ID \
+  GENERATE_INFOPLIST_FILE=YES
+
+# 5. Verify the profile was created
+ls ~/Library/Developer/Xcode/UserData/Provisioning\ Profiles/
+```
+
+The `project.pbxproj` file for step 1 is included at `flowflow/flowflow.xcodeproj/project.pbxproj`.
+
+**On your iPhone** (first time only): Settings → General → VPN & Device Management → tap your developer certificate → Trust.
+
+After provisioning, `make ddev` will work.
+
 ## Tests
 
 ```bash
