@@ -1,4 +1,5 @@
 mod parsers;
+mod pdf;
 mod picker;
 mod player;
 
@@ -6,6 +7,7 @@ use objc2_avf_audio::{AVAudioSession, AVAudioSessionCategoryPlayAndRecord};
 use std::path::PathBuf;
 
 pub use parsers::read_file_as_text;
+pub use pdf::extract as read_pdf_text;
 pub use picker::open_file_picker;
 pub use player::{is_playing, play_audio, stop_audio};
 

@@ -30,6 +30,3 @@ logs:
 
 clean:
 	rm -rf target/dx target/ios-dev target/desktop-dev target/flycheck0 target/tmp
-
-clean-all:
-	cargo clean

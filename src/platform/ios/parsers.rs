@@ -14,10 +14,7 @@ pub fn read_file_as_text(path: &std::path::Path) -> Result<String, String> {
 }
 
 fn extract_pdf_text(path: &std::path::Path) -> Result<String, String> {
-    let bytes =
-        std::fs::read(path).map_err(|e| format!("Erreur lecture PDF: {e}"))?;
-    pdf_extract::extract_text_from_mem(&bytes)
-        .map_err(|e| format!("Erreur extraction PDF: {e}"))
+    super::pdf::extract(path)
 }
 
 fn extract_docx_text(path: &std::path::Path) -> Result<String, String> {

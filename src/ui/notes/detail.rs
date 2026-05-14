@@ -1,11 +1,13 @@
 use crate::db::Database;
-use crate::models::{generate_auto_title, Attachment, NewTextNote, UpdateNote};
+use crate::models::{
+    generate_auto_title, Attachment, NewAttachment, NewTextNote, UpdateNote,
+};
 use crate::services::audio::{self, RecordingState};
-use crate::services::embed::embed_note;
+use crate::services::embed::{embed_attachment, embed_note};
 use crate::ui::folder_picker::FolderPicker;
 use crate::ui::notes::attachments::AttachmentSection;
 use crate::ui::notes::audio_player::AudioPlayer;
-use crate::ui::notes::menu::NoteMenu;
+use crate::ui::notes::menu::{import_file_content, NoteMenu};
 use crate::ui::notes::tags::TagsSection;
 use crate::ui::recording::RecordingBar;
 use crate::ui::{AppState, View};
@@ -62,7 +64,9 @@ pub fn NoteDetail() -> Element {
     let tagging = use_signal(|| false);
     let deleted = use_signal(|| false);
     let confirm_delete_att: Signal<Option<String>> = use_signal(|| None);
-    let local_note_id = use_signal(|| note_id.clone());
+    let mut local_note_id = use_signal(|| note_id.clone());
+    let mut import_requested = use_signal(|| false);
+    let mut import_status: Signal<Option<String>> = use_signal(|| None);
     let pending_audio: Signal<Option<(String, f64)>> = use_signal(|| None);
     let mut audio_state: Signal<Option<(String, f64)>> = use_signal(|| {
         note.as_ref().and_then(|n| {
@@ -160,6 +164,91 @@ pub fn NoteDetail() -> Element {
         }
     });
 
+    use_effect(move || {
+        if !import_requested() {
+            return;
+        }
+        import_requested.set(false);
+        let db = db();
+        let t = title();
+        let c = content();
+        let tg = tags();
+        let folder = selected_folder();
+        spawn(async move {
+            import_status.set(Some("Importation en cours...".to_string()));
+            let file = match import_file_content().await {
+                Ok(Some(f)) => f,
+                Ok(None) => {
+                    import_status.set(None);
+                    return;
+                }
+                Err(e) => {
+                    import_status.set(Some(e));
+                    spawn(async move {
+                        tokio::time::sleep(tokio::time::Duration::from_secs(4))
+                            .await;
+                        import_status.set(None);
+                    });
+                    return;
+                }
+            };
+            let target_id = {
+                let current = local_note_id();
+                if current.is_empty() {
+                    let new = NewTextNote {
+                        title: if t.is_empty() {
+                            None
+                        } else {
+                            Some(t.clone())
+                        },
+                        content: c.clone(),
+                        tags: tg.clone(),
+                        audio_file_path: None,
+                        duration_secs: None,
+                    };
+                    match db.create_text_note(&new) {
+                        Ok(created) => {
+                            if let Some(ref fid) = folder {
+                                let _ = db.add_note_to_folder(&created.id, fid);
+                            }
+                            local_note_id.set(created.id.clone());
+                            app.current_note_id.set(Some(created.id.clone()));
+                            created.id
+                        }
+                        Err(e) => {
+                            import_status
+                                .set(Some(format!("Erreur sauvegarde: {e}")));
+                            return;
+                        }
+                    }
+                } else {
+                    current
+                }
+            };
+            let new_att = NewAttachment {
+                note_id: target_id.clone(),
+                filename: file.filename.clone(),
+                content_text: file.content.clone(),
+            };
+            match db.create_attachment(&new_att) {
+                Ok(att) => {
+                    app.attachments_version
+                        .set((app.attachments_version)() + 1);
+                    embed_attachment(
+                        att.id.clone(),
+                        target_id.clone(),
+                        att.filename.clone(),
+                        att.content_text.clone(),
+                    );
+                    import_status.set(None);
+                }
+                Err(e) => {
+                    import_status.set(Some(format!("Erreur import: {e}")));
+                }
+            }
+        });
+    });
+
     let recording_state = (app.recording_state)();
     let is_transcribing = recording_state == RecordingState::Transcribing;
 
@@ -182,11 +271,7 @@ pub fn NoteDetail() -> Element {
         if show_menu {
             NoteMenu {
                 note_id: note_id.clone(),
-                title,
-                content,
-                tags,
-                selected_folder,
-                local_note_id,
+                import_requested,
                 deleted,
             }
         }
@@ -237,6 +322,18 @@ pub fn NoteDetail() -> Element {
                 }
             }
             AttachmentSection { attachments, confirm_delete_att }
+            if let Some(ref status) = import_status() {
+                div { class: if status.starts_with("Importation") {
+                        "flex items-center gap-2 px-3 py-2 mt-2 bg-ios-orange/10 rounded-lg"
+                    } else {
+                        "flex items-center gap-2 px-3 py-2 mt-2 bg-ios-red/10 rounded-lg"
+                    },
+                    if status.starts_with("Importation") {
+                        span { class: "inline-block w-3 h-3 border-2 border-ios-orange border-t-transparent rounded-full animate-spin" }
+                    }
+                    span { class: "text-xs text-stone-600", "{status}" }
+                }
+            }
             if let RecordingState::Error(ref e) = recording_state {
                 p { class: "text-xs text-stone-400 text-center mt-3",
                     "Erreur : {e}"
