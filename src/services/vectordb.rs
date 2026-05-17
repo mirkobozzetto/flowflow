@@ -167,6 +167,7 @@ impl VectorStore {
         &self,
         query_vector: Vec<f32>,
         top_k: usize,
+        allowed_note_ids: Option<&[String]>,
     ) -> Result<Vec<SearchResult>, String> {
         let table = match self.db.open_table(VECTOR_TABLE_NAME).execute().await
         {
@@ -223,6 +224,9 @@ impl VectorStore {
             }
         }
 
+        if let Some(ids) = allowed_note_ids {
+            results.retain(|r| ids.contains(&r.note_id));
+        }
         eprintln!("[vectordb] found {} results", results.len());
         Ok(results)
     }
@@ -256,6 +260,7 @@ impl VectorStore {
         query_text: &str,
         query_vector: Vec<f32>,
         top_k: usize,
+        allowed_note_ids: Option<&[String]>,
     ) -> Result<Vec<SearchResult>, String> {
         let table = match self.db.open_table(VECTOR_TABLE_NAME).execute().await
         {
@@ -277,7 +282,9 @@ impl VectorStore {
             Ok(s) => s,
             Err(e) => {
                 eprintln!("[vectordb] hybrid failed, fallback vector: {e}");
-                return self.search(query_vector, top_k).await;
+                return self
+                    .search(query_vector, top_k, allowed_note_ids)
+                    .await;
             }
         };
 
@@ -285,7 +292,9 @@ impl VectorStore {
             Ok(b) => b,
             Err(e) => {
                 eprintln!("[vectordb] hybrid collect failed, fallback: {e}");
-                return self.search(query_vector, top_k).await;
+                return self
+                    .search(query_vector, top_k, allowed_note_ids)
+                    .await;
             }
         };
 
@@ -315,12 +324,11 @@ impl VectorStore {
 
             for i in 0..batch.num_rows() {
                 let score = score_col.value(i);
-                let distance = (1.0 - score).clamp(0.0, 1.0);
                 results.push(SearchResult {
                     chunk_text: text_col.value(i).to_string(),
                     note_id: note_col.value(i).to_string(),
                     title: title_col.value(i).to_string(),
-                    distance,
+                    distance: score,
                     created_at: date_col
                         .map(|c| c.value(i).to_string())
                         .unwrap_or_default(),
@@ -328,8 +336,50 @@ impl VectorStore {
             }
         }
 
+        let max_score =
+            results.iter().map(|r| r.distance).fold(0.0_f32, f32::max);
+        if max_score > 0.0 {
+            for r in &mut results {
+                r.distance = (1.0 - r.distance / max_score).clamp(0.0, 1.0);
+            }
+        }
+
+        if let Some(ids) = allowed_note_ids {
+            results.retain(|r| ids.contains(&r.note_id));
+        }
         eprintln!("[vectordb] hybrid found {} results", results.len());
         Ok(results)
+    }
+
+    pub async fn migrate_chunk_dates(
+        &self,
+        note_dates: &[(String, String)],
+    ) -> Result<usize, String> {
+        let table = match self.db.open_table(VECTOR_TABLE_NAME).execute().await
+        {
+            Ok(t) => t,
+            Err(_) => return Ok(0),
+        };
+        let mut updated = 0usize;
+        for (note_id, created_at) in note_dates {
+            let escaped_id = note_id.replace('\'', "''");
+            let escaped_date = created_at.replace('\'', "''");
+            let filter = format!("note_id = '{escaped_id}'");
+            match table
+                .update()
+                .only_if(&filter)
+                .column("created_at", format!("'{escaped_date}'"))
+                .execute()
+                .await
+            {
+                Ok(_) => updated += 1,
+                Err(e) => {
+                    eprintln!("[vectordb] migrate date for {note_id}: {e}");
+                }
+            }
+        }
+        eprintln!("[vectordb] migrated {updated} chunks");
+        Ok(updated)
     }
 
     pub async fn delete_note_chunks(

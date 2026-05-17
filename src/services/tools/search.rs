@@ -77,7 +77,7 @@ impl Tool for SearchNotes {
             .await
             .map_err(|e| ToolFailure(format!("vectordb open: {e}")))?;
         let results = store
-            .hybrid_search(&args.query, vector, top_k)
+            .hybrid_search(&args.query, vector, top_k, None)
             .await
             .map_err(|e| ToolFailure(format!("vectordb search: {e}")))?;
         Ok(results
