@@ -175,7 +175,7 @@ pub fn embed_attachment(
 }
 
 pub fn migrate_chunk_dates() {
-    log("migrate_chunk_dates: starting");
+    log("migrate_chunk_dates: checking flag");
     std::thread::spawn(move || {
         let rt = tokio::runtime::Runtime::new().unwrap();
         rt.block_on(async move {
@@ -186,9 +186,16 @@ pub fn migrate_chunk_dates() {
                     return;
                 }
             };
+            if db.get_setting("chunk_dates_migrated")
+                == Some("true".to_string())
+            {
+                log("migrate dates: already done, skipping");
+                return;
+            }
             let notes = db.list_notes().unwrap_or_default();
             if notes.is_empty() {
                 log("migrate dates: no notes");
+                let _ = db.set_setting("chunk_dates_migrated", "true");
                 return;
             }
             let store = match VectorStore::open().await {
@@ -201,7 +208,10 @@ pub fn migrate_chunk_dates() {
             let note_dates: Vec<(String, String)> =
                 notes.into_iter().map(|n| (n.id, n.created_at)).collect();
             match store.migrate_chunk_dates(&note_dates).await {
-                Ok(n) => log(&format!("migrate dates: {n} notes updated")),
+                Ok(n) => {
+                    log(&format!("migrate dates: {n} notes updated"));
+                    let _ = db.set_setting("chunk_dates_migrated", "true");
+                }
                 Err(e) => log(&format!("migrate dates: {e}")),
             }
         });
