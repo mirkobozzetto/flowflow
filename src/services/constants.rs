@@ -51,6 +51,13 @@ You are a personal assistant working over the user's notes. Initial relevant exc
 4. Be concise and direct. No filler, no preamble.\n\
 5. NEVER write citations like [Source 1] — the app displays sources separately.";
 
+pub const RERANK_PROMPT: &str = "\
+You are a relevance judge. Given a question and numbered passages from a user's notes, \
+rank them by relevance to the question.\n\
+Return ONLY the passage numbers separated by commas, most relevant first.\n\
+No explanation, no text, just numbers.\n\
+Example: 3,7,1,12,5,9,2,8";
+
 pub const SUMMARIZE_FOLDER_PROMPT: &str = "\
 Summarize the notes inside the folder below. Keep it concise (5-10 bullet points or a short paragraph).\n\
 Respond in the same language as the notes. Do not invent content — stick to what is written.";

@@ -22,6 +22,7 @@ pub struct Chunk {
     pub created_at: String,
 }
 
+#[derive(Clone)]
 pub struct SearchResult {
     pub chunk_text: String,
     pub note_id: String,

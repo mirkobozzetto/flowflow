@@ -1,4 +1,6 @@
-use crate::services::constants::{RAG_AGENT_SYSTEM_PROMPT, RAG_INITIAL_K};
+use crate::services::constants::{
+    RAG_AGENT_SYSTEM_PROMPT, RAG_FINAL_K, RAG_INITIAL_K, RERANK_PROMPT,
+};
 use crate::services::llm::LlmClient;
 use crate::services::tools::{prompt_agent_with_tools, ToolEvent};
 use crate::services::vectordb::{SearchResult, VectorStore};
@@ -32,6 +34,63 @@ pub fn build_context(results: &[SearchResult]) -> String {
     ctx
 }
 
+fn parse_rerank_indices(response: &str, max: usize) -> Vec<usize> {
+    response
+        .split(',')
+        .filter_map(|s| s.trim().parse::<usize>().ok())
+        .filter(|&i| i >= 1 && i <= max)
+        .map(|i| i - 1)
+        .collect()
+}
+
+async fn llm_rerank(
+    llm: &LlmClient,
+    question: &str,
+    results: Vec<SearchResult>,
+    final_k: usize,
+) -> Vec<SearchResult> {
+    if results.len() <= final_k {
+        return results;
+    }
+
+    let passages: String = results
+        .iter()
+        .enumerate()
+        .map(|(i, r)| {
+            let preview_len = 200.min(r.chunk_text.len());
+            format!("[{}] {}: {}", i + 1, r.title, &r.chunk_text[..preview_len])
+        })
+        .collect::<Vec<_>>()
+        .join("\n\n");
+
+    let user_msg = format!(
+        "Question: {question}\
+         \n\nPassages:\n{passages}\
+         \n\nReturn top {final_k} indices, most relevant first."
+    );
+
+    let response = match llm.chat(RERANK_PROMPT, &user_msg).await {
+        Ok(r) => r,
+        Err(e) => {
+            eprintln!("[rag] rerank failed, using RRF order: {e}");
+            return results.into_iter().take(final_k).collect();
+        }
+    };
+
+    let indices = parse_rerank_indices(&response, results.len());
+    if indices.is_empty() {
+        eprintln!("[rag] rerank parse empty, using RRF order");
+        return results.into_iter().take(final_k).collect();
+    }
+
+    let mut reranked: Vec<SearchResult> = indices
+        .into_iter()
+        .filter_map(|i| results.get(i).cloned())
+        .collect();
+    reranked.truncate(final_k);
+    reranked
+}
+
 pub async fn query(
     question: &str,
     status_tx: Option<mpsc::UnboundedSender<ToolEvent>>,
@@ -41,9 +100,11 @@ pub async fn query(
 
     let _ = store.ensure_fts_index().await;
     let query_vector = ai.embed(question).await?;
-    let results = store
+    let candidates = store
         .hybrid_search(question, query_vector, RAG_INITIAL_K)
         .await?;
+
+    let results = llm_rerank(&ai, question, candidates, RAG_FINAL_K).await;
 
     let context = if results.is_empty() {
         String::from(
