@@ -1,11 +1,12 @@
 use crate::db::Database;
 use crate::services::constants::{
-    DEFAULT_RAG_MAX_SOURCES, RAG_AGENT_SYSTEM_PROMPT, RAG_FINAL_K,
-    RAG_INITIAL_K, RERANK_PROMPT,
+    DEFAULT_RAG_MAX_SOURCES, RAG_AGENT_SYSTEM_PROMPT, RAG_DISTANCE_THRESHOLD,
+    RAG_FINAL_K, RAG_INITIAL_K, RERANK_PROMPT,
 };
 use crate::services::llm::LlmClient;
 use crate::services::tools::{prompt_agent_with_tools, ToolEvent};
 use crate::services::vectordb::{SearchResult, VectorStore};
+use std::collections::HashSet;
 use std::sync::Arc;
 use tokio::sync::mpsc;
 
@@ -93,6 +94,34 @@ async fn llm_rerank(
     reranked
 }
 
+fn apply_temporal_boost(results: &mut [SearchResult]) {
+    let now = chrono::Utc::now();
+    for r in results.iter_mut() {
+        let days_ago = chrono::DateTime::parse_from_rfc3339(&r.created_at)
+            .or_else(|_| {
+                chrono::NaiveDateTime::parse_from_str(
+                    &r.created_at,
+                    "%Y-%m-%dT%H:%M:%S",
+                )
+                .map(|dt| dt.and_utc().fixed_offset())
+            })
+            .map(|dt| (now - dt.with_timezone(&chrono::Utc)).num_days())
+            .unwrap_or(365) as f32;
+        let boost = 1.0 / (1.0 + days_ago / 30.0);
+        r.distance *= 1.0 - (boost * 0.3);
+    }
+    results.sort_by(|a, b| a.distance.partial_cmp(&b.distance).unwrap());
+}
+
+fn filter_and_dedup(results: Vec<SearchResult>) -> Vec<SearchResult> {
+    let mut seen = HashSet::new();
+    results
+        .into_iter()
+        .filter(|r| r.distance <= RAG_DISTANCE_THRESHOLD)
+        .filter(|r| seen.insert(r.note_id.clone()))
+        .collect()
+}
+
 fn read_max_sources() -> usize {
     Database::open()
         .ok()
@@ -130,12 +159,14 @@ pub async fn query(
         .hybrid_search(question, query_vector, RAG_INITIAL_K)
         .await?;
 
-    let reranked = llm_rerank(&ai, question, candidates, RAG_FINAL_K).await;
+    let mut reranked = llm_rerank(&ai, question, candidates, RAG_FINAL_K).await;
+    apply_temporal_boost(&mut reranked);
+    let filtered = filter_and_dedup(reranked);
 
     let user_max = read_max_sources();
-    let source_count = compute_source_count(&reranked, user_max);
+    let source_count = compute_source_count(&filtered, user_max);
     let results: Vec<SearchResult> =
-        reranked.into_iter().take(source_count).collect();
+        filtered.into_iter().take(source_count).collect();
 
     let context = if results.is_empty() {
         String::from(

@@ -26,6 +26,7 @@ fn make_result(
         title: title.to_string(),
         chunk_text: text.to_string(),
         distance,
+        created_at: String::new(),
     }
 }
 

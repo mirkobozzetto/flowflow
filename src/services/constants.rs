@@ -11,6 +11,7 @@ pub const RAG_TOP_K: usize = 5;
 pub const RAG_INITIAL_K: usize = 15;
 pub const RAG_FINAL_K: usize = 8;
 pub const DEFAULT_RAG_MAX_SOURCES: usize = 8;
+pub const RAG_DISTANCE_THRESHOLD: f32 = 0.6;
 
 pub const TAGS_SYSTEM_PROMPT: &str = "\
 Extract exactly 3 single-word keyword tags from the text below.\n\

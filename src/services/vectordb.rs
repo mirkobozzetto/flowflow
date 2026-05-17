@@ -28,6 +28,7 @@ pub struct SearchResult {
     pub note_id: String,
     pub title: String,
     pub distance: f32,
+    pub created_at: String,
 }
 
 fn vectordb_path() -> String {
@@ -199,6 +200,9 @@ impl VectorStore {
             let dist_col = batch.column_by_name("_distance").and_then(|c| {
                 c.as_any().downcast_ref::<arrow_array::Float32Array>()
             });
+            let date_col = batch
+                .column_by_name("created_at")
+                .and_then(|c| c.as_any().downcast_ref::<StringArray>());
 
             let (text_col, note_col, title_col, dist_col) =
                 match (text_col, note_col, title_col, dist_col) {
@@ -212,6 +216,9 @@ impl VectorStore {
                     note_id: note_col.value(i).to_string(),
                     title: title_col.value(i).to_string(),
                     distance: dist_col.value(i),
+                    created_at: date_col
+                        .map(|c| c.value(i).to_string())
+                        .unwrap_or_default(),
                 });
             }
         }
@@ -296,6 +303,9 @@ impl VectorStore {
             let score_col = batch
                 .column_by_name("_relevance_score")
                 .and_then(|c| c.as_any().downcast_ref::<Float32Array>());
+            let date_col = batch
+                .column_by_name("created_at")
+                .and_then(|c| c.as_any().downcast_ref::<StringArray>());
 
             let (text_col, note_col, title_col, score_col) =
                 match (text_col, note_col, title_col, score_col) {
@@ -311,6 +321,9 @@ impl VectorStore {
                     note_id: note_col.value(i).to_string(),
                     title: title_col.value(i).to_string(),
                     distance,
+                    created_at: date_col
+                        .map(|c| c.value(i).to_string())
+                        .unwrap_or_default(),
                 });
             }
         }
