@@ -126,7 +126,8 @@ pub fn ChatView() -> Element {
                         conversation_id.set(Some(cid));
                     }
                 }
-                send_question(q, &mut messages, &mut loading, &mut tool_status, conversation_id, db);
+                let folder = (app.selected_folder_id)();
+                send_question(q, &mut messages, &mut loading, &mut tool_status, conversation_id, db, folder);
             },
         }
     }

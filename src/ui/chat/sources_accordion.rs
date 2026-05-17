@@ -26,12 +26,12 @@ pub fn SourcesAccordion(
                 onclick: move |_| {
                     let opening = !expanded();
                     expanded.set(opening);
-                    let offset = if opening { 120 } else { -120 };
+                    let offset = if opening { 150 } else { -150 };
                     dioxus::document::eval(&format!(
                         r#"setTimeout(() => {{
                             let el = document.getElementById('chat-messages');
                             if (el) el.scrollBy({{ top: {offset}, behavior: 'smooth' }});
-                        }}, 50);"#
+                        }}, 350);"#
                     ));
                 },
                 span { class: "text-[11px] font-medium text-stone-500",
@@ -73,6 +73,15 @@ fn SourceCard(source: ChatSource, conversation_id: Option<String>) -> Element {
     } else {
         source.chunk_text.clone()
     };
+    let date_label = if source.created_at.len() >= 16 {
+        let d = &source.created_at[..10];
+        let h = &source.created_at[11..16];
+        format!("{d} · {h}")
+    } else if !source.created_at.is_empty() {
+        source.created_at[..10.min(source.created_at.len())].to_string()
+    } else {
+        String::new()
+    };
 
     rsx! {
         button {
@@ -85,8 +94,15 @@ fn SourceCard(source: ChatSource, conversation_id: Option<String>) -> Element {
                     note_id: nid.clone(),
                 });
             },
-            span { class: "text-[11px] font-medium text-ios-orange-dark",
-                "{source.title}"
+            div { class: "flex items-center justify-between",
+                span { class: "text-[11px] font-medium text-ios-orange-dark",
+                    "{source.title}"
+                }
+                if !date_label.is_empty() {
+                    span { class: "text-[9px] text-stone-400 ml-1 shrink-0",
+                        "{date_label}"
+                    }
+                }
             }
             p { class: "text-[10px] text-stone-400 leading-tight mt-0.5 line-clamp-1",
                 "{preview}"

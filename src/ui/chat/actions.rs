@@ -19,6 +19,7 @@ pub fn send_question(
     tool_status: &mut Signal<Option<String>>,
     conversation_id: Signal<Option<String>>,
     db: Signal<Arc<Database>>,
+    folder_id: Option<String>,
 ) {
     messages.write().push(ChatMsg::User(question.clone()));
     loading.set(true);
@@ -51,7 +52,7 @@ pub fn send_question(
     });
 
     spawn(async move {
-        match rag::query(&question, Some(tx)).await {
+        match rag::query(&question, Some(tx), folder_id).await {
             Ok(r) => {
                 let sources: Vec<ChatSource> = r
                     .sources
@@ -61,6 +62,7 @@ pub fn send_question(
                         title: s.title.clone(),
                         chunk_text: s.chunk_text.clone(),
                         distance: s.distance,
+                        created_at: s.created_at.clone(),
                     })
                     .collect();
 
@@ -75,6 +77,7 @@ pub fn send_question(
                                 "title": s.title,
                                 "chunk_text": s.chunk_text,
                                 "distance": s.distance,
+                                "created_at": s.created_at,
                             })
                         })
                         .collect();
@@ -146,6 +149,10 @@ pub fn load_messages_from_db(
                                     .to_string(),
                                 distance: v["distance"].as_f64().unwrap_or(0.0)
                                     as f32,
+                                created_at: v["created_at"]
+                                    .as_str()
+                                    .unwrap_or_default()
+                                    .to_string(),
                             })
                             .collect()
                     })
