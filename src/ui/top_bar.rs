@@ -1,6 +1,6 @@
 use crate::db::Database;
 use crate::ui::icons::*;
-use crate::ui::{AppState, View};
+use crate::ui::{AppState, SidebarTab, View};
 use dioxus::prelude::*;
 use std::sync::Arc;
 
@@ -49,7 +49,10 @@ pub fn TopBar() -> Element {
             } else {
                 button {
                     class: "min-w-[44px] min-h-[44px] flex items-center justify-center text-stone-700",
-                    onclick: move |_| app.sidebar_open.set(true),
+                    onclick: move |_| {
+                        app.sidebar_tab.set(SidebarTab::Notes);
+                        app.sidebar_open.set(true);
+                    },
                     IconList { size: 22 }
                 }
             }
@@ -76,7 +79,8 @@ pub fn TopBar() -> Element {
                 button {
                     class: "min-w-[44px] min-h-[44px] flex items-center justify-center text-ios-orange-dark",
                     onclick: move |_| {
-                        app.view.set(View::Chat { conversation_id: None });
+                        app.sidebar_tab.set(SidebarTab::Chats);
+                        app.sidebar_open.set(true);
                     },
                     IconChatAi { size: 28 }
                 }

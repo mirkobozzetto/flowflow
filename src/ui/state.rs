@@ -3,6 +3,12 @@ use crate::services::audio::RecordingState;
 use dioxus::prelude::*;
 
 #[derive(Clone, Debug, PartialEq)]
+pub enum SidebarTab {
+    Notes,
+    Chats,
+}
+
+#[derive(Clone, Debug, PartialEq)]
 pub enum View {
     NotesList,
     NoteDetail { note_id: String },
@@ -27,4 +33,5 @@ pub struct AppState {
     pub attachments_version: Signal<u32>,
     pub attachment_modal: Signal<Option<Attachment>>,
     pub show_chat_menu: Signal<bool>,
+    pub sidebar_tab: Signal<SidebarTab>,
 }

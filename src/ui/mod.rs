@@ -13,7 +13,7 @@ mod sidebar;
 mod state;
 mod top_bar;
 
-pub use state::{AppState, View};
+pub use state::{AppState, SidebarTab, View};
 
 use crate::db::Database;
 use crate::services::audio::{AudioRecorder, RecordingState};
@@ -58,6 +58,7 @@ pub fn App() -> Element {
         attachments_version: Signal::new(0),
         attachment_modal: Signal::new(None),
         show_chat_menu: Signal::new(false),
+        sidebar_tab: Signal::new(SidebarTab::Notes),
     });
 
     use_effect(|| {
