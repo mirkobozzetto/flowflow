@@ -209,6 +209,7 @@ impl Database {
         }
     }
 
+    /// Kept for future use (tag analytics, suggestions, UI)
     pub fn list_all_tags(&self) -> Vec<String> {
         let notes = self.list_notes().unwrap_or_default();
         let mut tags: Vec<String> =
