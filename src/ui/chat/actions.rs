@@ -12,6 +12,7 @@ pub fn md_to_html(md: &str) -> String {
     html_output
 }
 
+#[allow(clippy::too_many_arguments)]
 pub fn send_question(
     question: String,
     messages: &mut Signal<Vec<ChatMsg>>,
@@ -20,6 +21,7 @@ pub fn send_question(
     conversation_id: Signal<Option<String>>,
     db: Signal<Arc<Database>>,
     folder_id: Option<String>,
+    selected_tags: Option<Vec<String>>,
 ) {
     messages.write().push(ChatMsg::User(question.clone()));
     loading.set(true);
@@ -52,7 +54,7 @@ pub fn send_question(
     });
 
     spawn(async move {
-        match rag::query(&question, Some(tx), folder_id).await {
+        match rag::query(&question, Some(tx), folder_id, selected_tags).await {
             Ok(r) => {
                 let sources: Vec<ChatSource> = r
                     .sources

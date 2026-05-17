@@ -289,11 +289,12 @@ pub async fn query(
     question: &str,
     status_tx: Option<mpsc::UnboundedSender<ToolEvent>>,
     folder_id: Option<String>,
+    selected_tags: Option<Vec<String>>,
 ) -> Result<RagResponse, String> {
     let ai = Arc::new(LlmClient::from_env()?);
     let store = VectorStore::open().await?;
 
-    let allowed_note_ids: Option<Vec<String>> = folder_id.and_then(|fid| {
+    let mut allowed_note_ids: Option<Vec<String>> = folder_id.and_then(|fid| {
         Database::open().ok().map(|db| {
             db.list_notes_in_folder(&fid)
                 .unwrap_or_default()
@@ -302,6 +303,28 @@ pub async fn query(
                 .collect()
         })
     });
+
+    if let Some(ref tags) = selected_tags {
+        if !tags.is_empty() {
+            if let Ok(db) = Database::open() {
+                let tag_ids: HashSet<String> = db
+                    .list_notes()
+                    .unwrap_or_default()
+                    .into_iter()
+                    .filter(|n| n.tags.iter().any(|t| tags.contains(t)))
+                    .map(|n| n.id)
+                    .collect();
+                allowed_note_ids = Some(match allowed_note_ids {
+                    Some(folder_ids) => {
+                        let folder_set: HashSet<String> =
+                            folder_ids.into_iter().collect();
+                        folder_set.intersection(&tag_ids).cloned().collect()
+                    }
+                    None => tag_ids.into_iter().collect(),
+                });
+            }
+        }
+    }
 
     let date_range = detect_temporal_regex(question);
     let date_range = match date_range {
