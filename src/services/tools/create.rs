@@ -81,7 +81,13 @@ impl Tool for CreateNote {
             .create_text_note(&new_note)
             .map_err(|e| ToolFailure(format!("create note: {e}")))?;
         let title_for_embed = note.title.clone().unwrap_or_default();
-        embed_note(note.id.clone(), title_for_embed, note.content.clone());
+        embed_note(
+            note.id.clone(),
+            title_for_embed,
+            note.content.clone(),
+            note.tags.clone(),
+            note.created_at.clone(),
+        );
         Ok(CreateNoteResult {
             note_id: note.id,
             title: note.title,

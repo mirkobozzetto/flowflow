@@ -22,7 +22,13 @@ fn log(msg: &str) {
     }
 }
 
-pub fn embed_note(note_id: String, title: String, content: String) {
+pub fn embed_note(
+    note_id: String,
+    title: String,
+    content: String,
+    tags: Vec<String>,
+    note_created_at: String,
+) {
     log(&format!(
         "embed triggered for {note_id} ({} chars)",
         content.len()
@@ -50,7 +56,8 @@ pub fn embed_note(note_id: String, title: String, content: String) {
             };
             let chunks_text = chunk_text(&content);
             log(&format!("embed: {} chunks", chunks_text.len()));
-            let now = crate::db::now_iso();
+            let tags_json = serde_json::to_string(&tags)
+                .unwrap_or_else(|_| "[]".to_string());
             let mut entries = Vec::new();
             for (i, text) in chunks_text.iter().enumerate() {
                 match ai.embed(text).await {
@@ -66,8 +73,8 @@ pub fn embed_note(note_id: String, title: String, content: String) {
                             chunk_index: i as i32,
                             vector,
                             title: title.clone(),
-                            tags: "[]".to_string(),
-                            created_at: now.clone(),
+                            tags: tags_json.clone(),
+                            created_at: note_created_at.clone(),
                         });
                     }
                     Err(e) => {
@@ -162,6 +169,40 @@ pub fn embed_attachment(
                     log(&format!("embed attachment done for {attachment_id}"))
                 }
                 Err(e) => log(&format!("embed attachment store: {e}")),
+            }
+        });
+    });
+}
+
+pub fn migrate_chunk_dates() {
+    log("migrate_chunk_dates: starting");
+    std::thread::spawn(move || {
+        let rt = tokio::runtime::Runtime::new().unwrap();
+        rt.block_on(async move {
+            let db = match crate::db::Database::open() {
+                Ok(d) => d,
+                Err(e) => {
+                    log(&format!("migrate dates: db open failed: {e}"));
+                    return;
+                }
+            };
+            let notes = db.list_notes().unwrap_or_default();
+            if notes.is_empty() {
+                log("migrate dates: no notes");
+                return;
+            }
+            let store = match VectorStore::open().await {
+                Ok(s) => s,
+                Err(e) => {
+                    log(&format!("migrate dates: vectordb failed: {e}"));
+                    return;
+                }
+            };
+            let note_dates: Vec<(String, String)> =
+                notes.into_iter().map(|n| (n.id, n.created_at)).collect();
+            match store.migrate_chunk_dates(&note_dates).await {
+                Ok(n) => log(&format!("migrate dates: {n} notes updated")),
+                Err(e) => log(&format!("migrate dates: {e}")),
             }
         });
     });

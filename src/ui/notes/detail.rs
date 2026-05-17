@@ -1,6 +1,7 @@
 use crate::db::Database;
 use crate::models::{
-    generate_auto_title, Attachment, NewAttachment, NewTextNote, UpdateNote,
+    generate_auto_title, is_auto_title, Attachment, NewAttachment, NewTextNote,
+    UpdateNote,
 };
 use crate::services::audio::{self, RecordingState};
 use crate::services::embed::{embed_attachment, embed_note};
@@ -110,7 +111,7 @@ pub fn NoteDetail() -> Element {
             if !note_id.is_empty() && t.is_empty() && c.is_empty() {
                 return;
             }
-            let saved_id = if note_id.is_empty() {
+            let (saved_id, saved_created_at) = if note_id.is_empty() {
                 let new = NewTextNote {
                     title: if t.is_empty() { None } else { Some(t.clone()) },
                     content: c.clone(),
@@ -123,9 +124,10 @@ pub fn NoteDetail() -> Element {
                         if let Some(ref fid) = selected_folder() {
                             let _ = db.add_note_to_folder(&created.id, fid);
                         }
-                        Some(created.id)
+                        let ca = created.created_at.clone();
+                        (Some(created.id), ca)
                     }
-                    Err(_) => None,
+                    Err(_) => (None, String::new()),
                 }
             } else {
                 let upd = UpdateNote {
@@ -143,11 +145,52 @@ pub fn NoteDetail() -> Element {
                 if let Some((p, d)) = pa {
                     let _ = db.update_audio_metadata(&note_id, &p, d);
                 }
-                Some(note_id.clone())
+                let ca = db
+                    .get_note(&note_id)
+                    .ok()
+                    .flatten()
+                    .map(|n| n.created_at)
+                    .unwrap_or_default();
+                (Some(note_id.clone()), ca)
             };
             app.notes_version.set((app.notes_version)() + 1);
+            if let Some(ref id) = saved_id {
+                embed_note(
+                    id.clone(),
+                    t.clone(),
+                    c.clone(),
+                    tags(),
+                    saved_created_at,
+                );
+            }
             if let Some(id) = saved_id {
-                embed_note(id, t, c);
+                if c.len() > 50 && is_auto_title(&t) {
+                    let note_id = id.clone();
+                    let content = c.clone();
+                    std::thread::spawn(move || {
+                        let rt = tokio::runtime::Runtime::new().unwrap();
+                        rt.block_on(async move {
+                            let ai =
+                                match crate::services::llm::LlmClient::from_env(
+                                ) {
+                                    Ok(c) => c,
+                                    Err(_) => return,
+                                };
+                            if let Ok(new_title) =
+                                ai.generate_title(&content).await
+                            {
+                                if let Ok(db) = crate::db::Database::open() {
+                                    let upd = UpdateNote {
+                                        title: Some(new_title),
+                                        content: None,
+                                        tags: None,
+                                    };
+                                    let _ = db.update_note(&note_id, &upd);
+                                }
+                            }
+                        });
+                    });
+                }
             }
         }
     });
