@@ -10,6 +10,11 @@ pub fn SettingsView() -> Element {
         use_signal(|| db().get_setting("openai_api_key").unwrap_or_default());
     let mut soniox_key =
         use_signal(|| db().get_setting("soniox_api_key").unwrap_or_default());
+    let mut max_sources = use_signal(|| {
+        db().get_setting("rag_max_sources")
+            .and_then(|v| v.parse::<i64>().ok())
+            .unwrap_or(8)
+    });
     let mut saved = use_signal(|| false);
 
     rsx! {
@@ -43,6 +48,36 @@ pub fn SettingsView() -> Element {
                     }
                 }
             }
+
+            h2 { class: "text-lg font-semibold text-stone-900 pt-2", "RAG" }
+            div {
+                div { class: "flex justify-between items-center mb-1",
+                    label { class: "text-sm font-medium text-stone-700",
+                        "Max sources"
+                    }
+                    span { class: "text-sm font-semibold text-ios-orange",
+                        "{max_sources}"
+                    }
+                }
+                input {
+                    class: "w-full accent-ios-orange",
+                    r#type: "range",
+                    min: "3",
+                    max: "15",
+                    value: "{max_sources}",
+                    oninput: move |evt| {
+                        if let Ok(v) = evt.value().parse::<i64>() {
+                            max_sources.set(v);
+                            saved.set(false);
+                        }
+                    },
+                }
+                div { class: "flex justify-between text-xs text-stone-400",
+                    span { "3" }
+                    span { "15" }
+                }
+            }
+
             button {
                 class: if saved() {
                     "w-full py-2.5 rounded-xl text-sm font-medium bg-ios-green text-white"
@@ -58,6 +93,10 @@ pub fn SettingsView() -> Element {
                     if !sk.is_empty() {
                         let _ = db().set_setting("soniox_api_key", &sk);
                     }
+                    let _ = db().set_setting(
+                        "rag_max_sources",
+                        &max_sources().to_string(),
+                    );
                     saved.set(true);
                 },
                 if saved() { "Enregistré ✓" } else { "Enregistrer" }
