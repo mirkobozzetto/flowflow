@@ -15,7 +15,12 @@ xcrun actool --compile "$APP_PATH" \
   --minimum-deployment-target 16.0 \
   --app-icon AppIcon \
   --output-partial-info-plist /tmp/appicon-partial.plist \
-  "$XCASSETS" > /dev/null
+  "$XCASSETS" 2>&1 || true
+
+if [ ! -f /tmp/appicon-partial.plist ]; then
+  echo "ERROR: actool failed to produce icon plist."
+  exit 1
+fi
 
 echo ">> Merging icon into Info.plist..."
 /usr/libexec/PlistBuddy -c "Delete :CFBundleIcons" "$APP_PATH/Info.plist" 2>/dev/null || true
