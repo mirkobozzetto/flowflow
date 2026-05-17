@@ -22,7 +22,11 @@ No manual searching. No folders to dig through. Just talk, and find it later.
 - **Voice capture** — tap to record, real-time waveform visualization, pause/resume, auto-transcription via Soniox
 - **Audio playback** — play, pause, and delete voice recordings directly from any note
 - **RAG chat** — powered by [rig](https://github.com/0xPlaygrounds/rig), ask questions about your notes and get answers with tappable source references
+- **Hybrid search** — BM25 keyword + vector similarity + RRF fusion + LLM reranking for precise retrieval
+- **Temporal queries** — ask "what did I note yesterday?" with automatic French date detection (regex + LLM fallback)
+- **Folder-scoped chat** — chat searches only within the selected folder when one is active
 - **Agent tools** — the chat agent can search notes by meaning, create new notes, or summarize entire folders autonomously
+- **AI auto-title** — LLM generates a 1-3 word title while you write, with pulse animation
 - **Auto-tagging** — LLM generates single-word tags per note, or add your own
 - **Document import** — PDF (with native OCR for scanned documents), DOCX, TXT, CSV via native iOS picker
 - **Multi-provider** — OpenAI or Anthropic as LLM backend, switchable in settings
@@ -61,9 +65,10 @@ Everything async runs on [tokio](https://tokio.rs) — audio recording, API call
 ## How it works
 
 ```
-Talk → Record → Transcribe → Clean fillers → Auto-embed → Store
+Talk → Record → Transcribe → Clean fillers → Auto-embed → Store → AI title (1-3 words)
 
-Later: Ask a question → Embed query → Vector search → Build context → Agent with tools → Answer with sources
+Later: Ask → Embed query → Hybrid search (BM25 + vector + RRF)
+     → LLM rerank → Temporal boost → Tag-enriched context → Agent with tools → Answer with sources
 ```
 
 ## Setup

@@ -166,6 +166,20 @@ impl LlmClient {
         parse_tags(&response)
     }
 
+    pub async fn generate_title(
+        &self,
+        content: &str,
+    ) -> Result<String, LlmError> {
+        use crate::services::constants::TITLE_SYSTEM_PROMPT;
+        let preview: String = content.chars().take(1500).collect();
+        let response = self.chat(TITLE_SYSTEM_PROMPT, &preview).await?;
+        let title = response.trim().trim_matches('"').trim().to_string();
+        if title.is_empty() {
+            return Err(LlmError::Completion("Empty title".into()));
+        }
+        Ok(title)
+    }
+
     pub async fn prompt_with_agent(
         self: &Arc<Self>,
         preamble: &str,

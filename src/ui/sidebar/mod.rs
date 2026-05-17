@@ -6,22 +6,15 @@ pub use folders::*;
 
 use crate::db::Database;
 use crate::ui::icons::*;
-use crate::ui::{AppState, View};
+use crate::ui::{AppState, SidebarTab, View};
 use dioxus::prelude::*;
 use std::sync::Arc;
-
-#[derive(Clone, PartialEq)]
-enum SidebarTab {
-    Notes,
-    Chats,
-}
 
 #[component]
 pub fn SidebarOverlay() -> Element {
     let mut app: AppState = use_context();
     let _db: Signal<Arc<Database>> = use_context();
     let is_open = (app.sidebar_open)();
-    let mut active_tab = use_signal(|| SidebarTab::Notes);
 
     rsx! {
         div {
@@ -36,24 +29,24 @@ pub fn SidebarOverlay() -> Element {
 
             div { class: "flex border-b border-stone-200",
                 button {
-                    class: if active_tab() == SidebarTab::Notes {
+                    class: if (app.sidebar_tab)() == SidebarTab::Notes {
                         "flex-1 py-3 text-sm font-semibold text-ios-orange-dark border-b-2 border-ios-orange-dark"
                     } else {
                         "flex-1 py-3 text-sm font-medium text-stone-400"
                     },
-                    onclick: move |_| active_tab.set(SidebarTab::Notes),
+                    onclick: move |_| app.sidebar_tab.set(SidebarTab::Notes),
                     div { class: "flex items-center justify-center gap-1.5",
                         IconNotePencil { size: 16 }
                         "Notes"
                     }
                 }
                 button {
-                    class: if active_tab() == SidebarTab::Chats {
+                    class: if (app.sidebar_tab)() == SidebarTab::Chats {
                         "flex-1 py-3 text-sm font-semibold text-ios-orange-dark border-b-2 border-ios-orange-dark"
                     } else {
                         "flex-1 py-3 text-sm font-medium text-stone-400"
                     },
-                    onclick: move |_| active_tab.set(SidebarTab::Chats),
+                    onclick: move |_| app.sidebar_tab.set(SidebarTab::Chats),
                     div { class: "flex items-center justify-center gap-1.5",
                         IconChats { size: 16 }
                         "Chats"
@@ -62,7 +55,7 @@ pub fn SidebarOverlay() -> Element {
             }
 
             div { class: "flex-1 overflow-y-auto p-4",
-                match active_tab() {
+                match (app.sidebar_tab)() {
                     SidebarTab::Notes => rsx! {
                         div { class: "py-2 pb-4",
                             button {

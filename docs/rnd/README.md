@@ -15,6 +15,7 @@ Research and development documentation for FlowFlow, a 100% Rust mobile app for 
 | [07 — Vision](07-vision.md) | Product direction | RAG architecture, chat scoping, tag interconnection, future API |
 | [08 — Embedded Server & MCP](08-embedded-server-mcp.md) | Local API & MCP mobile | HTTP server on iOS, MCP protocol, Claude Desktop integration |
 | [09 — Retrieval Quality](09-retrieval-quality.md) | Hybrid search & reranking | MemPalace analysis, BM25 crates, temporal boosting, RRF |
+| [10 — Hybrid Search](10-hybrid-search.md) | Implementation plan | LanceDB native FTS+RRF, LLM reranking, adaptive sources, Legorag patterns |
 
 ## Status — What's Done vs Remaining
 

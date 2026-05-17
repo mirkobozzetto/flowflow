@@ -1,9 +1,10 @@
-#[derive(Clone)]
+#[derive(Clone, PartialEq)]
 pub struct ChatSource {
     pub note_id: String,
     pub title: String,
     pub chunk_text: String,
     pub distance: f32,
+    pub created_at: String,
 }
 
 #[derive(Clone)]

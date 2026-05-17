@@ -81,7 +81,7 @@ async fn test_vectordb_store_and_search() {
         .expect("store_chunks should succeed");
 
     let results = store
-        .search(unit_vector(0), 50)
+        .search(unit_vector(0), 50, None)
         .await
         .expect("search should succeed");
 
@@ -116,7 +116,7 @@ async fn test_vectordb_delete_chunks() {
     store.store_chunks(chunks).await.expect("store_chunks");
 
     let before = store
-        .search(unit_vector(2), 50)
+        .search(unit_vector(2), 50, None)
         .await
         .expect("search before");
     assert!(
@@ -130,7 +130,7 @@ async fn test_vectordb_delete_chunks() {
         .expect("delete_note_chunks");
 
     let after = store
-        .search(unit_vector(2), 50)
+        .search(unit_vector(2), 50, None)
         .await
         .expect("search after");
     assert!(
@@ -176,7 +176,7 @@ async fn test_vectordb_store_upserts_same_note_id() {
     store.store_chunks(second).await.expect("second store");
 
     let results = store
-        .search(unit_vector(3), 100)
+        .search(unit_vector(3), 100, None)
         .await
         .expect("search after upsert");
 
@@ -257,7 +257,10 @@ async fn test_real_rag_pipeline() {
         .await
         .expect("embed query");
 
-    let results = store.search(query_vec, 5).await.expect("search vectordb");
+    let results = store
+        .search(query_vec, 5, None)
+        .await
+        .expect("search vectordb");
 
     let mine: Vec<_> =
         results.iter().filter(|r| r.note_id == note_id).collect();

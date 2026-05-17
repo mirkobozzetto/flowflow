@@ -1,6 +1,7 @@
 use crate::db::Database;
 use crate::models::{
-    generate_auto_title, Attachment, NewAttachment, NewTextNote, UpdateNote,
+    generate_auto_title, is_auto_title, Attachment, NewAttachment, NewTextNote,
+    UpdateNote,
 };
 use crate::services::audio::{self, RecordingState};
 use crate::services::embed::{embed_attachment, embed_note};
@@ -63,6 +64,8 @@ pub fn NoteDetail() -> Element {
     let tag_input = use_signal(String::new);
     let tagging = use_signal(|| false);
     let deleted = use_signal(|| false);
+    let mut generating_title = use_signal(|| false);
+    let mut title_gen_done = use_signal(|| false);
     let confirm_delete_att: Signal<Option<String>> = use_signal(|| None);
     let mut local_note_id = use_signal(|| note_id.clone());
     let mut import_requested = use_signal(|| false);
@@ -110,7 +113,7 @@ pub fn NoteDetail() -> Element {
             if !note_id.is_empty() && t.is_empty() && c.is_empty() {
                 return;
             }
-            let saved_id = if note_id.is_empty() {
+            let (saved_id, saved_created_at) = if note_id.is_empty() {
                 let new = NewTextNote {
                     title: if t.is_empty() { None } else { Some(t.clone()) },
                     content: c.clone(),
@@ -123,9 +126,10 @@ pub fn NoteDetail() -> Element {
                         if let Some(ref fid) = selected_folder() {
                             let _ = db.add_note_to_folder(&created.id, fid);
                         }
-                        Some(created.id)
+                        let ca = created.created_at.clone();
+                        (Some(created.id), ca)
                     }
-                    Err(_) => None,
+                    Err(_) => (None, String::new()),
                 }
             } else {
                 let upd = UpdateNote {
@@ -143,11 +147,23 @@ pub fn NoteDetail() -> Element {
                 if let Some((p, d)) = pa {
                     let _ = db.update_audio_metadata(&note_id, &p, d);
                 }
-                Some(note_id.clone())
+                let ca = db
+                    .get_note(&note_id)
+                    .ok()
+                    .flatten()
+                    .map(|n| n.created_at)
+                    .unwrap_or_default();
+                (Some(note_id.clone()), ca)
             };
             app.notes_version.set((app.notes_version)() + 1);
-            if let Some(id) = saved_id {
-                embed_note(id, t, c);
+            if let Some(ref id) = saved_id {
+                embed_note(
+                    id.clone(),
+                    t.clone(),
+                    c.clone(),
+                    tags(),
+                    saved_created_at,
+                );
             }
         }
     });
@@ -162,6 +178,28 @@ pub fn NoteDetail() -> Element {
             }
             app.recording_state.set(RecordingState::Idle);
         }
+    });
+
+    use_effect(move || {
+        let c = content();
+        let t = title();
+        if title_gen_done() || generating_title() {
+            return;
+        }
+        if c.len() <= 50 || !is_auto_title(&t) {
+            return;
+        }
+        generating_title.set(true);
+        let preview: String = c.chars().take(1500).collect();
+        spawn(async move {
+            if let Ok(ai) = crate::services::llm::LlmClient::from_env() {
+                if let Ok(new_title) = ai.generate_title(&preview).await {
+                    title.set(new_title);
+                }
+            }
+            generating_title.set(false);
+            title_gen_done.set(true);
+        });
     });
 
     use_effect(move || {
@@ -279,8 +317,16 @@ pub fn NoteDetail() -> Element {
             class: "overflow-y-auto pb-20",
             style: "height: calc(100% - var(--keyboard-inset, 0px));",
             input {
-                class: "text-xl font-semibold border-none outline-none py-2 text-stone-900 bg-transparent w-full",
-                placeholder: "Titre de la note",
+                class: if generating_title() {
+                    "text-xl font-semibold border-none outline-none py-2 text-stone-400 bg-transparent w-full animate-pulse"
+                } else {
+                    "text-xl font-semibold border-none outline-none py-2 text-stone-900 bg-transparent w-full"
+                },
+                placeholder: if generating_title() {
+                    "Titre en cours..."
+                } else {
+                    "Titre de la note"
+                },
                 value: "{title}",
                 oninput: move |evt| title.set(evt.value()),
             }

@@ -1,12 +1,14 @@
 use crate::services::constants::{EMBEDDING_DIMS, VECTOR_TABLE_NAME};
 use arrow_array::types::Float32Type;
 use arrow_array::{
-    Array, FixedSizeListArray, Int32Array, RecordBatch, RecordBatchIterator,
-    StringArray,
+    Array, FixedSizeListArray, Float32Array, Int32Array, RecordBatch,
+    RecordBatchIterator, StringArray,
 };
 use arrow_schema::{DataType, Field, Schema};
 use futures::TryStreamExt;
-use lancedb::query::{ExecutableQuery, QueryBase};
+use lancedb::index::scalar::FullTextSearchQuery;
+use lancedb::index::{scalar::FtsIndexBuilder, Index};
+use lancedb::query::{ExecutableQuery, QueryBase, QueryExecutionOptions};
 use std::sync::Arc;
 
 pub struct Chunk {
@@ -20,11 +22,13 @@ pub struct Chunk {
     pub created_at: String,
 }
 
+#[derive(Clone)]
 pub struct SearchResult {
     pub chunk_text: String,
     pub note_id: String,
     pub title: String,
     pub distance: f32,
+    pub created_at: String,
 }
 
 fn vectordb_path() -> String {
@@ -163,6 +167,7 @@ impl VectorStore {
         &self,
         query_vector: Vec<f32>,
         top_k: usize,
+        allowed_note_ids: Option<&[String]>,
     ) -> Result<Vec<SearchResult>, String> {
         let table = match self.db.open_table(VECTOR_TABLE_NAME).execute().await
         {
@@ -196,6 +201,9 @@ impl VectorStore {
             let dist_col = batch.column_by_name("_distance").and_then(|c| {
                 c.as_any().downcast_ref::<arrow_array::Float32Array>()
             });
+            let date_col = batch
+                .column_by_name("created_at")
+                .and_then(|c| c.as_any().downcast_ref::<StringArray>());
 
             let (text_col, note_col, title_col, dist_col) =
                 match (text_col, note_col, title_col, dist_col) {
@@ -209,12 +217,169 @@ impl VectorStore {
                     note_id: note_col.value(i).to_string(),
                     title: title_col.value(i).to_string(),
                     distance: dist_col.value(i),
+                    created_at: date_col
+                        .map(|c| c.value(i).to_string())
+                        .unwrap_or_default(),
                 });
             }
         }
 
+        if let Some(ids) = allowed_note_ids {
+            results.retain(|r| ids.contains(&r.note_id));
+        }
         eprintln!("[vectordb] found {} results", results.len());
         Ok(results)
+    }
+
+    pub async fn ensure_fts_index(&self) -> Result<(), String> {
+        let table = match self.db.open_table(VECTOR_TABLE_NAME).execute().await
+        {
+            Ok(t) => t,
+            Err(_) => return Ok(()),
+        };
+        let idx = Index::FTS(FtsIndexBuilder::default());
+        match table.create_index(&["chunk_text"], idx).execute().await {
+            Ok(()) => {
+                eprintln!("[vectordb] FTS index created");
+                Ok(())
+            }
+            Err(e) => {
+                let msg = e.to_string();
+                if msg.contains("already exists") {
+                    Ok(())
+                } else {
+                    eprintln!("[vectordb] FTS index error: {msg}");
+                    Err(format!("FTS index: {msg}"))
+                }
+            }
+        }
+    }
+
+    pub async fn hybrid_search(
+        &self,
+        query_text: &str,
+        query_vector: Vec<f32>,
+        top_k: usize,
+        allowed_note_ids: Option<&[String]>,
+    ) -> Result<Vec<SearchResult>, String> {
+        let table = match self.db.open_table(VECTOR_TABLE_NAME).execute().await
+        {
+            Ok(t) => t,
+            Err(_) => return Ok(vec![]),
+        };
+
+        let fts_query = FullTextSearchQuery::new(query_text.to_string());
+
+        let stream = match table
+            .query()
+            .nearest_to(query_vector.clone())
+            .map_err(|e| format!("hybrid init: {e}"))?
+            .full_text_search(fts_query)
+            .limit(top_k)
+            .execute_hybrid(QueryExecutionOptions::default())
+            .await
+        {
+            Ok(s) => s,
+            Err(e) => {
+                eprintln!("[vectordb] hybrid failed, fallback vector: {e}");
+                return self
+                    .search(query_vector, top_k, allowed_note_ids)
+                    .await;
+            }
+        };
+
+        let batches: Vec<RecordBatch> = match stream.try_collect().await {
+            Ok(b) => b,
+            Err(e) => {
+                eprintln!("[vectordb] hybrid collect failed, fallback: {e}");
+                return self
+                    .search(query_vector, top_k, allowed_note_ids)
+                    .await;
+            }
+        };
+
+        let mut results = Vec::new();
+        for batch in &batches {
+            let text_col = batch
+                .column_by_name("chunk_text")
+                .and_then(|c| c.as_any().downcast_ref::<StringArray>());
+            let note_col = batch
+                .column_by_name("note_id")
+                .and_then(|c| c.as_any().downcast_ref::<StringArray>());
+            let title_col = batch
+                .column_by_name("title")
+                .and_then(|c| c.as_any().downcast_ref::<StringArray>());
+            let score_col = batch
+                .column_by_name("_relevance_score")
+                .and_then(|c| c.as_any().downcast_ref::<Float32Array>());
+            let date_col = batch
+                .column_by_name("created_at")
+                .and_then(|c| c.as_any().downcast_ref::<StringArray>());
+
+            let (text_col, note_col, title_col, score_col) =
+                match (text_col, note_col, title_col, score_col) {
+                    (Some(t), Some(n), Some(ti), Some(s)) => (t, n, ti, s),
+                    _ => continue,
+                };
+
+            for i in 0..batch.num_rows() {
+                let score = score_col.value(i);
+                results.push(SearchResult {
+                    chunk_text: text_col.value(i).to_string(),
+                    note_id: note_col.value(i).to_string(),
+                    title: title_col.value(i).to_string(),
+                    distance: score,
+                    created_at: date_col
+                        .map(|c| c.value(i).to_string())
+                        .unwrap_or_default(),
+                });
+            }
+        }
+
+        let max_score =
+            results.iter().map(|r| r.distance).fold(0.0_f32, f32::max);
+        if max_score > 0.0 {
+            for r in &mut results {
+                r.distance = (1.0 - r.distance / max_score).clamp(0.0, 1.0);
+            }
+        }
+
+        if let Some(ids) = allowed_note_ids {
+            results.retain(|r| ids.contains(&r.note_id));
+        }
+        eprintln!("[vectordb] hybrid found {} results", results.len());
+        Ok(results)
+    }
+
+    pub async fn migrate_chunk_dates(
+        &self,
+        note_dates: &[(String, String)],
+    ) -> Result<usize, String> {
+        let table = match self.db.open_table(VECTOR_TABLE_NAME).execute().await
+        {
+            Ok(t) => t,
+            Err(_) => return Ok(0),
+        };
+        let mut updated = 0usize;
+        for (note_id, created_at) in note_dates {
+            let escaped_id = note_id.replace('\'', "''");
+            let escaped_date = created_at.replace('\'', "''");
+            let filter = format!("note_id = '{escaped_id}'");
+            match table
+                .update()
+                .only_if(&filter)
+                .column("created_at", format!("'{escaped_date}'"))
+                .execute()
+                .await
+            {
+                Ok(_) => updated += 1,
+                Err(e) => {
+                    eprintln!("[vectordb] migrate date for {note_id}: {e}");
+                }
+            }
+        }
+        eprintln!("[vectordb] migrated {updated} chunks");
+        Ok(updated)
     }
 
     pub async fn delete_note_chunks(

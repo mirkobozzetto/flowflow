@@ -4,10 +4,14 @@ pub const CHAT_MODEL: &str = "gpt-4o-mini";
 pub const ANTHROPIC_CHAT_MODEL: &str = "claude-sonnet-4-6";
 pub const ANTHROPIC_MAX_TOKENS: u64 = 4096;
 pub const EMBEDDING_DIMS: usize = 1536;
-pub const CHUNK_SIZE_WORDS: usize = 375;
-pub const CHUNK_OVERLAP_WORDS: usize = 37;
+pub const CHUNK_SIZE_WORDS: usize = 500;
+pub const CHUNK_OVERLAP_WORDS: usize = 75;
 pub const VECTOR_TABLE_NAME: &str = "chunks";
 pub const RAG_TOP_K: usize = 5;
+pub const RAG_INITIAL_K: usize = 15;
+pub const RAG_FINAL_K: usize = 8;
+pub const DEFAULT_RAG_MAX_SOURCES: usize = 8;
+pub const RAG_DISTANCE_THRESHOLD: f32 = 0.6;
 
 pub const TAGS_SYSTEM_PROMPT: &str = "\
 Extract exactly 3 single-word keyword tags from the text below.\n\
@@ -48,6 +52,41 @@ You are a personal assistant working over the user's notes. Initial relevant exc
 3. Always respond in the same language as the user's question.\n\
 4. Be concise and direct. No filler, no preamble.\n\
 5. NEVER write citations like [Source 1] — the app displays sources separately.";
+
+pub const RERANK_PROMPT: &str = "\
+You are a relevance judge. Given a question and numbered passages from a user's notes, \
+rank them by relevance to the question.\n\
+Return ONLY the passage numbers separated by commas, most relevant first.\n\
+No explanation, no text, just numbers.\n\
+Example: 3,7,1,12,5,9,2,8";
+
+pub const TEMPORAL_DETECT_PROMPT: &str = "\
+Analyze the user's question and extract any temporal intent.\n\
+If the question refers to a specific time period, return a JSON object:\n\
+{\"from\": \"YYYY-MM-DD\", \"to\": \"YYYY-MM-DD\"}\n\
+If no temporal intent is detected, return exactly: null\n\
+Today's date context will be provided. Use it to resolve relative dates.\n\
+Examples:\n\
+- \"notes d'aujourd'hui\" with today=2026-05-17 → {\"from\":\"2026-05-17\",\"to\":\"2026-05-17\"}\n\
+- \"cette semaine\" with today=2026-05-17 (Saturday) → {\"from\":\"2026-05-12\",\"to\":\"2026-05-17\"}\n\
+- \"en mars\" with today=2026-05-17 → {\"from\":\"2026-03-01\",\"to\":\"2026-03-31\"}\n\
+- \"la semaine dernière\" with today=2026-05-17 → {\"from\":\"2026-05-05\",\"to\":\"2026-05-11\"}\n\
+- \"parle-moi de React\" → null\n\
+Return ONLY the JSON object or null, nothing else.";
+
+pub const TITLE_SYSTEM_PROMPT: &str = "\
+Generate a title of 1 to 3 words. Never exceed 3 words.\n\
+Articles and prepositions count as words.\n\
+Capture the core topic in the fewest words possible.\n\
+Return ONLY the title text. No quotes, no prefix, no explanation.\n\
+Same language as the note content.\n\
+\n\
+Examples:\n\
+- Note about improving user experience of an app → UX application\n\
+- Note about a meeting with the marketing team → Réunion marketing\n\
+- Note about learning Rust programming → Apprentissage Rust\n\
+- Note about grocery shopping list → Liste courses\n\
+- Note about a startup pitch idea → Pitch startup";
 
 pub const SUMMARIZE_FOLDER_PROMPT: &str = "\
 Summarize the notes inside the folder below. Keep it concise (5-10 bullet points or a short paragraph).\n\
