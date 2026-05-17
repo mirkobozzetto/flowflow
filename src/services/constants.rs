@@ -60,6 +60,26 @@ Return ONLY the passage numbers separated by commas, most relevant first.\n\
 No explanation, no text, just numbers.\n\
 Example: 3,7,1,12,5,9,2,8";
 
+pub const TEMPORAL_DETECT_PROMPT: &str = "\
+Analyze the user's question and extract any temporal intent.\n\
+If the question refers to a specific time period, return a JSON object:\n\
+{\"from\": \"YYYY-MM-DD\", \"to\": \"YYYY-MM-DD\"}\n\
+If no temporal intent is detected, return exactly: null\n\
+Today's date context will be provided. Use it to resolve relative dates.\n\
+Examples:\n\
+- \"notes d'aujourd'hui\" with today=2026-05-17 → {\"from\":\"2026-05-17\",\"to\":\"2026-05-17\"}\n\
+- \"cette semaine\" with today=2026-05-17 (Saturday) → {\"from\":\"2026-05-12\",\"to\":\"2026-05-17\"}\n\
+- \"en mars\" with today=2026-05-17 → {\"from\":\"2026-03-01\",\"to\":\"2026-03-31\"}\n\
+- \"la semaine dernière\" with today=2026-05-17 → {\"from\":\"2026-05-05\",\"to\":\"2026-05-11\"}\n\
+- \"parle-moi de React\" → null\n\
+Return ONLY the JSON object or null, nothing else.";
+
+pub const TITLE_SYSTEM_PROMPT: &str = "\
+Generate a short, descriptive title (max 8 words) for the note below.\n\
+The title must capture the main topic or idea.\n\
+Return ONLY the title text, nothing else. No quotes, no prefix.\n\
+The title must be in the same language as the note content.";
+
 pub const SUMMARIZE_FOLDER_PROMPT: &str = "\
 Summarize the notes inside the folder below. Keep it concise (5-10 bullet points or a short paragraph).\n\
 Respond in the same language as the notes. Do not invent content — stick to what is written.";

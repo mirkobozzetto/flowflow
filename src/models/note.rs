@@ -28,6 +28,34 @@ pub fn generate_auto_title() -> String {
     )
 }
 
+const FR_MONTHS: [&str; 12] = [
+    "janvier",
+    "février",
+    "mars",
+    "avril",
+    "mai",
+    "juin",
+    "juillet",
+    "août",
+    "septembre",
+    "octobre",
+    "novembre",
+    "décembre",
+];
+
+pub fn is_auto_title(title: &str) -> bool {
+    let parts: Vec<&str> = title.splitn(2, ',').collect();
+    if parts.len() != 2 {
+        return false;
+    }
+    let date_part = parts[0].trim();
+    let time_part = parts[1].trim();
+    if time_part.len() != 5 || !time_part.contains(':') {
+        return false;
+    }
+    FR_MONTHS.iter().any(|m| date_part.contains(m))
+}
+
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub enum NoteType {
     Voice,
