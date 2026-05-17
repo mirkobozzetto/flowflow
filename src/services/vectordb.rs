@@ -1,12 +1,14 @@
 use crate::services::constants::{EMBEDDING_DIMS, VECTOR_TABLE_NAME};
 use arrow_array::types::Float32Type;
 use arrow_array::{
-    Array, FixedSizeListArray, Int32Array, RecordBatch, RecordBatchIterator,
-    StringArray,
+    Array, FixedSizeListArray, Float32Array, Int32Array, RecordBatch,
+    RecordBatchIterator, StringArray,
 };
 use arrow_schema::{DataType, Field, Schema};
 use futures::TryStreamExt;
-use lancedb::query::{ExecutableQuery, QueryBase};
+use lancedb::index::scalar::FullTextSearchQuery;
+use lancedb::index::{scalar::FtsIndexBuilder, Index};
+use lancedb::query::{ExecutableQuery, QueryBase, QueryExecutionOptions};
 use std::sync::Arc;
 
 pub struct Chunk {
@@ -214,6 +216,105 @@ impl VectorStore {
         }
 
         eprintln!("[vectordb] found {} results", results.len());
+        Ok(results)
+    }
+
+    pub async fn ensure_fts_index(&self) -> Result<(), String> {
+        let table = match self.db.open_table(VECTOR_TABLE_NAME).execute().await
+        {
+            Ok(t) => t,
+            Err(_) => return Ok(()),
+        };
+        let idx = Index::FTS(FtsIndexBuilder::default());
+        match table.create_index(&["chunk_text"], idx).execute().await {
+            Ok(()) => {
+                eprintln!("[vectordb] FTS index created");
+                Ok(())
+            }
+            Err(e) => {
+                let msg = e.to_string();
+                if msg.contains("already exists") {
+                    Ok(())
+                } else {
+                    eprintln!("[vectordb] FTS index error: {msg}");
+                    Err(format!("FTS index: {msg}"))
+                }
+            }
+        }
+    }
+
+    pub async fn hybrid_search(
+        &self,
+        query_text: &str,
+        query_vector: Vec<f32>,
+        top_k: usize,
+    ) -> Result<Vec<SearchResult>, String> {
+        let table = match self.db.open_table(VECTOR_TABLE_NAME).execute().await
+        {
+            Ok(t) => t,
+            Err(_) => return Ok(vec![]),
+        };
+
+        let fts_query = FullTextSearchQuery::new(query_text.to_string());
+
+        let stream = match table
+            .query()
+            .nearest_to(query_vector.clone())
+            .map_err(|e| format!("hybrid init: {e}"))?
+            .full_text_search(fts_query)
+            .limit(top_k)
+            .execute_hybrid(QueryExecutionOptions::default())
+            .await
+        {
+            Ok(s) => s,
+            Err(e) => {
+                eprintln!("[vectordb] hybrid failed, fallback vector: {e}");
+                return self.search(query_vector, top_k).await;
+            }
+        };
+
+        let batches: Vec<RecordBatch> = match stream.try_collect().await {
+            Ok(b) => b,
+            Err(e) => {
+                eprintln!("[vectordb] hybrid collect failed, fallback: {e}");
+                return self.search(query_vector, top_k).await;
+            }
+        };
+
+        let mut results = Vec::new();
+        for batch in &batches {
+            let text_col = batch
+                .column_by_name("chunk_text")
+                .and_then(|c| c.as_any().downcast_ref::<StringArray>());
+            let note_col = batch
+                .column_by_name("note_id")
+                .and_then(|c| c.as_any().downcast_ref::<StringArray>());
+            let title_col = batch
+                .column_by_name("title")
+                .and_then(|c| c.as_any().downcast_ref::<StringArray>());
+            let score_col = batch
+                .column_by_name("_relevance_score")
+                .and_then(|c| c.as_any().downcast_ref::<Float32Array>());
+
+            let (text_col, note_col, title_col, score_col) =
+                match (text_col, note_col, title_col, score_col) {
+                    (Some(t), Some(n), Some(ti), Some(s)) => (t, n, ti, s),
+                    _ => continue,
+                };
+
+            for i in 0..batch.num_rows() {
+                let score = score_col.value(i);
+                let distance = (1.0 - score).clamp(0.0, 1.0);
+                results.push(SearchResult {
+                    chunk_text: text_col.value(i).to_string(),
+                    note_id: note_col.value(i).to_string(),
+                    title: title_col.value(i).to_string(),
+                    distance,
+                });
+            }
+        }
+
+        eprintln!("[vectordb] hybrid found {} results", results.len());
         Ok(results)
     }
 

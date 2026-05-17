@@ -1,4 +1,4 @@
-use crate::services::constants::{RAG_AGENT_SYSTEM_PROMPT, RAG_TOP_K};
+use crate::services::constants::{RAG_AGENT_SYSTEM_PROMPT, RAG_INITIAL_K};
 use crate::services::llm::LlmClient;
 use crate::services::tools::{prompt_agent_with_tools, ToolEvent};
 use crate::services::vectordb::{SearchResult, VectorStore};
@@ -39,8 +39,11 @@ pub async fn query(
     let ai = Arc::new(LlmClient::from_env()?);
     let store = VectorStore::open().await?;
 
+    let _ = store.ensure_fts_index().await;
     let query_vector = ai.embed(question).await?;
-    let results = store.search(query_vector, RAG_TOP_K).await?;
+    let results = store
+        .hybrid_search(question, query_vector, RAG_INITIAL_K)
+        .await?;
 
     let context = if results.is_empty() {
         String::from(
