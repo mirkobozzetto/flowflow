@@ -289,12 +289,11 @@ pub async fn query(
     question: &str,
     status_tx: Option<mpsc::UnboundedSender<ToolEvent>>,
     folder_id: Option<String>,
-    selected_tags: Option<Vec<String>>,
 ) -> Result<RagResponse, String> {
     let ai = Arc::new(LlmClient::from_env()?);
     let store = VectorStore::open().await?;
 
-    let mut allowed_note_ids: Option<Vec<String>> = folder_id.and_then(|fid| {
+    let allowed_note_ids: Option<Vec<String>> = folder_id.and_then(|fid| {
         Database::open().ok().map(|db| {
             db.list_notes_in_folder(&fid)
                 .unwrap_or_default()
@@ -303,28 +302,6 @@ pub async fn query(
                 .collect()
         })
     });
-
-    if let Some(ref tags) = selected_tags {
-        if !tags.is_empty() {
-            if let Ok(db) = Database::open() {
-                let tag_ids: HashSet<String> = db
-                    .list_notes()
-                    .unwrap_or_default()
-                    .into_iter()
-                    .filter(|n| n.tags.iter().any(|t| tags.contains(t)))
-                    .map(|n| n.id)
-                    .collect();
-                allowed_note_ids = Some(match allowed_note_ids {
-                    Some(folder_ids) => {
-                        let folder_set: HashSet<String> =
-                            folder_ids.into_iter().collect();
-                        folder_set.intersection(&tag_ids).cloned().collect()
-                    }
-                    None => tag_ids.into_iter().collect(),
-                });
-            }
-        }
-    }
 
     let date_range = detect_temporal_regex(question);
     let date_range = match date_range {
@@ -377,7 +354,28 @@ pub async fn query(
             "--- Notes de l'utilisateur ---\n\n(aucun extrait initial)\n",
         )
     } else {
-        build_context(&results)
+        let db_tags = Database::open().ok();
+        let mut ctx = String::from("--- Notes de l'utilisateur ---\n\n");
+        for (i, r) in results.iter().enumerate() {
+            let tags: Vec<String> = db_tags
+                .as_ref()
+                .and_then(|d| d.get_note(&r.note_id).ok().flatten())
+                .map(|n| n.tags)
+                .unwrap_or_default();
+            let tags_str = if tags.is_empty() {
+                String::new()
+            } else {
+                format!(" [Tags: {}]", tags.join(", "))
+            };
+            ctx.push_str(&format!(
+                "[Source {}] Note: \"{}\"{}\n{}\n\n",
+                i + 1,
+                r.title,
+                tags_str,
+                r.chunk_text
+            ));
+        }
+        ctx
     };
     let user_msg = format!("{context}\n--- Question ---\n{question}");
 

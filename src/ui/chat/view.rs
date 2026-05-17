@@ -39,12 +39,6 @@ pub fn ChatView() -> Element {
     let renaming = use_signal(|| false);
     let rename_input = use_signal(String::new);
     let confirm_delete = use_signal(|| false);
-    let mut selected_tags: Signal<Vec<String>> = use_signal(Vec::new);
-
-    let all_tags = use_memo(move || {
-        let _v = (app.notes_version)();
-        db().list_all_tags()
-    });
 
     use_effect(move || {
         if let RecordingState::Transcribed(text) = (app.recording_state)() {
@@ -89,37 +83,9 @@ pub fn ChatView() -> Element {
             }
         }
         div {
-            class: "flex flex-col overflow-hidden",
+            class: "overflow-hidden",
             style: "height: calc(100% - var(--keyboard-inset, 0px));",
-            if !all_tags().is_empty() {
-                div { class: "flex gap-1.5 overflow-x-auto px-4 py-2 border-b border-stone-100 shrink-0",
-                    {all_tags().iter().enumerate().map(|(i, tag)| {
-                        let tag_name = tag.clone();
-                        let is_active = selected_tags().contains(tag);
-                        rsx! {
-                            button {
-                                key: "{i}",
-                                class: if is_active {
-                                    "shrink-0 px-2.5 py-1 rounded-full text-[11px] font-medium bg-ios-orange text-white transition-colors"
-                                } else {
-                                    "shrink-0 px-2.5 py-1 rounded-full text-[11px] font-medium bg-stone-200 text-stone-600 transition-colors"
-                                },
-                                onclick: move |_| {
-                                    let mut tags = selected_tags();
-                                    if tags.contains(&tag_name) {
-                                        tags.retain(|t| t != &tag_name);
-                                    } else {
-                                        tags.push(tag_name.clone());
-                                    }
-                                    selected_tags.set(tags);
-                                },
-                                "{tag}"
-                            }
-                        }
-                    })}
-                }
-            }
-            div { id: "chat-messages", class: "flex-1 overflow-y-auto px-4 pt-4 pb-40",
+            div { id: "chat-messages", class: "h-full overflow-y-auto px-4 pt-4 pb-40",
                 if is_empty && !loading() {
                     ChatEmptyState {}
                 } else {
@@ -161,11 +127,7 @@ pub fn ChatView() -> Element {
                     }
                 }
                 let folder = (app.selected_folder_id)();
-                let tags = {
-                    let t = selected_tags();
-                    if t.is_empty() { None } else { Some(t) }
-                };
-                send_question(q, &mut messages, &mut loading, &mut tool_status, conversation_id, db, folder, tags);
+                send_question(q, &mut messages, &mut loading, &mut tool_status, conversation_id, db, folder);
             },
         }
     }
