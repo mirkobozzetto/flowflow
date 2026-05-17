@@ -64,6 +64,8 @@ pub fn NoteDetail() -> Element {
     let tag_input = use_signal(String::new);
     let tagging = use_signal(|| false);
     let deleted = use_signal(|| false);
+    let mut generating_title = use_signal(|| false);
+    let mut title_gen_done = use_signal(|| false);
     let confirm_delete_att: Signal<Option<String>> = use_signal(|| None);
     let mut local_note_id = use_signal(|| note_id.clone());
     let mut import_requested = use_signal(|| false);
@@ -163,35 +165,6 @@ pub fn NoteDetail() -> Element {
                     saved_created_at,
                 );
             }
-            if let Some(id) = saved_id {
-                if c.len() > 50 && is_auto_title(&t) {
-                    let note_id = id.clone();
-                    let content = c.clone();
-                    std::thread::spawn(move || {
-                        let rt = tokio::runtime::Runtime::new().unwrap();
-                        rt.block_on(async move {
-                            let ai =
-                                match crate::services::llm::LlmClient::from_env(
-                                ) {
-                                    Ok(c) => c,
-                                    Err(_) => return,
-                                };
-                            if let Ok(new_title) =
-                                ai.generate_title(&content).await
-                            {
-                                if let Ok(db) = crate::db::Database::open() {
-                                    let upd = UpdateNote {
-                                        title: Some(new_title),
-                                        content: None,
-                                        tags: None,
-                                    };
-                                    let _ = db.update_note(&note_id, &upd);
-                                }
-                            }
-                        });
-                    });
-                }
-            }
         }
     });
 
@@ -205,6 +178,28 @@ pub fn NoteDetail() -> Element {
             }
             app.recording_state.set(RecordingState::Idle);
         }
+    });
+
+    use_effect(move || {
+        let c = content();
+        let t = title();
+        if title_gen_done() || generating_title() {
+            return;
+        }
+        if c.len() <= 50 || !is_auto_title(&t) {
+            return;
+        }
+        generating_title.set(true);
+        let preview: String = c.chars().take(1500).collect();
+        spawn(async move {
+            if let Ok(ai) = crate::services::llm::LlmClient::from_env() {
+                if let Ok(new_title) = ai.generate_title(&preview).await {
+                    title.set(new_title);
+                }
+            }
+            generating_title.set(false);
+            title_gen_done.set(true);
+        });
     });
 
     use_effect(move || {
@@ -322,8 +317,16 @@ pub fn NoteDetail() -> Element {
             class: "overflow-y-auto pb-20",
             style: "height: calc(100% - var(--keyboard-inset, 0px));",
             input {
-                class: "text-xl font-semibold border-none outline-none py-2 text-stone-900 bg-transparent w-full",
-                placeholder: "Titre de la note",
+                class: if generating_title() {
+                    "text-xl font-semibold border-none outline-none py-2 text-stone-400 bg-transparent w-full animate-pulse"
+                } else {
+                    "text-xl font-semibold border-none outline-none py-2 text-stone-900 bg-transparent w-full"
+                },
+                placeholder: if generating_title() {
+                    "Titre en cours..."
+                } else {
+                    "Titre de la note"
+                },
                 value: "{title}",
                 oninput: move |evt| title.set(evt.value()),
             }

@@ -75,10 +75,18 @@ Examples:\n\
 Return ONLY the JSON object or null, nothing else.";
 
 pub const TITLE_SYSTEM_PROMPT: &str = "\
-Generate a short, descriptive title (max 8 words) for the note below.\n\
-The title must capture the main topic or idea.\n\
-Return ONLY the title text, nothing else. No quotes, no prefix.\n\
-The title must be in the same language as the note content.";
+Generate a title of 1 to 3 words. Never exceed 3 words.\n\
+Articles and prepositions count as words.\n\
+Capture the core topic in the fewest words possible.\n\
+Return ONLY the title text. No quotes, no prefix, no explanation.\n\
+Same language as the note content.\n\
+\n\
+Examples:\n\
+- Note about improving user experience of an app → UX application\n\
+- Note about a meeting with the marketing team → Réunion marketing\n\
+- Note about learning Rust programming → Apprentissage Rust\n\
+- Note about grocery shopping list → Liste courses\n\
+- Note about a startup pitch idea → Pitch startup";
 
 pub const SUMMARIZE_FOLDER_PROMPT: &str = "\
 Summarize the notes inside the folder below. Keep it concise (5-10 bullet points or a short paragraph).\n\
