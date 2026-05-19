@@ -2,7 +2,7 @@ mod attachment_modal;
 mod chat;
 mod chat_input;
 mod fab;
-mod folder_picker;
+pub(crate) mod folder_picker;
 pub mod icons;
 mod note_card;
 mod note_list;
@@ -62,6 +62,7 @@ pub fn App() -> Element {
         show_chat_menu: Signal::new(false),
         sidebar_tab: Signal::new(SidebarTab::Notes),
         show_folder_picker: Signal::new(false),
+        chat_scope_folder_id: Signal::new(None),
     });
 
     use_effect(|| {

@@ -28,7 +28,15 @@ pub fn TopBar() -> Element {
             .ok()
             .and_then(|f| f.into_iter().next().map(|f| f.name))
             .unwrap_or_else(|| "Global".to_string()),
-        View::Chat { .. } => "Chat".to_string(),
+        View::Chat { .. } => match (app.chat_scope_folder_id)() {
+            Some(ref fid) => db()
+                .get_folder(fid)
+                .ok()
+                .flatten()
+                .map(|f| f.name)
+                .unwrap_or_else(|| "Global".to_string()),
+            None => "Global".to_string(),
+        },
         View::Settings => "Réglages".to_string(),
     };
 
@@ -60,7 +68,7 @@ pub fn TopBar() -> Element {
                     IconList { size: 22 }
                 }
             }
-            if is_detail {
+            if is_detail || is_chat {
                 button {
                     class: "flex-1 text-left flex items-center gap-1.5 active:opacity-70 transition-opacity duration-150",
                     onclick: move |_| {

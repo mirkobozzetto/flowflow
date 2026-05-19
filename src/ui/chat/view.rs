@@ -8,6 +8,7 @@ use crate::ui::chat::models::ChatMsg;
 use crate::ui::chat::typing_indicator::TypingIndicator;
 use crate::ui::chat::user_bubble::UserBubble;
 use crate::ui::chat_input::ChatInputBar;
+use crate::ui::folder_picker::FolderPicker;
 use crate::ui::state::View;
 use crate::ui::AppState;
 use dioxus::prelude::*;
@@ -83,8 +84,11 @@ pub fn ChatView() -> Element {
             }
         }
         div {
-            class: "overflow-hidden",
+            class: "overflow-hidden relative",
             style: "height: calc(100% - var(--keyboard-inset, 0px));",
+            if (app.show_folder_picker)() {
+                FolderPicker { selected: app.chat_scope_folder_id }
+            }
             div { id: "chat-messages", class: "h-full overflow-y-auto px-4 pt-4 pb-40",
                 if is_empty && !loading() {
                     ChatEmptyState {}
@@ -126,7 +130,7 @@ pub fn ChatView() -> Element {
                         conversation_id.set(Some(cid));
                     }
                 }
-                let folder = (app.selected_folder_id)();
+                let folder = (app.chat_scope_folder_id)();
                 send_question(q, &mut messages, &mut loading, &mut tool_status, conversation_id, db, folder);
             },
         }
