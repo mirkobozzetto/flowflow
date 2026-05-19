@@ -12,8 +12,77 @@ use crate::ui::notes::menu::{import_file_content, NoteMenu};
 use crate::ui::notes::tags::TagsSection;
 use crate::ui::recording::RecordingBar;
 use crate::ui::{AppState, View};
+use chrono::{Datelike, NaiveDateTime, Utc};
 use dioxus::prelude::*;
 use std::sync::Arc;
+
+fn format_relative_date(iso: &str) -> String {
+    let parsed = NaiveDateTime::parse_from_str(
+        &iso.replace('T', " ").replace('Z', ""),
+        "%Y-%m-%d %H:%M:%S%.f",
+    );
+    let dt = match parsed {
+        Ok(d) => d,
+        Err(_) => return iso.to_string(),
+    };
+    let now = Utc::now().naive_utc();
+    let diff = now.signed_duration_since(dt);
+    let secs = diff.num_seconds();
+
+    if secs < 60 {
+        return "À l'instant".to_string();
+    }
+    if secs < 3600 {
+        let mins = secs / 60;
+        return format!("Il y a {mins} min");
+    }
+    if secs < 86400 {
+        let hours = secs / 3600;
+        return format!("Il y a {hours}h");
+    }
+
+    let today = now.date();
+    let note_date = dt.date();
+    if today.pred_opt() == Some(note_date) {
+        return format!("Hier, {}", dt.format("%H:%M"));
+    }
+
+    let months = [
+        "", "jan.", "fév.", "mars", "avr.", "mai", "juin", "juil.", "août",
+        "sept.", "oct.", "nov.", "déc.",
+    ];
+    let m = months[note_date.month() as usize];
+    let d = note_date.day();
+
+    if note_date.year() == today.year() {
+        format!("{d} {m}")
+    } else {
+        format!("{d} {m} {}", note_date.year())
+    }
+}
+
+fn format_absolute_short(iso: &str) -> String {
+    let parsed = NaiveDateTime::parse_from_str(
+        &iso.replace('T', " ").replace('Z', ""),
+        "%Y-%m-%d %H:%M:%S%.f",
+    );
+    let dt = match parsed {
+        Ok(d) => d,
+        Err(_) => return iso.to_string(),
+    };
+    let months = [
+        "", "jan.", "fév.", "mars", "avr.", "mai", "juin", "juil.", "août",
+        "sept.", "oct.", "nov.", "déc.",
+    ];
+    let d = dt.date();
+    let now = Utc::now().naive_utc().date();
+    let m = months[d.month() as usize];
+    if d.year() == now.year() {
+        format!("{} {}, {}", d.day(), m, dt.format("%H:%M"))
+    } else {
+        format!("{} {} {}", d.day(), m, d.year())
+    }
+}
 
 #[component]
 pub fn NoteDetail() -> Element {
@@ -99,6 +168,10 @@ pub fn NoteDetail() -> Element {
 
     use_drop({
         let note_id = note_id.clone();
+        let orig_title = initial_title.clone();
+        let orig_content = initial_content.clone();
+        let orig_tags = initial_tags.clone();
+        let orig_folder = initial_folder_id.clone();
         move || {
             if deleted() {
                 return;
@@ -111,6 +184,19 @@ pub fn NoteDetail() -> Element {
                 return;
             }
             if !note_id.is_empty() && t.is_empty() && c.is_empty() {
+                return;
+            }
+            let title_changed = t != orig_title;
+            let content_changed = c != orig_content;
+            let tags_changed = tags() != orig_tags;
+            let folder_changed = selected_folder() != orig_folder;
+            let has_new_audio = pa.is_some();
+            let changed = title_changed
+                || content_changed
+                || tags_changed
+                || folder_changed
+                || has_new_audio;
+            if !note_id.is_empty() && !changed {
                 return;
             }
             let (saved_id, saved_created_at) = if note_id.is_empty() {
@@ -290,17 +376,14 @@ pub fn NoteDetail() -> Element {
     let recording_state = (app.recording_state)();
     let is_transcribing = recording_state == RecordingState::Transcribing;
 
-    let date = note
+    let modified_date = note
         .as_ref()
-        .map(|n| {
-            if n.created_at.len() >= 16 {
-                let d = &n.created_at[..10];
-                let h = &n.created_at[11..16];
-                format!("{d} · {h}")
-            } else {
-                n.created_at[..10].to_string()
-            }
-        })
+        .map(|n| format_relative_date(&n.modified_at))
+        .unwrap_or_default();
+
+    let created_date = note
+        .as_ref()
+        .map(|n| format_absolute_short(&n.created_at))
         .unwrap_or_default();
 
     let show_menu = (app.show_note_menu)();
@@ -314,32 +397,45 @@ pub fn NoteDetail() -> Element {
             }
         }
         div {
-            class: "overflow-y-auto pb-20",
+            class: "relative overflow-y-auto pb-20",
             style: "height: calc(100% - var(--keyboard-inset, 0px));",
-            input {
-                class: if generating_title() {
-                    "text-xl font-semibold border-none outline-none py-2 text-stone-400 bg-transparent w-full animate-pulse"
-                } else {
-                    "text-xl font-semibold border-none outline-none py-2 text-stone-900 bg-transparent w-full"
-                },
-                placeholder: if generating_title() {
-                    "Titre en cours..."
-                } else {
-                    "Titre de la note"
-                },
-                value: "{title}",
-                oninput: move |evt| title.set(evt.value()),
+            if (app.show_folder_picker)() {
+                FolderPicker { selected: selected_folder }
             }
-            if !date.is_empty() {
-                p { class: "text-xs text-stone-400 mb-2", "{date}" }
+            div { class: "pt-2 pb-3",
+                div { class: "inline-block relative",
+                    span {
+                        class: "text-xl font-semibold invisible whitespace-pre py-1.5 px-3 border border-transparent",
+                        {if title().is_empty() { "Titre".to_string() } else { title() }}
+                    }
+                    input {
+                        class: if generating_title() {
+                            "absolute inset-0 text-xl font-semibold outline-none py-1.5 px-3 border border-stone-200/60 rounded-md text-stone-400 bg-white/25 animate-pulse"
+                        } else {
+                            "absolute inset-0 text-xl font-semibold outline-none py-1.5 px-3 border border-stone-200/60 rounded-md text-stone-900 bg-white/25 focus:border-ios-orange-dark/40 transition-colors duration-150"
+                        },
+                        placeholder: "Titre",
+                        value: "{title}",
+                        oninput: move |evt| title.set(evt.value()),
+                    }
+                }
+                if !modified_date.is_empty() {
+                    div { class: "mt-2 px-1",
+                        p { class: "text-xs text-stone-400", "{modified_date}" }
+                        if !created_date.is_empty() {
+                            p { class: "text-[10px] text-stone-300 mt-0.5", "Créé le {created_date}" }
+                        }
+                    }
+                }
             }
-            FolderPicker { selected: selected_folder }
-            TagsSection { tags, tag_input, tagging, content }
+            div { class: "border-t border-stone-100 pt-3 pb-2",
+                TagsSection { tags, tag_input, tagging, content }
+            }
             textarea {
                 class: if is_transcribing {
-                    "w-full min-h-[200px] border border-ios-orange/30 rounded-xl p-3 text-sm resize-none font-sans outline-none text-stone-900"
+                    "w-full min-h-[300px] border border-ios-orange/30 rounded-xl p-3 mt-3 text-sm resize-none font-sans outline-none text-stone-900"
                 } else {
-                    "w-full min-h-[200px] border border-stone-200 rounded-xl p-3 text-sm resize-none font-sans outline-none text-stone-900"
+                    "w-full min-h-[300px] border border-stone-200 rounded-xl p-3 mt-3 text-sm resize-none font-sans outline-none text-stone-900"
                 },
                 placeholder: if is_transcribing { "Transcription en cours..." } else { "Contenu de la note..." },
                 value: "{content}",

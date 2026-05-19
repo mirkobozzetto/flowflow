@@ -61,6 +61,7 @@ pub fn App() -> Element {
         attachment_modal: Signal::new(None),
         show_chat_menu: Signal::new(false),
         sidebar_tab: Signal::new(SidebarTab::Notes),
+        show_folder_picker: Signal::new(false),
     });
 
     use_effect(|| {

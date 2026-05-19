@@ -34,4 +34,5 @@ pub struct AppState {
     pub attachment_modal: Signal<Option<Attachment>>,
     pub show_chat_menu: Signal<bool>,
     pub sidebar_tab: Signal<SidebarTab>,
+    pub show_folder_picker: Signal<bool>,
 }

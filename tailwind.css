@@ -82,6 +82,16 @@
             opacity: 0.8;
         }
     }
+    @keyframes slideDown {
+        from {
+            max-height: 0;
+            opacity: 0;
+        }
+        to {
+            max-height: 15rem;
+            opacity: 1;
+        }
+    }
     @keyframes fadeInUp {
         from {
             transform: translateY(8px);

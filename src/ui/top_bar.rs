@@ -23,7 +23,11 @@ pub fn TopBar() -> Element {
                 .unwrap_or_else(|| "Dossier".to_string()),
             None => "Toutes mes notes".to_string(),
         },
-        View::NoteDetail { .. } => "Note".to_string(),
+        View::NoteDetail { note_id } => db()
+            .folders_for_note(&note_id)
+            .ok()
+            .and_then(|f| f.into_iter().next().map(|f| f.name))
+            .unwrap_or_else(|| "Global".to_string()),
         View::Chat { .. } => "Chat".to_string(),
         View::Settings => "Réglages".to_string(),
     };
@@ -56,7 +60,25 @@ pub fn TopBar() -> Element {
                     IconList { size: 22 }
                 }
             }
-            span { class: "text-lg font-semibold text-stone-900 flex-1", "{title}" }
+            if is_detail {
+                button {
+                    class: "flex-1 text-left flex items-center gap-1.5 active:opacity-70 transition-opacity duration-150",
+                    onclick: move |_| {
+                        let cur = (app.show_folder_picker)();
+                        app.show_folder_picker.set(!cur);
+                    },
+                    span { class: "text-lg font-semibold text-stone-900", "{title}" }
+                    span {
+                        class: if (app.show_folder_picker)() {
+                            "inline-block w-1.5 h-1.5 border-r-2 border-b-2 border-stone-400 transition-transform duration-150 -rotate-[135deg]"
+                        } else {
+                            "inline-block w-1.5 h-1.5 border-r-2 border-b-2 border-stone-400 transition-transform duration-150 rotate-45"
+                        },
+                    }
+                }
+            } else {
+                span { class: "text-lg font-semibold text-stone-900 flex-1", "{title}" }
+            }
             if is_detail {
                 button {
                     class: "min-w-[44px] min-h-[44px] flex items-center justify-center text-stone-700",
