@@ -1,8 +1,6 @@
 use objc2::rc::Retained;
 use objc2::AnyThread;
-use objc2_avf_audio::{
-    AVAudioPlayer, AVAudioSession, AVAudioSessionPortOverride,
-};
+use objc2_avf_audio::AVAudioPlayer;
 use objc2_foundation::{NSString, NSURL};
 use std::cell::RefCell;
 
@@ -26,10 +24,6 @@ pub fn play_audio(path: &str) {
             &url,
         ) {
             Ok(player) => {
-                let session = AVAudioSession::sharedInstance();
-                let _ = session.overrideOutputAudioPort_error(
-                    AVAudioSessionPortOverride::Speaker,
-                );
                 let _: bool = player.play();
                 eprintln!("[player] playing OK");
                 PLAYER.with(|p| {

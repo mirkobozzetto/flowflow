@@ -112,10 +112,8 @@ pub fn NoteMenu(
                     move |_| {
                         app.show_note_menu.set(false);
                         deleted.set(true);
-                        if let Ok(Some(n)) = db().get_note(&note_id) {
-                            if let Some(ref f) = n.audio_file_path {
-                                let _ = std::fs::remove_file(crate::services::audio::resolve_audio_path(f));
-                            }
+                        for a in db().list_audios(&note_id).unwrap_or_default() {
+                            let _ = std::fs::remove_file(crate::services::audio::resolve_audio_path(&a.file_path));
                         }
                         let _ = db().delete_note(&note_id);
                         delete_note_embeddings(note_id.clone());
