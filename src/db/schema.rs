@@ -3,6 +3,7 @@ pub const MIGRATIONS: &[(i64, &str)] = &[
     (2, V2_SCHEMA),
     (3, V3_SCHEMA),
     (4, V4_SCHEMA),
+    (5, V5_SCHEMA),
 ];
 
 const V1_SCHEMA: &str = "
@@ -97,3 +98,23 @@ CREATE INDEX IF NOT EXISTS idx_attachments_note
 ";
 
 const V4_SCHEMA: &str = "";
+
+const V5_SCHEMA: &str = "
+CREATE TABLE IF NOT EXISTS note_audios (
+    id TEXT PRIMARY KEY,
+    note_id TEXT NOT NULL,
+    file_path TEXT NOT NULL,
+    duration_secs REAL,
+    created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')),
+    FOREIGN KEY (note_id) REFERENCES notes(id) ON DELETE CASCADE
+);
+CREATE INDEX IF NOT EXISTS idx_note_audios_note ON note_audios(note_id);
+
+INSERT INTO note_audios (id, note_id, file_path, duration_secs, created_at)
+SELECT lower(hex(randomblob(4)) || '-' || hex(randomblob(2)) || '-4' ||
+       substr(hex(randomblob(2)),2) || '-' ||
+       substr('89ab', abs(random()) % 4 + 1, 1) ||
+       substr(hex(randomblob(2)),2) || '-' || hex(randomblob(6))),
+       id, audio_file_path, duration_secs, created_at
+FROM notes WHERE audio_file_path IS NOT NULL;
+";
