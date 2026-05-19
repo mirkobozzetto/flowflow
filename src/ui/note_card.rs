@@ -23,7 +23,7 @@ pub fn NoteCard(note: Note) -> Element {
 
     let date = &note.created_at[..10];
     let _ = (app.notes_version)();
-    let has_audio = !db().list_audios(&note.id).unwrap_or_default().is_empty();
+    let has_audio = db().has_any_audio(&note.id);
 
     let folder_name = db()
         .folders_for_note(&note.id)

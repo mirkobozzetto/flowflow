@@ -207,6 +207,16 @@ impl Database {
         Ok(())
     }
 
+    pub fn has_any_audio(&self, note_id: &str) -> bool {
+        self.conn()
+            .query_row(
+                "SELECT EXISTS(SELECT 1 FROM note_audios WHERE note_id = ?1)",
+                [note_id],
+                |row| row.get::<_, bool>(0),
+            )
+            .unwrap_or(false)
+    }
+
     pub fn delete_audio(&self, id: &str) -> Result<(), String> {
         self.conn()
             .execute("DELETE FROM note_audios WHERE id = ?1", [id])
