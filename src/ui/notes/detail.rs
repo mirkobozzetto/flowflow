@@ -95,8 +95,6 @@ pub fn NoteDetail() -> Element {
         _ => return rsx! {},
     };
 
-    app.current_note_id.set(Some(note_id.clone()));
-
     let is_new = note_id.is_empty();
 
     let note = if is_new {
@@ -142,6 +140,27 @@ pub fn NoteDetail() -> Element {
     let mut import_status: Signal<Option<String>> = use_signal(|| None);
     let mut pending_audio: Signal<Option<(String, f64)>> = use_signal(|| None);
     let mut audios_version = use_signal(|| 0u32);
+
+    use_effect(move || {
+        if !deleted() {
+            app.current_note_id.set(Some(local_note_id()));
+        }
+    });
+
+    use_effect(move || {
+        if deleted() {
+            app.sliding_out.set(true);
+            spawn(async move {
+                futures_timer::Delay::new(std::time::Duration::from_millis(
+                    150,
+                ))
+                .await;
+                app.sliding_out.set(false);
+                app.notes_version.set((app.notes_version)() + 1);
+                app.view.set(View::NotesList);
+            });
+        }
+    });
 
     let audios: Vec<NoteAudio> = {
         let id = local_note_id();
@@ -430,7 +449,7 @@ pub fn NoteDetail() -> Element {
     rsx! {
         if show_menu {
             NoteMenu {
-                note_id: note_id.clone(),
+                note_id: local_note_id(),
                 import_requested,
                 deleted,
             }

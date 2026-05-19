@@ -1,6 +1,6 @@
 use crate::services::embed::delete_note_embeddings;
 use crate::ui::icons::*;
-use crate::ui::{AppState, View};
+use crate::ui::AppState;
 use dioxus::prelude::*;
 use std::sync::Arc;
 
@@ -117,13 +117,7 @@ pub fn NoteMenu(
                         }
                         let _ = db().delete_note(&note_id);
                         delete_note_embeddings(note_id.clone());
-                        app.notes_version.set((app.notes_version)() + 1);
-                        app.sliding_out.set(true);
-                        spawn(async move {
-                            futures_timer::Delay::new(std::time::Duration::from_millis(150)).await;
-                            app.sliding_out.set(false);
-                            app.view.set(View::NotesList);
-                        });
+                        app.current_note_id.set(None);
                     }
                 },
                 IconTrash { size: 18 }
