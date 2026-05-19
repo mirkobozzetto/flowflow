@@ -61,6 +61,13 @@ impl LlmClient {
 
     pub fn from_env() -> Result<Self, LlmError> {
         let db = crate::db::Database::open().ok();
+        if db.as_ref().and_then(|d| d.get_setting("ai_consent"))
+            != Some("true".to_string())
+        {
+            return Err(LlmError::NotConfigured(
+                "Consentement IA requis".into(),
+            ));
+        }
         let openai_key = db
             .as_ref()
             .and_then(|d| d.get_setting("openai_api_key"))

@@ -41,8 +41,14 @@ impl SonioxClient {
     }
 
     pub fn from_env() -> Result<Self, String> {
-        let key = crate::db::Database::open()
-            .ok()
+        let db_opt = crate::db::Database::open().ok();
+        if db_opt.as_ref().and_then(|d| d.get_setting("ai_consent"))
+            != Some("true".to_string())
+        {
+            return Err("Consentement IA requis".to_string());
+        }
+        let key = db_opt
+            .as_ref()
             .and_then(|db| db.get_setting("soniox_api_key"))
             .or_else(|| std::env::var("SONIOX_API_KEY").ok())
             .or_else(|| option_env!("SONIOX_API_KEY").map(String::from))
