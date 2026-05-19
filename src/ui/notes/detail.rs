@@ -5,6 +5,7 @@ use crate::models::{
 };
 use crate::services::audio::{self, RecordingState};
 use crate::services::embed::{embed_attachment, embed_note};
+use crate::services::transcription::SonioxClient;
 use crate::ui::folder_picker::FolderPicker;
 use crate::ui::notes::attachments::AttachmentSection;
 use crate::ui::notes::audio_player::AudioPlayer;
@@ -139,7 +140,7 @@ pub fn NoteDetail() -> Element {
     let mut local_note_id = use_signal(|| note_id.clone());
     let mut import_requested = use_signal(|| false);
     let mut import_status: Signal<Option<String>> = use_signal(|| None);
-    let pending_audio: Signal<Option<(String, f64)>> = use_signal(|| None);
+    let mut pending_audio: Signal<Option<(String, f64)>> = use_signal(|| None);
     let mut audios_version = use_signal(|| 0u32);
 
     let audios: Vec<NoteAudio> = {
@@ -153,6 +154,7 @@ pub fn NoteDetail() -> Element {
         }
     };
     let mut audios_expanded = use_signal(|| false);
+    let mut transcribing_audio_id: Signal<Option<String>> = use_signal(|| None);
 
     let attachments_version = (app.attachments_version)();
     let attachments: Vec<Attachment> = {
@@ -166,7 +168,6 @@ pub fn NoteDetail() -> Element {
     };
 
     use_drop({
-        let note_id = note_id.clone();
         let orig_title = initial_title.clone();
         let orig_content = initial_content.clone();
         let orig_tags = initial_tags.clone();
@@ -179,10 +180,11 @@ pub fn NoteDetail() -> Element {
             let t = title();
             let c = content();
             let pa = pending_audio();
-            if note_id.is_empty() && c.is_empty() && pa.is_none() {
+            let nid = local_note_id();
+            if nid.is_empty() && c.is_empty() && pa.is_none() {
                 return;
             }
-            if !note_id.is_empty() && t.is_empty() && c.is_empty() {
+            if !nid.is_empty() && t.is_empty() && c.is_empty() {
                 return;
             }
             let title_changed = t != orig_title;
@@ -195,10 +197,10 @@ pub fn NoteDetail() -> Element {
                 || tags_changed
                 || folder_changed
                 || has_new_audio;
-            if !note_id.is_empty() && !changed {
+            if !nid.is_empty() && !changed {
                 return;
             }
-            let (saved_id, saved_created_at) = if note_id.is_empty() {
+            let (saved_id, saved_created_at) = if nid.is_empty() {
                 let new = NewTextNote {
                     title: if t.is_empty() { None } else { Some(t.clone()) },
                     content: c.clone(),
@@ -225,20 +227,20 @@ pub fn NoteDetail() -> Element {
                     content: Some(c.clone()),
                     tags: Some(tags()),
                 };
-                let _ = db.update_note(&note_id, &upd);
-                for old in db.folders_for_note(&note_id).unwrap_or_default() {
-                    let _ = db.remove_note_from_folder(&note_id, &old.id);
+                let _ = db.update_note(&nid, &upd);
+                for old in db.folders_for_note(&nid).unwrap_or_default() {
+                    let _ = db.remove_note_from_folder(&nid, &old.id);
                 }
                 if let Some(ref fid) = selected_folder() {
-                    let _ = db.add_note_to_folder(&note_id, fid);
+                    let _ = db.add_note_to_folder(&nid, fid);
                 }
                 let ca = db
-                    .get_note(&note_id)
+                    .get_note(&nid)
                     .ok()
                     .flatten()
                     .map(|n| n.created_at)
                     .unwrap_or_default();
-                (Some(note_id.clone()), ca)
+                (Some(nid.clone()), ca)
             };
             app.notes_version.set((app.notes_version)() + 1);
             if let Some(ref id) = saved_id {
@@ -257,9 +259,20 @@ pub fn NoteDetail() -> Element {
         if let RecordingState::Transcribed(text) = (app.recording_state)() {
             let current = content();
             if current.is_empty() {
-                content.set(text);
+                content.set(text.clone());
             } else {
                 content.set(format!("{}\n{}", current, text));
+            }
+            let id = local_note_id();
+            if !id.is_empty() {
+                if let Some(last) =
+                    db().list_audios(&id).ok().and_then(|a| a.last().cloned())
+                {
+                    if last.transcription.is_none() {
+                        let _ = db().set_audio_transcription(&last.id, &text);
+                        audios_version.set(audios_version() + 1);
+                    }
+                }
             }
             app.recording_state.set(RecordingState::Idle);
         }
@@ -285,6 +298,33 @@ pub fn NoteDetail() -> Element {
             generating_title.set(false);
             title_gen_done.set(true);
         });
+    });
+
+    use_effect(move || {
+        if pending_audio().is_some() && local_note_id().is_empty() {
+            let t = title();
+            let c = content();
+            let new = NewTextNote {
+                title: if t.is_empty() { None } else { Some(t.clone()) },
+                content: c,
+                tags: tags(),
+                audio_file_path: None,
+                duration_secs: None,
+            };
+            if let Ok(created) = db().create_text_note(&new) {
+                if let Some(ref fid) = selected_folder() {
+                    let _ = db().add_note_to_folder(&created.id, fid);
+                }
+                if let Some((filename, dur)) = pending_audio() {
+                    let _ = db().add_audio(&created.id, &filename, dur);
+                }
+                local_note_id.set(created.id.clone());
+                app.current_note_id.set(Some(created.id));
+                pending_audio.set(None);
+                audios_version.set(audios_version() + 1);
+                app.notes_version.set((app.notes_version)() + 1);
+            }
+        }
     });
 
     use_effect(move || {
@@ -462,9 +502,13 @@ pub fn NoteDetail() -> Element {
                                     for audio in audios.iter() {
                                         {
                                             let audio_id = audio.id.clone();
+                                            let audio_id_tr = audio.id.clone();
                                             let file_path = audio.file_path.clone();
+                                            let file_path_tr = audio.file_path.clone();
                                             let resolved = audio::resolve_audio_path(&file_path);
                                             let date = format_relative_date(&audio.created_at);
+                                            let transcription = audio.transcription.clone();
+                                            let is_transcribing_this = transcribing_audio_id() == Some(audio.id.clone());
                                             rsx! {
                                                 div { class: "space-y-1",
                                                     p { class: "text-[10px] text-stone-400 px-1", "{date}" }
@@ -478,6 +522,42 @@ pub fn NoteDetail() -> Element {
                                                             audios_version.set(audios_version() + 1);
                                                             app.notes_version.set((app.notes_version)() + 1);
                                                         },
+                                                    }
+                                                    if let Some(ref text) = transcription {
+                                                        p { class: "text-xs text-stone-600 italic px-1 pb-1", "{text}" }
+                                                    } else if is_transcribing_this {
+                                                        p {
+                                                            class: "text-xs text-stone-400 px-1 pb-1",
+                                                            style: "animation: pulseSoft 1.5s ease-in-out infinite;",
+                                                            "Transcription..."
+                                                        }
+                                                    } else {
+                                                        button {
+                                                            class: "text-xs text-ios-orange-dark px-1 pb-1 active:opacity-70",
+                                                            onclick: move |_| {
+                                                                let aid = audio_id_tr.clone();
+                                                                let fp = file_path_tr.clone();
+                                                                let path = audio::resolve_audio_path(&fp);
+                                                                transcribing_audio_id.set(Some(aid.clone()));
+                                                                spawn(async move {
+                                                                    let result = async {
+                                                                        let client = SonioxClient::from_env()?;
+                                                                        client.transcribe(std::path::Path::new(&path)).await
+                                                                    }.await;
+                                                                    match result {
+                                                                        Ok(text) => {
+                                                                            let _ = db().set_audio_transcription(&aid, &text);
+                                                                        }
+                                                                        Err(e) => {
+                                                                            eprintln!("[transcribe] error: {e}");
+                                                                        }
+                                                                    }
+                                                                    transcribing_audio_id.set(None);
+                                                                    audios_version.set(audios_version() + 1);
+                                                                });
+                                                            },
+                                                            "Transcrire"
+                                                        }
                                                     }
                                                 }
                                             }

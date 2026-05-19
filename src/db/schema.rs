@@ -4,6 +4,7 @@ pub const MIGRATIONS: &[(i64, &str)] = &[
     (3, V3_SCHEMA),
     (4, V4_SCHEMA),
     (5, V5_SCHEMA),
+    (6, V6_SCHEMA),
 ];
 
 const V1_SCHEMA: &str = "
@@ -117,4 +118,8 @@ SELECT lower(hex(randomblob(4)) || '-' || hex(randomblob(2)) || '-4' ||
        substr(hex(randomblob(2)),2) || '-' || hex(randomblob(6))),
        id, audio_file_path, duration_secs, created_at
 FROM notes WHERE audio_file_path IS NOT NULL;
+";
+
+const V6_SCHEMA: &str = "
+ALTER TABLE note_audios ADD COLUMN transcription TEXT;
 ";

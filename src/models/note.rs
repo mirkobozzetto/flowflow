@@ -106,5 +106,6 @@ pub struct NoteAudio {
     pub note_id: String,
     pub file_path: String,
     pub duration_secs: Option<f64>,
+    pub transcription: Option<String>,
     pub created_at: String,
 }

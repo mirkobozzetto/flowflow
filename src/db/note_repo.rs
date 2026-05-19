@@ -27,6 +27,7 @@ fn row_to_note_audio(row: &rusqlite::Row) -> rusqlite::Result<NoteAudio> {
         note_id: row.get("note_id")?,
         file_path: row.get("file_path")?,
         duration_secs: row.get("duration_secs")?,
+        transcription: row.get("transcription")?,
         created_at: row.get("created_at")?,
     })
 }
@@ -172,6 +173,7 @@ impl Database {
             note_id: note_id.to_string(),
             file_path: file_path.to_string(),
             duration_secs: Some(duration_secs),
+            transcription: None,
             created_at: now,
         })
     }
@@ -189,6 +191,20 @@ impl Database {
             audios.push(row.map_err(|e| format!("Row: {e}"))?);
         }
         Ok(audios)
+    }
+
+    pub fn set_audio_transcription(
+        &self,
+        audio_id: &str,
+        text: &str,
+    ) -> Result<(), String> {
+        self.conn()
+            .execute(
+                "UPDATE note_audios SET transcription = ?1 WHERE id = ?2",
+                rusqlite::params![text, audio_id],
+            )
+            .map_err(|e| format!("Update transcription: {e}"))?;
+        Ok(())
     }
 
     pub fn delete_audio(&self, id: &str) -> Result<(), String> {
