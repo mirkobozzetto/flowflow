@@ -15,6 +15,10 @@
     * {
         -webkit-tap-highlight-color: transparent;
         -webkit-text-size-adjust: 100%;
+        scrollbar-width: none;
+    }
+    *::-webkit-scrollbar {
+        display: none;
     }
     html,
     body {
@@ -80,6 +84,16 @@
         to {
             transform: translateX(100%);
             opacity: 0.8;
+        }
+    }
+    @keyframes slideDown {
+        from {
+            max-height: 0;
+            opacity: 0;
+        }
+        to {
+            max-height: 15rem;
+            opacity: 1;
         }
     }
     @keyframes fadeInUp {

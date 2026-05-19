@@ -2,7 +2,7 @@ mod attachment_modal;
 mod chat;
 mod chat_input;
 mod fab;
-mod folder_picker;
+pub(crate) mod folder_picker;
 pub mod icons;
 mod note_card;
 mod note_list;
@@ -61,6 +61,8 @@ pub fn App() -> Element {
         attachment_modal: Signal::new(None),
         show_chat_menu: Signal::new(false),
         sidebar_tab: Signal::new(SidebarTab::Notes),
+        show_folder_picker: Signal::new(false),
+        chat_scope_folder_id: Signal::new(None),
     });
 
     use_effect(|| {
@@ -150,7 +152,7 @@ pub fn App() -> Element {
                     }
                     if matches!((app.view)(), View::NoteDetail { .. }) {
                         div {
-                            class: "absolute inset-0 flex flex-col min-h-0 px-4 py-3 bg-stone-100",
+                            class: "absolute inset-0 flex flex-col min-h-0 bg-stone-100",
                             style: if (app.sliding_out)() {
                                 "animation: slideOutToLeft 0.15s ease-in forwards;"
                             } else {

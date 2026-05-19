@@ -1,5 +1,5 @@
 use crate::db::{now_iso, Database};
-use crate::models::{NewTextNote, Note, NoteType, UpdateNote};
+use crate::models::{NewTextNote, Note, NoteAudio, NoteType, UpdateNote};
 use std::str::FromStr;
 use uuid::Uuid;
 
@@ -18,6 +18,17 @@ fn row_to_note(row: &rusqlite::Row) -> rusqlite::Result<Note> {
         tags,
         created_at: row.get("created_at")?,
         modified_at: row.get("modified_at")?,
+    })
+}
+
+fn row_to_note_audio(row: &rusqlite::Row) -> rusqlite::Result<NoteAudio> {
+    Ok(NoteAudio {
+        id: row.get("id")?,
+        note_id: row.get("note_id")?,
+        file_path: row.get("file_path")?,
+        duration_secs: row.get("duration_secs")?,
+        transcription: row.get("transcription")?,
+        created_at: row.get("created_at")?,
     })
 }
 
@@ -135,33 +146,6 @@ impl Database {
         Ok(())
     }
 
-    pub fn update_audio_metadata(
-        &self,
-        id: &str,
-        audio_file_path: &str,
-        duration_secs: f64,
-    ) -> Result<(), String> {
-        let now = now_iso();
-        self.conn()
-            .execute(
-                "UPDATE notes SET audio_file_path = ?1, duration_secs = ?2, modified_at = ?3 WHERE id = ?4",
-                rusqlite::params![audio_file_path, duration_secs, now, id],
-            )
-            .map_err(|e| format!("Update audio: {e}"))?;
-        Ok(())
-    }
-
-    pub fn clear_audio_metadata(&self, id: &str) -> Result<(), String> {
-        let now = now_iso();
-        self.conn()
-            .execute(
-                "UPDATE notes SET audio_file_path = NULL, duration_secs = NULL, modified_at = ?1 WHERE id = ?2",
-                rusqlite::params![now, id],
-            )
-            .map_err(|e| format!("Clear audio: {e}"))?;
-        Ok(())
-    }
-
     pub fn delete_note(&self, id: &str) -> Result<(), String> {
         self.conn()
             .execute("DELETE FROM notes WHERE id = ?1", [id])
@@ -169,10 +153,81 @@ impl Database {
         Ok(())
     }
 
+    pub fn add_audio(
+        &self,
+        note_id: &str,
+        file_path: &str,
+        duration_secs: f64,
+    ) -> Result<NoteAudio, String> {
+        let id = Uuid::new_v4().to_string();
+        let now = now_iso();
+        self.conn()
+            .execute(
+                "INSERT INTO note_audios (id, note_id, file_path, duration_secs, created_at)
+                 VALUES (?1, ?2, ?3, ?4, ?5)",
+                rusqlite::params![id, note_id, file_path, duration_secs, now],
+            )
+            .map_err(|e| format!("Insert audio: {e}"))?;
+        Ok(NoteAudio {
+            id,
+            note_id: note_id.to_string(),
+            file_path: file_path.to_string(),
+            duration_secs: Some(duration_secs),
+            transcription: None,
+            created_at: now,
+        })
+    }
+
+    pub fn list_audios(&self, note_id: &str) -> Result<Vec<NoteAudio>, String> {
+        let conn = self.conn();
+        let mut stmt = conn
+            .prepare("SELECT * FROM note_audios WHERE note_id = ?1 ORDER BY created_at ASC")
+            .map_err(|e| format!("Prepare: {e}"))?;
+        let rows = stmt
+            .query_map([note_id], row_to_note_audio)
+            .map_err(|e| format!("Query: {e}"))?;
+        let mut audios = Vec::new();
+        for row in rows {
+            audios.push(row.map_err(|e| format!("Row: {e}"))?);
+        }
+        Ok(audios)
+    }
+
+    pub fn set_audio_transcription(
+        &self,
+        audio_id: &str,
+        text: &str,
+    ) -> Result<(), String> {
+        self.conn()
+            .execute(
+                "UPDATE note_audios SET transcription = ?1 WHERE id = ?2",
+                rusqlite::params![text, audio_id],
+            )
+            .map_err(|e| format!("Update transcription: {e}"))?;
+        Ok(())
+    }
+
+    pub fn has_any_audio(&self, note_id: &str) -> bool {
+        self.conn()
+            .query_row(
+                "SELECT EXISTS(SELECT 1 FROM note_audios WHERE note_id = ?1)",
+                [note_id],
+                |row| row.get::<_, bool>(0),
+            )
+            .unwrap_or(false)
+    }
+
+    pub fn delete_audio(&self, id: &str) -> Result<(), String> {
+        self.conn()
+            .execute("DELETE FROM note_audios WHERE id = ?1", [id])
+            .map_err(|e| format!("Delete audio: {e}"))?;
+        Ok(())
+    }
+
     pub fn all_audio_paths(&self) -> Result<Vec<String>, String> {
         let conn = self.conn();
         let mut stmt = conn
-            .prepare("SELECT audio_file_path FROM notes WHERE audio_file_path IS NOT NULL")
+            .prepare("SELECT file_path FROM note_audios")
             .map_err(|e| format!("Prepare: {e}"))?;
         let rows = stmt
             .query_map([], |row| row.get::<_, String>(0))
@@ -209,7 +264,19 @@ impl Database {
         }
     }
 
-    /// Kept for future use (tag analytics, suggestions, UI)
+    pub fn delete_all_audios(&self, audio_dir: &str) -> Result<usize, String> {
+        let paths = self.all_audio_paths().unwrap_or_default();
+        let dir = std::path::Path::new(audio_dir);
+        for p in &paths {
+            let _ = std::fs::remove_file(dir.join(p));
+        }
+        let count = paths.len();
+        self.conn()
+            .execute("DELETE FROM note_audios", [])
+            .map_err(|e| format!("Delete all audios: {e}"))?;
+        Ok(count)
+    }
+
     pub fn list_all_tags(&self) -> Vec<String> {
         let notes = self.list_notes().unwrap_or_default();
         let mut tags: Vec<String> =

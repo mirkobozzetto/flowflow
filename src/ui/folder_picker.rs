@@ -7,56 +7,41 @@ use std::sync::Arc;
 #[component]
 pub fn FolderPicker(selected: Signal<Option<String>>) -> Element {
     let db: Signal<Arc<Database>> = use_context();
-    let app: AppState = use_context();
-    let mut show = use_signal(|| false);
+    let mut app: AppState = use_context();
 
     let all_folders: Memo<Vec<Folder>> = use_memo(move || {
         let _v = (app.folders_version)();
         db().list_all_folders().unwrap_or_default()
     });
 
-    let display = match selected() {
-        Some(ref fid) => all_folders()
-            .iter()
-            .find(|f| f.id == *fid)
-            .map(|f| f.name.clone())
-            .unwrap_or_else(|| "Dossier".to_string()),
-        None => "Aucun dossier".to_string(),
-    };
-
     rsx! {
-        div { class: "mb-3",
+        div { class: "absolute left-0 right-0 top-0 z-20 bg-warm-white border-b border-stone-200 overflow-hidden shadow-md animate-[slideDown_150ms_ease-out]",
             button {
-                class: "inline-flex items-center px-3 py-1.5 rounded-full border border-stone-200 text-xs text-stone-600",
-                onclick: move |_| show.set(!show()),
-                "{display}"
+                class: if selected().is_none() {
+                    "w-full text-left px-3 py-2.5 text-sm text-ios-orange-dark font-medium bg-ios-orange-50 border-b border-stone-100"
+                } else {
+                    "w-full text-left px-3 py-2.5 text-sm text-stone-500 border-b border-stone-100 active:bg-stone-50 transition-colors duration-150"
+                },
+                onclick: move |_| {
+                    selected.set(None);
+                    app.show_folder_picker.set(false);
+                },
+                "Global"
             }
-            if show() {
-                div { class: "mt-1 border border-stone-200 rounded-xl bg-warm-white overflow-hidden",
-                    button {
-                        class: "w-full text-left px-3 py-2.5 text-sm text-stone-500 border-b border-stone-100",
-                        onclick: move |_| {
-                            selected.set(None);
-                            show.set(false);
-                        },
-                        "Aucun dossier"
-                    }
-                    for folder in all_folders() {
-                        {
-                            let fid = folder.id.clone();
-                            let fname = folder.name.clone();
-                            let is_current = selected() == Some(fid.clone());
-                            rsx! {
-                                button {
-                                    class: "w-full text-left px-3 py-2.5 text-sm",
-                                    class: if is_current { "text-ios-orange-dark font-medium bg-ios-orange-50" } else { "text-stone-900" },
-                                    onclick: move |_| {
-                                        selected.set(Some(fid.clone()));
-                                        show.set(false);
-                                    },
-                                    "{fname}"
-                                }
-                            }
+            for folder in all_folders() {
+                {
+                    let fid = folder.id.clone();
+                    let fname = folder.name.clone();
+                    let is_current = selected() == Some(fid.clone());
+                    rsx! {
+                        button {
+                            class: "w-full text-left px-3 py-2.5 text-sm active:bg-stone-50 transition-colors duration-150",
+                            class: if is_current { "text-ios-orange-dark font-medium bg-ios-orange-50" } else { "text-stone-900" },
+                            onclick: move |_| {
+                                selected.set(Some(fid.clone()));
+                                app.show_folder_picker.set(false);
+                            },
+                            "{fname}"
                         }
                     }
                 }

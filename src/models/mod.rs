@@ -6,4 +6,7 @@ pub mod note;
 pub use attachment::*;
 pub use conversation::*;
 pub use folder::*;
-pub use note::*;
+pub use note::{
+    generate_auto_title, is_auto_title, NewTextNote, Note, NoteAudio, NoteType,
+    UpdateNote,
+};

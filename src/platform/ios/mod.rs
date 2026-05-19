@@ -3,7 +3,10 @@ mod pdf;
 mod picker;
 mod player;
 
-use objc2_avf_audio::{AVAudioSession, AVAudioSessionCategoryPlayAndRecord};
+use objc2_avf_audio::{
+    AVAudioSession, AVAudioSessionCategoryOptions,
+    AVAudioSessionCategoryPlayAndRecord,
+};
 use std::path::PathBuf;
 
 pub use parsers::read_file_as_text;
@@ -55,7 +58,10 @@ pub fn configure_audio_session() {
             eprintln!("[ios] PlayAndRecord category unavailable");
             return;
         };
-        if let Err(e) = session.setCategory_error(category) {
+        let options = AVAudioSessionCategoryOptions::DefaultToSpeaker
+            | AVAudioSessionCategoryOptions::AllowBluetoothA2DP;
+        if let Err(e) = session.setCategory_withOptions_error(category, options)
+        {
             eprintln!("[ios] setCategory failed: {e}");
             return;
         }

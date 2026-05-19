@@ -1,6 +1,6 @@
 use crate::services::embed::delete_note_embeddings;
 use crate::ui::icons::*;
-use crate::ui::{AppState, View};
+use crate::ui::AppState;
 use dioxus::prelude::*;
 use std::sync::Arc;
 
@@ -112,20 +112,12 @@ pub fn NoteMenu(
                     move |_| {
                         app.show_note_menu.set(false);
                         deleted.set(true);
-                        if let Ok(Some(n)) = db().get_note(&note_id) {
-                            if let Some(ref f) = n.audio_file_path {
-                                let _ = std::fs::remove_file(crate::services::audio::resolve_audio_path(f));
-                            }
+                        for a in db().list_audios(&note_id).unwrap_or_default() {
+                            let _ = std::fs::remove_file(crate::services::audio::resolve_audio_path(&a.file_path));
                         }
                         let _ = db().delete_note(&note_id);
                         delete_note_embeddings(note_id.clone());
-                        app.notes_version.set((app.notes_version)() + 1);
-                        app.sliding_out.set(true);
-                        spawn(async move {
-                            futures_timer::Delay::new(std::time::Duration::from_millis(150)).await;
-                            app.sliding_out.set(false);
-                            app.view.set(View::NotesList);
-                        });
+                        app.current_note_id.set(None);
                     }
                 },
                 IconTrash { size: 18 }

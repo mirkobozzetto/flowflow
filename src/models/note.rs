@@ -99,3 +99,13 @@ pub struct UpdateNote {
     pub content: Option<String>,
     pub tags: Option<Vec<String>>,
 }
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct NoteAudio {
+    pub id: String,
+    pub note_id: String,
+    pub file_path: String,
+    pub duration_secs: Option<f64>,
+    pub transcription: Option<String>,
+    pub created_at: String,
+}

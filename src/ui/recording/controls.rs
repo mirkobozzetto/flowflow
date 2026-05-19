@@ -174,7 +174,8 @@ pub fn RecordingControls(
                                 if !transcribe_only {
                                     let filename = audio::audio_filename(&path.display().to_string());
                                     if let Some(ref nid) = (app.current_note_id)().filter(|id| !id.is_empty()) {
-                                        let _ = db().update_audio_metadata(nid, &filename, dur as f64);
+                                        let _ = db().add_audio(nid, &filename, dur as f64);
+                                        app.notes_version.set((app.notes_version)() + 1);
                                     }
                                     pending_audio.set(Some((filename, dur as f64)));
                                 }

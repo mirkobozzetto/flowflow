@@ -1,10 +1,13 @@
 use crate::db::Database;
+use crate::services::audio;
+use crate::ui::AppState;
 use dioxus::prelude::*;
 use std::sync::Arc;
 
 #[component]
 pub fn SettingsView() -> Element {
     let db: Signal<Arc<Database>> = use_context();
+    let mut app: AppState = use_context();
 
     let mut openai_key =
         use_signal(|| db().get_setting("openai_api_key").unwrap_or_default());
@@ -16,9 +19,12 @@ pub fn SettingsView() -> Element {
             .unwrap_or(8)
     });
     let mut saved = use_signal(|| false);
+    let mut confirm_cleanup = use_signal(|| false);
+    let mut cleanup_status: Signal<Option<String>> = use_signal(|| None);
+    let audio_count = db().all_audio_paths().map(|p| p.len()).unwrap_or(0);
 
     rsx! {
-        div { class: "space-y-6",
+        div { class: "space-y-6 pb-20",
             h2 { class: "text-lg font-semibold text-stone-900", "Clés API" }
             div { class: "space-y-4",
                 div {
@@ -49,7 +55,7 @@ pub fn SettingsView() -> Element {
                 }
             }
 
-            h2 { class: "text-lg font-semibold text-stone-900 pt-2", "RAG" }
+            h2 { class: "text-lg font-semibold text-stone-900 pt-2", "Recherche" }
             div {
                 div { class: "flex justify-between items-center mb-1",
                     label { class: "text-sm font-medium text-stone-700",
@@ -101,6 +107,63 @@ pub fn SettingsView() -> Element {
                 },
                 if saved() { "Enregistré ✓" } else { "Enregistrer" }
             }
+
+            div { class: "border-t border-stone-200 pt-4",
+                h2 { class: "text-lg font-semibold text-stone-900 mb-3", "Stockage" }
+                if let Some(ref status) = cleanup_status() {
+                    p { class: "text-xs text-ios-green text-center mb-2", "{status}" }
+                }
+                if audio_count > 0 {
+                    {
+                        let label = format!("Nettoyer les fichiers audio ({audio_count})");
+                        rsx! {
+                            button {
+                                class: if confirm_cleanup() {
+                                    "w-full py-2.5 rounded-xl text-sm font-medium bg-ios-red text-white"
+                                } else {
+                                    "w-full py-2.5 rounded-xl text-sm font-medium border border-stone-300 text-stone-600"
+                                },
+                                onclick: move |_| {
+                                    if confirm_cleanup() {
+                                        let dir = audio::output_dir();
+                                        match db().delete_all_audios(&dir) {
+                                            Ok(count) => {
+                                                cleanup_status.set(Some(
+                                                    format!("{count} fichiers audio supprimés"),
+                                                ));
+                                                app.notes_version
+                                                    .set((app.notes_version)() + 1);
+                                            }
+                                            Err(e) => {
+                                                cleanup_status
+                                                    .set(Some(format!("Erreur: {e}")));
+                                            }
+                                        }
+                                        confirm_cleanup.set(false);
+                                    } else {
+                                        confirm_cleanup.set(true);
+                                        spawn(async move {
+                                            tokio::time::sleep(
+                                                tokio::time::Duration::from_secs(3),
+                                            )
+                                            .await;
+                                            confirm_cleanup.set(false);
+                                        });
+                                    }
+                                },
+                                if confirm_cleanup() {
+                                    "Confirmer ? Les notes restent intactes."
+                                } else {
+                                    "{label}"
+                                }
+                            }
+                        }
+                    }
+                } else {
+                    p { class: "text-xs text-stone-400 text-center", "Aucun fichier audio" }
+                }
+            }
+
             p { class: "text-xs text-stone-400 text-center",
                 "Les clés sont stockées localement sur cet appareil."
             }
