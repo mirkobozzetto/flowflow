@@ -224,8 +224,6 @@ pub fn NoteDetail() -> Element {
                     title: if t.is_empty() { None } else { Some(t.clone()) },
                     content: c.clone(),
                     tags: tags(),
-                    audio_file_path: None,
-                    duration_secs: None,
                 };
                 match db.create_text_note(&new) {
                     Ok(created) => {
@@ -327,8 +325,6 @@ pub fn NoteDetail() -> Element {
                 title: if t.is_empty() { None } else { Some(t.clone()) },
                 content: c,
                 tags: tags(),
-                audio_file_path: None,
-                duration_secs: None,
             };
             if let Ok(created) = db().create_text_note(&new) {
                 if let Some(ref fid) = selected_folder() {
@@ -385,8 +381,6 @@ pub fn NoteDetail() -> Element {
                         },
                         content: c.clone(),
                         tags: tg.clone(),
-                        audio_file_path: None,
-                        duration_secs: None,
                     };
                     match db.create_text_note(&new) {
                         Ok(created) => {

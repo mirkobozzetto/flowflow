@@ -5,6 +5,7 @@ pub const MIGRATIONS: &[(i64, &str)] = &[
     (4, V4_SCHEMA),
     (5, V5_SCHEMA),
     (6, V6_SCHEMA),
+    (7, V7_SCHEMA),
 ];
 
 const V1_SCHEMA: &str = "
@@ -122,4 +123,9 @@ FROM notes WHERE audio_file_path IS NOT NULL;
 
 const V6_SCHEMA: &str = "
 ALTER TABLE note_audios ADD COLUMN transcription TEXT;
+";
+
+const V7_SCHEMA: &str = "
+ALTER TABLE notes DROP COLUMN audio_file_path;
+ALTER TABLE notes DROP COLUMN duration_secs;
 ";

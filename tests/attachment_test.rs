@@ -16,8 +16,6 @@ fn create_test_note(db: &Database, content: &str) -> String {
             title: Some("Test note".to_string()),
             content: content.to_string(),
             tags: vec![],
-            audio_file_path: None,
-            duration_secs: None,
         })
         .expect("create note");
     note.id
