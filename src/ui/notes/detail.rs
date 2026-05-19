@@ -396,7 +396,7 @@ pub fn NoteDetail() -> Element {
             }
         }
         div {
-            class: "relative overflow-y-auto pb-40",
+            class: "relative overflow-y-auto pb-40 px-4 pt-3",
             style: "height: calc(100% - var(--keyboard-inset, 0px));",
             if (app.show_folder_picker)() {
                 FolderPicker { selected: selected_folder }
