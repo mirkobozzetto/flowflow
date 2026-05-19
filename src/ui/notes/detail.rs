@@ -1,7 +1,7 @@
 use crate::db::Database;
 use crate::models::{
     generate_auto_title, is_auto_title, Attachment, NewAttachment, NewTextNote,
-    UpdateNote,
+    NoteAudio, UpdateNote,
 };
 use crate::services::audio::{self, RecordingState};
 use crate::services::embed::{embed_attachment, embed_note};
@@ -140,20 +140,19 @@ pub fn NoteDetail() -> Element {
     let mut import_requested = use_signal(|| false);
     let mut import_status: Signal<Option<String>> = use_signal(|| None);
     let pending_audio: Signal<Option<(String, f64)>> = use_signal(|| None);
-    let mut audio_state: Signal<Option<(String, f64)>> = use_signal(|| {
-        note.as_ref().and_then(|n| {
-            n.audio_file_path
-                .as_ref()
-                .map(|path| (path.clone(), n.duration_secs.unwrap_or(0.0)))
-        })
-    });
+    let mut audios_version = use_signal(|| 0u32);
 
-    use_effect(move || {
-        let pa = pending_audio();
-        if pa.is_some() {
-            audio_state.set(pa);
+    let audios: Vec<NoteAudio> = {
+        let id = local_note_id();
+        let _ = audios_version();
+        let _ = (app.notes_version)();
+        if id.is_empty() {
+            Vec::new()
+        } else {
+            db().list_audios(&id).unwrap_or_default()
         }
-    });
+    };
+    let mut audios_expanded = use_signal(|| false);
 
     let attachments_version = (app.attachments_version)();
     let attachments: Vec<Attachment> = {
@@ -204,13 +203,16 @@ pub fn NoteDetail() -> Element {
                     title: if t.is_empty() { None } else { Some(t.clone()) },
                     content: c.clone(),
                     tags: tags(),
-                    audio_file_path: pa.as_ref().map(|(p, _)| p.clone()),
-                    duration_secs: pa.as_ref().map(|(_, d)| *d),
+                    audio_file_path: None,
+                    duration_secs: None,
                 };
                 match db.create_text_note(&new) {
                     Ok(created) => {
                         if let Some(ref fid) = selected_folder() {
                             let _ = db.add_note_to_folder(&created.id, fid);
+                        }
+                        if let Some((p, d)) = pa {
+                            let _ = db.add_audio(&created.id, &p, d);
                         }
                         let ca = created.created_at.clone();
                         (Some(created.id), ca)
@@ -229,9 +231,6 @@ pub fn NoteDetail() -> Element {
                 }
                 if let Some(ref fid) = selected_folder() {
                     let _ = db.add_note_to_folder(&note_id, fid);
-                }
-                if let Some((p, d)) = pa {
-                    let _ = db.update_audio_metadata(&note_id, &p, d);
                 }
                 let ca = db
                     .get_note(&note_id)
@@ -397,7 +396,7 @@ pub fn NoteDetail() -> Element {
             }
         }
         div {
-            class: "relative overflow-y-auto pb-20",
+            class: "relative overflow-y-auto pb-40",
             style: "height: calc(100% - var(--keyboard-inset, 0px));",
             if (app.show_folder_picker)() {
                 FolderPicker { selected: selected_folder }
@@ -441,26 +440,53 @@ pub fn NoteDetail() -> Element {
                 value: "{content}",
                 oninput: move |evt| content.set(evt.value()),
             }
-            {
-                if let Some((ref audio_filename, dur)) = audio_state() {
-                    let resolved = audio::resolve_audio_path(audio_filename);
-                    let note_id_clone = note_id.clone();
+            if !audios.is_empty() {
+                {
+                    let audio_label = format!("Enregistrements ({})", audios.len());
                     rsx! {
-                        AudioPlayer {
-                            audio_path: resolved,
-                            duration_secs: Some(dur),
-                            on_delete: move |_| {
-                                if let Some((ref f, _)) = audio_state() {
-                                    let _ = std::fs::remove_file(audio::resolve_audio_path(f));
+                        div { class: "mt-3",
+                            button {
+                                class: "flex items-center gap-2 w-full py-2 text-left active:opacity-70 transition-opacity duration-150",
+                                onclick: move |_| audios_expanded.set(!audios_expanded()),
+                                span { class: "text-xs font-medium text-stone-500", "{audio_label}" }
+                                span {
+                                    class: if audios_expanded() {
+                                        "inline-block w-1.5 h-1.5 border-r-[1.5px] border-b-[1.5px] border-stone-400 transition-transform duration-150 -rotate-[135deg]"
+                                    } else {
+                                        "inline-block w-1.5 h-1.5 border-r-[1.5px] border-b-[1.5px] border-stone-400 transition-transform duration-150 rotate-45"
+                                    },
                                 }
-                                let _ = db().clear_audio_metadata(&note_id_clone);
-                                audio_state.set(None);
-                                app.notes_version.set((app.notes_version)() + 1);
-                            },
+                            }
+                            if audios_expanded() {
+                                div { class: "space-y-2 pt-1",
+                                    for audio in audios.iter() {
+                                        {
+                                            let audio_id = audio.id.clone();
+                                            let file_path = audio.file_path.clone();
+                                            let resolved = audio::resolve_audio_path(&file_path);
+                                            let date = format_relative_date(&audio.created_at);
+                                            rsx! {
+                                                div { class: "space-y-1",
+                                                    p { class: "text-[10px] text-stone-400 px-1", "{date}" }
+                                                    AudioPlayer {
+                                                        audio_path: resolved,
+                                                        duration_secs: audio.duration_secs,
+                                                        on_delete: move |_| {
+                                                            let fp = file_path.clone();
+                                                            let _ = std::fs::remove_file(audio::resolve_audio_path(&fp));
+                                                            let _ = db().delete_audio(&audio_id);
+                                                            audios_version.set(audios_version() + 1);
+                                                            app.notes_version.set((app.notes_version)() + 1);
+                                                        },
+                                                    }
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                            }
                         }
                     }
-                } else {
-                    rsx! {}
                 }
             }
             AttachmentSection { attachments, confirm_delete_att }
