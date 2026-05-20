@@ -1,4 +1,5 @@
 use crate::db::Database;
+use crate::ui::folder_picker::FolderPicker;
 use crate::ui::icons::*;
 use crate::ui::note_card::NoteCard;
 use crate::ui::AppState;
@@ -33,6 +34,9 @@ pub fn NotesList() -> Element {
     let has_query = !(app.search_query)().is_empty();
 
     rsx! {
+        if (app.show_folder_picker)() {
+            FolderPicker { selected: app.selected_folder_id }
+        }
         div { class: "mb-3",
             div { class: "relative",
                 div { class: "absolute left-3 top-1/2 -translate-y-1/2 text-stone-400",

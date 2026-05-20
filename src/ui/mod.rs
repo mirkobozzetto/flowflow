@@ -67,6 +67,7 @@ pub fn App() -> Element {
         sidebar_tab: Signal::new(SidebarTab::Notes),
         show_folder_picker: Signal::new(false),
         chat_scope_folder_id: Signal::new(None),
+        detail_folder_id: Signal::new(None),
         ai_consent: Signal::new(consent_value),
     });
 

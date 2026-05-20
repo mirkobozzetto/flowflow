@@ -20,22 +20,26 @@ pub fn TopBar() -> Element {
                 .ok()
                 .flatten()
                 .map(|f| f.name)
-                .unwrap_or_else(|| "Dossier".to_string()),
+                .unwrap_or_else(|| "Thème".to_string()),
             None => "Toutes mes notes".to_string(),
         },
-        View::NoteDetail { note_id } => db()
-            .folders_for_note(&note_id)
-            .ok()
-            .and_then(|f| f.into_iter().next().map(|f| f.name))
-            .unwrap_or_else(|| "Global".to_string()),
+        View::NoteDetail { .. } => match (app.detail_folder_id)() {
+            Some(ref fid) => db()
+                .get_folder(fid)
+                .ok()
+                .flatten()
+                .map(|f| f.name)
+                .unwrap_or_else(|| "Toutes les notes".to_string()),
+            None => "Toutes les notes".to_string(),
+        },
         View::Chat { .. } => match (app.chat_scope_folder_id)() {
             Some(ref fid) => db()
                 .get_folder(fid)
                 .ok()
                 .flatten()
                 .map(|f| f.name)
-                .unwrap_or_else(|| "Global".to_string()),
-            None => "Global".to_string(),
+                .unwrap_or_else(|| "Toutes les notes".to_string()),
+            None => "Toutes les notes".to_string(),
         },
         View::Settings => "Réglages".to_string(),
     };
@@ -46,6 +50,7 @@ pub fn TopBar() -> Element {
                 button {
                     class: "min-w-[44px] min-h-[44px] flex items-center justify-center text-stone-700",
                     onclick: move |_| {
+                        app.show_folder_picker.set(false);
                         app.sliding_out.set(true);
                         let target = (app.previous_view)()
                             .unwrap_or(View::NotesList);
@@ -62,13 +67,14 @@ pub fn TopBar() -> Element {
                 button {
                     class: "min-w-[44px] min-h-[44px] flex items-center justify-center text-stone-700",
                     onclick: move |_| {
+                        app.show_folder_picker.set(false);
                         app.sidebar_tab.set(SidebarTab::Notes);
                         app.sidebar_open.set(true);
                     },
                     IconList { size: 22 }
                 }
             }
-            if is_detail || is_chat {
+            if is_detail || is_chat || !is_inner {
                 button {
                     class: "flex-1 text-left flex items-center gap-1.5 active:opacity-70 transition-opacity duration-150",
                     onclick: move |_| {
@@ -91,6 +97,7 @@ pub fn TopBar() -> Element {
                 button {
                     class: "min-w-[44px] min-h-[44px] flex items-center justify-center text-stone-700",
                     onclick: move |_| {
+                        app.show_folder_picker.set(false);
                         let cur = (app.show_note_menu)();
                         app.show_note_menu.set(!cur);
                     },
@@ -100,6 +107,7 @@ pub fn TopBar() -> Element {
                 button {
                     class: "min-w-[44px] min-h-[44px] flex items-center justify-center text-stone-700",
                     onclick: move |_| {
+                        app.show_folder_picker.set(false);
                         let cur = (app.show_chat_menu)();
                         app.show_chat_menu.set(!cur);
                     },
@@ -109,6 +117,7 @@ pub fn TopBar() -> Element {
                 button {
                     class: "min-w-[44px] min-h-[44px] flex items-center justify-center text-ios-orange-dark",
                     onclick: move |_| {
+                        app.show_folder_picker.set(false);
                         app.sidebar_tab.set(SidebarTab::Chats);
                         app.sidebar_open.set(true);
                     },

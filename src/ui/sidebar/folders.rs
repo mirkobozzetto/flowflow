@@ -19,7 +19,7 @@ pub fn FolderSection() -> Element {
 
     rsx! {
         div { class: "flex items-center justify-between px-2 mb-2",
-            span { class: "text-xs font-medium text-stone-400 uppercase tracking-wide", "Dossiers" }
+            span { class: "text-xs font-medium text-stone-400 uppercase tracking-wide", "Thèmes" }
             button {
                 class: "w-9 h-9 flex items-center justify-center rounded-full text-stone-500",
                 onclick: move |_| creating.set(!creating()),
@@ -30,7 +30,7 @@ pub fn FolderSection() -> Element {
             div { class: "flex items-center gap-2 px-2 mb-2",
                 input {
                     class: "flex-1 text-sm border border-stone-200 rounded-lg px-2 py-1.5 outline-none",
-                    placeholder: "Nom du dossier",
+                    placeholder: "Nom du thème",
                     value: "{new_name}",
                     oninput: move |evt| new_name.set(evt.value()),
                     onkeypress: move |evt| {
@@ -67,7 +67,7 @@ pub fn FolderSection() -> Element {
             }
         }
         if folders().is_empty() && !creating() {
-            p { class: "text-xs text-stone-400 px-2 py-3", "Aucun dossier" }
+            p { class: "text-xs text-stone-400 px-2 py-3", "Aucun thème" }
         }
         for folder in folders() {
             FolderItem { folder: folder, depth: 0 }
@@ -233,7 +233,7 @@ fn FolderItem(folder: Folder, depth: u32) -> Element {
                 div { class: "flex items-center gap-2 px-2 py-1 ml-8",
                     input {
                         class: "flex-1 text-sm border border-stone-200 rounded-lg px-2 py-1.5 outline-none",
-                        placeholder: "Sous-dossier",
+                        placeholder: "Sous-thème",
                         value: "{sub_name}",
                         oninput: move |evt| sub_name.set(evt.value()),
                         onkeypress: move |evt| {
