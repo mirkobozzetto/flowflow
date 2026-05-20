@@ -1,6 +1,7 @@
 mod attachment_modal;
 mod chat;
 mod chat_input;
+mod consent;
 mod fab;
 pub(crate) mod folder_picker;
 pub mod icons;
@@ -23,6 +24,7 @@ use std::sync::{Arc, Mutex};
 
 use attachment_modal::AttachmentModal;
 use chat::ChatView;
+use consent::ConsentScreen;
 use fab::FloatingActionButton;
 use note_list::NotesList;
 use notes::NoteDetail;
@@ -44,6 +46,8 @@ pub fn App() -> Element {
             Signal::new(Arc::new(Mutex::new(AudioRecorder::new())))
         });
 
+    let consent_value = _db().get_setting("ai_consent").map(|v| v == "true");
+
     let app = use_context_provider(|| AppState {
         view: Signal::new(View::NotesList),
         sidebar_open: Signal::new(false),
@@ -63,6 +67,8 @@ pub fn App() -> Element {
         sidebar_tab: Signal::new(SidebarTab::Notes),
         show_folder_picker: Signal::new(false),
         chat_scope_folder_id: Signal::new(None),
+        detail_folder_id: Signal::new(None),
+        ai_consent: Signal::new(consent_value),
     });
 
     use_effect(|| {
@@ -125,67 +131,71 @@ pub fn App() -> Element {
     rsx! {
         document::Stylesheet { href: asset!("/assets/tailwind.css") }
 
-        div { class: "h-screen w-full overflow-hidden font-sans bg-stone-100",
-            SidebarOverlay {}
-            AttachmentModal {}
-            div { class: "flex flex-col h-screen",
-                TopBar {}
-                div { class: "flex-1 overflow-hidden relative",
-                    {
-                        let is_bg = !matches!((app.view)(), View::NotesList);
-                        let is_note = matches!((app.view)(), View::NoteDetail { .. });
-                        let sliding_back = (app.sliding_out)();
-                        let shifted = is_bg && !sliding_back;
-                        let shift_dir = if is_note { "30%" } else { "-30%" };
-                        rsx! {
+        if (app.ai_consent)() != Some(true) {
+            ConsentScreen {}
+        } else {
+            div { class: "h-screen w-full overflow-hidden font-sans bg-stone-100",
+                SidebarOverlay {}
+                AttachmentModal {}
+                div { class: "flex flex-col h-screen",
+                    TopBar {}
+                    div { class: "flex-1 overflow-hidden relative",
+                        {
+                            let is_bg = !matches!((app.view)(), View::NotesList);
+                            let is_note = matches!((app.view)(), View::NoteDetail { .. });
+                            let sliding_back = (app.sliding_out)();
+                            let shifted = is_bg && !sliding_back;
+                            let shift_dir = if is_note { "30%" } else { "-30%" };
+                            rsx! {
+                                div {
+                                    class: "absolute inset-0 overflow-y-auto px-4 py-3 pb-20",
+                                    class: if is_bg { "pointer-events-none" } else { "" },
+                                    style: if shifted {
+                                        format!("transform: translateX({shift_dir}); opacity: 0.5; transition: transform 0.15s ease, opacity 0.15s ease;")
+                                    } else {
+                                        "transform: translateX(0); opacity: 1; transition: transform 0.15s ease, opacity 0.15s ease;".to_string()
+                                    },
+                                    NotesList {}
+                                }
+                            }
+                        }
+                        if matches!((app.view)(), View::NoteDetail { .. }) {
                             div {
-                                class: "absolute inset-0 overflow-y-auto px-4 py-3 pb-20",
-                                class: if is_bg { "pointer-events-none" } else { "" },
-                                style: if shifted {
-                                    format!("transform: translateX({shift_dir}); opacity: 0.5; transition: transform 0.15s ease, opacity 0.15s ease;")
+                                class: "absolute inset-0 flex flex-col min-h-0 bg-stone-100",
+                                style: if (app.sliding_out)() {
+                                    "animation: slideOutToLeft 0.15s ease-in forwards;"
                                 } else {
-                                    "transform: translateX(0); opacity: 1; transition: transform 0.15s ease, opacity 0.15s ease;".to_string()
+                                    "animation: slideInFromLeft 0.15s ease-out;"
                                 },
-                                NotesList {}
+                                NoteDetail {}
+                            }
+                        }
+                        if matches!((app.view)(), View::Chat { .. }) {
+                            div {
+                                class: "absolute inset-0 flex flex-col min-h-0 bg-stone-100",
+                                style: if (app.sliding_out)() {
+                                    "animation: slideOutRight 0.15s ease-in forwards;"
+                                } else {
+                                    "animation: slideInRight 0.15s ease-out;"
+                                },
+                                ChatView {}
+                            }
+                        }
+                        if matches!((app.view)(), View::Settings) {
+                            div {
+                                class: "absolute inset-0 flex flex-col min-h-0 px-4 py-3 bg-stone-100",
+                                style: if (app.sliding_out)() {
+                                    "animation: slideOutRight 0.15s ease-in forwards;"
+                                } else {
+                                    "animation: slideInRight 0.15s ease-out;"
+                                },
+                                SettingsView {}
                             }
                         }
                     }
-                    if matches!((app.view)(), View::NoteDetail { .. }) {
-                        div {
-                            class: "absolute inset-0 flex flex-col min-h-0 bg-stone-100",
-                            style: if (app.sliding_out)() {
-                                "animation: slideOutToLeft 0.15s ease-in forwards;"
-                            } else {
-                                "animation: slideInFromLeft 0.15s ease-out;"
-                            },
-                            NoteDetail {}
-                        }
+                    if (app.view)() == View::NotesList {
+                        FloatingActionButton {}
                     }
-                    if matches!((app.view)(), View::Chat { .. }) {
-                        div {
-                            class: "absolute inset-0 flex flex-col min-h-0 bg-stone-100",
-                            style: if (app.sliding_out)() {
-                                "animation: slideOutRight 0.15s ease-in forwards;"
-                            } else {
-                                "animation: slideInRight 0.15s ease-out;"
-                            },
-                            ChatView {}
-                        }
-                    }
-                    if matches!((app.view)(), View::Settings) {
-                        div {
-                            class: "absolute inset-0 flex flex-col min-h-0 px-4 py-3 bg-stone-100",
-                            style: if (app.sliding_out)() {
-                                "animation: slideOutRight 0.15s ease-in forwards;"
-                            } else {
-                                "animation: slideInRight 0.15s ease-out;"
-                            },
-                            SettingsView {}
-                        }
-                    }
-                }
-                if (app.view)() == View::NotesList {
-                    FloatingActionButton {}
                 }
             }
         }

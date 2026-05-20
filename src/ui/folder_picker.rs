@@ -26,7 +26,7 @@ pub fn FolderPicker(selected: Signal<Option<String>>) -> Element {
                     selected.set(None);
                     app.show_folder_picker.set(false);
                 },
-                "Global"
+                "Toutes les notes"
             }
             for folder in all_folders() {
                 {

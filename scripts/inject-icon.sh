@@ -1,7 +1,7 @@
 #!/bin/bash
 set -e
 
-APP_PATH="target/dx/flowflow/debug/ios/Flowflow.app"
+APP_PATH="${APP_PATH:-target/dx/flowflow/debug/ios/Flowflow.app}"
 XCASSETS="AppIcon.xcassets"
 
 if [ ! -d "$APP_PATH" ]; then

@@ -74,8 +74,6 @@ impl Tool for CreateNote {
             title: args.title.clone(),
             content: args.content.clone(),
             tags: args.tags.unwrap_or_default(),
-            audio_file_path: None,
-            duration_secs: None,
         };
         let note = db
             .create_text_note(&new_note)

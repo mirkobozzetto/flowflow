@@ -36,4 +36,6 @@ pub struct AppState {
     pub sidebar_tab: Signal<SidebarTab>,
     pub show_folder_picker: Signal<bool>,
     pub chat_scope_folder_id: Signal<Option<String>>,
+    pub detail_folder_id: Signal<Option<String>>,
+    pub ai_consent: Signal<Option<bool>>,
 }

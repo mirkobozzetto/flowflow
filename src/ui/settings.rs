@@ -167,6 +167,24 @@ pub fn SettingsView() -> Element {
             p { class: "text-xs text-stone-400 text-center",
                 "Les clés sont stockées localement sur cet appareil."
             }
+
+            div { class: "border-t border-stone-200 pt-4",
+                h2 { class: "text-lg font-semibold text-stone-900 mb-3",
+                    "Services IA"
+                }
+                p { class: "text-xs text-stone-500 mb-3 leading-relaxed",
+                    "Soniox, OpenAI et Anthropic sont utilisés pour la transcription, "
+                    "la recherche sémantique et le chat."
+                }
+                button {
+                    class: "w-full py-2.5 rounded-xl text-sm font-medium border border-stone-300 text-stone-500",
+                    onclick: move |_| {
+                        let _ = db().set_setting("ai_consent", "revoked");
+                        app.ai_consent.set(None);
+                    },
+                    "Révoquer le consentement"
+                }
+            }
         }
     }
 }

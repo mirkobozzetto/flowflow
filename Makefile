@@ -1,4 +1,4 @@
-.PHONY: build format check dev ddev deploy desktop icon clean clean-all
+.PHONY: build format check dev ddev deploy desktop icon appstore clean
 
 build:
 	cargo build --features mobile
@@ -27,6 +27,39 @@ desktop:
 # Device logs: Console.app → select iPhone → filter "FlowFlow"
 logs:
 	open -a Console
+
+appstore:
+	@echo ">> Building release..."
+	set -a && . ./.env && IPHONEOS_DEPLOYMENT_TARGET=16.0 \
+	  dx build --platform ios --device --release
+	@echo ">> Patching Info.plist..."
+	plutil -replace ITSAppUsesNonExemptEncryption -bool false \
+	  target/dx/flowflow/release/ios/Flowflow.app/Info.plist
+	plutil -replace DTPlatformName -string iphoneos \
+	  target/dx/flowflow/release/ios/Flowflow.app/Info.plist
+	plutil -replace LSRequiresIPhoneOS -bool true \
+	  target/dx/flowflow/release/ios/Flowflow.app/Info.plist
+	plutil -replace MinimumOSVersion -string 16.0 \
+	  target/dx/flowflow/release/ios/Flowflow.app/Info.plist
+	plutil -replace CFBundleShortVersionString -string 1.0.0 \
+	  target/dx/flowflow/release/ios/Flowflow.app/Info.plist
+	plutil -replace CFBundleVersion -string 1 \
+	  target/dx/flowflow/release/ios/Flowflow.app/Info.plist
+	@echo ">> Injecting icon..."
+	APP_PATH=target/dx/flowflow/release/ios/Flowflow.app bash scripts/inject-icon.sh || true
+	@echo ">> Injecting PrivacyInfo.xcprivacy..."
+	cp ios/PrivacyInfo.xcprivacy target/dx/flowflow/release/ios/Flowflow.app/
+	@echo ">> Signing for distribution..."
+	codesign --force --sign "Apple Distribution" \
+	  --entitlements ios/entitlements.plist \
+	  target/dx/flowflow/release/ios/Flowflow.app
+	@echo ">> Packaging IPA..."
+	rm -rf /tmp/flowflow-ipa
+	mkdir -p /tmp/flowflow-ipa/Payload
+	cp -r target/dx/flowflow/release/ios/Flowflow.app /tmp/flowflow-ipa/Payload/
+	cd /tmp/flowflow-ipa && ditto -c -k --sequesterRsrc Payload FlowFlow.ipa
+	cp /tmp/flowflow-ipa/FlowFlow.ipa .
+	@echo ">> FlowFlow.ipa ready. Upload via Transporter.app."
 
 clean:
 	rm -rf target/dx target/ios-dev target/desktop-dev target/flycheck0 target/tmp

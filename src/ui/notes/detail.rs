@@ -121,13 +121,17 @@ pub fn NoteDetail() -> Element {
             .ok()
             .and_then(|f| f.first().map(|f| f.id.clone()))
     };
+    let folder_init = use_signal(|| {
+        app.detail_folder_id.set(initial_folder_id.clone());
+        true
+    });
+    let _ = folder_init();
 
     let initial_tags: Vec<String> =
         note.as_ref().map(|n| n.tags.clone()).unwrap_or_default();
 
     let mut title = use_signal(|| initial_title.clone());
     let mut content = use_signal(|| initial_content.clone());
-    let selected_folder = use_signal(|| initial_folder_id.clone());
     let tags: Signal<Vec<String>> = use_signal(|| initial_tags.clone());
     let tag_input = use_signal(String::new);
     let tagging = use_signal(|| false);
@@ -209,7 +213,7 @@ pub fn NoteDetail() -> Element {
             let title_changed = t != orig_title;
             let content_changed = c != orig_content;
             let tags_changed = tags() != orig_tags;
-            let folder_changed = selected_folder() != orig_folder;
+            let folder_changed = (app.detail_folder_id)() != orig_folder;
             let has_new_audio = pa.is_some();
             let changed = title_changed
                 || content_changed
@@ -224,12 +228,10 @@ pub fn NoteDetail() -> Element {
                     title: if t.is_empty() { None } else { Some(t.clone()) },
                     content: c.clone(),
                     tags: tags(),
-                    audio_file_path: None,
-                    duration_secs: None,
                 };
                 match db.create_text_note(&new) {
                     Ok(created) => {
-                        if let Some(ref fid) = selected_folder() {
+                        if let Some(ref fid) = (app.detail_folder_id)() {
                             let _ = db.add_note_to_folder(&created.id, fid);
                         }
                         if let Some((p, d)) = pa {
@@ -250,7 +252,7 @@ pub fn NoteDetail() -> Element {
                 for old in db.folders_for_note(&nid).unwrap_or_default() {
                     let _ = db.remove_note_from_folder(&nid, &old.id);
                 }
-                if let Some(ref fid) = selected_folder() {
+                if let Some(ref fid) = (app.detail_folder_id)() {
                     let _ = db.add_note_to_folder(&nid, fid);
                 }
                 let ca = db
@@ -327,11 +329,9 @@ pub fn NoteDetail() -> Element {
                 title: if t.is_empty() { None } else { Some(t.clone()) },
                 content: c,
                 tags: tags(),
-                audio_file_path: None,
-                duration_secs: None,
             };
             if let Ok(created) = db().create_text_note(&new) {
-                if let Some(ref fid) = selected_folder() {
+                if let Some(ref fid) = (app.detail_folder_id)() {
                     let _ = db().add_note_to_folder(&created.id, fid);
                 }
                 if let Some((filename, dur)) = pending_audio() {
@@ -355,7 +355,7 @@ pub fn NoteDetail() -> Element {
         let t = title();
         let c = content();
         let tg = tags();
-        let folder = selected_folder();
+        let folder = (app.detail_folder_id)();
         spawn(async move {
             import_status.set(Some("Importation en cours...".to_string()));
             let file = match import_file_content().await {
@@ -385,8 +385,6 @@ pub fn NoteDetail() -> Element {
                         },
                         content: c.clone(),
                         tags: tg.clone(),
-                        audio_file_path: None,
-                        duration_secs: None,
                     };
                     match db.create_text_note(&new) {
                         Ok(created) => {
@@ -458,7 +456,7 @@ pub fn NoteDetail() -> Element {
             class: "relative overflow-y-auto pb-40 px-4 pt-3",
             style: "height: calc(100% - var(--keyboard-inset, 0px));",
             if (app.show_folder_picker)() {
-                FolderPicker { selected: selected_folder }
+                FolderPicker { selected: app.detail_folder_id }
             }
             div { class: "pt-2 pb-3",
                 div { class: "inline-block relative",

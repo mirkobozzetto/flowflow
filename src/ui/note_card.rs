@@ -34,6 +34,7 @@ pub fn NoteCard(note: Note) -> Element {
         div {
             class: "bg-warm-white p-4 border border-stone-200 rounded-xl mb-2.5",
             onclick: move |_| {
+                app.show_folder_picker.set(false);
                 app.view.set(View::NoteDetail { note_id: note_id.clone() });
             },
             div { class: "flex justify-between items-center mb-2",
