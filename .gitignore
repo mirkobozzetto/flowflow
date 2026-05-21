@@ -11,3 +11,5 @@ assets/tailwind.css
 .hide/
 .gitnexus
 generated-images/
+src/ios/plugin/.build/
+src/ios/widget/.build/
