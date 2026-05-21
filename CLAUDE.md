@@ -221,13 +221,17 @@ RAG Chat Pipeline:
 ## Commands (use Makefile)
 
 ```bash
+make all      # build + sign widget + icon + install to device (full pipeline)
+make ddev     # dx serve --ios --device (hot reload, no widget signing)
+make dev      # dx serve --ios (simulator)
+make desktop  # dx serve --desktop (Mac window, real mic)
 make build    # cargo build --features mobile
 make format   # cargo fmt
 make check    # fmt check + clippy
-make dev      # dx serve --ios (simulator, IPHONEOS_DEPLOYMENT_TARGET=16.0)
-make ddev     # dx serve --ios --device (physical iPhone, WiFi OK)
-make desktop  # dx serve --desktop (Mac window, real mic)
+make deploy   # dx build device + icon injection
+make appstore # release build + distribution signing + IPA
 make logs     # open Console.app (select iPhone, filter "FlowFlow")
+make clean    # rm target/dx
 ```
 
 ## Environment Variables
@@ -293,7 +297,7 @@ xcrun devicectl manage pair --device <DEVICE_ID>
 <!-- gitnexus:start -->
 # GitNexus — Code Intelligence
 
-This project is indexed by GitNexus as **flowflow** (1523 symbols, 2631 relationships, 106 execution flows). Use the GitNexus MCP tools to understand code, assess impact, and navigate safely.
+This project is indexed by GitNexus as **flowflow** (1535 symbols, 2643 relationships, 106 execution flows). Use the GitNexus MCP tools to understand code, assess impact, and navigate safely.
 
 > If any GitNexus tool warns the index is stale, run `npx gitnexus analyze` in terminal first.
 

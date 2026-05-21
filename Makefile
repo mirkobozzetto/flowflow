@@ -1,6 +1,4 @@
-.PHONY: build format check dev ddev deploy desktop icon widget all appstore clean
-
-all: widget
+.PHONY: build format check dev ddev deploy desktop icon all appstore clean
 
 build:
 	cargo build --features mobile
@@ -25,7 +23,7 @@ ddev-build:
 deploy:
 	set -a && . ./.env && IPHONEOS_DEPLOYMENT_TARGET=16.0 dx build --platform ios --device true && bash scripts/inject-icon.sh
 
-widget:
+all:
 	set -a && . ./.env && IPHONEOS_DEPLOYMENT_TARGET=16.0 dx build --platform ios --device true
 	bash scripts/sign-widget.sh debug
 	bash scripts/inject-icon.sh || true
