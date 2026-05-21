@@ -1,150 +1,55 @@
-<p align="center">
-  <img src="docs/logo.png" alt="FlowFlow" width="160" />
-</p>
+# FlowFlow
 
-<h1 align="center">FlowFlow</h1>
+100% Rust mobile app for recording voice notes, transcribing, generating tags/titles via AI, organizing in folders, and chatting with notes via local RAG.
 
-<p align="center">
-  Voice notes app for mobile — 100% Rust, built with <a href="https://github.com/DioxusLabs/dioxus">Dioxus</a>.<br/>
-  Featured on <a href="https://dioxuslabs.com/awesome/">Awesome Dioxus</a>.
-</p>
+Built with Dioxus 0.7.9, targeting iOS (iPhone).
 
----
+## Features
 
-Most of my ideas come when I'm walking or between two tasks. And they vanish just as fast.
+- Voice recording with background audio support
+- Speech-to-text via Soniox REST API
+- AI-powered tags and titles (OpenAI / Anthropic)
+- Semantic search via LanceDB embeddings
+- RAG chat with agent tools (search, create, summarize)
+- Document import (TXT, MD, CSV, PDF, DOCX)
+- Dynamic Island Live Activity with recording timer
+- AVAudioSession interruption handling (auto-pause on calls)
+- Multi-provider LLM support (OpenAI + Anthropic via rig-core)
 
-FlowFlow is a voice notes app that captures what you say, transcribes it, and lets you **chat with your notes** later. You ask "what was that pricing idea?" and the right passages come up — with links to the original notes.
+## Commands
 
-No manual searching. No folders to dig through. Just talk, and find it later.
-
-## What it does
-
-- **Voice capture** — tap to record, real-time waveform visualization, pause/resume, auto-transcription via Soniox
-- **Audio playback** — play, pause, and delete voice recordings directly from any note
-- **RAG chat** — powered by [rig](https://github.com/0xPlaygrounds/rig), ask questions about your notes and get answers with tappable source references
-- **Hybrid search** — BM25 keyword + vector similarity + RRF fusion + LLM reranking for precise retrieval
-- **Temporal queries** — ask "what did I note yesterday?" with automatic French date detection (regex + LLM fallback)
-- **Folder-scoped chat** — chat searches only within the selected folder when one is active
-- **Agent tools** — the chat agent can search notes by meaning, create new notes, or summarize entire folders autonomously
-- **AI auto-title** — LLM generates a 1-3 word title while you write, with pulse animation
-- **Auto-tagging** — LLM generates single-word tags per note, or add your own
-- **Document import** — PDF (with native OCR for scanned documents), DOCX, TXT, CSV via native iOS picker
-- **Multi-provider** — OpenAI or Anthropic as LLM backend, switchable in settings
-- **Filler removal** — auto-strips hesitations (euh, um, hmm) from transcriptions so your notes read clean
-- **Local-first** — SQLite for metadata, LanceDB for semantic search, your data stays on device
+```bash
+make all      # build + sign widget + icon + install to device (full pipeline)
+make ddev     # dx serve --ios --device (hot reload, no widget signing)
+make dev      # dx serve --ios (simulator)
+make desktop  # dx serve --desktop (Mac window, real mic)
+make build    # cargo build --features mobile
+make format   # cargo fmt
+make check    # fmt check + clippy
+make deploy   # dx build device + icon injection
+make appstore # release build + distribution signing + IPA
+make logs     # open Console.app (select iPhone, filter "FlowFlow")
+make clean    # rm target/dx
+```
 
 ## Stack
 
-100% Rust. Zero JavaScript.
-
-The UI runs on [Dioxus](https://github.com/DioxusLabs/dioxus), a React-like framework for Rust that renders natively on iOS through WKWebView. Styling is handled by [Tailwind CSS V4](https://tailwindcss.com) — Dioxus auto-detects and compiles it, so every class just works without a separate build step.
-
-The RAG pipeline is built on [rig](https://github.com/0xPlaygrounds/rig), an LLM orchestration framework for Rust. It handles agent construction, tool calling, and provider dispatch (OpenAI and Anthropic) in a unified API. The agent gets custom tools — search notes, create notes, summarize folders — and can chain up to 4 tool calls per question before answering.
-
-Embeddings go through OpenAI's text-embedding-3-small and land in [LanceDB](https://lancedb.com), a local vector database that runs entirely on device. Cosine similarity search over chunked notes and documents, no server needed.
-
-Document import uses Apple's native PDFKit on iOS — text extraction with automatic OCR fallback for scanned documents. DOCX parsing is handled directly via zip + quick-xml, no external dependencies.
-
-Everything async runs on [tokio](https://tokio.rs) — audio recording, API calls, embedding jobs, transcription polling. The iOS audio pipeline uses cpal for CoreAudio capture and hound for WAV encoding.
-
-|               |                                                                                                |
-| ------------- | ---------------------------------------------------------------------------------------------- |
-| UI            | [Dioxus 0.7](https://github.com/DioxusLabs/dioxus) (iOS, desktop, web)                         |
-| Styling       | [Tailwind CSS V4](https://tailwindcss.com)                                                     |
-| LLM           | [rig-core 0.36](https://github.com/0xPlaygrounds/rig) (OpenAI + Anthropic)                     |
-| Embeddings    | OpenAI text-embedding-3-small (1536 dims)                                                      |
-| Vector DB     | [LanceDB 0.27.2](https://lancedb.com) (local, cosine)                                          |
-| Async         | [tokio](https://tokio.rs)                                                                      |
-| Database      | SQLite ([rusqlite](https://github.com/rusqlite/rusqlite), bundled, WAL mode)                   |
-| Audio         | [cpal](https://github.com/RustAudio/cpal) + [hound](https://github.com/ruuda/hound)            |
-| Transcription | [Soniox](https://soniox.com) REST API                                                          |
-| PDF           | Apple PDFKit (iOS, native OCR) / [pdf-extract](https://crates.io/crates/pdf-extract) (desktop) |
-| DOCX          | [quick-xml](https://crates.io/crates/quick-xml) + [zip](https://crates.io/crates/zip)          |
-| Icons         | [Phosphor](https://phosphoricons.com) (MIT)                                                    |
-
-## How it works
-
-```
-Talk → Record → Transcribe → Clean fillers → Auto-embed → Store → AI title (1-3 words)
-
-Later: Ask → Embed query → Hybrid search (BM25 + vector + RRF)
-     → LLM rerank → Temporal boost → Tag-enriched context → Agent with tools → Answer with sources
-```
+- Rust 1.94.1, Dioxus 0.7.9, Tailwind CSS V4
+- cpal 0.17 (audio), hound 3.5 (WAV)
+- rig-core 0.36 (LLM, OpenAI + Anthropic)
+- LanceDB 0.27.2 (vector search)
+- rusqlite 0.34 (SQLite, bundled)
+- ActivityKit (Dynamic Island via Swift FFI)
+- iOS 16.0+, aarch64-apple-ios
 
 ## Setup
 
 ```bash
-rustup target add aarch64-apple-ios aarch64-apple-ios-sim
-cargo install dioxus-cli
-cp .env.example .env   # add your API keys (or set them in-app)
+cp .env.example .env
+# Fill in: SONIOX_API_KEY, OPENAI_API_KEY, ANTHROPIC_API_KEY
+make all
 ```
-
-```bash
-make dev      # iOS simulator
-make ddev     # physical iPhone (USB or Wi-Fi)
-make desktop  # macOS desktop
-make check    # fmt + clippy
-```
-
-API keys can be set in-app via Settings (stored in SQLite, no recompile). OpenAI is always required for embeddings. Anthropic is optional.
-
-## iOS Device Provisioning
-
-Running on a physical iPhone requires a valid provisioning profile. Apple enforces code signing for all device builds.
-
-**Free Apple account**: profiles expire after 7 days. **Paid Apple Developer Program** (€99/year): profiles last 1 year, plus App Store and TestFlight access.
-
-Generate or renew a provisioning profile from the terminal (no Xcode GUI needed):
-
-```bash
-# 1. Create a minimal throwaway project
-mkdir -p /tmp/ffprov/flowflow.xcodeproj /tmp/ffprov/flowflow
-cat > /tmp/ffprov/flowflow/flowflowApp.swift << 'EOF'
-import SwiftUI
-@main struct flowflowApp: App { var body: some Scene { WindowGroup { Text("ok") } } }
-EOF
-
-# 2. Get your team ID (shown in parentheses)
-security find-identity -v -p codesigning | grep "Apple Development"
-
-# 3. Get your device UDID
-xcrun xctrace list devices | grep iPhone
-
-# 4. Build to device — this generates the provisioning profile
-xcodebuild -project /tmp/ffprov/flowflow.xcodeproj \
-  -scheme flowflow \
-  -destination "id=YOUR_DEVICE_UDID" \
-  -allowProvisioningUpdates \
-  -allowProvisioningDeviceRegistration \
-  CODE_SIGN_STYLE=Automatic \
-  DEVELOPMENT_TEAM=YOUR_TEAM_ID \
-  GENERATE_INFOPLIST_FILE=YES
-
-# 5. Verify the profile was created
-ls ~/Library/Developer/Xcode/UserData/Provisioning\ Profiles/
-```
-
-The `project.pbxproj` file for step 1 is included at `flowflow/flowflow.xcodeproj/project.pbxproj`.
-
-**On your iPhone** (first time only): Settings → General → VPN & Device Management → tap your developer certificate → Trust.
-
-After provisioning, `make ddev` will work.
-
-## Tests
-
-```bash
-cargo test
-cargo test -- --ignored
-```
-
-## Status
-
-Actively developed. The codebase evolves constantly — new features, better architecture, and deeper iOS integration land regularly.
-
-## Contributing
-
-See [CONTRIBUTING.md](CONTRIBUTING.md).
 
 ## License
 
-Copyright 2026 Mirko Bozzetto — [EUPL v1.2](LICENSE)
+EUPL 1.2
