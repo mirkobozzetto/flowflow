@@ -102,6 +102,55 @@ pub fn RecordingControls(
         }
     });
 
+    use_effect(move || {
+        let state = (app.recording_state)();
+        if state == RecordingState::Recording || state == RecordingState::Paused
+        {
+            let rec = recorder();
+            spawn(async move {
+                loop {
+                    let current = (app.recording_state)();
+                    if current != RecordingState::Recording
+                        && current != RecordingState::Paused
+                    {
+                        break;
+                    }
+                    let event = rec.lock().unwrap().poll_interruption();
+                    if let Some(event) = event {
+                        use crate::services::audio::InterruptionEvent;
+                        match event {
+                            InterruptionEvent::Began => {
+                                rec.lock().unwrap().on_interruption_began();
+                                app.recording_state.set(RecordingState::Paused);
+                                app.audio_levels.set(vec![0.0; NUM_BARS]);
+                            }
+                            InterruptionEvent::Ended { should_resume } => {
+                                let mut r = rec.lock().unwrap();
+                                match r.on_interruption_ended(should_resume) {
+                                    Ok(()) if should_resume => {
+                                        drop(r);
+                                        app.recording_state
+                                            .set(RecordingState::Recording);
+                                    }
+                                    Err(e) => {
+                                        drop(r);
+                                        app.recording_state
+                                            .set(RecordingState::Error(e));
+                                    }
+                                    _ => {}
+                                }
+                            }
+                        }
+                    }
+                    futures_timer::Delay::new(
+                        std::time::Duration::from_millis(200),
+                    )
+                    .await;
+                }
+            });
+        }
+    });
+
     let recording_state = (app.recording_state)();
     let is_recording = recording_state == RecordingState::Recording;
     let is_paused = recording_state == RecordingState::Paused;

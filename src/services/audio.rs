@@ -13,11 +13,18 @@ pub enum RecordingState {
     Error(String),
 }
 
+#[derive(Clone, Debug)]
+pub enum InterruptionEvent {
+    Began,
+    Ended { should_resume: bool },
+}
+
 pub struct AudioRecorder {
     samples: Arc<Mutex<Vec<f32>>>,
     stream: Option<cpal::Stream>,
     sample_rate: u32,
     channels: u16,
+    interruption_rx: Option<std::sync::mpsc::Receiver<InterruptionEvent>>,
 }
 
 impl Default for AudioRecorder {
@@ -33,6 +40,7 @@ impl AudioRecorder {
             stream: None,
             sample_rate: 44100,
             channels: 1,
+            interruption_rx: None,
         }
     }
 
@@ -83,10 +91,45 @@ impl AudioRecorder {
         Ok(())
     }
 
+    pub fn setup_interruption_channel(
+        &mut self,
+    ) -> std::sync::mpsc::Sender<InterruptionEvent> {
+        let (tx, rx) = std::sync::mpsc::channel();
+        self.interruption_rx = Some(rx);
+        tx
+    }
+
+    pub fn poll_interruption(&self) -> Option<InterruptionEvent> {
+        self.interruption_rx.as_ref()?.try_recv().ok()
+    }
+
+    pub fn on_interruption_began(&mut self) {
+        eprintln!("[audio] interruption began");
+        self.stream.take();
+    }
+
+    pub fn on_interruption_ended(
+        &mut self,
+        should_resume: bool,
+    ) -> Result<(), String> {
+        eprintln!("[audio] interruption ended, should_resume={should_resume}");
+        if should_resume {
+            self.build_stream()?;
+        }
+        Ok(())
+    }
+
     pub fn start(&mut self) -> Result<(), String> {
         eprintln!("[audio] start recording");
         self.samples.lock().unwrap().clear();
         self.build_stream()?;
+        #[cfg(target_os = "ios")]
+        {
+            let tx = self.setup_interruption_channel();
+            crate::platform::ios::set_interruption_sender(tx);
+            crate::platform::ios::observe_interruptions();
+            crate::platform::ios::live_activity::start();
+        }
         eprintln!("[audio] recording started");
         Ok(())
     }
@@ -94,11 +137,15 @@ impl AudioRecorder {
     pub fn pause(&mut self) {
         eprintln!("[audio] pause recording");
         self.stream.take();
+        #[cfg(target_os = "ios")]
+        crate::platform::ios::live_activity::update(true);
     }
 
     pub fn resume(&mut self) -> Result<(), String> {
         eprintln!("[audio] resume recording");
         self.build_stream()?;
+        #[cfg(target_os = "ios")]
+        crate::platform::ios::live_activity::update(false);
         eprintln!("[audio] recording resumed");
         Ok(())
     }
@@ -107,11 +154,15 @@ impl AudioRecorder {
         eprintln!("[audio] cancel recording");
         self.stream.take();
         self.samples.lock().unwrap().clear();
+        #[cfg(target_os = "ios")]
+        crate::platform::ios::live_activity::end();
     }
 
     pub fn stop(&mut self, output_dir: &str) -> Result<PathBuf, String> {
         eprintln!("[audio] stop recording");
         self.stream.take();
+        #[cfg(target_os = "ios")]
+        crate::platform::ios::live_activity::end();
 
         let samples = self.samples.lock().unwrap();
         if samples.is_empty() {

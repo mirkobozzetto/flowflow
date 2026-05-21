@@ -1,3 +1,4 @@
+pub mod live_activity;
 mod parsers;
 mod pdf;
 mod picker;
@@ -8,6 +9,85 @@ use objc2_avf_audio::{
     AVAudioSessionCategoryPlayAndRecord,
 };
 use std::path::PathBuf;
+use std::sync::{mpsc::Sender, Mutex, Once};
+
+static INTERRUPTION_TX: Mutex<
+    Option<Sender<crate::services::audio::InterruptionEvent>>,
+> = Mutex::new(None);
+static OBSERVER_INIT: Once = Once::new();
+
+pub fn set_interruption_sender(
+    tx: Sender<crate::services::audio::InterruptionEvent>,
+) {
+    *INTERRUPTION_TX.lock().unwrap() = Some(tx);
+}
+
+pub fn observe_interruptions() {
+    OBSERVER_INIT.call_once(|| unsafe {
+        let name = objc2_foundation::NSString::from_str(
+            "AVAudioSessionInterruptionNotification",
+        );
+        let block = block2::RcBlock::new(
+            |notification: std::ptr::NonNull<
+                objc2_foundation::NSNotification,
+            >| {
+                unsafe {
+                    use crate::services::audio::InterruptionEvent;
+                    let n = notification.as_ptr();
+                    let type_key = objc2_foundation::NSString::from_str(
+                        "AVAudioSessionInterruptionTypeKey",
+                    );
+                    let user_info: *const objc2::runtime::AnyObject =
+                        objc2::msg_send![&*n, userInfo];
+                    if user_info.is_null() {
+                        return;
+                    }
+                    let type_obj: *const objc2::runtime::AnyObject =
+                        objc2::msg_send![&*user_info, objectForKey: &*type_key];
+                    if type_obj.is_null() {
+                        return;
+                    }
+                    let type_val: usize =
+                        objc2::msg_send![&*type_obj, unsignedIntegerValue];
+                    let event = if type_val == 1 {
+                        InterruptionEvent::Began
+                    } else {
+                        let option_key =
+                            objc2_foundation::NSString::from_str(
+                                "AVAudioSessionInterruptionOptionKey",
+                            );
+                        let opt_obj: *const objc2::runtime::AnyObject =
+                            objc2::msg_send![&*user_info, objectForKey: &*option_key];
+                        let should_resume = if opt_obj.is_null() {
+                            false
+                        } else {
+                            let opts: usize = objc2::msg_send![
+                                &*opt_obj,
+                                unsignedIntegerValue
+                            ];
+                            opts & 1 != 0
+                        };
+                        InterruptionEvent::Ended { should_resume }
+                    };
+                    if let Some(tx) =
+                        INTERRUPTION_TX.lock().unwrap().as_ref()
+                    {
+                        let _ = tx.send(event);
+                    }
+                }
+            },
+        );
+        let center =
+            objc2_foundation::NSNotificationCenter::defaultCenter();
+        center.addObserverForName_object_queue_usingBlock(
+            Some(&name),
+            None,
+            None,
+            &block,
+        );
+        eprintln!("[ios] interruption observer registered");
+    });
+}
 
 pub use parsers::read_file_as_text;
 pub use pdf::extract as read_pdf_text;
@@ -59,7 +139,8 @@ pub fn configure_audio_session() {
             return;
         };
         let options = AVAudioSessionCategoryOptions::DefaultToSpeaker
-            | AVAudioSessionCategoryOptions::AllowBluetoothA2DP;
+            | AVAudioSessionCategoryOptions::AllowBluetoothA2DP
+            | AVAudioSessionCategoryOptions::MixWithOthers;
         if let Err(e) = session.setCategory_withOptions_error(category, options)
         {
             eprintln!("[ios] setCategory failed: {e}");
