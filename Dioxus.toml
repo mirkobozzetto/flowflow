@@ -5,6 +5,9 @@ name = "FlowFlow"
 identifier = "com.mirkobozzetto.flowflow"
 publisher = "Mirko Bozzetto"
 
+[ios]
+background_modes = ["audio"]
+
 [ios.plist]
 NSMicrophoneUsageDescription = "FlowFlow needs microphone access to record voice notes"
 UIFileSharingEnabled = true

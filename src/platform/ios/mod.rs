@@ -59,7 +59,8 @@ pub fn configure_audio_session() {
             return;
         };
         let options = AVAudioSessionCategoryOptions::DefaultToSpeaker
-            | AVAudioSessionCategoryOptions::AllowBluetoothA2DP;
+            | AVAudioSessionCategoryOptions::AllowBluetoothA2DP
+            | AVAudioSessionCategoryOptions::MixWithOthers;
         if let Err(e) = session.setCategory_withOptions_error(category, options)
         {
             eprintln!("[ios] setCategory failed: {e}");
