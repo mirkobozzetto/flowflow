@@ -1,0 +1,16 @@
+---
+path:            '/Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/lib/swift/iphoneos/prebuilt-modules/26.4/_Builtin_float.swiftmodule/arm64e-apple-ios.swiftmodule'
+dependencies:
+  - mtime:           1775723864000000000
+    path:            '/Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/lib/swift/iphoneos/prebuilt-modules/26.4/_Builtin_float.swiftmodule/arm64e-apple-ios.swiftmodule'
+    size:            23696
+  - mtime:           1772602152000000000
+    path:            'usr/lib/swift/Swift.swiftmodule/arm64e-apple-ios.swiftinterface'
+    size:            2193074
+    sdk_relative:    true
+  - mtime:           1772602527000000000
+    path:            'usr/lib/swift/_Builtin_float.swiftmodule/arm64e-apple-ios.swiftinterface'
+    size:            4317
+    sdk_relative:    true
+version:         1
+...

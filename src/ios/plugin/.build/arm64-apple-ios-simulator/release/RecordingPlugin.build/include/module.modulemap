@@ -1,0 +1,3 @@
+module RecordingPlugin {
+    header "/Users/mirkobozzetto/code/flowflow/src/ios/plugin/.build/arm64-apple-ios-simulator/release/RecordingPlugin.build/include/RecordingPlugin-Swift.h"
+}

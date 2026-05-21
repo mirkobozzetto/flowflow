@@ -6,10 +6,19 @@ identifier = "com.mirkobozzetto.flowflow"
 publisher = "Mirko Bozzetto"
 
 [ios]
+deployment_target = "16.0"
 background_modes = ["audio"]
 
 [ios.plist]
 NSMicrophoneUsageDescription = "FlowFlow needs microphone access to record voice notes"
+NSSupportsLiveActivities = true
+
+[[ios.widget_extensions]]
+source = "src/ios/widget"
+display_name = "FlowFlow Recording"
+bundle_id_suffix = "recording-widget"
+deployment_target = "16.2"
+module_name = "RecordingPlugin"
 UIFileSharingEnabled = true
 LSSupportsOpeningDocumentsInPlace = true
 ITSAppUsesNonExemptEncryption = false

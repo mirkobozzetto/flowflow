@@ -128,6 +128,7 @@ impl AudioRecorder {
             let tx = self.setup_interruption_channel();
             crate::platform::ios::set_interruption_sender(tx);
             crate::platform::ios::observe_interruptions();
+            crate::platform::ios::live_activity::start();
         }
         eprintln!("[audio] recording started");
         Ok(())
@@ -136,11 +137,15 @@ impl AudioRecorder {
     pub fn pause(&mut self) {
         eprintln!("[audio] pause recording");
         self.stream.take();
+        #[cfg(target_os = "ios")]
+        crate::platform::ios::live_activity::update(true);
     }
 
     pub fn resume(&mut self) -> Result<(), String> {
         eprintln!("[audio] resume recording");
         self.build_stream()?;
+        #[cfg(target_os = "ios")]
+        crate::platform::ios::live_activity::update(false);
         eprintln!("[audio] recording resumed");
         Ok(())
     }
@@ -149,11 +154,15 @@ impl AudioRecorder {
         eprintln!("[audio] cancel recording");
         self.stream.take();
         self.samples.lock().unwrap().clear();
+        #[cfg(target_os = "ios")]
+        crate::platform::ios::live_activity::end();
     }
 
     pub fn stop(&mut self, output_dir: &str) -> Result<PathBuf, String> {
         eprintln!("[audio] stop recording");
         self.stream.take();
+        #[cfg(target_os = "ios")]
+        crate::platform::ios::live_activity::end();
 
         let samples = self.samples.lock().unwrap();
         if samples.is_empty() {

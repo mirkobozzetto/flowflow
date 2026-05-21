@@ -1,3 +1,4 @@
+pub mod live_activity;
 mod parsers;
 mod pdf;
 mod picker;

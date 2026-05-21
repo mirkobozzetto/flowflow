@@ -1,0 +1,47 @@
+client:
+  name: basic
+  file-system: device-agnostic
+tools: {}
+targets:
+  "PackageStructure": ["<PackageStructure>"]
+  "RecordingWidget-arm64-apple-macosx-debug.module": ["<RecordingWidget-arm64-apple-macosx-debug.module>"]
+  "main": ["<RecordingWidget-arm64-apple-macosx-debug.module>"]
+  "test": ["<RecordingWidget-arm64-apple-macosx-debug.module>"]
+default: "main"
+nodes:
+  "/Users/mirkobozzetto/code/flowflow/src/ios/widget/Sources/":
+    is-directory-structure: true
+    content-exclusion-patterns: [".git",".build"]
+commands:
+  "/Users/mirkobozzetto/code/flowflow/src/ios/widget/.build/index-build/arm64-apple-macosx/debug/RecordingWidget.build/sources":
+    tool: write-auxiliary-file
+    inputs: ["<sources-file-list>","/Users/mirkobozzetto/code/flowflow/src/ios/widget/Sources/RecordingAttributes.swift"]
+    outputs: ["/Users/mirkobozzetto/code/flowflow/src/ios/widget/.build/index-build/arm64-apple-macosx/debug/RecordingWidget.build/sources"]
+    description: "Write auxiliary file /Users/mirkobozzetto/code/flowflow/src/ios/widget/.build/index-build/arm64-apple-macosx/debug/RecordingWidget.build/sources"
+
+  "/Users/mirkobozzetto/code/flowflow/src/ios/widget/.build/index-build/arm64-apple-macosx/debug/swift-version--58304C5D6DBC2206.txt":
+    tool: write-auxiliary-file
+    inputs: ["<swift-get-version>","/Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/swiftc"]
+    outputs: ["/Users/mirkobozzetto/code/flowflow/src/ios/widget/.build/index-build/arm64-apple-macosx/debug/swift-version--58304C5D6DBC2206.txt"]
+    always-out-of-date: "true"
+    description: "Write auxiliary file /Users/mirkobozzetto/code/flowflow/src/ios/widget/.build/index-build/arm64-apple-macosx/debug/swift-version--58304C5D6DBC2206.txt"
+
+  "<RecordingWidget-arm64-apple-macosx-debug.module>":
+    tool: phony
+    inputs: ["/Users/mirkobozzetto/code/flowflow/src/ios/widget/.build/index-build/arm64-apple-macosx/debug/Modules/RecordingWidget.swiftmodule"]
+    outputs: ["<RecordingWidget-arm64-apple-macosx-debug.module>"]
+
+  "C.RecordingWidget-arm64-apple-macosx-debug.module":
+    tool: shell
+    inputs: ["/Users/mirkobozzetto/code/flowflow/src/ios/widget/Sources/RecordingAttributes.swift","/Users/mirkobozzetto/code/flowflow/src/ios/widget/.build/index-build/arm64-apple-macosx/debug/swift-version--58304C5D6DBC2206.txt","/Users/mirkobozzetto/code/flowflow/src/ios/widget/.build/index-build/arm64-apple-macosx/debug/RecordingWidget.build/sources"]
+    outputs: ["/Users/mirkobozzetto/code/flowflow/src/ios/widget/.build/index-build/arm64-apple-macosx/debug/Modules/RecordingWidget.swiftmodule"]
+    description: "Compiling Swift Module 'RecordingWidget' (1 sources)"
+    args: ["/Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/swiftc","-module-name","RecordingWidget","-emit-dependencies","-emit-module","-emit-module-path","/Users/mirkobozzetto/code/flowflow/src/ios/widget/.build/index-build/arm64-apple-macosx/debug/Modules/RecordingWidget.swiftmodule","-output-file-map","/Users/mirkobozzetto/code/flowflow/src/ios/widget/.build/index-build/arm64-apple-macosx/debug/RecordingWidget.build/output-file-map.json","-parse-as-library","-incremental","@/Users/mirkobozzetto/code/flowflow/src/ios/widget/.build/index-build/arm64-apple-macosx/debug/RecordingWidget.build/sources","-I","/Users/mirkobozzetto/code/flowflow/src/ios/widget/.build/index-build/arm64-apple-macosx/debug/Modules","-target","arm64-apple-macosx10.13","-incremental","-enable-batch-mode","-serialize-diagnostics","-Onone","-enable-testing","-j15","-DSWIFT_PACKAGE","-DDEBUG","-DSWIFT_MODULE_RESOURCE_BUNDLE_UNAVAILABLE","-module-cache-path","/Users/mirkobozzetto/code/flowflow/src/ios/widget/.build/index-build/arm64-apple-macosx/debug/ModuleCache","-parseable-output","-parse-as-library","-emit-objc-header","-emit-objc-header-path","/Users/mirkobozzetto/code/flowflow/src/ios/widget/.build/index-build/arm64-apple-macosx/debug/RecordingWidget.build/include/RecordingWidget-Swift.h","-swift-version","5","-Xfrontend","-experimental-lazy-typecheck","-Xfrontend","-experimental-skip-all-function-bodies","-Xfrontend","-experimental-allow-module-with-compiler-errors","-Xfrontend","-empty-abi-descriptor","-plugin-path","/Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/lib/swift/host/plugins/testing","-sdk","/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX26.4.sdk","-F","/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/Library/Frameworks","-I","/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/usr/lib","-L","/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/usr/lib","-g","-Xcc","-isysroot","-Xcc","/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX26.4.sdk","-Xcc","-F","-Xcc","/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/Library/Frameworks","-Xcc","-fPIC","-Xcc","-g","-package-name","widget"]
+
+  "PackageStructure":
+    tool: package-structure-tool
+    inputs: ["/Users/mirkobozzetto/code/flowflow/src/ios/widget/Sources/","/Users/mirkobozzetto/code/flowflow/src/ios/widget/Package.swift","/Users/mirkobozzetto/code/flowflow/src/ios/widget/Package.resolved"]
+    outputs: ["<PackageStructure>"]
+    description: "Planning build"
+    allow-missing-inputs: true
+

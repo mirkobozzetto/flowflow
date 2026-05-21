@@ -1,0 +1,19 @@
+{
+  "": {
+    "dependencies": "/Users/mirkobozzetto/code/flowflow/src/ios/plugin/.build/arm64-apple-ios-simulator/release/RecordingPlugin.build/RecordingPlugin.d",
+    "object": "/Users/mirkobozzetto/code/flowflow/src/ios/plugin/.build/arm64-apple-ios-simulator/release/RecordingPlugin.build/RecordingPlugin.o",
+    "swift-dependencies": "/Users/mirkobozzetto/code/flowflow/src/ios/plugin/.build/arm64-apple-ios-simulator/release/RecordingPlugin.build/primary.swiftdeps"
+  },
+  "/Users/mirkobozzetto/code/flowflow/src/ios/plugin/Sources/RecordingAttributes.swift": {
+    "object": "/Users/mirkobozzetto/code/flowflow/src/ios/plugin/.build/arm64-apple-ios-simulator/release/RecordingPlugin.build/RecordingAttributes.swift.o",
+    "swiftmodule": "/Users/mirkobozzetto/code/flowflow/src/ios/plugin/.build/arm64-apple-ios-simulator/release/RecordingPlugin.build/RecordingAttributes~partial.swiftmodule",
+    "swift-dependencies": "/Users/mirkobozzetto/code/flowflow/src/ios/plugin/.build/arm64-apple-ios-simulator/release/RecordingPlugin.build/RecordingAttributes.swiftdeps",
+    "diagnostics": "/Users/mirkobozzetto/code/flowflow/src/ios/plugin/.build/arm64-apple-ios-simulator/release/RecordingPlugin.build/RecordingAttributes.dia"
+  },
+  "/Users/mirkobozzetto/code/flowflow/src/ios/plugin/Sources/RecordingPlugin.swift": {
+    "object": "/Users/mirkobozzetto/code/flowflow/src/ios/plugin/.build/arm64-apple-ios-simulator/release/RecordingPlugin.build/RecordingPlugin.swift.o",
+    "swiftmodule": "/Users/mirkobozzetto/code/flowflow/src/ios/plugin/.build/arm64-apple-ios-simulator/release/RecordingPlugin.build/RecordingPlugin~partial.swiftmodule",
+    "swift-dependencies": "/Users/mirkobozzetto/code/flowflow/src/ios/plugin/.build/arm64-apple-ios-simulator/release/RecordingPlugin.build/RecordingPlugin.swiftdeps",
+    "diagnostics": "/Users/mirkobozzetto/code/flowflow/src/ios/plugin/.build/arm64-apple-ios-simulator/release/RecordingPlugin.build/RecordingPlugin.dia"
+  }
+}
