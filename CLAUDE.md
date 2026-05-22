@@ -221,17 +221,19 @@ RAG Chat Pipeline:
 ## Commands (use Makefile)
 
 ```bash
-make all      # build + sign widget + icon + install to device (full pipeline)
-make ddev     # dx serve --ios --device (hot reload, no widget signing)
-make dev      # dx serve --ios (simulator)
-make desktop  # dx serve --desktop (Mac window, real mic)
-make build    # cargo build --features mobile
-make format   # cargo fmt
-make check    # fmt check + clippy
-make deploy   # dx build device + icon injection
-make appstore # release build + distribution signing + IPA
-make logs     # open Console.app (select iPhone, filter "FlowFlow")
-make clean    # rm target/dx
+make all            # build + sign widget + icon + install (auto-renews expired profiles)
+make ddev           # dx serve --ios --device (hot reload, no widget signing)
+make dev            # dx serve --ios (simulator)
+make desktop        # dx serve --desktop (Mac window, real mic)
+make build          # cargo build --features mobile
+make format         # cargo fmt
+make check          # fmt check + clippy
+make deploy         # dx build device + icon injection
+make appstore       # release build + distribution signing + IPA
+make renew          # regenerate iOS provisioning profiles (xcodebuild + tools/provision-renew template)
+make check-profiles # show profile expiration dates
+make logs           # open Console.app (select iPhone, filter "FlowFlow")
+make clean          # rm target/dx
 ```
 
 ## Environment Variables
@@ -297,7 +299,7 @@ xcrun devicectl manage pair --device <DEVICE_ID>
 <!-- gitnexus:start -->
 # GitNexus — Code Intelligence
 
-This project is indexed by GitNexus as **flowflow** (1535 symbols, 2643 relationships, 106 execution flows). Use the GitNexus MCP tools to understand code, assess impact, and navigate safely.
+This project is indexed by GitNexus as **flowflow** (1543 symbols, 2650 relationships, 106 execution flows). Use the GitNexus MCP tools to understand code, assess impact, and navigate safely.
 
 > If any GitNexus tool warns the index is stale, run `npx gitnexus analyze` in terminal first.
 

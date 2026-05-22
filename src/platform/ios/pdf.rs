@@ -30,7 +30,7 @@ unsafe fn extract_with_ocr(
 ) -> Result<String, String> {
     let key = PDFDocumentSaveTextFromOCROption;
     let val = NSNumber::new_bool(true);
-    let opts: objc2::rc::Retained<NSDictionary> = objc2::msg_send_id![
+    let opts: objc2::rc::Retained<NSDictionary> = objc2::msg_send![
         objc2::runtime::AnyClass::get(c"NSDictionary").unwrap(),
         dictionaryWithObject: &*val,
         forKey: key,

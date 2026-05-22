@@ -46,8 +46,8 @@ define_class!(
         ) {
             let mut paths: Vec<PathBuf> = Vec::with_capacity(urls.count());
             for i in 0..urls.count() {
-                let url = unsafe { urls.objectAtIndex(i) };
-                if let Some(path) = unsafe { url.path() } {
+                let url = urls.objectAtIndex(i);
+                if let Some(path) = url.path() {
                     paths.push(PathBuf::from(path.to_string()));
                 }
             }
@@ -73,46 +73,43 @@ impl PickerDelegate {
     }
 }
 
+#[allow(deprecated)]
 pub async fn open_file_picker(extensions: &[&str]) -> Option<Vec<PathBuf>> {
     let mtm = MainThreadMarker::new().unwrap();
     let app = UIApplication::sharedApplication(mtm);
 
-    unsafe {
-        let ut_types: Vec<Retained<UTType>> = extensions
-            .iter()
-            .filter_map(|ext| {
-                UTType::typeWithFilenameExtension(&NSString::from_str(ext))
-            })
-            .collect();
-        let ut_refs: Vec<&UTType> =
-            ut_types.iter().map(|t| t.deref()).collect();
-        let types_array = NSArray::from_slice(&ut_refs);
+    let ut_types: Vec<Retained<UTType>> = extensions
+        .iter()
+        .filter_map(|ext| {
+            UTType::typeWithFilenameExtension(&NSString::from_str(ext))
+        })
+        .collect();
+    let ut_refs: Vec<&UTType> = ut_types.iter().map(|t| t.deref()).collect();
+    let types_array = NSArray::from_slice(&ut_refs);
 
-        let picker = UIDocumentPickerViewController::alloc(mtm);
-        let picker =
-            UIDocumentPickerViewController::initForOpeningContentTypes_asCopy(
-                picker,
-                &types_array,
-                true,
-            );
+    let picker = UIDocumentPickerViewController::alloc(mtm);
+    let picker =
+        UIDocumentPickerViewController::initForOpeningContentTypes_asCopy(
+            picker,
+            &types_array,
+            true,
+        );
 
-        let delegate = PickerDelegate::new(mtm);
-        picker.setDelegate(Some(ProtocolObject::from_ref(delegate.deref())));
-        picker.setAllowsMultipleSelection(false);
+    let delegate = PickerDelegate::new(mtm);
+    picker.setDelegate(Some(ProtocolObject::from_ref(delegate.deref())));
+    picker.setAllowsMultipleSelection(false);
 
-        let window = app.keyWindow().unwrap();
-        let current_vc = window.rootViewController().unwrap();
-        current_vc
-            .presentViewController_animated_completion(&picker, true, None);
+    let window = app.keyWindow().unwrap();
+    let current_vc = window.rootViewController().unwrap();
+    current_vc.presentViewController_animated_completion(&picker, true, None);
 
-        while !delegate.ivars().is_done.get() {
-            tokio::time::sleep(tokio::time::Duration::from_millis(100)).await;
-        }
+    while !delegate.ivars().is_done.get() {
+        tokio::time::sleep(tokio::time::Duration::from_millis(100)).await;
+    }
 
-        if delegate.ivars().was_cancelled.get() {
-            None
-        } else {
-            Some(delegate.ivars().picked_paths.take())
-        }
+    if delegate.ivars().was_cancelled.get() {
+        None
+    } else {
+        Some(delegate.ivars().picked_paths.take())
     }
 }
