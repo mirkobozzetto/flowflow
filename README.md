@@ -19,18 +19,26 @@ Built with Dioxus 0.7.9, targeting iOS (iPhone).
 ## Commands
 
 ```bash
-make all      # build + sign widget + icon + install to device (full pipeline)
-make ddev     # dx serve --ios --device (hot reload, no widget signing)
-make dev      # dx serve --ios (simulator)
-make desktop  # dx serve --desktop (Mac window, real mic)
-make build    # cargo build --features mobile
-make format   # cargo fmt
-make check    # fmt check + clippy
-make deploy   # dx build device + icon injection
-make appstore # release build + distribution signing + IPA
-make logs     # open Console.app (select iPhone, filter "FlowFlow")
-make clean    # rm target/dx
+make all            # build + sign widget + icon + install (auto-renews expired profiles)
+make ddev           # dx serve --ios --device (hot reload, no widget signing)
+make dev            # dx serve --ios (simulator)
+make desktop        # dx serve --desktop (Mac window, real mic)
+make build          # cargo build --features mobile
+make format         # cargo fmt
+make check          # fmt check + clippy
+make deploy         # dx build device + icon injection
+make appstore       # release build + distribution signing + IPA
+make renew          # regenerate iOS provisioning profiles (xcodebuild)
+make check-profiles # show profile expiration dates
+make logs           # open Console.app (select iPhone, filter "FlowFlow")
+make clean          # rm target/dx
 ```
+
+## iOS Provisioning
+
+Personal Team (free Apple ID) profiles expire every 7 days. `make all` auto-detects expiry < 24h and runs `make renew` before building. Renewal uses a minimal Xcode project template under `tools/provision-renew/` invoked via `xcodebuild -allowProvisioningUpdates`. Zero manual Xcode GUI required.
+
+Once your paid Apple Developer Program is active, profiles last 1 year and `make renew` becomes a once-a-year operation.
 
 ## Stack
 
