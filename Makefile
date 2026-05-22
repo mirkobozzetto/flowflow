@@ -1,4 +1,4 @@
-.PHONY: build format check dev ddev deploy desktop icon all appstore clean
+.PHONY: build format check dev ddev deploy desktop icon all appstore clean check-profiles renew ensure-profiles
 
 build:
 	cargo build --features mobile
@@ -23,10 +23,19 @@ ddev-build:
 deploy:
 	set -a && . ./.env && IPHONEOS_DEPLOYMENT_TARGET=16.0 dx build --platform ios --device true && bash scripts/inject-icon.sh
 
-all:
+all: ensure-profiles
 	set -a && . ./.env && IPHONEOS_DEPLOYMENT_TARGET=16.0 dx build --platform ios --device true
 	bash scripts/sign-widget.sh debug
 	bash scripts/inject-icon.sh || true
+
+check-profiles:
+	@bash scripts/check-profiles.sh
+
+renew:
+	@bash scripts/renew-profiles.sh
+
+ensure-profiles:
+	@bash scripts/check-profiles.sh > /dev/null 2>&1 || bash scripts/renew-profiles.sh
 
 icon:
 	bash scripts/inject-icon.sh
