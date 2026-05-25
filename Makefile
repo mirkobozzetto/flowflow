@@ -77,8 +77,31 @@ appstore:
 	  target/dx/flowflow/release/ios/Flowflow.app/Info.plist
 	plutil -replace CFBundleSupportedPlatforms -json '["iPhoneOS"]' \
 	  target/dx/flowflow/release/ios/Flowflow.app/Info.plist
-	@echo ">> Injecting icon..."
+	@echo ">> Injecting icon (release: re-sign deferred)..."
 	APP_PATH=target/dx/flowflow/release/ios/Flowflow.app bash scripts/inject-icon.sh || true
+	@echo ">> Replacing main app provisioning profile with App Store distribution..."
+	@MAIN_BUNDLE_ID="com.mirkobozzetto.flowflow"; \
+	MAIN_PROFILE=""; \
+	for f in ~/Library/Developer/Xcode/UserData/Provisioning\ Profiles/*.mobileprovision; do \
+	  PLIST=$$(security cms -D -i "$$f" 2>/dev/null || true); \
+	  if echo "$$PLIST" | grep -q "$$MAIN_BUNDLE_ID" \
+	     && ! echo "$$PLIST" | grep -q "recording-widget" \
+	     && ! echo "$$PLIST" | grep -q "ProvisionedDevices"; then \
+	    MAIN_PROFILE="$$f"; \
+	    break; \
+	  fi; \
+	done; \
+	if [ -z "$$MAIN_PROFILE" ]; then \
+	  echo "ERROR: no App Store provisioning profile for $$MAIN_BUNDLE_ID."; \
+	  echo "  Create one at https://developer.apple.com/account/resources/profiles/add"; \
+	  echo "  Type: App Store. App ID: $$MAIN_BUNDLE_ID. Cert: Apple Distribution."; \
+	  echo "  Download and double-click to install in ~/Library/Developer/Xcode/UserData/Provisioning Profiles/"; \
+	  exit 1; \
+	fi; \
+	echo "Using main profile: $$MAIN_PROFILE"; \
+	cp "$$MAIN_PROFILE" target/dx/flowflow/release/ios/Flowflow.app/embedded.mobileprovision
+	@echo ">> Signing widget for release..."
+	bash scripts/sign-widget.sh release
 	@echo ">> Injecting PrivacyInfo.xcprivacy..."
 	cp ios/PrivacyInfo.xcprivacy target/dx/flowflow/release/ios/Flowflow.app/
 	@echo ">> Materializing entitlements with APPLE_TEAM_ID..."
@@ -86,7 +109,7 @@ appstore:
 	mkdir -p /tmp/flowflow-build; \
 	sed "s/TEAMID/$$APPLE_TEAM_ID/g" ios/entitlements.plist \
 	  > /tmp/flowflow-build/entitlements.plist
-	@echo ">> Signing for distribution..."
+	@echo ">> Signing main app for distribution..."
 	codesign --force --sign "Apple Distribution" \
 	  --entitlements /tmp/flowflow-build/entitlements.plist \
 	  target/dx/flowflow/release/ios/Flowflow.app

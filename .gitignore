@@ -15,3 +15,9 @@ assets/tailwind.css
 generated-images/
 src/ios/plugin/.build/
 src/ios/widget/.build/
+
+# iOS signing assets (NEVER commit)
+secrets/
+
+# Build artifacts (use GitHub Releases for distribution)
+*.ipa
