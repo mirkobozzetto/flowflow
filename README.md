@@ -122,6 +122,12 @@ make renew           # regenerate now
 
 Once your paid Apple Developer Program is active, profiles last 1 year and `make renew` becomes a once-a-year operation.
 
+## App Store distribution
+
+`make appstore` produces a `FlowFlow.ipa` that passes Apple's validator with zero errors. The Dioxus CLI omits several keys required for App Store distribution (`CFBundlePackageType`, `DT*`, widget `UIRequiredDeviceCapabilities`, ...) and uses a `ditto` invocation that strips the `Payload/` directory; the Makefile patches all of these. Full breakdown of every Apple validation error we hit and the corresponding fix: [docs/deploy/04-dioxus-app-store-workarounds.md](docs/deploy/04-dioxus-app-store-workarounds.md). Upstream tracking: [Dioxus issue #3817](https://github.com/DioxusLabs/dioxus/issues/3817).
+
+End-to-end submission walkthrough: [docs/deploy/02-app-store-submission.md](docs/deploy/02-app-store-submission.md). Sequential execution plan: [docs/deploy/03-execution-plan.md](docs/deploy/03-execution-plan.md).
+
 ## Tests
 
 ```bash

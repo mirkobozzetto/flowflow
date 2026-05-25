@@ -77,6 +77,40 @@ appstore:
 	  target/dx/flowflow/release/ios/Flowflow.app/Info.plist
 	plutil -replace CFBundleSupportedPlatforms -json '["iPhoneOS"]' \
 	  target/dx/flowflow/release/ios/Flowflow.app/Info.plist
+	@echo ">> Injecting App Store required DT* keys (Dioxus dx omits them)..."
+	@SDK_VERSION=$$(xcrun --sdk iphoneos --show-sdk-version); \
+	SDK_BUILD=$$(xcrun --sdk iphoneos --show-sdk-build-version); \
+	OS_BUILD=$$(sw_vers -buildVersion); \
+	XCODE_DT=$$(defaults read /Applications/Xcode.app/Contents/Info DTXcode 2>/dev/null); \
+	XCODE_DT_BUILD=$$(defaults read /Applications/Xcode.app/Contents/Info DTXcodeBuild 2>/dev/null); \
+	PLIST=target/dx/flowflow/release/ios/Flowflow.app/Info.plist; \
+	plutil -replace CFBundlePackageType -string APPL $$PLIST; \
+	plutil -replace DTPlatformVersion -string $$SDK_VERSION $$PLIST; \
+	plutil -replace DTPlatformBuild -string $$SDK_BUILD $$PLIST; \
+	plutil -replace DTSDKName -string iphoneos$$SDK_VERSION $$PLIST; \
+	plutil -replace DTSDKBuild -string $$SDK_BUILD $$PLIST; \
+	plutil -replace DTXcode -string $$XCODE_DT $$PLIST; \
+	plutil -replace DTXcodeBuild -string $$XCODE_DT_BUILD $$PLIST; \
+	plutil -replace DTCompiler -string com.apple.compilers.llvm.clang.1_0 $$PLIST; \
+	plutil -replace BuildMachineOSBuild -string $$OS_BUILD $$PLIST
+	@echo ">> Patching widget Info.plist (arm64, version sync, DT*)..."
+	@SDK_VERSION=$$(xcrun --sdk iphoneos --show-sdk-version); \
+	SDK_BUILD=$$(xcrun --sdk iphoneos --show-sdk-build-version); \
+	OS_BUILD=$$(sw_vers -buildVersion); \
+	XCODE_DT=$$(defaults read /Applications/Xcode.app/Contents/Info DTXcode 2>/dev/null); \
+	XCODE_DT_BUILD=$$(defaults read /Applications/Xcode.app/Contents/Info DTXcodeBuild 2>/dev/null); \
+	WPLIST=target/dx/flowflow/release/ios/Flowflow.app/PlugIns/recording_widget.appex/Info.plist; \
+	plutil -remove UIRequiredDeviceCapabilities $$WPLIST 2>/dev/null || true; \
+	plutil -insert UIRequiredDeviceCapabilities -json '["arm64"]' $$WPLIST; \
+	plutil -replace CFBundleShortVersionString -string 1.0.0 $$WPLIST; \
+	plutil -replace DTPlatformName -string iphoneos $$WPLIST 2>/dev/null || plutil -insert DTPlatformName -string iphoneos $$WPLIST; \
+	plutil -replace DTPlatformVersion -string $$SDK_VERSION $$WPLIST 2>/dev/null || plutil -insert DTPlatformVersion -string $$SDK_VERSION $$WPLIST; \
+	plutil -replace DTSDKName -string iphoneos$$SDK_VERSION $$WPLIST 2>/dev/null || plutil -insert DTSDKName -string iphoneos$$SDK_VERSION $$WPLIST; \
+	plutil -replace DTXcode -string $$XCODE_DT $$WPLIST 2>/dev/null || plutil -insert DTXcode -string $$XCODE_DT $$WPLIST; \
+	plutil -replace DTXcodeBuild -string $$XCODE_DT_BUILD $$WPLIST 2>/dev/null || plutil -insert DTXcodeBuild -string $$XCODE_DT_BUILD $$WPLIST; \
+	plutil -replace BuildMachineOSBuild -string $$OS_BUILD $$WPLIST 2>/dev/null || plutil -insert BuildMachineOSBuild -string $$OS_BUILD $$WPLIST; \
+	plutil -replace LSRequiresIPhoneOS -bool true $$WPLIST 2>/dev/null || plutil -insert LSRequiresIPhoneOS -bool true $$WPLIST; \
+	plutil -replace CFBundleSupportedPlatforms -json '["iPhoneOS"]' $$WPLIST 2>/dev/null || plutil -insert CFBundleSupportedPlatforms -json '["iPhoneOS"]' $$WPLIST
 	@echo ">> Injecting icon (release: re-sign deferred)..."
 	APP_PATH=target/dx/flowflow/release/ios/Flowflow.app bash scripts/inject-icon.sh || true
 	@echo ">> Replacing main app provisioning profile with App Store distribution..."
@@ -117,7 +151,7 @@ appstore:
 	rm -rf /tmp/flowflow-ipa
 	mkdir -p /tmp/flowflow-ipa/Payload
 	cp -r target/dx/flowflow/release/ios/Flowflow.app /tmp/flowflow-ipa/Payload/
-	cd /tmp/flowflow-ipa && ditto -c -k --sequesterRsrc Payload FlowFlow.ipa
+	cd /tmp/flowflow-ipa && zip -qry FlowFlow.ipa Payload -x "*.DS_Store" "__MACOSX*"
 	cp /tmp/flowflow-ipa/FlowFlow.ipa .
 	@echo ">> FlowFlow.ipa ready. Upload via Transporter.app."
 
