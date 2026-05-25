@@ -2,6 +2,13 @@ use crate::services::ai::chunk_text;
 use crate::services::llm::LlmClient;
 use crate::services::vectordb::{Chunk, VectorStore};
 
+fn ai_consent_granted() -> bool {
+    match crate::db::Database::open() {
+        Ok(db) => db.get_setting("ai_consent") == Some("true".to_string()),
+        Err(_) => false,
+    }
+}
+
 fn log(msg: &str) {
     eprintln!("{msg}");
     #[cfg(target_os = "ios")]
@@ -38,6 +45,10 @@ pub fn embed_note(
         rt.block_on(async move {
             if content.len() < 50 {
                 log("embed skip: too short");
+                return;
+            }
+            if !ai_consent_granted() {
+                log("embed skip: ai_consent not granted");
                 return;
             }
             let ai = match LlmClient::from_env() {
@@ -123,6 +134,10 @@ pub fn embed_attachment(
         rt.block_on(async move {
             if content.len() < 50 {
                 log("embed attachment skip: too short");
+                return;
+            }
+            if !ai_consent_granted() {
+                log("embed attachment skip: ai_consent not granted");
                 return;
             }
             let ai = match LlmClient::from_env() {

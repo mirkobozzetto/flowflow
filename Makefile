@@ -48,6 +48,15 @@ logs:
 	open -a Console
 
 appstore:
+	@set -a && . ./.env && set +a; \
+	if [ -z "$$APPLE_TEAM_ID" ]; then \
+	  echo "ERROR: APPLE_TEAM_ID not set."; \
+	  echo "  This target is for App Store distribution (paid Developer Program)."; \
+	  echo "  Free users: use 'make all' / 'make ddev' (auto-provisioning Personal Team)."; \
+	  echo "  Paid users: add APPLE_TEAM_ID=R477R8NK27 to .env (get it from"; \
+	  echo "  https://developer.apple.com/account → Membership → Team ID)."; \
+	  exit 1; \
+	fi
 	@echo ">> Building release..."
 	set -a && . ./.env && IPHONEOS_DEPLOYMENT_TARGET=16.0 \
 	  dx build --platform ios --device --release
@@ -64,13 +73,22 @@ appstore:
 	  target/dx/flowflow/release/ios/Flowflow.app/Info.plist
 	plutil -replace CFBundleVersion -string 1 \
 	  target/dx/flowflow/release/ios/Flowflow.app/Info.plist
+	plutil -replace UIDeviceFamily -json '[1]' \
+	  target/dx/flowflow/release/ios/Flowflow.app/Info.plist
+	plutil -replace CFBundleSupportedPlatforms -json '["iPhoneOS"]' \
+	  target/dx/flowflow/release/ios/Flowflow.app/Info.plist
 	@echo ">> Injecting icon..."
 	APP_PATH=target/dx/flowflow/release/ios/Flowflow.app bash scripts/inject-icon.sh || true
 	@echo ">> Injecting PrivacyInfo.xcprivacy..."
 	cp ios/PrivacyInfo.xcprivacy target/dx/flowflow/release/ios/Flowflow.app/
+	@echo ">> Materializing entitlements with APPLE_TEAM_ID..."
+	@set -a && . ./.env && set +a; \
+	mkdir -p /tmp/flowflow-build; \
+	sed "s/TEAMID/$$APPLE_TEAM_ID/g" ios/entitlements.plist \
+	  > /tmp/flowflow-build/entitlements.plist
 	@echo ">> Signing for distribution..."
 	codesign --force --sign "Apple Distribution" \
-	  --entitlements ios/entitlements.plist \
+	  --entitlements /tmp/flowflow-build/entitlements.plist \
 	  target/dx/flowflow/release/ios/Flowflow.app
 	@echo ">> Packaging IPA..."
 	rm -rf /tmp/flowflow-ipa
