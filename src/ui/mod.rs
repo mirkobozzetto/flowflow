@@ -46,6 +46,9 @@ pub fn App() -> Element {
             Signal::new(Arc::new(Mutex::new(AudioRecorder::new())))
         });
 
+    if option_env!("FLOWFLOW_RESET_CONSENT") == Some("1") {
+        let _ = _db().set_setting("ai_consent", "");
+    }
     let consent_value = _db().get_setting("ai_consent").map(|v| v == "true");
 
     let app = use_context_provider(|| AppState {
