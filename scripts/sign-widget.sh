@@ -4,9 +4,30 @@ set -euo pipefail
 MODE="${1:-debug}"
 APP_DIR="target/dx/flowflow/${MODE}/ios/Flowflow.app"
 APPEX_DIR="${APP_DIR}/PlugIns/recording_widget.appex"
-SIGNING_ID="Apple Development: mirko@mirko.re (3YL4GA2Y23)"
 TEAM_ID="R477R8NK27"
 WIDGET_BUNDLE_ID="com.mirkobozzetto.flowflow.recording-widget"
+
+if [ "$MODE" = "release" ]; then
+    SIGNING_ID=$(security find-identity -v -p codesigning | awk -F'"' '/Apple Distribution/{print $2; exit}')
+    if [ -z "$SIGNING_ID" ]; then
+        echo "[sign-widget] ERROR: no 'Apple Distribution' identity in Keychain"
+        echo "[sign-widget] Create one at https://developer.apple.com/account/resources/certificates/list"
+        exit 1
+    fi
+    GET_TASK_ALLOW="false"
+    PROFILE_PATTERN="distribution"
+else
+    SIGNING_ID=$(security find-identity -v -p codesigning | awk -F'"' '/Apple Development/{print $2; exit}')
+    if [ -z "$SIGNING_ID" ]; then
+        echo "[sign-widget] ERROR: no 'Apple Development' identity in Keychain"
+        exit 1
+    fi
+    GET_TASK_ALLOW="true"
+    PROFILE_PATTERN="development"
+fi
+
+echo "[sign-widget] Mode: $MODE"
+echo "[sign-widget] Signing identity: $SIGNING_ID"
 
 if [ ! -d "$APPEX_DIR" ]; then
     echo "[sign-widget] No .appex found at $APPEX_DIR"
@@ -15,15 +36,30 @@ fi
 
 WIDGET_PROFILE=""
 for f in ~/Library/Developer/Xcode/UserData/Provisioning\ Profiles/*.mobileprovision; do
-    if security cms -D -i "$f" 2>/dev/null | grep -q "$WIDGET_BUNDLE_ID"; then
-        WIDGET_PROFILE="$f"
-        break
+    PROFILE_PLIST=$(security cms -D -i "$f" 2>/dev/null || true)
+    if echo "$PROFILE_PLIST" | grep -q "$WIDGET_BUNDLE_ID"; then
+        if [ "$MODE" = "release" ]; then
+            if echo "$PROFILE_PLIST" | grep -q "ProvisionedDevices"; then
+                continue
+            fi
+            WIDGET_PROFILE="$f"
+            break
+        else
+            if echo "$PROFILE_PLIST" | grep -q "ProvisionedDevices"; then
+                WIDGET_PROFILE="$f"
+                break
+            fi
+        fi
     fi
 done
 
 if [ -z "$WIDGET_PROFILE" ]; then
-    echo "[sign-widget] ERROR: no provisioning profile for $WIDGET_BUNDLE_ID"
-    echo "[sign-widget] Create one in Xcode (Widget Extension target) or Apple Developer portal"
+    echo "[sign-widget] ERROR: no $PROFILE_PATTERN provisioning profile for $WIDGET_BUNDLE_ID"
+    if [ "$MODE" = "release" ]; then
+        echo "[sign-widget] Create an App Store provisioning profile for the widget at"
+        echo "[sign-widget]   https://developer.apple.com/account/resources/profiles/add"
+        echo "[sign-widget]   Type: App Store. App ID: $WIDGET_BUNDLE_ID. Certificate: Apple Distribution."
+    fi
     exit 1
 fi
 
@@ -40,7 +76,7 @@ cat > "$ENTITLEMENTS" <<PLIST
     <key>application-identifier</key>
     <string>${TEAM_ID}.${WIDGET_BUNDLE_ID}</string>
     <key>get-task-allow</key>
-    <true/>
+    <${GET_TASK_ALLOW}/>
     <key>com.apple.developer.team-identifier</key>
     <string>${TEAM_ID}</string>
 </dict>

@@ -27,6 +27,12 @@ echo ">> Merging icon into Info.plist..."
 /usr/libexec/PlistBuddy -c "Delete :CFBundleIcons~ipad" "$APP_PATH/Info.plist" 2>/dev/null || true
 /usr/libexec/PlistBuddy -c "Merge /tmp/appicon-partial.plist" "$APP_PATH/Info.plist"
 
+if [[ "$APP_PATH" == *"/release/"* ]]; then
+  echo ">> Release build: icon merged into Info.plist; signing deferred to make appstore."
+  echo ">> Done."
+  exit 0
+fi
+
 echo ">> Extracting entitlements from provisioning profile..."
 security cms -D -i "$APP_PATH/embedded.mobileprovision" 2>/dev/null \
   | xmllint --xpath '//key[text()="Entitlements"]/following-sibling::dict[1]' - 2>/dev/null \
