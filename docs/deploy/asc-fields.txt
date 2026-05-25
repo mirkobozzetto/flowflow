@@ -1,0 +1,134 @@
+================================================================
+  APP STORE CONNECT — copy-paste cheat-sheet for FlowFlow V1.0
+================================================================
+
+------------------------------------------------------------
+NEW APP form (https://appstoreconnect.apple.com/apps -> +)
+------------------------------------------------------------
+Platforms        : iOS
+Name             : FlowFlow
+Primary Language : English (U.S.)
+Bundle ID        : com.mirkobozzetto.flowflow
+SKU              : flowflow-001
+User Access      : Full Access
+
+------------------------------------------------------------
+APP INFORMATION (left sidebar -> App Information)
+------------------------------------------------------------
+Subtitle (30 chars)    : Voice notes + AI chat
+Primary Category       : Productivity
+Secondary Category     : Utilities
+Content Rights         : No, my app does not contain, show, or access third-party content
+Age Rating             : answer "None" everywhere except "Apps with User-Generated Content" -> "Infrequent/Mild"
+
+------------------------------------------------------------
+PRICING AND AVAILABILITY
+------------------------------------------------------------
+Price           : Free (CHF 0.00 / EUR 0.00)
+Availability    : All countries (or restrict to EU+CH+US for staged rollout)
+
+------------------------------------------------------------
+APP PRIVACY (left sidebar -> App Privacy)
+------------------------------------------------------------
+Privacy Policy URL : https://mirkobozzetto.github.io/flowflow-privacy/
+
+Data Practices (click "Get Started"):
+  Audio Data              : Yes collected, NOT linked to user, NO tracking, purpose "App Functionality"
+  User Content (notes)    : Yes collected, NOT linked to user, NO tracking, purpose "App Functionality"
+  Identifiers             : No
+  Usage Data              : No
+  Diagnostics             : No
+  Contact Info            : No
+  Financial Info          : No
+  Health & Fitness        : No
+  Purchases               : No
+  Search History          : No
+  Location                : No
+  Sensitive Info          : No
+  Browsing History        : No
+
+------------------------------------------------------------
+VERSION 1.0 page -> Promotional content
+------------------------------------------------------------
+PROMOTIONAL TEXT (170 chars max):
+Voice notes transcribed by AI, organized with tags and folders, with RAG chat over your notes. 100% local on your iPhone.
+
+KEYWORDS (100 chars max):
+voice,notes,AI,chat,RAG,transcription,audio,Soniox,GPT,Claude
+
+SUPPORT URL:
+https://github.com/mirkobozzetto/flowflow
+
+MARKETING URL:
+(leave empty for V1)
+
+DESCRIPTION (4000 chars max, copy block below):
+----
+FlowFlow turns your thoughts into structured notes in seconds.
+
+RECORD
+Tap the mic icon. Speak. FlowFlow captures your voice with native iOS audio quality, then Soniox transcribes it in seconds.
+
+ORGANIZE
+AI-generated tags. Hierarchical folders. Semantic search over your notes via local OpenAI embeddings. Everything lives on your iPhone.
+
+CHAT WITH YOUR NOTES
+Ask a question. FlowFlow finds relevant passages and answers with cited sources. Pick your provider: OpenAI (GPT) or Anthropic (Claude).
+
+IMPORT DOCUMENTS
+Add PDF, DOCX, MD or CSV files to a note. FlowFlow indexes them and makes them searchable alongside the rest.
+
+LOCAL-FIRST
+Your data stays on your iPhone. Local SQLite + LanceDB. The only external calls are to APIs you explicitly configure (transcription, AI).
+
+100% RUST
+Built with Dioxus, cpal, rig-core, LanceDB. Native performance, optimized memory, zero JavaScript.
+
+FREE, OPEN SOURCE
+Source code available. Bring your own API keys (OpenAI, Anthropic, Soniox).
+----
+
+------------------------------------------------------------
+APP REVIEW (left sidebar -> App Review)
+------------------------------------------------------------
+Sign-In Required : No
+Contact Info     : Mirko Bozzetto, mirko@mirko.re, +32 484 906 499
+Demo Account     : (leave empty)
+Additional Notes : (leave empty)
+
+REVIEWER NOTES (paste in English):
+----
+FlowFlow is a voice-note app with AI transcription and RAG chat.
+
+To test:
+1. Launch the app — a consent screen appears explaining AI data flows. Tap "C'est parti !" to accept.
+2. Tap the floating + button to create a note.
+3. Tap the microphone icon to record a voice note. Speak for 5-10 seconds, then stop.
+4. The transcription takes ~3 seconds (Soniox API).
+5. Open the Settings tab to configure your own API keys, or use the test keys below.
+6. From the home screen, tap the chat icon to ask a question about your notes.
+
+Test API keys are pre-configured in the build. No additional sign-in needed.
+
+The app does not collect personal data and does not track users. All notes are stored locally on the device (SQLite + LanceDB).
+
+System requirements: iOS 16.0+. iPhone only.
+----
+
+------------------------------------------------------------
+BUILD section (under Version 1.0)
+------------------------------------------------------------
+Select build           : 1.0 (1) after Apple processing finishes
+Export Compliance      : Yes (uses only standard iOS encryption)
+IDFA (advertising)     : No
+
+------------------------------------------------------------
+SCREENSHOTS (Version 1.0 -> Previews and Screenshots)
+------------------------------------------------------------
+iPhone 6.9" tab : drag-drop ~/Desktop/slot-1.png through slot-7.png in order
+                  (resolution must be 1320 x 2868)
+
+------------------------------------------------------------
+SUBMIT
+------------------------------------------------------------
+All sidebar items green check -> top-right "Add for Review"
