@@ -38,4 +38,5 @@ pub struct AppState {
     pub chat_scope_folder_id: Signal<Option<String>>,
     pub detail_folder_id: Signal<Option<String>>,
     pub ai_consent: Signal<Option<bool>>,
+    pub current_lang: Signal<String>,
 }

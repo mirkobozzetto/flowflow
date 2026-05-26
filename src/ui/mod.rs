@@ -51,6 +51,10 @@ pub fn App() -> Element {
     }
     let consent_value = _db().get_setting("ai_consent").map(|v| v == "true");
 
+    let initial_lang = _db()
+        .get_setting(crate::db::settings_repo::LANGUAGE_KEY)
+        .unwrap_or_else(crate::platform::detect_system_language);
+
     let app = use_context_provider(|| AppState {
         view: Signal::new(View::NotesList),
         sidebar_open: Signal::new(false),
@@ -72,6 +76,7 @@ pub fn App() -> Element {
         chat_scope_folder_id: Signal::new(None),
         detail_folder_id: Signal::new(None),
         ai_consent: Signal::new(consent_value),
+        current_lang: Signal::new(initial_lang),
     });
 
     use_effect(|| {

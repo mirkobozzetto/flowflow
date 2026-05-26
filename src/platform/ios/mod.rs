@@ -118,6 +118,32 @@ pub fn hide_keyboard_accessory() {
     }
 }
 
+pub fn detect_system_language() -> String {
+    let result = std::panic::catch_unwind(|| unsafe {
+        let cls = objc2::ffi::objc_getClass(c"NSLocale".as_ptr());
+        if cls.is_null() {
+            return None;
+        }
+        let locale: *mut objc2::runtime::AnyObject = objc2::msg_send![
+            cls as *const objc2::runtime::AnyClass,
+            currentLocale
+        ];
+        if locale.is_null() {
+            return None;
+        }
+        let lang: *const objc2_foundation::NSString =
+            objc2::msg_send![&*locale, languageCode];
+        if lang.is_null() {
+            return None;
+        }
+        Some((*lang).to_string())
+    });
+    match result {
+        Ok(Some(code)) if code.starts_with("fr") => "fr".to_string(),
+        _ => "en".to_string(),
+    }
+}
+
 pub fn documents_dir() -> PathBuf {
     let home = std::env::var("HOME").expect("HOME not set on iOS");
     PathBuf::from(home).join("Documents")

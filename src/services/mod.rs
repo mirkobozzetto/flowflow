@@ -3,6 +3,7 @@ pub mod audio;
 pub mod constants;
 pub mod embed;
 pub mod error;
+pub mod i18n;
 pub mod llm;
 pub mod rag;
 pub mod tools;
