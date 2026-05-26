@@ -16,11 +16,14 @@ pub enum ChatMsg {
     },
 }
 
-pub fn tool_label(name: &str) -> &str {
-    match name {
-        "search_notes" => "Recherche dans les notes...",
-        "create_note" => "Création de la note...",
-        "summarize_folder" => "Résumé du dossier...",
-        _ => "L'agent travaille...",
-    }
+use crate::services::i18n::t;
+
+pub fn tool_label(lang: &str, name: &str) -> String {
+    let key = match name {
+        "search_notes" => "chat-tool-search",
+        "create_note" => "chat-tool-create",
+        "summarize_folder" => "chat-tool-summarize",
+        _ => "chat-tool-working",
+    };
+    t(lang, key)
 }

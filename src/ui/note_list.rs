@@ -1,4 +1,5 @@
 use crate::db::Database;
+use crate::services::i18n::t;
 use crate::ui::folder_picker::FolderPicker;
 use crate::ui::icons::*;
 use crate::ui::note_card::NoteCard;
@@ -32,6 +33,7 @@ pub fn NotesList() -> Element {
     });
 
     let has_query = !(app.search_query)().is_empty();
+    let lang = (app.current_lang)();
 
     rsx! {
         if (app.show_folder_picker)() {
@@ -44,7 +46,7 @@ pub fn NotesList() -> Element {
                 }
                 input {
                     class: "w-full bg-warm-white border border-stone-200 rounded-xl pl-9 pr-9 py-2.5 text-sm outline-none text-stone-900 placeholder-stone-400",
-                    placeholder: "Chercher mes notes...",
+                    placeholder: t(&lang, "note-list-search-placeholder"),
                     value: "{app.search_query}",
                     oninput: move |evt| app.search_query.set(evt.value()),
                 }
@@ -60,12 +62,12 @@ pub fn NotesList() -> Element {
         if notes().is_empty() {
             div { class: "flex-1 flex flex-col items-center justify-center gap-2 h-[60vh]",
                 if has_query {
-                    p { class: "text-lg text-stone-400", "Aucun résultat" }
-                    p { class: "text-sm text-stone-400", "Essayez un autre terme" }
+                    p { class: "text-lg text-stone-400", {t(&lang, "note-list-no-results")} }
+                    p { class: "text-sm text-stone-400", {t(&lang, "note-list-no-results-hint")} }
                 } else {
                     img { src: asset!("/assets/flowflow-icon-300.png"), width: "200", height: "200", class: "mb-6 rounded-3xl" }
-                    p { class: "text-lg font-semibold text-stone-900", "Bienvenue" }
-                    p { class: "text-sm text-stone-400 mt-1", "Appuie sur + pour ta première note" }
+                    p { class: "text-lg font-semibold text-stone-900", {t(&lang, "note-list-welcome")} }
+                    p { class: "text-sm text-stone-400 mt-1", {t(&lang, "note-list-first-note-hint")} }
                 }
             }
         } else {

@@ -1,5 +1,7 @@
+use crate::services::i18n::t;
 use crate::services::llm::LlmClient;
 use crate::ui::icons::*;
+use crate::ui::AppState;
 use dioxus::prelude::*;
 
 #[component]
@@ -9,6 +11,10 @@ pub fn TagsSection(
     tagging: Signal<bool>,
     content: Signal<String>,
 ) -> Element {
+    let app: AppState = use_context();
+    let lang = (app.current_lang)();
+    let auto_tag_label = t(&lang, "tag-auto-action");
+    let placeholder = t(&lang, "tag-add-placeholder");
     let mut tags = tags;
     let mut tag_input = tag_input;
     let mut tagging = tagging;
@@ -43,7 +49,10 @@ pub fn TagsSection(
                             tagging.set(false);
                         });
                     },
-                    if tagging() { "..." } else { "Auto-tag" }
+                    {
+                        let label = if tagging() { "...".to_string() } else { auto_tag_label.clone() };
+                        rsx! { "{label}" }
+                    }
                 }
             }
             for (i, tag) in tags().iter().enumerate() {
@@ -71,7 +80,7 @@ pub fn TagsSection(
                 div { class: "inline-flex items-center gap-1",
                     input {
                         class: "w-24 text-xs border border-stone-200 rounded-full px-2.5 py-1 outline-none",
-                        placeholder: "+ tag",
+                        placeholder: "{placeholder}",
                         value: "{tag_input}",
                         oninput: move |evt| tag_input.set(evt.value()),
                         onkeypress: move |evt| {

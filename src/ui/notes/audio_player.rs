@@ -1,4 +1,6 @@
+use crate::services::i18n::t;
 use crate::ui::icons::IconDotsThree;
+use crate::ui::AppState;
 use dioxus::prelude::*;
 
 #[component]
@@ -7,6 +9,9 @@ pub fn AudioPlayer(
     duration_secs: Option<f64>,
     on_delete: EventHandler<()>,
 ) -> Element {
+    let app: AppState = use_context();
+    let lang = (app.current_lang)();
+    let confirm_label = t(&lang, "audio-confirm-delete");
     let mut playing = use_signal(|| false);
     let mut confirm_delete = use_signal(|| false);
 
@@ -53,7 +58,7 @@ pub fn AudioPlayer(
                         confirm_delete.set(false);
                         on_delete.call(());
                     },
-                    "Supprimer ?"
+                    "{confirm_label}"
                 }
             } else {
                 button {

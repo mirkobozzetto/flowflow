@@ -1,6 +1,7 @@
 use crate::db::Database;
 use crate::models::Attachment;
 use crate::services::embed::delete_attachment_embeddings;
+use crate::services::i18n::t;
 use crate::ui::icons::*;
 use crate::ui::AppState;
 use dioxus::prelude::*;
@@ -14,6 +15,10 @@ pub fn AttachmentSection(
     let mut app: AppState = use_context();
     let db: Signal<Arc<Database>> = use_context();
     let mut confirm_delete_att = confirm_delete_att;
+    let lang = (app.current_lang)();
+    let label_confirm = t(&lang, "attachment-confirm-delete");
+    let label_cancel = t(&lang, "attachment-cancel");
+    let label_delete = t(&lang, "attachment-delete");
 
     rsx! {
         for att in attachments.iter() {
@@ -56,7 +61,7 @@ pub fn AttachmentSection(
                                 class: "absolute inset-0 z-10 flex items-center px-3 bg-warm-white/95 backdrop-blur-sm",
                                 onclick: move |evt| evt.stop_propagation(),
                                 div { class: "flex-1 min-w-0 mr-3",
-                                    p { class: "text-[10px] font-medium text-stone-400 uppercase tracking-wide leading-tight", "Supprimer ?" }
+                                    p { class: "text-[10px] font-medium text-stone-400 uppercase tracking-wide leading-tight", "{label_confirm}" }
                                     p { class: "text-sm font-medium text-stone-600 truncate leading-tight", "{att_name_confirm}" }
                                 }
                                 div { class: "flex items-center gap-2",
@@ -66,7 +71,7 @@ pub fn AttachmentSection(
                                             evt.stop_propagation();
                                             confirm_delete_att.set(None);
                                         },
-                                        "Annuler"
+                                        "{label_cancel}"
                                     }
                                     button {
                                         class: "h-9 px-4 flex items-center justify-center text-sm font-medium text-white bg-ios-red rounded-full active:opacity-80",
@@ -79,7 +84,7 @@ pub fn AttachmentSection(
                                             confirm_delete_att.set(None);
                                             app.attachments_version.set((app.attachments_version)() + 1);
                                         },
-                                        "Supprimer"
+                                        "{label_delete}"
                                     }
                                 }
                             }

@@ -1,3 +1,4 @@
+use crate::services::i18n::{t, t_args};
 use crate::ui::chat::models::ChatSource;
 use crate::ui::state::View;
 use crate::ui::AppState;
@@ -8,10 +9,13 @@ pub fn SourcesAccordion(
     sources: Vec<ChatSource>,
     conversation_id: Option<String>,
 ) -> Element {
+    let app: AppState = use_context();
+    let lang = (app.current_lang)();
     let label = if sources.len() == 1 {
-        "1 source".to_string()
+        t(&lang, "sources-one")
     } else {
-        format!("{} sources", sources.len())
+        let count = sources.len().to_string();
+        t_args(&lang, "sources-many", &[("count", &count)])
     };
     let mut expanded = use_signal(|| false);
     let rotation = if expanded() { "180" } else { "0" };

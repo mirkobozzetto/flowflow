@@ -1,4 +1,5 @@
 use crate::db::Database;
+use crate::services::i18n::t;
 use crate::ui::icons::*;
 use crate::ui::state::View;
 use crate::ui::AppState;
@@ -26,6 +27,7 @@ pub fn ChatMenu(props: ChatMenuProps) -> Element {
     } = props;
 
     let has_conversation = conversation_id().is_some();
+    let lang = (app.current_lang)();
 
     rsx! {
         div {
@@ -39,7 +41,7 @@ pub fn ChatMenu(props: ChatMenuProps) -> Element {
             class: "absolute right-4 top-1 z-50 bg-warm-white rounded-xl shadow-lg border border-stone-100 py-1 min-w-[220px]",
             if renaming() {
                 div { class: "px-4 py-3",
-                    p { class: "text-[10px] font-medium text-stone-400 uppercase tracking-wide mb-2", "Renommer" }
+                    p { class: "text-[10px] font-medium text-stone-400 uppercase tracking-wide mb-2", {t(&lang, "chat-menu-rename")} }
                     input {
                         class: "w-full text-sm border border-stone-200 rounded-lg px-3 py-2 outline-none focus:border-ios-orange-dark",
                         value: "{rename_input}",
@@ -64,7 +66,7 @@ pub fn ChatMenu(props: ChatMenuProps) -> Element {
                                 renaming.set(false);
                                 app.show_chat_menu.set(false);
                             },
-                            "Annuler"
+                            {t(&lang, "chat-menu-cancel")}
                         }
                         button {
                             class: "flex-1 h-8 text-sm text-white bg-ios-orange rounded-lg active:opacity-80",
@@ -78,14 +80,14 @@ pub fn ChatMenu(props: ChatMenuProps) -> Element {
                                 renaming.set(false);
                                 app.show_chat_menu.set(false);
                             },
-                            "OK"
+                            {t(&lang, "chat-menu-ok")}
                         }
                     }
                 }
             } else if confirm_delete() {
                 div { class: "px-4 py-3",
-                    p { class: "text-[10px] font-medium text-stone-400 uppercase tracking-wide mb-1", "Supprimer ce chat ?" }
-                    p { class: "text-xs text-stone-500 mb-3", "Cette action est irréversible." }
+                    p { class: "text-[10px] font-medium text-stone-400 uppercase tracking-wide mb-1", {t(&lang, "chat-menu-delete-title")} }
+                    p { class: "text-xs text-stone-500 mb-3", {t(&lang, "chat-menu-delete-warning")} }
                     div { class: "flex gap-2",
                         button {
                             class: "flex-1 h-9 text-sm font-medium text-stone-900 bg-stone-100 rounded-full active:bg-stone-200",
@@ -93,7 +95,7 @@ pub fn ChatMenu(props: ChatMenuProps) -> Element {
                                 confirm_delete.set(false);
                                 app.show_chat_menu.set(false);
                             },
-                            "Annuler"
+                            {t(&lang, "chat-menu-cancel")}
                         }
                         button {
                             class: "flex-1 h-9 text-sm font-medium text-white bg-ios-red rounded-full active:opacity-80",
@@ -110,7 +112,7 @@ pub fn ChatMenu(props: ChatMenuProps) -> Element {
                                     app.view.set(View::NotesList);
                                 });
                             },
-                            "Supprimer"
+                            {t(&lang, "chat-menu-delete")}
                         }
                     }
                 }
@@ -129,7 +131,7 @@ pub fn ChatMenu(props: ChatMenuProps) -> Element {
                         renaming.set(true);
                     },
                     IconPencil { size: 18 }
-                    "Renommer"
+                    {t(&lang, "chat-menu-rename-action")}
                 }
                 button {
                     class: "w-full flex items-center gap-3 px-4 py-3 text-sm text-ios-red active:bg-stone-50",
@@ -138,7 +140,7 @@ pub fn ChatMenu(props: ChatMenuProps) -> Element {
                         confirm_delete.set(true);
                     },
                     IconTrash { size: 18 }
-                    "Supprimer le chat"
+                    {t(&lang, "chat-menu-delete-chat")}
                 }
             }
         }

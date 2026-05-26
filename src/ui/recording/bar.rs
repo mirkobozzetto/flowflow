@@ -1,4 +1,5 @@
 use crate::services::audio::{AudioRecorder, RecordingState};
+use crate::services::i18n::t;
 use crate::ui::icons::*;
 use crate::ui::recording::{start_recording, RecordingControls};
 use crate::ui::AppState;
@@ -13,6 +14,7 @@ pub fn RecordingBar(pending_audio: Signal<Option<(String, f64)>>) -> Element {
     let is_idle = recording_state == RecordingState::Idle
         || matches!(recording_state, RecordingState::Error(_))
         || matches!(recording_state, RecordingState::Transcribed(_));
+    let lang = (app.current_lang)();
 
     rsx! {
         div { class: "fixed bottom-0 left-0 right-0 px-4 py-2 bg-warm-white border-t border-stone-200 z-30 keyboard-aware",
@@ -22,7 +24,7 @@ pub fn RecordingBar(pending_audio: Signal<Option<(String, f64)>>) -> Element {
                         class: "w-full flex items-center justify-center gap-2.5 h-12 rounded-full bg-warm-white border border-ios-orange/25 text-ios-orange-dark text-sm font-medium",
                         onclick: move |_| start_recording(recorder, app),
                         IconMic { size: 22 }
-                        span { "Dicter" }
+                        span { {t(&lang, "recording-dictate")} }
                     }
                 }
                 if let RecordingState::Error(ref e) = recording_state {

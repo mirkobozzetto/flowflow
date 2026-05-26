@@ -1,4 +1,5 @@
 use crate::services::audio::{AudioRecorder, RecordingState};
+use crate::services::i18n::t;
 use crate::ui::icons::*;
 use crate::ui::recording::{start_recording, RecordingControls};
 use crate::ui::AppState;
@@ -13,6 +14,8 @@ pub fn ChatInputBar(
 ) -> Element {
     let app: AppState = use_context();
     let recorder: Signal<Arc<Mutex<AudioRecorder>>> = use_context();
+    let lang = (app.current_lang)();
+    let placeholder = t(&lang, "chat-input-placeholder");
     let dummy_pending_audio: Signal<Option<(String, f64)>> =
         use_signal(|| None);
 
@@ -35,7 +38,7 @@ pub fn ChatInputBar(
                         class: "chat-textarea flex-1 bg-stone-100 rounded-2xl px-4 py-2.5 text-sm outline-none text-stone-900 placeholder-stone-400 resize-none overflow-y-auto",
                         style: "max-height: 120px; min-height: 40px;",
                         rows: "1",
-                        placeholder: "Pose une question...",
+                        placeholder: "{placeholder}",
                         value: "{input}",
                         oninput: move |evt| {
                             input.set(evt.value());
