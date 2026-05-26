@@ -1,5 +1,7 @@
 .PHONY: build format check dev ddev deploy desktop icon all appstore clean check-profiles renew ensure-profiles
 
+APPSTORE_BUILD := $(shell expr $$(cat .appstore-build 2>/dev/null || echo 0) + 1)
+
 build:
 	cargo build --features mobile
 
@@ -71,7 +73,7 @@ appstore:
 	  target/dx/flowflow/release/ios/Flowflow.app/Info.plist
 	plutil -replace CFBundleShortVersionString -string 1.0.0 \
 	  target/dx/flowflow/release/ios/Flowflow.app/Info.plist
-	plutil -replace CFBundleVersion -string 1 \
+	plutil -replace CFBundleVersion -string $(APPSTORE_BUILD) \
 	  target/dx/flowflow/release/ios/Flowflow.app/Info.plist
 	plutil -replace UIDeviceFamily -json '[1]' \
 	  target/dx/flowflow/release/ios/Flowflow.app/Info.plist
@@ -153,7 +155,8 @@ appstore:
 	cp -r target/dx/flowflow/release/ios/Flowflow.app /tmp/flowflow-ipa/Payload/
 	cd /tmp/flowflow-ipa && zip -qry FlowFlow.ipa Payload -x "*.DS_Store" "__MACOSX*"
 	cp /tmp/flowflow-ipa/FlowFlow.ipa .
-	@echo ">> FlowFlow.ipa ready. Upload via Transporter.app."
+	@echo $(APPSTORE_BUILD) > .appstore-build
+	@echo ">> FlowFlow.ipa ready (build $(APPSTORE_BUILD)). Upload via Transporter.app."
 
 clean:
 	rm -rf target/dx target/ios-dev target/desktop-dev target/flycheck0 target/tmp
