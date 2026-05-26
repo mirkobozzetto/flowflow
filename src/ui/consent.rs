@@ -1,4 +1,6 @@
+use crate::db::settings_repo::LANGUAGE_KEY;
 use crate::db::Database;
+use crate::services::i18n::t;
 use crate::ui::AppState;
 use dioxus::prelude::*;
 use std::sync::Arc;
@@ -10,6 +12,7 @@ const SPARKLE: &str =
 pub fn ConsentScreen() -> Element {
     let db: Signal<Arc<Database>> = use_context();
     let mut app: AppState = use_context();
+    let lang = (app.current_lang)();
 
     rsx! {
         div {
@@ -42,29 +45,51 @@ pub fn ConsentScreen() -> Element {
                     }
 
                     h2 { class: "font-semibold text-base text-stone-800 mb-2",
-                        "Pr\u{ea}t \u{e0} ne plus rien oublier ?"
+                        {t(&lang, "consent-title")}
                     }
                     p { class: "text-[13px] text-stone-500 leading-relaxed",
-                        "Capturez vos pens\u{e9}es \u{e0} la voix, "
-                        "organisez-les par th\u{e8}mes, importez vos documents, "
-                        "discutez avec vos notes, d\u{e9}veloppez vos id\u{e9}es "
-                        "et bien plus gr\u{e2}ce \u{e0} l\u{2019}IA !"
+                        {t(&lang, "consent-description")}
                     }
                 }
             }
 
             div { class: "w-full pb-8",
+                div { class: "flex justify-center gap-2 mb-4",
+                    button {
+                        class: if lang == "en" {
+                            "min-h-[44px] px-5 rounded-full text-sm font-medium bg-ios-orange text-white"
+                        } else {
+                            "min-h-[44px] px-5 rounded-full text-sm font-medium bg-stone-200 text-stone-700"
+                        },
+                        onclick: move |_| {
+                            let _ = db().set_setting(LANGUAGE_KEY, "en");
+                            app.current_lang.set("en".to_string());
+                        },
+                        {t(&lang, "language-en")}
+                    }
+                    button {
+                        class: if lang == "fr" {
+                            "min-h-[44px] px-5 rounded-full text-sm font-medium bg-ios-orange text-white"
+                        } else {
+                            "min-h-[44px] px-5 rounded-full text-sm font-medium bg-stone-200 text-stone-700"
+                        },
+                        onclick: move |_| {
+                            let _ = db().set_setting(LANGUAGE_KEY, "fr");
+                            app.current_lang.set("fr".to_string());
+                        },
+                        {t(&lang, "language-fr")}
+                    }
+                }
                 button {
                     class: "w-full bg-ios-orange text-white font-semibold py-4 rounded-2xl text-[15px]",
                     onclick: move |_| {
                         let _ = db().set_setting("ai_consent", "true");
                         app.ai_consent.set(Some(true));
                     },
-                    "C\u{2019}est parti !"
+                    {t(&lang, "consent-cta")}
                 }
                 p { class: "text-[10px] text-stone-400/50 text-center mt-3 px-4 leading-relaxed",
-                    "En continuant, vous acceptez que vos donn\u{e9}es soient "
-                    "trait\u{e9}es par des services d\u{2019}IA tiers via vos cl\u{e9}s API."
+                    {t(&lang, "consent-disclaimer")}
                 }
             }
 

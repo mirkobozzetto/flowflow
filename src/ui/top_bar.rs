@@ -1,4 +1,5 @@
 use crate::db::Database;
+use crate::services::i18n::t;
 use crate::ui::icons::*;
 use crate::ui::{AppState, SidebarTab, View};
 use dioxus::prelude::*;
@@ -12,6 +13,7 @@ pub fn TopBar() -> Element {
     let is_chat = matches!((app.view)(), View::Chat { .. });
     let is_settings = matches!((app.view)(), View::Settings);
     let is_inner = is_detail || is_chat || is_settings;
+    let lang = (app.current_lang)();
 
     let title = match (app.view)() {
         View::NotesList => match (app.selected_folder_id)() {
@@ -20,8 +22,8 @@ pub fn TopBar() -> Element {
                 .ok()
                 .flatten()
                 .map(|f| f.name)
-                .unwrap_or_else(|| "Thème".to_string()),
-            None => "Toutes mes notes".to_string(),
+                .unwrap_or_else(|| t(&lang, "top-bar-folder-fallback")),
+            None => t(&lang, "sidebar-all-notes"),
         },
         View::NoteDetail { .. } => match (app.detail_folder_id)() {
             Some(ref fid) => db()
@@ -29,8 +31,8 @@ pub fn TopBar() -> Element {
                 .ok()
                 .flatten()
                 .map(|f| f.name)
-                .unwrap_or_else(|| "Toutes les notes".to_string()),
-            None => "Toutes les notes".to_string(),
+                .unwrap_or_else(|| t(&lang, "top-bar-all-notes")),
+            None => t(&lang, "top-bar-all-notes"),
         },
         View::Chat { .. } => match (app.chat_scope_folder_id)() {
             Some(ref fid) => db()
@@ -38,10 +40,10 @@ pub fn TopBar() -> Element {
                 .ok()
                 .flatten()
                 .map(|f| f.name)
-                .unwrap_or_else(|| "Toutes les notes".to_string()),
-            None => "Toutes les notes".to_string(),
+                .unwrap_or_else(|| t(&lang, "top-bar-all-notes")),
+            None => t(&lang, "top-bar-all-notes"),
         },
-        View::Settings => "Réglages".to_string(),
+        View::Settings => t(&lang, "sidebar-settings"),
     };
 
     rsx! {

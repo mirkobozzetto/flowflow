@@ -46,7 +46,14 @@ pub fn App() -> Element {
             Signal::new(Arc::new(Mutex::new(AudioRecorder::new())))
         });
 
+    if option_env!("FLOWFLOW_RESET_CONSENT") == Some("1") {
+        let _ = _db().set_setting("ai_consent", "");
+    }
     let consent_value = _db().get_setting("ai_consent").map(|v| v == "true");
+
+    let initial_lang = _db()
+        .get_setting(crate::db::settings_repo::LANGUAGE_KEY)
+        .unwrap_or_else(crate::platform::detect_system_language);
 
     let app = use_context_provider(|| AppState {
         view: Signal::new(View::NotesList),
@@ -69,6 +76,7 @@ pub fn App() -> Element {
         chat_scope_folder_id: Signal::new(None),
         detail_folder_id: Signal::new(None),
         ai_consent: Signal::new(consent_value),
+        current_lang: Signal::new(initial_lang),
     });
 
     use_effect(|| {

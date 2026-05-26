@@ -1,5 +1,7 @@
+use crate::db::settings_repo::LANGUAGE_KEY;
 use crate::db::Database;
 use crate::services::audio;
+use crate::services::i18n::t;
 use crate::ui::AppState;
 use dioxus::prelude::*;
 use std::sync::Arc;
@@ -22,13 +24,14 @@ pub fn SettingsView() -> Element {
     let mut confirm_cleanup = use_signal(|| false);
     let mut cleanup_status: Signal<Option<String>> = use_signal(|| None);
     let audio_count = db().all_audio_paths().map(|p| p.len()).unwrap_or(0);
+    let lang = (app.current_lang)();
 
     rsx! {
         div { class: "space-y-6 pb-20",
-            h2 { class: "text-lg font-semibold text-stone-900", "Clés API" }
+            h2 { class: "text-lg font-semibold text-stone-900", {t(&lang, "settings-api-keys-title")} }
             div { class: "space-y-4",
                 div {
-                    label { class: "block text-sm font-medium text-stone-700 mb-1", "OpenAI API Key" }
+                    label { class: "block text-sm font-medium text-stone-700 mb-1", {t(&lang, "settings-openai-label")} }
                     input {
                         class: "w-full border border-stone-200 rounded-xl px-3 py-2.5 text-sm outline-none text-stone-900 bg-warm-white",
                         r#type: "password",
@@ -41,11 +44,11 @@ pub fn SettingsView() -> Element {
                     }
                 }
                 div {
-                    label { class: "block text-sm font-medium text-stone-700 mb-1", "Soniox API Key" }
+                    label { class: "block text-sm font-medium text-stone-700 mb-1", {t(&lang, "settings-soniox-label")} }
                     input {
                         class: "w-full border border-stone-200 rounded-xl px-3 py-2.5 text-sm outline-none text-stone-900 bg-warm-white",
                         r#type: "password",
-                        placeholder: "Clé Soniox",
+                        placeholder: t(&lang, "settings-soniox-placeholder"),
                         value: "{soniox_key}",
                         oninput: move |evt| {
                             soniox_key.set(evt.value());
@@ -55,11 +58,11 @@ pub fn SettingsView() -> Element {
                 }
             }
 
-            h2 { class: "text-lg font-semibold text-stone-900 pt-2", "Recherche" }
+            h2 { class: "text-lg font-semibold text-stone-900 pt-2", {t(&lang, "settings-search-title")} }
             div {
                 div { class: "flex justify-between items-center mb-1",
                     label { class: "text-sm font-medium text-stone-700",
-                        "Max sources"
+                        {t(&lang, "settings-max-sources")}
                     }
                     span { class: "text-sm font-semibold text-ios-orange",
                         "{max_sources}"
@@ -105,17 +108,51 @@ pub fn SettingsView() -> Element {
                     );
                     saved.set(true);
                 },
-                if saved() { "Enregistré ✓" } else { "Enregistrer" }
+                if saved() {
+                    {t(&lang, "settings-saved")}
+                } else {
+                    {t(&lang, "settings-save")}
+                }
             }
 
             div { class: "border-t border-stone-200 pt-4",
-                h2 { class: "text-lg font-semibold text-stone-900 mb-3", "Stockage" }
+                h2 { class: "text-lg font-semibold text-stone-900 mb-3", {t(&lang, "settings-language-section")} }
+                div { class: "flex gap-2",
+                    button {
+                        class: if lang == "en" {
+                            "flex-1 min-h-[44px] rounded-xl text-sm font-medium bg-ios-orange text-white"
+                        } else {
+                            "flex-1 min-h-[44px] rounded-xl text-sm font-medium bg-stone-200 text-stone-700"
+                        },
+                        onclick: move |_| {
+                            let _ = db().set_setting(LANGUAGE_KEY, "en");
+                            app.current_lang.set("en".to_string());
+                        },
+                        {t(&lang, "language-en")}
+                    }
+                    button {
+                        class: if lang == "fr" {
+                            "flex-1 min-h-[44px] rounded-xl text-sm font-medium bg-ios-orange text-white"
+                        } else {
+                            "flex-1 min-h-[44px] rounded-xl text-sm font-medium bg-stone-200 text-stone-700"
+                        },
+                        onclick: move |_| {
+                            let _ = db().set_setting(LANGUAGE_KEY, "fr");
+                            app.current_lang.set("fr".to_string());
+                        },
+                        {t(&lang, "language-fr")}
+                    }
+                }
+            }
+
+            div { class: "border-t border-stone-200 pt-4",
+                h2 { class: "text-lg font-semibold text-stone-900 mb-3", {t(&lang, "settings-storage-title")} }
                 if let Some(ref status) = cleanup_status() {
                     p { class: "text-xs text-ios-green text-center mb-2", "{status}" }
                 }
                 if audio_count > 0 {
                     {
-                        let label = format!("Nettoyer les fichiers audio ({audio_count})");
+                        let label = format!("{} ({})", t(&lang, "settings-cleanup-audio"), audio_count);
                         rsx! {
                             button {
                                 class: if confirm_cleanup() {
@@ -123,20 +160,22 @@ pub fn SettingsView() -> Element {
                                 } else {
                                     "w-full py-2.5 rounded-xl text-sm font-medium border border-stone-300 text-stone-600"
                                 },
-                                onclick: move |_| {
+                                onclick: {
+                                    let lang = lang.clone();
+                                    move |_| {
                                     if confirm_cleanup() {
                                         let dir = audio::output_dir();
                                         match db().delete_all_audios(&dir) {
                                             Ok(count) => {
                                                 cleanup_status.set(Some(
-                                                    format!("{count} fichiers audio supprimés"),
+                                                    format!("{} {}", count, t(&lang, "settings-cleanup-done")),
                                                 ));
                                                 app.notes_version
                                                     .set((app.notes_version)() + 1);
                                             }
                                             Err(e) => {
                                                 cleanup_status
-                                                    .set(Some(format!("Erreur: {e}")));
+                                                    .set(Some(format!("{}: {}", t(&lang, "settings-cleanup-error"), e)));
                                             }
                                         }
                                         confirm_cleanup.set(false);
@@ -150,9 +189,10 @@ pub fn SettingsView() -> Element {
                                             confirm_cleanup.set(false);
                                         });
                                     }
+                                }
                                 },
                                 if confirm_cleanup() {
-                                    "Confirmer ? Les notes restent intactes."
+                                    {t(&lang, "settings-cleanup-confirm")}
                                 } else {
                                     "{label}"
                                 }
@@ -160,21 +200,20 @@ pub fn SettingsView() -> Element {
                         }
                     }
                 } else {
-                    p { class: "text-xs text-stone-400 text-center", "Aucun fichier audio" }
+                    p { class: "text-xs text-stone-400 text-center", {t(&lang, "settings-no-audio")} }
                 }
             }
 
             p { class: "text-xs text-stone-400 text-center",
-                "Les clés sont stockées localement sur cet appareil."
+                {t(&lang, "settings-keys-stored-locally")}
             }
 
             div { class: "border-t border-stone-200 pt-4",
                 h2 { class: "text-lg font-semibold text-stone-900 mb-3",
-                    "Services IA"
+                    {t(&lang, "settings-ai-services-title")}
                 }
                 p { class: "text-xs text-stone-500 mb-3 leading-relaxed",
-                    "Soniox, OpenAI et Anthropic sont utilisés pour la transcription, "
-                    "la recherche sémantique et le chat."
+                    {t(&lang, "settings-ai-services-description")}
                 }
                 button {
                     class: "w-full py-2.5 rounded-xl text-sm font-medium border border-stone-300 text-stone-500",
@@ -182,7 +221,7 @@ pub fn SettingsView() -> Element {
                         let _ = db().set_setting("ai_consent", "revoked");
                         app.ai_consent.set(None);
                     },
-                    "Révoquer le consentement"
+                    {t(&lang, "settings-revoke-consent")}
                 }
             }
         }

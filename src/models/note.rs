@@ -1,32 +1,5 @@
-use chrono::{Datelike, Timelike};
+use chrono::Datelike;
 use serde::{Deserialize, Serialize};
-
-pub fn generate_auto_title() -> String {
-    let now = chrono::Local::now();
-    let months = [
-        "janvier",
-        "février",
-        "mars",
-        "avril",
-        "mai",
-        "juin",
-        "juillet",
-        "août",
-        "septembre",
-        "octobre",
-        "novembre",
-        "décembre",
-    ];
-    let month = months[now.month0() as usize];
-    format!(
-        "{} {} {}, {:02}:{:02}",
-        now.day(),
-        month,
-        now.year(),
-        now.hour(),
-        now.minute()
-    )
-}
 
 const FR_MONTHS: [&str; 12] = [
     "janvier",
@@ -43,6 +16,33 @@ const FR_MONTHS: [&str; 12] = [
     "décembre",
 ];
 
+const EN_MONTHS: [&str; 12] = [
+    "January",
+    "February",
+    "March",
+    "April",
+    "May",
+    "June",
+    "July",
+    "August",
+    "September",
+    "October",
+    "November",
+    "December",
+];
+
+pub fn generate_auto_title(lang: &str) -> String {
+    let now = chrono::Local::now();
+    let months = if lang == "fr" { &FR_MONTHS } else { &EN_MONTHS };
+    let month = months[now.month0() as usize];
+    let time = if lang == "fr" {
+        now.format("%H:%M").to_string()
+    } else {
+        now.format("%-I:%M %p").to_string()
+    };
+    format!("{} {} {}, {}", now.day(), month, now.year(), time)
+}
+
 pub fn is_auto_title(title: &str) -> bool {
     let parts: Vec<&str> = title.splitn(2, ',').collect();
     if parts.len() != 2 {
@@ -54,6 +54,7 @@ pub fn is_auto_title(title: &str) -> bool {
         return false;
     }
     FR_MONTHS.iter().any(|m| date_part.contains(m))
+        || EN_MONTHS.iter().any(|m| date_part.contains(m))
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]

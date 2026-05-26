@@ -1,4 +1,7 @@
 use crate::services::embed::delete_note_embeddings;
+use crate::services::i18n::t;
+#[cfg(target_os = "ios")]
+use crate::services::i18n::t_args;
 use crate::ui::icons::*;
 use crate::ui::AppState;
 use dioxus::prelude::*;
@@ -9,7 +12,9 @@ pub struct ImportedFile {
     pub content: String,
 }
 
-pub async fn import_file_content() -> Result<Option<ImportedFile>, String> {
+pub async fn import_file_content(
+    lang: &str,
+) -> Result<Option<ImportedFile>, String> {
     #[cfg(target_os = "ios")]
     {
         use crate::platform::ios::{
@@ -28,9 +33,11 @@ pub async fn import_file_content() -> Result<Option<ImportedFile>, String> {
         };
         let file_size = std::fs::metadata(path).map(|m| m.len()).unwrap_or(0);
         if file_size > MAX_FILE_SIZE {
-            return Err(format!(
-                "Fichier trop volumineux ({} MB, max 20 MB)",
-                file_size / (1024 * 1024)
+            let size = (file_size / (1024 * 1024)).to_string();
+            return Err(t_args(
+                lang,
+                "note-file-too-large",
+                &[("size", &size)],
             ));
         }
         let filename = path
@@ -57,10 +64,14 @@ pub async fn import_file_content() -> Result<Option<ImportedFile>, String> {
             .await
             {
                 Ok(Ok(r)) => r,
-                Ok(Err(_)) => Err("Extraction interrompue".to_string()),
+                Ok(Err(_)) => Err(t(lang, "note-extract-interrupted")),
                 Err(_) => {
-                    let mins = timeout_secs / 60;
-                    Err(format!("Fichier trop complexe (timeout {mins}min)"))
+                    let mins = (timeout_secs / 60).to_string();
+                    Err(t_args(
+                        lang,
+                        "note-file-too-complex",
+                        &[("mins", &mins)],
+                    ))
                 }
             }
         };
@@ -74,6 +85,7 @@ pub async fn import_file_content() -> Result<Option<ImportedFile>, String> {
     }
     #[cfg(not(target_os = "ios"))]
     {
+        let _ = lang;
         Ok(None)
     }
 }
@@ -88,6 +100,9 @@ pub fn NoteMenu(
     let db: Signal<Arc<crate::db::Database>> = use_context();
     let mut deleted = deleted;
     let mut import_requested = import_requested;
+    let lang = (app.current_lang)();
+    let import_label = t(&lang, "note-menu-import");
+    let delete_label = t(&lang, "note-menu-delete");
 
     rsx! {
         div {
@@ -103,7 +118,7 @@ pub fn NoteMenu(
                     app.show_note_menu.set(false);
                 },
                 IconFileArrowUp { size: 18 }
-                "Importer un document"
+                "{import_label}"
             }
             button {
                 class: "w-full flex items-center gap-3 px-4 py-3 text-sm text-ios-red active:bg-stone-50",
@@ -121,7 +136,7 @@ pub fn NoteMenu(
                     }
                 },
                 IconTrash { size: 18 }
-                "Supprimer la note"
+                "{delete_label}"
             }
         }
     }

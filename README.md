@@ -128,6 +128,32 @@ Once your paid Apple Developer Program is active, profiles last 1 year and `make
 
 End-to-end submission walkthrough: [docs/deploy/02-app-store-submission.md](docs/deploy/02-app-store-submission.md). Sequential execution plan: [docs/deploy/03-execution-plan.md](docs/deploy/03-execution-plan.md).
 
+### Glossary
+
+- **IPA** — iOS App Archive. A signed `.ipa` is the zipped, signed bundle Apple accepts. `make appstore` builds it.
+- **ASC** — [App Store Connect](https://appstoreconnect.apple.com). Apple's web dashboard to upload builds, fill metadata, attach screenshots, and submit for review.
+- **Transporter** — [free Mac app](https://apps.apple.com/app/transporter/id1450874784) to upload an `.ipa` to ASC.
+- **Provisioning profile** — Apple signed file that authorizes your bundle ID + cert combo. Generated once at [developer.apple.com](https://developer.apple.com/account/resources/profiles/list).
+- **CFBundleVersion / CFBundleShortVersionString** — build number (must increment every upload) and user-visible version (e.g. `1.0.0`).
+- **Bundle ID** — unique app identifier (`com.mirkobozzetto.flowflow`). Tied to the provisioning profile.
+
+### Push an update (continuous releases)
+
+Workflow once the app is live on the Store:
+
+1. Bump `CFBundleVersion` in `Makefile` (line 74) by `+1`. ASC rejects duplicate build numbers. Bump `CFBundleShortVersionString` only on user-visible releases (e.g. `1.0.0` → `1.0.1`).
+2. `make appstore` → fresh signed `FlowFlow.ipa`.
+3. Open Transporter → drag the `.ipa` → Deliver. Apple processes the build (5–30 min).
+4. ASC → your app → **TestFlight or App Store tab** → attach the new build to the current version, or create a new version (`+ Version` button) if you bumped the short version string.
+5. Update locale-specific metadata (description, keywords, screenshots) if needed — see *Multilingual releases* below.
+6. **Submit for Review**. Apple usually answers within 24h.
+
+### Multilingual releases
+
+The app auto-detects the iPhone system language at boot (NSLocale) and falls back to English. Users can switch language any time via Settings → Langue / Language. Supported locales: `en`, `fr`.
+
+For ASC: add **English (U.S.)** and **French (France)** under App Information → Localizations. Each locale needs its own screenshots (iPhone 6.9", 1320×2868), description, and keywords. Upload locale screenshots separately in each language tab.
+
 ## Tests
 
 ```bash

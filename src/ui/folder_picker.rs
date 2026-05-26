@@ -1,5 +1,6 @@
 use crate::db::Database;
 use crate::models::Folder;
+use crate::services::i18n::t;
 use crate::ui::AppState;
 use dioxus::prelude::*;
 use std::sync::Arc;
@@ -13,6 +14,7 @@ pub fn FolderPicker(selected: Signal<Option<String>>) -> Element {
         let _v = (app.folders_version)();
         db().list_all_folders().unwrap_or_default()
     });
+    let lang = (app.current_lang)();
 
     rsx! {
         div { class: "absolute left-0 right-0 top-0 z-20 bg-warm-white border-b border-stone-200 overflow-hidden shadow-md animate-[slideDown_150ms_ease-out]",
@@ -26,7 +28,7 @@ pub fn FolderPicker(selected: Signal<Option<String>>) -> Element {
                     selected.set(None);
                     app.show_folder_picker.set(false);
                 },
-                "Toutes les notes"
+                {t(&lang, "folder-picker-all")}
             }
             for folder in all_folders() {
                 {

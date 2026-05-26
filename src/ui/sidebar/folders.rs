@@ -1,5 +1,6 @@
 use crate::db::Database;
 use crate::models::{Folder, NewFolder, UpdateFolder};
+use crate::services::i18n::t;
 use crate::ui::icons::*;
 use crate::ui::{AppState, View};
 use dioxus::prelude::*;
@@ -11,6 +12,7 @@ pub fn FolderSection() -> Element {
     let mut app: AppState = use_context();
     let mut creating = use_signal(|| false);
     let mut new_name = use_signal(String::new);
+    let lang = (app.current_lang)();
 
     let folders = use_memo(move || {
         let _v = (app.folders_version)();
@@ -19,7 +21,7 @@ pub fn FolderSection() -> Element {
 
     rsx! {
         div { class: "flex items-center justify-between px-2 mb-2",
-            span { class: "text-xs font-medium text-stone-400 uppercase tracking-wide", "Thèmes" }
+            span { class: "text-xs font-medium text-stone-400 uppercase tracking-wide", {t(&lang, "sidebar-folders-title")} }
             button {
                 class: "w-9 h-9 flex items-center justify-center rounded-full text-stone-500",
                 onclick: move |_| creating.set(!creating()),
@@ -30,7 +32,7 @@ pub fn FolderSection() -> Element {
             div { class: "flex items-center gap-2 px-2 mb-2",
                 input {
                     class: "flex-1 text-sm border border-stone-200 rounded-lg px-2 py-1.5 outline-none",
-                    placeholder: "Nom du thème",
+                    placeholder: t(&lang, "sidebar-folder-placeholder"),
                     value: "{new_name}",
                     oninput: move |evt| new_name.set(evt.value()),
                     onkeypress: move |evt| {
@@ -67,7 +69,7 @@ pub fn FolderSection() -> Element {
             }
         }
         if folders().is_empty() && !creating() {
-            p { class: "text-xs text-stone-400 px-2 py-3", "Aucun thème" }
+            p { class: "text-xs text-stone-400 px-2 py-3", {t(&lang, "sidebar-no-folders")} }
         }
         for folder in folders() {
             FolderItem { folder: folder, depth: 0 }
@@ -86,6 +88,7 @@ fn FolderItem(folder: Folder, depth: u32) -> Element {
     let mut edit_name = use_signal(|| folder.name.clone());
     let mut confirm_delete = use_signal(|| false);
     let mut show_actions = use_signal(|| false);
+    let lang = (app.current_lang)();
 
     let folder_id = folder.id.clone();
     let folder_id_for_delete = folder.id.clone();
@@ -151,7 +154,7 @@ fn FolderItem(folder: Folder, depth: u32) -> Element {
                 }
             } else if confirm_delete() {
                 div { class: "flex items-center gap-2 py-2 px-2",
-                    span { class: "flex-1 text-sm text-stone-600", "Supprimer ?" }
+                    span { class: "flex-1 text-sm text-stone-600", {t(&lang, "sidebar-delete-confirm")} }
                     button {
                         class: "px-3 py-1 rounded-lg bg-ios-red text-white text-xs font-medium",
                         onclick: move |_| {
@@ -161,12 +164,12 @@ fn FolderItem(folder: Folder, depth: u32) -> Element {
                             }
                             app.folders_version.set((app.folders_version)() + 1);
                         },
-                        "Oui"
+                        {t(&lang, "sidebar-yes")}
                     }
                     button {
                         class: "px-3 py-1 rounded-lg bg-stone-200 text-stone-600 text-xs",
                         onclick: move |_| confirm_delete.set(false),
-                        "Non"
+                        {t(&lang, "sidebar-no")}
                     }
                 }
             } else {
@@ -233,7 +236,7 @@ fn FolderItem(folder: Folder, depth: u32) -> Element {
                 div { class: "flex items-center gap-2 px-2 py-1 ml-8",
                     input {
                         class: "flex-1 text-sm border border-stone-200 rounded-lg px-2 py-1.5 outline-none",
-                        placeholder: "Sous-thème",
+                        placeholder: t(&lang, "sidebar-subfolder-placeholder"),
                         value: "{sub_name}",
                         oninput: move |evt| sub_name.set(evt.value()),
                         onkeypress: move |evt| {

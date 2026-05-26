@@ -1,4 +1,5 @@
 use crate::db::Database;
+use crate::services::i18n::t;
 use crate::ui::icons::*;
 use crate::ui::{AppState, View};
 use dioxus::prelude::*;
@@ -9,6 +10,7 @@ pub fn ConversationSection() -> Element {
     let mut app: AppState = use_context();
     let db: Signal<Arc<Database>> = use_context();
     let version = use_signal(|| 0u32);
+    let lang = (app.current_lang)();
 
     let conversations = use_memo(move || {
         let _v = version();
@@ -23,10 +25,10 @@ pub fn ConversationSection() -> Element {
                 app.sidebar_open.set(false);
             },
             IconPlus { size: 16 }
-            "Nouvelle conversation"
+            {t(&lang, "sidebar-new-conversation")}
         }
         if conversations().is_empty() {
-            p { class: "text-xs text-stone-400 px-2 py-3", "Aucune conversation" }
+            p { class: "text-xs text-stone-400 px-2 py-3", {t(&lang, "sidebar-no-conversations")} }
         }
         for conv in conversations() {
             ConversationItem { conv: conv, version: version }
@@ -45,13 +47,14 @@ fn ConversationItem(
     let mut confirm_delete = use_signal(|| false);
     let mut editing = use_signal(|| false);
     let mut edit_name = use_signal(|| conv.title.clone());
+    let lang = (app.current_lang)();
 
     let conv_id_nav = conv.id.clone();
     let conv_id_rename = conv.id.clone();
     let conv_id_rename2 = conv.id.clone();
     let conv_id_del = conv.id.clone();
     let title = if conv.title.is_empty() {
-        "Sans titre".to_string()
+        t(&lang, "sidebar-untitled")
     } else {
         conv.title.clone()
     };
@@ -95,19 +98,19 @@ fn ConversationItem(
             }
         } else if confirm_delete() {
             div { class: "flex items-center gap-2 py-2 px-2",
-                span { class: "flex-1 text-sm text-stone-600", "Supprimer ?" }
+                span { class: "flex-1 text-sm text-stone-600", {t(&lang, "sidebar-delete-confirm")} }
                 button {
                     class: "px-3 py-1 rounded-lg bg-ios-red text-white text-xs font-medium",
                     onclick: move |_| {
                         let _ = db().delete_conversation(&conv_id_del);
                         version.set(version() + 1);
                     },
-                    "Oui"
+                    {t(&lang, "sidebar-yes")}
                 }
                 button {
                     class: "px-3 py-1 rounded-lg bg-stone-200 text-stone-600 text-xs",
                     onclick: move |_| confirm_delete.set(false),
-                    "Non"
+                    {t(&lang, "sidebar-no")}
                 }
             }
         } else {

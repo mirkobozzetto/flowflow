@@ -5,6 +5,7 @@ use crate::models::{
 };
 use crate::services::audio::{self, RecordingState};
 use crate::services::embed::{embed_attachment, embed_note};
+use crate::services::i18n::{t, t_args};
 use crate::services::transcription::SonioxClient;
 use crate::ui::folder_picker::FolderPicker;
 use crate::ui::notes::attachments::AttachmentSection;
@@ -17,7 +18,7 @@ use chrono::{Datelike, NaiveDateTime, Utc};
 use dioxus::prelude::*;
 use std::sync::Arc;
 
-fn format_relative_date(iso: &str) -> String {
+fn format_relative_date(iso: &str, lang: &str) -> String {
     let parsed = NaiveDateTime::parse_from_str(
         &iso.replace('T', " ").replace('Z', ""),
         "%Y-%m-%d %H:%M:%S%.f",
@@ -31,27 +32,39 @@ fn format_relative_date(iso: &str) -> String {
     let secs = diff.num_seconds();
 
     if secs < 60 {
-        return "À l'instant".to_string();
+        return t(lang, "date-just-now");
     }
     if secs < 3600 {
-        let mins = secs / 60;
-        return format!("Il y a {mins} min");
+        let mins = (secs / 60).to_string();
+        return t_args(lang, "date-mins-ago", &[("mins", &mins)]);
     }
     if secs < 86400 {
-        let hours = secs / 3600;
-        return format!("Il y a {hours}h");
+        let hours = (secs / 3600).to_string();
+        return t_args(lang, "date-hours-ago", &[("hours", &hours)]);
     }
 
     let today = now.date();
     let note_date = dt.date();
     if today.pred_opt() == Some(note_date) {
-        return format!("Hier, {}", dt.format("%H:%M"));
+        let time = if lang == "fr" {
+            dt.format("%H:%M").to_string()
+        } else {
+            dt.format("%-I:%M %p").to_string()
+        };
+        return t_args(lang, "date-yesterday", &[("time", &time)]);
     }
 
-    let months = [
-        "", "jan.", "fév.", "mars", "avr.", "mai", "juin", "juil.", "août",
-        "sept.", "oct.", "nov.", "déc.",
-    ];
+    let months: [&str; 13] = if lang == "fr" {
+        [
+            "", "jan.", "fév.", "mars", "avr.", "mai", "juin", "juil.", "août",
+            "sept.", "oct.", "nov.", "déc.",
+        ]
+    } else {
+        [
+            "", "Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep",
+            "Oct", "Nov", "Dec",
+        ]
+    };
     let m = months[note_date.month() as usize];
     let d = note_date.day();
 
@@ -62,7 +75,7 @@ fn format_relative_date(iso: &str) -> String {
     }
 }
 
-fn format_absolute_short(iso: &str) -> String {
+fn format_absolute_short(iso: &str, lang: &str) -> String {
     let parsed = NaiveDateTime::parse_from_str(
         &iso.replace('T', " ").replace('Z', ""),
         "%Y-%m-%d %H:%M:%S%.f",
@@ -71,15 +84,27 @@ fn format_absolute_short(iso: &str) -> String {
         Ok(d) => d,
         Err(_) => return iso.to_string(),
     };
-    let months = [
-        "", "jan.", "fév.", "mars", "avr.", "mai", "juin", "juil.", "août",
-        "sept.", "oct.", "nov.", "déc.",
-    ];
+    let months: [&str; 13] = if lang == "fr" {
+        [
+            "", "jan.", "fév.", "mars", "avr.", "mai", "juin", "juil.", "août",
+            "sept.", "oct.", "nov.", "déc.",
+        ]
+    } else {
+        [
+            "", "Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep",
+            "Oct", "Nov", "Dec",
+        ]
+    };
     let d = dt.date();
     let now = Utc::now().naive_utc().date();
     let m = months[d.month() as usize];
     if d.year() == now.year() {
-        format!("{} {}, {}", d.day(), m, dt.format("%H:%M"))
+        let time = if lang == "fr" {
+            dt.format("%H:%M").to_string()
+        } else {
+            dt.format("%-I:%M %p").to_string()
+        };
+        format!("{} {}, {}", d.day(), m, time)
     } else {
         format!("{} {} {}", d.day(), m, d.year())
     }
@@ -89,6 +114,7 @@ fn format_absolute_short(iso: &str) -> String {
 pub fn NoteDetail() -> Element {
     let mut app: AppState = use_context();
     let db: Signal<Arc<Database>> = use_context();
+    let lang = (app.current_lang)();
 
     let note_id = match (app.view)() {
         View::NoteDetail { note_id } => note_id,
@@ -104,7 +130,7 @@ pub fn NoteDetail() -> Element {
     };
 
     let initial_title = if is_new {
-        generate_auto_title()
+        generate_auto_title(&lang)
     } else {
         note.as_ref()
             .and_then(|n| n.title.clone())
@@ -142,6 +168,7 @@ pub fn NoteDetail() -> Element {
     let mut local_note_id = use_signal(|| note_id.clone());
     let mut import_requested = use_signal(|| false);
     let mut import_status: Signal<Option<String>> = use_signal(|| None);
+    let mut import_in_progress = use_signal(|| false);
     let mut pending_audio: Signal<Option<(String, f64)>> = use_signal(|| None);
     let mut audios_version = use_signal(|| 0u32);
 
@@ -356,15 +383,23 @@ pub fn NoteDetail() -> Element {
         let c = content();
         let tg = tags();
         let folder = (app.detail_folder_id)();
+        let lang_eff = (app.current_lang)();
         spawn(async move {
-            import_status.set(Some("Importation en cours...".to_string()));
-            let file = match import_file_content().await {
+            import_in_progress.set(true);
+            import_status.set(Some(t_args(
+                &lang_eff,
+                "note-import-in-progress",
+                &[],
+            )));
+            let file = match import_file_content(&lang_eff).await {
                 Ok(Some(f)) => f,
                 Ok(None) => {
+                    import_in_progress.set(false);
                     import_status.set(None);
                     return;
                 }
                 Err(e) => {
+                    import_in_progress.set(false);
                     import_status.set(Some(e));
                     spawn(async move {
                         tokio::time::sleep(tokio::time::Duration::from_secs(4))
@@ -396,8 +431,13 @@ pub fn NoteDetail() -> Element {
                             created.id
                         }
                         Err(e) => {
-                            import_status
-                                .set(Some(format!("Erreur sauvegarde: {e}")));
+                            import_in_progress.set(false);
+                            let msg = e.to_string();
+                            import_status.set(Some(t_args(
+                                &lang_eff,
+                                "note-import-save-error",
+                                &[("error", &msg)],
+                            )));
                             return;
                         }
                     }
@@ -420,10 +460,17 @@ pub fn NoteDetail() -> Element {
                         att.filename.clone(),
                         att.content_text.clone(),
                     );
+                    import_in_progress.set(false);
                     import_status.set(None);
                 }
                 Err(e) => {
-                    import_status.set(Some(format!("Erreur import: {e}")));
+                    import_in_progress.set(false);
+                    let msg = e.to_string();
+                    import_status.set(Some(t_args(
+                        &lang_eff,
+                        "note-import-error",
+                        &[("error", &msg)],
+                    )));
                 }
             }
         });
@@ -434,15 +481,26 @@ pub fn NoteDetail() -> Element {
 
     let modified_date = note
         .as_ref()
-        .map(|n| format_relative_date(&n.modified_at))
+        .map(|n| format_relative_date(&n.modified_at, &lang))
         .unwrap_or_default();
 
     let created_date = note
         .as_ref()
-        .map(|n| format_absolute_short(&n.created_at))
+        .map(|n| format_absolute_short(&n.created_at, &lang))
         .unwrap_or_default();
 
     let show_menu = (app.show_note_menu)();
+    let title_placeholder = t(&lang, "note-title-placeholder");
+    let content_placeholder = t(&lang, "note-content-placeholder");
+    let transcribing_placeholder = t(&lang, "note-transcribing-placeholder");
+    let transcribing_short = t(&lang, "note-transcribing-short");
+    let transcribe_action = t(&lang, "note-transcribe-action");
+    let created_on_text = if created_date.is_empty() {
+        String::new()
+    } else {
+        t_args(&lang, "note-created-on", &[("date", &created_date)])
+    };
+    let is_importing = import_in_progress();
 
     rsx! {
         if show_menu {
@@ -462,7 +520,10 @@ pub fn NoteDetail() -> Element {
                 div { class: "inline-block relative",
                     span {
                         class: "text-xl font-semibold invisible whitespace-pre py-1.5 px-3 border border-transparent",
-                        {if title().is_empty() { "Titre".to_string() } else { title() }}
+                        {
+                            let t_disp = if title().is_empty() { title_placeholder.clone() } else { title() };
+                            rsx! { "{t_disp}" }
+                        }
                     }
                     input {
                         class: if generating_title() {
@@ -470,7 +531,7 @@ pub fn NoteDetail() -> Element {
                         } else {
                             "absolute inset-0 text-xl font-semibold outline-none py-1.5 px-3 border border-stone-200/60 rounded-md text-stone-900 bg-white/25 focus:border-ios-orange-dark/40 transition-colors duration-150"
                         },
-                        placeholder: "Titre",
+                        placeholder: "{title_placeholder}",
                         value: "{title}",
                         oninput: move |evt| title.set(evt.value()),
                     }
@@ -479,7 +540,7 @@ pub fn NoteDetail() -> Element {
                     div { class: "mt-2 px-1",
                         p { class: "text-xs text-stone-400", "{modified_date}" }
                         if !created_date.is_empty() {
-                            p { class: "text-[10px] text-stone-300 mt-0.5", "Créé le {created_date}" }
+                            p { class: "text-[10px] text-stone-300 mt-0.5", "{created_on_text}" }
                         }
                     }
                 }
@@ -493,13 +554,14 @@ pub fn NoteDetail() -> Element {
                 } else {
                     "w-full min-h-[300px] border border-stone-200 rounded-xl p-3 mt-3 text-sm resize-none font-sans outline-none text-stone-900"
                 },
-                placeholder: if is_transcribing { "Transcription en cours..." } else { "Contenu de la note..." },
+                placeholder: if is_transcribing { transcribing_placeholder.as_str() } else { content_placeholder.as_str() },
                 value: "{content}",
                 oninput: move |evt| content.set(evt.value()),
             }
             if !audios.is_empty() {
                 {
-                    let audio_label = format!("Enregistrements ({})", audios.len());
+                    let count = audios.len().to_string();
+                    let audio_label = t_args(&lang, "note-audios-label", &[("count", &count)]);
                     rsx! {
                         div { class: "mt-3",
                             button {
@@ -523,7 +585,7 @@ pub fn NoteDetail() -> Element {
                                             let file_path = audio.file_path.clone();
                                             let file_path_tr = audio.file_path.clone();
                                             let resolved = audio::resolve_audio_path(&file_path);
-                                            let date = format_relative_date(&audio.created_at);
+                                            let date = format_relative_date(&audio.created_at, &lang);
                                             let transcription = audio.transcription.clone();
                                             let is_transcribing_this = transcribing_audio_id() == Some(audio.id.clone());
                                             rsx! {
@@ -546,7 +608,7 @@ pub fn NoteDetail() -> Element {
                                                         p {
                                                             class: "text-xs text-stone-400 px-1 pb-1",
                                                             style: "animation: pulseSoft 1.5s ease-in-out infinite;",
-                                                            "Transcription..."
+                                                            "{transcribing_short}"
                                                         }
                                                     } else {
                                                         button {
@@ -573,7 +635,7 @@ pub fn NoteDetail() -> Element {
                                                                     audios_version.set(audios_version() + 1);
                                                                 });
                                                             },
-                                                            "Transcrire"
+                                                            "{transcribe_action}"
                                                         }
                                                     }
                                                 }
@@ -588,20 +650,26 @@ pub fn NoteDetail() -> Element {
             }
             AttachmentSection { attachments, confirm_delete_att }
             if let Some(ref status) = import_status() {
-                div { class: if status.starts_with("Importation") {
+                div { class: if is_importing {
                         "flex items-center gap-2 px-3 py-2 mt-2 bg-ios-orange/10 rounded-lg"
                     } else {
                         "flex items-center gap-2 px-3 py-2 mt-2 bg-ios-red/10 rounded-lg"
                     },
-                    if status.starts_with("Importation") {
+                    if is_importing {
                         span { class: "inline-block w-3 h-3 border-2 border-ios-orange border-t-transparent rounded-full animate-spin" }
                     }
                     span { class: "text-xs text-stone-600", "{status}" }
                 }
             }
             if let RecordingState::Error(ref e) = recording_state {
-                p { class: "text-xs text-stone-400 text-center mt-3",
-                    "Erreur : {e}"
+                {
+                    let msg = e.clone();
+                    let recording_error = t_args(&lang, "note-recording-error", &[("message", &msg)]);
+                    rsx! {
+                        p { class: "text-xs text-stone-400 text-center mt-3",
+                            "{recording_error}"
+                        }
+                    }
                 }
             }
         }

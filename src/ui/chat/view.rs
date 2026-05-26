@@ -131,7 +131,8 @@ pub fn ChatView() -> Element {
                     }
                 }
                 let folder = (app.chat_scope_folder_id)();
-                send_question(q, &mut messages, &mut loading, &mut tool_status, conversation_id, db, folder);
+                let lang = (app.current_lang)();
+                send_question(q, &mut messages, &mut loading, &mut tool_status, conversation_id, db, folder, lang);
             },
         }
     }

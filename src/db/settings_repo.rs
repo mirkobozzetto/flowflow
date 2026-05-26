@@ -1,5 +1,7 @@
 use crate::db::Database;
 
+pub const LANGUAGE_KEY: &str = "language";
+
 impl Database {
     pub fn get_setting(&self, key: &str) -> Option<String> {
         let conn = self.conn();

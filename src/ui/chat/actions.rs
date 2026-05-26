@@ -12,6 +12,7 @@ pub fn md_to_html(md: &str) -> String {
     html_output
 }
 
+#[allow(clippy::too_many_arguments)]
 pub fn send_question(
     question: String,
     messages: &mut Signal<Vec<ChatMsg>>,
@@ -20,6 +21,7 @@ pub fn send_question(
     conversation_id: Signal<Option<String>>,
     db: Signal<Arc<Database>>,
     folder_id: Option<String>,
+    lang: String,
 ) {
     messages.write().push(ChatMsg::User(question.clone()));
     loading.set(true);
@@ -38,11 +40,12 @@ pub fn send_question(
 
     let (tx, mut rx) = tokio::sync::mpsc::unbounded_channel();
 
+    let lang_for_tools = lang.clone();
     spawn(async move {
         while let Some(event) = rx.recv().await {
             match event {
                 crate::services::tools::ToolEvent::Started(name) => {
-                    ts.set(Some(tool_label(&name).to_string()));
+                    ts.set(Some(tool_label(&lang_for_tools, &name)));
                 }
                 crate::services::tools::ToolEvent::Finished(_) => {
                     ts.set(None);
@@ -99,7 +102,11 @@ pub fn send_question(
                 });
             }
             Err(e) => {
-                let err_msg = format!("Erreur : {e}");
+                let err_msg = format!(
+                    "{} : {}",
+                    crate::services::i18n::t(&lang, "chat-error"),
+                    e
+                );
                 if let Some(ref cid) = conv_signal() {
                     let _ = db().add_message(cid, "bot", &err_msg, None);
                 }

@@ -1,7 +1,11 @@
+use crate::services::i18n::t;
+use crate::ui::AppState;
 use dioxus::prelude::*;
 
 #[component]
 pub fn ChatEmptyState() -> Element {
+    let app: AppState = use_context();
+    let lang = (app.current_lang)();
     rsx! {
         div {
             class: "flex flex-col items-center justify-center px-6 h-full",
@@ -12,10 +16,10 @@ pub fn ChatEmptyState() -> Element {
                 class: "mb-6 rounded-3xl",
             }
             p { class: "text-stone-900 font-semibold text-base mb-1",
-                "Chat avec tes notes"
+                {t(&lang, "chat-empty-title")}
             }
             p { class: "text-stone-400 text-sm text-center",
-                "Pose une question, je cherche dans tes notes."
+                {t(&lang, "chat-empty-hint")}
             }
         }
     }

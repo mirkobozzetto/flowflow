@@ -5,6 +5,7 @@ pub use conversations::*;
 pub use folders::*;
 
 use crate::db::Database;
+use crate::services::i18n::t;
 use crate::ui::icons::*;
 use crate::ui::{AppState, SidebarTab, View};
 use dioxus::prelude::*;
@@ -15,6 +16,7 @@ pub fn SidebarOverlay() -> Element {
     let mut app: AppState = use_context();
     let _db: Signal<Arc<Database>> = use_context();
     let is_open = (app.sidebar_open)();
+    let lang = (app.current_lang)();
 
     rsx! {
         div {
@@ -37,7 +39,7 @@ pub fn SidebarOverlay() -> Element {
                     onclick: move |_| app.sidebar_tab.set(SidebarTab::Notes),
                     div { class: "flex items-center justify-center gap-1.5",
                         IconNotePencil { size: 16 }
-                        "Notes"
+                        {t(&lang, "sidebar-tab-notes")}
                     }
                 }
                 button {
@@ -49,7 +51,7 @@ pub fn SidebarOverlay() -> Element {
                     onclick: move |_| app.sidebar_tab.set(SidebarTab::Chats),
                     div { class: "flex items-center justify-center gap-1.5",
                         IconChats { size: 16 }
-                        "Chats"
+                        {t(&lang, "sidebar-tab-chats")}
                     }
                 }
             }
@@ -66,7 +68,7 @@ pub fn SidebarOverlay() -> Element {
                                     app.sidebar_open.set(false);
                                 },
                                 IconNotebook { size: 20 }
-                                "Toutes mes notes"
+                                {t(&lang, "sidebar-all-notes")}
                             }
                         }
                         div { class: "h-px bg-stone-200 mb-2" }
@@ -86,7 +88,7 @@ pub fn SidebarOverlay() -> Element {
                         app.sidebar_open.set(false);
                     },
                     IconGear { size: 18 }
-                    "Réglages"
+                    {t(&lang, "sidebar-settings")}
                 }
             }
         }

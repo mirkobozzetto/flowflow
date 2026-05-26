@@ -1,5 +1,6 @@
 use crate::db::Database;
 use crate::services::audio::{self, AudioRecorder, RecordingState};
+use crate::services::i18n::t;
 use crate::services::transcription::SonioxClient;
 use crate::ui::icons::*;
 use crate::ui::recording::Waveform;
@@ -80,6 +81,10 @@ pub fn RecordingControls(
     let mut duration = use_signal(|| 0.0f32);
     let mut last_tap_ms = use_signal(|| 0u64);
     let mut transcription_gen = use_signal(|| 0u64);
+    let lang = (app.current_lang)();
+    let cancel_hint = t(&lang, "recording-cancel-hint");
+    let pause_label = t(&lang, "recording-pause-label");
+    let transcribing_label = t(&lang, "recording-transcribing");
 
     use_effect(move || {
         let state = (app.recording_state)();
@@ -203,12 +208,19 @@ pub fn RecordingControls(
                             }
                         }
                         if is_paused {
-                            span { class: "flex-1 text-center text-[11px] text-white/50", "double-tap pour annuler" }
+                            span { class: "flex-1 text-center text-[11px] text-white/50", "{cancel_hint}" }
                         } else {
                             Waveform { num_bars: NUM_BARS, frozen: false }
                         }
                         span { class: "text-xs tabular-nums flex-shrink-0 ml-1",
-                            if is_paused { "Pause · {m}:{s:02}" } else { "{m}:{s:02}" }
+                            {
+                                let timer_label = if is_paused {
+                                    format!("{pause_label} · {m}:{s:02}")
+                                } else {
+                                    format!("{m}:{s:02}")
+                                };
+                                rsx! { "{timer_label}" }
+                            }
                         }
                     }
                 }
@@ -256,7 +268,7 @@ pub fn RecordingControls(
                             app.recording_state.set(RecordingState::Idle);
                         }
                     },
-                    span { style: "animation: pulseSoft 1.5s ease-in-out infinite;", "Transcription..." }
+                    span { style: "animation: pulseSoft 1.5s ease-in-out infinite;", "{transcribing_label}" }
                 }
             }
         }

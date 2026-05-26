@@ -1,5 +1,6 @@
 use crate::db::Database;
 use crate::models::Note;
+use crate::services::i18n::t;
 use crate::ui::{AppState, View};
 use dioxus::prelude::*;
 use std::sync::Arc;
@@ -9,11 +10,12 @@ pub fn NoteCard(note: Note) -> Element {
     let mut app: AppState = use_context();
     let db: Signal<Arc<Database>> = use_context();
     let note_id = note.id.clone();
+    let lang = (app.current_lang)();
 
     let title = note
         .title
         .clone()
-        .unwrap_or_else(|| "Sans titre".to_string());
+        .unwrap_or_else(|| t(&lang, "note-card-untitled"));
 
     let preview = if note.content.len() > 120 {
         format!("{}...", &note.content[..120])
