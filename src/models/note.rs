@@ -50,7 +50,13 @@ pub fn is_auto_title(title: &str) -> bool {
     }
     let date_part = parts[0].trim();
     let time_part = parts[1].trim();
-    if time_part.len() != 5 || !time_part.contains(':') {
+    if !time_part.contains(':') {
+        return false;
+    }
+    let valid_time = time_part.len() == 5
+        || time_part.ends_with(" AM")
+        || time_part.ends_with(" PM");
+    if !valid_time {
         return false;
     }
     FR_MONTHS.iter().any(|m| date_part.contains(m))

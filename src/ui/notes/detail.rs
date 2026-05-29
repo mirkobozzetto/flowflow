@@ -338,8 +338,9 @@ pub fn NoteDetail() -> Element {
         generating_title.set(true);
         let preview: String = c.chars().take(1500).collect();
         spawn(async move {
+            let lang = (app.current_lang)();
             if let Ok(ai) = crate::services::llm::LlmClient::from_env() {
-                if let Ok(new_title) = ai.generate_title(&preview).await {
+                if let Ok(new_title) = ai.generate_title(&preview, &lang).await {
                     title.set(new_title);
                 }
             }
