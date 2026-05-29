@@ -84,7 +84,7 @@ appstore:
 	SDK_BUILD=$$(xcrun --sdk iphoneos --show-sdk-build-version); \
 	OS_BUILD=$$(sw_vers -buildVersion); \
 	XCODE_DT=$$(defaults read /Applications/Xcode.app/Contents/Info DTXcode 2>/dev/null); \
-	XCODE_DT_BUILD=$$(defaults read /Applications/Xcode.app/Contents/Info DTXcodeBuild 2>/dev/null); \
+	XCODE_DT_BUILD=$$(/usr/libexec/PlistBuddy -c "Print :ProductBuildVersion" "$$(xcode-select -p)/../version.plist" 2>/dev/null); \
 	PLIST=target/dx/flowflow/release/ios/Flowflow.app/Info.plist; \
 	plutil -replace CFBundlePackageType -string APPL $$PLIST; \
 	plutil -replace DTPlatformVersion -string $$SDK_VERSION $$PLIST; \
@@ -100,11 +100,12 @@ appstore:
 	SDK_BUILD=$$(xcrun --sdk iphoneos --show-sdk-build-version); \
 	OS_BUILD=$$(sw_vers -buildVersion); \
 	XCODE_DT=$$(defaults read /Applications/Xcode.app/Contents/Info DTXcode 2>/dev/null); \
-	XCODE_DT_BUILD=$$(defaults read /Applications/Xcode.app/Contents/Info DTXcodeBuild 2>/dev/null); \
+	XCODE_DT_BUILD=$$(/usr/libexec/PlistBuddy -c "Print :ProductBuildVersion" "$$(xcode-select -p)/../version.plist" 2>/dev/null); \
 	WPLIST=target/dx/flowflow/release/ios/Flowflow.app/PlugIns/recording_widget.appex/Info.plist; \
 	plutil -remove UIRequiredDeviceCapabilities $$WPLIST 2>/dev/null || true; \
 	plutil -insert UIRequiredDeviceCapabilities -json '["arm64"]' $$WPLIST; \
 	plutil -replace CFBundleShortVersionString -string 1.0.0 $$WPLIST; \
+	plutil -replace CFBundleVersion -string $(APPSTORE_BUILD) $$WPLIST 2>/dev/null || plutil -insert CFBundleVersion -string $(APPSTORE_BUILD) $$WPLIST; \
 	plutil -replace DTPlatformName -string iphoneos $$WPLIST 2>/dev/null || plutil -insert DTPlatformName -string iphoneos $$WPLIST; \
 	plutil -replace DTPlatformVersion -string $$SDK_VERSION $$WPLIST 2>/dev/null || plutil -insert DTPlatformVersion -string $$SDK_VERSION $$WPLIST; \
 	plutil -replace DTSDKName -string iphoneos$$SDK_VERSION $$WPLIST 2>/dev/null || plutil -insert DTSDKName -string iphoneos$$SDK_VERSION $$WPLIST; \
@@ -155,6 +156,17 @@ appstore:
 	cp -r target/dx/flowflow/release/ios/Flowflow.app /tmp/flowflow-ipa/Payload/
 	cd /tmp/flowflow-ipa && zip -qry FlowFlow.ipa Payload -x "*.DS_Store" "__MACOSX*"
 	cp /tmp/flowflow-ipa/FlowFlow.ipa .
+	@echo ">> Validating IPA with Apple altool..."
+	@set -a && . ./.env && set +a; \
+	if [ -n "$$APPLE_ID" ] && [ -n "$$APP_SPEC_PASSWORD" ]; then \
+	  xcrun altool --validate-app -f FlowFlow.ipa -t ios \
+	    -u "$$APPLE_ID" -p "$$APP_SPEC_PASSWORD" && \
+	  echo ">> Apple validator: PASSED. IPA ready for Transporter." || \
+	  { echo ">> Apple validator: FAILED. Fix errors above before upload."; exit 1; }; \
+	else \
+	  echo ">> Skipping validation (APPLE_ID or APP_SPEC_PASSWORD missing in .env)."; \
+	  echo "   Add both to .env to enable server-side validation."; \
+	fi
 	@echo $(APPSTORE_BUILD) > .appstore-build
 	@echo ">> FlowFlow.ipa ready (build $(APPSTORE_BUILD)). Upload via Transporter.app."
 

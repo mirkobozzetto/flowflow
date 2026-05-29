@@ -21,3 +21,6 @@ secrets/
 
 # Build artifacts (use GitHub Releases for distribution)
 *.ipa
+
+# App Store validation logs (transient)
+.appstore-validate-log.txt

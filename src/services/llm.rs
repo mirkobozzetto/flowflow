@@ -176,10 +176,13 @@ impl LlmClient {
     pub async fn generate_title(
         &self,
         content: &str,
+        lang: &str,
     ) -> Result<String, LlmError> {
         use crate::services::constants::TITLE_SYSTEM_PROMPT;
+        let lang_name = if lang == "fr" { "French" } else { "English" };
+        let system = format!("{TITLE_SYSTEM_PROMPT}\n\nRespond ONLY in {lang_name}.");
         let preview: String = content.chars().take(1500).collect();
-        let response = self.chat(TITLE_SYSTEM_PROMPT, &preview).await?;
+        let response = self.chat(&system, &preview).await?;
         let title = response.trim().trim_matches('"').trim().to_string();
         if title.is_empty() {
             return Err(LlmError::Completion("Empty title".into()));
