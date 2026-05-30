@@ -87,7 +87,12 @@ note-recording-error = Erreur : { $message }
 note-card-untitled = Sans titre
 
 note-menu-import = Importer un document
+note-menu-import-audio = Importer un audio
 note-menu-delete = Supprimer la note
+
+audio-transcribing = Transcription en cours
+audio-import-failed = Échec de l'import audio
+audio-import-retry = Réessayer
 
 note-extract-interrupted = Extraction interrompue
 note-file-too-large = Fichier trop volumineux ({ $size } MB, max 20 MB)
