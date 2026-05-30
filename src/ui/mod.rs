@@ -13,6 +13,7 @@ mod settings;
 mod sidebar;
 mod state;
 mod top_bar;
+pub mod transcription_manager;
 
 pub use state::{AppState, SidebarTab, View};
 
@@ -20,7 +21,11 @@ use crate::db::Database;
 use crate::services::audio::{AudioRecorder, RecordingState};
 use crate::services::embed::migrate_chunk_dates;
 use dioxus::prelude::*;
+use std::collections::HashMap;
 use std::sync::{Arc, Mutex};
+use transcription_manager::{
+    append_transcription_to_note, JobStatus, TranscriptionManager,
+};
 
 use attachment_modal::AttachmentModal;
 use chat::ChatView;
@@ -45,6 +50,12 @@ pub fn App() -> Element {
         use_context_provider(|| {
             Signal::new(Arc::new(Mutex::new(AudioRecorder::new())))
         });
+
+    let manager = use_context_provider(|| {
+        let m = TranscriptionManager::new(_db());
+        m.resume_pending();
+        m
+    });
 
     if option_env!("FLOWFLOW_RESET_CONSENT") == Some("1") {
         let _ = _db().set_setting("ai_consent", "");
@@ -77,6 +88,46 @@ pub fn App() -> Element {
         detail_folder_id: Signal::new(None),
         ai_consent: Signal::new(consent_value),
         current_lang: Signal::new(initial_lang),
+        transcription_jobs: Signal::new(HashMap::new()),
+        transcription_done_badge: Signal::new(0),
+        audio_import_requested: Signal::new(false),
+    });
+
+    use_future(move || {
+        let manager = manager.clone();
+        let db = _db();
+        let mut app = app;
+        async move {
+            loop {
+                let snap = manager.snapshot();
+                if *app.transcription_jobs.peek() != snap {
+                    app.transcription_jobs.set(snap.clone());
+                }
+                let current = (app.current_note_id)();
+                let viewing_note =
+                    matches!((app.view)(), View::NoteDetail { .. });
+                for (note_id, q) in snap.iter() {
+                    let is_done = matches!(
+                        q.front().map(|j| &j.status),
+                        Some(JobStatus::Done(_))
+                    );
+                    let is_open = viewing_note
+                        && current.as_deref() == Some(note_id.as_str());
+                    if is_done && !is_open {
+                        if let Some(text) = manager.take_done(note_id) {
+                            append_transcription_to_note(&db, note_id, &text);
+                            app.notes_version.set((app.notes_version)() + 1);
+                            app.transcription_done_badge
+                                .set((app.transcription_done_badge)() + 1);
+                        }
+                    }
+                }
+                futures_timer::Delay::new(std::time::Duration::from_millis(
+                    700,
+                ))
+                .await;
+            }
+        }
     });
 
     use_effect(|| {
