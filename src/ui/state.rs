@@ -1,6 +1,8 @@
 use crate::models::Attachment;
 use crate::services::audio::RecordingState;
+use crate::ui::transcription_manager::Job;
 use dioxus::prelude::*;
+use std::collections::{HashMap, VecDeque};
 
 #[derive(Clone, Debug, PartialEq)]
 pub enum SidebarTab {
@@ -39,4 +41,7 @@ pub struct AppState {
     pub detail_folder_id: Signal<Option<String>>,
     pub ai_consent: Signal<Option<bool>>,
     pub current_lang: Signal<String>,
+    pub transcription_jobs: Signal<HashMap<String, VecDeque<Job>>>,
+    pub transcription_done_badge: Signal<usize>,
+    pub audio_import_requested: Signal<bool>,
 }

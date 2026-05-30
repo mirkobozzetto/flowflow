@@ -90,6 +90,19 @@ pub async fn import_file_content(
     }
 }
 
+pub async fn import_audio_file() -> Option<std::path::PathBuf> {
+    #[cfg(target_os = "ios")]
+    {
+        use crate::platform::ios::open_audio_picker;
+        let paths = open_audio_picker().await?;
+        paths.into_iter().next()
+    }
+    #[cfg(not(target_os = "ios"))]
+    {
+        None
+    }
+}
+
 #[component]
 pub fn NoteMenu(
     note_id: String,
@@ -102,6 +115,7 @@ pub fn NoteMenu(
     let mut import_requested = import_requested;
     let lang = (app.current_lang)();
     let import_label = t(&lang, "note-menu-import");
+    let import_audio_label = t(&lang, "note-menu-import-audio");
     let delete_label = t(&lang, "note-menu-delete");
 
     rsx! {
@@ -119,6 +133,15 @@ pub fn NoteMenu(
                 },
                 IconFileArrowUp { size: 18 }
                 "{import_label}"
+            }
+            button {
+                class: "w-full flex items-center gap-3 px-4 py-3 text-sm text-stone-700 active:bg-stone-50",
+                onclick: move |_| {
+                    app.audio_import_requested.set(true);
+                    app.show_note_menu.set(false);
+                },
+                IconMic { size: 18 }
+                "{import_audio_label}"
             }
             button {
                 class: "w-full flex items-center gap-3 px-4 py-3 text-sm text-ios-red active:bg-stone-50",

@@ -73,17 +73,21 @@ impl PickerDelegate {
     }
 }
 
+const AUDIO_UT_IDENTIFIERS: &[&str] = &[
+    "public.mpeg-4-audio",
+    "public.mp3",
+    "com.microsoft.waveform-audio",
+    "com.apple.coreaudio-format",
+    "public.audio",
+];
+
 #[allow(deprecated)]
-pub async fn open_file_picker(extensions: &[&str]) -> Option<Vec<PathBuf>> {
+async fn present_picker(
+    ut_types: Vec<Retained<UTType>>,
+) -> Option<Vec<PathBuf>> {
     let mtm = MainThreadMarker::new().unwrap();
     let app = UIApplication::sharedApplication(mtm);
 
-    let ut_types: Vec<Retained<UTType>> = extensions
-        .iter()
-        .filter_map(|ext| {
-            UTType::typeWithFilenameExtension(&NSString::from_str(ext))
-        })
-        .collect();
     let ut_refs: Vec<&UTType> = ut_types.iter().map(|t| t.deref()).collect();
     let types_array = NSArray::from_slice(&ut_refs);
 
@@ -112,4 +116,62 @@ pub async fn open_file_picker(extensions: &[&str]) -> Option<Vec<PathBuf>> {
     } else {
         Some(delegate.ivars().picked_paths.take())
     }
+}
+
+pub async fn open_file_picker(extensions: &[&str]) -> Option<Vec<PathBuf>> {
+    let ut_types: Vec<Retained<UTType>> = extensions
+        .iter()
+        .filter_map(|ext| {
+            let t = UTType::typeWithFilenameExtension(&NSString::from_str(ext));
+            if t.is_none() {
+                eprintln!("[picker] UTType unresolved for ext: {ext}");
+            }
+            t
+        })
+        .collect();
+    present_picker(ut_types).await
+}
+
+pub async fn open_audio_picker() -> Option<Vec<PathBuf>> {
+    let ut_types: Vec<Retained<UTType>> = AUDIO_UT_IDENTIFIERS
+        .iter()
+        .filter_map(|id| {
+            let t = UTType::typeWithIdentifier(&NSString::from_str(id));
+            if t.is_none() {
+                eprintln!("[picker] UTType unresolved for id: {id}");
+            }
+            t
+        })
+        .collect();
+    let picked = present_picker(ut_types).await?;
+    Some(copy_to_import_dir(picked))
+}
+
+fn copy_to_import_dir(paths: Vec<PathBuf>) -> Vec<PathBuf> {
+    let dir = super::documents_dir().join("flowflow_import");
+    std::fs::create_dir_all(&dir).ok();
+    let ts = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .map(|d| d.as_millis())
+        .unwrap_or(0);
+    paths
+        .into_iter()
+        .map(|p| {
+            let name = p
+                .file_name()
+                .map(|n| n.to_string_lossy().to_string())
+                .unwrap_or_else(|| "audio".to_string());
+            let dest = dir.join(format!("{ts}_{name}"));
+            match std::fs::copy(&p, &dest) {
+                Ok(_) => {
+                    let _ = std::fs::remove_file(&p);
+                    dest
+                }
+                Err(e) => {
+                    eprintln!("[picker] durable copy failed: {e}");
+                    p
+                }
+            }
+        })
+        .collect()
 }
