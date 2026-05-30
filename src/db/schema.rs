@@ -6,6 +6,7 @@ pub const MIGRATIONS: &[(i64, &str)] = &[
     (5, V5_SCHEMA),
     (6, V6_SCHEMA),
     (7, V7_SCHEMA),
+    (8, V8_SCHEMA),
 ];
 
 const V1_SCHEMA: &str = "
@@ -128,4 +129,14 @@ ALTER TABLE note_audios ADD COLUMN transcription TEXT;
 const V7_SCHEMA: &str = "
 ALTER TABLE notes DROP COLUMN audio_file_path;
 ALTER TABLE notes DROP COLUMN duration_secs;
+";
+
+const V8_SCHEMA: &str = "
+CREATE TABLE IF NOT EXISTS pending_transcriptions (
+    note_id TEXT PRIMARY KEY,
+    transcription_id TEXT NOT NULL,
+    soniox_file_id TEXT,
+    created_at TEXT NOT NULL
+        DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now'))
+);
 ";

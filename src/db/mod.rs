@@ -2,6 +2,7 @@ pub mod attachment_repo;
 pub mod conversation_repo;
 pub mod folder_repo;
 pub mod note_repo;
+pub mod pending_transcription_repo;
 mod schema;
 pub mod settings_repo;
 
