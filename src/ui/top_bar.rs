@@ -67,13 +67,16 @@ pub fn TopBar() -> Element {
                 }
             } else {
                 button {
-                    class: "min-w-[44px] min-h-[44px] flex items-center justify-center text-stone-700",
+                    class: "relative min-w-[44px] min-h-[44px] flex items-center justify-center text-stone-700",
                     onclick: move |_| {
                         app.show_folder_picker.set(false);
                         app.sidebar_tab.set(SidebarTab::Notes);
                         app.sidebar_open.set(true);
                     },
                     IconList { size: 22 }
+                    if (app.transcription_done_badge)() > 0 {
+                        span { class: "absolute top-2 right-2 w-2 h-2 rounded-full bg-ios-orange" }
+                    }
                 }
             }
             if is_detail || is_chat || !is_inner {

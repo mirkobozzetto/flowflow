@@ -8,11 +8,15 @@ use crate::services::embed::{embed_attachment, embed_note};
 use crate::services::i18n::{t, t_args};
 use crate::services::transcription::SonioxClient;
 use crate::ui::folder_picker::FolderPicker;
+use crate::ui::icons::IconX;
 use crate::ui::notes::attachments::AttachmentSection;
 use crate::ui::notes::audio_player::AudioPlayer;
-use crate::ui::notes::menu::{import_file_content, NoteMenu};
+use crate::ui::notes::menu::{
+    import_audio_file, import_file_content, NoteMenu,
+};
 use crate::ui::notes::tags::TagsSection;
 use crate::ui::recording::RecordingBar;
+use crate::ui::transcription_manager::{JobStatus, TranscriptionManager};
 use crate::ui::{AppState, View};
 use chrono::{Datelike, NaiveDateTime, Utc};
 use dioxus::prelude::*;
@@ -114,6 +118,7 @@ fn format_absolute_short(iso: &str, lang: &str) -> String {
 pub fn NoteDetail() -> Element {
     let mut app: AppState = use_context();
     let db: Signal<Arc<Database>> = use_context();
+    let manager: TranscriptionManager = use_context();
     let lang = (app.current_lang)();
 
     let note_id = match (app.view)() {
@@ -340,7 +345,8 @@ pub fn NoteDetail() -> Element {
         spawn(async move {
             let lang = (app.current_lang)();
             if let Ok(ai) = crate::services::llm::LlmClient::from_env() {
-                if let Ok(new_title) = ai.generate_title(&preview, &lang).await {
+                if let Ok(new_title) = ai.generate_title(&preview, &lang).await
+                {
                     title.set(new_title);
                 }
             }
@@ -476,6 +482,89 @@ pub fn NoteDetail() -> Element {
             }
         });
     });
+
+    let enqueue_manager = manager.clone();
+    use_effect(move || {
+        if !(app.audio_import_requested)() {
+            return;
+        }
+        app.audio_import_requested.set(false);
+        let manager = enqueue_manager.clone();
+        let db = db();
+        let t = title();
+        let c = content();
+        let tg = tags();
+        let folder = (app.detail_folder_id)();
+        spawn(async move {
+            let path = match import_audio_file().await {
+                Some(p) => p,
+                None => return,
+            };
+            let target_id = {
+                let current = local_note_id();
+                if current.is_empty() {
+                    let new = NewTextNote {
+                        title: if t.is_empty() {
+                            None
+                        } else {
+                            Some(t.clone())
+                        },
+                        content: c.clone(),
+                        tags: tg.clone(),
+                    };
+                    match db.create_text_note(&new) {
+                        Ok(created) => {
+                            if let Some(ref fid) = folder {
+                                let _ = db.add_note_to_folder(&created.id, fid);
+                            }
+                            local_note_id.set(created.id.clone());
+                            app.current_note_id.set(Some(created.id.clone()));
+                            app.notes_version.set((app.notes_version)() + 1);
+                            created.id
+                        }
+                        Err(_) => return,
+                    }
+                } else {
+                    current
+                }
+            };
+            manager.enqueue(target_id, path);
+        });
+    });
+
+    let observe_manager = manager.clone();
+    use_effect(move || {
+        let _ = (app.transcription_jobs)();
+        let nid = local_note_id();
+        if nid.is_empty() {
+            return;
+        }
+        if let Some(text) = observe_manager.take_done(&nid) {
+            let cur = content.peek().clone();
+            if cur.is_empty() {
+                content.set(text);
+            } else {
+                content.set(format!("{cur}\n{text}"));
+            }
+            app.transcription_jobs.set(observe_manager.snapshot());
+        }
+    });
+
+    use_effect(move || {
+        app.transcription_done_badge.set(0);
+    });
+
+    let audio_job_status: Option<JobStatus> = {
+        let jobs = (app.transcription_jobs)();
+        let nid = local_note_id();
+        if nid.is_empty() {
+            None
+        } else {
+            jobs.get(&nid)
+                .and_then(|q| q.front())
+                .map(|j| j.status.clone())
+        }
+    };
 
     let recording_state = (app.recording_state)();
     let is_transcribing = recording_state == RecordingState::Transcribing;
@@ -622,7 +711,7 @@ pub fn NoteDetail() -> Element {
                                                                 spawn(async move {
                                                                     let result = async {
                                                                         let client = SonioxClient::from_env()?;
-                                                                        client.transcribe(std::path::Path::new(&path)).await
+                                                                        client.transcribe(std::path::Path::new(&path), None).await
                                                                     }.await;
                                                                     match result {
                                                                         Ok(text) => {
@@ -660,6 +749,54 @@ pub fn NoteDetail() -> Element {
                         span { class: "inline-block w-3 h-3 border-2 border-ios-orange border-t-transparent rounded-full animate-spin" }
                     }
                     span { class: "text-xs text-stone-600", "{status}" }
+                }
+            }
+            if let Some(ref js) = audio_job_status {
+                match js {
+                    JobStatus::Failed(reason) => {
+                        let failed_label = t(&lang, "audio-import-failed");
+                        let retry_label = t(&lang, "audio-import-retry");
+                        let msg = format!("{failed_label}: {reason}");
+                        let retry_manager = manager.clone();
+                        let dismiss_manager = manager.clone();
+                        rsx! {
+                            div { class: "flex items-center gap-2 px-3 py-2 mt-2 bg-ios-red/10 rounded-lg",
+                                span { class: "text-xs text-stone-600 flex-1", "{msg}" }
+                                button {
+                                    class: "text-xs text-ios-orange-dark font-medium active:opacity-70",
+                                    onclick: move |_| {
+                                        let nid = local_note_id();
+                                        retry_manager.retry(&nid);
+                                    },
+                                    "{retry_label}"
+                                }
+                                button {
+                                    class: "text-stone-400 active:opacity-70",
+                                    onclick: move |_| {
+                                        let nid = local_note_id();
+                                        dismiss_manager.dismiss(&nid);
+                                    },
+                                    IconX { size: 14 }
+                                }
+                            }
+                        }
+                    }
+                    JobStatus::Done(_) => rsx! {},
+                    other => {
+                        let transcribing_label = t(&lang, "audio-transcribing");
+                        let label = match other {
+                            JobStatus::Polling { elapsed_s } => {
+                                format!("{transcribing_label} · {}:{:02}", elapsed_s / 60, elapsed_s % 60)
+                            }
+                            _ => transcribing_label,
+                        };
+                        rsx! {
+                            div { class: "flex items-center gap-2 px-3 py-2 mt-2 bg-ios-orange/10 rounded-lg",
+                                span { class: "inline-block w-3 h-3 border-2 border-ios-orange border-t-transparent rounded-full animate-spin" }
+                                span { class: "text-xs text-stone-600", "{label}" }
+                            }
+                        }
+                    }
                 }
             }
             if let RecordingState::Error(ref e) = recording_state {
