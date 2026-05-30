@@ -272,7 +272,8 @@ flowchart TD
 | `src/ui/notes/menu.rs` | modified | 2e action menu "Importer un audio" + `import_audio_file(lang) -> Result<Option<PathBuf>,String>` (clone de `import_file_content`, exts audio, garde format/taille) |
 | `src/ui/transcription_manager.rs` | **new** | `TranscriptionManager` : registre `note_id → Job` ; lance via `std::thread::spawn` + `Runtime` (**pattern `embed.rs`**, pas `spawn` Dioxus) ; start/poll ≤ 5 h/cleanup/delete_file ; resume au boot |
 | `src/ui/mod.rs` (`App`) | modified | instancier le manager (contexte) ; déclencher le **resume au boot** depuis `pending_transcriptions` |
-| `src/ui/state.rs` (`AppState`) | modified | `transcription_jobs: Signal<HashMap<String, Job>>` + `audio_import_requested: Signal<bool>` (indépendant de `recording_state`) |
+| `src/ui/state.rs` (`AppState`) | modified | `transcription_jobs: Signal<HashMap<String, VecDeque<Job>>>` (file FIFO/note, Q7) + `transcription_done_badge: Signal<usize>` (Q4) + `audio_import_requested: Signal<bool>` ; indépendant de `recording_state` |
+| `src/ui/sidebar/` ou `top_bar.rs` | modified | afficher le **badge** des jobs terminés non vus (Q4), remis à 0 à l'ouverture de la note |
 | `src/ui/notes/detail.rs` | modified | **scinder** le bloc `detail.rs:306` : append-content (partagé) vs `set_audio_transcription` (live-only) ; observer le Job du `note_id` → **append content uniquement** ; états en cours/échec/retry |
 | `src/platform/ios/picker.rs` | modified | UTType **explicites** (`public.mpeg-4-audio`, `public.mp3`, `com.microsoft.waveform-audio`, `com.apple.coreaudio-format`, `public.audio`) ; loguer un type non résolu ; **copie du fichier choisi vers `Documents/`** (durable, pas `tmp/`) |
 | `src/services/transcription/client.rs` | modified | scinder `transcribe` en `start_transcription(path, language) -> (transcription_id, file_id)` + `poll_transcript(id) -> text` ; param `language: Option<&str>` (None=auto partout) ; relever `MAX_POLLS` ; `delete_file(file_id)` après transcription |
@@ -286,13 +287,19 @@ flowchart TD
 **En mémoire (cœur, couvre la story 4 in-app) :**
 
 ```rust
-enum JobStatus { Uploading, Polling { elapsed_s: u32 }, Done(String), Failed(String) }
-struct Job { note_id: String, status: JobStatus, transcription_id: Option<String>, lang: Option<String> }
-// AppState: transcription_jobs: Signal<HashMap<String /*note_id*/, Job>>
+enum JobStatus { Queued, Uploading, Polling { elapsed_s: u32 }, Done(String), Failed(String) }
+struct Job { id: String, note_id: String, file_path: PathBuf, status: JobStatus,
+             transcription_id: Option<String>, soniox_file_id: Option<String> }
+// AppState:
+//   transcription_jobs: Signal<HashMap<String /*note_id*/, VecDeque<Job>>>  // file FIFO par note (Q7)
+//   transcription_done_badge: Signal<usize>  // compteur de jobs terminés non vus (Q4)
 ```
 
-La tâche vit au scope `App` → un changement de vue (NotesList ↔ Chat ↔ Settings) **ne la démonte pas**.
-Dedup par `note_id` (un import audio en cours par note).
+La transcription tourne sur un **thread détaché** (pattern `embed.rs`), pas un `spawn` Dioxus → elle
+survit aux changements de vue **et** au re-render de `App` (§11 BLOCKER #1). **File d'attente par
+`note_id`** (Q7) : les imports sur une même note s'enchaînent en **série**, texte appended dans l'ordre
+FIFO ; un seul job actif par note à la fois, les suivants en `Queued`. **Badge** (Q4) : à chaque
+`Done` hors-note-courante, incrémenter `transcription_done_badge` (remis à 0 à l'ouverture de la note).
 
 **Persistance resume (in-scope, couvre app tuée/suspendue au mieux) — migration V8 additive :**
 
@@ -433,15 +440,12 @@ raison + bouton **Relancer** (réutilise le `path` si encore présent, sinon ré
 | 2 | Auto-détection langue aussi pour le live | **Oui, partout** — `language_hints_strict` retiré (live + import en auto) |
 | 3 | Persistance resume (V8) | **In-scope cette version** (pas phase 2) |
 | 5 | `DELETE /v1/files/{id}` Soniox | **In-scope ce RFC** (corrige le quota, bénéficie au live) |
-| 6 | Retry sans re-picker | **Oui** — garder la copie sandbox jusqu'à l'état terminal |
+| 6 | Retry sans re-picker | **Oui** — garder la copie `Documents/` jusqu'à l'état terminal |
+| 4 | Notification de fin quand l'utilisateur est ailleurs | **Badge global discret** sur un job terminé |
+| 7 | 2e import sur la même note | **File d'attente** (série par `note_id`, FIFO, texte appended dans l'ordre) |
+| 8 | Langue live après retrait du strict | **Full auto, aucun hint** (live + import identiques) — `transcribe(None)` |
 
-**Encore ouvertes :**
-
-| # | Question | Owner | Deadline |
-|---|----------|-------|----------|
-| 4 | Notification de fin quand l'utilisateur est **ailleurs** : badge global discret, ou rien (visible au retour) ? | Mirko | impl UI états |
-| 7 | Dédup : refuser un 2e import audio tant qu'un est en cours sur la **même note** (défaut proposé), ou autoriser une file ? | Mirko | impl manager |
-| 8 | Langue auto pour le live : risque de mal transcrire un FR bruité pris pour une autre langue — acceptable, ou garder un *soft hint* `["fr"]` non strict comme biais ? | Mirko | impl param langue |
+**Encore ouvertes :** aucune. Toutes tranchées.
 
 ## 9. Recommendation & Rationale
 
@@ -482,9 +486,9 @@ Aligné sur `docs/prd/audio-import-transcription/tasks.md`, enrichi du « how »
 |---|---|---|---|---|---|
 | T1 | Moteur : scinder `start`/`poll`, param `language` (None=auto partout), relever `MAX_POLLS`, `delete_file` | `services/transcription/client.rs` | — | S | live+chat compilent ; auto-détection ; fichier Soniox supprimé ; budget ≤ 5 h |
 | T2 | Picker audio + `import_audio_file` + garde format/taille + 2e action menu | `platform/ios/picker.rs`, `ui/notes/menu.rs`, `ui/state.rs` | — | M | picker liste m4a/AAC/mp3/wav/caf ; format refusé → message, note intacte ; UTType validé device |
-| T3 | `TranscriptionManager` au scope `App` : registre `note_id→Job`, enqueue, spawn start/poll hors composant, cleanup terminal, dedup | `ui/transcription_manager.rs` (new), `ui/mod.rs`, `ui/state.rs` | T1 | L | navigation in-app ne perd pas la transcription ; 1 job/note ; copie gardée jusqu'à terminal |
+| T3 | `TranscriptionManager` : file FIFO `note_id→VecDeque<Job>`, thread détaché + `Runtime` (pattern `embed.rs`), start/poll hors composant, cleanup terminal, badge à `Done` | `ui/transcription_manager.rs` (new), `ui/mod.rs`, `ui/state.rs` | T1 | L | navigation/re-render ne perd pas la transcription ; file série par note (Q7) ; badge incrémenté (Q4) ; copie `Documents/` gardée jusqu'à terminal |
 | T4 | Migration **V8** `pending_transcriptions` + resume au boot | `db/schema.rs`, `db/mod.rs`, `ui/transcription_manager.rs` | T3 | M | app tuée → relance → poll repris → texte arrive ; ligne purgée à Done ; rollback drop |
-| T5 | `NoteDetail` : observer Job → append (`detail.rs:306`) + save + auto-embed ; états en cours/échec/**retry** | `ui/notes/detail.rs` | T3 | M | texte ajouté + cherchable (chat/recherche) ; retry sans re-picker ; 0 texte partiel sur échec |
+| T5 | `NoteDetail` : observer la file du `note_id` → **append content only** + save + auto-embed ; états en cours/échec/**retry** ; badge remis à 0 à l'ouverture | `ui/notes/detail.rs`, `ui/top_bar.rs` | T3 | M | texte ajouté + cherchable ; retry sans re-picker ; 0 texte partiel ; jamais `set_audio_transcription` (§11 #2) |
 | T6 | Adapter `spawn_transcription`/live (`language=None`) + non-régression live/chat | `ui/recording/controls.rs`, `ui/chat_input.rs` | T1 | S | live + saisie vocale chat marchent en auto-détection ; timeout long bénéficie au live |
 | T7 | i18n libellés FR/EN (action, états, erreurs, retry) | `services/i18n/locales/{en,fr}.ftl` | T2, T5 | S | parité FR/EN sur toutes les clés ajoutées |
 | T8 | Tests & validation | `tests/` | T1–T7 | M | voir Verification plan |
