@@ -38,7 +38,7 @@ fn spawn_transcription(
                 return;
             }
         };
-        let result = client.transcribe(&path).await;
+        let result = client.transcribe(&path, None).await;
         if cleanup {
             let _ = std::fs::remove_file(&path);
         }
