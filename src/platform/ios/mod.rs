@@ -84,7 +84,7 @@ pub fn observe_interruptions() {
 
 pub use parsers::read_file_as_text;
 pub use pdf::extract as read_pdf_text;
-pub use picker::open_file_picker;
+pub use picker::{open_audio_picker, open_file_picker};
 pub use player::{is_playing, play_audio, stop_audio};
 
 pub fn hide_keyboard_accessory() {
