@@ -180,7 +180,8 @@ impl LlmClient {
     ) -> Result<String, LlmError> {
         use crate::services::constants::TITLE_SYSTEM_PROMPT;
         let lang_name = if lang == "fr" { "French" } else { "English" };
-        let system = format!("{TITLE_SYSTEM_PROMPT}\n\nRespond ONLY in {lang_name}.");
+        let system =
+            format!("{TITLE_SYSTEM_PROMPT}\n\nRespond ONLY in {lang_name}.");
         let preview: String = content.chars().take(1500).collect();
         let response = self.chat(&system, &preview).await?;
         let title = response.trim().trim_matches('"').trim().to_string();
