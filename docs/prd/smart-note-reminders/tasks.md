@@ -41,10 +41,10 @@ stepsCompleted: [0, 1, 2, 3]
   - [ ] 2.6 Validation on-device : pop-up permission visible, rappel créé apparaît dans Rappels.app et se déclenche app fermée.
 
 - [ ] 3.0 **Extraction d'intention temporelle (LLM)** _(PRD: US1, M1, M2)_
-  - [ ] 3.1 Tool rig `extract_reminders` : sortie JSON (action, date, time, recurrence, location), champs absents = null.
-  - [ ] 3.2 Injecter la date courante dans le prompt ; résoudre les dates relatives en absolu.
-  - [ ] 3.3 Défaut explicite pour date sans heure (ex. matin→9h), exposé et modifiable.
-  - [ ] 3.4 Throttle / déclencheur de détection à la sauvegarde de note (cf. Open question Q1).
+  - [x] 3.1 `LlmClient::extract_reminders` (appel dédié, hors agent chat) : JSON `{intents:[...]}` (action, date, time, recurrence, location), absents = null. _(`src/services/llm.rs`, 7 tests verts)_
+  - [x] 3.2 Date courante injectée dans le prompt ; relatives → absolu (LLM résout). _(`REMINDER_EXTRACTION_PROMPT`)_
+  - [x] 3.3 Défaut 09:00 pour date sans heure, exposé via `resolved_time()` + `has_explicit_time()` (modifiable côté UI). _(`models/reminder.rs`, Q6)_
+  - [ ] 3.4 Déclencheur debounce on-blur (Q2) → câblé à T09 (UI), pas ici.
 
 - [ ] 4.0 **Persistance du mapping note ↔ rappel** _(PRD: US6, M5, M6)_
   - [ ] 4.1 Migration SQLite V9 : table `note_reminders` (note_id, reminder_identifier, intent_hash, created_at).

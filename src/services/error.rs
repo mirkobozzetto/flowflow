@@ -4,6 +4,7 @@ pub enum LlmError {
     Embedding(String),
     Completion(String),
     TagParsing(String),
+    ReminderParsing(String),
 }
 
 impl std::fmt::Display for LlmError {
@@ -13,6 +14,9 @@ impl std::fmt::Display for LlmError {
             LlmError::Embedding(msg) => write!(f, "Embedding error: {msg}"),
             LlmError::Completion(msg) => write!(f, "Completion error: {msg}"),
             LlmError::TagParsing(msg) => write!(f, "Tag parsing error: {msg}"),
+            LlmError::ReminderParsing(msg) => {
+                write!(f, "Reminder parsing error: {msg}")
+            }
         }
     }
 }
