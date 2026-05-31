@@ -47,10 +47,10 @@ stepsCompleted: [0, 1, 2, 3]
   - [ ] 3.4 Déclencheur debounce on-blur (Q2) → câblé à T09 (UI), pas ici.
 
 - [ ] 4.0 **Persistance du mapping note ↔ rappel** _(PRD: US6, M5, M6)_
-  - [ ] 4.1 Migration SQLite V9 : table `note_reminders` (note_id, reminder_identifier, intent_hash, created_at).
-  - [ ] 4.2 Repo CRUD `note_reminder_repo`.
-  - [ ] 4.3 Anti-doublon : `intent_hash` par intention → ne pas recréer si déjà mappée (ré-édition).
-  - [ ] 4.4 Revoke : suppression de note → `remove_reminder` + delete mapping (cascade cohérente).
+  - [x] 4.1 Migration SQLite V9 : table `note_reminders` (composants locaux, backend, intent_hash, state, `UNIQUE(note_id,intent_hash)`, CASCADE). _(7 tests verts)_
+  - [x] 4.2 Repo CRUD `note_reminder_repo` (add, list, exists_by_intent_hash, set_state tombstone, delete, delete_for_note) + `NewNoteReminder::from_intent`.
+  - [ ] 4.3 Anti-doublon : primitive DB faite (`UNIQUE` + `reminder_exists_by_intent_hash`) ; diff par `note_id` à la ré-édition = T07 (service).
+  - [ ] 4.4 Revoke : `remove_reminder` + tombstone sur échec OS → hook `delete_note` = T08.
 
 - [ ] 5.0 **UI détection + confirmation** _(PRD: US1, US2)_
   - [x] 5.1 Indicateur "rappel détecté" sur la note (action + date/heure résolues). _(badge plural-aware, debounce on-idle 1.2s, dismiss ; device-validé 2026-06-01)_

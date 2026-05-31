@@ -7,6 +7,7 @@ pub const MIGRATIONS: &[(i64, &str)] = &[
     (6, V6_SCHEMA),
     (7, V7_SCHEMA),
     (8, V8_SCHEMA),
+    (9, V9_SCHEMA),
 ];
 
 const V1_SCHEMA: &str = "
@@ -139,4 +140,31 @@ CREATE TABLE IF NOT EXISTS pending_transcriptions (
     created_at TEXT NOT NULL
         DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now'))
 );
+";
+
+const V9_SCHEMA: &str = "
+CREATE TABLE IF NOT EXISTS note_reminders (
+    id TEXT PRIMARY KEY,
+    note_id TEXT NOT NULL
+        REFERENCES notes(id) ON DELETE CASCADE,
+    reminder_id TEXT NOT NULL,
+    backend TEXT NOT NULL
+        CHECK (backend IN ('eventkit', 'usernotifications')),
+    intent_hash TEXT NOT NULL,
+    due_year INTEGER,
+    due_month INTEGER,
+    due_day INTEGER,
+    due_hour INTEGER,
+    due_minute INTEGER,
+    is_all_day INTEGER NOT NULL DEFAULT 0,
+    tz_id TEXT,
+    recurrence TEXT,
+    state TEXT NOT NULL DEFAULT 'active'
+        CHECK (state IN ('active', 'tombstone')),
+    created_at TEXT NOT NULL
+        DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')),
+    UNIQUE(note_id, intent_hash)
+);
+CREATE INDEX IF NOT EXISTS idx_note_reminders_note
+    ON note_reminders(note_id);
 ";

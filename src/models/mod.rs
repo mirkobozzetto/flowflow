@@ -11,4 +11,8 @@ pub use note::{
     generate_auto_title, is_auto_title, NewTextNote, Note, NoteAudio, NoteType,
     UpdateNote,
 };
-pub use reminder::{ReminderIntent, DEFAULT_REMINDER_HOUR};
+pub use reminder::{
+    NewNoteReminder, NoteReminder, ReminderIntent, BACKEND_EVENTKIT,
+    BACKEND_USER_NOTIFICATIONS, DEFAULT_REMINDER_HOUR, REMINDER_STATE_ACTIVE,
+    REMINDER_STATE_TOMBSTONE,
+};
