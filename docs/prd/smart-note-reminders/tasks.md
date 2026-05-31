@@ -32,13 +32,13 @@ stepsCompleted: [0, 1, 2, 3]
   - [x] 1.3 Valider `cargo build --target aarch64-apple-ios` ET `aarch64-apple-ios-sim` (link réel, deployment target 16.0). _(2026-06-01 : les 2 Finished, 0 erreur ; bug feature `NSDateComponents` corrigé → couvert par `NSCalendar`)_
   - [ ] 1.4 STOP / validation Mirko : `make all` device (signature + install + app se lance normal) → confirmer le gate complet.
 
-- [ ] 2.0 **Permission + FFI création de rappel** _(PRD: US3, US5)_
-  - [ ] 2.1 `request_reminders_access()` exécuté hors main-thread (Condvar/RcBlock), retourne accordé/refusé.
-  - [ ] 2.2 Injecter `NSRemindersFullAccessUsageDescription` dans l'Info.plist final ; vérifier sa présence dans le `.app` installé.
-  - [ ] 2.3 `create_reminder(title, due, start)` via EKReminder + EKAlarm + defaultCalendarForNewReminders, save → identifier ; règle start+due (éviter EKErrorNoStartDate).
-  - [ ] 2.4 `remove_reminder(identifier)`.
-  - [ ] 2.5 Confiner l'`EKEventStore` (`!Send`) à un thread dédié ; gérer les erreurs en `Result` propre.
-  - [ ] 2.6 Validation on-device : pop-up permission visible, rappel créé apparaît dans Rappels.app et se déclenche app fermée.
+- [x] 2.0 **Permission + FFI création de rappel** _(PRD: US3, US5)_ ✅ device-validé 2026-06-01
+  - [x] 2.1 `request_full_access` via `requestFullAccessToRemindersWithCompletion` + block → flag partagé + poll async (Pattern A picker-style, pas de Condvar nu → pas de missed-wakeup).
+  - [x] 2.2 `NSRemindersFullAccessUsageDescription` (+ legacy) dans `Dioxus.toml [ios.plist]` ; popup visible on-device.
+  - [x] 2.3 `create_reminder` via EKReminder + **EKAlarm** (`alarmWithAbsoluteDate`) + `defaultCalendarForNewReminders`, start+due posés, save → `calendarItemIdentifier`.
+  - [x] 2.4 `remove_reminder(identifier)` (lookup + downcast EKReminder + remove).
+  - [x] 2.5 `EKEventStore` créé/utilisé sur le thread async (main, jamais cross-thread) ; erreurs en `Result`/`ReminderOutcome`.
+  - [x] 2.6 Validation on-device : popup permission OK, rappel apparaît dans Rappels.app avec alarme.
 
 - [ ] 3.0 **Extraction d'intention temporelle (LLM)** _(PRD: US1, M1, M2)_
   - [x] 3.1 `LlmClient::extract_reminders` (appel dédié, hors agent chat) : JSON `{intents:[...]}` (action, date, time, recurrence, location), absents = null. _(`src/services/llm.rs`, 7 tests verts)_
@@ -54,10 +54,10 @@ stepsCompleted: [0, 1, 2, 3]
 
 - [ ] 5.0 **UI détection + confirmation** _(PRD: US1, US2)_
   - [x] 5.1 Indicateur "rappel détecté" sur la note (action + date/heure résolues). _(badge plural-aware, debounce on-idle 1.2s, dismiss ; device-validé 2026-06-01)_
-  - [ ] 5.2 Sheet de confirmation : titre + date + heure (+ récurrence), actions Confirmer / Ignorer.
-  - [ ] 5.3 Confirmer → pipeline service (validation → FFI → mapping) ; Ignorer → rien créé.
-  - [ ] 5.4 Aucune création sans confirmation explicite (jamais silencieux).
-  - [ ] 5.5 Pas de date → pas d'indicateur ; date passée → avertissement.
+  - [~] 5.2 Confirmation inline (badge + bouton Confirmer par intent) ; sheet éditable (titre/date/heure modifiables) = à venir ("liberté").
+  - [x] 5.3 Confirmer → `services::reminders::schedule` (validation → FFI EventKit → mapping V9) ; Ignorer (X) → rien créé.
+  - [x] 5.4 Aucune création sans confirmation explicite (jamais silencieux).
+  - [~] 5.5 Pas de date → pas de badge (fait) ; date passée → avertissement (à venir) ; **déjà créé → état "✓ déjà créé" (fix en cours)**.
 
 - [ ] 6.0 **Récurrence** _(PRD: US4)_
   - [ ] 6.1 Extraction d'une récurrence RRULE-like depuis l'intention.

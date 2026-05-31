@@ -123,3 +123,9 @@ date-yesterday = Hier, { $time }
 
 reminder-detected-title = Rappels détectés
 reminder-recurring = ↻ récurrent
+reminder-confirm = Confirmer
+reminder-creating = Création du rappel...
+reminder-created = Rappel créé
+reminder-duplicate = Déjà créé
+reminder-denied = Accès aux Rappels refusé
+reminder-failed = Échec : { $error }

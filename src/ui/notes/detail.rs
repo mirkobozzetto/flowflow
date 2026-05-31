@@ -196,6 +196,7 @@ pub fn NoteDetail() -> Element {
         use_signal(Vec::new);
     let mut reminders_checked = use_signal(String::new);
     let mut detecting_reminders = use_signal(|| false);
+    let mut reminder_feedback: Signal<Option<String>> = use_signal(|| None);
 
     use_effect(move || {
         if !deleted() {
@@ -730,6 +731,9 @@ pub fn NoteDetail() -> Element {
                                         let action = intent.action.clone();
                                         let due = format_reminder_due(intent, &lang_badge);
                                         let is_rec = intent.recurrence.is_some();
+                                        let intent_owned = intent.clone();
+                                        let lang_cb = lang_badge.clone();
+                                        let confirm_label = t(&lang_badge, "reminder-confirm");
                                         rsx! {
                                             div { class: "flex items-start gap-2",
                                                 span { class: "text-ios-orange-dark text-sm leading-5", "•" }
@@ -742,6 +746,65 @@ pub fn NoteDetail() -> Element {
                                                         }
                                                     }
                                                 }
+                                                button {
+                                                    class: "shrink-0 self-center text-xs font-medium text-white bg-ios-orange-dark px-3 py-1.5 rounded-full active:opacity-70",
+                                                    onclick: move |_| {
+                                                        let intent = intent_owned.clone();
+                                                        let lang2 = lang_cb.clone();
+                                                        let database = db();
+                                                        spawn(async move {
+                                                            reminder_feedback.set(Some(t(&lang2, "reminder-creating")));
+                                                            let nid = {
+                                                                let cur = local_note_id();
+                                                                if cur.is_empty() {
+                                                                    let tt = title();
+                                                                    let new = NewTextNote {
+                                                                        title: if tt.is_empty() { None } else { Some(tt) },
+                                                                        content: content(),
+                                                                        tags: tags(),
+                                                                    };
+                                                                    match database.create_text_note(&new) {
+                                                                        Ok(created) => {
+                                                                            if let Some(ref fid) = (app.detail_folder_id)() {
+                                                                                let _ = database.add_note_to_folder(&created.id, fid);
+                                                                            }
+                                                                            local_note_id.set(created.id.clone());
+                                                                            app.current_note_id.set(Some(created.id.clone()));
+                                                                            app.notes_version.set((app.notes_version)() + 1);
+                                                                            created.id
+                                                                        }
+                                                                        Err(e) => {
+                                                                            reminder_feedback.set(Some(t_args(&lang2, "reminder-failed", &[("error", &e)])));
+                                                                            return;
+                                                                        }
+                                                                    }
+                                                                } else {
+                                                                    cur
+                                                                }
+                                                            };
+                                                            let res = crate::services::reminders::schedule(database, nid, intent.clone()).await;
+                                                            use crate::services::reminders::ScheduleResult;
+                                                            match res {
+                                                                ScheduleResult::Created => {
+                                                                    let h = intent.intent_hash();
+                                                                    let remaining: Vec<ReminderIntent> = detected_reminders
+                                                                        .peek()
+                                                                        .iter()
+                                                                        .filter(|i| i.intent_hash() != h)
+                                                                        .cloned()
+                                                                        .collect();
+                                                                    detected_reminders.set(remaining);
+                                                                    reminder_feedback.set(Some(t(&lang2, "reminder-created")));
+                                                                }
+                                                                ScheduleResult::Duplicate => reminder_feedback.set(Some(t(&lang2, "reminder-duplicate"))),
+                                                                ScheduleResult::AccessDenied => reminder_feedback.set(Some(t(&lang2, "reminder-denied"))),
+                                                                ScheduleResult::Unsupported => reminder_feedback.set(Some("iOS only".to_string())),
+                                                                ScheduleResult::Failed(e) => reminder_feedback.set(Some(t_args(&lang2, "reminder-failed", &[("error", &e)]))),
+                                                            }
+                                                        });
+                                                    },
+                                                    "{confirm_label}"
+                                                }
                                             }
                                         }
                                     }
@@ -749,6 +812,12 @@ pub fn NoteDetail() -> Element {
                             }
                         }
                     }
+                }
+            }
+            if let Some(msg) = reminder_feedback() {
+                div {
+                    class: "mt-2 px-3 py-2 bg-ios-orange/10 rounded-lg text-xs text-stone-600",
+                    "{msg}"
                 }
             }
             if !audios.is_empty() {
