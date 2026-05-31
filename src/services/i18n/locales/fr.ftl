@@ -120,3 +120,6 @@ date-just-now = À l'instant
 date-mins-ago = Il y a { $mins } min
 date-hours-ago = Il y a { $hours }h
 date-yesterday = Hier, { $time }
+
+reminder-detected-title = Rappels détectés
+reminder-recurring = ↻ récurrent

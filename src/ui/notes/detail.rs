@@ -1,7 +1,7 @@
 use crate::db::Database;
 use crate::models::{
     generate_auto_title, is_auto_title, Attachment, NewAttachment, NewTextNote,
-    NoteAudio, UpdateNote,
+    NoteAudio, ReminderIntent, UpdateNote,
 };
 use crate::services::audio::{self, RecordingState};
 use crate::services::embed::{embed_attachment, embed_note};
@@ -18,9 +18,10 @@ use crate::ui::notes::tags::TagsSection;
 use crate::ui::recording::RecordingBar;
 use crate::ui::transcription_manager::{JobStatus, TranscriptionManager};
 use crate::ui::{AppState, View};
-use chrono::{Datelike, NaiveDateTime, Utc};
+use chrono::{Datelike, Local, NaiveDateTime, Timelike, Utc};
 use dioxus::prelude::*;
 use std::sync::Arc;
+use std::time::Duration;
 
 fn format_relative_date(iso: &str, lang: &str) -> String {
     let parsed = NaiveDateTime::parse_from_str(
@@ -114,6 +115,21 @@ fn format_absolute_short(iso: &str, lang: &str) -> String {
     }
 }
 
+fn format_reminder_due(intent: &ReminderIntent, lang: &str) -> String {
+    let date = match intent.resolved_date() {
+        Some(d) => d,
+        None => return intent.action.clone(),
+    };
+    let time = intent.resolved_time();
+    let iso = format!(
+        "{} {:02}:{:02}:00",
+        date.format("%Y-%m-%d"),
+        time.hour(),
+        time.minute()
+    );
+    format_absolute_short(&iso, lang)
+}
+
 #[component]
 pub fn NoteDetail() -> Element {
     let mut app: AppState = use_context();
@@ -176,6 +192,10 @@ pub fn NoteDetail() -> Element {
     let mut import_in_progress = use_signal(|| false);
     let mut pending_audio: Signal<Option<(String, f64)>> = use_signal(|| None);
     let mut audios_version = use_signal(|| 0u32);
+    let mut detected_reminders: Signal<Vec<ReminderIntent>> =
+        use_signal(Vec::new);
+    let mut reminders_checked = use_signal(String::new);
+    let mut detecting_reminders = use_signal(|| false);
 
     use_effect(move || {
         if !deleted() {
@@ -352,6 +372,43 @@ pub fn NoteDetail() -> Element {
             }
             generating_title.set(false);
             title_gen_done.set(true);
+        });
+    });
+
+    use_effect(move || {
+        let c = content();
+        if c.trim().chars().count() < 8 {
+            if !detected_reminders.peek().is_empty() {
+                detected_reminders.set(Vec::new());
+            }
+            return;
+        }
+        if *reminders_checked.peek() == c {
+            return;
+        }
+        spawn(async move {
+            futures_timer::Delay::new(Duration::from_millis(1200)).await;
+            if *content.peek() != c {
+                return;
+            }
+            if *reminders_checked.peek() == c || *detecting_reminders.peek() {
+                return;
+            }
+            detecting_reminders.set(true);
+            match crate::services::llm::LlmClient::from_env() {
+                Ok(ai) => {
+                    if let Ok(intents) =
+                        ai.extract_reminders(&c, Local::now()).await
+                    {
+                        reminders_checked.set(c.clone());
+                        detected_reminders.set(intents);
+                    }
+                }
+                Err(_) => {
+                    reminders_checked.set(c.clone());
+                }
+            }
+            detecting_reminders.set(false);
         });
     });
 
@@ -647,6 +704,52 @@ pub fn NoteDetail() -> Element {
                 placeholder: if is_transcribing { transcribing_placeholder.as_str() } else { content_placeholder.as_str() },
                 value: "{content}",
                 oninput: move |evt| content.set(evt.value()),
+            }
+            if !detected_reminders().is_empty() {
+                {
+                    let reminders = detected_reminders();
+                    let title_label = t(&lang, "reminder-detected-title");
+                    let recurring_label = t(&lang, "reminder-recurring");
+                    let lang_badge = lang.clone();
+                    rsx! {
+                        div { class: "mt-3 p-3 bg-ios-orange/10 border border-ios-orange/30 rounded-xl",
+                            div { class: "flex items-center justify-between mb-2",
+                                span { class: "text-xs font-semibold text-ios-orange-dark", "{title_label}" }
+                                button {
+                                    class: "text-stone-400 active:opacity-70",
+                                    onclick: move |_| {
+                                        reminders_checked.set(content.peek().clone());
+                                        detected_reminders.set(Vec::new());
+                                    },
+                                    IconX { size: 14 }
+                                }
+                            }
+                            div { class: "space-y-1.5",
+                                for intent in reminders.iter() {
+                                    {
+                                        let action = intent.action.clone();
+                                        let due = format_reminder_due(intent, &lang_badge);
+                                        let is_rec = intent.recurrence.is_some();
+                                        rsx! {
+                                            div { class: "flex items-start gap-2",
+                                                span { class: "text-ios-orange-dark text-sm leading-5", "•" }
+                                                div { class: "flex-1 min-w-0",
+                                                    p { class: "text-sm text-stone-800", "{action}" }
+                                                    p { class: "text-xs text-stone-500",
+                                                        "{due}"
+                                                        if is_rec {
+                                                            span { class: "ml-1 text-ios-orange-dark", "{recurring_label}" }
+                                                        }
+                                                    }
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
             }
             if !audios.is_empty() {
                 {

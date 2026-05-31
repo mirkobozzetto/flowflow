@@ -120,3 +120,6 @@ date-just-now = Just now
 date-mins-ago = { $mins } min ago
 date-hours-ago = { $hours }h ago
 date-yesterday = Yesterday, { $time }
+
+reminder-detected-title = Reminders detected
+reminder-recurring = ↻ recurring

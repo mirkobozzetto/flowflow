@@ -53,7 +53,7 @@ stepsCompleted: [0, 1, 2, 3]
   - [ ] 4.4 Revoke : suppression de note → `remove_reminder` + delete mapping (cascade cohérente).
 
 - [ ] 5.0 **UI détection + confirmation** _(PRD: US1, US2)_
-  - [ ] 5.1 Indicateur "rappel détecté" sur la note (action + date/heure résolues).
+  - [x] 5.1 Indicateur "rappel détecté" sur la note (action + date/heure résolues). _(badge plural-aware, debounce on-idle 1.2s, dismiss ; device-validé 2026-06-01)_
   - [ ] 5.2 Sheet de confirmation : titre + date + heure (+ récurrence), actions Confirmer / Ignorer.
   - [ ] 5.3 Confirmer → pipeline service (validation → FFI → mapping) ; Ignorer → rien créé.
   - [ ] 5.4 Aucune création sans confirmation explicite (jamais silencieux).
