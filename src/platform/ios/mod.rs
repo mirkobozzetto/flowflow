@@ -3,6 +3,7 @@ mod parsers;
 mod pdf;
 mod picker;
 mod player;
+pub mod reminders;
 
 use objc2_avf_audio::{
     AVAudioSession, AVAudioSessionCategoryOptions,

@@ -34,10 +34,11 @@ unic-langid = "0.9"
 objc2 = "0.6"
 block2 = "0.6"
 objc2-avf-audio = "0.3"
-objc2-foundation = { version = "0.3", features = ["NSString", "NSArray", "NSURL", "NSThread", "NSData", "NSDictionary", "NSValue", "NSNotification", "block2"] }
+objc2-foundation = { version = "0.3", features = ["NSString", "NSArray", "NSURL", "NSThread", "NSData", "NSDictionary", "NSValue", "NSNotification", "NSCalendar", "NSDate", "NSError", "NSTimeZone", "block2"] }
 objc2-ui-kit = { version = "0.3", features = ["UIApplication", "UIDocumentPickerViewController", "UIViewController", "UIWindow", "UIResponder", "objc2-uniform-type-identifiers"] }
 objc2-uniform-type-identifiers = "0.3"
 objc2-pdf-kit = { version = "0.3", features = ["PDFDocument", "PDFPage"] }
+objc2-event-kit = { version = "0.3", default-features = false, features = ["EKEventStore", "EKReminder", "EKEvent", "EKCalendarItem", "EKObject", "EKCalendar", "EKAlarm", "EKRecurrenceRule", "EKRecurrenceEnd", "EKRecurrenceDayOfWeek", "EKTypes", "EKError", "block2"] }
 
 [features]
 default = ["mobile"]
