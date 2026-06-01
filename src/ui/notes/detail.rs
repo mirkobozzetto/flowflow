@@ -93,21 +93,6 @@ fn format_absolute_short(iso: &str, lang: &str) -> String {
     }
 }
 
-fn format_reminder_due(intent: &ReminderIntent, lang: &str) -> String {
-    let date = match intent.resolved_date() {
-        Some(d) => d,
-        None => return intent.action.clone(),
-    };
-    let time = intent.resolved_time();
-    let iso = format!(
-        "{} {:02}:{:02}:00",
-        date.format("%Y-%m-%d"),
-        time.hour(),
-        time.minute()
-    );
-    format_absolute_short(&iso, lang)
-}
-
 #[component]
 pub fn NoteDetail() -> Element {
     let mut app: AppState = use_context();
@@ -401,8 +386,24 @@ pub fn NoteDetail() -> Element {
                     if let Ok(intents) =
                         ai.extract_reminders(&c, Local::now()).await
                     {
+                        let normalized: Vec<ReminderIntent> = intents
+                            .into_iter()
+                            .map(|mut it| {
+                                if let Some(d) = it.resolved_date() {
+                                    it.date =
+                                        Some(d.format("%Y-%m-%d").to_string());
+                                }
+                                let tt = it.resolved_time();
+                                it.time = Some(format!(
+                                    "{:02}:{:02}",
+                                    tt.hour(),
+                                    tt.minute()
+                                ));
+                                it
+                            })
+                            .collect();
                         reminders_checked.set(c.clone());
-                        detected_reminders.set(intents);
+                        detected_reminders.set(normalized);
                     }
                 }
                 Err(_) => {
@@ -721,24 +722,26 @@ pub fn NoteDetail() -> Element {
                 value: "{content}",
                 oninput: move |evt| content.set(evt.value()),
             }
-            if !detected_reminders().is_empty() {
-                {
-                    let reminders: Vec<ReminderIntent> = detected_reminders()
-                        .into_iter()
-                        .filter(|i| {
-                            let nid = local_note_id();
-                            nid.is_empty()
-                                || !db().reminder_exists_by_intent_hash(
-                                    &nid,
-                                    &i.intent_hash(),
-                                )
-                        })
-                        .collect();
-                    let title_label = t(&lang, "reminder-detected-title");
-                    let recurring_label = t(&lang, "reminder-recurring");
-                    let lang_badge = lang.clone();
-                    rsx! {
-                        if !reminders.is_empty() {
+            {
+                let detected = detected_reminders();
+                let pending_idx: Vec<usize> = detected
+                    .iter()
+                    .enumerate()
+                    .filter(|(_, i)| {
+                        let nid = local_note_id();
+                        nid.is_empty()
+                            || !db().reminder_exists_by_intent_hash(
+                                &nid,
+                                &i.intent_hash(),
+                            )
+                    })
+                    .map(|(idx, _)| idx)
+                    .collect();
+                let title_label = t(&lang, "reminder-detected-title");
+                let confirm_label = t(&lang, "reminder-confirm");
+                let lang_badge = lang.clone();
+                rsx! {
+                    if !pending_idx.is_empty() {
                             div { class: "mt-3 p-3 bg-ios-orange/10 border border-ios-orange/30 rounded-xl",
                             div { class: "flex items-center justify-between mb-2",
                                 span { class: "text-xs font-semibold text-ios-orange-dark", "{title_label}" }
@@ -751,31 +754,43 @@ pub fn NoteDetail() -> Element {
                                     IconX { size: 14 }
                                 }
                             }
-                            div { class: "space-y-1.5",
-                                for intent in reminders.iter() {
+                            div { class: "space-y-2",
+                                for idx in pending_idx {
                                     {
+                                        let intent = detected[idx].clone();
                                         let action = intent.action.clone();
-                                        let due = format_reminder_due(intent, &lang_badge);
+                                        let date_val = intent.date.clone().unwrap_or_default();
+                                        let time_val = intent.time.clone().unwrap_or_default();
                                         let is_rec = intent.recurrence.is_some();
-                                        let intent_owned = intent.clone();
                                         let lang_cb = lang_badge.clone();
-                                        let confirm_label = t(&lang_badge, "reminder-confirm");
+                                        let confirm = confirm_label.clone();
                                         rsx! {
-                                            div { class: "flex items-start gap-2",
-                                                span { class: "text-ios-orange-dark text-sm leading-5", "•" }
-                                                div { class: "flex-1 min-w-0",
-                                                    p { class: "text-sm text-stone-800", "{action}" }
-                                                    p { class: "text-xs text-stone-500",
-                                                        "{due}"
-                                                        if is_rec {
-                                                            span { class: "ml-1 text-ios-orange-dark", "{recurring_label}" }
-                                                        }
+                                            div { class: "bg-white/40 rounded-lg p-2.5",
+                                                p { class: "text-sm text-stone-800 mb-1.5", "{action}" }
+                                                div { class: "flex items-center gap-2 flex-wrap",
+                                                    input {
+                                                        r#type: "date",
+                                                        class: "text-xs text-stone-700 bg-white border border-stone-200 rounded-md px-2 py-1 outline-none",
+                                                        value: "{date_val}",
+                                                        oninput: move |e| {
+                                                            detected_reminders.write()[idx].date = Some(e.value());
+                                                        },
                                                     }
-                                                }
-                                                button {
+                                                    input {
+                                                        r#type: "time",
+                                                        class: "text-xs text-stone-700 bg-white border border-stone-200 rounded-md px-2 py-1 outline-none",
+                                                        value: "{time_val}",
+                                                        oninput: move |e| {
+                                                            detected_reminders.write()[idx].time = Some(e.value());
+                                                        },
+                                                    }
+                                                    if is_rec {
+                                                        span { class: "text-xs text-ios-orange-dark", "↻" }
+                                                    }
+                                                    button {
                                                     class: "shrink-0 self-center text-xs font-medium text-white bg-ios-orange-dark px-3 py-1.5 rounded-full active:opacity-70",
                                                     onclick: move |_| {
-                                                        let intent = intent_owned.clone();
+                                                        let intent = detected_reminders.peek()[idx].clone();
                                                         let lang2 = lang_cb.clone();
                                                         let database = db();
                                                         spawn(async move {
@@ -822,7 +837,7 @@ pub fn NoteDetail() -> Element {
                                                             }
                                                         });
                                                     },
-                                                    "{confirm_label}"
+                                                    "{confirm}"
                                                 }
                                             }
                                         }
