@@ -120,3 +120,17 @@ date-just-now = Just now
 date-mins-ago = { $mins } min ago
 date-hours-ago = { $hours }h ago
 date-yesterday = Yesterday, { $time }
+
+reminder-detected-title = Reminders detected
+reminder-recurring = ↻ recurring
+reminder-confirm = Confirm
+reminder-creating = Adding to Calendar...
+reminder-created = Added to Calendar
+reminder-duplicate = Already created
+reminder-denied = Calendar access denied
+reminder-failed = Failed: { $error }
+reminder-already = Already created
+reminder-range-add = + range
+reminder-range-to = to
+reminder-delete = Delete
+reminder-cancel = Cancel

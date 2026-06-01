@@ -1,6 +1,7 @@
 use crate::db::Database;
 use crate::models::Note;
 use crate::services::i18n::t;
+use crate::ui::icons::IconBell;
 use crate::ui::{AppState, View};
 use dioxus::prelude::*;
 use std::sync::Arc;
@@ -26,6 +27,15 @@ pub fn NoteCard(note: Note) -> Element {
     let date = &note.created_at[..10];
     let _ = (app.notes_version)();
     let has_audio = db().has_any_audio(&note.id);
+    let active_reminders: Vec<_> = db()
+        .reminders_for_note(&note.id)
+        .into_iter()
+        .filter(|r| r.state == "active")
+        .collect();
+    let has_reminder = !active_reminders.is_empty();
+    let reminder_due = active_reminders
+        .first()
+        .map(|r| crate::services::i18n::reminder_due_label(&lang, r));
 
     let folder_name = db()
         .folders_for_note(&note.id)
@@ -41,8 +51,13 @@ pub fn NoteCard(note: Note) -> Element {
             },
             div { class: "flex justify-between items-center mb-2",
                 h3 { class: "font-semibold text-base text-stone-900", "{title}" }
-                if has_audio {
-                    div { class: "w-2 h-2 rounded-full bg-ios-orange/50" }
+                div { class: "flex items-center gap-1.5 shrink-0",
+                    if has_reminder {
+                        span { class: "text-ios-orange-dark", IconBell { size: 14 } }
+                    }
+                    if has_audio {
+                        div { class: "w-2 h-2 rounded-full bg-ios-orange/50" }
+                    }
                 }
             }
             if !preview.is_empty() {
@@ -62,6 +77,12 @@ pub fn NoteCard(note: Note) -> Element {
                 if let Some(ref fname) = folder_name {
                     span { class: "text-xs text-stone-400", "·" }
                     span { class: "text-xs text-ios-orange-dark", "{fname}" }
+                }
+            }
+            if let Some(ref due) = reminder_due {
+                div { class: "flex items-center gap-1 mt-1 text-ios-orange-dark text-xs font-medium",
+                    IconBell { size: 12 }
+                    span { "{due}" }
                 }
             }
         }

@@ -43,6 +43,37 @@ fn lookup(
     Some(out.into_owned())
 }
 
+pub fn month_abbr(lang: &str, month: u32) -> &'static str {
+    const FR: [&str; 13] = [
+        "", "jan.", "fév.", "mars", "avr.", "mai", "juin", "juil.", "août",
+        "sept.", "oct.", "nov.", "déc.",
+    ];
+    const EN: [&str; 13] = [
+        "", "Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep",
+        "Oct", "Nov", "Dec",
+    ];
+    let table = if lang == "fr" { &FR } else { &EN };
+    table.get(month as usize).copied().unwrap_or("")
+}
+
+pub fn reminder_due_label(
+    lang: &str,
+    r: &crate::models::NoteReminder,
+) -> String {
+    let (m, d) = match (r.due_month, r.due_day) {
+        (Some(m), Some(d)) => (m, d),
+        _ => return String::new(),
+    };
+    let mon = month_abbr(lang, m as u32);
+    if r.is_all_day {
+        format!("{d} {mon}")
+    } else {
+        let h = r.due_hour.unwrap_or(9);
+        let min = r.due_minute.unwrap_or(0);
+        format!("{d} {mon}, {h:02}:{min:02}")
+    }
+}
+
 pub fn t(lang: &str, key: &str) -> String {
     t_args(lang, key, &[])
 }

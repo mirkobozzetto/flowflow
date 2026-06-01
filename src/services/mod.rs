@@ -6,6 +6,7 @@ pub mod error;
 pub mod i18n;
 pub mod llm;
 pub mod rag;
+pub mod reminders;
 pub mod tools;
 pub mod transcription;
 pub mod vectordb;

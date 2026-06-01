@@ -120,3 +120,17 @@ date-just-now = À l'instant
 date-mins-ago = Il y a { $mins } min
 date-hours-ago = Il y a { $hours }h
 date-yesterday = Hier, { $time }
+
+reminder-detected-title = Rappels détectés
+reminder-recurring = ↻ récurrent
+reminder-confirm = Confirmer
+reminder-creating = Ajout au Calendrier...
+reminder-created = Ajouté au Calendrier
+reminder-duplicate = Déjà créé
+reminder-denied = Accès au Calendrier refusé
+reminder-failed = Échec : { $error }
+reminder-already = Déjà créé
+reminder-range-add = + plage
+reminder-range-to = à
+reminder-delete = Supprimer
+reminder-cancel = Annuler

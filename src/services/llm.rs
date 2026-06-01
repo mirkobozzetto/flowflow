@@ -1,3 +1,4 @@
+use crate::models::ReminderIntent;
 use crate::services::constants::{
     ANTHROPIC_CHAT_MODEL, ANTHROPIC_MAX_TOKENS, CHAT_MODEL, EMBEDDING_DIMS,
     EMBEDDING_MODEL,
@@ -6,6 +7,7 @@ use crate::services::error::LlmError;
 use crate::services::tools::{
     CreateNote, SearchNotes, SummarizeFolder, ToolEvent, ToolStatusHook,
 };
+use chrono::{DateTime, Local};
 use rig::client::{CompletionClient, EmbeddingsClient};
 use rig::completion::Prompt;
 use rig::embeddings::EmbeddingModel;
@@ -191,6 +193,26 @@ impl LlmClient {
         Ok(title)
     }
 
+    pub async fn extract_reminders(
+        &self,
+        text: &str,
+        now: DateTime<Local>,
+    ) -> Result<Vec<ReminderIntent>, LlmError> {
+        use crate::services::constants::REMINDER_EXTRACTION_PROMPT;
+        let trimmed = text.trim();
+        if trimmed.is_empty() {
+            return Ok(Vec::new());
+        }
+        let preview: String = trimmed.chars().take(4000).collect();
+        let system = format!(
+            "{REMINDER_EXTRACTION_PROMPT}\n\nCurrent date and time: {}.",
+            now.format("%Y-%m-%d %H:%M (%A)")
+        );
+        let response = self.chat(&system, &preview).await?;
+        let intents = parse_reminder_intents(&response)?;
+        Ok(intents.into_iter().filter(|i| i.has_date()).collect())
+    }
+
     pub async fn prompt_with_agent(
         self: &Arc<Self>,
         preamble: &str,
@@ -257,4 +279,98 @@ pub fn parse_tags(response: &str) -> Result<Vec<String>, LlmError> {
             "Invalid tags JSON: {trimmed}"
         )))
     })
+}
+
+pub fn parse_reminder_intents(
+    response: &str,
+) -> Result<Vec<ReminderIntent>, LlmError> {
+    #[derive(serde::Deserialize)]
+    struct Envelope {
+        #[serde(default)]
+        intents: Vec<ReminderIntent>,
+    }
+    let trimmed = response.trim();
+    let json = extract_json_object(trimmed).unwrap_or(trimmed);
+    serde_json::from_str::<Envelope>(json)
+        .map(|e| e.intents)
+        .map_err(|e| {
+            LlmError::ReminderParsing(format!("Invalid reminders JSON: {e}"))
+        })
+}
+
+fn extract_json_object(s: &str) -> Option<&str> {
+    let start = s.find('{')?;
+    let end = s.rfind('}')?;
+    (end > start).then(|| &s[start..=end])
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::models::DEFAULT_REMINDER_HOUR;
+    use chrono::{NaiveDate, NaiveTime};
+
+    #[test]
+    fn parses_single_intent_with_time() {
+        let raw = r#"{"intents":[{"action":"appeler Paul","date":"2026-06-02","time":"15:00","recurrence":null,"location":null}]}"#;
+        let v = parse_reminder_intents(raw).unwrap();
+        assert_eq!(v.len(), 1);
+        assert_eq!(v[0].action, "appeler Paul");
+        assert_eq!(v[0].resolved_date(), NaiveDate::from_ymd_opt(2026, 6, 2));
+        assert_eq!(
+            v[0].resolved_time(),
+            NaiveTime::from_hms_opt(15, 0, 0).unwrap()
+        );
+        assert!(v[0].has_explicit_time());
+        assert!(v[0].has_date());
+    }
+
+    #[test]
+    fn defaults_missing_time_to_nine() {
+        let raw = r#"{"intents":[{"action":"faire les courses","date":"2026-06-06","time":null}]}"#;
+        let v = parse_reminder_intents(raw).unwrap();
+        assert_eq!(v.len(), 1);
+        assert!(!v[0].has_explicit_time());
+        assert_eq!(
+            v[0].resolved_time(),
+            NaiveTime::from_hms_opt(DEFAULT_REMINDER_HOUR, 0, 0).unwrap()
+        );
+    }
+
+    #[test]
+    fn parses_multiple_intents_with_recurrence() {
+        let raw = r#"{"intents":[
+            {"action":"call the dentist","date":"2026-06-02","time":null},
+            {"action":"pay rent","date":"2026-07-01","time":null,"recurrence":"MONTHLY;BYMONTHDAY=1"}
+        ]}"#;
+        let v = parse_reminder_intents(raw).unwrap();
+        assert_eq!(v.len(), 2);
+        assert_eq!(v[1].recurrence.as_deref(), Some("MONTHLY;BYMONTHDAY=1"));
+    }
+
+    #[test]
+    fn tolerates_markdown_fence() {
+        let raw = "```json\n{\"intents\":[{\"action\":\"x\",\"date\":\"2026-06-02\"}]}\n```";
+        let v = parse_reminder_intents(raw).unwrap();
+        assert_eq!(v.len(), 1);
+    }
+
+    #[test]
+    fn empty_intents_ok() {
+        let v = parse_reminder_intents(r#"{"intents":[]}"#).unwrap();
+        assert!(v.is_empty());
+    }
+
+    #[test]
+    fn no_date_flagged_by_has_date() {
+        let raw = r#"{"intents":[{"action":"vague","date":null}]}"#;
+        let v = parse_reminder_intents(raw).unwrap();
+        assert_eq!(v.len(), 1);
+        assert!(!v[0].has_date());
+    }
+
+    #[test]
+    fn invalid_json_errors() {
+        assert!(parse_reminder_intents("not json at all").is_err());
+    }
 }
