@@ -1,14 +1,14 @@
 use crate::db::Database;
 use crate::models::{
     generate_auto_title, is_auto_title, Attachment, NewAttachment, NewTextNote,
-    NoteAudio, ReminderIntent, UpdateNote,
+    NoteAudio, NoteReminder, ReminderIntent, UpdateNote,
 };
 use crate::services::audio::{self, RecordingState};
 use crate::services::embed::{embed_attachment, embed_note};
-use crate::services::i18n::{t, t_args};
+use crate::services::i18n::{month_abbr, reminder_due_label, t, t_args};
 use crate::services::transcription::SonioxClient;
 use crate::ui::folder_picker::FolderPicker;
-use crate::ui::icons::IconX;
+use crate::ui::icons::{IconBell, IconX};
 use crate::ui::notes::attachments::AttachmentSection;
 use crate::ui::notes::audio_player::AudioPlayer;
 use crate::ui::notes::menu::{
@@ -59,18 +59,7 @@ fn format_relative_date(iso: &str, lang: &str) -> String {
         return t_args(lang, "date-yesterday", &[("time", &time)]);
     }
 
-    let months: [&str; 13] = if lang == "fr" {
-        [
-            "", "jan.", "fév.", "mars", "avr.", "mai", "juin", "juil.", "août",
-            "sept.", "oct.", "nov.", "déc.",
-        ]
-    } else {
-        [
-            "", "Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep",
-            "Oct", "Nov", "Dec",
-        ]
-    };
-    let m = months[note_date.month() as usize];
+    let m = month_abbr(lang, note_date.month());
     let d = note_date.day();
 
     if note_date.year() == today.year() {
@@ -89,20 +78,9 @@ fn format_absolute_short(iso: &str, lang: &str) -> String {
         Ok(d) => d,
         Err(_) => return iso.to_string(),
     };
-    let months: [&str; 13] = if lang == "fr" {
-        [
-            "", "jan.", "fév.", "mars", "avr.", "mai", "juin", "juil.", "août",
-            "sept.", "oct.", "nov.", "déc.",
-        ]
-    } else {
-        [
-            "", "Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep",
-            "Oct", "Nov", "Dec",
-        ]
-    };
     let d = dt.date();
     let now = Utc::now().naive_utc().date();
-    let m = months[d.month() as usize];
+    let m = month_abbr(lang, d.month());
     if d.year() == now.year() {
         let time = if lang == "fr" {
             dt.format("%H:%M").to_string()
@@ -243,6 +221,19 @@ pub fn NoteDetail() -> Element {
         }
     };
 
+    let detail_reminders: Vec<NoteReminder> = {
+        let id = local_note_id();
+        let _ = (app.notes_version)();
+        if id.is_empty() {
+            Vec::new()
+        } else {
+            db().reminders_for_note(&id)
+                .into_iter()
+                .filter(|r| r.state == "active")
+                .collect()
+        }
+    };
+
     use_drop({
         let orig_title = initial_title.clone();
         let orig_content = initial_content.clone();
@@ -376,6 +367,7 @@ pub fn NoteDetail() -> Element {
         });
     });
 
+    let reminder_initial_content = initial_content.clone();
     use_effect(move || {
         let c = content();
         if c.trim().chars().count() < 8 {
@@ -385,6 +377,14 @@ pub fn NoteDetail() -> Element {
             return;
         }
         if *reminders_checked.peek() == c {
+            return;
+        }
+        let nid = local_note_id();
+        if c == reminder_initial_content
+            && !nid.is_empty()
+            && db().note_has_active_reminder(&nid)
+        {
+            reminders_checked.set(c);
             return;
         }
         spawn(async move {
@@ -692,6 +692,21 @@ pub fn NoteDetail() -> Element {
                         }
                     }
                 }
+                if !detail_reminders.is_empty() {
+                    div { class: "mt-2 px-1 flex flex-col gap-0.5",
+                        for r in detail_reminders.iter() {
+                            {
+                                let due = reminder_due_label(&lang, r);
+                                rsx! {
+                                    div { class: "flex items-center gap-1.5 text-ios-orange-dark text-xs font-medium",
+                                        IconBell { size: 13 }
+                                        span { "{due}" }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
             }
             div { class: "border-t border-stone-100 pt-3 pb-2",
                 TagsSection { tags, tag_input, tagging, content }
@@ -708,12 +723,23 @@ pub fn NoteDetail() -> Element {
             }
             if !detected_reminders().is_empty() {
                 {
-                    let reminders = detected_reminders();
+                    let reminders: Vec<ReminderIntent> = detected_reminders()
+                        .into_iter()
+                        .filter(|i| {
+                            let nid = local_note_id();
+                            nid.is_empty()
+                                || !db().reminder_exists_by_intent_hash(
+                                    &nid,
+                                    &i.intent_hash(),
+                                )
+                        })
+                        .collect();
                     let title_label = t(&lang, "reminder-detected-title");
                     let recurring_label = t(&lang, "reminder-recurring");
                     let lang_badge = lang.clone();
                     rsx! {
-                        div { class: "mt-3 p-3 bg-ios-orange/10 border border-ios-orange/30 rounded-xl",
+                        if !reminders.is_empty() {
+                            div { class: "mt-3 p-3 bg-ios-orange/10 border border-ios-orange/30 rounded-xl",
                             div { class: "flex items-center justify-between mb-2",
                                 span { class: "text-xs font-semibold text-ios-orange-dark", "{title_label}" }
                                 button {
@@ -786,14 +812,7 @@ pub fn NoteDetail() -> Element {
                                                             use crate::services::reminders::ScheduleResult;
                                                             match res {
                                                                 ScheduleResult::Created => {
-                                                                    let h = intent.intent_hash();
-                                                                    let remaining: Vec<ReminderIntent> = detected_reminders
-                                                                        .peek()
-                                                                        .iter()
-                                                                        .filter(|i| i.intent_hash() != h)
-                                                                        .cloned()
-                                                                        .collect();
-                                                                    detected_reminders.set(remaining);
+                                                                    app.notes_version.set((app.notes_version)() + 1);
                                                                     reminder_feedback.set(Some(t(&lang2, "reminder-created")));
                                                                 }
                                                                 ScheduleResult::Duplicate => reminder_feedback.set(Some(t(&lang2, "reminder-duplicate"))),
@@ -810,6 +829,7 @@ pub fn NoteDetail() -> Element {
                                     }
                                 }
                             }
+                        }
                         }
                     }
                 }

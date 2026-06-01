@@ -110,6 +110,18 @@ impl Database {
         .unwrap_or(false)
     }
 
+    pub fn note_has_active_reminder(&self, note_id: &str) -> bool {
+        let conn = self.conn();
+        conn.query_row(
+            "SELECT COUNT(*) FROM note_reminders
+             WHERE note_id = ?1 AND state = 'active'",
+            [note_id],
+            |row| row.get::<_, i64>(0),
+        )
+        .map(|n| n > 0)
+        .unwrap_or(false)
+    }
+
     pub fn set_reminder_state(
         &self,
         id: &str,

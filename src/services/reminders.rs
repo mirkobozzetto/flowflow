@@ -66,6 +66,31 @@ pub async fn schedule(
     }
 }
 
+pub fn spawn_revoke(ids: Vec<String>) {
+    std::thread::spawn(move || match tokio::runtime::Runtime::new() {
+        Ok(rt) => rt.block_on(revoke_ids(ids)),
+        Err(e) => eprintln!("[reminder] revoke runtime: {e}"),
+    });
+}
+
+pub async fn revoke_ids(ids: Vec<String>) {
+    for id in ids {
+        #[cfg(target_os = "ios")]
+        {
+            if let Err(e) =
+                crate::platform::ios::reminders::remove_reminder(id.clone())
+                    .await
+            {
+                eprintln!("[reminder] revoke id={id} failed: {e}");
+            }
+        }
+        #[cfg(not(target_os = "ios"))]
+        {
+            let _ = id;
+        }
+    }
+}
+
 pub async fn revoke_for_note(db: Arc<Database>, note_id: String) {
     for m in db.reminders_for_note(&note_id) {
         #[cfg(target_os = "ios")]

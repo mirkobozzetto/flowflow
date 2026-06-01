@@ -50,7 +50,7 @@ stepsCompleted: [0, 1, 2, 3]
   - [x] 4.1 Migration SQLite V9 : table `note_reminders` (composants locaux, backend, intent_hash, state, `UNIQUE(note_id,intent_hash)`, CASCADE). _(7 tests verts)_
   - [x] 4.2 Repo CRUD `note_reminder_repo` (add, list, exists_by_intent_hash, set_state tombstone, delete, delete_for_note) + `NewNoteReminder::from_intent`.
   - [ ] 4.3 Anti-doublon : primitive DB faite (`UNIQUE` + `reminder_exists_by_intent_hash`) ; diff par `note_id` à la ré-édition = T07 (service).
-  - [ ] 4.4 Revoke : `remove_reminder` + tombstone sur échec OS → hook `delete_note` = T08.
+  - [x] 4.4 Revoke (T08) : suppression note → capture des `reminder_id` → delete (cascade SQL) → `revoke_ids` async retire les `EKReminder` de Rappels.app. Affichage date/heure du rappel ajouté (carte liste + détail note, formateur `i18n::reminder_due_label`, mois dédupliqués).
 
 - [ ] 5.0 **UI détection + confirmation** _(PRD: US1, US2)_
   - [x] 5.1 Indicateur "rappel détecté" sur la note (action + date/heure résolues). _(badge plural-aware, debounce on-idle 1.2s, dismiss ; device-validé 2026-06-01)_

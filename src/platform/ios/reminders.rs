@@ -99,15 +99,35 @@ pub async fn remove_reminder(identifier: String) -> Result<(), String> {
     }
     unsafe {
         let id = NSString::from_str(&identifier);
-        let item = match store.calendarItemWithIdentifier(&id) {
-            Some(i) => i,
-            None => return Ok(()),
-        };
-        match item.downcast::<EKReminder>() {
-            Ok(rem) => store
-                .removeReminder_commit_error(&rem, true)
-                .map_err(|e| e.localizedDescription().to_string()),
-            Err(_) => Err("identifier is not a reminder".into()),
+        match store.calendarItemWithIdentifier(&id) {
+            Some(item) => match item.downcast::<EKReminder>() {
+                Ok(rem) => {
+                    let r = store
+                        .removeReminder_commit_error(&rem, true)
+                        .map_err(|e| e.localizedDescription().to_string());
+                    match &r {
+                        Ok(()) => {
+                            eprintln!("[reminder] revoked id={identifier}")
+                        }
+                        Err(e) => eprintln!(
+                            "[reminder] revoke remove failed id={identifier}: {e}"
+                        ),
+                    }
+                    r
+                }
+                Err(_) => {
+                    eprintln!(
+                        "[reminder] revoke: id={identifier} not a reminder"
+                    );
+                    Err("identifier is not a reminder".into())
+                }
+            },
+            None => {
+                eprintln!(
+                    "[reminder] revoke: identifier not found id={identifier}"
+                );
+                Err("reminder not found by identifier".into())
+            }
         }
     }
 }

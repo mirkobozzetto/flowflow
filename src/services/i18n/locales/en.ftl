@@ -129,3 +129,4 @@ reminder-created = Reminder created
 reminder-duplicate = Already created
 reminder-denied = Reminders access denied
 reminder-failed = Failed: { $error }
+reminder-already = Already created
