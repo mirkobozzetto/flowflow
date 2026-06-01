@@ -13,6 +13,8 @@ background_modes = ["audio"]
 NSMicrophoneUsageDescription = "FlowFlow needs microphone access to record voice notes"
 NSRemindersFullAccessUsageDescription = "FlowFlow creates reminders you confirm from your notes, so they alert you at the right time."
 NSRemindersUsageDescription = "FlowFlow creates reminders you confirm from your notes, so they alert you at the right time."
+NSCalendarsFullAccessUsageDescription = "FlowFlow adds calendar events for the time ranges you confirm from your notes."
+NSCalendarsUsageDescription = "FlowFlow adds calendar events for the time ranges you confirm from your notes."
 NSSupportsLiveActivities = true
 
 [[ios.widget_extensions]]

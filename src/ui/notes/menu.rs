@@ -150,20 +150,12 @@ pub fn NoteMenu(
                     move |_| {
                         app.show_note_menu.set(false);
                         deleted.set(true);
-                        let reminder_ids: Vec<String> = db()
-                            .reminders_for_note(&note_id)
-                            .into_iter()
-                            .map(|m| m.reminder_id)
-                            .collect();
                         for a in db().list_audios(&note_id).unwrap_or_default() {
                             let _ = std::fs::remove_file(crate::services::audio::resolve_audio_path(&a.file_path));
                         }
                         let _ = db().delete_note(&note_id);
                         delete_note_embeddings(note_id.clone());
                         app.current_note_id.set(None);
-                        if !reminder_ids.is_empty() {
-                            crate::services::reminders::spawn_revoke(reminder_ids);
-                        }
                     }
                 },
                 IconTrash { size: 18 }

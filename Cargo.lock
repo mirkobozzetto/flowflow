@@ -3210,6 +3210,7 @@ dependencies = [
  "objc2",
  "objc2-avf-audio",
  "objc2-event-kit",
+ "objc2-event-kit-ui",
  "objc2-foundation",
  "objc2-pdf-kit",
  "objc2-ui-kit",
@@ -6315,6 +6316,18 @@ dependencies = [
  "block2",
  "objc2",
  "objc2-foundation",
+]
+
+[[package]]
+name = "objc2-event-kit-ui"
+version = "0.3.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "7b6a120fbed60c1efb2c6d50a669a71303d03849601d3537fba30da2e62559a4"
+dependencies = [
+ "objc2",
+ "objc2-event-kit",
+ "objc2-foundation",
+ "objc2-ui-kit",
 ]
 
 [[package]]

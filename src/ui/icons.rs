@@ -109,6 +109,16 @@ pub fn IconArrowLeft(#[props(default = 20)] size: u32) -> Element {
 }
 
 #[component]
+pub fn IconArrowUpRight(#[props(default = 20)] size: u32) -> Element {
+    rsx! {
+        svg {
+            width: "{size}", height: "{size}", view_box: "0 0 256 256", fill: "currentColor",
+            path { d: "M200,64V168a8,8,0,0,1-16,0V83.31L69.66,197.66a8,8,0,0,1-11.32-11.32L172.69,72H88a8,8,0,0,1,0-16H192A8,8,0,0,1,200,64Z" }
+        }
+    }
+}
+
+#[component]
 pub fn IconList(#[props(default = 20)] size: u32) -> Element {
     rsx! {
         svg {

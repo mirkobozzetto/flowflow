@@ -151,6 +151,7 @@ fn test_new_note_reminder_from_intent() {
         action: "appeler Paul".into(),
         date: Some("2026-06-03".into()),
         time: Some("15:30".into()),
+        time_end: None,
         recurrence: None,
         location: None,
     };
@@ -168,4 +169,17 @@ fn test_new_note_reminder_from_intent() {
     assert_eq!(n.due_minute, Some(30));
     assert!(!n.is_all_day);
     assert!(!n.intent_hash.is_empty());
+    assert!(!intent.is_event());
+
+    let ranged = ReminderIntent {
+        action: "réunion".into(),
+        date: Some("2026-06-03".into()),
+        time: Some("14:00".into()),
+        time_end: Some("16:00".into()),
+        recurrence: None,
+        location: None,
+    };
+    assert!(ranged.is_event());
+    assert!(ranged.intent_hash().contains("14:00-16:00"));
+    assert_ne!(ranged.intent_hash(), intent.intent_hash());
 }

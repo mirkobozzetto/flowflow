@@ -8,7 +8,7 @@ use crate::services::embed::{embed_attachment, embed_note};
 use crate::services::i18n::{month_abbr, reminder_due_label, t, t_args};
 use crate::services::transcription::SonioxClient;
 use crate::ui::folder_picker::FolderPicker;
-use crate::ui::icons::{IconBell, IconX};
+use crate::ui::icons::{IconArrowUpRight, IconBell, IconTrash, IconX};
 use crate::ui::notes::attachments::AttachmentSection;
 use crate::ui::notes::audio_player::AudioPlayer;
 use crate::ui::notes::menu::{
@@ -18,7 +18,7 @@ use crate::ui::notes::tags::TagsSection;
 use crate::ui::recording::RecordingBar;
 use crate::ui::transcription_manager::{JobStatus, TranscriptionManager};
 use crate::ui::{AppState, View};
-use chrono::{Datelike, Local, NaiveDateTime, Timelike, Utc};
+use chrono::{Datelike, Local, NaiveDateTime, NaiveTime, Timelike, Utc};
 use dioxus::prelude::*;
 use std::sync::Arc;
 use std::time::Duration;
@@ -160,6 +160,8 @@ pub fn NoteDetail() -> Element {
     let mut reminders_checked = use_signal(String::new);
     let mut detecting_reminders = use_signal(|| false);
     let mut reminder_feedback: Signal<Option<String>> = use_signal(|| None);
+    let mut confirm_delete_reminder: Signal<Option<String>> =
+        use_signal(|| None);
 
     use_effect(move || {
         if !deleted() {
@@ -399,6 +401,14 @@ pub fn NoteDetail() -> Element {
                                     tt.hour(),
                                     tt.minute()
                                 ));
+                                it.time_end =
+                                    it.resolved_time_end().map(|end| {
+                                        format!(
+                                            "{:02}:{:02}",
+                                            end.hour(),
+                                            end.minute()
+                                        )
+                                    });
                                 it
                             })
                             .collect();
@@ -694,14 +704,75 @@ pub fn NoteDetail() -> Element {
                     }
                 }
                 if !detail_reminders.is_empty() {
-                    div { class: "mt-2 px-1 flex flex-col gap-0.5",
+                    div { class: "mt-2 px-1 flex flex-col gap-1.5",
                         for r in detail_reminders.iter() {
                             {
                                 let due = reminder_due_label(&lang, r);
+                                let del_label = t(&lang, "reminder-delete");
+                                let cancel_label = t(&lang, "reminder-cancel");
+                                let row_id = r.id.clone();
+                                let event_id_open = r.reminder_id.clone();
+                                let event_id_del = r.reminder_id.clone();
+                                let confirming = confirm_delete_reminder() == Some(row_id.clone());
                                 rsx! {
-                                    div { class: "flex items-center gap-1.5 text-ios-orange-dark text-xs font-medium",
-                                        IconBell { size: 13 }
-                                        span { "{due}" }
+                                    div { class: "flex items-center gap-1.5",
+                                        button {
+                                            class: "flex-1 flex items-center gap-2 min-h-[44px] px-3 py-2 rounded-xl bg-ios-orange/10 text-ios-orange-dark text-xs font-medium active:bg-ios-orange/25",
+                                            onclick: move |_| {
+                                                #[cfg(target_os = "ios")]
+                                                {
+                                                    let event_id_open = event_id_open.clone();
+                                                    spawn(async move {
+                                                        crate::platform::ios::reminders::present_event(event_id_open).await;
+                                                    });
+                                                }
+                                                #[cfg(not(target_os = "ios"))]
+                                                let _ = &event_id_open;
+                                            },
+                                            IconBell { size: 15 }
+                                            span { class: "flex-1 text-left", "{due}" }
+                                            IconArrowUpRight { size: 14 }
+                                        }
+                                        if confirming {
+                                            button {
+                                                class: "shrink-0 min-h-[44px] px-3 rounded-xl text-xs font-medium text-white bg-ios-red active:opacity-70",
+                                                onclick: {
+                                                    let row_id = row_id.clone();
+                                                    let event_id_del = event_id_del.clone();
+                                                    move |_| {
+                                                        confirm_delete_reminder.set(None);
+                                                        let _ = db().delete_note_reminder(&row_id);
+                                                        app.notes_version.set((app.notes_version)() + 1);
+                                                        #[cfg(target_os = "ios")]
+                                                        {
+                                                            let event_id_del = event_id_del.clone();
+                                                            spawn(async move {
+                                                                if let Err(e) = crate::platform::ios::reminders::remove_event(event_id_del).await {
+                                                                    eprintln!("[reminder] remove_event failed: {e}");
+                                                                }
+                                                            });
+                                                        }
+                                                        #[cfg(not(target_os = "ios"))]
+                                                        let _ = &event_id_del;
+                                                    }
+                                                },
+                                                "{del_label}"
+                                            }
+                                            button {
+                                                class: "shrink-0 min-h-[44px] px-2 text-xs font-medium text-stone-500 active:opacity-70",
+                                                onclick: move |_| confirm_delete_reminder.set(None),
+                                                "{cancel_label}"
+                                            }
+                                        } else {
+                                            button {
+                                                class: "shrink-0 min-h-[44px] p-2 text-stone-400 active:text-ios-red",
+                                                onclick: {
+                                                    let row_id = row_id.clone();
+                                                    move |_| confirm_delete_reminder.set(Some(row_id.clone()))
+                                                },
+                                                IconTrash { size: 16 }
+                                            }
+                                        }
                                     }
                                 }
                             }
@@ -739,6 +810,8 @@ pub fn NoteDetail() -> Element {
                     .collect();
                 let title_label = t(&lang, "reminder-detected-title");
                 let confirm_label = t(&lang, "reminder-confirm");
+                let range_add_label = t(&lang, "reminder-range-add");
+                let range_to_label = t(&lang, "reminder-range-to");
                 let lang_badge = lang.clone();
                 rsx! {
                     if !pending_idx.is_empty() {
@@ -761,9 +834,21 @@ pub fn NoteDetail() -> Element {
                                         let action = intent.action.clone();
                                         let date_val = intent.date.clone().unwrap_or_default();
                                         let time_val = intent.time.clone().unwrap_or_default();
+                                        let end_val = intent.time_end.clone().unwrap_or_default();
+                                        let has_end = intent.time_end.is_some();
+                                        let default_end = {
+                                            use chrono::Duration as ChronoDuration;
+                                            NaiveTime::parse_from_str(&time_val, "%H:%M")
+                                                .ok()
+                                                .map(|tm| tm + ChronoDuration::hours(1))
+                                                .map(|tm| format!("{:02}:{:02}", tm.hour(), tm.minute()))
+                                                .unwrap_or_else(|| "10:00".to_string())
+                                        };
                                         let is_rec = intent.recurrence.is_some();
                                         let lang_cb = lang_badge.clone();
                                         let confirm = confirm_label.clone();
+                                        let range_add = range_add_label.clone();
+                                        let range_to = range_to_label.clone();
                                         rsx! {
                                             div { class: "bg-white/40 rounded-lg p-2.5",
                                                 p { class: "text-sm text-stone-800 mb-1.5", "{action}" }
@@ -783,6 +868,32 @@ pub fn NoteDetail() -> Element {
                                                         oninput: move |e| {
                                                             detected_reminders.write()[idx].time = Some(e.value());
                                                         },
+                                                    }
+                                                    if has_end {
+                                                        span { class: "text-xs text-stone-500", "{range_to}" }
+                                                        input {
+                                                            r#type: "time",
+                                                            class: "text-xs text-stone-700 bg-white border border-stone-200 rounded-md px-2 py-1 outline-none",
+                                                            value: "{end_val}",
+                                                            oninput: move |e| {
+                                                                detected_reminders.write()[idx].time_end = Some(e.value());
+                                                            },
+                                                        }
+                                                        button {
+                                                            class: "text-stone-400 active:opacity-70",
+                                                            onclick: move |_| {
+                                                                detected_reminders.write()[idx].time_end = None;
+                                                            },
+                                                            IconX { size: 12 }
+                                                        }
+                                                    } else {
+                                                        button {
+                                                            class: "text-xs font-medium text-ios-orange-dark active:opacity-70",
+                                                            onclick: move |_| {
+                                                                detected_reminders.write()[idx].time_end = Some(default_end.clone());
+                                                            },
+                                                            "{range_add}"
+                                                        }
                                                     }
                                                     if is_rec {
                                                         span { class: "text-xs text-ios-orange-dark", "↻" }

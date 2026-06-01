@@ -28,20 +28,47 @@ pub async fn schedule(
     {
         use crate::models::{NewNoteReminder, BACKEND_EVENTKIT};
         use crate::platform::ios::reminders::{
-            create_reminder, ReminderOutcome, ReminderRequest,
+            create_event, EventRequest, ReminderOutcome,
         };
         use chrono::{Datelike, Timelike};
         let date = intent.resolved_date().unwrap();
-        let time = intent.resolved_time();
-        let req = ReminderRequest {
+        let (all_day, sh, sm, eh, em) = if intent.is_event() {
+            let s = intent.resolved_time();
+            let e = intent.resolved_time_end().unwrap();
+            (
+                false,
+                s.hour() as i32,
+                s.minute() as i32,
+                e.hour() as i32,
+                e.minute() as i32,
+            )
+        } else if intent.has_explicit_time() {
+            let s = intent.resolved_time();
+            let start_tot = s.hour() as i32 * 60 + s.minute() as i32;
+            let end_tot = (start_tot + 30).min(23 * 60 + 59);
+            (
+                false,
+                start_tot / 60,
+                start_tot % 60,
+                end_tot / 60,
+                end_tot % 60,
+            )
+        } else {
+            (true, 9, 0, 9, 0)
+        };
+        let outcome = create_event(EventRequest {
             title: intent.action.clone(),
             year: date.year(),
             month: date.month() as i32,
             day: date.day() as i32,
-            hour: time.hour() as i32,
-            minute: time.minute() as i32,
-        };
-        match create_reminder(req).await {
+            start_hour: sh,
+            start_minute: sm,
+            end_hour: eh,
+            end_minute: em,
+            all_day,
+        })
+        .await;
+        match outcome {
             ReminderOutcome::Created(reminder_id) => {
                 let new = NewNoteReminder::from_intent(
                     note_id,
@@ -63,57 +90,5 @@ pub async fn schedule(
     {
         let _ = &intent;
         ScheduleResult::Unsupported
-    }
-}
-
-pub fn spawn_revoke(ids: Vec<String>) {
-    std::thread::spawn(move || match tokio::runtime::Runtime::new() {
-        Ok(rt) => rt.block_on(revoke_ids(ids)),
-        Err(e) => eprintln!("[reminder] revoke runtime: {e}"),
-    });
-}
-
-pub async fn revoke_ids(ids: Vec<String>) {
-    for id in ids {
-        #[cfg(target_os = "ios")]
-        {
-            if let Err(e) =
-                crate::platform::ios::reminders::remove_reminder(id.clone())
-                    .await
-            {
-                eprintln!("[reminder] revoke id={id} failed: {e}");
-            }
-        }
-        #[cfg(not(target_os = "ios"))]
-        {
-            let _ = id;
-        }
-    }
-}
-
-pub async fn revoke_for_note(db: Arc<Database>, note_id: String) {
-    for m in db.reminders_for_note(&note_id) {
-        #[cfg(target_os = "ios")]
-        {
-            use crate::models::REMINDER_STATE_TOMBSTONE;
-            match crate::platform::ios::reminders::remove_reminder(
-                m.reminder_id.clone(),
-            )
-            .await
-            {
-                Ok(()) => {
-                    let _ = db.delete_note_reminder(&m.id);
-                }
-                Err(e) => {
-                    eprintln!("[reminder] revoke failed id={}: {e}", m.id);
-                    let _ =
-                        db.set_reminder_state(&m.id, REMINDER_STATE_TOMBSTONE);
-                }
-            }
-        }
-        #[cfg(not(target_os = "ios"))]
-        {
-            let _ = db.delete_note_reminder(&m.id);
-        }
     }
 }

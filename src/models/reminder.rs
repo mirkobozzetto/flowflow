@@ -11,6 +11,8 @@ pub struct ReminderIntent {
     #[serde(default)]
     pub time: Option<String>,
     #[serde(default)]
+    pub time_end: Option<String>,
+    #[serde(default)]
     pub recurrence: Option<String>,
     #[serde(default)]
     pub location: Option<String>,
@@ -36,6 +38,20 @@ impl ReminderIntent {
         self.time.as_deref().and_then(parse_hm).is_some()
     }
 
+    pub fn resolved_time_end(&self) -> Option<NaiveTime> {
+        self.time_end.as_deref().and_then(parse_hm)
+    }
+
+    pub fn is_event(&self) -> bool {
+        match (
+            self.time.as_deref().and_then(parse_hm),
+            self.resolved_time_end(),
+        ) {
+            (Some(start), Some(end)) => end > start,
+            _ => false,
+        }
+    }
+
     pub fn has_date(&self) -> bool {
         self.resolved_date().is_some()
     }
@@ -46,6 +62,18 @@ impl ReminderIntent {
             .map(|d| d.to_string())
             .unwrap_or_default();
         let time = self.resolved_time();
+        let time_seg = if self.is_event() {
+            let end = self.resolved_time_end().unwrap();
+            format!(
+                "{:02}:{:02}-{:02}:{:02}",
+                time.hour(),
+                time.minute(),
+                end.hour(),
+                end.minute()
+            )
+        } else {
+            format!("{:02}:{:02}", time.hour(), time.minute())
+        };
         let rec = self
             .recurrence
             .as_deref()
@@ -53,11 +81,10 @@ impl ReminderIntent {
             .trim()
             .to_uppercase();
         format!(
-            "{}|{}|{:02}:{:02}|{}",
+            "{}|{}|{}|{}",
             self.action.trim().to_lowercase(),
             date,
-            time.hour(),
-            time.minute(),
+            time_seg,
             rec
         )
     }
@@ -138,7 +165,7 @@ impl NewNoteReminder {
             due_day: date.map(|d| d.day() as i32),
             due_hour: Some(time.hour() as i32),
             due_minute: Some(time.minute() as i32),
-            is_all_day: false,
+            is_all_day: !intent.has_explicit_time() && !intent.is_event(),
             tz_id,
             recurrence: intent.recurrence.clone(),
         }
