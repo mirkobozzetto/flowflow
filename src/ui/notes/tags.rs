@@ -1,8 +1,10 @@
+use crate::db::Database;
 use crate::services::i18n::t;
 use crate::services::llm::LlmClient;
 use crate::ui::icons::*;
 use crate::ui::AppState;
 use dioxus::prelude::*;
+use std::sync::Arc;
 
 #[component]
 pub fn TagsSection(
@@ -12,6 +14,7 @@ pub fn TagsSection(
     content: Signal<String>,
 ) -> Element {
     let app: AppState = use_context();
+    let db: Signal<Arc<Database>> = use_context();
     let lang = (app.current_lang)();
     let auto_tag_label = t(&lang, "tag-auto-action");
     let placeholder = t(&lang, "tag-add-placeholder");
@@ -33,7 +36,7 @@ pub fn TagsSection(
                         tagging.set(true);
                         let c = content();
                         spawn(async move {
-                            if let Ok(client) = LlmClient::from_env() {
+                            if let Ok(client) = LlmClient::from_db(&db()) {
                                 if let Ok(new_tags) =
                                     client.generate_tags(&c).await
                                 {
