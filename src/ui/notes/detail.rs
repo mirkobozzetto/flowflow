@@ -343,7 +343,7 @@ pub fn NoteDetail() -> Element {
         let preview: String = c.chars().take(1500).collect();
         spawn(async move {
             let lang = (app.current_lang)();
-            if let Ok(ai) = crate::services::llm::LlmClient::from_env() {
+            if let Ok(ai) = crate::services::llm::LlmClient::from_db(&db()) {
                 if let Ok(new_title) = ai.generate_title(&preview, &lang).await
                 {
                     title.set(new_title);
@@ -383,7 +383,7 @@ pub fn NoteDetail() -> Element {
                 return;
             }
             detecting_reminders.set(true);
-            match crate::services::llm::LlmClient::from_env() {
+            match crate::services::llm::LlmClient::from_db(&db()) {
                 Ok(ai) => {
                     if let Ok(intents) =
                         ai.extract_reminders(&c, Local::now()).await
@@ -1028,7 +1028,7 @@ pub fn NoteDetail() -> Element {
                                                                 transcribing_audio_id.set(Some(aid.clone()));
                                                                 spawn(async move {
                                                                     let result = async {
-                                                                        let client = SonioxClient::from_env()?;
+                                                                        let client = SonioxClient::from_db(&db())?;
                                                                         client.transcribe(std::path::Path::new(&path), None).await
                                                                     }.await;
                                                                     match result {

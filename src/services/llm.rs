@@ -62,17 +62,19 @@ impl LlmClient {
     }
 
     pub fn from_env() -> Result<Self, LlmError> {
-        let db = crate::db::Database::open().ok();
-        if db.as_ref().and_then(|d| d.get_setting("ai_consent"))
-            != Some("true".to_string())
-        {
+        let db =
+            crate::db::Database::open().map_err(LlmError::NotConfigured)?;
+        Self::from_db(&db)
+    }
+
+    pub fn from_db(db: &crate::db::Database) -> Result<Self, LlmError> {
+        if db.get_setting("ai_consent") != Some("true".to_string()) {
             return Err(LlmError::NotConfigured(
                 "Consentement IA requis".into(),
             ));
         }
         let openai_key = db
-            .as_ref()
-            .and_then(|d| d.get_setting("openai_api_key"))
+            .get_setting("openai_api_key")
             .or_else(|| std::env::var("OPENAI_API_KEY").ok())
             .or_else(|| option_env!("OPENAI_API_KEY").map(String::from))
             .unwrap_or_default();
@@ -85,15 +87,13 @@ impl LlmClient {
             .map_err(|e| LlmError::NotConfigured(e.to_string()))?;
 
         let provider = db
-            .as_ref()
-            .and_then(|d| d.get_setting("llm_provider"))
+            .get_setting("llm_provider")
             .and_then(|v| Provider::from_str(&v).ok())
             .unwrap_or_default();
 
         let anthropic = if provider == Provider::Anthropic {
             let key = db
-                .as_ref()
-                .and_then(|d| d.get_setting("anthropic_api_key"))
+                .get_setting("anthropic_api_key")
                 .or_else(|| std::env::var("ANTHROPIC_API_KEY").ok())
                 .or_else(|| option_env!("ANTHROPIC_API_KEY").map(String::from))
                 .unwrap_or_default();

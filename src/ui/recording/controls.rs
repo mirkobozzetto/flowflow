@@ -20,13 +20,14 @@ fn now_ms() -> u64 {
 
 fn spawn_transcription(
     path: PathBuf,
+    db: Arc<Database>,
     mut state: Signal<RecordingState>,
     generation: u64,
     gen_signal: Signal<u64>,
     cleanup: bool,
 ) {
     spawn(async move {
-        let client = match SonioxClient::from_env() {
+        let client = match SonioxClient::from_db(&db) {
             Ok(c) => c,
             Err(e) => {
                 if cleanup {
@@ -243,7 +244,7 @@ pub fn RecordingControls(
                                 let gen = transcription_gen() + 1;
                                 transcription_gen.set(gen);
                                 app.recording_state.set(RecordingState::Transcribing);
-                                spawn_transcription(path, app.recording_state, gen, transcription_gen, transcribe_only);
+                                spawn_transcription(path, db(), app.recording_state, gen, transcription_gen, transcribe_only);
                             }
                             Err(e) => {
                                 app.recording_state.set(RecordingState::Error(e));
