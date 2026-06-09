@@ -19,7 +19,7 @@ pub use state::{AppState, SidebarTab, View};
 
 use crate::db::Database;
 use crate::services::audio::{AudioRecorder, RecordingState};
-use crate::services::embed::migrate_chunk_dates;
+use crate::services::sync::reconcile::run_boot_reconcile;
 use dioxus::prelude::*;
 use std::collections::HashMap;
 use std::sync::{Arc, Mutex};
@@ -42,7 +42,7 @@ pub fn App() -> Element {
     let _db = use_context_provider(|| {
         let db = Arc::new(Database::open().expect("Failed to open database"));
         db.cleanup_orphan_audio(&crate::services::audio::output_dir());
-        migrate_chunk_dates();
+        run_boot_reconcile();
         Signal::new(db)
     });
 

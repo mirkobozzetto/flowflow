@@ -13,6 +13,11 @@ pub struct ChunkRecord {
     pub created_at: String,
 }
 
+pub(crate) fn content_hash(text: &str) -> String {
+    use sha2::{Digest, Sha256};
+    format!("{:x}", Sha256::digest(text.as_bytes()))
+}
+
 pub fn vector_to_blob(v: &[f32]) -> Vec<u8> {
     let mut bytes = Vec::with_capacity(v.len() * 4);
     for f in v {
@@ -106,6 +111,40 @@ impl Database {
             )
             .map_err(|e| format!("Count chunks: {e}"))?;
         Ok(n as usize)
+    }
+
+    pub fn all_chunk_ids(&self) -> Result<Vec<String>, String> {
+        let conn = self.conn();
+        let mut stmt = conn
+            .prepare("SELECT id FROM chunks")
+            .map_err(|e| format!("Prepare all ids: {e}"))?;
+        let rows = stmt
+            .query_map([], |r| r.get::<_, String>(0))
+            .map_err(|e| format!("Query all ids: {e}"))?;
+        let mut out = Vec::new();
+        for r in rows {
+            out.push(r.map_err(|e| format!("Id row: {e}"))?);
+        }
+        Ok(out)
+    }
+
+    pub fn distinct_chunk_owners(
+        &self,
+    ) -> Result<Vec<(String, String)>, String> {
+        let conn = self.conn();
+        let mut stmt = conn
+            .prepare("SELECT DISTINCT owner_id, owner_kind FROM chunks")
+            .map_err(|e| format!("Prepare owners: {e}"))?;
+        let rows = stmt
+            .query_map([], |r| {
+                Ok((r.get::<_, String>(0)?, r.get::<_, String>(1)?))
+            })
+            .map_err(|e| format!("Query owners: {e}"))?;
+        let mut out = Vec::new();
+        for r in rows {
+            out.push(r.map_err(|e| format!("Owner row: {e}"))?);
+        }
+        Ok(out)
     }
 
     pub fn chunks_for_owner(

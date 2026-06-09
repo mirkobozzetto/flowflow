@@ -1,12 +1,7 @@
-use crate::db::chunk_repo::ChunkRecord;
+use crate::db::chunk_repo::{content_hash, ChunkRecord};
 use crate::services::ai::chunk_text;
 use crate::services::llm::LlmClient;
 use crate::services::vectordb::{Chunk, VectorStore};
-
-fn content_hash(text: &str) -> String {
-    use sha2::{Digest, Sha256};
-    format!("{:x}", Sha256::digest(text.as_bytes()))
-}
 
 fn persist_chunk_blobs(owner_id: &str, owner_kind: &str, entries: &[Chunk]) {
     let records: Vec<ChunkRecord> = entries
@@ -239,50 +234,6 @@ pub fn embed_attachment(
                     log(&format!("embed attachment done for {attachment_id}"))
                 }
                 Err(e) => log(&format!("embed attachment store: {e}")),
-            }
-        });
-    });
-}
-
-pub fn migrate_chunk_dates() {
-    log("migrate_chunk_dates: checking flag");
-    std::thread::spawn(move || {
-        let rt = tokio::runtime::Runtime::new().unwrap();
-        rt.block_on(async move {
-            let db = match crate::db::Database::open() {
-                Ok(d) => d,
-                Err(e) => {
-                    log(&format!("migrate dates: db open failed: {e}"));
-                    return;
-                }
-            };
-            if db.get_setting("chunk_dates_migrated")
-                == Some("true".to_string())
-            {
-                log("migrate dates: already done, skipping");
-                return;
-            }
-            let notes = db.list_notes().unwrap_or_default();
-            if notes.is_empty() {
-                log("migrate dates: no notes");
-                let _ = db.set_setting("chunk_dates_migrated", "true");
-                return;
-            }
-            let store = match VectorStore::open().await {
-                Ok(s) => s,
-                Err(e) => {
-                    log(&format!("migrate dates: vectordb failed: {e}"));
-                    return;
-                }
-            };
-            let note_dates: Vec<(String, String)> =
-                notes.into_iter().map(|n| (n.id, n.created_at)).collect();
-            match store.migrate_chunk_dates(&note_dates).await {
-                Ok(n) => {
-                    log(&format!("migrate dates: {n} notes updated"));
-                    let _ = db.set_setting("chunk_dates_migrated", "true");
-                }
-                Err(e) => log(&format!("migrate dates: {e}")),
             }
         });
     });
