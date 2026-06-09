@@ -4,7 +4,7 @@ artifact_kind: "rfc"
 engine_tier: "solo"
 stepsCompleted: [0, 1, 2, 3, 4, 5]
 final_status: "shipped"
-pass_scope: "T01-T05 (SQLite sync foundation) + T06/T08 (spikes Noise + appairage)"
+pass_scope: "T01-T05 (foundation) + T06/T08 (spikes) + T09/T10 (vecteurs: id déterministe + BLOB + fix store_chunks)"
 updated: "2026-06-09"
 ---
 
@@ -32,8 +32,8 @@ updated: "2026-06-09"
 | T05 | C5 | done | `db/note_repo.rs`, `folder_repo.rs`, `attachment_repo.rs`, `conversation_repo.rs`, `note_reminder_repo.rs`, `sync_meta.rs` | solo | tombstone applicatif (note + enfants) avant DELETE, en transaction; CASCADE conservé; state='tombstone' -> deleted=1. |
 | T06 | C6 | done | `services/sync/mod.rs`, `services/sync/transport.rs` | solo | SPIKE résolu. snow 0.10 default-resolver (pur Rust: chacha20poly1305 + curve25519-dalek, AUCUN ring/aws-lc/cmake). Cross-compile aarch64-apple-ios prouvé (make all -> installé device). Handshake XXpsk3 in-memory testé: roundtrip OK + PSK mismatch rejeté. Handshake sur socket TCP réel = T14. |
 | T08 | C7 | done | `services/sync/peers.rs` | solo | SPIKE résolu. PairingPayload (device_id, addr, port, psk 32o, static_pubkey) encode/decode `flowflow://pair#<b64url(json)>`; PSK via getrandom; QR SVG via qrcode 0.14 (cross-compile iOS OK); repli IP `parse_manual_addr`. mDNS: décision déjà documentée RFC §6 (QR/IP primaire, Bonjour-système v2, mdns-sd exclu device). Scan caméra + connexion réelle = T15. |
-| T09 | C8 | todo | `services/embed.rs` | - | Id chunk note déterministe. |
-| T10 | C9 | todo | `services/embed.rs`, `services/vectordb.rs` | - | BLOB f32 + scope par préfixe (store_chunks CRITICAL). |
+| T09 | C8 | done | `services/embed.rs` | solo | Id chunk note `note:{id}:{idx}` (était Uuid aléatoire); attachment `att:{id}:{idx}` inchangé. |
+| T10 | C9 | done | `services/embed.rs`, `services/vectordb.rs`, `db/chunk_repo.rs`, `db/mod.rs`, `db/note_repo.rs`, `db/attachment_repo.rs` | solo | `store_chunks`/delete scopés par PRÉFIXE d'id (corrige BLOCKER 5: signature/Arrow inchangées); BLOB f32 LE + content_hash sha256 dans table `chunks` SQLite (`replace_chunks` atomique); pre-delete nuisibles retirés. Fixes revue: purge chunks SQLite dans la tx de delete note/attachment + purge sur édition <50 chars. |
 | T11 | C10 | todo | `services/embed.rs` | - | Backfill atomique. |
 | T12 | C11 | todo | `services/sync/reconcile.rs`, `services/vectordb.rs` | - | reconstruct_from_blob. |
 | T13 | C12 | todo | `services/sync/reconcile.rs`, `ui/mod.rs` | - | Boot reconcile pass. |
@@ -60,6 +60,7 @@ T07, T21, T22: DESCOPED v1 (audio files not synced).
 | step-05 | BLOCKER fix | done + verified | Trigger ne peut pas lire sqlite_temp_master -> marqueur connection-local via fonction SQL `sync_is_applying()`. Repro SQLite autonome: PASS. |
 | step-05 | MINOR fix | done | delete_folder double-bump sous-dossiers retiré (le trigger AU couvre via recursive_triggers). |
 | passe 2 | spikes T06/T08 | done | snow + qrcode cross-compilent iOS (make all installe sur device); 8 tests host verts (3 transport + 5 appairage); fmt + clippy 0. Pas de fan-out: spikes petits, isolés (nouveau module, 0 modif de symbole existant hors `pub mod sync;`). |
+| passe 3 | T09/T10 vecteurs | done | gitnexus_impact AVANT edit: store_chunks=CRITICAL (11 upstream/7 process) -> averti; signature/Arrow gardées intactes. Revue adversariale ultracode (4 lentilles): 2 BLOCKER (orphelins chunks SQLite sur delete note/attachment -> ressuscitables par T12) + 2 MAJOR (divergence, édition <50). BLOCKER corrigés (delete chunks atomique dans la tx), MAJOR <50 corrigé (purge count-guardé). MINOR/NIT différés T11/T13 (doublons legacy, content_hash write-only). 158 tests verts (single-thread), clippy 0, make all install device. |
 
 ## HALT events
 
@@ -68,5 +69,6 @@ T07, T21, T22: DESCOPED v1 (audio files not synced).
 ## Pass log
 
 - 2026-06-09: passe 1 (T01-T05) shipped + commité/poussé sur development. 7 fichiers src modifiés + 1 nouveau (sync_meta.rs) + Cargo.toml (feature functions) + tests/sync_meta_test.rs (12 tests).
-- 2026-06-09: passe 2 (spikes T06/T08) shipped. Nouveau module `src/services/sync/{mod,transport,peers}.rs` + `pub mod sync;` dans services/mod.rs + Cargo.toml (snow, qrcode, base64, getrandom) + tests/sync_transport_test.rs (3) + tests/sync_pairing_test.rs (5). make all = build iOS + install device OK. En attente: validation Mirko, puis passe 3 = chaîne vecteurs (T09->T13, indépendante du transport) OU transport réel (T14->T15).
+- 2026-06-09: passe 2 (spikes T06/T08) shipped + commité/poussé (d3dcca5). Nouveau module `src/services/sync/{mod,transport,peers}.rs` + Cargo.toml (snow, qrcode, base64, getrandom) + tests/sync_transport_test.rs (3) + tests/sync_pairing_test.rs (5). make all = build iOS + install device OK.
+- 2026-06-09: passe 3 (T09/T10 vecteurs) shipped. embed.rs (id déterministe + persist_chunk_blobs + purge <50), vectordb.rs (owner_prefix + store_chunks scopé + delete_note_own_chunks), db/chunk_repo.rs (nouveau: ChunkRecord, replace_chunks atomique, blob f32 LE, delete_chunks_for_owner), purge chunks dans delete_note/delete_attachment, Cargo.toml (sha2 0.10) + tests/chunk_blob_test.rs (6) + coexist dans rag_integration_test. Revue ultracode 4 lentilles -> 2 BLOCKER + 1 MAJOR corrigés avant commit. Reste passe 4: T11 backfill legacy (dédoublonne les random-id), T12 reconstruct_from_blob, T13 boucle reconcile boot.
 - MINOR connus laissés tels quels (intentionnels, non bloquants): update_note multi-statement = N bumps (CRDT-correct); note_reminders state='active' via UPDATE un-tombstone la méta (state fait autorité, RFC MAJOR 16).

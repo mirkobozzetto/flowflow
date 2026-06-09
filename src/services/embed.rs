@@ -1,6 +1,59 @@
+use crate::db::chunk_repo::ChunkRecord;
 use crate::services::ai::chunk_text;
 use crate::services::llm::LlmClient;
 use crate::services::vectordb::{Chunk, VectorStore};
+
+fn content_hash(text: &str) -> String {
+    use sha2::{Digest, Sha256};
+    format!("{:x}", Sha256::digest(text.as_bytes()))
+}
+
+fn persist_chunk_blobs(owner_id: &str, owner_kind: &str, entries: &[Chunk]) {
+    let records: Vec<ChunkRecord> = entries
+        .iter()
+        .map(|c| ChunkRecord {
+            id: c.id.clone(),
+            owner_id: owner_id.to_string(),
+            owner_kind: owner_kind.to_string(),
+            chunk_index: c.chunk_index,
+            vector: c.vector.clone(),
+            content_hash: content_hash(&c.chunk_text),
+            chunk_text: c.chunk_text.clone(),
+            title: c.title.clone(),
+            tags: c.tags.clone(),
+            created_at: c.created_at.clone(),
+        })
+        .collect();
+    match crate::db::Database::open() {
+        Ok(db) => {
+            if let Err(e) = db.replace_chunks(owner_id, owner_kind, &records) {
+                log(&format!("chunk blob persist: {e}"));
+            }
+        }
+        Err(e) => log(&format!("chunk blob db open: {e}")),
+    }
+}
+
+async fn purge_owner_chunks(owner_id: &str, owner_kind: &str) {
+    let mut had_blobs = false;
+    if let Ok(db) = crate::db::Database::open() {
+        had_blobs =
+            db.count_chunks_for_owner(owner_id, owner_kind).unwrap_or(0) > 0;
+        let _ = db.delete_owner_chunks(owner_id, owner_kind);
+    }
+    if had_blobs {
+        if let Ok(store) = VectorStore::open().await {
+            match owner_kind {
+                "attachment" => {
+                    let _ = store.delete_attachment_chunks(owner_id).await;
+                }
+                _ => {
+                    let _ = store.delete_note_own_chunks(owner_id).await;
+                }
+            }
+        }
+    }
+}
 
 fn ai_consent_granted() -> bool {
     match crate::db::Database::open() {
@@ -45,6 +98,7 @@ pub fn embed_note(
         rt.block_on(async move {
             if content.len() < 50 {
                 log("embed skip: too short");
+                purge_owner_chunks(&note_id, "note").await;
                 return;
             }
             if !ai_consent_granted() {
@@ -78,7 +132,7 @@ pub fn embed_note(
                             vector.len()
                         ));
                         entries.push(Chunk {
-                            id: uuid::Uuid::new_v4().to_string(),
+                            id: format!("note:{note_id}:{i}"),
                             note_id: note_id.clone(),
                             chunk_text: text.clone(),
                             chunk_index: i as i32,
@@ -94,7 +148,7 @@ pub fn embed_note(
                     }
                 }
             }
-            let _ = store.delete_note_chunks(&note_id).await;
+            persist_chunk_blobs(&note_id, "note", &entries);
             match store.store_chunks(entries).await {
                 Ok(()) => log(&format!("embed done for {note_id}")),
                 Err(e) => log(&format!("embed store: {e}")),
@@ -134,6 +188,7 @@ pub fn embed_attachment(
         rt.block_on(async move {
             if content.len() < 50 {
                 log("embed attachment skip: too short");
+                purge_owner_chunks(&attachment_id, "attachment").await;
                 return;
             }
             if !ai_consent_granted() {
@@ -178,7 +233,7 @@ pub fn embed_attachment(
                     }
                 }
             }
-            let _ = store.delete_attachment_chunks(&attachment_id).await;
+            persist_chunk_blobs(&attachment_id, "attachment", &entries);
             match store.store_chunks(entries).await {
                 Ok(()) => {
                     log(&format!("embed attachment done for {attachment_id}"))

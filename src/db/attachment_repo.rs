@@ -1,4 +1,4 @@
-use crate::db::{now_iso, sync_meta, Database};
+use crate::db::{chunk_repo, now_iso, sync_meta, Database};
 use crate::models::{Attachment, NewAttachment};
 use uuid::Uuid;
 
@@ -87,6 +87,8 @@ impl Database {
             .map_err(|e| format!("Delete attachment: {e}"))?;
         if n > 0 {
             sync_meta::tombstone_entity(&tx, "attachment", id)?;
+            chunk_repo::delete_chunks_for_owner(&tx, id, "attachment")
+                .map_err(|e| format!("Delete attachment chunks: {e}"))?;
         }
         tx.commit()
             .map_err(|e| format!("Delete attachment commit: {e}"))?;
@@ -107,6 +109,8 @@ impl Database {
             note_id,
         ) {
             sync_meta::tombstone_entity(&tx, "attachment", &id)?;
+            chunk_repo::delete_chunks_for_owner(&tx, &id, "attachment")
+                .map_err(|e| format!("Delete attachment chunks: {e}"))?;
         }
         tx.execute("DELETE FROM attachments WHERE note_id = ?1", [note_id])
             .map_err(|e| format!("Delete attachments: {e}"))?;

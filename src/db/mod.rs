@@ -1,4 +1,5 @@
 pub mod attachment_repo;
+pub mod chunk_repo;
 pub mod conversation_repo;
 pub mod folder_repo;
 pub mod note_reminder_repo;

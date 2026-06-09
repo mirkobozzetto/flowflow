@@ -66,6 +66,18 @@ fn chunks_schema() -> Arc<Schema> {
     ]))
 }
 
+fn owner_prefix(id: &str) -> Option<String> {
+    let mut parts = id.splitn(3, ':');
+    let kind = parts.next()?;
+    let owner = parts.next()?;
+    parts.next()?;
+    if kind == "note" || kind == "att" {
+        Some(format!("{kind}:{owner}:"))
+    } else {
+        None
+    }
+}
+
 fn chunks_to_batch(chunks: &[Chunk]) -> RecordBatch {
     let schema = chunks_schema();
 
@@ -137,8 +149,14 @@ impl VectorStore {
 
         match self.db.open_table(VECTOR_TABLE_NAME).execute().await {
             Ok(table) => {
-                let filter =
-                    format!("note_id = '{}'", note_id.replace('\'', "''"));
+                let filter = match owner_prefix(&chunks[0].id) {
+                    Some(prefix) => {
+                        format!("id LIKE '{}%'", prefix.replace('\'', "''"))
+                    }
+                    None => {
+                        format!("note_id = '{}'", note_id.replace('\'', "''"))
+                    }
+                };
                 let _ = table.delete(&filter).await;
                 let reader: Box<dyn arrow_array::RecordBatchReader + Send> =
                     Box::new(RecordBatchIterator::new(vec![Ok(batch)], schema));
@@ -399,6 +417,27 @@ impl VectorStore {
             .map_err(|e| format!("VectorDB delete: {e}"))?;
 
         eprintln!("[vectordb] deleted chunks for note {note_id}");
+        Ok(())
+    }
+
+    pub async fn delete_note_own_chunks(
+        &self,
+        note_id: &str,
+    ) -> Result<(), String> {
+        let table = match self.db.open_table(VECTOR_TABLE_NAME).execute().await
+        {
+            Ok(t) => t,
+            Err(_) => return Ok(()),
+        };
+
+        let escaped = note_id.replace('\'', "''");
+        let filter = format!("id LIKE 'note:{escaped}:%'");
+        table
+            .delete(&filter)
+            .await
+            .map_err(|e| format!("VectorDB delete note own: {e}"))?;
+
+        eprintln!("[vectordb] deleted own chunks for note {note_id}");
         Ok(())
     }
 

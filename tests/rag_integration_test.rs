@@ -21,7 +21,7 @@ fn make_chunk(
     vector: Vec<f32>,
 ) -> Chunk {
     Chunk {
-        id: format!("{note_id}-{chunk_index}"),
+        id: format!("note:{note_id}:{chunk_index}"),
         note_id: note_id.to_string(),
         chunk_text: text.to_string(),
         chunk_index,
@@ -138,6 +138,90 @@ async fn test_vectordb_delete_chunks() {
         "chunk should be gone after delete, leftover: {}",
         after.iter().filter(|r| r.note_id == note_id).count()
     );
+}
+
+#[tokio::test]
+async fn test_note_and_attachment_chunks_coexist() {
+    let store = ensure_table().await;
+    let note_id = Uuid::new_v4().to_string();
+    let att_id = Uuid::new_v4().to_string();
+
+    let note_chunk = Chunk {
+        id: format!("note:{note_id}:0"),
+        note_id: note_id.clone(),
+        chunk_text: "note body original".to_string(),
+        chunk_index: 0,
+        vector: unit_vector(10),
+        title: "note".to_string(),
+        tags: String::new(),
+        created_at: "2026-05-11T00:00:00Z".to_string(),
+    };
+    store
+        .store_chunks(vec![note_chunk])
+        .await
+        .expect("store note");
+
+    let att_chunk = Chunk {
+        id: format!("att:{att_id}:0"),
+        note_id: note_id.clone(),
+        chunk_text: "attachment body".to_string(),
+        chunk_index: 0,
+        vector: unit_vector(11),
+        title: "attachment".to_string(),
+        tags: String::new(),
+        created_at: "2026-05-11T00:00:00Z".to_string(),
+    };
+    store
+        .store_chunks(vec![att_chunk])
+        .await
+        .expect("store att");
+
+    let note_hits = store.search(unit_vector(10), 100, None).await.unwrap();
+    let att_hits = store.search(unit_vector(11), 100, None).await.unwrap();
+    assert!(
+        note_hits
+            .iter()
+            .any(|r| r.chunk_text == "note body original"),
+        "note chunk must be present"
+    );
+    assert!(
+        att_hits.iter().any(|r| r.chunk_text == "attachment body"),
+        "attachment chunk must be present"
+    );
+
+    let note_v2 = Chunk {
+        id: format!("note:{note_id}:0"),
+        note_id: note_id.clone(),
+        chunk_text: "note body edited".to_string(),
+        chunk_index: 0,
+        vector: unit_vector(10),
+        title: "note".to_string(),
+        tags: String::new(),
+        created_at: "2026-05-11T00:00:00Z".to_string(),
+    };
+    store
+        .store_chunks(vec![note_v2])
+        .await
+        .expect("re-embed note");
+
+    let att_after = store.search(unit_vector(11), 100, None).await.unwrap();
+    assert!(
+        att_after.iter().any(|r| r.chunk_text == "attachment body"),
+        "attachment chunk must survive a note re-embed (BLOCKER 5 regression)"
+    );
+    let note_after = store.search(unit_vector(10), 100, None).await.unwrap();
+    let mine: Vec<_> = note_after
+        .iter()
+        .filter(|r| {
+            r.note_id == note_id && r.chunk_text.starts_with("note body")
+        })
+        .collect();
+    assert!(
+        mine.iter().all(|r| r.chunk_text == "note body edited"),
+        "note re-embed must replace the old chunk, no orphan"
+    );
+
+    cleanup(&store, &note_id).await;
 }
 
 #[tokio::test]

@@ -1,4 +1,4 @@
-use crate::db::{now_iso, sync_meta, Database};
+use crate::db::{chunk_repo, now_iso, sync_meta, Database};
 use crate::models::{NewTextNote, Note, NoteAudio, NoteType, UpdateNote};
 use std::str::FromStr;
 use uuid::Uuid;
@@ -166,6 +166,8 @@ impl Database {
             id,
         ) {
             sync_meta::tombstone_entity(&tx, "attachment", &child)?;
+            chunk_repo::delete_chunks_for_owner(&tx, &child, "attachment")
+                .map_err(|e| format!("Delete attachment chunks: {e}"))?;
         }
         for child in sync_meta::collect_ids(
             &tx,
@@ -189,6 +191,8 @@ impl Database {
             sync_meta::tombstone_entity(&tx, "notes_folders", &link)?;
         }
         sync_meta::tombstone_entity(&tx, "note", id)?;
+        chunk_repo::delete_chunks_for_owner(&tx, id, "note")
+            .map_err(|e| format!("Delete note chunks: {e}"))?;
         tx.execute("DELETE FROM notes WHERE id = ?1", [id])
             .map_err(|e| format!("Delete note: {e}"))?;
         tx.commit()
