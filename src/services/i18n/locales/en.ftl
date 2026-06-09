@@ -23,6 +23,24 @@ settings-keys-stored-locally = Keys are stored locally on this device.
 settings-ai-services-title = AI Services
 settings-ai-services-description = Soniox, OpenAI and Anthropic are used for transcription, semantic search and chat.
 settings-revoke-consent = Revoke consent
+settings-sync-title = Sync
+settings-sync-description = Pair your devices on the same Wi-Fi network. Data travels directly between them, encrypted, never through a server.
+settings-pair-device = Pair a device
+
+sync-pairing-title = Pairing
+sync-show-code = Show a pairing code
+sync-show-code-hint = Copy the code below and paste it on your other device to pair. Both devices must be on the same Wi-Fi.
+sync-waiting = Waiting for the other device...
+sync-paired-with = Paired with
+sync-cancelled = Pairing cancelled
+sync-failed = Pairing failed
+sync-join-title = Join with a code
+sync-join-hint = Paste the pairing code shown on your other device.
+sync-connect = Connect
+sync-connecting = Connecting...
+sync-peers-title = Paired devices
+sync-no-peers = No paired device yet.
+sync-unpair = Unpair
 
 sidebar-new-conversation = New conversation
 sidebar-no-conversations = No conversation

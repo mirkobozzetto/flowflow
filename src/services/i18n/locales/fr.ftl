@@ -23,6 +23,24 @@ settings-keys-stored-locally = Les clés sont stockées localement sur cet appar
 settings-ai-services-title = Services IA
 settings-ai-services-description = Soniox, OpenAI et Anthropic sont utilisés pour la transcription, la recherche sémantique et le chat.
 settings-revoke-consent = Révoquer le consentement
+settings-sync-title = Synchronisation
+settings-sync-description = Appairez vos appareils sur le même réseau Wi-Fi. Les données voyagent directement entre eux, chiffrées, jamais via un serveur.
+settings-pair-device = Appairer un appareil
+
+sync-pairing-title = Appairage
+sync-show-code = Afficher un code d'appairage
+sync-show-code-hint = Copiez le code ci-dessous et collez-le sur votre autre appareil pour les appairer. Les deux appareils doivent être sur le même Wi-Fi.
+sync-waiting = En attente de l'autre appareil...
+sync-paired-with = Appairé avec
+sync-cancelled = Appairage annulé
+sync-failed = Échec de l'appairage
+sync-join-title = Rejoindre avec un code
+sync-join-hint = Collez le code d'appairage affiché sur votre autre appareil.
+sync-connect = Connecter
+sync-connecting = Connexion...
+sync-peers-title = Appareils appairés
+sync-no-peers = Aucun appareil appairé pour le moment.
+sync-unpair = Dissocier
 
 sidebar-new-conversation = Nouvelle conversation
 sidebar-no-conversations = Aucune conversation

@@ -12,6 +12,7 @@ mod recording;
 mod settings;
 mod sidebar;
 mod state;
+mod sync_pairing;
 mod top_bar;
 pub mod transcription_manager;
 
@@ -35,6 +36,7 @@ use note_list::NotesList;
 use notes::NoteDetail;
 use settings::SettingsView;
 use sidebar::SidebarOverlay;
+use sync_pairing::SyncPairingView;
 use top_bar::TopBar;
 
 #[component]
@@ -242,13 +244,24 @@ pub fn App() -> Element {
                         }
                         if matches!((app.view)(), View::Settings) {
                             div {
-                                class: "absolute inset-0 flex flex-col min-h-0 px-4 py-3 bg-stone-100",
+                                class: "absolute inset-0 flex flex-col min-h-0 px-4 py-3 bg-stone-100 overflow-y-auto",
                                 style: if (app.sliding_out)() {
                                     "animation: slideOutRight 0.15s ease-in forwards;"
                                 } else {
                                     "animation: slideInRight 0.15s ease-out;"
                                 },
                                 SettingsView {}
+                            }
+                        }
+                        if matches!((app.view)(), View::SyncPairing) {
+                            div {
+                                class: "absolute inset-0 flex flex-col min-h-0 px-4 py-3 bg-stone-100 overflow-y-auto",
+                                style: if (app.sliding_out)() {
+                                    "animation: slideOutRight 0.15s ease-in forwards;"
+                                } else {
+                                    "animation: slideInRight 0.15s ease-out;"
+                                },
+                                SyncPairingView {}
                             }
                         }
                     }

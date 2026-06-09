@@ -204,6 +204,23 @@ pub fn SettingsView() -> Element {
                 }
             }
 
+            div { class: "border-t border-stone-200 pt-4",
+                h2 { class: "text-lg font-semibold text-stone-900 mb-3",
+                    {t(&lang, "settings-sync-title")}
+                }
+                p { class: "text-xs text-stone-500 mb-3 leading-relaxed",
+                    {t(&lang, "settings-sync-description")}
+                }
+                button {
+                    class: "w-full py-2.5 rounded-xl text-sm font-medium border border-stone-300 text-stone-700",
+                    onclick: move |_| {
+                        app.previous_view.set(Some(crate::ui::View::Settings));
+                        app.view.set(crate::ui::View::SyncPairing);
+                    },
+                    {t(&lang, "settings-pair-device")}
+                }
+            }
+
             p { class: "text-xs text-stone-400 text-center",
                 {t(&lang, "settings-keys-stored-locally")}
             }
