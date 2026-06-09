@@ -1,7 +1,5 @@
 use flowflow::services::ai::chunk_text;
-
-const CHUNK_SIZE_WORDS: usize = 375;
-const CHUNK_OVERLAP_WORDS: usize = 37;
+use flowflow::services::constants::{CHUNK_OVERLAP_WORDS, CHUNK_SIZE_WORDS};
 
 fn make_words(n: usize) -> String {
     (0..n)
