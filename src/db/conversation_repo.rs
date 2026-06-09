@@ -1,4 +1,4 @@
-use crate::db::{now_iso, Database};
+use crate::db::{now_iso, sync_meta, Database};
 use crate::models::conversation::{Conversation, ConversationMessage};
 
 impl Database {
@@ -42,8 +42,31 @@ impl Database {
 
     pub fn delete_conversation(&self, id: &str) -> Result<(), String> {
         let conn = self.conn();
-        conn.execute("DELETE FROM conversations WHERE id = ?1", [id])
+        let tx = conn
+            .unchecked_transaction()
+            .map_err(|e| format!("Delete conversation tx: {e}"))?;
+        let exists: bool = tx
+            .query_row(
+                "SELECT EXISTS(SELECT 1 FROM conversations WHERE id = ?1)",
+                [id],
+                |r| r.get(0),
+            )
+            .map_err(|e| format!("Delete conversation check: {e}"))?;
+        if !exists {
+            return Ok(());
+        }
+        for msg in sync_meta::collect_ids(
+            &tx,
+            "SELECT id FROM conversation_messages WHERE conversation_id = ?1",
+            id,
+        ) {
+            sync_meta::tombstone_entity(&tx, "conversation_message", &msg)?;
+        }
+        sync_meta::tombstone_entity(&tx, "conversation", id)?;
+        tx.execute("DELETE FROM conversations WHERE id = ?1", [id])
             .map_err(|e| format!("Delete conversation: {e}"))?;
+        tx.commit()
+            .map_err(|e| format!("Delete conversation commit: {e}"))?;
         Ok(())
     }
 

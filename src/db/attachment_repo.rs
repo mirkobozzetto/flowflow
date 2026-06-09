@@ -1,4 +1,4 @@
-use crate::db::{now_iso, Database};
+use crate::db::{now_iso, sync_meta, Database};
 use crate::models::{Attachment, NewAttachment};
 use uuid::Uuid;
 
@@ -78,9 +78,18 @@ impl Database {
     }
 
     pub fn delete_attachment(&self, id: &str) -> Result<(), String> {
-        self.conn()
+        let conn = self.conn();
+        let tx = conn
+            .unchecked_transaction()
+            .map_err(|e| format!("Delete attachment tx: {e}"))?;
+        let n = tx
             .execute("DELETE FROM attachments WHERE id = ?1", [id])
             .map_err(|e| format!("Delete attachment: {e}"))?;
+        if n > 0 {
+            sync_meta::tombstone_entity(&tx, "attachment", id)?;
+        }
+        tx.commit()
+            .map_err(|e| format!("Delete attachment commit: {e}"))?;
         Ok(())
     }
 
@@ -88,9 +97,21 @@ impl Database {
         &self,
         note_id: &str,
     ) -> Result<(), String> {
-        self.conn()
-            .execute("DELETE FROM attachments WHERE note_id = ?1", [note_id])
+        let conn = self.conn();
+        let tx = conn
+            .unchecked_transaction()
+            .map_err(|e| format!("Delete attachments tx: {e}"))?;
+        for id in sync_meta::collect_ids(
+            &tx,
+            "SELECT id FROM attachments WHERE note_id = ?1",
+            note_id,
+        ) {
+            sync_meta::tombstone_entity(&tx, "attachment", &id)?;
+        }
+        tx.execute("DELETE FROM attachments WHERE note_id = ?1", [note_id])
             .map_err(|e| format!("Delete attachments: {e}"))?;
+        tx.commit()
+            .map_err(|e| format!("Delete attachments commit: {e}"))?;
         Ok(())
     }
 }

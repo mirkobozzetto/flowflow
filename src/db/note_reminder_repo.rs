@@ -1,4 +1,4 @@
-use crate::db::{now_iso, Database};
+use crate::db::{now_iso, sync_meta, Database};
 use crate::models::{NewNoteReminder, NoteReminder, REMINDER_STATE_ACTIVE};
 
 const SELECT_COLS: &str = "id, note_id, reminder_id, backend, intent_hash, \
@@ -138,8 +138,17 @@ impl Database {
 
     pub fn delete_note_reminder(&self, id: &str) -> Result<(), String> {
         let conn = self.conn();
-        conn.execute("DELETE FROM note_reminders WHERE id = ?1", [id])
+        let tx = conn
+            .unchecked_transaction()
+            .map_err(|e| format!("Delete note reminder tx: {e}"))?;
+        let n = tx
+            .execute("DELETE FROM note_reminders WHERE id = ?1", [id])
             .map_err(|e| format!("Delete note reminder: {e}"))?;
+        if n > 0 {
+            sync_meta::tombstone_entity(&tx, "note_reminder", id)?;
+        }
+        tx.commit()
+            .map_err(|e| format!("Delete note reminder commit: {e}"))?;
         Ok(())
     }
 
@@ -148,11 +157,20 @@ impl Database {
         note_id: &str,
     ) -> Result<(), String> {
         let conn = self.conn();
-        conn.execute(
-            "DELETE FROM note_reminders WHERE note_id = ?1",
-            [note_id],
-        )
-        .map_err(|e| format!("Delete reminders for note: {e}"))?;
+        let tx = conn
+            .unchecked_transaction()
+            .map_err(|e| format!("Delete reminders tx: {e}"))?;
+        for id in sync_meta::collect_ids(
+            &tx,
+            "SELECT id FROM note_reminders WHERE note_id = ?1",
+            note_id,
+        ) {
+            sync_meta::tombstone_entity(&tx, "note_reminder", &id)?;
+        }
+        tx.execute("DELETE FROM note_reminders WHERE note_id = ?1", [note_id])
+            .map_err(|e| format!("Delete reminders for note: {e}"))?;
+        tx.commit()
+            .map_err(|e| format!("Delete reminders commit: {e}"))?;
         Ok(())
     }
 }

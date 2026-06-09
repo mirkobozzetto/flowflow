@@ -1,4 +1,4 @@
-use crate::db::{now_iso, Database};
+use crate::db::{now_iso, sync_meta, Database};
 use crate::models::{Folder, NewFolder, UpdateFolder};
 use uuid::Uuid;
 
@@ -125,9 +125,36 @@ impl Database {
     }
 
     pub fn delete_folder(&self, id: &str) -> Result<(), String> {
-        self.conn()
-            .execute("DELETE FROM folders WHERE id = ?1", [id])
+        let conn = self.conn();
+        let tx = conn
+            .unchecked_transaction()
+            .map_err(|e| format!("Delete folder tx: {e}"))?;
+        let exists: bool = tx
+            .query_row(
+                "SELECT EXISTS(SELECT 1 FROM folders WHERE id = ?1)",
+                [id],
+                |r| r.get(0),
+            )
+            .map_err(|e| format!("Delete folder check: {e}"))?;
+        if !exists {
+            return Ok(());
+        }
+        // notes_folders links are CASCADE-deleted: tombstone them before the row.
+        for link in sync_meta::collect_links(
+            &tx,
+            "SELECT folder_id, note_id FROM notes_folders WHERE folder_id = ?1",
+            id,
+        ) {
+            sync_meta::tombstone_entity(&tx, "notes_folders", &link)?;
+        }
+        sync_meta::tombstone_entity(&tx, "folder", id)?;
+        // Subfolders are reparented to NULL by ON DELETE SET NULL; with
+        // recursive_triggers=ON that fires the folders AFTER UPDATE trigger, which
+        // records the reparent automatically (no manual mark; covered by a test).
+        tx.execute("DELETE FROM folders WHERE id = ?1", [id])
             .map_err(|e| format!("Delete folder: {e}"))?;
+        tx.commit()
+            .map_err(|e| format!("Delete folder commit: {e}"))?;
         Ok(())
     }
 
@@ -150,12 +177,24 @@ impl Database {
         note_id: &str,
         folder_id: &str,
     ) -> Result<(), String> {
-        self.conn()
+        let conn = self.conn();
+        let tx = conn
+            .unchecked_transaction()
+            .map_err(|e| format!("Unlink tx: {e}"))?;
+        let n = tx
             .execute(
                 "DELETE FROM notes_folders WHERE note_id = ?1 AND folder_id = ?2",
                 rusqlite::params![note_id, folder_id],
             )
             .map_err(|e| format!("Unlink note-folder: {e}"))?;
+        if n > 0 {
+            sync_meta::tombstone_entity(
+                &tx,
+                "notes_folders",
+                &format!("{folder_id}:{note_id}"),
+            )?;
+        }
+        tx.commit().map_err(|e| format!("Unlink commit: {e}"))?;
         Ok(())
     }
 
