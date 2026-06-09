@@ -1,4 +1,5 @@
 pub mod peers;
+pub mod protocol;
 pub mod reconcile;
 pub mod transport;
 
@@ -7,6 +8,7 @@ pub enum SyncError {
     Handshake(String),
     Pairing(String),
     Transport(String),
+    Protocol(String),
 }
 
 impl std::fmt::Display for SyncError {
@@ -15,6 +17,7 @@ impl std::fmt::Display for SyncError {
             SyncError::Handshake(m) => write!(f, "Handshake error: {m}"),
             SyncError::Pairing(m) => write!(f, "Pairing error: {m}"),
             SyncError::Transport(m) => write!(f, "Transport error: {m}"),
+            SyncError::Protocol(m) => write!(f, "Protocol error: {m}"),
         }
     }
 }

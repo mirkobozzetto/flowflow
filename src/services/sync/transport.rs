@@ -51,7 +51,10 @@ pub fn build_responder(
         .map_err(|e| SyncError::Handshake(format!("responder: {e}")))
 }
 
-fn write_frame<W: Write>(w: &mut W, data: &[u8]) -> Result<(), SyncError> {
+pub(crate) fn write_frame<W: Write>(
+    w: &mut W,
+    data: &[u8],
+) -> Result<(), SyncError> {
     if data.len() > MAX_NOISE_MESSAGE {
         return Err(SyncError::Transport(format!(
             "frame too large: {}",
@@ -67,7 +70,7 @@ fn write_frame<W: Write>(w: &mut W, data: &[u8]) -> Result<(), SyncError> {
         .map_err(|e| SyncError::Transport(format!("frame flush: {e}")))
 }
 
-fn read_frame<R: Read>(r: &mut R) -> Result<Vec<u8>, SyncError> {
+pub(crate) fn read_frame<R: Read>(r: &mut R) -> Result<Vec<u8>, SyncError> {
     let mut len_buf = [0u8; 2];
     r.read_exact(&mut len_buf)
         .map_err(|e| SyncError::Transport(format!("frame read len: {e}")))?;
@@ -228,13 +231,7 @@ pub fn responder_handshake<S: Read + Write>(
     Ok(SecureChannel { stream, noise })
 }
 
-pub fn connect_secure(
-    host: &str,
-    port: u16,
-    local_private: &[u8],
-    psk: &[u8; PSK_LEN],
-    expected_remote_static: Option<&[u8]>,
-) -> Result<SecureChannel<TcpStream>, SyncError> {
+pub fn connect_tcp(host: &str, port: u16) -> Result<TcpStream, SyncError> {
     let addr = (host, port)
         .to_socket_addrs()
         .map_err(|e| {
@@ -247,6 +244,17 @@ pub fn connect_secure(
     let stream = TcpStream::connect_timeout(&addr, IO_TIMEOUT)
         .map_err(|e| SyncError::Transport(format!("connect {addr}: {e}")))?;
     configure_stream(&stream)?;
+    Ok(stream)
+}
+
+pub fn connect_secure(
+    host: &str,
+    port: u16,
+    local_private: &[u8],
+    psk: &[u8; PSK_LEN],
+    expected_remote_static: Option<&[u8]>,
+) -> Result<SecureChannel<TcpStream>, SyncError> {
+    let stream = connect_tcp(host, port)?;
     initiator_handshake(stream, local_private, psk, expected_remote_static)
 }
 
@@ -260,7 +268,7 @@ pub fn accept_secure(
     responder_handshake(stream, local_private, psk, expected_remote_static)
 }
 
-fn configure_stream(stream: &TcpStream) -> Result<(), SyncError> {
+pub(crate) fn configure_stream(stream: &TcpStream) -> Result<(), SyncError> {
     stream
         .set_read_timeout(Some(IO_TIMEOUT))
         .map_err(|e| SyncError::Transport(format!("read timeout: {e}")))?;

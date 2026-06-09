@@ -4,6 +4,7 @@ mod pdf;
 mod picker;
 mod player;
 pub mod reminders;
+pub mod sync_ffi;
 
 use objc2_avf_audio::{
     AVAudioSession, AVAudioSessionCategoryOptions,

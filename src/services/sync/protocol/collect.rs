@@ -1,0 +1,145 @@
+use super::catalog::{entity_key_params, spec_for, KindSpec};
+use super::sql_err;
+use super::wire::{ChunkPayload, SyncRow};
+use crate::db::Database;
+use crate::services::sync::SyncError;
+use base64::engine::general_purpose::URL_SAFE_NO_PAD;
+use base64::Engine as _;
+use rusqlite::Connection;
+use serde_json::Value;
+
+// Read one entity row as a JSON payload, columns per its KindSpec. Also used
+// by the apply side to snapshot the losing local version of a conflict.
+pub(super) fn load_payload(
+    conn: &Connection,
+    spec: &KindSpec,
+    entity_id: &str,
+) -> Result<Option<Value>, SyncError> {
+    let (where_clause, params) = entity_key_params(spec, entity_id)?;
+    let sql = format!(
+        "SELECT {} FROM {} WHERE {}",
+        spec.cols.join(", "),
+        spec.table,
+        where_clause
+    );
+    let params: Vec<&dyn rusqlite::ToSql> =
+        params.iter().map(|p| p as &dyn rusqlite::ToSql).collect();
+    let result = conn.query_row(&sql, params.as_slice(), |row| {
+        let mut map = serde_json::Map::new();
+        for (i, col) in spec.cols.iter().enumerate() {
+            let v = match row.get_ref(i)? {
+                rusqlite::types::ValueRef::Null => Value::Null,
+                rusqlite::types::ValueRef::Integer(n) => Value::from(n),
+                rusqlite::types::ValueRef::Real(f) => Value::from(f),
+                rusqlite::types::ValueRef::Text(t) => {
+                    Value::from(String::from_utf8_lossy(t).into_owned())
+                }
+                rusqlite::types::ValueRef::Blob(_) => Value::Null,
+            };
+            map.insert((*col).to_string(), v);
+        }
+        Ok(Value::Object(map))
+    });
+    match result {
+        Ok(v) => Ok(Some(v)),
+        Err(rusqlite::Error::QueryReturnedNoRows) => Ok(None),
+        Err(e) => Err(sql_err("load payload", e)),
+    }
+}
+
+fn load_chunks(
+    conn: &Connection,
+    owner_id: &str,
+    owner_kind: &str,
+) -> Result<Vec<ChunkPayload>, SyncError> {
+    let mut stmt = conn
+        .prepare(
+            "SELECT id, chunk_index, vector, content_hash, chunk_text,
+                    title, tags, created_at
+             FROM chunks WHERE owner_id = ?1 AND owner_kind = ?2
+             ORDER BY chunk_index ASC",
+        )
+        .map_err(|e| sql_err("prepare chunks", e))?;
+    let rows = stmt
+        .query_map(rusqlite::params![owner_id, owner_kind], |row| {
+            let blob: Vec<u8> = row.get(2)?;
+            Ok(ChunkPayload {
+                id: row.get(0)?,
+                chunk_index: row.get(1)?,
+                vector_b64: URL_SAFE_NO_PAD.encode(&blob),
+                content_hash: row.get(3)?,
+                chunk_text: row.get(4)?,
+                title: row.get(5)?,
+                tags: row.get(6)?,
+                created_at: row.get(7)?,
+            })
+        })
+        .map_err(|e| sql_err("query chunks", e))?;
+    let mut out = Vec::new();
+    for r in rows {
+        out.push(r.map_err(|e| sql_err("chunk row", e))?);
+    }
+    Ok(out)
+}
+
+// Collect the next batch of locally-authored rows above the peer's watermark.
+// Meta + payload + chunks are read under one deferred transaction so each
+// batch is a consistent snapshot.
+pub(super) fn collect_batch(
+    db: &Database,
+    my_device: &str,
+    after_seq: i64,
+    limit: usize,
+) -> Result<Vec<SyncRow>, SyncError> {
+    let conn = db.conn();
+    let tx = conn
+        .unchecked_transaction()
+        .map_err(|e| sql_err("collect tx", e))?;
+    let mut metas: Vec<SyncRow> = Vec::new();
+    {
+        let mut stmt = tx
+            .prepare(
+                "SELECT entity_kind, entity_id, version_vector,
+                        origin_device, origin_seq, deleted, updated_hlc
+                 FROM sync_row_meta
+                 WHERE origin_device = ?1 AND origin_seq > ?2
+                 ORDER BY origin_seq ASC
+                 LIMIT ?3",
+            )
+            .map_err(|e| sql_err("prepare collect", e))?;
+        let rows = stmt
+            .query_map(
+                rusqlite::params![my_device, after_seq, limit as i64],
+                |row| {
+                    Ok(SyncRow {
+                        entity_kind: row.get(0)?,
+                        entity_id: row.get(1)?,
+                        version_vector: row.get(2)?,
+                        origin_device: row.get(3)?,
+                        origin_seq: row.get(4)?,
+                        deleted: row.get(5)?,
+                        updated_hlc: row.get(6)?,
+                        payload: None,
+                        chunks: Vec::new(),
+                    })
+                },
+            )
+            .map_err(|e| sql_err("query collect", e))?;
+        for r in rows {
+            metas.push(r.map_err(|e| sql_err("collect row", e))?);
+        }
+    }
+    for row in &mut metas {
+        let Some(spec) = spec_for(&row.entity_kind) else {
+            continue;
+        };
+        if row.deleted == 0 {
+            row.payload = load_payload(&tx, spec, &row.entity_id)?;
+            if spec.chunk_owner {
+                row.chunks = load_chunks(&tx, &row.entity_id, spec.kind)?;
+            }
+        }
+    }
+    tx.commit().map_err(|e| sql_err("collect commit", e))?;
+    Ok(metas)
+}

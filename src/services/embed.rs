@@ -3,6 +3,53 @@ use crate::services::ai::chunk_text;
 use crate::services::llm::LlmClient;
 use crate::services::vectordb::{Chunk, VectorStore};
 
+// Chunks have no tracking triggers (they travel inside their owner's sync
+// payload, RFC 0004 T17), so after writing fresh BLOBs the owner's sync meta
+// must be bumped for the new vectors to propagate. The alive-check and the
+// bump run in ONE IMMEDIATE transaction: the write lock is taken before the
+// check, so a delete committing on another connection can never slip between
+// them (an embed finishing after a delete would otherwise resurrect the
+// tombstone on peers), and the seq allocation inside the bump stays atomic
+// across connections.
+fn bump_owner_meta_if_alive(
+    db: &crate::db::Database,
+    owner_id: &str,
+    owner_kind: &str,
+) {
+    let exists_sql = match owner_kind {
+        "note" => "SELECT EXISTS(SELECT 1 FROM notes WHERE id = ?1)",
+        "attachment" => {
+            "SELECT EXISTS(SELECT 1 FROM attachments WHERE id = ?1)"
+        }
+        _ => return,
+    };
+    let conn = db.conn();
+    if let Err(e) = conn.execute_batch("BEGIN IMMEDIATE;") {
+        log(&format!("chunk meta bump tx: {e}"));
+        return;
+    }
+    let alive: bool = conn
+        .query_row(exists_sql, [owner_id], |r| r.get(0))
+        .unwrap_or(false);
+    let res = if alive {
+        crate::db::sync_meta::mark_entity_updated(&conn, owner_kind, owner_id)
+    } else {
+        Ok(())
+    };
+    match res {
+        Ok(()) => {
+            if let Err(e) = conn.execute_batch("COMMIT;") {
+                log(&format!("chunk meta bump commit: {e}"));
+                let _ = conn.execute_batch("ROLLBACK;");
+            }
+        }
+        Err(e) => {
+            log(&format!("chunk meta bump: {e}"));
+            let _ = conn.execute_batch("ROLLBACK;");
+        }
+    }
+}
+
 fn persist_chunk_blobs(owner_id: &str, owner_kind: &str, entries: &[Chunk]) {
     let records: Vec<ChunkRecord> = entries
         .iter()
@@ -23,6 +70,8 @@ fn persist_chunk_blobs(owner_id: &str, owner_kind: &str, entries: &[Chunk]) {
         Ok(db) => {
             if let Err(e) = db.replace_chunks(owner_id, owner_kind, &records) {
                 log(&format!("chunk blob persist: {e}"));
+            } else {
+                bump_owner_meta_if_alive(&db, owner_id, owner_kind);
             }
         }
         Err(e) => log(&format!("chunk blob db open: {e}")),
@@ -35,6 +84,9 @@ async fn purge_owner_chunks(owner_id: &str, owner_kind: &str) {
         had_blobs =
             db.count_chunks_for_owner(owner_id, owner_kind).unwrap_or(0) > 0;
         let _ = db.delete_owner_chunks(owner_id, owner_kind);
+        if had_blobs {
+            bump_owner_meta_if_alive(&db, owner_id, owner_kind);
+        }
     }
     if had_blobs {
         if let Ok(store) = VectorStore::open().await {

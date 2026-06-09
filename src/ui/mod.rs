@@ -45,6 +45,8 @@ pub fn App() -> Element {
         let db = Arc::new(Database::open().expect("Failed to open database"));
         db.cleanup_orphan_audio(&crate::services::audio::output_dir());
         run_boot_reconcile();
+        #[cfg(target_os = "ios")]
+        crate::platform::ios::sync_ffi::observe_background_checkpoint();
         Signal::new(db)
     });
 

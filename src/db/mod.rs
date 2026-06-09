@@ -62,6 +62,8 @@ impl Database {
             .map_err(|e| format!("FK: {e}"))?;
         conn.execute_batch("PRAGMA recursive_triggers=ON;")
             .map_err(|e| format!("recursive_triggers: {e}"))?;
+        conn.execute_batch("PRAGMA busy_timeout=5000;")
+            .map_err(|e| format!("busy_timeout: {e}"))?;
         let applying = Arc::new(AtomicBool::new(false));
         {
             let flag = applying.clone();
@@ -79,8 +81,26 @@ impl Database {
         };
         db.migrate()?;
         db.init_sync()?;
+        #[cfg(target_os = "ios")]
+        crate::platform::ios::sync_ffi::protect_db_files(&path);
         eprintln!("[db] ready");
         Ok(db)
+    }
+
+    // Move every WAL page back into the main DB file and truncate the WAL.
+    // Called when the app heads to the background (RFC 0004 T16) so a lock or
+    // eviction never catches data that only lives in the -wal file. The
+    // pragma reports (busy, log, checkpointed): busy=1 means a reader blocked
+    // the checkpoint, which must surface as an error, not a silent success.
+    pub fn checkpoint_wal(&self) -> Result<(), String> {
+        let conn = self.conn();
+        let busy: i64 = conn
+            .query_row("PRAGMA wal_checkpoint(TRUNCATE)", [], |row| row.get(0))
+            .map_err(|e| format!("wal checkpoint: {e}"))?;
+        if busy != 0 {
+            return Err("wal checkpoint blocked by a reader".to_string());
+        }
+        Ok(())
     }
 
     // Toggle the connection-local apply flag. The sync service (RFC 0004, T17)

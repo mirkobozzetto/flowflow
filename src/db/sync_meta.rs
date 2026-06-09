@@ -334,9 +334,12 @@ pub(crate) fn collect_links(
 }
 
 // Mark an entity as locally updated (deleted=0), bumping its version. For changes
-// that bypass a normal INSERT/UPDATE on the row, or to un-tombstone on the
-// add-wins-over-delete rule (RFC 0004, T19). Not used by the foundation paths.
-#[allow(dead_code)]
+// that bypass a normal INSERT/UPDATE on the row (e.g. fresh chunk BLOBs after an
+// embed), or to un-tombstone on the add-wins-over-delete rule (RFC 0004, T19).
+// MUST run inside the caller's transaction: the seq allocation below is two
+// statements (UPDATE then SELECT) and is only atomic across connections when
+// wrapped in a write transaction (the triggers get this for free, statement
+// scope; the repo delete paths run inside their delete tx).
 pub fn mark_entity_updated(
     conn: &Connection,
     kind: &str,
