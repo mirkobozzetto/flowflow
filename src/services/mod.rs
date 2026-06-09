@@ -7,6 +7,7 @@ pub mod i18n;
 pub mod llm;
 pub mod rag;
 pub mod reminders;
+pub mod sync;
 pub mod tools;
 pub mod transcription;
 pub mod vectordb;

@@ -29,6 +29,10 @@ regex = "1"
 fluent-bundle = "0.15"
 fluent-langneg = "0.13"
 unic-langid = "0.9"
+snow = "0.10.0"
+base64 = "0.22.1"
+getrandom = "0.2"
+qrcode = { version = "0.14.1", default-features = false, features = ["svg"] }
 
 [target.'cfg(target_os = "ios")'.dependencies]
 objc2 = "0.6"
