@@ -206,6 +206,14 @@ pub async fn reconcile_once(
 }
 
 pub fn run_boot_reconcile() {
+    spawn_reconcile_pass();
+}
+
+// One full local pass (backfill flag-guarded + reconcile) on its own thread
+// and runtime. Also fired after a sync session applied remote rows (T20):
+// freshly landed chunk BLOBs get mirrored into LanceDB without waiting for
+// the next boot.
+pub fn spawn_reconcile_pass() {
     std::thread::spawn(move || {
         let rt = match tokio::runtime::Runtime::new() {
             Ok(r) => r,

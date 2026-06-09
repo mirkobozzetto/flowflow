@@ -1,12 +1,90 @@
+use objc2::msg_send;
+use objc2::runtime::AnyObject;
 use objc2_foundation::{
     NSDictionary, NSFileManager,
     NSFileProtectionCompleteUntilFirstUserAuthentication, NSFileProtectionKey,
     NSNotificationCenter, NSString,
 };
 use std::path::Path;
-use std::sync::Once;
+use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
+use std::sync::{Arc, Once};
 
 static CHECKPOINT_OBSERVER: Once = Once::new();
+
+// UIBackgroundTaskInvalid (UIKit, linked): the sentinel UIApplication returns
+// when no background time can be granted, and the value endBackgroundTask
+// must never be called with.
+fn bg_task_invalid() -> usize {
+    unsafe { objc2_ui_kit::UIBackgroundTaskInvalid }
+}
+
+// RFC 0004 T20: a short grace window so a sync session survives the user
+// backgrounding the app mid-transfer. Begin/end are documented thread-safe,
+// but the objc2 typed UIApplication API is gated on MainThreadMarker, so the
+// two calls go through the dynamic runtime instead. If the window expires
+// before the session ends, iOS fires the expiration handler: the task is
+// ended there (mandatory, the watchdog kills the app otherwise) and the cut
+// transfer resumes at the next session (T17 watermark).
+pub struct BackgroundTaskGuard {
+    task_id: Arc<AtomicUsize>,
+}
+
+impl BackgroundTaskGuard {
+    pub fn begin() -> Self {
+        let task_id = Arc::new(AtomicUsize::new(bg_task_invalid()));
+        // Covers the expiry-vs-begin race: the handler can fire on the main
+        // queue BEFORE the worker thread stored the returned id. The handler
+        // then sees `invalid`, raises `expired` instead of ending nothing,
+        // and begin() ends the task itself right after the store. Every
+        // interleaving ends the task exactly once (end_bg_task swaps to
+        // invalid), so the watchdog never catches an unended assertion.
+        let expired = Arc::new(AtomicBool::new(false));
+        let for_expiry = task_id.clone();
+        let expired_flag = expired.clone();
+        unsafe {
+            let block = block2::RcBlock::new(move || {
+                expired_flag.store(true, Ordering::SeqCst);
+                end_bg_task(&for_expiry);
+            });
+            let app: *mut AnyObject =
+                msg_send![objc2::class!(UIApplication), sharedApplication];
+            if !app.is_null() {
+                let id: usize = msg_send![
+                    &*app,
+                    beginBackgroundTaskWithExpirationHandler: &*block
+                ];
+                task_id.store(id, Ordering::SeqCst);
+                if expired.load(Ordering::SeqCst) {
+                    end_bg_task(&task_id);
+                }
+            }
+        }
+        Self { task_id }
+    }
+}
+
+impl Drop for BackgroundTaskGuard {
+    fn drop(&mut self) {
+        end_bg_task(&self.task_id);
+    }
+}
+
+// Swap-to-invalid guarantees end-once even when the expiration handler and
+// the guard drop race each other.
+fn end_bg_task(task_id: &Arc<AtomicUsize>) {
+    let invalid = bg_task_invalid();
+    let id = task_id.swap(invalid, Ordering::SeqCst);
+    if id == invalid {
+        return;
+    }
+    unsafe {
+        let app: *mut AnyObject =
+            msg_send![objc2::class!(UIApplication), sharedApplication];
+        if !app.is_null() {
+            let _: () = msg_send![&*app, endBackgroundTask: id];
+        }
+    }
+}
 
 // RFC 0004 T16: NSFileProtection class CompleteUntilFirstUserAuthentication
 // (NOT Complete) on the SQLite file family. Complete would make the mmapped

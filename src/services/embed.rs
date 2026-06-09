@@ -10,8 +10,11 @@ use crate::services::vectordb::{Chunk, VectorStore};
 // check, so a delete committing on another connection can never slip between
 // them (an embed finishing after a delete would otherwise resurrect the
 // tombstone on peers), and the seq allocation inside the bump stays atomic
-// across connections.
-fn bump_owner_meta_if_alive(
+// across connections. A successful bump pokes the sync engine: the embed
+// thread finishes AFTER the save-triggered push, so without its own trigger
+// the fresh vectors would sit stranded until an unrelated event (and the
+// earlier chunkless push would have wiped the peer's previous vectors).
+pub(crate) fn bump_owner_meta_if_alive(
     db: &crate::db::Database,
     owner_id: &str,
     owner_kind: &str,
@@ -41,6 +44,9 @@ fn bump_owner_meta_if_alive(
             if let Err(e) = conn.execute_batch("COMMIT;") {
                 log(&format!("chunk meta bump commit: {e}"));
                 let _ = conn.execute_batch("ROLLBACK;");
+            } else if alive {
+                drop(conn);
+                crate::services::sync::engine::poke_after_data_change();
             }
         }
         Err(e) => {

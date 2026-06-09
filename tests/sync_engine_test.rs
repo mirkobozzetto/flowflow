@@ -1,0 +1,173 @@
+use flowflow::db::Database;
+use flowflow::models::note::NewTextNote;
+use flowflow::services::sync::engine::{
+    clear_peer_endpoint, peer_endpoint, set_peer_endpoint, SyncActivity,
+    SyncEngine,
+};
+use flowflow::services::sync::peers;
+use std::sync::{Arc, Once};
+use tempfile::tempdir;
+
+static ADVERTISE: Once = Once::new();
+
+fn open_db() -> (Arc<Database>, tempfile::TempDir) {
+    let dir = tempdir().expect("db tempdir");
+    let db =
+        Database::open_at(dir.path().join("flowflow.db")).expect("open_at");
+    (Arc::new(db), dir)
+}
+
+fn pair(db_a: &Arc<Database>, db_b: &Arc<Database>) -> (String, String) {
+    ADVERTISE.call_once(|| {
+        std::env::set_var("FLOWFLOW_SYNC_ADVERTISE_ADDR", "127.0.0.1");
+    });
+    let host = peers::start_pairing_host(db_a.clone()).expect("host");
+    let mut payload =
+        peers::decode_pairing_uri(&host.uri).expect("decode host uri");
+    payload.addr = "127.0.0.1".to_string();
+    let uri = peers::encode_pairing_uri(&payload).expect("re-encode uri");
+    let id_a = peers::join_pairing(db_b, &uri).expect("join pairing");
+    for _ in 0..100 {
+        if host.status() != peers::PairingStatus::Waiting {
+            break;
+        }
+        std::thread::sleep(std::time::Duration::from_millis(50));
+    }
+    let id_b = peers::ensure_sync_identity(db_b).expect("id b").device_id;
+    assert!(matches!(host.status(), peers::PairingStatus::Paired { .. }));
+    (id_a, id_b)
+}
+
+fn make_note(db: &Database, title: &str, content: &str) -> String {
+    db.create_text_note(&NewTextNote {
+        title: Some(title.to_string()),
+        content: content.to_string(),
+        tags: vec![],
+    })
+    .expect("create note")
+    .id
+}
+
+fn wait_until(timeout_ms: u64, mut probe: impl FnMut() -> bool) -> bool {
+    let deadline = std::time::Instant::now()
+        + std::time::Duration::from_millis(timeout_ms);
+    while std::time::Instant::now() < deadline {
+        if probe() {
+            return true;
+        }
+        std::thread::sleep(std::time::Duration::from_millis(100));
+    }
+    false
+}
+
+#[test]
+fn pairing_seeds_the_peer_address_book() {
+    let (db_a, _da) = open_db();
+    let (db_b, _db) = open_db();
+    let (id_a, id_b) = pair(&db_a, &db_b);
+
+    let joiner_side = peer_endpoint(&db_a, &id_b);
+    let host_side = peer_endpoint(&db_b, &id_a);
+    assert!(
+        joiner_side.is_some(),
+        "host must learn the joiner's address from the pairing socket"
+    );
+    assert!(
+        host_side.is_some(),
+        "joiner must learn the host's address from the payload"
+    );
+    assert_eq!(host_side.unwrap().0, "127.0.0.1");
+
+    peers::unpair(&db_a, &id_b).expect("unpair");
+    assert!(
+        peer_endpoint(&db_a, &id_b).is_none(),
+        "unpair must drop the stored endpoint"
+    );
+}
+
+#[test]
+fn manual_sync_flows_through_the_listener_and_reports_done() {
+    let (db_a, _da) = open_db();
+    let (db_b, _db) = open_db();
+    let (id_a, id_b) = pair(&db_a, &db_b);
+
+    let engine_a = SyncEngine::start_listener(db_a.clone(), 0);
+    let port_a = engine_a.listen_port().expect("listener bound");
+    set_peer_endpoint(&db_b, &id_a, "127.0.0.1", port_a).expect("endpoint");
+    // Pairing seeded A's address book; wipe it so the final assertion can
+    // only pass if the SERVED session re-learns the address (DHCP refresh).
+    clear_peer_endpoint(&db_a, &id_b);
+
+    let note_b = make_note(&db_b, "from B", "engine carried me");
+    let note_a = make_note(&db_a, "from A", "engine carried me back");
+
+    let engine_b = SyncEngine::start_listener(db_b.clone(), 0);
+    engine_b.sync_now_blocking();
+
+    assert!(db_a.get_note(&note_b).expect("q").is_some());
+    assert!(db_b.get_note(&note_a).expect("q").is_some());
+
+    assert!(
+        matches!(engine_b.activity(), SyncActivity::Done { .. }),
+        "outbound side reports Done, got {:?}",
+        engine_b.activity()
+    );
+    assert!(
+        wait_until(3000, || matches!(
+            engine_a.activity(),
+            SyncActivity::Done { .. }
+        )),
+        "inbound side reports Done, got {:?}",
+        engine_a.activity()
+    );
+    assert!(
+        wait_until(3000, || peer_endpoint(&db_a, &id_b).is_some()),
+        "served session must refresh the peer's address"
+    );
+}
+
+#[test]
+fn debounced_save_syncs_after_the_quiet_period() {
+    let (db_a, _da) = open_db();
+    let (db_b, _db) = open_db();
+    let (id_a, _id_b) = pair(&db_a, &db_b);
+
+    let engine_a = SyncEngine::start_listener(db_a.clone(), 0);
+    let port_a = engine_a.listen_port().expect("listener bound");
+    set_peer_endpoint(&db_b, &id_a, "127.0.0.1", port_a).expect("endpoint");
+
+    let engine_b = SyncEngine::start_listener(db_b.clone(), 0);
+    let note = make_note(&db_b, "debounced", "saved then synced");
+    engine_b.schedule_debounced();
+    engine_b.schedule_debounced();
+
+    assert!(
+        db_a.get_note(&note).expect("q").is_none(),
+        "nothing flows before the quiet period"
+    );
+    assert!(
+        wait_until(8000, || db_a.get_note(&note).expect("q").is_some()),
+        "the debounced sync must deliver the note"
+    );
+}
+
+#[test]
+fn unreachable_peer_is_a_visible_error_not_a_silent_stall() {
+    let (db_a, _da) = open_db();
+    let (db_b, _db) = open_db();
+    let (id_a, _id_b) = pair(&db_a, &db_b);
+
+    let dead = std::net::TcpListener::bind("127.0.0.1:0").expect("bind");
+    let dead_port = dead.local_addr().expect("addr").port();
+    drop(dead);
+    set_peer_endpoint(&db_b, &id_a, "127.0.0.1", dead_port).expect("endpoint");
+
+    let engine_b = SyncEngine::start_listener(db_b.clone(), 0);
+    engine_b.sync_now_blocking();
+
+    assert!(
+        matches!(engine_b.activity(), SyncActivity::Error { .. }),
+        "a sync that cannot progress must surface, got {:?}",
+        engine_b.activity()
+    );
+}

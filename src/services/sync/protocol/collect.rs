@@ -47,7 +47,7 @@ pub(super) fn load_payload(
     }
 }
 
-fn load_chunks(
+pub(super) fn load_chunks(
     conn: &Connection,
     owner_id: &str,
     owner_kind: &str,

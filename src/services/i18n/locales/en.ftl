@@ -42,6 +42,20 @@ sync-peers-title = Paired devices
 sync-no-peers = No paired device yet.
 sync-unpair = Unpair
 
+sync-status-title = Sync
+sync-status-idle = No sync yet.
+sync-status-syncing = Syncing...
+sync-status-done = Synced at
+sync-status-error = Error at
+sync-status-conflicts = conflict(s)
+sync-status-partial = One device could not sync:
+sync-now = Sync now
+sync-no-peers-hint = Pair a device below first.
+sync-conflicts-title = Conflicts
+sync-conflicts-hint = Two devices edited the same data at the same time. The kept version is in your notes; here is the set-aside version, nothing is lost.
+sync-conflict-restore = Restore as note
+sync-conflict-dismiss = Dismiss
+
 sidebar-new-conversation = New conversation
 sidebar-no-conversations = No conversation
 sidebar-untitled = Untitled

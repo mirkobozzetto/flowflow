@@ -1,7 +1,10 @@
+// RFC 0004: version-vector algebra (parse / compare / join). Pure functions,
+// no IO. Shared by the protocol apply path and the conflict merge policy.
+
 use std::collections::BTreeMap;
 
 #[derive(Debug, PartialEq, Eq)]
-pub(super) enum Dominance {
+pub enum Dominance {
     Equal,
     Local,
     Remote,
@@ -12,14 +15,14 @@ pub(super) enum Dominance {
 // A corrupt vector must NEVER silently lose a comparison (an empty map is
 // dominated by everything): the caller forces the Concurrent path instead, so
 // the disagreement is resolved deterministically WITH an archive.
-pub(super) fn parse_vv(s: &str) -> (BTreeMap<String, i64>, bool) {
+pub fn parse_vv(s: &str) -> (BTreeMap<String, i64>, bool) {
     match serde_json::from_str(s) {
         Ok(m) => (m, false),
         Err(_) => (BTreeMap::new(), true),
     }
 }
 
-pub(super) fn vv_cmp(
+pub fn vv_cmp(
     local: &BTreeMap<String, i64>,
     remote: &BTreeMap<String, i64>,
 ) -> Dominance {
@@ -37,7 +40,7 @@ pub(super) fn vv_cmp(
     }
 }
 
-pub(super) fn vv_join(
+pub fn vv_join(
     a: &BTreeMap<String, i64>,
     b: &BTreeMap<String, i64>,
 ) -> BTreeMap<String, i64> {

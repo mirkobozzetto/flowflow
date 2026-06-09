@@ -56,7 +56,7 @@ fn sync_once(
         batch_rows,
     )
     .expect("client sync");
-    let host_stats = server.join().expect("join").expect("server sync");
+    let host_stats = server.join().expect("join").expect("server sync").stats;
     (host_stats, client_stats)
 }
 

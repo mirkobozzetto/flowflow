@@ -42,6 +42,20 @@ sync-peers-title = Appareils appairés
 sync-no-peers = Aucun appareil appairé pour le moment.
 sync-unpair = Dissocier
 
+sync-status-title = Synchronisation
+sync-status-idle = Aucune synchronisation pour l'instant.
+sync-status-syncing = Synchronisation en cours...
+sync-status-done = Synchronisé à
+sync-status-error = Erreur à
+sync-status-conflicts = conflit(s)
+sync-status-partial = Un appareil n'a pas pu se synchroniser :
+sync-now = Synchroniser maintenant
+sync-no-peers-hint = Appairez d'abord un appareil ci-dessous.
+sync-conflicts-title = Conflits
+sync-conflicts-hint = Deux appareils ont modifié la même donnée en même temps. La version conservée est dans vos notes ; voici la version écartée, rien n'est perdu.
+sync-conflict-restore = Restaurer en note
+sync-conflict-dismiss = Ignorer
+
 sidebar-new-conversation = Nouvelle conversation
 sidebar-no-conversations = Aucune conversation
 sidebar-untitled = Sans titre

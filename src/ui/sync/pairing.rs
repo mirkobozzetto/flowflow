@@ -56,7 +56,7 @@ pub fn SyncPairingView() -> Element {
     });
 
     rsx! {
-        div { class: "space-y-6 pb-20",
+        div { class: "space-y-6 border-t border-stone-200 pt-4",
             div {
                 h2 { class: "text-lg font-semibold text-stone-900 mb-1",
                     {t(&lang, "sync-show-code")}

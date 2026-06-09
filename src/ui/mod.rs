@@ -12,7 +12,7 @@ mod recording;
 mod settings;
 mod sidebar;
 mod state;
-mod sync_pairing;
+mod sync;
 mod top_bar;
 pub mod transcription_manager;
 
@@ -20,6 +20,7 @@ pub use state::{AppState, SidebarTab, View};
 
 use crate::db::Database;
 use crate::services::audio::{AudioRecorder, RecordingState};
+use crate::services::sync::engine::SyncEngine;
 use crate::services::sync::reconcile::run_boot_reconcile;
 use dioxus::prelude::*;
 use std::collections::HashMap;
@@ -36,7 +37,7 @@ use note_list::NotesList;
 use notes::NoteDetail;
 use settings::SettingsView;
 use sidebar::SidebarOverlay;
-use sync_pairing::SyncPairingView;
+use sync::SyncView;
 use top_bar::TopBar;
 
 #[component]
@@ -49,6 +50,9 @@ pub fn App() -> Element {
         crate::platform::ios::sync_ffi::observe_background_checkpoint();
         Signal::new(db)
     });
+
+    let _engine: Signal<Arc<SyncEngine>> =
+        use_context_provider(|| Signal::new(SyncEngine::start(_db())));
 
     let _recorder: Signal<Arc<Mutex<AudioRecorder>>> =
         use_context_provider(|| {
@@ -123,6 +127,7 @@ pub fn App() -> Element {
                             app.notes_version.set((app.notes_version)() + 1);
                             app.transcription_done_badge
                                 .set((app.transcription_done_badge)() + 1);
+                            _engine.peek().schedule_debounced();
                         }
                     }
                 }
@@ -263,7 +268,7 @@ pub fn App() -> Element {
                                 } else {
                                     "animation: slideInRight 0.15s ease-out;"
                                 },
-                                SyncPairingView {}
+                                SyncView {}
                             }
                         }
                     }

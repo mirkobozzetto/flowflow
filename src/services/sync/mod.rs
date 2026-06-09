@@ -1,7 +1,10 @@
+pub mod conflict;
+pub mod engine;
 pub mod peers;
 pub mod protocol;
 pub mod reconcile;
 pub mod transport;
+pub mod vv;
 
 #[derive(Debug)]
 pub enum SyncError {

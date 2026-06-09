@@ -241,6 +241,15 @@ pub fn sync_with_peer(
     Ok(stats)
 }
 
+// What a served session learned about the caller: who it was and from which
+// LAN address it dialed in. The engine uses the address to refresh its
+// peer-address book (DHCP leases move devices around).
+pub struct ServeOutcome {
+    pub peer_device: String,
+    pub peer_ip: String,
+    pub stats: SyncStats,
+}
+
 // Responder: accept ONE connection on the listener and serve a full session
 // (receive theirs, then push mine). abort_after_batches is a test seam that
 // simulates an iOS suspension cutting the transfer mid-PUSH.
@@ -249,8 +258,8 @@ pub fn serve_sync_once(
     listener: &TcpListener,
     batch_rows: usize,
     abort_after_batches: Option<usize>,
-) -> Result<SyncStats, SyncError> {
-    let (stream, _) = listener
+) -> Result<ServeOutcome, SyncError> {
+    let (stream, remote_addr) = listener
         .accept()
         .map_err(|e| SyncError::Transport(format!("accept: {e}")))?;
     transport::configure_stream(&stream)?;
@@ -303,5 +312,9 @@ pub fn serve_sync_once(
         stats.skipped,
         stats.conflicts
     ));
-    Ok(stats)
+    Ok(ServeOutcome {
+        peer_device: hint.device_id,
+        peer_ip: remote_addr.ip().to_string(),
+        stats,
+    })
 }

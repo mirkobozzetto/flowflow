@@ -1,15 +1,17 @@
 use super::catalog::{entity_key_params, spec_for, KindSpec};
-use super::collect::load_payload;
-use super::vv::{parse_vv, vv_cmp, vv_join, Dominance};
-use super::wire::{SyncRow, SyncStats};
+use super::collect::{load_chunks, load_payload};
+use super::wire::{ChunkPayload, SyncRow, SyncStats};
 use super::{log, proto_err, sql_err};
 use crate::db::Database;
+use crate::services::sync::conflict::{
+    archive_conflict, decide, write_merged_meta, ArchivedChunk, MergeOutcome,
+    VersionInfo,
+};
 use crate::services::sync::SyncError;
 use base64::engine::general_purpose::URL_SAFE_NO_PAD;
 use base64::Engine as _;
 use rusqlite::Connection;
 use serde_json::Value;
-use std::collections::BTreeMap;
 
 const MAX_CHUNKS_PER_ROW: usize = 1024;
 
@@ -74,80 +76,31 @@ fn upsert_meta_verbatim(
     Ok(())
 }
 
-// Re-author a merged row locally: vv = join, fresh local origin_seq. The
-// joined version then travels back to the peer as a normal local change, so
-// both sides converge on identical meta without spurious future conflicts.
-fn write_merged_meta(
-    conn: &Connection,
-    my_device: &str,
-    kind: &str,
-    entity_id: &str,
-    joined_vv: &BTreeMap<String, i64>,
-    deleted: i64,
-    updated_hlc: &Option<String>,
-) -> Result<(), SyncError> {
-    conn.execute(
-        "UPDATE sync_seq SET next_seq = next_seq + 1 WHERE device_id = ?1",
-        [my_device],
-    )
-    .map_err(|e| sql_err("merge seq bump", e))?;
-    let seq: i64 = conn
-        .query_row(
-            "SELECT next_seq FROM sync_seq WHERE device_id = ?1",
-            [my_device],
-            |r| r.get(0),
-        )
-        .map_err(|e| sql_err("merge seq read", e))?;
-    let vv = serde_json::to_string(joined_vv)
-        .map_err(|e| proto_err(format!("encode joined vv: {e}")))?;
-    conn.execute(
-        "INSERT INTO sync_row_meta
-            (entity_kind, entity_id, version_vector, origin_device,
-             origin_seq, deleted, updated_hlc)
-         VALUES (?1,?2,?3,?4,?5,?6,?7)
-         ON CONFLICT(entity_kind, entity_id) DO UPDATE SET
-            version_vector = excluded.version_vector,
-            origin_device = excluded.origin_device,
-            origin_seq = excluded.origin_seq,
-            deleted = excluded.deleted,
-            updated_hlc = excluded.updated_hlc",
-        rusqlite::params![
-            kind,
-            entity_id,
-            vv,
-            my_device,
-            seq,
-            deleted,
-            updated_hlc
-        ],
-    )
-    .map_err(|e| sql_err("merge meta upsert", e))?;
-    Ok(())
+// The losing version's chunks, ready for the conflict archive. From the
+// pushed payload when the REMOTE version loses; read back from the local
+// chunks table (inside the apply tx, before the winner overwrites them) when
+// the LOCAL version loses.
+fn archived_from_payload(chunks: &[ChunkPayload]) -> Vec<ArchivedChunk> {
+    chunks
+        .iter()
+        .map(|c| ArchivedChunk {
+            chunk_index: c.chunk_index,
+            vector_b64: c.vector_b64.clone(),
+            content_hash: c.content_hash.clone(),
+            chunk_text: c.chunk_text.clone(),
+            title: c.title.clone(),
+            tags: c.tags.clone(),
+            created_at: c.created_at.clone(),
+        })
+        .collect()
 }
 
-fn archive_conflict(
+fn archived_from_local(
     conn: &Connection,
-    kind: &str,
     entity_id: &str,
-    losing_vv: &str,
-    losing_snapshot: &Value,
-    created_hlc: &Option<String>,
-) -> Result<(), SyncError> {
-    conn.execute(
-        "INSERT INTO sync_conflicts
-            (entity_kind, entity_id, losing_vv, losing_snapshot_json,
-             losing_vector_ref, created_hlc, resolved)
-         VALUES (?1,?2,?3,?4,NULL,?5,0)",
-        rusqlite::params![
-            kind,
-            entity_id,
-            losing_vv,
-            losing_snapshot.to_string(),
-            created_hlc,
-        ],
-    )
-    .map_err(|e| sql_err("archive conflict", e))?;
-    Ok(())
+    kind: &str,
+) -> Result<Vec<ArchivedChunk>, SyncError> {
+    Ok(archived_from_payload(&load_chunks(conn, entity_id, kind)?))
 }
 
 fn delete_entity(
@@ -365,18 +318,6 @@ fn apply_row_content(
     Ok(true)
 }
 
-fn remote_wins_tiebreak(local: &LocalMeta, row: &SyncRow) -> bool {
-    let l = (
-        local.updated_hlc.clone().unwrap_or_default(),
-        local.origin_device.clone(),
-    );
-    let r = (
-        row.updated_hlc.clone().unwrap_or_default(),
-        row.origin_device.clone(),
-    );
-    r > l
-}
-
 // Apply one row. INVARIANT (review BLOCKER fix): every outcome leaves a
 // DURABLE record before the batch acks past this origin_seq. Either the meta
 // is written (verbatim or merged), or the row provably needs nothing (local
@@ -407,23 +348,23 @@ fn apply_row(
         }
         return Ok(());
     };
-    let (local_vv, local_corrupt) = parse_vv(&local.version_vector);
-    let (remote_vv, remote_corrupt) = parse_vv(&row.version_vector);
-    let dominance = if local_corrupt || remote_corrupt {
-        log(&format!(
-            "corrupt version vector on {}:{} (local: {local_corrupt}, \
-             remote: {remote_corrupt}) -> forced conflict",
-            row.entity_kind, row.entity_id
-        ));
-        Dominance::Concurrent
-    } else {
-        vv_cmp(&local_vv, &remote_vv)
-    };
-    match dominance {
-        Dominance::Equal | Dominance::Local => {
+    let outcome = decide(
+        &VersionInfo {
+            version_vector: &local.version_vector,
+            updated_hlc: local.updated_hlc.as_deref(),
+            origin_device: &local.origin_device,
+        },
+        &VersionInfo {
+            version_vector: &row.version_vector,
+            updated_hlc: row.updated_hlc.as_deref(),
+            origin_device: &row.origin_device,
+        },
+    );
+    match outcome {
+        MergeOutcome::AlreadyCurrent => {
             stats.skipped += 1;
         }
-        Dominance::Remote => {
+        MergeOutcome::TakeRemote => {
             let landed = apply_row_content(conn, spec, row)?;
             upsert_meta_verbatim(conn, row)?;
             if landed {
@@ -432,18 +373,35 @@ fn apply_row(
                 stats.skipped += 1;
             }
         }
-        Dominance::Concurrent => {
-            let joined = vv_join(&local_vv, &remote_vv);
+        MergeOutcome::Concurrent {
+            remote_wins,
+            joined,
+            corrupt_local,
+            corrupt_remote,
+        } => {
+            if corrupt_local || corrupt_remote {
+                log(&format!(
+                    "corrupt version vector on {}:{} (local: {corrupt_local}, \
+                     remote: {corrupt_remote}) -> forced conflict",
+                    row.entity_kind, row.entity_id
+                ));
+            }
             stats.conflicts += 1;
-            if remote_wins_tiebreak(&local, row) {
+            if remote_wins {
                 let losing_snapshot = load_payload(conn, spec, &row.entity_id)?
                     .unwrap_or(Value::Null);
+                let losing_chunks = if spec.chunk_owner {
+                    archived_from_local(conn, &row.entity_id, spec.kind)?
+                } else {
+                    Vec::new()
+                };
                 archive_conflict(
                     conn,
                     &row.entity_kind,
                     &row.entity_id,
                     &local.version_vector,
                     &losing_snapshot,
+                    &losing_chunks,
                     &local.updated_hlc,
                 )?;
                 let landed = apply_row_content(conn, spec, row)?;
@@ -468,6 +426,7 @@ fn apply_row(
                     &row.entity_id,
                     &row.version_vector,
                     &losing_snapshot,
+                    &archived_from_payload(&row.chunks),
                     &row.updated_hlc,
                 )?;
                 write_merged_meta(

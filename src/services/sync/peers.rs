@@ -343,6 +343,7 @@ fn host_handle_connection(
     identity: &SyncIdentity,
     psk: &[u8; PSK_LEN],
 ) -> Result<String, SyncError> {
+    let peer_ip = stream.peer_addr().ok().map(|a| a.ip().to_string());
     let mut chan =
         transport::accept_secure(stream, &identity.private_key, psk, None)?;
     let raw = chan.recv()?;
@@ -361,6 +362,9 @@ fn host_handle_connection(
         .remote_static()
         .ok_or_else(|| SyncError::Pairing("peer static key missing".into()))?;
     bind_peer(db, &req.device_id, &remote_static, psk)?;
+    if let Some(ip) = peer_ip {
+        super::engine::seed_peer_endpoint(db, &req.device_id, &ip);
+    }
     let ok = PairOk {
         kind: "pair_ok".into(),
         device_id: identity.device_id.clone(),
@@ -400,10 +404,12 @@ pub fn join_pairing(db: &Database, uri: &str) -> Result<String, SyncError> {
         ));
     }
     bind_peer(db, &payload.device_id, &payload.static_pubkey, &payload.psk)?;
+    super::engine::seed_peer_endpoint(db, &payload.device_id, &payload.addr);
     Ok(payload.device_id)
 }
 
 pub fn unpair(db: &Database, device_id: &str) -> Result<(), SyncError> {
+    super::engine::clear_peer_endpoint(db, device_id);
     db.delete_pairing(device_id, &psk_key(device_id))
         .map_err(SyncError::Pairing)
 }
