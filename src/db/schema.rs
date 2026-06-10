@@ -8,6 +8,7 @@ pub const MIGRATIONS: &[(i64, &str)] = &[
     (7, V7_SCHEMA),
     (8, V8_SCHEMA),
     (9, V9_SCHEMA),
+    (10, V10_SCHEMA),
 ];
 
 const V1_SCHEMA: &str = "
@@ -167,4 +168,70 @@ CREATE TABLE IF NOT EXISTS note_reminders (
 );
 CREATE INDEX IF NOT EXISTS idx_note_reminders_note
     ON note_reminders(note_id);
+";
+
+// V10: multi-device sync foundation (RFC 0004). PURELY ADDITIVE.
+// Tables only. The INSERT/UPDATE tracking triggers are generated and installed
+// by the V10 migrate hook (db::sync_meta::install_sync_triggers) so the trigger
+// bodies stay DRY and reviewable instead of being hand-written N times here.
+// V1-V9 are never touched; CASCADE FKs are preserved (deletes are tombstoned
+// applicatively, cf. db::sync_meta).
+const V10_SCHEMA: &str = "
+CREATE TABLE IF NOT EXISTS sync_row_meta (
+    entity_kind TEXT NOT NULL,
+    entity_id TEXT NOT NULL,
+    version_vector TEXT NOT NULL DEFAULT '{}',
+    origin_device TEXT NOT NULL,
+    origin_seq INTEGER NOT NULL,
+    deleted INTEGER NOT NULL DEFAULT 0,
+    updated_hlc TEXT,
+    PRIMARY KEY (entity_kind, entity_id)
+);
+CREATE INDEX IF NOT EXISTS idx_sync_meta_origin
+    ON sync_row_meta(origin_device, origin_seq);
+CREATE INDEX IF NOT EXISTS idx_sync_meta_deleted
+    ON sync_row_meta(deleted);
+
+CREATE TABLE IF NOT EXISTS sync_seq (
+    device_id TEXT PRIMARY KEY,
+    next_seq INTEGER NOT NULL DEFAULT 0
+);
+
+CREATE TABLE IF NOT EXISTS sync_peers (
+    device_id TEXT PRIMARY KEY,
+    static_pubkey TEXT,
+    last_acked_seq INTEGER NOT NULL DEFAULT 0,
+    paired_at TEXT,
+    gc_horizon INTEGER NOT NULL DEFAULT 0
+);
+
+CREATE TABLE IF NOT EXISTS sync_conflicts (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    entity_kind TEXT NOT NULL,
+    entity_id TEXT NOT NULL,
+    losing_vv TEXT NOT NULL,
+    losing_snapshot_json TEXT NOT NULL,
+    losing_vector_ref TEXT,
+    created_hlc TEXT,
+    resolved INTEGER NOT NULL DEFAULT 0
+);
+CREATE INDEX IF NOT EXISTS idx_sync_conflicts_unresolved
+    ON sync_conflicts(resolved);
+
+CREATE TABLE IF NOT EXISTS chunks (
+    id TEXT PRIMARY KEY,
+    owner_id TEXT NOT NULL,
+    owner_kind TEXT NOT NULL CHECK (owner_kind IN ('note', 'attachment')),
+    chunk_index INTEGER NOT NULL,
+    dim INTEGER NOT NULL DEFAULT 1536,
+    vector BLOB NOT NULL,
+    content_hash TEXT,
+    chunk_text TEXT,
+    title TEXT,
+    tags TEXT,
+    created_at TEXT NOT NULL
+        DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now'))
+);
+CREATE INDEX IF NOT EXISTS idx_chunks_owner
+    ON chunks(owner_id);
 ";

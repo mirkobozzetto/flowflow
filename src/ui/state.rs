@@ -16,6 +16,7 @@ pub enum View {
     NoteDetail { note_id: String },
     Chat { conversation_id: Option<String> },
     Settings,
+    SyncPairing,
 }
 
 #[derive(Clone, Copy)]

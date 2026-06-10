@@ -12,7 +12,8 @@ pub fn TopBar() -> Element {
     let is_detail = matches!((app.view)(), View::NoteDetail { .. });
     let is_chat = matches!((app.view)(), View::Chat { .. });
     let is_settings = matches!((app.view)(), View::Settings);
-    let is_inner = is_detail || is_chat || is_settings;
+    let is_sync_pairing = matches!((app.view)(), View::SyncPairing);
+    let is_inner = is_detail || is_chat || is_settings || is_sync_pairing;
     let lang = (app.current_lang)();
 
     let title = match (app.view)() {
@@ -44,6 +45,7 @@ pub fn TopBar() -> Element {
             None => t(&lang, "top-bar-all-notes"),
         },
         View::Settings => t(&lang, "sidebar-settings"),
+        View::SyncPairing => t(&lang, "sync-pairing-title"),
     };
 
     rsx! {

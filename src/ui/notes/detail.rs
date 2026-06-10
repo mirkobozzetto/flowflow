@@ -97,6 +97,8 @@ fn format_absolute_short(iso: &str, lang: &str) -> String {
 pub fn NoteDetail() -> Element {
     let mut app: AppState = use_context();
     let db: Signal<Arc<Database>> = use_context();
+    let engine: Signal<Arc<crate::services::sync::engine::SyncEngine>> =
+        use_context();
     let manager: TranscriptionManager = use_context();
     let lang = (app.current_lang)();
 
@@ -303,6 +305,7 @@ pub fn NoteDetail() -> Element {
                     tags(),
                     saved_created_at,
                 );
+                engine.peek().schedule_debounced();
             }
         }
     });

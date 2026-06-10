@@ -219,8 +219,7 @@ pub fn output_dir() -> String {
     }
     #[cfg(not(target_os = "ios"))]
     {
-        let mut dir = std::env::temp_dir();
-        dir.push("flowflow");
+        let dir = crate::db::desktop_data_dir();
         std::fs::create_dir_all(&dir).ok();
         dir.to_string_lossy().to_string()
     }

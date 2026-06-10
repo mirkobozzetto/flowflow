@@ -15,6 +15,7 @@ NSRemindersFullAccessUsageDescription = "FlowFlow creates reminders you confirm 
 NSRemindersUsageDescription = "FlowFlow creates reminders you confirm from your notes, so they alert you at the right time."
 NSCalendarsFullAccessUsageDescription = "FlowFlow adds calendar events for the time ranges you confirm from your notes."
 NSCalendarsUsageDescription = "FlowFlow adds calendar events for the time ranges you confirm from your notes."
+NSLocalNetworkUsageDescription = "FlowFlow connects directly to your other paired devices on your local network to sync your notes, without any server."
 NSSupportsLiveActivities = true
 
 [[ios.widget_extensions]]

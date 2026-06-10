@@ -32,6 +32,12 @@ pub struct SearchResult {
 }
 
 fn vectordb_path() -> String {
+    if let Ok(override_path) = std::env::var("FLOWFLOW_VECTORDB_PATH") {
+        if !override_path.is_empty() {
+            std::fs::create_dir_all(&override_path).ok();
+            return override_path;
+        }
+    }
     #[cfg(target_os = "ios")]
     {
         let dir = crate::platform::ios::documents_dir();
@@ -40,7 +46,7 @@ fn vectordb_path() -> String {
     }
     #[cfg(not(target_os = "ios"))]
     {
-        let dir = std::env::temp_dir().join("flowflow");
+        let dir = crate::db::desktop_data_dir();
         std::fs::create_dir_all(&dir).ok();
         dir.join("vectordb").to_string_lossy().to_string()
     }
@@ -64,6 +70,18 @@ fn chunks_schema() -> Arc<Schema> {
         Field::new("tags", DataType::Utf8, false),
         Field::new("created_at", DataType::Utf8, false),
     ]))
+}
+
+fn owner_prefix(id: &str) -> Option<String> {
+    let mut parts = id.splitn(3, ':');
+    let kind = parts.next()?;
+    let owner = parts.next()?;
+    parts.next()?;
+    if kind == "note" || kind == "att" {
+        Some(format!("{kind}:{owner}:"))
+    } else {
+        None
+    }
 }
 
 fn chunks_to_batch(chunks: &[Chunk]) -> RecordBatch {
@@ -137,8 +155,14 @@ impl VectorStore {
 
         match self.db.open_table(VECTOR_TABLE_NAME).execute().await {
             Ok(table) => {
-                let filter =
-                    format!("note_id = '{}'", note_id.replace('\'', "''"));
+                let filter = match owner_prefix(&chunks[0].id) {
+                    Some(prefix) => {
+                        format!("id LIKE '{}%'", prefix.replace('\'', "''"))
+                    }
+                    None => {
+                        format!("note_id = '{}'", note_id.replace('\'', "''"))
+                    }
+                };
                 let _ = table.delete(&filter).await;
                 let reader: Box<dyn arrow_array::RecordBatchReader + Send> =
                     Box::new(RecordBatchIterator::new(vec![Ok(batch)], schema));
@@ -351,35 +375,169 @@ impl VectorStore {
         Ok(results)
     }
 
-    pub async fn migrate_chunk_dates(
-        &self,
-        note_dates: &[(String, String)],
-    ) -> Result<usize, String> {
+    pub async fn add_chunks(&self, chunks: Vec<Chunk>) -> Result<(), String> {
+        if chunks.is_empty() {
+            return Ok(());
+        }
+        let batch = chunks_to_batch(&chunks);
+        let schema = chunks_schema();
+        match self.db.open_table(VECTOR_TABLE_NAME).execute().await {
+            Ok(table) => {
+                let reader: Box<dyn arrow_array::RecordBatchReader + Send> =
+                    Box::new(RecordBatchIterator::new(vec![Ok(batch)], schema));
+                table
+                    .add(reader)
+                    .execute()
+                    .await
+                    .map_err(|e| format!("VectorDB add_chunks: {e}"))?;
+            }
+            Err(_) => {
+                let reader: Box<dyn arrow_array::RecordBatchReader + Send> =
+                    Box::new(RecordBatchIterator::new(vec![Ok(batch)], schema));
+                self.db
+                    .create_table(VECTOR_TABLE_NAME, reader)
+                    .execute()
+                    .await
+                    .map_err(|e| format!("VectorDB create: {e}"))?;
+            }
+        }
+        eprintln!("[vectordb] added {} chunks", chunks.len());
+        Ok(())
+    }
+
+    pub async fn all_ids(&self) -> Result<Vec<String>, String> {
         let table = match self.db.open_table(VECTOR_TABLE_NAME).execute().await
         {
             Ok(t) => t,
-            Err(_) => return Ok(0),
+            Err(_) => return Ok(vec![]),
         };
-        let mut updated = 0usize;
-        for (note_id, created_at) in note_dates {
-            let escaped_id = note_id.replace('\'', "''");
-            let escaped_date = created_at.replace('\'', "''");
-            let filter = format!("note_id = '{escaped_id}'");
-            match table
-                .update()
-                .only_if(&filter)
-                .column("created_at", format!("'{escaped_date}'"))
-                .execute()
-                .await
+        let batches: Vec<RecordBatch> = table
+            .query()
+            .select(lancedb::query::Select::Columns(vec!["id".to_string()]))
+            .execute()
+            .await
+            .map_err(|e| format!("VectorDB all_ids exec: {e}"))?
+            .try_collect()
+            .await
+            .map_err(|e| format!("VectorDB all_ids collect: {e}"))?;
+        let mut ids = Vec::new();
+        for batch in &batches {
+            if let Some(col) = batch
+                .column_by_name("id")
+                .and_then(|c| c.as_any().downcast_ref::<StringArray>())
             {
-                Ok(_) => updated += 1,
-                Err(e) => {
-                    eprintln!("[vectordb] migrate date for {note_id}: {e}");
+                for i in 0..col.len() {
+                    ids.push(col.value(i).to_string());
                 }
             }
         }
-        eprintln!("[vectordb] migrated {updated} chunks");
-        Ok(updated)
+        Ok(ids)
+    }
+
+    pub async fn delete_ids(&self, ids: &[String]) -> Result<(), String> {
+        if ids.is_empty() {
+            return Ok(());
+        }
+        let table = match self.db.open_table(VECTOR_TABLE_NAME).execute().await
+        {
+            Ok(t) => t,
+            Err(_) => return Ok(()),
+        };
+        for batch in ids.chunks(500) {
+            let list = batch
+                .iter()
+                .map(|id| format!("'{}'", id.replace('\'', "''")))
+                .collect::<Vec<_>>()
+                .join(",");
+            let filter = format!("id IN ({list})");
+            table
+                .delete(&filter)
+                .await
+                .map_err(|e| format!("VectorDB delete_ids: {e}"))?;
+        }
+        eprintln!("[vectordb] deleted {} ids", ids.len());
+        Ok(())
+    }
+
+    pub async fn fetch_note_rows(
+        &self,
+        note_id: &str,
+    ) -> Result<Vec<Chunk>, String> {
+        let table = match self.db.open_table(VECTOR_TABLE_NAME).execute().await
+        {
+            Ok(t) => t,
+            Err(_) => return Ok(vec![]),
+        };
+        let filter = format!("note_id = '{}'", note_id.replace('\'', "''"));
+        let batches: Vec<RecordBatch> = table
+            .query()
+            .only_if(filter)
+            .execute()
+            .await
+            .map_err(|e| format!("VectorDB fetch exec: {e}"))?
+            .try_collect()
+            .await
+            .map_err(|e| format!("VectorDB fetch collect: {e}"))?;
+        let mut out = Vec::new();
+        for batch in &batches {
+            let id_col = batch
+                .column_by_name("id")
+                .and_then(|c| c.as_any().downcast_ref::<StringArray>());
+            let nid_col = batch
+                .column_by_name("note_id")
+                .and_then(|c| c.as_any().downcast_ref::<StringArray>());
+            let text_col = batch
+                .column_by_name("chunk_text")
+                .and_then(|c| c.as_any().downcast_ref::<StringArray>());
+            let idx_col = batch
+                .column_by_name("chunk_index")
+                .and_then(|c| c.as_any().downcast_ref::<Int32Array>());
+            let vec_col = batch
+                .column_by_name("vector")
+                .and_then(|c| c.as_any().downcast_ref::<FixedSizeListArray>());
+            let title_col = batch
+                .column_by_name("title")
+                .and_then(|c| c.as_any().downcast_ref::<StringArray>());
+            let tags_col = batch
+                .column_by_name("tags")
+                .and_then(|c| c.as_any().downcast_ref::<StringArray>());
+            let date_col = batch
+                .column_by_name("created_at")
+                .and_then(|c| c.as_any().downcast_ref::<StringArray>());
+            let (id_col, nid_col, text_col, idx_col, vec_col) =
+                match (id_col, nid_col, text_col, idx_col, vec_col) {
+                    (Some(i), Some(n), Some(t), Some(x), Some(v)) => {
+                        (i, n, t, x, v)
+                    }
+                    _ => continue,
+                };
+            for i in 0..batch.num_rows() {
+                let list = vec_col.value(i);
+                let prim = match list.as_any().downcast_ref::<Float32Array>() {
+                    Some(p) => p,
+                    None => continue,
+                };
+                let vector: Vec<f32> =
+                    (0..prim.len()).map(|j| prim.value(j)).collect();
+                out.push(Chunk {
+                    id: id_col.value(i).to_string(),
+                    note_id: nid_col.value(i).to_string(),
+                    chunk_text: text_col.value(i).to_string(),
+                    chunk_index: idx_col.value(i),
+                    vector,
+                    title: title_col
+                        .map(|c| c.value(i).to_string())
+                        .unwrap_or_default(),
+                    tags: tags_col
+                        .map(|c| c.value(i).to_string())
+                        .unwrap_or_else(|| "[]".to_string()),
+                    created_at: date_col
+                        .map(|c| c.value(i).to_string())
+                        .unwrap_or_default(),
+                });
+            }
+        }
+        Ok(out)
     }
 
     pub async fn delete_note_chunks(
@@ -399,6 +557,27 @@ impl VectorStore {
             .map_err(|e| format!("VectorDB delete: {e}"))?;
 
         eprintln!("[vectordb] deleted chunks for note {note_id}");
+        Ok(())
+    }
+
+    pub async fn delete_note_own_chunks(
+        &self,
+        note_id: &str,
+    ) -> Result<(), String> {
+        let table = match self.db.open_table(VECTOR_TABLE_NAME).execute().await
+        {
+            Ok(t) => t,
+            Err(_) => return Ok(()),
+        };
+
+        let escaped = note_id.replace('\'', "''");
+        let filter = format!("id LIKE 'note:{escaped}:%'");
+        table
+            .delete(&filter)
+            .await
+            .map_err(|e| format!("VectorDB delete note own: {e}"))?;
+
+        eprintln!("[vectordb] deleted own chunks for note {note_id}");
         Ok(())
     }
 

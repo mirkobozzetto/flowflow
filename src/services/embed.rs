@@ -1,6 +1,112 @@
+use crate::db::chunk_repo::{content_hash, ChunkRecord};
 use crate::services::ai::chunk_text;
 use crate::services::llm::LlmClient;
 use crate::services::vectordb::{Chunk, VectorStore};
+
+// Chunks have no tracking triggers (they travel inside their owner's sync
+// payload, RFC 0004 T17), so after writing fresh BLOBs the owner's sync meta
+// must be bumped for the new vectors to propagate. The alive-check and the
+// bump run in ONE IMMEDIATE transaction: the write lock is taken before the
+// check, so a delete committing on another connection can never slip between
+// them (an embed finishing after a delete would otherwise resurrect the
+// tombstone on peers), and the seq allocation inside the bump stays atomic
+// across connections. A successful bump pokes the sync engine: the embed
+// thread finishes AFTER the save-triggered push, so without its own trigger
+// the fresh vectors would sit stranded until an unrelated event (and the
+// earlier chunkless push would have wiped the peer's previous vectors).
+pub(crate) fn bump_owner_meta_if_alive(
+    db: &crate::db::Database,
+    owner_id: &str,
+    owner_kind: &str,
+) {
+    let exists_sql = match owner_kind {
+        "note" => "SELECT EXISTS(SELECT 1 FROM notes WHERE id = ?1)",
+        "attachment" => {
+            "SELECT EXISTS(SELECT 1 FROM attachments WHERE id = ?1)"
+        }
+        _ => return,
+    };
+    let conn = db.conn();
+    if let Err(e) = conn.execute_batch("BEGIN IMMEDIATE;") {
+        log(&format!("chunk meta bump tx: {e}"));
+        return;
+    }
+    let alive: bool = conn
+        .query_row(exists_sql, [owner_id], |r| r.get(0))
+        .unwrap_or(false);
+    let res = if alive {
+        crate::db::sync_meta::mark_entity_updated(&conn, owner_kind, owner_id)
+    } else {
+        Ok(())
+    };
+    match res {
+        Ok(()) => {
+            if let Err(e) = conn.execute_batch("COMMIT;") {
+                log(&format!("chunk meta bump commit: {e}"));
+                let _ = conn.execute_batch("ROLLBACK;");
+            } else if alive {
+                drop(conn);
+                crate::services::sync::engine::poke_after_data_change();
+            }
+        }
+        Err(e) => {
+            log(&format!("chunk meta bump: {e}"));
+            let _ = conn.execute_batch("ROLLBACK;");
+        }
+    }
+}
+
+fn persist_chunk_blobs(owner_id: &str, owner_kind: &str, entries: &[Chunk]) {
+    let records: Vec<ChunkRecord> = entries
+        .iter()
+        .map(|c| ChunkRecord {
+            id: c.id.clone(),
+            owner_id: owner_id.to_string(),
+            owner_kind: owner_kind.to_string(),
+            chunk_index: c.chunk_index,
+            vector: c.vector.clone(),
+            content_hash: content_hash(&c.chunk_text),
+            chunk_text: c.chunk_text.clone(),
+            title: c.title.clone(),
+            tags: c.tags.clone(),
+            created_at: c.created_at.clone(),
+        })
+        .collect();
+    match crate::db::Database::open() {
+        Ok(db) => {
+            if let Err(e) = db.replace_chunks(owner_id, owner_kind, &records) {
+                log(&format!("chunk blob persist: {e}"));
+            } else {
+                bump_owner_meta_if_alive(&db, owner_id, owner_kind);
+            }
+        }
+        Err(e) => log(&format!("chunk blob db open: {e}")),
+    }
+}
+
+async fn purge_owner_chunks(owner_id: &str, owner_kind: &str) {
+    let mut had_blobs = false;
+    if let Ok(db) = crate::db::Database::open() {
+        had_blobs =
+            db.count_chunks_for_owner(owner_id, owner_kind).unwrap_or(0) > 0;
+        let _ = db.delete_owner_chunks(owner_id, owner_kind);
+        if had_blobs {
+            bump_owner_meta_if_alive(&db, owner_id, owner_kind);
+        }
+    }
+    if had_blobs {
+        if let Ok(store) = VectorStore::open().await {
+            match owner_kind {
+                "attachment" => {
+                    let _ = store.delete_attachment_chunks(owner_id).await;
+                }
+                _ => {
+                    let _ = store.delete_note_own_chunks(owner_id).await;
+                }
+            }
+        }
+    }
+}
 
 fn ai_consent_granted() -> bool {
     match crate::db::Database::open() {
@@ -45,6 +151,7 @@ pub fn embed_note(
         rt.block_on(async move {
             if content.len() < 50 {
                 log("embed skip: too short");
+                purge_owner_chunks(&note_id, "note").await;
                 return;
             }
             if !ai_consent_granted() {
@@ -78,7 +185,7 @@ pub fn embed_note(
                             vector.len()
                         ));
                         entries.push(Chunk {
-                            id: uuid::Uuid::new_v4().to_string(),
+                            id: format!("note:{note_id}:{i}"),
                             note_id: note_id.clone(),
                             chunk_text: text.clone(),
                             chunk_index: i as i32,
@@ -94,7 +201,7 @@ pub fn embed_note(
                     }
                 }
             }
-            let _ = store.delete_note_chunks(&note_id).await;
+            persist_chunk_blobs(&note_id, "note", &entries);
             match store.store_chunks(entries).await {
                 Ok(()) => log(&format!("embed done for {note_id}")),
                 Err(e) => log(&format!("embed store: {e}")),
@@ -134,6 +241,7 @@ pub fn embed_attachment(
         rt.block_on(async move {
             if content.len() < 50 {
                 log("embed attachment skip: too short");
+                purge_owner_chunks(&attachment_id, "attachment").await;
                 return;
             }
             if !ai_consent_granted() {
@@ -178,56 +286,12 @@ pub fn embed_attachment(
                     }
                 }
             }
-            let _ = store.delete_attachment_chunks(&attachment_id).await;
+            persist_chunk_blobs(&attachment_id, "attachment", &entries);
             match store.store_chunks(entries).await {
                 Ok(()) => {
                     log(&format!("embed attachment done for {attachment_id}"))
                 }
                 Err(e) => log(&format!("embed attachment store: {e}")),
-            }
-        });
-    });
-}
-
-pub fn migrate_chunk_dates() {
-    log("migrate_chunk_dates: checking flag");
-    std::thread::spawn(move || {
-        let rt = tokio::runtime::Runtime::new().unwrap();
-        rt.block_on(async move {
-            let db = match crate::db::Database::open() {
-                Ok(d) => d,
-                Err(e) => {
-                    log(&format!("migrate dates: db open failed: {e}"));
-                    return;
-                }
-            };
-            if db.get_setting("chunk_dates_migrated")
-                == Some("true".to_string())
-            {
-                log("migrate dates: already done, skipping");
-                return;
-            }
-            let notes = db.list_notes().unwrap_or_default();
-            if notes.is_empty() {
-                log("migrate dates: no notes");
-                let _ = db.set_setting("chunk_dates_migrated", "true");
-                return;
-            }
-            let store = match VectorStore::open().await {
-                Ok(s) => s,
-                Err(e) => {
-                    log(&format!("migrate dates: vectordb failed: {e}"));
-                    return;
-                }
-            };
-            let note_dates: Vec<(String, String)> =
-                notes.into_iter().map(|n| (n.id, n.created_at)).collect();
-            match store.migrate_chunk_dates(&note_dates).await {
-                Ok(n) => {
-                    log(&format!("migrate dates: {n} notes updated"));
-                    let _ = db.set_setting("chunk_dates_migrated", "true");
-                }
-                Err(e) => log(&format!("migrate dates: {e}")),
             }
         });
     });

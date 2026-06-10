@@ -12,7 +12,7 @@ tokio = { version = "1", features = ["full"] }
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
 dotenvy = "0.15"
-rusqlite = { version = "0.34", features = ["bundled"] }
+rusqlite = { version = "0.34", features = ["bundled", "functions"] }
 uuid = { version = "1", features = ["v4"] }
 chrono = { version = "0.4", features = ["serde"] }
 futures-timer = "3"
@@ -29,12 +29,17 @@ regex = "1"
 fluent-bundle = "0.15"
 fluent-langneg = "0.13"
 unic-langid = "0.9"
+snow = "0.10.0"
+base64 = "0.22.1"
+getrandom = "0.2"
+qrcode = { version = "0.14.1", default-features = false, features = ["svg"] }
+sha2 = "0.10"
 
 [target.'cfg(target_os = "ios")'.dependencies]
 objc2 = "0.6"
 block2 = "0.6"
 objc2-avf-audio = "0.3"
-objc2-foundation = { version = "0.3", features = ["NSString", "NSArray", "NSURL", "NSThread", "NSData", "NSDictionary", "NSValue", "NSNotification", "NSCalendar", "NSDate", "NSError", "NSTimeZone", "block2"] }
+objc2-foundation = { version = "0.3", features = ["NSString", "NSArray", "NSURL", "NSThread", "NSData", "NSDictionary", "NSValue", "NSNotification", "NSCalendar", "NSDate", "NSError", "NSTimeZone", "NSFileManager", "NSObjCRuntime", "NSPathUtilities", "block2"] }
 objc2-ui-kit = { version = "0.3", features = ["UIApplication", "UIDocumentPickerViewController", "UIViewController", "UINavigationController", "UINavigationItem", "UIBarButtonItem", "UIBarItem", "UIWindow", "UIResponder", "objc2-uniform-type-identifiers"] }
 objc2-uniform-type-identifiers = "0.3"
 objc2-pdf-kit = { version = "0.3", features = ["PDFDocument", "PDFPage"] }

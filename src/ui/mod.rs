@@ -12,6 +12,7 @@ mod recording;
 mod settings;
 mod sidebar;
 mod state;
+mod sync;
 mod top_bar;
 pub mod transcription_manager;
 
@@ -19,7 +20,8 @@ pub use state::{AppState, SidebarTab, View};
 
 use crate::db::Database;
 use crate::services::audio::{AudioRecorder, RecordingState};
-use crate::services::embed::migrate_chunk_dates;
+use crate::services::sync::engine::SyncEngine;
+use crate::services::sync::reconcile::run_boot_reconcile;
 use dioxus::prelude::*;
 use std::collections::HashMap;
 use std::sync::{Arc, Mutex};
@@ -35,6 +37,7 @@ use note_list::NotesList;
 use notes::NoteDetail;
 use settings::SettingsView;
 use sidebar::SidebarOverlay;
+use sync::SyncView;
 use top_bar::TopBar;
 
 #[component]
@@ -42,9 +45,14 @@ pub fn App() -> Element {
     let _db = use_context_provider(|| {
         let db = Arc::new(Database::open().expect("Failed to open database"));
         db.cleanup_orphan_audio(&crate::services::audio::output_dir());
-        migrate_chunk_dates();
+        run_boot_reconcile();
+        #[cfg(target_os = "ios")]
+        crate::platform::ios::sync_ffi::observe_background_checkpoint();
         Signal::new(db)
     });
+
+    let _engine: Signal<Arc<SyncEngine>> =
+        use_context_provider(|| Signal::new(SyncEngine::start(_db())));
 
     let _recorder: Signal<Arc<Mutex<AudioRecorder>>> =
         use_context_provider(|| {
@@ -119,6 +127,7 @@ pub fn App() -> Element {
                             app.notes_version.set((app.notes_version)() + 1);
                             app.transcription_done_badge
                                 .set((app.transcription_done_badge)() + 1);
+                            _engine.peek().schedule_debounced();
                         }
                     }
                 }
@@ -242,13 +251,24 @@ pub fn App() -> Element {
                         }
                         if matches!((app.view)(), View::Settings) {
                             div {
-                                class: "absolute inset-0 flex flex-col min-h-0 px-4 py-3 bg-stone-100",
+                                class: "absolute inset-0 flex flex-col min-h-0 px-4 py-3 bg-stone-100 overflow-y-auto",
                                 style: if (app.sliding_out)() {
                                     "animation: slideOutRight 0.15s ease-in forwards;"
                                 } else {
                                     "animation: slideInRight 0.15s ease-out;"
                                 },
                                 SettingsView {}
+                            }
+                        }
+                        if matches!((app.view)(), View::SyncPairing) {
+                            div {
+                                class: "absolute inset-0 flex flex-col min-h-0 px-4 py-3 bg-stone-100 overflow-y-auto",
+                                style: if (app.sliding_out)() {
+                                    "animation: slideOutRight 0.15s ease-in forwards;"
+                                } else {
+                                    "animation: slideInRight 0.15s ease-out;"
+                                },
+                                SyncView {}
                             }
                         }
                     }

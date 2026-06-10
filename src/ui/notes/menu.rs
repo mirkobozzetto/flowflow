@@ -111,6 +111,8 @@ pub fn NoteMenu(
 ) -> Element {
     let mut app: AppState = use_context();
     let db: Signal<Arc<crate::db::Database>> = use_context();
+    let engine: Signal<Arc<crate::services::sync::engine::SyncEngine>> =
+        use_context();
     let mut deleted = deleted;
     let mut import_requested = import_requested;
     let lang = (app.current_lang)();
@@ -155,6 +157,7 @@ pub fn NoteMenu(
                         }
                         let _ = db().delete_note(&note_id);
                         delete_note_embeddings(note_id.clone());
+                        engine.peek().schedule_debounced();
                         app.current_note_id.set(None);
                     }
                 },

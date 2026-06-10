@@ -1,4 +1,4 @@
-use crate::db::{now_iso, Database};
+use crate::db::{chunk_repo, now_iso, sync_meta, Database};
 use crate::models::{NewTextNote, Note, NoteAudio, NoteType, UpdateNote};
 use std::str::FromStr;
 use uuid::Uuid;
@@ -143,9 +143,60 @@ impl Database {
     }
 
     pub fn delete_note(&self, id: &str) -> Result<(), String> {
-        self.conn()
-            .execute("DELETE FROM notes WHERE id = ?1", [id])
+        let conn = self.conn();
+        let tx = conn
+            .unchecked_transaction()
+            .map_err(|e| format!("Delete note tx: {e}"))?;
+        let exists: bool = tx
+            .query_row(
+                "SELECT EXISTS(SELECT 1 FROM notes WHERE id = ?1)",
+                [id],
+                |r| r.get(0),
+            )
+            .map_err(|e| format!("Delete note check: {e}"))?;
+        if !exists {
+            return Ok(());
+        }
+        // Tombstone the note + every CASCADE child BEFORE the physical delete,
+        // so a deletion propagates and never resurrects on the peer. CASCADE
+        // still does the physical cleanup.
+        for child in sync_meta::collect_ids(
+            &tx,
+            "SELECT id FROM attachments WHERE note_id = ?1",
+            id,
+        ) {
+            sync_meta::tombstone_entity(&tx, "attachment", &child)?;
+            chunk_repo::delete_chunks_for_owner(&tx, &child, "attachment")
+                .map_err(|e| format!("Delete attachment chunks: {e}"))?;
+        }
+        for child in sync_meta::collect_ids(
+            &tx,
+            "SELECT id FROM note_audios WHERE note_id = ?1",
+            id,
+        ) {
+            sync_meta::tombstone_entity(&tx, "note_audio", &child)?;
+        }
+        for child in sync_meta::collect_ids(
+            &tx,
+            "SELECT id FROM note_reminders WHERE note_id = ?1",
+            id,
+        ) {
+            sync_meta::tombstone_entity(&tx, "note_reminder", &child)?;
+        }
+        for link in sync_meta::collect_links(
+            &tx,
+            "SELECT folder_id, note_id FROM notes_folders WHERE note_id = ?1",
+            id,
+        ) {
+            sync_meta::tombstone_entity(&tx, "notes_folders", &link)?;
+        }
+        sync_meta::tombstone_entity(&tx, "note", id)?;
+        chunk_repo::delete_chunks_for_owner(&tx, id, "note")
+            .map_err(|e| format!("Delete note chunks: {e}"))?;
+        tx.execute("DELETE FROM notes WHERE id = ?1", [id])
             .map_err(|e| format!("Delete note: {e}"))?;
+        tx.commit()
+            .map_err(|e| format!("Delete note commit: {e}"))?;
         Ok(())
     }
 
@@ -214,9 +265,18 @@ impl Database {
     }
 
     pub fn delete_audio(&self, id: &str) -> Result<(), String> {
-        self.conn()
+        let conn = self.conn();
+        let tx = conn
+            .unchecked_transaction()
+            .map_err(|e| format!("Delete audio tx: {e}"))?;
+        let n = tx
             .execute("DELETE FROM note_audios WHERE id = ?1", [id])
             .map_err(|e| format!("Delete audio: {e}"))?;
+        if n > 0 {
+            sync_meta::tombstone_entity(&tx, "note_audio", id)?;
+        }
+        tx.commit()
+            .map_err(|e| format!("Delete audio commit: {e}"))?;
         Ok(())
     }
 
@@ -267,9 +327,26 @@ impl Database {
             let _ = std::fs::remove_file(dir.join(p));
         }
         let count = paths.len();
-        self.conn()
-            .execute("DELETE FROM note_audios", [])
+        let conn = self.conn();
+        let tx = conn
+            .unchecked_transaction()
+            .map_err(|e| format!("Delete all audios tx: {e}"))?;
+        let ids: Vec<String> = {
+            let mut stmt = tx
+                .prepare("SELECT id FROM note_audios")
+                .map_err(|e| format!("List audio ids: {e}"))?;
+            let rows = stmt
+                .query_map([], |r| r.get::<_, String>(0))
+                .map_err(|e| format!("Query audio ids: {e}"))?;
+            rows.flatten().collect()
+        };
+        for id in ids {
+            sync_meta::tombstone_entity(&tx, "note_audio", &id)?;
+        }
+        tx.execute("DELETE FROM note_audios", [])
             .map_err(|e| format!("Delete all audios: {e}"))?;
+        tx.commit()
+            .map_err(|e| format!("Delete all audios commit: {e}"))?;
         Ok(count)
     }
 
