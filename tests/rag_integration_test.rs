@@ -1,9 +1,22 @@
 use flowflow::services::constants::EMBEDDING_DIMS;
 use flowflow::services::vectordb::{Chunk, VectorStore};
+use std::sync::Once;
 use tokio::sync::OnceCell;
 use uuid::Uuid;
 
 static TABLE_READY: OnceCell<()> = OnceCell::const_new();
+static SEAM: Once = Once::new();
+
+// On macOS the global store now resolves to ~/Library/Application Support
+// (desktop fix #20). Point this test binary at a scratch dir so it never
+// touches the real user vector index / database.
+fn isolate_store() {
+    SEAM.call_once(|| {
+        let dir = std::env::temp_dir().join("flowflow-test-rag");
+        std::env::set_var("FLOWFLOW_DATA_DIR", &dir);
+        std::env::set_var("FLOWFLOW_VECTORDB_PATH", dir.join("vectordb"));
+    });
+}
 
 const PRIMER_NOTE_ID: &str = "__test_primer__";
 
@@ -33,6 +46,7 @@ fn make_chunk(
 }
 
 async fn ensure_table() -> VectorStore {
+    isolate_store();
     let store = VectorStore::open().await.expect("open vectordb");
     TABLE_READY
         .get_or_init(|| async {
@@ -226,6 +240,7 @@ async fn test_note_and_attachment_chunks_coexist() {
 
 #[tokio::test]
 async fn test_vectordb_store_empty_is_noop() {
+    isolate_store();
     let store = VectorStore::open().await.expect("open vectordb");
     let result = store.store_chunks(vec![]).await;
     assert!(result.is_ok(), "storing zero chunks should be a no-op");
@@ -233,6 +248,7 @@ async fn test_vectordb_store_empty_is_noop() {
 
 #[tokio::test]
 async fn test_vectordb_delete_unknown_note() {
+    isolate_store();
     let store = VectorStore::open().await.expect("open vectordb");
     let unknown = Uuid::new_v4().to_string();
     let result = store.delete_note_chunks(&unknown).await;

@@ -11,6 +11,7 @@ flowflow/
 .env
 assets/tailwind.css
 .hide/
+.rnd/
 .gitnexus
 generated-images/
 src/ios/plugin/.build/
@@ -24,3 +25,6 @@ secrets/
 
 # App Store validation logs (transient)
 .appstore-validate-log.txt
+
+# Desktop build: parked original Dioxus.toml (make desktop / desktop-build)
+.Dioxus.toml.ios

@@ -46,7 +46,7 @@ fn vectordb_path() -> String {
     }
     #[cfg(not(target_os = "ios"))]
     {
-        let dir = std::env::temp_dir().join("flowflow");
+        let dir = crate::db::desktop_data_dir();
         std::fs::create_dir_all(&dir).ok();
         dir.join("vectordb").to_string_lossy().to_string()
     }

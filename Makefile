@@ -1,4 +1,11 @@
-.PHONY: build format check dev ddev deploy desktop icon all appstore clean check-profiles renew ensure-profiles
+.PHONY: build format check dev ddev deploy desktop desktop-build desktop-app desktop-toml restore-ios-toml icon all appstore clean check-profiles renew ensure-profiles
+
+# Strip the iOS-only widget extension from Dioxus.toml: dx 0.7 compiles every
+# declared [[ios.widget_extensions]] even for desktop, and the Live Activity
+# Swift code does not build outside iOS (issue #20). The original file is
+# parked in .Dioxus.toml.ios and restored by trap when dx exits; a leftover
+# backup from a crash is restored before the next run.
+WIDGETLESS_TOML = awk 'BEGIN{skip=0} /^\[\[ios\.widget_extensions\]\]/{skip=1; next} /^\[/{skip=0} !skip'
 
 APPSTORE_BUILD := $(shell expr $$(cat .appstore-build 2>/dev/null || echo 0) + 1)
 
@@ -25,7 +32,15 @@ ddev-build:
 deploy:
 	set -a && . ./.env && IPHONEOS_DEPLOYMENT_TARGET=16.0 dx build --platform ios --device true && bash scripts/inject-icon.sh
 
-all: ensure-profiles
+# Defensive restore: if a desktop build was killed (SIGKILL/power loss) it can
+# leave Dioxus.toml stripped of the iOS widget and the original parked in
+# .Dioxus.toml.ios. Restore it before any iOS build so a device build is never
+# silently produced without the widget. (Do not run an iOS build while
+# `make desktop` is live - it owns that backup for the session.)
+restore-ios-toml:
+	@[ ! -f .Dioxus.toml.ios ] || { mv .Dioxus.toml.ios Dioxus.toml; echo ">> restored Dioxus.toml from orphaned desktop backup"; }
+
+all: restore-ios-toml ensure-profiles
 	set -a && . ./.env && IPHONEOS_DEPLOYMENT_TARGET=16.0 dx build --platform ios --device true
 	bash scripts/sign-widget.sh debug
 	bash scripts/inject-icon.sh || true
@@ -42,8 +57,29 @@ ensure-profiles:
 icon:
 	bash scripts/inject-icon.sh
 
-desktop:
-	set -a && . ./.env && dx serve --desktop
+desktop-toml:
+	@[ ! -f .Dioxus.toml.ios ] || mv .Dioxus.toml.ios Dioxus.toml
+	cp Dioxus.toml .Dioxus.toml.ios
+	$(WIDGETLESS_TOML) .Dioxus.toml.ios > Dioxus.toml
+
+desktop: desktop-toml
+	set -a && . ./.env && set +a; \
+	trap 'mv .Dioxus.toml.ios Dioxus.toml' EXIT INT TERM; \
+	dx serve --desktop
+
+desktop-build: desktop-toml
+	set -a && . ./.env && set +a; \
+	trap 'mv .Dioxus.toml.ios Dioxus.toml' EXIT INT TERM; \
+	dx build --platform desktop
+
+# Standalone Mac app: release build installed in /Applications, runs without
+# any dev server. Data lives in ~/Library/Application Support/FlowFlow.
+desktop-app: desktop-toml
+	set -a && . ./.env && set +a; \
+	trap 'mv .Dioxus.toml.ios Dioxus.toml' EXIT INT TERM; \
+	dx build --platform desktop --release
+	rsync -a --delete target/dx/flowflow/release/macos/Flowflow.app/ /Applications/Flowflow.app/
+	@echo ">> Flowflow.app installed in /Applications"
 
 # Device logs: Console.app → select iPhone → filter "FlowFlow"
 logs:

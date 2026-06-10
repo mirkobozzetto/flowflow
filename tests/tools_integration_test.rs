@@ -4,13 +4,27 @@ use flowflow::services::tools::{
     CreateNote, CreateNoteArgs, SearchNotesArgs, SummarizeFolderArgs,
 };
 use rig::tool::Tool;
+use std::sync::Once;
 use tokio::sync::Mutex;
 use uuid::Uuid;
 
 static DB_LOCK: Mutex<()> = Mutex::const_new(());
+static SEAM: Once = Once::new();
+
+// On macOS the global store now resolves to ~/Library/Application Support
+// (desktop fix #20). Point these tests at a scratch dir so a `cargo test` run
+// never creates or mutates the real user database / vector index.
+fn isolate_store() {
+    SEAM.call_once(|| {
+        let dir = std::env::temp_dir().join("flowflow-test-tools");
+        std::env::set_var("FLOWFLOW_DATA_DIR", &dir);
+        std::env::set_var("FLOWFLOW_VECTORDB_PATH", dir.join("vectordb"));
+    });
+}
 
 #[tokio::test]
 async fn test_create_note_persists_in_db() {
+    isolate_store();
     let _guard = DB_LOCK.lock().await;
     let tool = CreateNote::new();
     let marker = format!("test-marker-{}", Uuid::new_v4());
@@ -39,6 +53,7 @@ async fn test_create_note_persists_in_db() {
 
 #[tokio::test]
 async fn test_create_note_returns_valid_uuid() {
+    isolate_store();
     let _guard = DB_LOCK.lock().await;
     let tool = CreateNote::new();
     let args = CreateNoteArgs {
@@ -61,6 +76,7 @@ async fn test_create_note_returns_valid_uuid() {
 
 #[tokio::test]
 async fn test_create_note_minimal_no_title_no_tags() {
+    isolate_store();
     let _guard = DB_LOCK.lock().await;
     let tool = CreateNote::new();
     let args = CreateNoteArgs {
@@ -94,6 +110,7 @@ async fn test_summarize_folder_missing_folder_returns_error() {
         Ok(c) => Arc::new(c),
         Err(_) => return,
     };
+    isolate_store();
     let _guard = DB_LOCK.lock().await;
     let tool = SummarizeFolder::new(llm);
     let args = SummarizeFolderArgs {
@@ -118,6 +135,7 @@ async fn test_summarize_folder_empty_folder() {
         Err(_) => return,
     };
 
+    isolate_store();
     let _guard = DB_LOCK.lock().await;
     let db = Database::open().expect("open db");
     let folder_name = format!("empty-folder-{}", Uuid::new_v4());
@@ -146,6 +164,7 @@ async fn test_summarize_folder_empty_folder() {
 #[tokio::test]
 #[ignore]
 async fn test_search_notes_real() {
+    isolate_store();
     use flowflow::services::llm::LlmClient;
     use flowflow::services::tools::SearchNotes;
     use std::sync::Arc;
@@ -173,6 +192,7 @@ async fn test_summarize_folder_real() {
     use std::sync::Arc;
 
     let llm = Arc::new(LlmClient::from_env().expect("OPENAI_API_KEY required"));
+    isolate_store();
     let _guard = DB_LOCK.lock().await;
     let db = Database::open().expect("open db");
 
@@ -214,6 +234,7 @@ async fn test_summarize_folder_real() {
 #[tokio::test]
 #[ignore]
 async fn test_agent_with_tools_e2e() {
+    isolate_store();
     use flowflow::services::llm::LlmClient;
     use flowflow::services::tools::prompt_agent_with_tools;
     use std::sync::Arc;

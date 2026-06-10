@@ -20,6 +20,12 @@ fn open_db() -> (Arc<Database>, tempfile::TempDir) {
 fn pair(db_a: &Arc<Database>, db_b: &Arc<Database>) -> (String, String) {
     ADVERTISE.call_once(|| {
         std::env::set_var("FLOWFLOW_SYNC_ADVERTISE_ADDR", "127.0.0.1");
+        // The engine's post-apply reconcile thread opens the GLOBAL store
+        // (Database::open). On macOS that now resolves to the real
+        // Application Support dir - point it at a scratch dir instead so a
+        // test run never touches actual user data.
+        let scratch = std::env::temp_dir().join("flowflow-test-data");
+        std::env::set_var("FLOWFLOW_DATA_DIR", &scratch);
     });
     let host = peers::start_pairing_host(db_a.clone()).expect("host");
     let mut payload =

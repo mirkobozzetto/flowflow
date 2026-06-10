@@ -36,9 +36,100 @@ pub fn db_path() -> PathBuf {
     }
     #[cfg(not(target_os = "ios"))]
     {
-        let dir = std::env::temp_dir().join("flowflow");
+        let dir = desktop_data_dir();
         std::fs::create_dir_all(&dir).ok();
+        migrate_legacy_temp_data(&std::env::temp_dir().join("flowflow"), &dir);
         dir.join("flowflow.db")
+    }
+}
+
+// Desktop data directory (issue #20): a real Mac install must never keep the
+// only copy of the user's notes in temp_dir, which the OS purges. macOS gets
+// Application Support; other desktop targets keep the historical temp dir.
+// FLOWFLOW_DATA_DIR is the seam that points tests and secondary dev
+// instances away from the real store.
+#[cfg(not(target_os = "ios"))]
+pub fn desktop_data_dir() -> PathBuf {
+    if let Ok(dir) = std::env::var("FLOWFLOW_DATA_DIR") {
+        if !dir.is_empty() {
+            return PathBuf::from(dir);
+        }
+    }
+    #[cfg(target_os = "macos")]
+    if let Some(home) = std::env::var_os("HOME") {
+        return PathBuf::from(home)
+            .join("Library/Application Support/FlowFlow");
+    }
+    std::env::temp_dir().join("flowflow")
+}
+
+// One-time, NON-destructive move-in: copy the legacy desktop store
+// (temp_dir/flowflow) into the durable directory. Copies, never deletes - the
+// legacy dir stays untouched as a fallback for an older build. The vector
+// index is deliberately NOT copied: it is a derived cache the boot reconcile
+// rebuilds from the SQLite BLOBs without any API call.
+//
+// CRASH-SAFE (review BLOCKER fix). The boot guard keys on flowflow.db
+// EXISTING in new_dir, so that file must only appear once the copy is
+// complete AND consistent, or a half-migration would be mistaken for a done
+// one and the app would open a DB missing its WAL = silent loss. Therefore:
+// - audio .wav files (secondary, outside the DB) are copied first, best
+//   effort;
+// - the SQLite DB is copied LAST via `VACUUM INTO` (one checkpointed,
+//   consistent single-file image with NO -wal to lose) into a staging name,
+//   then atomically renamed into place. The rename is the commit.
+// Any failure removes the staging file and leaves new_dir without
+// flowflow.db, so the next boot retries from the intact legacy store.
+#[cfg(not(target_os = "ios"))]
+fn migrate_legacy_temp_data(
+    legacy: &std::path::Path,
+    new_dir: &std::path::Path,
+) {
+    let legacy_db = legacy.join("flowflow.db");
+    if legacy == new_dir
+        || new_dir.join("flowflow.db").exists()
+        || !legacy_db.exists()
+    {
+        return;
+    }
+    if let Ok(entries) = std::fs::read_dir(legacy) {
+        for entry in entries.flatten() {
+            let path = entry.path();
+            if path.is_file()
+                && path.extension().and_then(|e| e.to_str()) == Some("wav")
+            {
+                if let Err(e) =
+                    std::fs::copy(&path, new_dir.join(entry.file_name()))
+                {
+                    eprintln!("[db] legacy wav copy skipped: {e}");
+                }
+            }
+        }
+    }
+    let staging = new_dir.join("flowflow.db.migrating");
+    let _ = std::fs::remove_file(&staging);
+    let result = (|| -> Result<(), String> {
+        let conn = Connection::open(&legacy_db)
+            .map_err(|e| format!("open legacy: {e}"))?;
+        let target = staging
+            .to_str()
+            .ok_or_else(|| "non-utf8 staging path".to_string())?;
+        conn.execute("VACUUM INTO ?1", [target])
+            .map_err(|e| format!("vacuum into: {e}"))?;
+        std::fs::rename(&staging, new_dir.join("flowflow.db"))
+            .map_err(|e| format!("commit rename: {e}"))?;
+        Ok(())
+    })();
+    match result {
+        Ok(()) => eprintln!(
+            "[db] migrated legacy store: {} -> {}",
+            legacy.display(),
+            new_dir.display()
+        ),
+        Err(e) => {
+            let _ = std::fs::remove_file(&staging);
+            eprintln!("[db] legacy migration skipped (retries next boot): {e}");
+        }
     }
 }
 
@@ -192,5 +283,60 @@ impl Database {
                 eprintln!("[db] v4 migrated audio path: {path} -> {filename}");
             }
         }
+    }
+}
+
+#[cfg(all(test, not(target_os = "ios")))]
+mod migration_tests {
+    use super::*;
+    use crate::models::note::NewTextNote;
+
+    fn seed_legacy(dir: &std::path::Path) {
+        let db = Database::open_at(dir.join("flowflow.db")).expect("legacy db");
+        db.create_text_note(&NewTextNote {
+            title: Some("legacy".into()),
+            content: "survived the move".into(),
+            tags: vec![],
+        })
+        .expect("seed note");
+        // Intentionally NOT checkpointed: the row lives in the -wal file,
+        // exactly the torn case the crash-safe copy must capture.
+    }
+
+    #[test]
+    fn migration_captures_wal_and_commits_atomically() {
+        let legacy = tempfile::tempdir().unwrap();
+        let target = tempfile::tempdir().unwrap();
+        seed_legacy(legacy.path());
+
+        migrate_legacy_temp_data(legacy.path(), target.path());
+
+        assert!(target.path().join("flowflow.db").exists());
+        assert!(
+            !target.path().join("flowflow.db.migrating").exists(),
+            "staging file must not survive a successful migration"
+        );
+        let db = Database::open_at(target.path().join("flowflow.db")).unwrap();
+        let notes = db.list_notes().unwrap();
+        assert_eq!(notes.len(), 1, "WAL-only data must be captured");
+        assert_eq!(notes[0].content, "survived the move");
+    }
+
+    #[test]
+    fn migration_skips_when_target_already_initialized() {
+        let legacy = tempfile::tempdir().unwrap();
+        let target = tempfile::tempdir().unwrap();
+        seed_legacy(legacy.path());
+        // A target that already has its own DB must never be overwritten.
+        Database::open_at(target.path().join("flowflow.db")).unwrap();
+
+        migrate_legacy_temp_data(legacy.path(), target.path());
+
+        let db = Database::open_at(target.path().join("flowflow.db")).unwrap();
+        assert_eq!(
+            db.list_notes().unwrap().len(),
+            0,
+            "existing target store must be left intact"
+        );
     }
 }
