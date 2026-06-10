@@ -200,6 +200,7 @@ impl SyncEngine {
                     if outcome.stats.applied > 0 {
                         spawn_reconcile_pass();
                     }
+                    run_tombstone_gc(&self.db);
                 }
                 // Listener-level failure (serve_sync_once tags accept errors):
                 // iOS marks sockets defunct across suspensions, so a dead fd
@@ -338,6 +339,7 @@ impl SyncEngine {
             if total.applied > 0 {
                 spawn_reconcile_pass();
             }
+            run_tombstone_gc(&self.db);
         } else if let Some(message) = first_error {
             self.set_activity(SyncActivity::Error {
                 at: local_clock(),
@@ -352,6 +354,16 @@ impl SyncEngine {
 // treat differently from a failed session.
 fn is_accept_error(e: &super::SyncError) -> bool {
     matches!(e, super::SyncError::Transport(m) if m.starts_with("accept: "))
+}
+
+// Opportunistic tombstone GC after every successful session: the session just
+// refreshed the peer-ack book, so this is exactly when a tombstone can become
+// provably consumed by everyone (T19). Failure is log-only - GC is hygiene,
+// never worth failing a sync that already succeeded.
+fn run_tombstone_gc(db: &Database) {
+    if let Err(e) = super::gc::run_gc(db) {
+        eprintln!("[sync] gc: {e}");
+    }
 }
 
 // Pairing-time seed of the address book, called by peers.rs once a pairing

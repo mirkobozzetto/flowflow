@@ -410,6 +410,7 @@ pub fn join_pairing(db: &Database, uri: &str) -> Result<String, SyncError> {
 
 pub fn unpair(db: &Database, device_id: &str) -> Result<(), SyncError> {
     super::engine::clear_peer_endpoint(db, device_id);
+    super::gc::clear_peer_ack(db, device_id);
     db.delete_pairing(device_id, &psk_key(device_id))
         .map_err(SyncError::Pairing)
 }

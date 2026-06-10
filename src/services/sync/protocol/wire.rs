@@ -26,6 +26,11 @@ pub(super) enum Msg {
         device_id: String,
         last_acked_seq: i64,
         gc_horizon: i64,
+        // The sender's own seq counter. Lets the receiver detect a RESTORED
+        // peer (we acked more of its space than its counter has issued) and
+        // force the full-state session both sides will agree on (T19).
+        #[serde(default)]
+        next_seq: i64,
     },
     Push {
         rows: Vec<SyncRow>,

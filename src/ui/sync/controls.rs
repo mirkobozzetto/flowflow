@@ -28,7 +28,7 @@ pub fn SyncControls() -> Element {
             if *activity.peek() != a {
                 activity.set(a);
             }
-            if tick % 4 == 0 {
+            if tick.is_multiple_of(4) {
                 let peers =
                     !db.peek().list_peers().unwrap_or_default().is_empty();
                 if *has_peers.peek() != peers {

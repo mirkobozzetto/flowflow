@@ -1,5 +1,6 @@
 pub mod conflict;
 pub mod engine;
+pub mod gc;
 pub mod peers;
 pub mod protocol;
 pub mod reconcile;
