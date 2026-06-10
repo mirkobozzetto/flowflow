@@ -81,7 +81,7 @@ pub fn desktop_data_dir() -> PathBuf {
 // Any failure removes the staging file and leaves new_dir without
 // flowflow.db, so the next boot retries from the intact legacy store.
 #[cfg(not(target_os = "ios"))]
-fn migrate_legacy_temp_data(
+pub fn migrate_legacy_temp_data(
     legacy: &std::path::Path,
     new_dir: &std::path::Path,
 ) {
