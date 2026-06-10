@@ -14,6 +14,7 @@ pub fn ConversationSection() -> Element {
 
     let conversations = use_memo(move || {
         let _v = version();
+        let _sv = (app.sync_data_version)();
         db().list_conversations().unwrap_or_default()
     });
 

@@ -115,6 +115,7 @@ pub struct SyncEngine {
     // the running pass re-runs once more if this was set after its snapshot.
     pending: Arc<AtomicBool>,
     listen_port: Option<u16>,
+    data_version: Arc<AtomicU64>,
 }
 
 impl SyncEngine {
@@ -151,6 +152,7 @@ impl SyncEngine {
             session_lock: Arc::new(Mutex::new(())),
             pending: Arc::new(AtomicBool::new(false)),
             listen_port,
+            data_version: Arc::new(AtomicU64::new(0)),
         });
         register_engine(&engine);
         if let Some(listener) = listener {
@@ -170,6 +172,14 @@ impl SyncEngine {
 
     fn set_activity(&self, a: SyncActivity) {
         *self.activity.lock().unwrap() = a;
+    }
+
+    pub fn data_version(&self) -> u64 {
+        self.data_version.load(Ordering::SeqCst)
+    }
+
+    fn bump_data_version(&self) {
+        self.data_version.fetch_add(1, Ordering::SeqCst);
     }
 
     fn serve_loop(self: Arc<Self>, mut listener: TcpListener) {
@@ -198,6 +208,7 @@ impl SyncEngine {
                         partial: None,
                     });
                     if outcome.stats.applied > 0 {
+                        self.bump_data_version();
                         spawn_reconcile_pass();
                     }
                     run_tombstone_gc(&self.db);
@@ -337,6 +348,7 @@ impl SyncEngine {
                 partial: first_error,
             });
             if total.applied > 0 {
+                self.bump_data_version();
                 spawn_reconcile_pass();
             }
             run_tombstone_gc(&self.db);

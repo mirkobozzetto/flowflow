@@ -1,6 +1,86 @@
 @import "tailwindcss";
 @source "./src/**/*.{rs,html,css}";
 
+@utility safe-pb-20 {
+    padding-bottom: calc(5rem + env(safe-area-inset-bottom));
+}
+@utility safe-pb-32 {
+    padding-bottom: calc(8rem + env(safe-area-inset-bottom));
+}
+@utility safe-pb-40 {
+    padding-bottom: calc(10rem + env(safe-area-inset-bottom));
+}
+@utility safe-bottom-6 {
+    bottom: calc(1.5rem + env(safe-area-inset-bottom));
+}
+@utility safe-pt {
+    padding-top: env(safe-area-inset-top);
+}
+@utility safe-py-3 {
+    padding-top: 0.75rem;
+    padding-bottom: calc(0.75rem + env(safe-area-inset-bottom));
+}
+
+.keyboard-aware {
+    padding-bottom: calc(0.5rem + env(safe-area-inset-bottom));
+}
+
+.fab-btn {
+    position: relative;
+    width: 96px;
+    height: 96px;
+    border-radius: 9999px;
+    background: var(--color-warm-white);
+    border: 1.5px solid var(--color-ios-orange-100);
+    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.07);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: transform 0.25s cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+.fab-btn:active,
+.fab-pressing {
+    transform: scale(0.94);
+}
+.fab-btn svg {
+    display: block;
+    overflow: visible;
+}
+.fab-btn line {
+    stroke: var(--color-ios-orange);
+    stroke-width: 4.5;
+    stroke-linecap: round;
+}
+.fab-plus-h,
+.fab-plus-v {
+    transform-box: view-box;
+    transform-origin: 50% 50%;
+}
+.fab-clicked svg {
+    animation: fab-fadeout 0.15s ease-out forwards;
+}
+.fab-clicked .fab-plus-h {
+    animation: fab-grow-h 0.15s ease-out forwards;
+}
+.fab-clicked .fab-plus-v {
+    animation: fab-grow-v 0.15s ease-out forwards;
+}
+@keyframes fab-grow-h {
+    to {
+        transform: scaleX(1.15);
+    }
+}
+@keyframes fab-grow-v {
+    to {
+        transform: scaleY(1.15);
+    }
+}
+@keyframes fab-fadeout {
+    to {
+        opacity: 0;
+    }
+}
+
 @theme {
     --color-ios-green: #34c759;
     --color-ios-red: #ff3b30;

@@ -5,7 +5,7 @@
 <h1 align="center">FlowFlow</h1>
 
 <p align="center">
-  Voice notes app for mobile — 100% Rust, built with <a href="https://github.com/DioxusLabs/dioxus">Dioxus</a>.<br/>
+  Voice notes app for mobile - 100% Rust, built with <a href="https://github.com/DioxusLabs/dioxus">Dioxus</a>.<br/>
   Featured on <a href="https://dioxuslabs.com/awesome/">Awesome Dioxus</a>.
 </p>
 
@@ -13,58 +13,39 @@
 
 Most of my ideas come when I'm walking or between two tasks. And they vanish just as fast.
 
-FlowFlow is a voice notes app that captures what you say, transcribes it, and lets you **chat with your notes** later. You ask "what was that pricing idea?" and the right passages come up — with links to the original notes.
+FlowFlow is a voice notes app that captures what you say, transcribes it, and lets you **chat with your notes** later. You ask "what was that pricing idea?" and the right passages come up - with links to the original notes.
 
 No manual searching. No folders to dig through. Just talk, and find it later.
 
 ## What it does
 
-- **Voice capture** — tap to record, real-time waveform visualization, pause/resume, auto-transcription via Soniox
-- **Background audio + Dynamic Island Live Activity** — recording keeps going when you lock the phone or switch apps, with a live timer in the Dynamic Island
-- **Interruption handling** — auto-pause on incoming calls / FaceTime via AVAudioSession observers, auto-resume after
-- **Audio playback** — play, pause, and delete voice recordings directly from any note
-- **RAG chat** — powered by [rig](https://github.com/0xPlaygrounds/rig), ask questions about your notes and get answers with tappable source references
-- **Hybrid search** — BM25 keyword + vector similarity + RRF fusion + LLM reranking for precise retrieval
-- **Temporal queries** — ask "what did I note yesterday?" with automatic French date detection (regex + LLM fallback)
-- **Folder-scoped chat** — chat searches only within the selected folder when one is active
-- **Agent tools** — the chat agent can search notes by meaning, create new notes, or summarize entire folders autonomously
-- **AI auto-title** — LLM generates a 1-3 word title while you write, with pulse animation
-- **Auto-tagging** — LLM generates single-word tags per note, or add your own
-- **Document import** — PDF (with native OCR for scanned documents), DOCX, TXT, MD, CSV via native iOS picker
-- **Filler removal** — auto-strips hesitations (euh, um, hmm) from transcriptions so your notes read clean
-- **Local-first** — SQLite for metadata, LanceDB for semantic search, your data stays on device
+- **Voice capture** - tap to record, real-time waveform, pause/resume, auto-transcription via Soniox, background audio with a Dynamic Island live timer
+- **Multi-device sync** - encrypted LAN P2P between iPhone and Mac (Noise protocol, no server, no cloud), QR pairing, real-time UI refresh, zero data loss by design
+- **RAG chat** - powered by [rig](https://github.com/0xPlaygrounds/rig): ask questions about your notes, get answers with tappable sources; hybrid search (BM25 + vector + RRF + LLM rerank), temporal queries, folder-scoped chat, agent tools
+- **Smart reminders** - notes like "pick up the kids at 5pm" become iOS reminders, detected by LLM with one-tap confirm
+- **AI organization** - auto-title while you write, single-word auto-tags, folders with hierarchy
+- **Document import** - PDF (native OCR for scans), DOCX, TXT, MD, CSV via the native iOS picker, auto-embedded for chat
+- **Audio playback** - play, pause, delete recordings from any note; filler words (euh, um) auto-stripped from transcripts
+- **Bilingual** - English + French UI, auto-detected, switchable in Settings
+- **Local-first** - SQLite for metadata, LanceDB for vectors, your data stays on your devices
 
 ## Stack
 
-100% Rust. Zero JavaScript.
-
-The UI runs on [Dioxus](https://github.com/DioxusLabs/dioxus), a React-like framework for Rust that renders natively on iOS through WKWebView. Styling is handled by [Tailwind CSS V4](https://tailwindcss.com) — Dioxus auto-detects and compiles it, so every class just works without a separate build step.
-
-The RAG pipeline is built on [rig](https://github.com/0xPlaygrounds/rig), an LLM orchestration framework for Rust. It handles agent construction, tool calling, and OpenAI provider dispatch in a unified API. The agent gets custom tools — search notes, create notes, summarize folders — and can chain up to 4 tool calls per question before answering.
-
-Embeddings go through OpenAI's text-embedding-3-small and land in [LanceDB](https://lancedb.com), a local vector database that runs entirely on device. Cosine similarity search over chunked notes and documents, no server needed.
-
-Document import uses Apple's native PDFKit on iOS — text extraction with automatic OCR fallback for scanned documents. DOCX parsing is handled directly via zip + quick-xml, no external dependencies.
-
-The Dynamic Island Live Activity bridges Rust to Swift via a thin FFI layer over ActivityKit, so the recording timer renders natively while the audio pipeline stays in Rust.
-
-Everything async runs on [tokio](https://tokio.rs) — audio recording, API calls, embedding jobs, transcription polling. The iOS audio pipeline uses cpal for CoreAudio capture and hound for WAV encoding.
+100% Rust. Zero JavaScript. The UI is [Dioxus](https://github.com/DioxusLabs/dioxus) rendering natively on iOS and macOS; the Dynamic Island Live Activity is the only Swift, bridged via FFI.
 
 |               |                                                                                                |
 | ------------- | ---------------------------------------------------------------------------------------------- |
-| UI            | [Dioxus 0.7.9](https://github.com/DioxusLabs/dioxus) (iOS, desktop, web)                       |
+| UI            | [Dioxus 0.7.9](https://github.com/DioxusLabs/dioxus) (iOS, desktop)                            |
 | Styling       | [Tailwind CSS V4](https://tailwindcss.com)                                                     |
-| LLM           | [rig-core 0.36](https://github.com/0xPlaygrounds/rig) (OpenAI)                                 |
+| LLM           | [rig-core 0.36](https://github.com/0xPlaygrounds/rig) (OpenAI, Anthropic)                      |
 | Embeddings    | OpenAI text-embedding-3-small (1536 dims)                                                      |
 | Vector DB     | [LanceDB 0.27.2](https://lancedb.com) (local, cosine)                                          |
-| Async         | [tokio](https://tokio.rs)                                                                      |
 | Database      | SQLite ([rusqlite](https://github.com/rusqlite/rusqlite) 0.34, bundled, WAL mode)              |
+| Sync          | LAN P2P, [snow](https://github.com/mcginty/snow) (Noise XXpsk3), version vectors, tombstones   |
 | Audio         | [cpal](https://github.com/RustAudio/cpal) 0.17 + [hound](https://github.com/ruuda/hound) 3.5   |
 | Transcription | [Soniox](https://soniox.com) REST API                                                          |
-| Live Activity | ActivityKit via Swift FFI (Dynamic Island recording timer)                                     |
-| PDF           | Apple PDFKit (iOS, native OCR) / [pdf-extract](https://crates.io/crates/pdf-extract) (desktop) |
-| DOCX          | [quick-xml](https://crates.io/crates/quick-xml) + [zip](https://crates.io/crates/zip)          |
-| Icons         | [Phosphor](https://phosphoricons.com) (MIT)                                                    |
+| PDF / DOCX    | Apple PDFKit (iOS, OCR) / [pdf-extract](https://crates.io/crates/pdf-extract); quick-xml + zip |
+| Async         | [tokio](https://tokio.rs)                                                                      |
 | Min iOS       | 16.0 (aarch64-apple-ios)                                                                       |
 
 ## How it works
@@ -74,6 +55,8 @@ Talk → Record → Transcribe → Clean fillers → Auto-embed → Store → AI
 
 Later: Ask → Embed query → Hybrid search (BM25 + vector + RRF)
      → LLM rerank → Temporal boost → Tag-enriched context → Agent with tools → Answer with sources
+
+Sync:  Save → debounced trigger → Noise-encrypted LAN session → version-vector merge → UI refresh < 1 s
 ```
 
 ## Setup
@@ -89,157 +72,27 @@ API keys can be set in-app via Settings (stored in SQLite, no recompile). OpenAI
 ## Commands
 
 ```bash
-make all            # build + sign widget + icon + install (auto-renews expired profiles)
-make ddev           # dx serve --ios --device (hot reload, no widget signing)
-make dev            # dx serve --ios (simulator)
-make desktop        # dx serve --desktop (Mac window, real mic)
-make build          # cargo build --features mobile
-make format         # cargo fmt
-make check          # fmt check + clippy
-make deploy         # dx build device + icon injection
-make appstore       # release build + distribution signing + IPA
-make renew          # regenerate iOS provisioning profiles (xcodebuild)
-make check-profiles # show profile expiration dates
-make logs           # open Console.app (select iPhone, filter "FlowFlow")
-make clean          # rm target/dx
+make all          # build + sign + icon + install on iPhone
+make ddev         # dx serve --ios --device (hot reload)
+make desktop-app  # build + install the Mac app
+make check        # fmt check + clippy
+make appstore     # release build + signed IPA
 ```
 
-## iOS Device Provisioning
+Full command list in the [Makefile](Makefile).
 
-Running on a physical iPhone requires a valid provisioning profile. Apple enforces code signing for all device builds.
+## Documentation
 
-**Free Apple account**: profiles expire after 7 days. **Paid Apple Developer Program** (€99/year): profiles last 1 year, plus App Store and TestFlight access.
+Everything beyond this page lives in [`docs/INDEX.md`](docs/INDEX.md):
 
-`make all` auto-detects expiry < 24h and runs `make renew` before building. Renewal uses a minimal Xcode project template under `tools/provision-renew/` invoked via `xcodebuild -allowProvisioningUpdates`. Zero manual Xcode GUI required.
-
-```bash
-make check-profiles  # show expiration dates
-make renew           # regenerate now
-```
-
-**On your iPhone** (first time only): Settings → General → VPN & Device Management → tap your developer certificate → Trust.
-
-Once your paid Apple Developer Program is active, profiles last 1 year and `make renew` becomes a once-a-year operation.
-
-## App Store distribution
-
-`make appstore` produces a `FlowFlow.ipa` that passes Apple's validator with zero errors. The Dioxus CLI omits several keys required for App Store distribution (`CFBundlePackageType`, `DT*`, widget `UIRequiredDeviceCapabilities`, ...) and uses a `ditto` invocation that strips the `Payload/` directory; the Makefile patches all of these. Full breakdown of every Apple validation error we hit and the corresponding fix: [docs/deploy/04-dioxus-app-store-workarounds.md](docs/deploy/04-dioxus-app-store-workarounds.md). Upstream tracking: [Dioxus issue #3817](https://github.com/DioxusLabs/dioxus/issues/3817).
-
-End-to-end submission walkthrough: [docs/deploy/02-app-store-submission.md](docs/deploy/02-app-store-submission.md). Sequential execution plan: [docs/deploy/03-execution-plan.md](docs/deploy/03-execution-plan.md).
-
-### Optional: server-side IPA validation
-
-`make appstore` can call `xcrun altool --validate-app` against Apple's servers after the IPA is built, so you catch rejections (missing keys, wrong cert, version conflict) before opening Transporter. Add these to `.env`:
-
-```
-APPLE_ID=you@example.com
-APP_SPEC_PASSWORD=xxxx-xxxx-xxxx-xxxx
-```
-
-Generate the app-specific password at https://account.apple.com/account/manage/section/security → **App-Specific Passwords** → **Generate Password**. Treat it like a secret. If either env var is missing, the validation step is skipped silently and you can still drag the IPA into Transporter manually.
-
-### Troubleshooting `make appstore` after a fresh Xcode install
-
-A fresh Xcode install (e.g. upgrading 26.4.1 → 26.5 via the `.xip` from developer.apple.com) wipes the local Apple ID account, the provisioning profiles folder, and the SDK stat caches. `make appstore` will then fail with one of the errors below. The fix is sequential, do them in this order:
-
-1. **`error: No Accounts: Add a new account in Accounts settings.`**
-   Open Xcode → `cmd+,` → **Accounts** → click **+** → **Apple ID** → log in with the developer account. Your paid team (`R477R8NK27` in our case) appears automatically because the certs are already in the Keychain.
-
-2. **`No provisioning profiles found when trying to codesign the app.`**
-   Run `make renew`. This regenerates the iOS App Development profiles in `~/Library/Developer/Xcode/UserData/Provisioning Profiles/`. Verify with `make check-profiles`.
-
-3. **`ERROR: no App Store provisioning profile for com.mirkobozzetto.flowflow.`**
-   `make renew` only creates *development* profiles. The App Store *distribution* profiles must be downloaded manually from Apple Developer Portal:
-   - Go to https://developer.apple.com/account/resources/profiles/list
-   - Click **FlowFlow App Store** → **Download** → double-click the `.mobileprovision` to install it
-   - Repeat for **flowflow recording-widget**
-   - Verify: `ls ~/Library/Developer/Xcode/UserData/Provisioning\ Profiles/` should show 4 files (2 dev + 2 App Store)
-
-4. **`ClangStatCache failed with a nonzero exit code`**
-   Xcode 26.5 fresh install sometimes corrupts its SDK stat cache. Wipe it:
-   ```bash
-   rm -rf ~/Library/Developer/Xcode/DerivedData
-   rm -rf /var/folders/*/C/com.apple.DeveloperTools/26.5-*/Xcode/SDKStatCaches.noindex/
-   sudo chown -R $USER ~/Library/Developer/Xcode/DerivedData 2>/dev/null
-   ```
-   Xcode will rebuild the cache on the next invocation.
-
-5. **`Ce build utilise une version bêta de Xcode et ne peut donc pas être soumis.`** (ASC submission error)
-   The currently-active Xcode is older than the latest stable release. Update to the newest stable Xcode (App Store first, fallback to `.xip` download at https://developer.apple.com/download/all/?q=xcode), then `sudo xcode-select -s /Applications/Xcode.app/Contents/Developer` and rebuild.
-
-### Glossary
-
-- **IPA** — iOS App Archive. A signed `.ipa` is the zipped, signed bundle Apple accepts. `make appstore` builds it.
-- **ASC** — [App Store Connect](https://appstoreconnect.apple.com). Apple's web dashboard to upload builds, fill metadata, attach screenshots, and submit for review.
-- **Transporter** — [free Mac app](https://apps.apple.com/app/transporter/id1450874784) to upload an `.ipa` to ASC.
-- **Provisioning profile** — Apple signed file that authorizes your bundle ID + cert combo. Generated once at [developer.apple.com](https://developer.apple.com/account/resources/profiles/list).
-- **CFBundleVersion / CFBundleShortVersionString** — build number (must increment every upload) and user-visible version (e.g. `1.0.0`).
-- **Bundle ID** — unique app identifier (`com.mirkobozzetto.flowflow`). Tied to the provisioning profile.
-
-### Manual steps before submitting for review
-
-Everything below has to be done by hand in the App Store Connect web UI or on the simulator. Tooling cannot automate these.
-
-1. **Generate 2 review-only API keys, capped at $5 each.** Create dedicated keys (not your prod keys) for the Apple reviewer, with hard spending limits. Revoke after approval.
-   - OpenAI key: https://platform.openai.com/api-keys → spending cap at https://platform.openai.com/settings/organization/limits
-   - Soniox key: https://console.soniox.com/api-keys → top up $5 prepaid credit
-
-2. **Capture screenshots on the iOS simulator** (1284 × 2778 for iPhone 6.5" slot, or 1320 × 2868 for 6.9").
-   ```bash
-   xcrun simctl boot "iPhone 17 Pro Max"
-   xcrun simctl io booted screenshot slot-1.png
-   ```
-   Take 3 to 4 screens showing the app in English. Upload them in the iPhone slot on the ASC version page (see Quick links below).
-
-3. **Fill App Review Information** (bottom of the ASC version page):
-   - **Contact**: your first name, last name, email, phone number.
-   - **Sign-in required**: check the box, then paste the 2 review API keys + setup instructions in the Notes field. Template:
-     ```
-     FlowFlow requires 2 API keys for AI features:
-     - Soniox API Key: <paste review key>
-     - OpenAI API Key: <paste review key>
-
-     Setup: launch app → Settings (gear icon) → paste both keys.
-     AI consent screen appears on first launch, tap "Enable".
-     Microphone permission requested on first recording.
-     Keys will be revoked after approval. Please limit testing to ~5-10 transcriptions/queries.
-     ```
-
-4. **Click "Add for Review"** (top right of the version page) once every section shows a green check, then **"Submit for Review"** on the next screen. Apple usually responds within 24 to 48 hours.
-
-### Quick links (App Store dashboards)
-
-| Where | URL |
-|-------|-----|
-| App Store Connect — FlowFlow distribution | https://appstoreconnect.apple.com/apps/6773033233/distribution |
-| ASC — App Information (name, subtitle, primary language, category) | https://appstoreconnect.apple.com/apps/6773033233/distribution/info |
-| ASC — Version page (description, promo text, keywords, support URL, copyright) | https://appstoreconnect.apple.com/apps/6773033233/distribution/ios/version/inflight |
-| ASC — Privacy (policy URL + nutrition labels) | https://appstoreconnect.apple.com/apps/6773033233/distribution/privacy |
-| ASC — Age rating questionnaire | https://appstoreconnect.apple.com/apps/6773033233/distribution/ratings/ios |
-| ASC — Pricing and availability | https://appstoreconnect.apple.com/apps/6773033233/distribution/pricing |
-| ASC — Submit for review | https://appstoreconnect.apple.com/apps/6773033233/distribution/reviewsubmissions |
-| Apple Developer Portal (certs + profiles) | https://developer.apple.com/account |
-| OpenAI API keys + spending limits | https://platform.openai.com/api-keys |
-| Soniox console (API keys, billing) | https://console.soniox.com |
-| Privacy policy (live, GitHub Pages) | https://mirkobozzetto.github.io/flowflow-privacy/ |
-| Privacy policy source repo | https://github.com/mirkobozzetto/flowflow-privacy |
-
-### Push an update (continuous releases)
-
-Workflow once the app is live on the Store:
-
-1. Bump `CFBundleVersion` in `Makefile` (line 74) by `+1`. ASC rejects duplicate build numbers. Bump `CFBundleShortVersionString` only on user-visible releases (e.g. `1.0.0` → `1.0.1`).
-2. `make appstore` → fresh signed `FlowFlow.ipa`.
-3. Open Transporter → drag the `.ipa` → Deliver. Apple processes the build (5–30 min).
-4. ASC → your app → **TestFlight or App Store tab** → attach the new build to the current version, or create a new version (`+ Version` button) if you bumped the short version string.
-5. Update locale-specific metadata (description, keywords, screenshots) if needed — see *Multilingual releases* below.
-6. **Submit for Review**. Apple usually answers within 24h.
-
-### Multilingual releases
-
-The app auto-detects the iPhone system language at boot (NSLocale) and falls back to English. Users can switch language any time via Settings → Langue / Language. Supported locales: `en`, `fr`.
-
-For ASC: add **English (U.S.)** and **French (France)** under App Information → Localizations. Each locale needs its own screenshots (iPhone 6.9", 1320×2868), description, and keywords. Upload locale screenshots separately in each language tab.
+| Chapter | What you find there |
+|---------|---------------------|
+| [01 Product](docs/INDEX.md#01-product) | Vision, features, history of what shipped |
+| [02 Architecture](docs/INDEX.md#02-architecture) | Modules, pipelines, data model |
+| [03 Dev guides](docs/INDEX.md#03-dev-guides) | Build, device setup, tests |
+| [04 App Store](docs/guides/appstore.md) | Provisioning, signing, submission, troubleshooting |
+| [05 Specs](docs/INDEX.md#05-specs) | RFCs and PRDs (sync, backup, realtime UX) |
+| [06 History](docs/HISTORY.md) | Chronological log of every milestone |
 
 ## Tests
 
@@ -250,7 +103,7 @@ cargo test -- --ignored
 
 ## Status
 
-Actively developed. The codebase evolves constantly — new features, better architecture, and deeper iOS integration land regularly.
+Actively developed. The codebase evolves constantly - new features, better architecture, and deeper iOS integration land regularly.
 
 ## Contributing
 
@@ -258,4 +111,4 @@ See [CONTRIBUTING.md](CONTRIBUTING.md).
 
 ## License
 
-Copyright 2026 Mirko Bozzetto — [EUPL v1.2](LICENSE)
+Copyright 2026 Mirko Bozzetto - [EUPL v1.2](LICENSE)

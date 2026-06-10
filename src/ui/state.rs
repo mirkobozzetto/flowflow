@@ -45,4 +45,5 @@ pub struct AppState {
     pub transcription_jobs: Signal<HashMap<String, VecDeque<Job>>>,
     pub transcription_done_badge: Signal<usize>,
     pub audio_import_requested: Signal<bool>,
+    pub sync_data_version: Signal<u64>,
 }

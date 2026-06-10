@@ -71,6 +71,20 @@ pub fn ChatView() -> Element {
         );
     });
 
+    use_effect(move || {
+        let _v = (app.sync_data_version)();
+        if loading() {
+            return;
+        }
+        let Some(cid) = conversation_id() else {
+            return;
+        };
+        let fresh = load_messages_from_db(&db(), &cid);
+        if fresh != *messages.peek() {
+            messages.set(fresh);
+        }
+    });
+
     let is_empty = messages().is_empty();
     let show_menu = (app.show_chat_menu)();
 
@@ -89,7 +103,7 @@ pub fn ChatView() -> Element {
             if (app.show_folder_picker)() {
                 FolderPicker { selected: app.chat_scope_folder_id }
             }
-            div { id: "chat-messages", class: "h-full overflow-y-auto px-4 pt-4 pb-40",
+            div { id: "chat-messages", class: "h-full overflow-y-auto px-4 pt-4 safe-pb-40",
                 if is_empty && !loading() {
                     ChatEmptyState {}
                 } else {

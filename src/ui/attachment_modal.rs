@@ -32,7 +32,7 @@ pub fn AttachmentModal() -> Element {
                     IconX { size: 20 }
                 }
             }
-            div { class: "flex-1 overflow-y-auto px-4 py-3",
+            div { class: "flex-1 overflow-y-auto px-4 safe-py-3",
                 pre { class: "text-sm text-stone-800 whitespace-pre-wrap font-sans",
                     "{attachment.content_text}"
                 }

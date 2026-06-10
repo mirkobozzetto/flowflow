@@ -27,10 +27,11 @@ ddev:
 ddev-build:
 	set -a && . ./.env && IPHONEOS_DEPLOYMENT_TARGET=16.0 dx build --platform ios --device true
 	bash scripts/sign-widget.sh debug
+	bash scripts/inject-url-scheme.sh || true
 	bash scripts/inject-icon.sh || true
 
 deploy:
-	set -a && . ./.env && IPHONEOS_DEPLOYMENT_TARGET=16.0 dx build --platform ios --device true && bash scripts/inject-icon.sh
+	set -a && . ./.env && IPHONEOS_DEPLOYMENT_TARGET=16.0 dx build --platform ios --device true && bash scripts/inject-url-scheme.sh && bash scripts/inject-icon.sh
 
 # Defensive restore: if a desktop build was killed (SIGKILL/power loss) it can
 # leave Dioxus.toml stripped of the iOS widget and the original parked in
@@ -43,6 +44,7 @@ restore-ios-toml:
 all: restore-ios-toml ensure-profiles
 	set -a && . ./.env && IPHONEOS_DEPLOYMENT_TARGET=16.0 dx build --platform ios --device true
 	bash scripts/sign-widget.sh debug
+	bash scripts/inject-url-scheme.sh || true
 	bash scripts/inject-icon.sh || true
 
 check-profiles:
@@ -71,6 +73,7 @@ desktop-build: desktop-toml
 	set -a && . ./.env && set +a; \
 	trap 'mv .Dioxus.toml.ios Dioxus.toml' EXIT INT TERM; \
 	dx build --platform desktop
+	APP_PATH=target/dx/flowflow/debug/macos/Flowflow.app bash scripts/inject-desktop-icon.sh
 
 # Standalone Mac app: release build installed in /Applications, runs without
 # any dev server. Data lives in ~/Library/Application Support/FlowFlow.
@@ -78,6 +81,7 @@ desktop-app: desktop-toml
 	set -a && . ./.env && set +a; \
 	trap 'mv .Dioxus.toml.ios Dioxus.toml' EXIT INT TERM; \
 	dx build --platform desktop --release
+	APP_PATH=target/dx/flowflow/release/macos/Flowflow.app bash scripts/inject-desktop-icon.sh
 	rsync -a --delete target/dx/flowflow/release/macos/Flowflow.app/ /Applications/Flowflow.app/
 	@echo ">> Flowflow.app installed in /Applications"
 
@@ -150,6 +154,8 @@ appstore:
 	plutil -replace BuildMachineOSBuild -string $$OS_BUILD $$WPLIST 2>/dev/null || plutil -insert BuildMachineOSBuild -string $$OS_BUILD $$WPLIST; \
 	plutil -replace LSRequiresIPhoneOS -bool true $$WPLIST 2>/dev/null || plutil -insert LSRequiresIPhoneOS -bool true $$WPLIST; \
 	plutil -replace CFBundleSupportedPlatforms -json '["iPhoneOS"]' $$WPLIST 2>/dev/null || plutil -insert CFBundleSupportedPlatforms -json '["iPhoneOS"]' $$WPLIST
+	@echo ">> Registering URL scheme (release: re-sign deferred)..."
+	APP_PATH=target/dx/flowflow/release/ios/Flowflow.app bash scripts/inject-url-scheme.sh || true
 	@echo ">> Injecting icon (release: re-sign deferred)..."
 	APP_PATH=target/dx/flowflow/release/ios/Flowflow.app bash scripts/inject-icon.sh || true
 	@echo ">> Replacing main app provisioning profile with App Store distribution..."
