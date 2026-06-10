@@ -1,5 +1,6 @@
 use crate::db::Database;
 use crate::services::i18n::t;
+use crate::services::sync::deeplink;
 use crate::services::sync::peers::{self, PairingHost, PairingStatus};
 use crate::ui::AppState;
 use dioxus::prelude::*;
@@ -18,10 +19,23 @@ pub fn SyncPairingView() -> Element {
         use_signal(|| None);
     let mut joining = use_signal(|| false);
     let mut peers_version = use_signal(|| 0u32);
+    let mut scanned = use_signal(|| false);
 
     let peers_list = use_memo(move || {
         peers_version();
         db().list_peers().unwrap_or_default()
+    });
+
+    use_future(move || async move {
+        loop {
+            if let Some(uri) = deeplink::take() {
+                join_uri.set(uri);
+                scanned.set(true);
+                join_status.set(None);
+            }
+            futures_timer::Delay::new(std::time::Duration::from_millis(400))
+                .await;
+        }
     });
 
     use_future(move || async move {
@@ -136,8 +150,19 @@ pub fn SyncPairingView() -> Element {
                 h2 { class: "text-lg font-semibold text-stone-900 mb-1",
                     {t(&lang, "sync-join-title")}
                 }
-                p { class: "text-xs text-stone-500 mb-3 leading-relaxed",
-                    {t(&lang, "sync-join-hint")}
+                if scanned() {
+                    div { class: "bg-ios-orange/10 border border-ios-orange/40 rounded-xl px-3 py-2.5 mb-3",
+                        p { class: "text-sm text-stone-900 font-medium",
+                            {t(&lang, "sync-scanned-title")}
+                        }
+                        p { class: "text-xs text-stone-600 leading-relaxed mt-0.5",
+                            {t(&lang, "sync-scanned-hint")}
+                        }
+                    }
+                } else {
+                    p { class: "text-xs text-stone-500 mb-3 leading-relaxed",
+                        {t(&lang, "sync-join-hint")}
+                    }
                 }
                 textarea {
                     class: "w-full border border-stone-200 rounded-xl px-3 py-2.5 text-xs outline-none text-stone-900 bg-warm-white min-h-[72px]",
@@ -172,6 +197,7 @@ pub fn SyncPairingView() -> Element {
                             };
                             if outcome.is_ok() {
                                 peers_version += 1;
+                                scanned.set(false);
                             }
                             join_status.set(Some(outcome));
                             joining.set(false);
@@ -179,6 +205,8 @@ pub fn SyncPairingView() -> Element {
                     },
                     if joining() {
                         {t(&lang, "sync-connecting")}
+                    } else if scanned() {
+                        {t(&lang, "sync-confirm-pairing")}
                     } else {
                         {t(&lang, "sync-connect")}
                     }

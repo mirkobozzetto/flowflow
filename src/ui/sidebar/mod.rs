@@ -25,7 +25,7 @@ pub fn SidebarOverlay() -> Element {
             onclick: move |_| app.sidebar_open.set(false),
         }
         div {
-            class: "fixed left-0 top-0 w-[85vw] max-w-[340px] h-full bg-warm-white z-50 flex flex-col border-r border-stone-200 transition-transform duration-200",
+            class: "fixed left-0 top-0 w-[85vw] max-w-[340px] h-full bg-warm-white z-50 flex flex-col border-r border-stone-200 transition-transform duration-200 safe-pt",
             class: if is_open { "translate-x-0" } else { "-translate-x-full" },
             onclick: move |evt| evt.stop_propagation(),
 

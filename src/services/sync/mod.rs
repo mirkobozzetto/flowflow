@@ -1,4 +1,5 @@
 pub mod conflict;
+pub mod deeplink;
 pub mod engine;
 pub mod gc;
 pub mod peers;

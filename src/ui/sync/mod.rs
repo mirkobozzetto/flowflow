@@ -10,6 +10,10 @@ use controls::SyncControls;
 use dioxus::prelude::*;
 use pairing::SyncPairingView;
 
+pub fn pending_pairing_uri_exists() -> bool {
+    crate::services::sync::deeplink::peek().is_some()
+}
+
 #[component]
 pub fn SyncView() -> Element {
     rsx! {

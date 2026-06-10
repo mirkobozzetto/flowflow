@@ -7,7 +7,7 @@ pub struct ChatSource {
     pub created_at: String,
 }
 
-#[derive(Clone)]
+#[derive(Clone, PartialEq)]
 pub enum ChatMsg {
     User(String),
     Bot {

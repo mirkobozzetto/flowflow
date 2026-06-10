@@ -1,6 +1,30 @@
 @import "tailwindcss";
 @source "./src/**/*.{rs,html,css}";
 
+@utility safe-pb-20 {
+    padding-bottom: calc(5rem + env(safe-area-inset-bottom));
+}
+@utility safe-pb-32 {
+    padding-bottom: calc(8rem + env(safe-area-inset-bottom));
+}
+@utility safe-pb-40 {
+    padding-bottom: calc(10rem + env(safe-area-inset-bottom));
+}
+@utility safe-bottom-6 {
+    bottom: calc(1.5rem + env(safe-area-inset-bottom));
+}
+@utility safe-pt {
+    padding-top: env(safe-area-inset-top);
+}
+@utility safe-py-3 {
+    padding-top: 0.75rem;
+    padding-bottom: calc(0.75rem + env(safe-area-inset-bottom));
+}
+
+.keyboard-aware {
+    padding-bottom: calc(0.5rem + env(safe-area-inset-bottom));
+}
+
 @theme {
     --color-ios-green: #34c759;
     --color-ios-red: #ff3b30;

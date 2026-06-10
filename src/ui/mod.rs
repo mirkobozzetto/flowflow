@@ -99,6 +99,7 @@ pub fn App() -> Element {
         transcription_jobs: Signal::new(HashMap::new()),
         transcription_done_badge: Signal::new(0),
         audio_import_requested: Signal::new(false),
+        sync_data_version: Signal::new(0),
     });
 
     use_future(move || {
@@ -135,6 +136,35 @@ pub fn App() -> Element {
                     700,
                 ))
                 .await;
+            }
+        }
+    });
+
+    use_future(move || {
+        let mut app = app;
+        async move {
+            let mut last_seen = _engine.peek().data_version();
+            loop {
+                futures_timer::Delay::new(std::time::Duration::from_millis(
+                    400,
+                ))
+                .await;
+                let current_view = (app.view)();
+                if sync::pending_pairing_uri_exists()
+                    && current_view != View::SyncPairing
+                {
+                    app.previous_view.set(Some(current_view));
+                    app.view.set(View::SyncPairing);
+                }
+                let current = _engine.peek().data_version();
+                if current == last_seen {
+                    continue;
+                }
+                last_seen = current;
+                app.sync_data_version.set(current);
+                app.notes_version.set((app.notes_version)() + 1);
+                app.folders_version.set((app.folders_version)() + 1);
+                app.attachments_version.set((app.attachments_version)() + 1);
             }
         }
     });
@@ -205,7 +235,7 @@ pub fn App() -> Element {
             div { class: "h-screen w-full overflow-hidden font-sans bg-stone-100",
                 SidebarOverlay {}
                 AttachmentModal {}
-                div { class: "flex flex-col h-screen",
+                div { class: "flex flex-col h-screen safe-pt",
                     TopBar {}
                     div { class: "flex-1 overflow-hidden relative",
                         {
@@ -216,7 +246,7 @@ pub fn App() -> Element {
                             let shift_dir = if is_note { "30%" } else { "-30%" };
                             rsx! {
                                 div {
-                                    class: "absolute inset-0 overflow-y-auto px-4 py-3 pb-20",
+                                    class: "absolute inset-0 overflow-y-auto px-4 py-3 safe-pb-20",
                                     class: if is_bg { "pointer-events-none" } else { "" },
                                     style: if shifted {
                                         format!("transform: translateX({shift_dir}); opacity: 0.5; transition: transform 0.15s ease, opacity 0.15s ease;")
@@ -251,7 +281,7 @@ pub fn App() -> Element {
                         }
                         if matches!((app.view)(), View::Settings) {
                             div {
-                                class: "absolute inset-0 flex flex-col min-h-0 px-4 py-3 bg-stone-100 overflow-y-auto",
+                                class: "absolute inset-0 flex flex-col min-h-0 px-4 safe-py-3 bg-stone-100 overflow-y-auto",
                                 style: if (app.sliding_out)() {
                                     "animation: slideOutRight 0.15s ease-in forwards;"
                                 } else {
@@ -262,7 +292,7 @@ pub fn App() -> Element {
                         }
                         if matches!((app.view)(), View::SyncPairing) {
                             div {
-                                class: "absolute inset-0 flex flex-col min-h-0 px-4 py-3 bg-stone-100 overflow-y-auto",
+                                class: "absolute inset-0 flex flex-col min-h-0 px-4 safe-py-3 bg-stone-100 overflow-y-auto",
                                 style: if (app.sliding_out)() {
                                     "animation: slideOutRight 0.15s ease-in forwards;"
                                 } else {

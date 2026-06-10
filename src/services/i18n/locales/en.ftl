@@ -51,6 +51,9 @@ sync-status-conflicts = conflict(s)
 sync-status-partial = One device could not sync:
 sync-now = Sync now
 sync-no-peers-hint = Pair a device below first.
+sync-scanned-title = Code scanned
+sync-scanned-hint = The pairing code was filled in automatically. Tap Confirm to pair this device.
+sync-confirm-pairing = Confirm pairing
 sync-conflicts-title = Conflicts
 sync-conflicts-hint = Two devices edited the same data at the same time. The kept version is in your notes; here is the set-aside version, nothing is lost.
 sync-conflict-restore = Restore as note
@@ -108,6 +111,7 @@ top-bar-folder-fallback = Theme
 top-bar-all-notes = All notes
 
 note-title-placeholder = Title
+note-updated-from-peer = Note updated from another device. Tap to reload.
 note-created-on = Created on { $date }
 note-content-placeholder = Note content...
 note-transcribing-placeholder = Transcribing...

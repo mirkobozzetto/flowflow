@@ -51,6 +51,9 @@ sync-status-conflicts = conflit(s)
 sync-status-partial = Un appareil n'a pas pu se synchroniser :
 sync-now = Synchroniser maintenant
 sync-no-peers-hint = Appairez d'abord un appareil ci-dessous.
+sync-scanned-title = Code scanné
+sync-scanned-hint = Le code d'appairage a été rempli automatiquement. Touchez Confirmer pour appairer cet appareil.
+sync-confirm-pairing = Confirmer l'appairage
 sync-conflicts-title = Conflits
 sync-conflicts-hint = Deux appareils ont modifié la même donnée en même temps. La version conservée est dans vos notes ; voici la version écartée, rien n'est perdu.
 sync-conflict-restore = Restaurer en note
@@ -108,6 +111,7 @@ top-bar-folder-fallback = Thème
 top-bar-all-notes = Toutes les notes
 
 note-title-placeholder = Titre
+note-updated-from-peer = Note mise à jour depuis un autre appareil. Touchez pour recharger.
 note-created-on = Créé le { $date }
 note-content-placeholder = Contenu de la note...
 note-transcribing-placeholder = Transcription en cours...

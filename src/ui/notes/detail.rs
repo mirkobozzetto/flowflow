@@ -144,7 +144,12 @@ pub fn NoteDetail() -> Element {
 
     let mut title = use_signal(|| initial_title.clone());
     let mut content = use_signal(|| initial_content.clone());
-    let tags: Signal<Vec<String>> = use_signal(|| initial_tags.clone());
+    let mut tags: Signal<Vec<String>> = use_signal(|| initial_tags.clone());
+    let mut base_title = use_signal(|| initial_title.clone());
+    let mut base_content = use_signal(|| initial_content.clone());
+    let mut base_tags: Signal<Vec<String>> =
+        use_signal(|| initial_tags.clone());
+    let mut updated_from_peer = use_signal(|| false);
     let tag_input = use_signal(String::new);
     let tagging = use_signal(|| false);
     let deleted = use_signal(|| false);
@@ -169,6 +174,37 @@ pub fn NoteDetail() -> Element {
         if !deleted() {
             app.current_note_id.set(Some(local_note_id()));
         }
+    });
+
+    use_effect(move || {
+        let _v = (app.sync_data_version)();
+        let id = local_note_id();
+        if id.is_empty() || deleted() {
+            return;
+        }
+        let Some(fresh) = db().get_note(&id).ok().flatten() else {
+            return;
+        };
+        let fresh_title = fresh.title.clone().unwrap_or_default();
+        let changed = fresh_title != *base_title.peek()
+            || fresh.content != *base_content.peek()
+            || fresh.tags != *base_tags.peek();
+        if !changed {
+            return;
+        }
+        let dirty = title.peek().as_str() != base_title.peek().as_str()
+            || content.peek().as_str() != base_content.peek().as_str()
+            || *tags.peek() != *base_tags.peek();
+        if dirty {
+            updated_from_peer.set(true);
+            return;
+        }
+        title.set(fresh_title.clone());
+        content.set(fresh.content.clone());
+        tags.set(fresh.tags.clone());
+        base_title.set(fresh_title);
+        base_content.set(fresh.content);
+        base_tags.set(fresh.tags);
     });
 
     use_effect(move || {
@@ -224,9 +260,6 @@ pub fn NoteDetail() -> Element {
     };
 
     use_drop({
-        let orig_title = initial_title.clone();
-        let orig_content = initial_content.clone();
-        let orig_tags = initial_tags.clone();
         let orig_folder = initial_folder_id.clone();
         move || {
             if deleted() {
@@ -243,9 +276,9 @@ pub fn NoteDetail() -> Element {
             if !nid.is_empty() && t.is_empty() && c.is_empty() {
                 return;
             }
-            let title_changed = t != orig_title;
-            let content_changed = c != orig_content;
-            let tags_changed = tags() != orig_tags;
+            let title_changed = t != *base_title.peek();
+            let content_changed = c != *base_content.peek();
+            let tags_changed = tags() != *base_tags.peek();
             let folder_changed = (app.detail_folder_id)() != orig_folder;
             let has_new_audio = pa.is_some();
             let changed = title_changed
@@ -673,10 +706,29 @@ pub fn NoteDetail() -> Element {
             }
         }
         div {
-            class: "relative overflow-y-auto pb-40 px-4 pt-3",
+            class: "relative overflow-y-auto safe-pb-40 px-4 pt-3",
             style: "height: calc(100% - var(--keyboard-inset, 0px));",
             if (app.show_folder_picker)() {
                 FolderPicker { selected: app.detail_folder_id }
+            }
+            if updated_from_peer() {
+                button {
+                    class: "w-full min-h-[44px] mb-2 px-3 py-2 rounded-xl bg-ios-orange/10 border border-ios-orange/30 text-ios-orange-dark text-xs font-medium text-left active:bg-ios-orange/25",
+                    onclick: move |_| {
+                        let id = local_note_id();
+                        if let Some(fresh) = db().get_note(&id).ok().flatten() {
+                            let fresh_title = fresh.title.clone().unwrap_or_default();
+                            title.set(fresh_title.clone());
+                            content.set(fresh.content.clone());
+                            tags.set(fresh.tags.clone());
+                            base_title.set(fresh_title);
+                            base_content.set(fresh.content);
+                            base_tags.set(fresh.tags);
+                        }
+                        updated_from_peer.set(false);
+                    },
+                    {t(&lang, "note-updated-from-peer")}
+                }
             }
             div { class: "pt-2 pb-3",
                 div { class: "inline-block relative",
