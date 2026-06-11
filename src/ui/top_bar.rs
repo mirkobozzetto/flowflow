@@ -71,7 +71,7 @@ pub fn TopBar() -> Element {
                 }
             } else {
                 button {
-                    class: "relative min-w-[44px] min-h-[44px] flex items-center justify-center text-stone-700",
+                    class: "relative min-w-[44px] min-h-[44px] flex items-center justify-center text-stone-700 lg:hidden",
                     onclick: move |_| {
                         app.show_folder_picker.set(false);
                         app.sidebar_tab.set(SidebarTab::Notes);

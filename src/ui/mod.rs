@@ -261,10 +261,10 @@ pub fn App() -> Element {
         } else if (app.ai_consent)() != Some(true) {
             ConsentScreen {}
         } else {
-            div { class: "h-screen w-full overflow-hidden font-sans bg-stone-100",
+            div { class: "h-screen w-full overflow-hidden font-sans bg-stone-100 lg:flex lg:flex-row",
                 SidebarOverlay {}
                 AttachmentModal {}
-                div { class: "flex flex-col h-screen safe-pt",
+                div { class: "flex flex-col h-screen safe-pt lg:flex-1 lg:min-w-0",
                     TopBar {}
                     if index_rebuilding() {
                         div { class: "bg-ios-orange/10 border-b border-ios-orange/20 px-4 py-1.5",
@@ -289,7 +289,9 @@ pub fn App() -> Element {
                                     } else {
                                         "transform: translateX(0); opacity: 1; transition: transform 0.15s ease, opacity 0.15s ease;".to_string()
                                     },
-                                    NotesList {}
+                                    div { class: "w-full lg:max-w-3xl lg:mx-auto",
+                                        NotesList {}
+                                    }
                                 }
                             }
                         }
@@ -301,7 +303,9 @@ pub fn App() -> Element {
                                 } else {
                                     "animation: slideInFromLeft 0.15s ease-out;"
                                 },
-                                NoteDetail {}
+                                div { class: "w-full lg:max-w-3xl lg:mx-auto flex-1 flex flex-col min-h-0",
+                                    NoteDetail {}
+                                }
                             }
                         }
                         if matches!((app.view)(), View::Chat { .. }) {
@@ -312,7 +316,9 @@ pub fn App() -> Element {
                                 } else {
                                     "animation: slideInRight 0.15s ease-out;"
                                 },
-                                ChatView {}
+                                div { class: "w-full lg:max-w-3xl lg:mx-auto flex-1 flex flex-col min-h-0",
+                                    ChatView {}
+                                }
                             }
                         }
                         {
@@ -335,7 +341,9 @@ pub fn App() -> Element {
                                         } else {
                                             "animation: slideInRight 0.15s ease-out; transform: translateX(0); opacity: 1; transition: transform 0.15s ease, opacity 0.15s ease;"
                                         },
-                                        SettingsView {}
+                                        div { class: "w-full lg:max-w-2xl lg:mx-auto",
+                                            SettingsView {}
+                                        }
                                     }
                                 }
                             } else {
@@ -350,7 +358,9 @@ pub fn App() -> Element {
                                 } else {
                                     "animation: slideInRight 0.15s ease-out;"
                                 },
-                                SettingsSectionView {}
+                                div { class: "w-full lg:max-w-2xl lg:mx-auto",
+                                    SettingsSectionView {}
+                                }
                             }
                         }
                         if matches!((app.view)(), View::SyncPairing) {
@@ -361,7 +371,9 @@ pub fn App() -> Element {
                                 } else {
                                     "animation: slideInRight 0.15s ease-out;"
                                 },
-                                SyncView {}
+                                div { class: "w-full lg:max-w-2xl lg:mx-auto",
+                                    SyncView {}
+                                }
                             }
                         }
                     }

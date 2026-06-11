@@ -20,12 +20,12 @@ pub fn SidebarOverlay() -> Element {
 
     rsx! {
         div {
-            class: "fixed inset-0 bg-black/30 z-40 transition-opacity duration-200",
+            class: "fixed inset-0 bg-black/30 z-40 transition-opacity duration-200 lg:hidden",
             class: if is_open { "opacity-100" } else { "opacity-0 pointer-events-none" },
             onclick: move |_| app.sidebar_open.set(false),
         }
         div {
-            class: "fixed left-0 top-0 w-[85vw] max-w-[340px] h-full bg-warm-white z-50 flex flex-col border-r border-stone-200 transition-transform duration-200 safe-pt",
+            class: "fixed left-0 top-0 w-[85vw] max-w-[340px] h-full bg-warm-white z-50 flex flex-col border-r border-stone-200 transition-transform duration-200 safe-pt lg:static lg:translate-x-0 lg:w-72 lg:shrink-0 lg:h-screen",
             class: if is_open { "translate-x-0" } else { "-translate-x-full" },
             onclick: move |evt| evt.stop_propagation(),
 

@@ -25,7 +25,8 @@ pub fn ChatInputBar(
         || matches!(recording_state, RecordingState::Transcribed(_));
 
     rsx! {
-        div { class: "fixed bottom-0 left-0 right-0 px-4 py-2 bg-warm-white border-t border-stone-200 z-30 keyboard-aware",
+        div { class: "fixed bottom-0 left-0 right-0 px-4 py-2 bg-warm-white border-t border-stone-200 z-30 keyboard-aware lg:left-72",
+            div { class: "lg:max-w-3xl lg:mx-auto",
             if is_idle {
                 div { class: "flex items-end gap-2",
                     button {
@@ -78,6 +79,7 @@ pub fn ChatInputBar(
                 }
             } else {
                 RecordingControls { pending_audio: dummy_pending_audio, transcribe_only: true }
+            }
             }
         }
     }

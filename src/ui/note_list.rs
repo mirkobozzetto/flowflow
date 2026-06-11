@@ -71,7 +71,7 @@ pub fn NotesList() -> Element {
                 }
             }
         } else {
-            div { class: "safe-pb-32",
+            div { class: "safe-pb-32 lg:grid lg:grid-cols-2 lg:gap-2.5 lg:items-start",
                 for note in notes() {
                     NoteCard { note: note }
                 }
