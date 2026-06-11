@@ -11,7 +11,8 @@ pub fn TopBar() -> Element {
     let db: Signal<Arc<Database>> = use_context();
     let is_detail = matches!((app.view)(), View::NoteDetail { .. });
     let is_chat = matches!((app.view)(), View::Chat { .. });
-    let is_settings = matches!((app.view)(), View::Settings);
+    let is_settings =
+        matches!((app.view)(), View::Settings | View::SettingsSection(_));
     let is_sync_pairing = matches!((app.view)(), View::SyncPairing);
     let is_inner = is_detail || is_chat || is_settings || is_sync_pairing;
     let lang = (app.current_lang)();
@@ -45,6 +46,7 @@ pub fn TopBar() -> Element {
             None => t(&lang, "top-bar-all-notes"),
         },
         View::Settings => t(&lang, "sidebar-settings"),
+        View::SettingsSection(section) => t(&lang, section.title_key()),
         View::SyncPairing => t(&lang, "sync-pairing-title"),
     };
 

@@ -17,7 +17,7 @@ mod sync;
 mod top_bar;
 pub mod transcription_manager;
 
-pub use state::{AppState, SidebarTab, View};
+pub use state::{AppState, SettingsSection, SidebarTab, View};
 
 use crate::db::Database;
 use crate::services::audio::{AudioRecorder, RecordingState};
@@ -37,7 +37,7 @@ use fab::FloatingActionButton;
 use note_list::NotesList;
 use notes::NoteDetail;
 use restore_lock::RestoreLockScreen;
-use settings::SettingsView;
+use settings::{SettingsSectionView, SettingsView};
 use sidebar::SidebarOverlay;
 use sync::SyncView;
 use top_bar::TopBar;
@@ -324,6 +324,17 @@ pub fn App() -> Element {
                                     "animation: slideInRight 0.15s ease-out;"
                                 },
                                 SettingsView {}
+                            }
+                        }
+                        if matches!((app.view)(), View::SettingsSection(_)) {
+                            div {
+                                class: "absolute inset-0 flex flex-col min-h-0 px-4 safe-py-3 bg-stone-100 overflow-y-auto",
+                                style: if (app.sliding_out)() {
+                                    "animation: slideOutRight 0.15s ease-in forwards;"
+                                } else {
+                                    "animation: slideInRight 0.15s ease-out;"
+                                },
+                                SettingsSectionView {}
                             }
                         }
                         if matches!((app.view)(), View::SyncPairing) {

@@ -10,12 +10,36 @@ pub enum SidebarTab {
     Chats,
 }
 
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub enum SettingsSection {
+    General,
+    Intelligence,
+    Transcription,
+    Storage,
+    Backup,
+    Privacy,
+}
+
+impl SettingsSection {
+    pub fn title_key(self) -> &'static str {
+        match self {
+            Self::General => "settings-section-general",
+            Self::Intelligence => "settings-section-intelligence",
+            Self::Transcription => "settings-section-transcription",
+            Self::Storage => "settings-storage-title",
+            Self::Backup => "settings-backup-title",
+            Self::Privacy => "settings-section-privacy",
+        }
+    }
+}
+
 #[derive(Clone, Debug, PartialEq)]
 pub enum View {
     NotesList,
     NoteDetail { note_id: String },
     Chat { conversation_id: Option<String> },
     Settings,
+    SettingsSection(SettingsSection),
     SyncPairing,
 }
 
