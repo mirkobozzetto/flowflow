@@ -82,6 +82,8 @@ desktop-app: desktop-toml
 	trap 'mv .Dioxus.toml.ios Dioxus.toml' EXIT INT TERM; \
 	dx build --platform desktop --release
 	APP_PATH=target/dx/flowflow/release/macos/Flowflow.app bash scripts/inject-desktop-icon.sh
+	/usr/libexec/PlistBuddy -c "Set :CFBundleIdentifier com.mirkobozzetto.flowflow" target/dx/flowflow/release/macos/Flowflow.app/Contents/Info.plist 2>/dev/null || /usr/libexec/PlistBuddy -c "Add :CFBundleIdentifier string com.mirkobozzetto.flowflow" target/dx/flowflow/release/macos/Flowflow.app/Contents/Info.plist
+	codesign --force --deep --sign "Apple Development: mirko@mirko.re (3YL4GA2Y23)" target/dx/flowflow/release/macos/Flowflow.app
 	rsync -a --delete target/dx/flowflow/release/macos/Flowflow.app/ /Applications/Flowflow.app/
 	@echo ">> Flowflow.app installed in /Applications"
 
