@@ -2,6 +2,12 @@
 
 Core MVP features for FlowFlow. Cosmetic UI polish deferred — focus is on intelligence layer.
 
+> STATUS (2026-06-11): items 1-8 are SHIPPED. Item 8 (Full-text search, FTS5
+> hybrid) landed as the hybrid RAG pipeline (see `docs/rnd/10-hybrid-search.md`
+> and `src/services/rag.rs` / `vectordb.rs`). Only item 10 (REST API / web) is
+> still deferred - now specced in `docs/prd/lan-serve/`. This matrix is a
+> historical planning record.
+
 ## Priority Matrix
 
 | # | Feature | Impact | Effort | Priority |

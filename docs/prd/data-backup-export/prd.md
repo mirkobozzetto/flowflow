@@ -3,8 +3,13 @@ feature: Backup, export & restore des données FlowFlow
 slug: data-backup-export
 type: prd
 status: ready
+built: no
 stepsCompleted: [0, 1, 2, 3, 4]
 ---
+
+> NOTE (2026-06-11): spec finalisee (status: ready) mais NON implementee - zero
+> code dans `src/`. "ready" = pret a construire, pas construit. Lancer
+> `/ship docs/prd/data-backup-export/` pour implementer. RFC 0001 associee existe aussi.
 
 # PRD: Backup, export & restore des données FlowFlow
 
