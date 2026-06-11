@@ -24,6 +24,7 @@ pulldown-cmark = "0.12"
 rig-core = { version = "0.36", default-features = false, features = ["rustls"] }
 pdf-extract = "0.10"
 zip = { version = "2", default-features = false, features = ["deflate"] }
+crc32fast = "1"
 quick-xml = "0.36"
 regex = "1"
 fluent-bundle = "0.15"
@@ -35,12 +36,15 @@ getrandom = "0.2"
 qrcode = { version = "0.14.1", default-features = false, features = ["svg"] }
 sha2 = "0.10"
 
+[target.'cfg(not(target_os = "ios"))'.dependencies]
+rfd = "0.15"
+
 [target.'cfg(target_os = "ios")'.dependencies]
 objc2 = "0.6"
 block2 = "0.6"
 objc2-avf-audio = "0.3"
 objc2-foundation = { version = "0.3", features = ["NSString", "NSArray", "NSURL", "NSThread", "NSData", "NSDictionary", "NSValue", "NSNotification", "NSCalendar", "NSDate", "NSError", "NSTimeZone", "NSFileManager", "NSObjCRuntime", "NSPathUtilities", "block2"] }
-objc2-ui-kit = { version = "0.3", features = ["UIApplication", "UIDocumentPickerViewController", "UIViewController", "UINavigationController", "UINavigationItem", "UIBarButtonItem", "UIBarItem", "UIWindow", "UIResponder", "objc2-uniform-type-identifiers"] }
+objc2-ui-kit = { version = "0.3", features = ["UIApplication", "UIDocumentPickerViewController", "UIViewController", "UINavigationController", "UINavigationItem", "UIBarButtonItem", "UIBarItem", "UIWindow", "UIResponder", "UIActivityViewController", "UIActivity", "objc2-uniform-type-identifiers"] }
 objc2-uniform-type-identifiers = "0.3"
 objc2-pdf-kit = { version = "0.3", features = ["PDFDocument", "PDFPage"] }
 objc2-event-kit = { version = "0.3", default-features = false, features = ["EKEventStore", "EKReminder", "EKEvent", "EKCalendarItem", "EKObject", "EKCalendar", "EKAlarm", "EKRecurrenceRule", "EKRecurrenceEnd", "EKRecurrenceDayOfWeek", "EKTypes", "EKError", "block2"] }

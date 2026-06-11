@@ -31,7 +31,7 @@ pub struct SearchResult {
     pub created_at: String,
 }
 
-fn vectordb_path() -> String {
+pub fn vectordb_path() -> String {
     if let Ok(override_path) = std::env::var("FLOWFLOW_VECTORDB_PATH") {
         if !override_path.is_empty() {
             std::fs::create_dir_all(&override_path).ok();

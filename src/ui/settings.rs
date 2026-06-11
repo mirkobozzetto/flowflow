@@ -1,7 +1,8 @@
 use crate::db::settings_repo::LANGUAGE_KEY;
 use crate::db::Database;
 use crate::services::audio;
-use crate::services::i18n::t;
+use crate::services::backup;
+use crate::services::i18n::{t, t_args};
 use crate::ui::AppState;
 use dioxus::prelude::*;
 use std::sync::Arc;
@@ -10,6 +11,13 @@ use std::sync::Arc;
 pub fn SettingsView() -> Element {
     let db: Signal<Arc<Database>> = use_context();
     let mut app: AppState = use_context();
+    let mut backup_status: Signal<Option<String>> = use_signal(|| None);
+    let mut backup_busy = use_signal(|| false);
+    let mut pending_import: Signal<Option<backup::ValidatedImport>> =
+        use_signal(|| None);
+    let restore_error = use_signal(backup::take_restore_error);
+    let restored_pending =
+        db().get_setting("sync_restored_pending").as_deref() == Some("true");
 
     let mut openai_key =
         use_signal(|| db().get_setting("openai_api_key").unwrap_or_default());
@@ -218,6 +226,204 @@ pub fn SettingsView() -> Element {
                         app.view.set(crate::ui::View::SyncPairing);
                     },
                     {t(&lang, "settings-pair-device")}
+                }
+            }
+
+            div { class: "border-t border-stone-200 pt-4",
+                h2 { class: "text-lg font-semibold text-stone-900 mb-3",
+                    {t(&lang, "settings-backup-title")}
+                }
+                if let Some(ref err) = restore_error() {
+                    div { class: "rounded-xl border border-ios-red/40 bg-ios-red/5 p-3 mb-3",
+                        p { class: "text-xs font-medium text-ios-red mb-1",
+                            {t(&lang, "settings-restore-error-title")}
+                        }
+                        p { class: "text-xs text-stone-600 break-words", "{err}" }
+                    }
+                }
+                if restored_pending {
+                    div { class: "rounded-xl border border-ios-orange/40 bg-ios-orange/5 p-3 mb-3",
+                        p { class: "text-xs text-stone-700 mb-2",
+                            {t(&lang, "settings-repair-invite")}
+                        }
+                        button {
+                            class: "w-full py-2 rounded-xl text-sm font-medium bg-ios-orange text-white",
+                            onclick: move |_| {
+                                app.previous_view.set(Some(crate::ui::View::Settings));
+                                app.view.set(crate::ui::View::SyncPairing);
+                            },
+                            {t(&lang, "settings-repair-button")}
+                        }
+                    }
+                }
+                p { class: "text-xs text-stone-500 mb-3 leading-relaxed",
+                    {t(&lang, "settings-backup-description")}
+                }
+                if let Some(ref status) = backup_status() {
+                    p { class: "text-xs text-stone-500 text-center mb-2", "{status}" }
+                }
+                if let Some(ref import) = pending_import() {
+                    div { class: "rounded-xl border border-stone-300 bg-warm-white p-3 mb-3 space-y-2",
+                        p { class: "text-sm font-medium text-stone-800",
+                            {t_args(&lang, "settings-import-summary", &[
+                                ("notes", &import.manifest.counts.notes.to_string()),
+                                ("audio", &import.manifest.counts.audio_files.to_string()),
+                                ("conversations", &import.manifest.counts.conversations.to_string()),
+                            ])}
+                        }
+                        if import.same_lineage {
+                            p { class: "text-xs text-stone-600",
+                                {t(&lang, "settings-import-warning-same")}
+                            }
+                        } else {
+                            p { class: "text-xs font-semibold text-ios-red",
+                                {t(&lang, "settings-import-warning-other")}
+                            }
+                        }
+                        div { class: "flex gap-2",
+                            button {
+                                class: "flex-1 py-2 rounded-xl text-sm font-medium bg-ios-red text-white",
+                                onclick: {
+                                    let lang = lang.clone();
+                                    move |_| {
+                                        let Some(import) = pending_import() else { return; };
+                                        match backup::stage_import(&import) {
+                                            Ok(()) => {
+                                                pending_import.set(None);
+                                            }
+                                            Err(e) => {
+                                                backup_status.set(Some(t_args(
+                                                    &lang,
+                                                    "settings-import-error",
+                                                    &[("error", e.as_str())],
+                                                )));
+                                                pending_import.set(None);
+                                            }
+                                        }
+                                    }
+                                },
+                                {t(&lang, "settings-import-confirm")}
+                            }
+                            button {
+                                class: "flex-1 py-2 rounded-xl text-sm font-medium border border-stone-300 text-stone-600",
+                                onclick: move |_| {
+                                    let _ = std::fs::remove_dir_all(
+                                        backup::import_staging_dir(),
+                                    );
+                                    pending_import.set(None);
+                                },
+                                {t(&lang, "settings-import-cancel")}
+                            }
+                        }
+                    }
+                }
+                div { class: "space-y-2",
+                    button {
+                        class: "w-full py-2.5 rounded-xl text-sm font-medium bg-ios-orange text-white disabled:opacity-50",
+                        disabled: backup_busy(),
+                        onclick: {
+                            let lang = lang.clone();
+                            move |_| {
+                                if backup_busy() || backup::restore_lock_active() {
+                                    return;
+                                }
+                                backup_busy.set(true);
+                                backup_status.set(Some(t(&lang, "settings-exporting")));
+                                let lang = lang.clone();
+                                spawn(async move {
+                                    let result: Result<(), String> = async {
+                                        let store =
+                                            crate::services::vectordb::VectorStore::open()
+                                                .await?;
+                                        let archive =
+                                            backup::export_archive(&db(), &store).await?;
+                                        #[cfg(target_os = "ios")]
+                                        {
+                                            crate::platform::ios::share_file(&archive)?;
+                                            backup_status.set(None);
+                                        }
+                                        #[cfg(not(target_os = "ios"))]
+                                        {
+                                            match backup::save_archive_dialog(&archive)? {
+                                                Some(_) => backup_status.set(Some(
+                                                    t(&lang, "settings-export-saved"),
+                                                )),
+                                                None => backup_status.set(Some(
+                                                    t(&lang, "settings-export-cancelled"),
+                                                )),
+                                            }
+                                        }
+                                        Ok(())
+                                    }
+                                    .await;
+                                    if let Err(e) = result {
+                                        backup_status.set(Some(t_args(
+                                            &lang,
+                                            "settings-export-error",
+                                            &[("error", e.as_str())],
+                                        )));
+                                    }
+                                    backup_busy.set(false);
+                                });
+                            }
+                        },
+                        {t(&lang, "settings-export")}
+                    }
+                    button {
+                        class: "w-full py-2.5 rounded-xl text-sm font-medium border border-stone-300 text-stone-700 disabled:opacity-50",
+                        disabled: backup_busy(),
+                        onclick: {
+                            let lang = lang.clone();
+                            move |_| {
+                                if backup_busy() || backup::restore_lock_active() {
+                                    return;
+                                }
+                                backup_busy.set(true);
+                                backup_status
+                                    .set(Some(t(&lang, "settings-import-validating")));
+                                let lang = lang.clone();
+                                spawn(async move {
+                                    let picked: Option<std::path::PathBuf>;
+                                    #[cfg(target_os = "ios")]
+                                    {
+                                        picked = crate::platform::ios::open_file_picker(
+                                            &["zip"],
+                                        )
+                                        .await
+                                        .and_then(|v| v.into_iter().next());
+                                    }
+                                    #[cfg(not(target_os = "ios"))]
+                                    {
+                                        picked = rfd::FileDialog::new()
+                                            .add_filter("FlowFlow backup", &["zip"])
+                                            .pick_file();
+                                    }
+                                    let Some(path) = picked else {
+                                        backup_status.set(None);
+                                        backup_busy.set(false);
+                                        return;
+                                    };
+                                    let live_id = db().get_setting("sync_device_id");
+                                    match backup::validate_archive(
+                                        &path,
+                                        live_id.as_deref(),
+                                    ) {
+                                        Ok(v) => {
+                                            backup_status.set(None);
+                                            pending_import.set(Some(v));
+                                        }
+                                        Err(e) => backup_status.set(Some(t_args(
+                                            &lang,
+                                            "settings-import-error",
+                                            &[("error", e.as_str())],
+                                        ))),
+                                    }
+                                    backup_busy.set(false);
+                                });
+                            }
+                        },
+                        {t(&lang, "settings-import")}
+                    }
                 }
             }
 

@@ -10,6 +10,7 @@ use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
 use std::sync::{Arc, Once};
 
 static CHECKPOINT_OBSERVER: Once = Once::new();
+static RESTORE_FOREGROUND_OBSERVER: Once = Once::new();
 
 // UIBackgroundTaskInvalid (UIKit, linked): the sentinel UIApplication returns
 // when no background time can be granted, and the value endBackgroundTask
@@ -117,6 +118,31 @@ fn protect_path(path: &str) {
             }
         }
     }
+}
+
+pub fn observe_restore_foreground() {
+    RESTORE_FOREGROUND_OBSERVER.call_once(|| unsafe {
+        let name =
+            NSString::from_str("UIApplicationWillEnterForegroundNotification");
+        let block = block2::RcBlock::new(
+            |_n: std::ptr::NonNull<objc2_foundation::NSNotification>| {
+                if crate::services::backup::pending_restore_dir()
+                    .join(crate::services::backup::DB_ENTRY_PATH)
+                    .exists()
+                {
+                    crate::services::backup::activate_restore_lock();
+                }
+            },
+        );
+        let center = NSNotificationCenter::defaultCenter();
+        center.addObserverForName_object_queue_usingBlock(
+            Some(&name),
+            None,
+            None,
+            &block,
+        );
+        eprintln!("[backup] restore foreground observer registered");
+    });
 }
 
 // RFC 0004 T16: checkpoint the WAL when the app moves to the background so a

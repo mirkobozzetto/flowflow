@@ -45,3 +45,7 @@ Mac build without the iOS widget, durable data dir in Application Support.
 ## 2026-06 - Sync realtime UX (PRD sync-realtime-ux, issues #22 #23 #24)
 
 Real-time UI refresh after inbound sync (< 1 s, global data-version signal), edit-collision banner with zero keystroke loss, full safe-area support (viewport-fit=cover, top + bottom insets), QR pairing via the flowflow:// URL scheme (camera scan -> prefilled one-tap confirm, cold-start included). Device-validated. See [prd/sync-realtime-ux/](prd/sync-realtime-ux/).
+
+## 2026-06 - Backup, export & restore (RFC 0001, issue #33)
+
+One-tap export of all data as a single archive (scrubbed SQLite snapshot with vectors as BLOBs + WAV files + CRC manifest) via the iOS share sheet or macOS save dialog; API keys, Noise keys and pairings never leave the device. Import = read-only validation, then a crash-safe atomic swap at next cold launch (fault-injection tested at every state), vector index rebuilt offline. Sync protocol v3 reconverges without resurrections: restored flag + floor exemption + HLC guard + confirmed re-pairing. 249 tests. See [rfcs/0001-data-backup-export/](rfcs/0001-data-backup-export/).

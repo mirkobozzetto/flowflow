@@ -22,6 +22,7 @@ use dioxus::desktop::{tao, WindowBuilder};
 use dioxus::mobile::{tao, WindowBuilder};
 
 fn main() {
+    flowflow::services::backup::apply_pending_restore_or_abort();
     dotenvy::dotenv().ok();
     #[cfg(target_os = "ios")]
     flowflow::platform::ios::configure_audio_session();

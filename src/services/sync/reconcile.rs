@@ -6,6 +6,17 @@ use std::collections::HashSet;
 
 const BACKFILL_FLAG: &str = "chunks_backfilled_v10";
 
+static RECONCILE_RUNNING: std::sync::atomic::AtomicBool =
+    std::sync::atomic::AtomicBool::new(false);
+
+pub fn reconcile_running() -> bool {
+    RECONCILE_RUNNING.load(std::sync::atomic::Ordering::SeqCst)
+}
+
+pub fn is_backfilled(db: &Database) -> bool {
+    db.get_setting(BACKFILL_FLAG).as_deref() == Some("true")
+}
+
 fn parse_att_owner(id: &str) -> Option<String> {
     let mut parts = id.splitn(3, ':');
     let kind = parts.next()?;
@@ -215,6 +226,15 @@ pub fn run_boot_reconcile() {
 // the next boot.
 pub fn spawn_reconcile_pass() {
     std::thread::spawn(move || {
+        RECONCILE_RUNNING.store(true, std::sync::atomic::Ordering::SeqCst);
+        struct RunningGuard;
+        impl Drop for RunningGuard {
+            fn drop(&mut self) {
+                RECONCILE_RUNNING
+                    .store(false, std::sync::atomic::Ordering::SeqCst);
+            }
+        }
+        let _guard = RunningGuard;
         let rt = match tokio::runtime::Runtime::new() {
             Ok(r) => r,
             Err(e) => {

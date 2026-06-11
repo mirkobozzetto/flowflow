@@ -3,8 +3,13 @@ feature: Serveur LAN, exposer notes et backup sur le réseau local
 slug: lan-serve
 type: prd
 status: ready
+built: no
 stepsCompleted: [0, 1, 2, 3, 4]
 ---
+
+> NOTE (2026-06-11): spec finalisee (status: ready) mais NON implementee - zero
+> code dans `src/`. "ready" = pret a construire, pas construit. Lancer
+> `/ship docs/prd/lan-serve/` pour implementer (ou `/rfc` d'abord si le design technique doit etre tranche).
 
 # PRD: Serveur LAN, exposer notes et backup sur le réseau local
 

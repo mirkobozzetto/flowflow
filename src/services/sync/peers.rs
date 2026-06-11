@@ -131,6 +131,41 @@ fn psk_key(device_id: &str) -> String {
     format!("{PSK_KEY_PREFIX}{device_id}")
 }
 
+pub const REBIND_OK_PREFIX: &str = "sync_rebind_ok_";
+pub const REBIND_AT_PREFIX: &str = "sync_rebind_at_";
+pub const REBIND_ROTATION_WINDOW_DAYS: i64 = 7;
+pub const REBIND_REFUSED_MARKER: &str = "rebind requires explicit confirmation";
+
+pub fn key_fingerprint(pubkey_b64: &str) -> String {
+    use sha2::{Digest, Sha256};
+    let mut hasher = Sha256::new();
+    hasher.update(pubkey_b64.as_bytes());
+    let digest = hasher.finalize();
+    digest[..4].iter().map(|b| format!("{b:02x}")).collect()
+}
+
+pub fn authorize_rebind(
+    db: &Database,
+    device_id: &str,
+) -> Result<(), SyncError> {
+    db.set_setting(&format!("{REBIND_OK_PREFIX}{device_id}"), "true")
+        .map_err(SyncError::Pairing)
+}
+
+pub fn rebind_recently_rotated(db: &Database, device_id: &str) -> bool {
+    let Some(at) = db
+        .get_setting(&format!("{REBIND_AT_PREFIX}{device_id}"))
+        .filter(|v| !v.is_empty())
+    else {
+        return false;
+    };
+    let Ok(parsed) = chrono::DateTime::parse_from_rfc3339(&at) else {
+        return false;
+    };
+    let age = chrono::Utc::now() - parsed.with_timezone(&chrono::Utc);
+    age.num_days() < REBIND_ROTATION_WINDOW_DAYS
+}
+
 // Bind a peer's device_id to its static key, atomically with its PSK.
 // Refuses an empty device_id and refuses to overwrite an existing peer whose
 // stored static key differs (a peer claiming another peer's id would otherwise
@@ -150,9 +185,31 @@ fn bind_peer(
         db.get_peer(device_id).map_err(SyncError::Pairing)?
     {
         if existing.static_pubkey != encoded_pub {
-            return Err(SyncError::Pairing(
-                "device_id already paired with a different key".into(),
-            ));
+            let ok_key = format!("{REBIND_OK_PREFIX}{device_id}");
+            if db.get_setting(&ok_key).as_deref() != Some("true") {
+                return Err(SyncError::Pairing(format!(
+                    "device_id already paired with a different key \
+                     (known {}, presented {}): {REBIND_REFUSED_MARKER}",
+                    key_fingerprint(&existing.static_pubkey),
+                    key_fingerprint(&encoded_pub),
+                )));
+            }
+            let _ = db.set_setting(&ok_key, "");
+            super::gc::clear_peer_ack(db, device_id);
+            if rebind_recently_rotated(db, device_id) {
+                eprintln!(
+                    "[sync] WARNING: repeated key rotation for {device_id} - \
+                     possibly a cloned identity (one backup = one lineage)"
+                );
+            }
+            let _ = db.set_setting(
+                &format!("{REBIND_AT_PREFIX}{device_id}"),
+                &crate::db::now_iso(),
+            );
+            eprintln!(
+                "[sync] confirmed rebind of {device_id}: peer row preserved, \
+                 ack book cleared"
+            );
         }
     }
     db.persist_pairing(

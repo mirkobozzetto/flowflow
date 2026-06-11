@@ -41,7 +41,7 @@ pub const DEFAULT_BATCH_ROWS: usize = 100;
 // v2: HELLO carries next_seq; full-state sessions (T19) push every row by
 // rowid and may author dominating tombstones. A v1 peer half-running those
 // semantics could resurrect deleted rows, so the version gate stays hard.
-pub const PROTOCOL_VERSION: i64 = 2;
+pub const PROTOCOL_VERSION: i64 = 3;
 
 use super::SyncError;
 

@@ -3,8 +3,13 @@ feature: Outils agentiques sortants (webhook, MCP distant, Google Calendar)
 slug: agentic-tools
 type: prd
 status: ready
+built: no
 stepsCompleted: [0, 1, 2, 3, 4]
 ---
+
+> NOTE (2026-06-11): spec finalisee (status: ready) mais NON implementee - zero
+> code dans `src/` (les tools restent search/create/summarize). "ready" = pret a
+> construire, pas construit. Lancer `/ship docs/prd/agentic-tools/` pour implementer.
 
 # PRD: Outils agentiques sortants (webhook, MCP distant, Google Calendar)
 

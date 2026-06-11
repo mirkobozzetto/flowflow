@@ -11,10 +11,62 @@ use base64::Engine as _;
 use std::io::{Read, Write};
 use std::net::TcpListener;
 
+pub const RESTORED_PENDING_KEY: &str = "sync_restored_pending";
+pub const RESTORED_FLOOR_KEY: &str = "sync_restored_floor";
+pub const RESTORED_DONE_PREFIX: &str = "sync_restored_done_";
+
 fn my_device_id(db: &Database) -> Result<String, SyncError> {
     db.get_setting(DEVICE_ID_KEY)
         .filter(|v| !v.is_empty())
         .ok_or_else(|| proto_err("device_id missing"))
+}
+
+fn my_restored_floor(
+    db: &Database,
+    peer_device: &str,
+) -> Result<Option<i64>, SyncError> {
+    if db.get_setting(RESTORED_PENDING_KEY).as_deref() != Some("true") {
+        return Ok(None);
+    }
+    let done_key = format!("{RESTORED_DONE_PREFIX}{peer_device}");
+    if db.get_setting(&done_key).as_deref() == Some("true") {
+        return Ok(None);
+    }
+    let floor = db
+        .get_setting(RESTORED_FLOOR_KEY)
+        .and_then(|v| v.parse::<i64>().ok())
+        .unwrap_or(0);
+    Ok(Some(floor))
+}
+
+fn complete_restored_session(
+    db: &Database,
+    peer_device: &str,
+) -> Result<(), SyncError> {
+    db.set_setting(&format!("{RESTORED_DONE_PREFIX}{peer_device}"), "true")
+        .map_err(SyncError::Protocol)?;
+    let peers = db.list_peers().map_err(SyncError::Protocol)?;
+    let all_done = peers.iter().all(|p| {
+        db.get_setting(&format!("{RESTORED_DONE_PREFIX}{}", p.device_id))
+            .as_deref()
+            == Some("true")
+    });
+    if all_done {
+        let conn = db.conn();
+        conn.execute(
+            "DELETE FROM settings WHERE key IN (?1, ?2)
+             OR substr(key, 1, ?3) = ?4",
+            rusqlite::params![
+                RESTORED_PENDING_KEY,
+                RESTORED_FLOOR_KEY,
+                RESTORED_DONE_PREFIX.len() as i64,
+                RESTORED_DONE_PREFIX,
+            ],
+        )
+        .map_err(|e| sql_err("clear restored marker", e))?;
+        log("restore obligations settled with every paired peer: marker cleared");
+    }
+    Ok(())
 }
 
 fn my_next_seq(db: &Database, my_device: &str) -> Result<i64, SyncError> {
@@ -40,6 +92,7 @@ fn my_hello(db: &Database, peer_device: &str) -> Result<Msg, SyncError> {
         last_acked_seq: peer.last_acked_seq,
         gc_horizon: peer.gc_horizon,
         next_seq,
+        restored: my_restored_floor(db, peer_device)?.is_some(),
     })
 }
 
@@ -49,6 +102,7 @@ struct PeerHello {
     last_acked_seq: i64,
     gc_horizon: i64,
     next_seq: i64,
+    restored: bool,
 }
 
 fn expect_hello(msg: Msg) -> Result<PeerHello, SyncError> {
@@ -59,15 +113,39 @@ fn expect_hello(msg: Msg) -> Result<PeerHello, SyncError> {
             last_acked_seq,
             gc_horizon,
             next_seq,
+            restored,
         } => Ok(PeerHello {
             protocol_version,
             device_id,
             last_acked_seq,
             gc_horizon,
             next_seq,
+            restored,
         }),
         _ => Err(proto_err("expected HELLO")),
     }
+}
+
+fn expect_restored_floor(msg: Msg) -> Result<i64, SyncError> {
+    match msg {
+        Msg::RestoredFloor { floor } => Ok(floor),
+        _ => Err(proto_err("expected RESTORED_FLOOR")),
+    }
+}
+
+fn send_my_floor_if_restored<S: Read + Write>(
+    chan: &mut SecureChannel<S>,
+    db: &Database,
+    peer_device: &str,
+) -> Result<bool, SyncError> {
+    if let Some(floor) = my_restored_floor(db, peer_device)? {
+        send_msg(chan, &Msg::RestoredFloor { floor })?;
+        log(&format!(
+            "declared restored to {peer_device} (floor {floor})"
+        ));
+        return Ok(true);
+    }
+    Ok(false)
 }
 
 // Session-level decisions, taken on BOTH sides right after the HELLO
@@ -111,12 +189,14 @@ fn plan_session(
     // tombstone GC. Overwrites (a restored peer's ack legitimately regresses).
     gc::record_peer_ack(db, peer_device, hello.last_acked_seq)
         .map_err(SyncError::Protocol)?;
+    let me_declared = my_restored_floor(db, peer_device)?.is_some();
+    let peer_declared = hello.restored;
     let me_restored = hello.last_acked_seq > my_next_seq(db, my_device)?;
     let peer_restored = peer.last_acked_seq > hello.next_seq;
     let me_stale_gc = peer.last_acked_seq < hello.gc_horizon;
     let peer_stale_gc = hello.last_acked_seq < peer.gc_horizon;
-    let me_broken = me_restored || me_stale_gc;
-    let peer_broken = peer_restored || peer_stale_gc;
+    let me_broken = me_restored || me_stale_gc || me_declared;
+    let peer_broken = peer_restored || peer_stale_gc || peer_declared;
     if me_restored {
         reseed_after_restore(db, my_device, hello.last_acked_seq)?;
     }
@@ -124,7 +204,8 @@ fn plan_session(
     if full_state {
         log(&format!(
             "full-state session with {peer_device} (me: restored={me_restored} \
-             missed_gc={me_stale_gc}, peer: restored={peer_restored} \
+             declared={me_declared} missed_gc={me_stale_gc}, peer: \
+             restored={peer_restored} declared={peer_declared} \
              missed_gc={peer_stale_gc})"
         ));
     }
@@ -134,6 +215,12 @@ fn plan_session(
             full_state,
             authority: peer_broken && !me_broken,
             peer_acked_of_mine: hello.last_acked_seq,
+            restored_session: me_restored
+                || peer_restored
+                || me_declared
+                || peer_declared,
+            exempt_floor: None,
+            peer_device: peer_device.to_string(),
         },
     })
 }
@@ -154,6 +241,33 @@ fn reseed_after_restore(
     let tx = conn
         .unchecked_transaction()
         .map_err(|e| sql_err("reseed tx", e))?;
+    let old_floor: Option<i64> = tx
+        .query_row(
+            "SELECT value FROM settings WHERE key = ?1",
+            [RESTORED_FLOOR_KEY],
+            |r| r.get::<_, String>(0),
+        )
+        .ok()
+        .and_then(|v| v.parse().ok());
+    if let Some(old_floor) = old_floor {
+        let below: i64 = tx
+            .query_row(
+                "SELECT COUNT(*) FROM sync_row_meta
+                 WHERE origin_device = ?1 AND origin_seq <= ?2",
+                rusqlite::params![my_device, old_floor],
+                |r| r.get(0),
+            )
+            .map_err(|e| sql_err("reseed floor count", e))?;
+        let new_floor = peer_acked + below;
+        tx.execute(
+            "UPDATE settings SET value = ?2 WHERE key = ?1",
+            rusqlite::params![RESTORED_FLOOR_KEY, new_floor.to_string()],
+        )
+        .map_err(|e| sql_err("reseed floor remap", e))?;
+        log(&format!(
+            "restore floor remapped {old_floor} -> {new_floor} with the reseed"
+        ));
+    }
     tx.execute(
         "WITH ranked AS (
             SELECT rowid AS rid,
@@ -363,7 +477,14 @@ pub fn sync_with_peer(
     if hello.device_id != peer_device {
         return Err(proto_err("peer HELLO identity mismatch"));
     }
-    let plan = plan_session(db, &identity.device_id, peer_device, &hello)?;
+    let peer_floor = if hello.restored {
+        Some(expect_restored_floor(recv_msg(&mut chan)?)?)
+    } else {
+        None
+    };
+    let mut plan = plan_session(db, &identity.device_id, peer_device, &hello)?;
+    plan.ctx.exempt_floor = peer_floor;
+    let i_declared = send_my_floor_if_restored(&mut chan, db, peer_device)?;
     let mut stats = SyncStats::default();
     push_phase(
         &mut chan,
@@ -383,6 +504,9 @@ pub fn sync_with_peer(
         None,
         &mut stats,
     )?;
+    if i_declared {
+        complete_restored_session(db, peer_device)?;
+    }
     log(&format!(
         "session done with {peer_device}: pushed {} applied {} \
          skipped {} conflicts {}",
@@ -435,8 +559,14 @@ pub fn serve_sync_once(
     if hello.device_id != hint.device_id {
         return Err(proto_err("peer HELLO does not match sync hint"));
     }
-    let plan = plan_session(db, &identity.device_id, &hint.device_id, &hello)?;
+    let mut plan =
+        plan_session(db, &identity.device_id, &hint.device_id, &hello)?;
     send_msg(&mut chan, &my_hello(db, &hint.device_id)?)?;
+    let i_declared = send_my_floor_if_restored(&mut chan, db, &hint.device_id)?;
+    if hello.restored {
+        plan.ctx.exempt_floor =
+            Some(expect_restored_floor(recv_msg(&mut chan)?)?);
+    }
     let mut stats = SyncStats::default();
     recv_all(
         &mut chan,
@@ -456,6 +586,9 @@ pub fn serve_sync_once(
         batch_rows,
         &mut stats,
     )?;
+    if i_declared {
+        complete_restored_session(db, &hint.device_id)?;
+    }
     log(&format!(
         "served {}: pushed {} applied {} skipped {} conflicts {}",
         hint.device_id,

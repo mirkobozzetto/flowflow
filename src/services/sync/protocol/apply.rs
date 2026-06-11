@@ -8,7 +8,7 @@ use crate::services::sync::conflict::{
     archive_conflict, decide, write_merged_meta, ArchivedChunk, MergeOutcome,
     VersionInfo,
 };
-use crate::services::sync::vv::{parse_vv, vv_join};
+use crate::services::sync::vv::{parse_vv, vv_cmp, vv_join};
 use crate::services::sync::SyncError;
 use base64::engine::general_purpose::URL_SAFE_NO_PAD;
 use base64::Engine as _;
@@ -32,6 +32,9 @@ pub(super) struct ApplyCtx {
     pub full_state: bool,
     pub authority: bool,
     pub peer_acked_of_mine: i64,
+    pub restored_session: bool,
+    pub exempt_floor: Option<i64>,
+    pub peer_device: String,
 }
 
 struct LocalMeta {
@@ -620,7 +623,20 @@ fn apply_row(
         // intentionally catches a row the restored peer created BETWEEN its
         // restore and this session (indistinguishable by construction): it
         // lands in the archive instead of resurrecting a deleted row.
-        if ctx.authority && row.deleted == 0 {
+        let post_restore_creation = ctx
+            .exempt_floor
+            .map(|floor| {
+                row.origin_device == ctx.peer_device && row.origin_seq > floor
+            })
+            .unwrap_or(false);
+        if ctx.authority && row.deleted == 0 && post_restore_creation {
+            log(&format!(
+                "full-state: {}:{} authored above the restore floor -> \
+                 genuine post-restore creation, exempted from re-delete",
+                row.entity_kind, row.entity_id
+            ));
+        }
+        if ctx.authority && row.deleted == 0 && !post_restore_creation {
             archive_conflict(
                 conn,
                 &row.entity_kind,
@@ -676,6 +692,11 @@ fn apply_row(
             origin_device: &row.origin_device,
         },
     );
+    let outcome = if ctx.restored_session {
+        hlc_guard(outcome, &local, row)
+    } else {
+        outcome
+    };
     // T19 add-wins-over-delete: before letting a remote tombstone win (by
     // dominance OR by tie-break), check for locally-alive children the
     // deleting device has never seen. Such an addition is concurrent with
@@ -829,6 +850,61 @@ fn apply_row(
     Ok(())
 }
 
+fn hlc_after(candidate: Option<&str>, baseline: Option<&str>) -> bool {
+    match (candidate, baseline) {
+        (Some(c), Some(b)) => c > b,
+        (Some(_), None) => true,
+        _ => false,
+    }
+}
+
+fn hlc_guard(
+    outcome: MergeOutcome,
+    local: &LocalMeta,
+    row: &SyncRow,
+) -> MergeOutcome {
+    let dominated_but_newer = match &outcome {
+        MergeOutcome::AlreadyCurrent => {
+            hlc_after(row.updated_hlc.as_deref(), local.updated_hlc.as_deref())
+        }
+        MergeOutcome::TakeRemote => {
+            hlc_after(local.updated_hlc.as_deref(), row.updated_hlc.as_deref())
+        }
+        MergeOutcome::Concurrent { .. } => false,
+    };
+    if !dominated_but_newer {
+        return outcome;
+    }
+    let (local_vv, corrupt_local) = parse_vv(&local.version_vector);
+    let (remote_vv, corrupt_remote) = parse_vv(&row.version_vector);
+    if corrupt_local || corrupt_remote {
+        return outcome;
+    }
+    if matches!(
+        vv_cmp(&local_vv, &remote_vv),
+        crate::services::sync::vv::Dominance::Equal
+    ) {
+        return outcome;
+    }
+    let remote_newer =
+        hlc_after(row.updated_hlc.as_deref(), local.updated_hlc.as_deref());
+    log(&format!(
+        "hlc guard: dominated-but-newer on {}:{} -> Concurrent (archive + \
+         tie-break) instead of silent {}",
+        row.entity_kind,
+        row.entity_id,
+        if remote_newer { "skip" } else { "overwrite" }
+    ));
+    MergeOutcome::Concurrent {
+        remote_wins: remote_newer
+            || (row.updated_hlc.as_deref(), row.origin_device.as_str())
+                > (local.updated_hlc.as_deref(), local.origin_device.as_str()),
+        joined: vv_join(&local_vv, &remote_vv),
+        corrupt_local: false,
+        corrupt_remote: false,
+    }
+}
+
 pub(super) fn current_watermark(
     conn: &Connection,
     peer_device: &str,
@@ -883,14 +959,7 @@ pub(super) fn apply_batch(
         return current_watermark(&conn, peer_device);
     }
     for row in rows {
-        // Incremental: a peer only ever pushes rows it authored. A row
-        // claiming another origin would corrupt that origin's watermark
-        // accounting (and a row claiming MY origin could shadow my own seqs).
-        // Full-state (T19): the peer replays its WHOLE table, which contains
-        // my own rows verbatim; those are legitimate (and how a restored
-        // device gets its lost data back). Anything else stays refused.
-        let origin_ok = row.origin_device == peer_device
-            || (ctx.full_state && row.origin_device == my_device);
+        let origin_ok = row.origin_device == peer_device || ctx.full_state;
         if !origin_ok {
             return Err(proto_err(format!(
                 "row {}:{} claims origin '{}' but the authenticated peer \

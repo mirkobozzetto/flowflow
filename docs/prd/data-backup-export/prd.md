@@ -3,8 +3,15 @@ feature: Backup, export & restore des données FlowFlow
 slug: data-backup-export
 type: prd
 status: ready
+built: no
 stepsCompleted: [0, 1, 2, 3, 4]
 ---
+
+> NOTE (2026-06-11): spec finalisee (status: ready) mais NON implementee - zero
+> code dans `src/`. "ready" = pret a construire, pas construit. La RFC 0001 (revision 2,
+> post-sync RFC 0004) porte le design technique a jour et ETEND le scope au desktop
+> macOS (decide avec Mirko le 2026-06-11). Implementer via
+> `/ship docs/rfcs/0001-data-backup-export/RFC.md` une fois la RFC Accepted.
 
 # PRD: Backup, export & restore des données FlowFlow
 
@@ -102,7 +109,8 @@ personnelle de l'utilisateur, l'absence de backup est un risque produit majeur.
 
 ## Constraints & assumptions
 
-- iOS uniquement, 100% Rust/Dioxus, hors-ligne, aucun backend ni cloud tiers.
+- iOS + desktop macOS (scope étendu le 2026-06-11, l'app desktop n'existait pas à la
+  rédaction initiale), 100% Rust/Dioxus, hors-ligne, aucun backend ni cloud tiers.
 - L'archive transite par le partage natif iOS et le picker de fichiers existant.
 - Cible: utilisateurs finaux App Store (robustesse et UX sans outil dev requis).
 - Toutes les données vivent sous le dossier Documents de l'app (préservé par iOS sur update).

@@ -2,6 +2,37 @@ use crate::db::Database;
 
 pub const LANGUAGE_KEY: &str = "language";
 
+pub const SENSITIVE_SETTINGS: &[&str] = &[
+    "openai_api_key",
+    "anthropic_api_key",
+    "soniox_api_key",
+    "sync_static_privkey",
+    "sync_static_pubkey",
+];
+
+pub const SENSITIVE_SETTING_PREFIXES: &[&str] = &["sync_psk_"];
+
+pub const DEVICE_LOCAL_SETTINGS: &[&str] =
+    &["ai_consent", "sync_restored_pending", "sync_restored_floor"];
+
+pub const DEVICE_LOCAL_SETTING_PREFIXES: &[&str] = &[
+    "sync_peer_addr_",
+    "sync_peer_acked_by_",
+    "sync_restored_done_",
+    "sync_rebind_",
+];
+
+pub fn is_excluded_from_backup(key: &str) -> bool {
+    SENSITIVE_SETTINGS.contains(&key)
+        || DEVICE_LOCAL_SETTINGS.contains(&key)
+        || SENSITIVE_SETTING_PREFIXES
+            .iter()
+            .any(|p| key.starts_with(p))
+        || DEVICE_LOCAL_SETTING_PREFIXES
+            .iter()
+            .any(|p| key.starts_with(p))
+}
+
 impl Database {
     pub fn get_setting(&self, key: &str) -> Option<String> {
         let conn = self.conn();

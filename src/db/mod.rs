@@ -133,6 +133,21 @@ pub fn migrate_legacy_temp_data(
     }
 }
 
+pub fn current_schema_version() -> i64 {
+    MIGRATIONS.iter().map(|(v, _)| *v).max().unwrap_or(0)
+}
+
+pub fn raw_db_path() -> PathBuf {
+    #[cfg(target_os = "ios")]
+    {
+        crate::platform::ios::documents_dir().join("flowflow.db")
+    }
+    #[cfg(not(target_os = "ios"))]
+    {
+        desktop_data_dir().join("flowflow.db")
+    }
+}
+
 pub fn now_iso() -> String {
     chrono::Utc::now()
         .format("%Y-%m-%dT%H:%M:%S%.3fZ")

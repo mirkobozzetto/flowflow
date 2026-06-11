@@ -1,5 +1,11 @@
 # 10 — Hybrid Search & LLM Reranking
 
+> SHIPPED (2026-06-11). This plan is fully implemented; the "Current Pipeline"
+> section below is no longer current. Live code: `src/services/rag.rs`
+> (`llm_rerank`, RRF fallback order, temporal regex + LLM boost, date filter,
+> dedup) and `src/services/vectordb.rs` (`ensure_fts_index`, `hybrid_search` =
+> FTS keyword + vector). Kept as the design record, not a TODO.
+
 Implementation plan for upgrading FlowFlow RAG from pure vector search to hybrid retrieval with adaptive source count.
 
 ## Current Pipeline
