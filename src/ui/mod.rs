@@ -315,10 +315,15 @@ pub fn App() -> Element {
                                 ChatView {}
                             }
                         }
-                        if matches!((app.view)(), View::Settings | View::SettingsSection(_)) {
-                            {
-                                let in_section = matches!((app.view)(), View::SettingsSection(_));
-                                let sliding_back = (app.sliding_out)();
+                        {
+                            let view_now = (app.view)();
+                            let pairing_from_settings = matches!(view_now, View::SyncPairing)
+                                && (app.previous_view)() == Some(View::Settings);
+                            let settings_stack = matches!(view_now, View::Settings | View::SettingsSection(_))
+                                || pairing_from_settings;
+                            let in_section = settings_stack && !matches!(view_now, View::Settings);
+                            let sliding_back = (app.sliding_out)();
+                            if settings_stack {
                                 rsx! {
                                     div {
                                         class: "absolute inset-0 flex flex-col min-h-0 px-4 safe-py-3 bg-stone-100 overflow-y-auto",
@@ -333,6 +338,8 @@ pub fn App() -> Element {
                                         SettingsView {}
                                     }
                                 }
+                            } else {
+                                rsx! {}
                             }
                         }
                         if matches!((app.view)(), View::SettingsSection(_)) {
