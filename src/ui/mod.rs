@@ -9,6 +9,7 @@ mod note_card;
 mod note_list;
 mod notes;
 mod recording;
+mod restore_lock;
 mod settings;
 mod sidebar;
 mod state;
@@ -35,6 +36,7 @@ use consent::ConsentScreen;
 use fab::FloatingActionButton;
 use note_list::NotesList;
 use notes::NoteDetail;
+use restore_lock::RestoreLockScreen;
 use settings::SettingsView;
 use sidebar::SidebarOverlay;
 use sync::SyncView;
@@ -44,12 +46,26 @@ use top_bar::TopBar;
 pub fn App() -> Element {
     let _db = use_context_provider(|| {
         let db = Arc::new(Database::open().expect("Failed to open database"));
-        db.cleanup_orphan_audio(&crate::services::audio::output_dir());
+        if crate::services::backup::restore_recovery_window_active() {
+            eprintln!(
+                "[backup] orphan audio cleanup skipped (recovery window)"
+            );
+        } else {
+            db.cleanup_orphan_audio(&crate::services::audio::output_dir());
+        }
+        crate::services::backup::finalize_restore_bak();
         run_boot_reconcile();
         #[cfg(target_os = "ios")]
-        crate::platform::ios::sync_ffi::observe_background_checkpoint();
+        {
+            crate::platform::ios::sync_ffi::observe_background_checkpoint();
+            crate::platform::ios::sync_ffi::observe_restore_foreground();
+        }
         Signal::new(db)
     });
+
+    let mut restore_locked =
+        use_signal(crate::services::backup::restore_lock_active);
+    let mut index_rebuilding = use_signal(|| false);
 
     let _engine: Signal<Arc<SyncEngine>> =
         use_context_provider(|| Signal::new(SyncEngine::start(_db())));
@@ -149,6 +165,17 @@ pub fn App() -> Element {
                     400,
                 ))
                 .await;
+                let lock_now = crate::services::backup::restore_lock_active();
+                if *restore_locked.peek() != lock_now {
+                    restore_locked.set(lock_now);
+                }
+                let rebuilding =
+                    crate::services::backup::restore_recovery_window_active()
+                        && crate::services::sync::reconcile::reconcile_running(
+                        );
+                if *index_rebuilding.peek() != rebuilding {
+                    index_rebuilding.set(rebuilding);
+                }
                 let current_view = (app.view)();
                 if sync::pending_pairing_uri_exists()
                     && current_view != View::SyncPairing
@@ -229,7 +256,9 @@ pub fn App() -> Element {
     rsx! {
         document::Stylesheet { href: asset!("/assets/tailwind.css") }
 
-        if (app.ai_consent)() != Some(true) {
+        if restore_locked() {
+            RestoreLockScreen {}
+        } else if (app.ai_consent)() != Some(true) {
             ConsentScreen {}
         } else {
             div { class: "h-screen w-full overflow-hidden font-sans bg-stone-100",
@@ -237,6 +266,13 @@ pub fn App() -> Element {
                 AttachmentModal {}
                 div { class: "flex flex-col h-screen safe-pt",
                     TopBar {}
+                    if index_rebuilding() {
+                        div { class: "bg-ios-orange/10 border-b border-ios-orange/20 px-4 py-1.5",
+                            p { class: "text-xs text-ios-orange text-center",
+                                {crate::services::i18n::t(&(app.current_lang)(), "restore-banner-rebuilding")}
+                            }
+                        }
+                    }
                     div { class: "flex-1 overflow-hidden relative",
                         {
                             let is_bg = !matches!((app.view)(), View::NotesList);

@@ -4,6 +4,7 @@ mod pdf;
 mod picker;
 mod player;
 pub mod reminders;
+mod share;
 pub mod sync_ffi;
 
 use objc2_avf_audio::{
@@ -88,6 +89,7 @@ pub use parsers::read_file_as_text;
 pub use pdf::extract as read_pdf_text;
 pub use picker::{open_audio_picker, open_file_picker};
 pub use player::{is_playing, play_audio, stop_audio};
+pub use share::share_file;
 
 pub fn hide_keyboard_accessory() {
     unsafe {

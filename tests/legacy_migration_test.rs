@@ -6,7 +6,8 @@ use tempfile::tempdir;
 
 fn seed_legacy_db(dir: &std::path::Path) -> Connection {
     let conn = Connection::open(dir.join("flowflow.db")).expect("open legacy");
-    conn.pragma_update(None, "journal_mode", "WAL").expect("wal");
+    conn.pragma_update(None, "journal_mode", "WAL")
+        .expect("wal");
     conn.execute("CREATE TABLE notes (id TEXT PRIMARY KEY, content TEXT)", [])
         .expect("schema");
     conn.execute(
@@ -67,7 +68,10 @@ fn migration_cleans_stale_staging_from_a_crash() {
     let count: i64 = migrated
         .query_row("SELECT COUNT(*) FROM notes", [], |r| r.get(0))
         .expect("count");
-    assert_eq!(count, 1, "migration must complete despite the stale staging");
+    assert_eq!(
+        count, 1,
+        "migration must complete despite the stale staging"
+    );
 }
 
 #[test]

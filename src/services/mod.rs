@@ -1,5 +1,6 @@
 pub mod ai;
 pub mod audio;
+pub mod backup;
 pub mod constants;
 pub mod embed;
 pub mod error;

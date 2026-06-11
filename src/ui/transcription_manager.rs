@@ -53,6 +53,10 @@ impl TranscriptionManager {
     }
 
     pub fn enqueue(&self, note_id: String, file_path: PathBuf) {
+        if crate::services::backup::restore_lock_active() {
+            eprintln!("[import] restore pending: transcription refused");
+            return;
+        }
         let job = Job {
             id: uuid::Uuid::new_v4().to_string(),
             note_id: note_id.clone(),
@@ -126,6 +130,10 @@ impl TranscriptionManager {
     }
 
     pub fn resume_pending(&self) {
+        if crate::services::backup::restore_lock_active() {
+            eprintln!("[import] restore pending: pending transcriptions held");
+            return;
+        }
         for row in self.db.list_pending_transcriptions() {
             let job = Job {
                 id: uuid::Uuid::new_v4().to_string(),
@@ -147,6 +155,9 @@ impl TranscriptionManager {
     }
 
     fn kick(&self, note_id: String) {
+        if crate::services::backup::restore_lock_active() {
+            return;
+        }
         {
             let mut g = self.reg.lock().unwrap();
             if g.active.contains(&note_id) {

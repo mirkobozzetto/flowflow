@@ -185,6 +185,10 @@ impl SyncEngine {
     fn serve_loop(self: Arc<Self>, mut listener: TcpListener) {
         let mut accept_failures = 0u32;
         loop {
+            if crate::services::backup::restore_lock_active() {
+                eprintln!("[sync] restore pending: inbound listener stopped");
+                return;
+            }
             match serve_sync_once(&self.db, &listener, DEFAULT_BATCH_ROWS, None)
             {
                 Ok(outcome) => {
@@ -262,6 +266,9 @@ impl SyncEngine {
     // Debounced save trigger: every save arms a fresh generation; only the
     // last one still standing after the quiet period actually syncs.
     pub fn schedule_debounced(self: &Arc<Self>) {
+        if crate::services::backup::restore_lock_active() {
+            return;
+        }
         let gen = self.debounce_gen.fetch_add(1, Ordering::SeqCst) + 1;
         let engine = self.clone();
         std::thread::spawn(move || {
@@ -278,6 +285,10 @@ impl SyncEngine {
     // arrived after its last snapshot - a save committed mid-pass is always
     // covered by a pass that started after it.
     pub fn sync_now_blocking(self: &Arc<Self>) {
+        if crate::services::backup::restore_lock_active() {
+            eprintln!("[sync] restore pending: outbound pass skipped");
+            return;
+        }
         self.pending.store(true, Ordering::SeqCst);
         let Ok(_guard) = self.session_lock.try_lock() else {
             return;

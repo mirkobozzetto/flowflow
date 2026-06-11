@@ -31,6 +31,11 @@ pub(super) enum Msg {
         // force the full-state session both sides will agree on (T19).
         #[serde(default)]
         next_seq: i64,
+        #[serde(default)]
+        restored: bool,
+    },
+    RestoredFloor {
+        floor: i64,
     },
     Push {
         rows: Vec<SyncRow>,
