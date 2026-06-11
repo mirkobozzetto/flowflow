@@ -21,6 +21,7 @@ No manual searching. No folders to dig through. Just talk, and find it later.
 
 - **Voice capture** - tap to record, real-time waveform, pause/resume, auto-transcription via Soniox, background audio with a Dynamic Island live timer
 - **Multi-device sync** - encrypted LAN P2P between iPhone and Mac (Noise protocol, no server, no cloud), QR pairing, real-time UI refresh, zero data loss by design
+- **Backup & restore** - export everything (notes, audio, vectors) as one archive via the share sheet, API keys and pairing secrets never leave the device; import is a validated, crash-safe atomic replace, and sync reconverges without resurrecting deleted notes
 - **RAG chat** - powered by [rig](https://github.com/0xPlaygrounds/rig): ask questions about your notes, get answers with tappable sources; hybrid search (BM25 + vector + RRF + LLM rerank), temporal queries, folder-scoped chat, agent tools
 - **Smart reminders** - notes like "pick up the kids at 5pm" become iOS reminders, detected by LLM with one-tap confirm
 - **AI organization** - auto-title while you write, single-word auto-tags, folders with hierarchy
@@ -57,6 +58,9 @@ Later: Ask → Embed query → Hybrid search (BM25 + vector + RRF)
      → LLM rerank → Temporal boost → Tag-enriched context → Agent with tools → Answer with sources
 
 Sync:  Save → debounced trigger → Noise-encrypted LAN session → version-vector merge → UI refresh < 1 s
+
+Backup: Export → scrubbed SQLite snapshot + WAV + manifest (zip) → share
+        Import → read-only validation → atomic swap at next launch → vector index rebuilt offline
 ```
 
 ## Setup
