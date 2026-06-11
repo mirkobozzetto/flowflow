@@ -26,8 +26,8 @@ settings-revoke-consent = Révoquer le consentement
 settings-sync-title = Synchronisation
 settings-sync-description = Appairez vos appareils sur le même réseau Wi-Fi. Les données voyagent directement entre eux, chiffrées, jamais via un serveur.
 settings-pair-device = Appairer un appareil
-settings-section-general = Général
-settings-section-intelligence = Intelligence
+settings-section-general = Langue
+settings-section-intelligence = IA
 settings-section-transcription = Transcription
 settings-section-privacy = Confidentialité
 

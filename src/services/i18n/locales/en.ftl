@@ -26,8 +26,8 @@ settings-revoke-consent = Revoke consent
 settings-sync-title = Sync
 settings-sync-description = Pair your devices on the same Wi-Fi network. Data travels directly between them, encrypted, never through a server.
 settings-pair-device = Pair a device
-settings-section-general = General
-settings-section-intelligence = Intelligence
+settings-section-general = Language
+settings-section-intelligence = AI
 settings-section-transcription = Transcription
 settings-section-privacy = Privacy
 

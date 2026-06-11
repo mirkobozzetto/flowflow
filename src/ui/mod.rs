@@ -315,15 +315,24 @@ pub fn App() -> Element {
                                 ChatView {}
                             }
                         }
-                        if matches!((app.view)(), View::Settings) {
-                            div {
-                                class: "absolute inset-0 flex flex-col min-h-0 px-4 safe-py-3 bg-stone-100 overflow-y-auto",
-                                style: if (app.sliding_out)() {
-                                    "animation: slideOutRight 0.15s ease-in forwards;"
-                                } else {
-                                    "animation: slideInRight 0.15s ease-out;"
-                                },
-                                SettingsView {}
+                        if matches!((app.view)(), View::Settings | View::SettingsSection(_)) {
+                            {
+                                let in_section = matches!((app.view)(), View::SettingsSection(_));
+                                let sliding_back = (app.sliding_out)();
+                                rsx! {
+                                    div {
+                                        class: "absolute inset-0 flex flex-col min-h-0 px-4 safe-py-3 bg-stone-100 overflow-y-auto",
+                                        class: if in_section && !sliding_back { "pointer-events-none" } else { "" },
+                                        style: if sliding_back && !in_section {
+                                            "animation: slideOutRight 0.15s ease-in forwards;"
+                                        } else if in_section && !sliding_back {
+                                            "animation: slideInRight 0.15s ease-out; transform: translateX(-30%); opacity: 0.5; transition: transform 0.15s ease, opacity 0.15s ease;"
+                                        } else {
+                                            "animation: slideInRight 0.15s ease-out; transform: translateX(0); opacity: 1; transition: transform 0.15s ease, opacity 0.15s ease;"
+                                        },
+                                        SettingsView {}
+                                    }
+                                }
                             }
                         }
                         if matches!((app.view)(), View::SettingsSection(_)) {

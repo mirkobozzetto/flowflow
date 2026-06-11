@@ -14,7 +14,6 @@ pub fn GeneralSettings() -> Element {
     rsx! {
         div { class: "space-y-6 pb-20",
             div {
-                h2 { class: "text-lg font-semibold text-stone-900 mb-3", {t(&lang, "settings-language-section")} }
                 div { class: "flex gap-2",
                     button {
                         class: if lang == "en" {
