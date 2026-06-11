@@ -2,10 +2,11 @@
 rfc_id: "0005"
 slug: "pluggable-transcription-providers-with-local-whisper-models"
 title: "Pluggable transcription providers with local Whisper models"
-status: Draft
+status: Accepted
 author: "Mirko Bozzetto"
 created: "2026-06-11"
 updated: "2026-06-11"
+accepted: "2026-06-11"
 stepsCompleted: [0, 1, 2, 3, 4, 5, 6, 7, 9]
 finalized: "2026-06-11"
 tasks_count: 10
@@ -15,6 +16,7 @@ confidence: medium-high
 drawbacks_count: 5
 risks_count: 6
 open_questions_count: 6
+open_questions_decided: [1, 3, 4, 5]
 rollout_strategy: "settings_gated_default_unchanged"
 base_alternative: "Alt 2 enum dispatch facade"
 impact_risk: medium
@@ -33,7 +35,7 @@ skip_review: false
 
 **Problem:** Speech-to-text is hard-wired to the Soniox cloud API: no offline dictation, a privacy gap against the "Stay private" positioning, and a single-vendor dependency on the app's core input path.
 
-**Recommendation:** Add a `TranscriptionClient` enum-dispatch facade (mirroring the existing LlmClient Provider pattern) with two backends: Soniox unchanged and WhisperLocal (whisper-rs 0.16, spike-validated on iOS) plus an in-app ggml model manager. Confidence medium-high; the only gating unknown is real-iPhone latency/memory, answered by benchmark task T01 before any other work.
+**Recommendation:** Add a `TranscriptionClient` enum-dispatch facade (mirroring the existing LlmClient Provider pattern) with two backends: Soniox unchanged and WhisperLocal (whisper-rs 0.16, spike-validated on iOS) plus an in-app ggml model manager (5-model catalog, user choice, no silent default). Confidence medium-high; the only gating unknown is real-iPhone latency/memory, answered by benchmark task T01 which gates the merge (not the implementation, since Q1 removed the default-model dependency).
 
 **Impact:** 14 modules touched (3 new), one additive SQLite migration, no breaking change (provider defaults to Soniox), +2.2 MB binary, 10 tasks, ~4-day critical path; main risks are device performance and Metal runtime behavior on iOS, both front-loaded into T01.
 
@@ -202,16 +204,16 @@ flowchart LR
 |------|--------|-----|
 | `src/services/transcription/provider.rs` | new | `SttProvider` enum (Soniox, WhisperLocal) + `TranscriptionClient` facade: `from_db`, `provider()`, `transcribe(path, lang)` |
 | `src/services/transcription/whisper.rs` | new | `WhisperLocal::transcribe`: hound WAV decode, mono mixdown, linear resample to 16 kHz, whisper-rs FullParams greedy, language auto |
-| `src/services/transcription/models.rs` | new | model manager: const CATALOG (tiny, base, small-q5_1: id, filename, HF URL, size), `list_local`, `download(id, progress_cb)`, `delete(id)`, `default_model()`; temp-file + rename on completed download; refuse download if free disk < 2x model size |
+| `src/services/transcription/models.rs` | new | model manager: const CATALOG (tiny 74 MB, base 141 MB, small-q5_1 181 MB, medium-q5_0 514 MB, large-v3-turbo-q5_0 547 MB: id, filename, HF URL, exact byte size, pinned sha256), `list_local`, `download(id, progress_cb)`, `delete(id)`, `active_model()`; temp-file + sha256 check + rename on completed download; refuse download if free disk < 2x model size |
 | `src/services/transcription/client.rs` | untouched | Soniox stays byte-for-byte identical |
 | `src/services/transcription/mod.rs` | modified | re-export provider, models |
-| `src/services/constants.rs` | modified | whisper catalog constants (URLs, sizes), models subdir name |
+| `src/services/constants.rs` | modified | whisper catalog constants (URLs, exact sizes, sha256), models subdir name |
 | `src/db/settings_repo.rs` | modified | known keys: `stt_provider` (soniox / whisper_local), `whisper_model` (catalog id) |
 | `src/db/schema.rs` | modified | migration VN+1: `pending_transcriptions` gains `provider TEXT NOT NULL DEFAULT 'soniox'`, remote ids nullable for local jobs |
 | `src/ui/transcription_manager.rs` | modified | `client_from_db` returns the facade; `process_front` branches once on `client.provider()`: Soniox keeps the existing upload/poll/resume pipeline verbatim; WhisperLocal runs `transcribe` with `Polling{elapsed_s}` ticks from a watch channel, resume = re-run from file |
 | `src/ui/recording/controls.rs` | modified | swap `SonioxClient::from_db` for `TranscriptionClient::from_db` (1 line) |
 | `src/ui/notes/audio_section.rs` | modified | same 1-line swap |
-| `src/ui/settings/transcription.rs` | modified | provider picker (Cloud Soniox / Local Whisper); Soniox key form when cloud; model cards when local: name, size, state (absent / downloading % / downloaded), actions download, delete, set default |
+| `src/ui/settings/transcription.rs` | modified | provider picker (Cloud Soniox / Local Whisper); Soniox key form when cloud; model cards when local: name, size, quality hint, state (absent / downloading % / downloaded), actions download (size-confirm dialog per Q4), delete, set active |
 | `src/services/backup.rs` | modified | exclude `models/whisper/` from export archive (same policy as API keys: device-local artifacts) |
 | `src/services/i18n/locales/{en,fr}.ftl` | modified | model manager strings |
 | `Cargo.toml` | modified | whisper-rs 0.16 (metal feature on apple targets) |
@@ -229,12 +231,12 @@ flowchart LR
 ### Flows
 Dictation (local): stop recording -> WAV -> `transcribe` -> spawn_blocking whisper -> clean -> append to note (UI unchanged).
 Import (local): enqueue -> facade -> watch-channel ticks map to `JobStatus::Polling{elapsed_s}` -> Done -> cleanup_file. Relaunch mid-job: pending row with provider=whisper_local and retained WAV -> re-enqueue from scratch.
-Download: Settings -> model card Download -> reqwest stream to `.part` with progress callback -> rename -> card flips to downloaded; single concurrent download enforced by the manager.
+Download: Settings -> model card Download -> size-confirm dialog (Q4) -> reqwest stream to `.part` with progress callback -> sha256 verify (Q5) -> rename -> card flips to downloaded; single concurrent download enforced by the manager.
 
 ### Cross-cutting
 - Concurrency: one whisper transcription at a time (model context is heavyweight); a tokio `Semaphore(1)` in whisper.rs.
 - Memory: context loaded per transcribe call in v1 (spike: ~170 ms warm load); caching the context is a later optimization.
-- Consent: the existing global AI-consent gate stays; local provider does not bypass it in v1 (simplification, revisit if it confuses users).
+- Consent: the existing global AI-consent gate applies to every provider, local included (Q3 decided: single uniform consent flow, no bypass).
 - Offline: with WhisperLocal selected and model present, airplane mode works end to end; Soniox-specific errors disappear from that path.
 - iOS binary: +2.2 MB (spike); IPHONEOS_DEPLOYMENT_TARGET stays 16.0.
 
@@ -242,7 +244,7 @@ Download: Settings -> model card Download -> reqwest stream to `.part` with prog
 
 ### Drawbacks (inherent)
 - New C/C++ build dependency: whisper-rs builds whisper.cpp via cmake on every target; CI and `make all` get slower, and cmake becomes a required toolchain item.
-- App data can grow by 74-466 MB per downloaded model on an iPhone; users will see FlowFlow's storage footprint jump.
+- App data can grow by 74-547 MB per downloaded model on an iPhone; users will see FlowFlow's storage footprint jump.
 - Two STT engines to maintain and test (Soniox API drift on one side, whisper-rs/ggml version churn on the other).
 - Local accuracy on tiny/base is below Soniox; users who pick the smallest model will get worse transcripts than today and may blame the app.
 - Per-call model load (~170 ms warm, seconds cold) adds latency the cloud path never had on short clips.
@@ -253,7 +255,7 @@ Download: Settings -> model card Download -> reqwest stream to `.part` with prog
 |------|-----------|--------|------------|
 | iPhone latency or thermal pressure unacceptable on minute-long notes (spike ran on Mac M-series only) | medium | high | device benchmark task FIRST in impl plan, before any UI work; abort or downscope to base model if bad |
 | Metal shader runtime issue on iOS (GGML_METAL_EMBED_LIBRARY not set by whisper-rs-sys for the iOS build) | medium | medium | on-device smoke test early; fallback to CPU inference (still works, slower) |
-| Memory pressure: small model (~1 GB peak inference) jetsammed on older iPhones | medium | medium | default catalog entry = base; small-q5_1 flagged "for recent devices"; Semaphore(1) already bounds concurrency |
+| Memory pressure: medium/large-turbo models jetsammed on older iPhones | medium | medium | per-model quality/size hints in the UI (heavy models flagged "for recent devices"); user picks knowingly (Q1); Semaphore(1) already bounds concurrency |
 | HuggingFace download blocked / slow / file moved | low | medium | size check after download, `.part` temp + rename, retry button; URLs in constants.rs so a hotfix is one line |
 | whisper.cpp cross-compile breaks on a future Xcode/cmake update | low | medium | pin whisper-rs 0.16; the spike project under /tmp is reproducible as a canary |
 | App Review questions the 181 MB in-app download | low | low | standard practice (every local-AI app does it); download is user-initiated with size shown |
@@ -265,18 +267,18 @@ Download: Settings -> model card Download -> reqwest stream to `.part` with prog
 
 ## 8. Open Questions
 
-| # | Question | Owner | Deadline |
-|---|----------|-------|----------|
-| 1 | Default catalog model: base (fast, mediocre FR) or small-q5_1 (good FR, 181 MB, more RAM)? | Mirko | before impl T03 (settings UI) |
-| 2 | On-iPhone latency/memory for 1-5 min notes: acceptable? | Mirko + bench task T01 | blocker for everything after T01 |
-| 3 | Should local transcription bypass the global AI-consent gate (it is not a third-party service)? | Mirko | before merge, copy change only |
-| 4 | Cellular guard for downloads: hard Wi-Fi-only, or just show size and let the user decide? | Mirko | before impl T03 |
-| 5 | Checksum validation of downloaded ggml files (pin sha256 in catalog) or size-only check? | Mirko | before impl T02 |
-| 6 | Language hint: keep auto-detect, or pass the app language as Whisper language hint for better FR accuracy? | bench task T01 | with Q2 |
+| # | Question | Owner | Status |
+|---|----------|-------|--------|
+| 1 | Default catalog model? | Mirko | DECIDED 2026-06-11: no single default. Multi-model catalog, the user chooses what to download and which model is active; the best current model (large-v3-turbo quantized) must be available. UI shows a per-model quality/size hint instead of a hard default. |
+| 2 | On-iPhone latency/memory for 1-5 min notes: acceptable? | Mirko + bench task T01 | OPEN: merge gate. T01 harness ships with the feature; Mirko runs it on his iPhone; no merge until numbers are acceptable. Q1's user-choice decision removes the default-model dependency, so implementation may proceed in parallel with the bench. |
+| 3 | Should local transcription bypass the global AI-consent gate? | Mirko | DECIDED 2026-06-11: no bypass. The consent gate applies to every provider, local included; single uniform consent flow. |
+| 4 | Cellular guard for downloads: hard Wi-Fi-only, or show size and let the user decide? | Mirko | DECIDED 2026-06-11: show the model size and ask for confirmation before download; no network-type detection. |
+| 5 | Checksum validation of downloaded ggml files? | Mirko | DECIDED 2026-06-11: sha256 pinned per catalog entry (verified against the HF LFS OIDs on 2026-06-11), checked after download before rename. |
+| 6 | Language hint: keep auto-detect, or pass the app language as Whisper language hint for better FR accuracy? | bench task T01 | OPEN: answered by T01 (run the bench both ways on the FR fixture). |
 
 ## 9. Recommendation & Rationale
 
-**Recommendation:** Adopt **Alt 2 (enum dispatch facade mirroring LlmClient)** as designed in section 6, with the on-device benchmark as the first, gating implementation task.
+**Recommendation:** Adopt **Alt 2 (enum dispatch facade mirroring LlmClient)** as designed in section 6, with the on-device benchmark (T01) as the merge gate; implementation proceeds in parallel since Q1 (decided: user-choice catalog) removed the bench-to-default dependency.
 
 **Confidence:** medium-high: compile feasibility, binary size, and desktop quality/latency are spike-proven; the single remaining unknown that could downgrade scope (not invalidate the design) is real-iPhone latency/memory, and the plan gates on it first.
 
@@ -306,9 +308,9 @@ Download: Settings -> model card Download -> reqwest stream to `.part` with prog
 
 | ID | Title | Files | Depends on | Effort | Accept criteria |
 |----|-------|-------|------------|--------|-----------------|
-| T01 | Device benchmark spike (GATING) | throwaway branch: whisper.rs + hardcoded model sideloaded | none | M | 60 s FR note transcribed on Mirko's iPhone with base AND small-q5_1; time, peak RSS, thermal noted on #30; GO/NO-GO + Q1/Q2/Q6 answered |
-| T02 | Model manager service | `services/transcription/models.rs`, `constants.rs` | T01 | M | catalog list/download(.part+rename)/delete/default on tempdir; disk guardrail (2x size) tested; size check post-download |
-| T03 | Whisper backend | `services/transcription/whisper.rs`, `Cargo.toml` | T01 | M | WAV 44.1k stereo -> mono 16k -> transcript on desktop test with tiny model fixture; Semaphore(1) enforced |
+| T01 | Device benchmark (MERGE gate) | bench harness shipped with the feature | none | M | harness transcribes a 60 s FR note with at least base and small-q5_1, reporting time + RSS; Mirko runs it on his iPhone and posts numbers on #30; answers Q2/Q6; NO MERGE before acceptable numbers. Q1 decided 2026-06-11 (user choice) so T02+ proceed in parallel |
+| T02 | Model manager service | `services/transcription/models.rs`, `constants.rs` | none | M | 5-model catalog (incl. large-v3-turbo-q5_0) list/download(.part+sha256+rename)/delete/active on tempdir; disk guardrail (2x size) tested; sha256 + size check post-download |
+| T03 | Whisper backend | `services/transcription/whisper.rs`, `Cargo.toml` | none | M | WAV 44.1k stereo -> mono 16k -> transcript on desktop test with tiny model fixture; Semaphore(1) enforced |
 | T04 | Facade + settings keys | `services/transcription/provider.rs`, `mod.rs`, `db/settings_repo.rs` | T02, T03 | S | from_db defaults to Soniox when keys absent; WhisperLocal errors clearly when model missing; dispatch unit tests |
 | T05 | Migration pending_transcriptions.provider | `db/schema.rs` | none (parallel with T02/T03) | XS | migration test: old rows read with default soniox; new local row roundtrips |
 | T06 | Swap call sites dictation + manual | `ui/recording/controls.rs`, `ui/notes/audio_section.rs` | T04 | XS | both paths compile and work with provider=soniox exactly as before (no behavior diff) |
@@ -321,10 +323,9 @@ Download: Settings -> model card Download -> reqwest stream to `.part` with prog
 
 ```mermaid
 graph TD
-  T01[T01 device bench GATING] --> T02[T02 model manager]
-  T01 --> T03[T03 whisper backend]
-  T02 --> T04[T04 facade + settings]
-  T03 --> T04
+  T01[T01 device bench MERGE GATE] -.merge gate.-> T10
+  T02[T02 model manager] --> T04[T04 facade + settings]
+  T03[T03 whisper backend] --> T04
   T05[T05 migration] --> T07
   T04 --> T06[T06 swap call sites]
   T04 --> T07[T07 job manager local]
@@ -341,11 +342,11 @@ graph TD
 - Unit: T02 (model CRUD on tempdir), T03 (resample + decode), T04 (dispatch, missing-model error), T05 (migration).
 - Integration: T07 job lifecycle including relaunch resume.
 - Manual/device: T01 benchmark, T08 download UX, T10 airplane-mode end-to-end.
-- Perf gate: T01 numbers decide default model (Q1) before any UI exists.
+- Perf gate: T01 numbers (Mirko's iPhone) answer Q2/Q6 and calibrate the per-model quality/size hints; the branch does not merge before they are acceptable.
 
 ### Timeline
-- Critical path: T01 -> T03 -> T04 -> T07 -> T10, about 4 days; T02/T05 parallel with T03; T08/T09 parallel with T07.
-- With 30% buffer: ~5-6 days.
+- Critical path: T03 -> T04 -> T07 -> T10, about 3-4 days; T01/T02/T05 parallel with T03; T08/T09 parallel with T07; T01 device numbers gate the merge.
+- With 30% buffer: ~5 days.
 
 ## 11. Review Findings
 _TBD: step-08 (optional)_

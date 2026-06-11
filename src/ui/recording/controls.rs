@@ -1,7 +1,7 @@
 use crate::db::Database;
 use crate::services::audio::{self, AudioRecorder, RecordingState};
 use crate::services::i18n::t;
-use crate::services::transcription::SonioxClient;
+use crate::services::transcription::TranscriptionClient;
 use crate::ui::icons::*;
 use crate::ui::recording::Waveform;
 use crate::ui::AppState;
@@ -27,7 +27,7 @@ fn spawn_transcription(
     cleanup: bool,
 ) {
     spawn(async move {
-        let client = match SonioxClient::from_db(&db) {
+        let client = match TranscriptionClient::from_db(&db) {
             Ok(c) => c,
             Err(e) => {
                 if cleanup {

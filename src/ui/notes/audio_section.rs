@@ -2,7 +2,7 @@ use crate::db::Database;
 use crate::models::NoteAudio;
 use crate::services::audio;
 use crate::services::i18n::{t, t_args};
-use crate::services::transcription::SonioxClient;
+use crate::services::transcription::TranscriptionClient;
 use crate::ui::icons::IconX;
 use crate::ui::notes::audio_player::AudioPlayer;
 use crate::ui::notes::dates::format_relative_date;
@@ -99,7 +99,7 @@ pub fn AudioSection(
                                                             transcribing_audio_id.set(Some(aid.clone()));
                                                             spawn(async move {
                                                                 let result = async {
-                                                                    let client = SonioxClient::from_db(&db())?;
+                                                                    let client = TranscriptionClient::from_db(&db())?;
                                                                     client.transcribe(std::path::Path::new(&path), None).await
                                                                 }.await;
                                                                 match result {

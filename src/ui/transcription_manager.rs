@@ -1,6 +1,9 @@
 use crate::db::Database;
 use crate::models::UpdateNote;
-use crate::services::transcription::{clean_hesitations, SonioxClient};
+use crate::services::transcription::{
+    clean_hesitations, SonioxClient, SttProvider, TranscriptionClient,
+    WhisperLocal,
+};
 use std::collections::{HashMap, HashSet, VecDeque};
 use std::path::{Path, PathBuf};
 use std::sync::{Arc, Mutex};
@@ -24,6 +27,7 @@ pub struct Job {
     pub note_id: String,
     pub file_path: PathBuf,
     pub status: JobStatus,
+    pub provider: SttProvider,
     pub transcription_id: Option<String>,
     pub soniox_file_id: Option<String>,
 }
@@ -62,6 +66,7 @@ impl TranscriptionManager {
             note_id: note_id.clone(),
             file_path,
             status: JobStatus::Queued,
+            provider: TranscriptionClient::provider_from_db(&self.db),
             transcription_id: None,
             soniox_file_id: None,
         };
@@ -135,13 +140,30 @@ impl TranscriptionManager {
             return;
         }
         for row in self.db.list_pending_transcriptions() {
-            let job = Job {
-                id: uuid::Uuid::new_v4().to_string(),
-                note_id: row.note_id.clone(),
-                file_path: PathBuf::new(),
-                status: JobStatus::Polling { elapsed_s: 0 },
-                transcription_id: Some(row.transcription_id),
-                soniox_file_id: row.soniox_file_id,
+            let job = if row.provider == SttProvider::WhisperLocal.as_str() {
+                Job {
+                    id: uuid::Uuid::new_v4().to_string(),
+                    note_id: row.note_id.clone(),
+                    file_path: resolve_resume_path(row.file_path.as_deref()),
+                    status: JobStatus::Queued,
+                    provider: SttProvider::WhisperLocal,
+                    transcription_id: None,
+                    soniox_file_id: None,
+                }
+            } else {
+                let Some(tr_id) = row.transcription_id else {
+                    let _ = self.db.delete_pending_transcription(&row.note_id);
+                    continue;
+                };
+                Job {
+                    id: uuid::Uuid::new_v4().to_string(),
+                    note_id: row.note_id.clone(),
+                    file_path: PathBuf::new(),
+                    status: JobStatus::Polling { elapsed_s: 0 },
+                    provider: SttProvider::Soniox,
+                    transcription_id: Some(tr_id),
+                    soniox_file_id: row.soniox_file_id,
+                }
             };
             {
                 let mut g = self.reg.lock().unwrap();
@@ -250,6 +272,24 @@ fn client_from_db(db: &Database) -> Result<SonioxClient, String> {
     Ok(SonioxClient::new(key))
 }
 
+fn resolve_resume_path(stored: Option<&str>) -> PathBuf {
+    let Some(stored) = stored else {
+        return PathBuf::new();
+    };
+    let p = PathBuf::from(stored);
+    if p.is_file() {
+        return p;
+    }
+    if let Some(name) = p.file_name() {
+        let fallback =
+            PathBuf::from(crate::services::audio::output_dir()).join(name);
+        if fallback.is_file() {
+            return fallback;
+        }
+    }
+    p
+}
+
 async fn process_front(reg: &Mutex<Registry>, db: &Database, note_id: &str) {
     let job = match front_job(reg, note_id) {
         Some(j) => j,
@@ -258,7 +298,89 @@ async fn process_front(reg: &Mutex<Registry>, db: &Database, note_id: &str) {
     if matches!(job.status, JobStatus::Done(_) | JobStatus::Failed(_)) {
         return;
     }
+    match job.provider {
+        SttProvider::Soniox => process_soniox(reg, db, note_id, job).await,
+        SttProvider::WhisperLocal => process_local(reg, db, note_id, job).await,
+    }
+}
 
+async fn process_local(
+    reg: &Mutex<Registry>,
+    db: &Database,
+    note_id: &str,
+    job: Job,
+) {
+    let whisper: WhisperLocal = match TranscriptionClient::whisper_from_db(db) {
+        Ok(w) => w,
+        Err(e) => {
+            set_status(reg, note_id, &job.id, JobStatus::Failed(e));
+            return;
+        }
+    };
+    let path = job.file_path.clone();
+    if path.as_os_str().is_empty() || !path.is_file() {
+        let _ = db.delete_pending_transcription(note_id);
+        set_status(
+            reg,
+            note_id,
+            &job.id,
+            JobStatus::Failed("Fichier audio introuvable".to_string()),
+        );
+        return;
+    }
+    let _ =
+        db.add_pending_local_transcription(note_id, &path.to_string_lossy());
+    set_status(reg, note_id, &job.id, JobStatus::Polling { elapsed_s: 0 });
+    let started = SystemTime::now();
+    let fut = whisper.transcribe(&path, None);
+    tokio::pin!(fut);
+    loop {
+        tokio::select! {
+            res = &mut fut => {
+                let _ = db.delete_pending_transcription(note_id);
+                match res {
+                    Ok(text) => {
+                        cleanup_file(&path);
+                        set_status(
+                            reg,
+                            note_id,
+                            &job.id,
+                            JobStatus::Done(text),
+                        );
+                    }
+                    Err(e) => {
+                        set_status(
+                            reg,
+                            note_id,
+                            &job.id,
+                            JobStatus::Failed(e),
+                        );
+                    }
+                }
+                return;
+            }
+            _ = tokio::time::sleep(POLL_INTERVAL) => {
+                let elapsed = started
+                    .elapsed()
+                    .map(|d| d.as_secs() as u32)
+                    .unwrap_or(0);
+                set_status(
+                    reg,
+                    note_id,
+                    &job.id,
+                    JobStatus::Polling { elapsed_s: elapsed },
+                );
+            }
+        }
+    }
+}
+
+async fn process_soniox(
+    reg: &Mutex<Registry>,
+    db: &Database,
+    note_id: &str,
+    job: Job,
+) {
     let client = match client_from_db(db) {
         Ok(c) => c,
         Err(e) => {

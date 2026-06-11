@@ -19,7 +19,8 @@ No manual searching. No folders to dig through. Just talk, and find it later.
 
 ## What it does
 
-- **Voice capture** - tap to record, real-time waveform, pause/resume, auto-transcription via Soniox, background audio with a Dynamic Island live timer
+- **Voice capture** - tap to record, real-time waveform, pause/resume, auto-transcription via Soniox or fully on-device with local Whisper models, background audio with a Dynamic Island live timer
+- **Offline transcription** - download a Whisper model (tiny to large-v3-turbo) in Settings and transcribe in airplane mode; audio never leaves the device, sha256-verified downloads
 - **Multi-device sync** - encrypted LAN P2P between iPhone and Mac (Noise protocol, no server, no cloud), QR pairing, real-time UI refresh, zero data loss by design
 - **Backup & restore** - export everything (notes, audio, vectors) as one archive via the share sheet, API keys and pairing secrets never leave the device; import is a validated, crash-safe atomic replace, and sync reconverges without resurrecting deleted notes
 - **RAG chat** - powered by [rig](https://github.com/0xPlaygrounds/rig): ask questions about your notes, get answers with tappable sources; hybrid search (BM25 + vector + RRF + LLM rerank), temporal queries, folder-scoped chat, agent tools
@@ -44,7 +45,7 @@ No manual searching. No folders to dig through. Just talk, and find it later.
 | Database      | SQLite ([rusqlite](https://github.com/rusqlite/rusqlite) 0.34, bundled, WAL mode)              |
 | Sync          | LAN P2P, [snow](https://github.com/mcginty/snow) (Noise XXpsk3), version vectors, tombstones   |
 | Audio         | [cpal](https://github.com/RustAudio/cpal) 0.17 + [hound](https://github.com/ruuda/hound) 3.5   |
-| Transcription | [Soniox](https://soniox.com) REST API                                                          |
+| Transcription | [Soniox](https://soniox.com) REST API or local [whisper-rs](https://github.com/tazz4843/whisper-rs) 0.16 (Metal) |
 | PDF / DOCX    | Apple PDFKit (iOS, OCR) / [pdf-extract](https://crates.io/crates/pdf-extract); quick-xml + zip |
 | Async         | [tokio](https://tokio.rs)                                                                      |
 | Min iOS       | 16.0 (aarch64-apple-ios)                                                                       |
@@ -71,7 +72,7 @@ cargo install dioxus-cli
 cp .env.example .env   # add your API keys (or set them in-app)
 ```
 
-API keys can be set in-app via Settings (stored in SQLite, no recompile). OpenAI and Soniox are both required for AI features.
+API keys can be set in-app via Settings (stored in SQLite, no recompile). OpenAI is required for AI features; transcription works either with a Soniox key (cloud) or a downloaded local Whisper model (offline, no account).
 
 ## Commands
 

@@ -42,6 +42,40 @@ fn test_migration_v8_columns() {
     assert!(cols.contains(&"transcription_id".to_string()));
     assert!(cols.contains(&"soniox_file_id".to_string()));
     assert!(cols.contains(&"created_at".to_string()));
+    assert!(cols.contains(&"provider".to_string()));
+    assert!(cols.contains(&"file_path".to_string()));
+}
+
+#[test]
+fn test_migration_v11_old_rows_read_with_default_provider() {
+    let (db, _dir) = open_test_db();
+
+    db.add_pending_transcription("note-old", "tr-old", Some("file-old"))
+        .expect("add");
+    let rows = db.list_pending_transcriptions();
+    assert_eq!(rows[0].provider, "soniox");
+    assert_eq!(rows[0].file_path, None);
+}
+
+#[test]
+fn test_local_pending_roundtrip() {
+    let (db, _dir) = open_test_db();
+
+    db.add_pending_local_transcription("note-l", "/tmp/audio.wav")
+        .expect("add local");
+    let rows = db.list_pending_transcriptions();
+    assert_eq!(rows.len(), 1);
+    assert_eq!(rows[0].provider, "whisper_local");
+    assert_eq!(rows[0].transcription_id, None);
+    assert_eq!(rows[0].soniox_file_id, None);
+    assert_eq!(rows[0].file_path.as_deref(), Some("/tmp/audio.wav"));
+
+    db.add_pending_transcription("note-l", "tr-x", None)
+        .expect("upsert to soniox");
+    let rows = db.list_pending_transcriptions();
+    assert_eq!(rows.len(), 1);
+    assert_eq!(rows[0].provider, "soniox");
+    assert_eq!(rows[0].file_path, None);
 }
 
 #[test]
@@ -57,7 +91,7 @@ fn test_pending_transcription_crud() {
     assert_eq!(rows.len(), 2);
 
     let r1 = rows.iter().find(|r| r.note_id == "note-1").expect("note-1");
-    assert_eq!(r1.transcription_id, "tr-1");
+    assert_eq!(r1.transcription_id.as_deref(), Some("tr-1"));
     assert_eq!(r1.soniox_file_id.as_deref(), Some("file-1"));
 
     let r2 = rows.iter().find(|r| r.note_id == "note-2").expect("note-2");
@@ -80,6 +114,6 @@ fn test_pending_transcription_upsert_replaces() {
 
     let rows = db.list_pending_transcriptions();
     assert_eq!(rows.len(), 1, "upsert must not duplicate the note_id");
-    assert_eq!(rows[0].transcription_id, "tr-new");
+    assert_eq!(rows[0].transcription_id.as_deref(), Some("tr-new"));
     assert_eq!(rows[0].soniox_file_id.as_deref(), Some("file-new"));
 }

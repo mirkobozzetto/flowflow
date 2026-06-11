@@ -43,6 +43,7 @@ Mirko Bozzetto — freelance full-stack developer, Brussels.
 | E | Embeddings + RAG + Chat + Settings + Tags | Done |
 | F | RIG framework + agent tools + multi-provider | Done |
 | G | Document attachments (TXT, MD, CSV, PDF, DOCX) | Done |
+| H | Pluggable STT providers + local Whisper models (RFC 0005) | Built - device validation pending |
 
 ### Track F Progress
 
@@ -114,7 +115,12 @@ src/
     embed.rs               embed_note, embed_attachment, delete_note_embeddings, delete_attachment_embeddings (background)
     rag.rs                 RAG pipeline (embed query → vector search → context → agent with tools)
     audio.rs               AudioRecorder (cpal, WAV capture)
-    transcription.rs       SonioxClient (upload, poll, transcribe)
+    transcription/         STT layer (RFC 0005)
+      client.rs            SonioxClient (upload, poll, transcribe) - cloud path, untouched
+      provider.rs          SttProvider enum + TranscriptionClient facade (from_db dispatch Soniox/WhisperLocal)
+      whisper.rs           WhisperLocal (whisper-rs, spawn_blocking, Semaphore(1), WAV→mono 16k) + bench
+      models.rs            ggml model manager (5-model catalog, download .part+sha256+rename, disk guardrail 2x)
+      hesitations.rs       clean_hesitations post-processing
   platform/                OS-specific
     ios.rs                 AVAudioSession, documents_dir, open_file_picker (UIDocumentPickerViewController), read_file_as_text (txt/md/csv/pdf/docx)
   ui/                      Dioxus components (1 component = 1 file)
@@ -163,8 +169,9 @@ src/
 
 ### Settings (key-value)
 - key (PK), value — stores API keys and `llm_provider` in SQLite
-- Known keys: `openai_api_key`, `anthropic_api_key`, `soniox_api_key`, `llm_provider` (openai/anthropic)
+- Known keys: `openai_api_key`, `anthropic_api_key`, `soniox_api_key`, `llm_provider` (openai/anthropic), `stt_provider` (soniox/whisper_local), `whisper_model` (catalog id)
 - Fallback chain: DB → env var → compile-time `option_env!()`
+- `stt_provider`/`whisper_model` travel in backup; model files never do (device-local artifacts)
 
 ## Styling
 
@@ -179,9 +186,14 @@ src/
 
 ```
 Note Pipeline:
-  Mic capture → WAV → Soniox REST → transcription
+  Mic capture → WAV → TranscriptionClient (Soniox REST or local Whisper per stt_provider)
     → SQLite (metadata) + auto-embed on save
     → OpenAI embed → chunk → LanceDB (vector)
+
+Local Whisper Path (offline):
+  Settings → download ggml model (size confirm, sha256 verified, .part+rename)
+    → WhisperLocal: WAV decode → mono 16 kHz → whisper-rs (Metal) → clean_hesitations
+    → airplane mode works end to end; consent gate applies to all providers
 
 RAG Chat Pipeline:
   User question → OpenAI embed (query vector, always OpenAI)
@@ -214,6 +226,9 @@ RAG Chat Pipeline:
 - zip 2 (DOCX archive reading)
 - quick-xml 0.36 (DOCX word/document.xml parser)
 - futures 0.3.32 (stream collect for LanceDB queries)
+- whisper-rs 0.16 (local STT, whisper.cpp via cmake, metal feature on apple targets)
+- fs4 0.13 (free disk space check for model downloads)
+- libc 0.2 (getrusage peak RSS in the whisper bench)
 - Rust 1.94.1
 - iOS targets: aarch64-apple-ios, aarch64-apple-ios-sim
 - IPHONEOS_DEPLOYMENT_TARGET=16.0 (required for lancedb/zstd-sys)
@@ -299,24 +314,24 @@ xcrun devicectl manage pair --device <DEVICE_ID>
 <!-- gitnexus:start -->
 # GitNexus — Code Intelligence
 
-This project is indexed by GitNexus as **flowflow** (3227 symbols, 7351 relationships, 273 execution flows). Use the GitNexus MCP tools to understand code, assess impact, and navigate safely.
+This project is indexed by GitNexus as **flowflow** (3426 symbols, 7574 relationships, 290 execution flows). Use the GitNexus MCP tools to understand code, assess impact, and navigate safely.
 
-> Index stale? Run `node .gitnexus/run.cjs analyze` from the project root — it auto-selects an available runner. No `.gitnexus/run.cjs` yet? `npx gitnexus analyze` (npm 11 crash → `npm i -g gitnexus`; #1939).
+> If any GitNexus tool warns the index is stale, run `npx gitnexus analyze` in terminal first.
 
 ## Always Do
 
-- **MUST run impact analysis before editing any symbol.** Before modifying a function, class, or method, run `impact({target: "symbolName", direction: "upstream"})` and report the blast radius (direct callers, affected processes, risk level) to the user.
-- **MUST run `detect_changes()` before committing** to verify your changes only affect expected symbols and execution flows. For regression review, compare against the default branch: `detect_changes({scope: "compare", base_ref: "main"})`.
+- **MUST run impact analysis before editing any symbol.** Before modifying a function, class, or method, run `gitnexus_impact({target: "symbolName", direction: "upstream"})` and report the blast radius (direct callers, affected processes, risk level) to the user.
+- **MUST run `gitnexus_detect_changes()` before committing** to verify your changes only affect expected symbols and execution flows.
 - **MUST warn the user** if impact analysis returns HIGH or CRITICAL risk before proceeding with edits.
-- When exploring unfamiliar code, use `query({query: "concept"})` to find execution flows instead of grepping. It returns process-grouped results ranked by relevance.
-- When you need full context on a specific symbol — callers, callees, which execution flows it participates in — use `context({name: "symbolName"})`.
+- When exploring unfamiliar code, use `gitnexus_query({query: "concept"})` to find execution flows instead of grepping. It returns process-grouped results ranked by relevance.
+- When you need full context on a specific symbol — callers, callees, which execution flows it participates in — use `gitnexus_context({name: "symbolName"})`.
 
 ## Never Do
 
-- NEVER edit a function, class, or method without first running `impact` on it.
+- NEVER edit a function, class, or method without first running `gitnexus_impact` on it.
 - NEVER ignore HIGH or CRITICAL risk warnings from impact analysis.
-- NEVER rename symbols with find-and-replace — use `rename` which understands the call graph.
-- NEVER commit changes without running `detect_changes()` to check affected scope.
+- NEVER rename symbols with find-and-replace — use `gitnexus_rename` which understands the call graph.
+- NEVER commit changes without running `gitnexus_detect_changes()` to check affected scope.
 
 ## Resources
 
