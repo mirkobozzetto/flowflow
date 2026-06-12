@@ -18,7 +18,8 @@
 
 - Build and run: see [README - Setup](../README.md#setup) and [README - Commands](../README.md#commands)
 - Physical device setup (one-time pairing, certificates): [CLAUDE.md - Physical Device Setup](../CLAUDE.md)
-- Tests: `cargo test` (249 tests), `cargo test -- --ignored` for API-key-gated ones
+- [Desktop release guide](guides/desktop-release.md) - `make dmg` / `make release`, Gatekeeper, Developer ID + notarization
+- Tests: `cargo test` (269 tests), `cargo test -- --ignored` for API-key-gated ones
 
 ## 04 App Store
 

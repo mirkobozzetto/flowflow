@@ -1,4 +1,4 @@
-.PHONY: build format check dev ddev deploy desktop desktop-build desktop-app desktop-toml restore-ios-toml icon all appstore clean check-profiles renew ensure-profiles
+.PHONY: build format check dev ddev deploy desktop desktop-build desktop-app desktop-toml restore-ios-toml icon all appstore clean check-profiles renew ensure-profiles dmg release
 
 # Strip the iOS-only widget extension from Dioxus.toml: dx 0.7 compiles every
 # declared [[ios.widget_extensions]] even for desktop, and the Live Activity
@@ -10,6 +10,8 @@ WIDGETLESS_TOML = awk 'BEGIN{skip=0} /^\[\[ios\.widget_extensions\]\]/{skip=1; n
 APPSTORE_BUILD := $(shell expr $$(cat .appstore-build 2>/dev/null || echo 0) + 1)
 
 APPLE_ID := $(shell sed -n 's/^APPLE_ID=//p' .env 2>/dev/null)
+
+VERSION := $(shell sed -n 's/^version = "\(.*\)"/\1/p' Cargo.toml | head -1)
 
 build:
 	cargo build --features mobile
@@ -102,6 +104,39 @@ desktop-app: desktop-toml
 	codesign --force --deep --sign "Apple Development: $(APPLE_ID)" target/dx/flowflow/release/macos/Flowflow.app
 	rsync -a --delete target/dx/flowflow/release/macos/Flowflow.app/ /Applications/Flowflow.app/
 	@echo ">> Flowflow.app installed in /Applications"
+
+# Distributable Mac app: release build packaged as a DMG in dist/. Signs with
+# a Developer ID Application certificate when one exists (required for
+# notarization); otherwise falls back to the Apple Development certificate and
+# downloaders must right-click > Open on first launch (Gatekeeper).
+dmg: desktop-toml
+	set -a && . ./.env && set +a; \
+	trap 'mv .Dioxus.toml.ios Dioxus.toml' EXIT INT TERM; \
+	dx build --platform desktop --release
+	APP_PATH=target/dx/flowflow/release/macos/Flowflow.app bash scripts/inject-desktop-icon.sh
+	/usr/libexec/PlistBuddy -c "Set :CFBundleIdentifier com.mirkobozzetto.flowflow" target/dx/flowflow/release/macos/Flowflow.app/Contents/Info.plist 2>/dev/null || /usr/libexec/PlistBuddy -c "Add :CFBundleIdentifier string com.mirkobozzetto.flowflow" target/dx/flowflow/release/macos/Flowflow.app/Contents/Info.plist
+	$(call patch-desktop-plist,target/dx/flowflow/release/macos/Flowflow.app/Contents/Info.plist)
+	plutil -replace CFBundleShortVersionString -string $(VERSION) target/dx/flowflow/release/macos/Flowflow.app/Contents/Info.plist
+	@IDENTITY=$$(security find-identity -v -p codesigning | awk -F'"' '/Developer ID Application/{print $$2; exit}'); \
+	if [ -z "$$IDENTITY" ]; then \
+	  IDENTITY="Apple Development: $(APPLE_ID)"; \
+	  echo ">> No Developer ID Application certificate found."; \
+	  echo ">> Signing with '$$IDENTITY': downloaders must right-click > Open on first launch."; \
+	fi; \
+	codesign --force --deep --options runtime --sign "$$IDENTITY" target/dx/flowflow/release/macos/Flowflow.app
+	rm -rf dist/dmg-staging
+	mkdir -p dist/dmg-staging
+	cp -R target/dx/flowflow/release/macos/Flowflow.app dist/dmg-staging/
+	ln -s /Applications dist/dmg-staging/Applications
+	hdiutil create -volname "FlowFlow" -srcfolder dist/dmg-staging -ov -format UDZO dist/FlowFlow-$(VERSION)-macos-arm64.dmg
+	rm -rf dist/dmg-staging
+	@echo ">> dist/FlowFlow-$(VERSION)-macos-arm64.dmg ready"
+
+# Publish the DMG as a GitHub release (tag v$(VERSION)). Requires gh auth.
+release: dmg
+	gh release create v$(VERSION) dist/FlowFlow-$(VERSION)-macos-arm64.dmg \
+	  --title "FlowFlow v$(VERSION)" --generate-notes
+	@echo ">> Release v$(VERSION) published"
 
 # Device logs: Console.app → select iPhone → filter "FlowFlow"
 logs:
