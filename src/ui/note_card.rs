@@ -66,7 +66,7 @@ pub fn NoteCard(note: Note) -> Element {
             if !note.tags.is_empty() {
                 div { class: "flex flex-wrap gap-1 mb-1.5",
                     for tag in note.tags.iter() {
-                        span { class: "px-2 py-0.5 rounded-full bg-warm-white border border-ios-orange/25 text-ios-orange-dark text-[10px] font-medium",
+                        span { class: "px-2 py-0.5 rounded-full bg-warm-white border border-ios-orange/25 text-ios-orange-dark text-xs font-medium",
                             "{tag}"
                         }
                     }

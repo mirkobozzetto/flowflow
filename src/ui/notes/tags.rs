@@ -82,7 +82,7 @@ pub fn TagsSection(
             if tags().len() < 3 {
                 div { class: "inline-flex items-center gap-1",
                     input {
-                        class: "w-24 text-xs border border-stone-200 rounded-full px-2.5 py-1 outline-none",
+                        class: "w-24 text-xs border border-stone-200 rounded-full px-2.5 py-1 outline-none focus:border-ios-orange-dark transition-colors duration-150",
                         placeholder: "{placeholder}",
                         value: "{tag_input}",
                         oninput: move |evt| tag_input.set(evt.value()),

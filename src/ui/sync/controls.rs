@@ -90,11 +90,7 @@ pub fn SyncControls() -> Element {
             }
             if has_peers() {
                 button {
-                    class: if syncing {
-                        "w-full py-2.5 rounded-xl text-sm font-medium bg-stone-300 text-white"
-                    } else {
-                        "w-full py-2.5 rounded-xl text-sm font-medium bg-ios-orange text-white"
-                    },
+                    class: crate::ui::kit::BTN_PRIMARY,
                     disabled: syncing,
                     onclick: move |_| {
                         engine.peek().sync_now();

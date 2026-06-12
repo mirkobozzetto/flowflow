@@ -15,7 +15,7 @@ pub fn AttachmentModal() -> Element {
 
     rsx! {
         div {
-            class: "fixed inset-0 z-50 bg-black/40",
+            class: "fixed inset-0 z-50 bg-black/35",
             onclick: move |_| app.attachment_modal.set(None),
         }
         div {

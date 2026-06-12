@@ -6,6 +6,7 @@ mod consent;
 mod fab;
 pub(crate) mod folder_picker;
 pub mod icons;
+pub(crate) mod kit;
 mod note_card;
 mod note_list;
 mod notes;
@@ -521,6 +522,7 @@ pub fn App() -> Element {
                             let instant = cfg!(target_os = "macos");
                             rsx! {
                                 div {
+                                    id: "notes-scroll",
                                     class: "absolute inset-0 overflow-y-auto px-4 py-3 safe-pb-20",
                                     class: if is_bg { "pointer-events-none" } else { "" },
                                     style: if instant && shifted {

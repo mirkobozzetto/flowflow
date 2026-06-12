@@ -38,11 +38,11 @@ pub fn SourcesAccordion(
                         }}, 350);"#
                     ));
                 },
-                span { class: "text-[11px] font-medium text-stone-500",
+                span { class: "text-xs font-medium text-stone-500",
                     "{label}"
                 }
                 span {
-                    class: "text-[10px] text-stone-400 inline-block",
+                    class: "text-xs text-stone-400 inline-block",
                     style: "{arrow_style}",
                     "▼"
                 }
@@ -99,11 +99,11 @@ fn SourceCard(source: ChatSource, conversation_id: Option<String>) -> Element {
                 });
             },
             div { class: "flex items-center justify-between",
-                span { class: "text-[11px] font-medium text-ios-orange-dark",
+                span { class: "text-xs font-medium text-ios-orange-dark",
                     "{source.title}"
                 }
                 if !date_label.is_empty() {
-                    span { class: "text-[11px] text-stone-500 ml-1 shrink-0",
+                    span { class: "text-xs text-stone-500 ml-1 shrink-0",
                         "{date_label}"
                     }
                 }

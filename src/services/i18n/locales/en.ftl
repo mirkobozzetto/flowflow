@@ -182,6 +182,10 @@ note-recording-error = Error: { $message }
 
 note-card-untitled = Untitled
 
+note-menu-delete-title = Delete this note?
+note-menu-delete-warning = The note, its recordings and reminders will be deleted.
+folder-menu-delete-title = Delete this theme?
+folder-menu-delete-warning = Notes in this theme are not deleted.
 note-menu-import = Import a document
 note-menu-import-audio = Import an audio
 note-menu-delete = Delete note

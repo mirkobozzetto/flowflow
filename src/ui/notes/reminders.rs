@@ -265,7 +265,7 @@ pub fn ReminderSuggestions(
                                     div { class: "flex items-center gap-2 flex-wrap",
                                         input {
                                             r#type: "date",
-                                            class: "text-xs text-stone-700 bg-white border border-stone-200 rounded-md px-2 py-1 outline-none",
+                                            class: "text-xs text-stone-700 bg-white border border-stone-200 rounded-lg px-2 py-1 outline-none focus:border-ios-orange-dark transition-colors duration-150",
                                             value: "{date_val}",
                                             oninput: move |e| {
                                                 detected_reminders.write()[idx].date = Some(e.value());
@@ -273,7 +273,7 @@ pub fn ReminderSuggestions(
                                         }
                                         input {
                                             r#type: "time",
-                                            class: "text-xs text-stone-700 bg-white border border-stone-200 rounded-md px-2 py-1 outline-none",
+                                            class: "text-xs text-stone-700 bg-white border border-stone-200 rounded-lg px-2 py-1 outline-none focus:border-ios-orange-dark transition-colors duration-150",
                                             value: "{time_val}",
                                             oninput: move |e| {
                                                 detected_reminders.write()[idx].time = Some(e.value());
@@ -283,7 +283,7 @@ pub fn ReminderSuggestions(
                                             span { class: "text-xs text-stone-500", "{range_to}" }
                                             input {
                                                 r#type: "time",
-                                                class: "text-xs text-stone-700 bg-white border border-stone-200 rounded-md px-2 py-1 outline-none",
+                                                class: "text-xs text-stone-700 bg-white border border-stone-200 rounded-lg px-2 py-1 outline-none focus:border-ios-orange-dark transition-colors duration-150",
                                                 value: "{end_val}",
                                                 oninput: move |e| {
                                                     detected_reminders.write()[idx].time_end = Some(e.value());

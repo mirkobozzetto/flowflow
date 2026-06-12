@@ -45,7 +45,7 @@ pub fn SettingsView() -> Element {
                         {t(&lang, "settings-repair-invite")}
                     }
                     button {
-                        class: "w-full py-2 rounded-xl text-sm font-medium bg-ios-orange text-white",
+                        class: crate::ui::kit::BTN_PRIMARY,
                         onclick: move |_| {
                             app.previous_view.set(Some(View::Settings));
                             app.view.set(View::SyncPairing);

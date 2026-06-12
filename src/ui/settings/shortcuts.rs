@@ -33,7 +33,7 @@ pub fn ShortcutsSettings() -> Element {
                                 span { class: "text-sm text-stone-800", "{label}" }
                                 div { class: "flex items-center gap-1 shrink-0",
                                     for k in keys.into_iter() {
-                                        kbd { class: "px-2 py-0.5 rounded-md bg-stone-100 border border-stone-200 text-xs font-medium text-stone-600",
+                                        kbd { class: "px-2 py-0.5 rounded-lg bg-stone-100 border border-stone-200 text-xs font-medium text-stone-600",
                                             "{k}"
                                         }
                                     }

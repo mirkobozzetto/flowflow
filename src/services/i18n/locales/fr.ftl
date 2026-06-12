@@ -182,6 +182,10 @@ note-recording-error = Erreur : { $message }
 
 note-card-untitled = Sans titre
 
+note-menu-delete-title = Supprimer cette note ?
+note-menu-delete-warning = La note, ses audios et ses rappels seront supprimés.
+folder-menu-delete-title = Supprimer ce thème ?
+folder-menu-delete-warning = Les notes du thème ne seront pas supprimées.
 note-menu-import = Importer un document
 note-menu-import-audio = Importer un audio
 note-menu-delete = Supprimer la note

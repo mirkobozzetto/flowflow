@@ -24,7 +24,7 @@ pub fn IntelligenceSettings() -> Element {
             div {
                 label { class: "block text-sm font-medium text-stone-700 mb-1", {t(&lang, "settings-openai-label")} }
                 input {
-                    class: "w-full border border-stone-200 rounded-xl px-3 py-2.5 text-sm outline-none text-stone-900 bg-warm-white",
+                    class: crate::ui::kit::INPUT,
                     r#type: "password",
                     placeholder: "sk-...",
                     value: "{openai_key}",
@@ -65,11 +65,7 @@ pub fn IntelligenceSettings() -> Element {
             }
 
             button {
-                class: if saved() {
-                    "w-full py-2.5 rounded-xl text-sm font-medium bg-ios-green text-white"
-                } else {
-                    "w-full py-2.5 rounded-xl text-sm font-medium bg-ios-orange text-white"
-                },
+                class: if saved() { crate::ui::kit::BTN_SUCCESS } else { crate::ui::kit::BTN_PRIMARY },
                 onclick: move |_| {
                     let ok = openai_key().trim().to_string();
                     if !ok.is_empty() {

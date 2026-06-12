@@ -550,9 +550,9 @@ pub fn NoteDetail() -> Element {
                     }
                     input {
                         class: if generating_title() {
-                            "absolute inset-0 text-xl font-semibold outline-none py-1.5 px-3 border border-stone-200/60 rounded-md text-stone-400 bg-white/25 animate-pulse"
+                            "absolute inset-0 text-xl font-semibold outline-none py-1.5 px-3 border border-stone-200/60 rounded-lg text-stone-400 bg-white/25 animate-pulse"
                         } else {
-                            "absolute inset-0 text-xl font-semibold outline-none py-1.5 px-3 border border-stone-200/60 rounded-md text-stone-900 bg-white/25 focus:border-ios-orange-dark/40 transition-colors duration-150"
+                            "absolute inset-0 text-xl font-semibold outline-none py-1.5 px-3 border border-stone-200/60 rounded-lg text-stone-900 bg-white/25 focus:border-ios-orange-dark/40 transition-colors duration-150"
                         },
                         placeholder: "{title_placeholder}",
                         value: "{title}",
@@ -576,7 +576,7 @@ pub fn NoteDetail() -> Element {
                 class: if is_transcribing {
                     "w-full min-h-[300px] border border-ios-orange/30 rounded-xl p-3 mt-3 text-sm resize-none font-sans outline-none text-stone-900"
                 } else {
-                    "w-full min-h-[300px] border border-stone-200 rounded-xl p-3 mt-3 text-sm resize-none font-sans outline-none text-stone-900"
+                    "w-full min-h-[300px] border border-stone-200 rounded-xl p-3 mt-3 text-sm resize-none font-sans outline-none text-stone-900 focus:border-stone-300 transition-colors duration-150"
                 },
                 placeholder: if is_transcribing { transcribing_placeholder.as_str() } else { content_placeholder.as_str() },
                 value: "{content}",

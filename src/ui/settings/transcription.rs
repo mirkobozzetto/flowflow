@@ -84,7 +84,7 @@ fn SonioxKeyForm() -> Element {
             div {
                 label { class: "block text-sm font-medium text-stone-700 mb-1", {t(&lang, "settings-soniox-label")} }
                 input {
-                    class: "w-full border border-stone-200 rounded-xl px-3 py-2.5 text-sm outline-none text-stone-900 bg-warm-white",
+                    class: crate::ui::kit::INPUT,
                     r#type: "password",
                     placeholder: t(&lang, "settings-soniox-placeholder"),
                     value: "{soniox_key}",
@@ -96,11 +96,7 @@ fn SonioxKeyForm() -> Element {
             }
 
             button {
-                class: if saved() {
-                    "w-full py-2.5 rounded-xl text-sm font-medium bg-ios-green text-white"
-                } else {
-                    "w-full py-2.5 rounded-xl text-sm font-medium bg-ios-orange text-white"
-                },
+                class: if saved() { crate::ui::kit::BTN_SUCCESS } else { crate::ui::kit::BTN_PRIMARY },
                 onclick: move |_| {
                     let sk = soniox_key().trim().to_string();
                     if !sk.is_empty() {
@@ -274,7 +270,7 @@ fn WhisperModelsSection() -> Element {
                                                 p { class: "text-xs text-stone-600", "{confirm_body}" }
                                                 div { class: "flex gap-2",
                                                     button {
-                                                        class: "flex-1 py-2 rounded-lg text-xs font-medium bg-ios-orange text-white",
+                                                        class: crate::ui::kit::CONFIRM_BTN_PRIMARY,
                                                         onclick: move |_| {
                                                             confirm_dl.set(None);
                                                             dl_error.set(None);
@@ -284,7 +280,7 @@ fn WhisperModelsSection() -> Element {
                                                         {t(&lang, "whisper-confirm-yes")}
                                                     }
                                                     button {
-                                                        class: "flex-1 py-2 rounded-lg text-xs font-medium bg-stone-200 text-stone-700",
+                                                        class: crate::ui::kit::CONFIRM_BTN_GHOST,
                                                         onclick: move |_| confirm_dl.set(None),
                                                         {t(&lang, "whisper-confirm-cancel")}
                                                     }

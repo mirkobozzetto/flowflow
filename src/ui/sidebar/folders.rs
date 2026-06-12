@@ -2,6 +2,7 @@ use crate::db::Database;
 use crate::models::{Folder, NewFolder, UpdateFolder};
 use crate::services::i18n::t;
 use crate::ui::icons::*;
+use crate::ui::kit;
 use crate::ui::{AppState, View};
 use dioxus::prelude::*;
 use std::sync::Arc;
@@ -21,9 +22,9 @@ pub fn FolderSection() -> Element {
 
     rsx! {
         div { class: "flex items-center justify-between px-2 mb-2",
-            span { class: "text-xs font-medium text-stone-400 uppercase tracking-wide", {t(&lang, "sidebar-folders-title")} }
+            span { class: kit::SECTION_LABEL, {t(&lang, "sidebar-folders-title")} }
             button {
-                class: "w-9 h-9 flex items-center justify-center rounded-full transition-all duration-200",
+                class: "w-11 h-11 flex items-center justify-center rounded-full transition-all duration-200",
                 class: if creating() {
                     "rotate-45 text-ios-orange-dark bg-ios-orange-50"
                 } else {
@@ -75,7 +76,7 @@ pub fn FolderSection() -> Element {
                     },
                 }
                 button {
-                    class: "w-8 h-8 flex items-center justify-center rounded-lg transition-colors duration-150",
+                    class: "w-10 h-10 flex items-center justify-center rounded-lg transition-colors duration-150",
                     class: if new_name().trim().is_empty() {
                         "text-stone-300"
                     } else {
@@ -168,7 +169,7 @@ fn FolderItem(folder: Folder, depth: u32) -> Element {
                         },
                     }
                     button {
-                        class: "w-8 h-8 shrink-0 flex items-center justify-center rounded-lg transition-colors duration-150",
+                        class: "w-10 h-10 shrink-0 flex items-center justify-center rounded-lg transition-colors duration-150",
                         class: if edit_name().trim().is_empty() {
                             "text-stone-300"
                         } else {
@@ -189,29 +190,9 @@ fn FolderItem(folder: Folder, depth: u32) -> Element {
                         IconCheck { size: 16 }
                     }
                     button {
-                        class: "w-8 h-8 shrink-0 flex items-center justify-center text-stone-400 hover:text-stone-600 transition-colors duration-150",
+                        class: "w-10 h-10 shrink-0 flex items-center justify-center text-stone-400 hover:text-stone-600 transition-colors duration-150",
                         onclick: move |_| editing.set(false),
                         IconX { size: 14 }
-                    }
-                }
-            } else if confirm_delete() {
-                div { class: "flex items-center gap-2 py-2 px-2",
-                    span { class: "flex-1 text-sm text-stone-600", {t(&lang, "sidebar-delete-confirm")} }
-                    button {
-                        class: "px-3 py-1 rounded-lg bg-ios-red text-white text-xs font-medium",
-                        onclick: move |_| {
-                            let _ = db().delete_folder(&folder_id_for_delete);
-                            if (app.selected_folder_id)().as_deref() == Some(folder_id_for_delete.as_str()) {
-                                app.selected_folder_id.set(None);
-                            }
-                            app.folders_version.set((app.folders_version)() + 1);
-                        },
-                        {t(&lang, "sidebar-yes")}
-                    }
-                    button {
-                        class: "px-3 py-1 rounded-lg bg-stone-200 text-stone-600 text-xs",
-                        onclick: move |_| confirm_delete.set(false),
-                        {t(&lang, "sidebar-no")}
                     }
                 }
             } else {
@@ -240,7 +221,7 @@ fn FolderItem(folder: Folder, depth: u32) -> Element {
                         "{folder.name}"
                     }
                     button {
-                        class: "w-9 h-9 flex items-center justify-center text-stone-400 hover:text-stone-600 transition-all duration-150",
+                        class: "w-11 h-11 flex items-center justify-center text-stone-400 hover:text-stone-600 transition-all duration-150",
                         class: if show_actions() {
                             "text-stone-600"
                         } else {
@@ -251,39 +232,71 @@ fn FolderItem(folder: Folder, depth: u32) -> Element {
                     }
                     if show_actions() {
                         div {
-                            class: "fixed inset-0 z-20",
-                            onclick: move |_| show_actions.set(false),
+                            class: "fixed inset-0 z-40",
+                            onclick: move |_| {
+                                show_actions.set(false);
+                                confirm_delete.set(false);
+                            },
                         }
-                        div {
-                            class: "absolute right-2 top-full z-30 min-w-[185px] bg-warm-white border border-stone-200 rounded-xl shadow-lg p-1",
-                            style: "animation: popIn 0.16s ease-out; transform-origin: top right;",
-                            button {
-                                class: "w-full flex items-center gap-2.5 px-3 py-2.5 rounded-lg text-sm text-stone-800 text-left active:bg-stone-100 hover:bg-stone-100 transition-colors duration-150",
-                                onclick: move |_| {
-                                    show_actions.set(false);
-                                    editing.set(true);
-                                },
-                                IconPencil { size: 16 }
-                                {t(&lang, "folder-menu-rename")}
-                            }
-                            button {
-                                class: "w-full flex items-center gap-2.5 px-3 py-2.5 rounded-lg text-sm text-stone-800 text-left active:bg-stone-100 hover:bg-stone-100 transition-colors duration-150",
-                                onclick: move |_| {
-                                    show_actions.set(false);
-                                    creating_sub.set(true);
-                                },
-                                IconFolderPlus { size: 16 }
-                                {t(&lang, "folder-menu-subtheme")}
-                            }
-                            div { class: "h-px bg-stone-100 my-1 mx-2" }
-                            button {
-                                class: "w-full flex items-center gap-2.5 px-3 py-2.5 rounded-lg text-sm text-ios-red text-left active:bg-ios-red/10 hover:bg-ios-red/10 transition-colors duration-150",
-                                onclick: move |_| {
-                                    show_actions.set(false);
-                                    confirm_delete.set(true);
-                                },
-                                IconTrash { size: 16 }
-                                {t(&lang, "folder-menu-delete")}
+                        div { class: "absolute right-2 top-full {kit::MENU_PANEL}",
+                            if confirm_delete() {
+                                div { class: "px-3 py-2.5",
+                                    p { class: "text-sm font-semibold text-stone-900 mb-0.5",
+                                        {t(&lang, "folder-menu-delete-title")}
+                                    }
+                                    p { class: "text-xs text-stone-500 mb-3",
+                                        {t(&lang, "folder-menu-delete-warning")}
+                                    }
+                                    div { class: "flex gap-2",
+                                        button {
+                                            class: kit::CONFIRM_BTN_GHOST,
+                                            onclick: move |_| {
+                                                confirm_delete.set(false);
+                                                show_actions.set(false);
+                                            },
+                                            {t(&lang, "chat-menu-cancel")}
+                                        }
+                                        button {
+                                            class: kit::CONFIRM_BTN_DANGER,
+                                            onclick: move |_| {
+                                                let _ = db().delete_folder(&folder_id_for_delete);
+                                                if (app.selected_folder_id)().as_deref() == Some(folder_id_for_delete.as_str()) {
+                                                    app.selected_folder_id.set(None);
+                                                }
+                                                app.folders_version.set((app.folders_version)() + 1);
+                                                confirm_delete.set(false);
+                                                show_actions.set(false);
+                                            },
+                                            {t(&lang, "chat-menu-delete")}
+                                        }
+                                    }
+                                }
+                            } else {
+                                button {
+                                    class: kit::MENU_ITEM,
+                                    onclick: move |_| {
+                                        show_actions.set(false);
+                                        editing.set(true);
+                                    },
+                                    IconPencil { size: 16 }
+                                    {t(&lang, "folder-menu-rename")}
+                                }
+                                button {
+                                    class: kit::MENU_ITEM,
+                                    onclick: move |_| {
+                                        show_actions.set(false);
+                                        creating_sub.set(true);
+                                    },
+                                    IconFolderPlus { size: 16 }
+                                    {t(&lang, "folder-menu-subtheme")}
+                                }
+                                div { class: kit::MENU_SEP }
+                                button {
+                                    class: kit::MENU_ITEM_DANGER,
+                                    onclick: move |_| confirm_delete.set(true),
+                                    IconTrash { size: 16 }
+                                    {t(&lang, "folder-menu-delete")}
+                                }
                             }
                         }
                     }
@@ -319,7 +332,7 @@ fn FolderItem(folder: Folder, depth: u32) -> Element {
                         },
                     }
                     button {
-                        class: "w-8 h-8 flex items-center justify-center rounded-lg transition-colors duration-150",
+                        class: "w-10 h-10 flex items-center justify-center rounded-lg transition-colors duration-150",
                         class: if sub_name().trim().is_empty() {
                             "text-stone-300"
                         } else {

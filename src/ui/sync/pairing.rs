@@ -88,7 +88,7 @@ pub fn SyncPairingView() -> Element {
                             "{h.addr}:{h.port}"
                         }
                         p {
-                            class: "text-[10px] text-stone-400 break-all px-2",
+                            class: "text-xs text-stone-400 break-all px-2",
                             style: "user-select: all; -webkit-user-select: all;",
                             "{h.uri}"
                         }
@@ -117,7 +117,7 @@ pub fn SyncPairingView() -> Element {
                     }
                 } else {
                     button {
-                        class: "w-full py-2.5 rounded-xl text-sm font-medium bg-ios-orange text-white",
+                        class: crate::ui::kit::BTN_PRIMARY,
                         onclick: move |_| {
                             if let Some(prev) = host.peek().as_ref() {
                                 prev.cancel();
@@ -165,7 +165,7 @@ pub fn SyncPairingView() -> Element {
                     }
                 }
                 textarea {
-                    class: "w-full border border-stone-200 rounded-xl px-3 py-2.5 text-xs outline-none text-stone-900 bg-warm-white min-h-[72px]",
+                    class: "w-full border border-stone-200 rounded-xl px-3 py-2.5 text-xs outline-none text-stone-900 bg-warm-white min-h-[72px] focus:border-ios-orange-dark focus:ring-[3px] focus:ring-ios-orange-50 transition-colors duration-150",
                     placeholder: "flowflow://pair#...",
                     value: "{join_uri}",
                     oninput: move |evt| join_uri.set(evt.value()),

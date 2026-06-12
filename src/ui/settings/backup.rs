@@ -84,7 +84,7 @@ pub fn BackupSettings() -> Element {
                 }
                 div { class: "space-y-2",
                     button {
-                        class: "w-full py-2.5 rounded-xl text-sm font-medium bg-ios-orange text-white disabled:opacity-50",
+                        class: crate::ui::kit::BTN_PRIMARY,
                         disabled: backup_busy(),
                         onclick: {
                             let lang = lang.clone();

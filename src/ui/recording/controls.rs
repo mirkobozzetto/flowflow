@@ -200,8 +200,8 @@ pub fn RecordingControls(
                         },
                         if is_paused {
                             div { class: "flex gap-[2px] flex-shrink-0",
-                                div { class: "w-[3px] h-3.5 bg-white/80 rounded-sm" }
-                                div { class: "w-[3px] h-3.5 bg-white/80 rounded-sm" }
+                                div { class: "w-[3px] h-3.5 bg-white/80 rounded-full" }
+                                div { class: "w-[3px] h-3.5 bg-white/80 rounded-full" }
                             }
                         } else {
                             div { class: "w-2 h-2 rounded-full bg-ios-red flex-shrink-0",
@@ -209,7 +209,7 @@ pub fn RecordingControls(
                             }
                         }
                         if is_paused {
-                            span { class: "flex-1 text-center text-[11px] text-white/50", "{cancel_hint}" }
+                            span { class: "flex-1 text-center text-xs text-white/50", "{cancel_hint}" }
                         } else {
                             Waveform { num_bars: NUM_BARS, frozen: false }
                         }

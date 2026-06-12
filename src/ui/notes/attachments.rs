@@ -61,7 +61,7 @@ pub fn AttachmentSection(
                                 class: "absolute inset-0 z-10 flex items-center px-3 bg-warm-white/95 backdrop-blur-sm",
                                 onclick: move |evt| evt.stop_propagation(),
                                 div { class: "flex-1 min-w-0 mr-3",
-                                    p { class: "text-[10px] font-medium text-stone-400 uppercase tracking-wide leading-tight", "{label_confirm}" }
+                                    p { class: "text-xs font-medium text-stone-400 uppercase tracking-wide leading-tight", "{label_confirm}" }
                                     p { class: "text-sm font-medium text-stone-600 truncate leading-tight", "{att_name_confirm}" }
                                 }
                                 div { class: "flex items-center gap-2",

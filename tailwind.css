@@ -53,6 +53,11 @@
         transform 0.2s ease;
 }
 
+.menu-pop {
+    animation: popIn 0.16s ease-out;
+    transform-origin: top right;
+}
+
 .fab-btn {
     position: relative;
     width: 96px;
@@ -111,7 +116,9 @@
 
 @theme {
     --color-ios-green: #34c759;
-    --color-ios-red: #ff3b30;
+    --color-ios-red: oklch(0.55 0.2 30);
+    --color-ios-red-dark: oklch(0.46 0.16 30);
+    --color-ios-red-50: oklch(0.96 0.025 30);
     --color-ios-orange-50: oklch(0.97 0.04 50);
     --color-ios-orange-100: oklch(0.92 0.07 50);
     --color-ios-orange: oklch(0.60 0.22 50);

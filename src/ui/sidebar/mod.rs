@@ -41,7 +41,7 @@ pub fn SidebarOverlay() -> Element {
 
     rsx! {
         div {
-            class: "fixed inset-0 bg-black/30 z-40 transition-opacity duration-200 lg:hidden",
+            class: "fixed inset-0 bg-black/35 z-40 transition-opacity duration-200 lg:hidden",
             class: if is_open { "opacity-100" } else { "opacity-0 pointer-events-none" },
             onclick: move |_| app.sidebar_open.set(false),
         }
