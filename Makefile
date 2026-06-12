@@ -9,6 +9,8 @@ WIDGETLESS_TOML = awk 'BEGIN{skip=0} /^\[\[ios\.widget_extensions\]\]/{skip=1; n
 
 APPSTORE_BUILD := $(shell expr $$(cat .appstore-build 2>/dev/null || echo 0) + 1)
 
+APPLE_ID := $(shell sed -n 's/^APPLE_ID=//p' .env 2>/dev/null)
+
 build:
 	cargo build --features mobile
 
@@ -69,11 +71,23 @@ desktop: desktop-toml
 	trap 'mv .Dioxus.toml.ios Dioxus.toml' EXIT INT TERM; \
 	dx serve --desktop
 
+MIC_USAGE = FlowFlow needs microphone access to record voice notes
+LAN_USAGE = FlowFlow connects directly to your other paired devices on your local network to sync your notes, without any server.
+AE_USAGE = FlowFlow opens your Calendar at the date of an event you confirmed from a note.
+
+define patch-desktop-plist
+	/usr/libexec/PlistBuddy -c "Set :NSMicrophoneUsageDescription $(MIC_USAGE)" $(1) 2>/dev/null || /usr/libexec/PlistBuddy -c "Add :NSMicrophoneUsageDescription string $(MIC_USAGE)" $(1)
+	/usr/libexec/PlistBuddy -c "Set :NSLocalNetworkUsageDescription $(LAN_USAGE)" $(1) 2>/dev/null || /usr/libexec/PlistBuddy -c "Add :NSLocalNetworkUsageDescription string $(LAN_USAGE)" $(1)
+	/usr/libexec/PlistBuddy -c "Set :NSAppleEventsUsageDescription $(AE_USAGE)" $(1) 2>/dev/null || /usr/libexec/PlistBuddy -c "Add :NSAppleEventsUsageDescription string $(AE_USAGE)" $(1)
+endef
+
 desktop-build: desktop-toml
 	set -a && . ./.env && set +a; \
 	trap 'mv .Dioxus.toml.ios Dioxus.toml' EXIT INT TERM; \
 	dx build --platform desktop
 	APP_PATH=target/dx/flowflow/debug/macos/Flowflow.app bash scripts/inject-desktop-icon.sh
+	$(call patch-desktop-plist,target/dx/flowflow/debug/macos/Flowflow.app/Contents/Info.plist)
+	codesign --force --deep --sign - target/dx/flowflow/debug/macos/Flowflow.app
 
 # Standalone Mac app: release build installed in /Applications, runs without
 # any dev server. Data lives in ~/Library/Application Support/FlowFlow.
@@ -83,7 +97,9 @@ desktop-app: desktop-toml
 	dx build --platform desktop --release
 	APP_PATH=target/dx/flowflow/release/macos/Flowflow.app bash scripts/inject-desktop-icon.sh
 	/usr/libexec/PlistBuddy -c "Set :CFBundleIdentifier com.mirkobozzetto.flowflow" target/dx/flowflow/release/macos/Flowflow.app/Contents/Info.plist 2>/dev/null || /usr/libexec/PlistBuddy -c "Add :CFBundleIdentifier string com.mirkobozzetto.flowflow" target/dx/flowflow/release/macos/Flowflow.app/Contents/Info.plist
-	codesign --force --deep --sign "Apple Development: mirko@mirko.re (3YL4GA2Y23)" target/dx/flowflow/release/macos/Flowflow.app
+	$(call patch-desktop-plist,target/dx/flowflow/release/macos/Flowflow.app/Contents/Info.plist)
+	@[ -n "$(APPLE_ID)" ] || { echo "ERROR: APPLE_ID not set in .env"; exit 1; }
+	codesign --force --deep --sign "Apple Development: $(APPLE_ID)" target/dx/flowflow/release/macos/Flowflow.app
 	rsync -a --delete target/dx/flowflow/release/macos/Flowflow.app/ /Applications/Flowflow.app/
 	@echo ">> Flowflow.app installed in /Applications"
 

@@ -40,6 +40,7 @@ pub fn ActiveReminders(local_note_id: Signal<String>) -> Element {
                         let row_id = r.id.clone();
                         let event_id_open = r.reminder_id.clone();
                         let event_id_del = r.reminder_id.clone();
+                        let _due_parts = (r.due_year, r.due_month, r.due_day, r.due_hour, r.due_minute);
                         let confirming = confirm_delete_reminder() == Some(row_id.clone());
                         rsx! {
                             div { class: "flex items-center gap-1.5",
@@ -53,6 +54,14 @@ pub fn ActiveReminders(local_note_id: Signal<String>) -> Element {
                                                 crate::platform::ios::reminders::present_event(event_id_open).await;
                                             });
                                         }
+                                        #[cfg(target_os = "macos")]
+                                        crate::platform::macos::open_calendar_at(
+                                            _due_parts.0,
+                                            _due_parts.1,
+                                            _due_parts.2,
+                                            _due_parts.3,
+                                            _due_parts.4,
+                                        );
                                         #[cfg(not(target_os = "ios"))]
                                         let _ = &event_id_open;
                                     },

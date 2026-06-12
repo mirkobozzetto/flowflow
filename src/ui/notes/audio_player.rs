@@ -15,22 +15,44 @@ pub fn AudioPlayer(
     let mut playing = use_signal(|| false);
     let mut confirm_delete = use_signal(|| false);
 
+    #[cfg(target_os = "macos")]
+    use_future(move || async move {
+        loop {
+            futures_timer::Delay::new(std::time::Duration::from_millis(500))
+                .await;
+            if playing() && !crate::platform::macos::is_playing() {
+                playing.set(false);
+            }
+        }
+    });
+
     let dur = duration_secs.unwrap_or(0.0);
     let mins = (dur as u32) / 60;
     let secs = (dur as u32) % 60;
+    let file_exists = std::path::Path::new(&audio_path).exists();
+    let remote_label = t(&lang, "audio-remote-only");
 
     rsx! {
         div { class: "flex items-center gap-3 bg-stone-50 border border-stone-200 rounded-xl px-3 py-2 mb-2",
             button {
-                class: "w-9 h-9 rounded-full bg-ios-orange/80 flex items-center justify-center flex-shrink-0 text-white",
+                class: if file_exists {
+                    "w-9 h-9 rounded-full bg-ios-orange/80 flex items-center justify-center flex-shrink-0 text-white"
+                } else {
+                    "w-9 h-9 rounded-full bg-stone-200 flex items-center justify-center flex-shrink-0 text-stone-400"
+                },
+                disabled: !file_exists,
                 onclick: move |_| {
                     if playing() {
                         #[cfg(target_os = "ios")]
                         crate::platform::ios::stop_audio();
+                        #[cfg(target_os = "macos")]
+                        crate::platform::macos::stop_audio();
                         playing.set(false);
                     } else {
                         #[cfg(target_os = "ios")]
                         crate::platform::ios::play_audio(&audio_path);
+                        #[cfg(target_os = "macos")]
+                        crate::platform::macos::play_audio(&audio_path);
                         playing.set(true);
                     }
                 },
@@ -47,13 +69,19 @@ pub fn AudioPlayer(
                     }
                 }
             }
-            span { class: "text-xs text-stone-500 tabular-nums flex-1", "{mins}:{secs:02}" }
+            if file_exists {
+                span { class: "text-xs text-stone-500 tabular-nums flex-1", "{mins}:{secs:02}" }
+            } else {
+                span { class: "text-xs text-stone-400 flex-1", "{remote_label} · {mins}:{secs:02}" }
+            }
             if confirm_delete() {
                 button {
                     class: "text-xs text-ios-red font-medium",
                     onclick: move |_| {
                         #[cfg(target_os = "ios")]
                         crate::platform::ios::stop_audio();
+                        #[cfg(target_os = "macos")]
+                        crate::platform::macos::stop_audio();
                         playing.set(false);
                         confirm_delete.set(false);
                         on_delete.call(());
