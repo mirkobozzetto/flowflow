@@ -43,17 +43,18 @@ pub fn NotesList() -> Element {
     use_future(move || async move {
         let mut eval = dioxus::document::eval(
             r#"
+            function nearBottom() {
+                var sc = document.getElementById('notes-scroll');
+                if (!sc) return false;
+                return sc.scrollTop + sc.clientHeight >= sc.scrollHeight - 800;
+            }
             var ticking = false;
             function onScroll() {
                 if (ticking) return;
                 ticking = true;
                 requestAnimationFrame(function() {
                     ticking = false;
-                    var sc = document.getElementById('notes-scroll');
-                    if (!sc) return;
-                    if (sc.scrollTop + sc.clientHeight >= sc.scrollHeight - 800) {
-                        dioxus.send('more');
-                    }
+                    if (nearBottom()) { dioxus.send('more'); }
                 });
             }
             setInterval(function() {
@@ -62,7 +63,8 @@ pub fn NotesList() -> Element {
                     sc._pagerBound = true;
                     sc.addEventListener('scroll', onScroll);
                 }
-            }, 500);
+                if (nearBottom()) { dioxus.send('more'); }
+            }, 600);
             "#,
         );
         while let Ok(msg) = eval.recv::<String>().await {
