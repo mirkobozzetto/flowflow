@@ -79,7 +79,7 @@ no server, and audio is uploaded directly from device to Soniox.
 
 Thanks,
 Mirko Bozzetto
-mirko@mirko.re
+$APPLE_ID
 https://github.com/mirkobozzetto/flowflow
 ```
 
@@ -115,7 +115,7 @@ Must show `Transporter.app`.
 open -a Transporter
 ```
 
-Login with Apple Developer ID (`mirko@mirko.re`), regular password. 2FA via iPhone if requested.
+Login with Apple Developer ID (`$APPLE_ID`), regular password. 2FA via iPhone if requested.
 
 ---
 
@@ -288,7 +288,7 @@ Save each section.
 
 - Sign-In Required: `No`
 - Reviewer Notes (English, copy-paste from `docs/deploy/02-app-store-submission.md` section 5d)
-- Contact Info: Mirko Bozzetto, `mirko@mirko.re`, +32 484 906 499
+- Contact Info: Mirko Bozzetto, `$APPLE_ID`, <phone>
 - Demo Account: empty
 - Additional Notes: empty
 
