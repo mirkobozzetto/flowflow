@@ -89,7 +89,7 @@ fn SourceCard(source: ChatSource, conversation_id: Option<String>) -> Element {
 
     rsx! {
         button {
-            class: "w-full text-left px-2.5 py-1.5 rounded-lg bg-warm-white border border-ios-orange/20 active:bg-ios-orange/10 transition-colors duration-150",
+            class: "w-full text-left px-2.5 py-1.5 rounded-lg bg-warm-white border border-ios-orange/20 active:bg-ios-orange/10 hover:bg-ios-orange/5 transition-colors duration-150",
             onclick: move |_| {
                 app.previous_view.set(Some(View::Chat {
                     conversation_id: conversation_id.clone(),
@@ -103,12 +103,12 @@ fn SourceCard(source: ChatSource, conversation_id: Option<String>) -> Element {
                     "{source.title}"
                 }
                 if !date_label.is_empty() {
-                    span { class: "text-[9px] text-stone-400 ml-1 shrink-0",
+                    span { class: "text-[11px] text-stone-500 ml-1 shrink-0",
                         "{date_label}"
                     }
                 }
             }
-            p { class: "text-[10px] text-stone-400 leading-tight mt-0.5 line-clamp-1",
+            p { class: "text-xs text-stone-500 leading-tight mt-0.5 line-clamp-1",
                 "{preview}"
             }
         }

@@ -1,6 +1,5 @@
 use crate::db::Database;
 use crate::services::i18n::t;
-use crate::ui::folder_picker::FolderPicker;
 use crate::ui::icons::*;
 use crate::ui::note_card::NoteCard;
 use crate::ui::AppState;
@@ -36,23 +35,21 @@ pub fn NotesList() -> Element {
     let lang = (app.current_lang)();
 
     rsx! {
-        if (app.show_folder_picker)() {
-            FolderPicker { selected: app.selected_folder_id }
-        }
         div { class: "mb-3",
             div { class: "relative",
                 div { class: "absolute left-3 top-1/2 -translate-y-1/2 text-stone-400",
                     IconMagnifyingGlass { size: 16 }
                 }
                 input {
-                    class: "w-full bg-warm-white border border-stone-200 rounded-xl pl-9 pr-9 py-2.5 text-sm outline-none text-stone-900 placeholder-stone-400",
+                    id: "note-search",
+                    class: "w-full bg-warm-white border border-stone-200 rounded-xl pl-9 pr-9 py-2.5 text-sm outline-none text-stone-900 placeholder-stone-400 hover:border-stone-300 focus:border-stone-300 transition-colors duration-150",
                     placeholder: t(&lang, "note-list-search-placeholder"),
                     value: "{app.search_query}",
                     oninput: move |evt| app.search_query.set(evt.value()),
                 }
                 if has_query {
                     button {
-                        class: "absolute right-2 top-1/2 -translate-y-1/2 text-stone-400 active:text-stone-600 p-1",
+                        class: "absolute right-2 top-1/2 -translate-y-1/2 text-stone-400 active:text-stone-600 hover:text-stone-600 p-1 transition-colors duration-150",
                         onclick: move |_| app.search_query.set(String::new()),
                         IconX { size: 14 }
                     }

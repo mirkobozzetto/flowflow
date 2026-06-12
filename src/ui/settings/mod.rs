@@ -2,6 +2,7 @@ mod backup;
 mod general;
 mod intelligence;
 mod privacy;
+mod shortcuts;
 mod storage;
 mod transcription;
 
@@ -14,6 +15,7 @@ use dioxus::prelude::*;
 use general::GeneralSettings;
 use intelligence::IntelligenceSettings;
 use privacy::PrivacySettings;
+use shortcuts::ShortcutsSettings;
 use std::sync::Arc;
 use storage::StorageSettings;
 use transcription::TranscriptionSettings;
@@ -88,6 +90,12 @@ pub fn SettingsView() -> Element {
                     label: t(&lang, "settings-section-privacy"),
                     section: SettingsSection::Privacy,
                 }
+                if cfg!(target_os = "macos") {
+                    SectionRow {
+                        label: t(&lang, "settings-section-shortcuts"),
+                        section: SettingsSection::Shortcuts,
+                    }
+                }
             }
         }
     }
@@ -133,6 +141,9 @@ pub fn SettingsSectionView() -> Element {
         },
         SettingsSection::Privacy => rsx! {
             PrivacySettings {}
+        },
+        SettingsSection::Shortcuts => rsx! {
+            ShortcutsSettings {}
         },
     }
 }

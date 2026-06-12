@@ -38,7 +38,8 @@ pub fn ChatMenu(props: ChatMenuProps) -> Element {
             },
         }
         div {
-            class: "absolute right-4 top-1 z-50 bg-warm-white rounded-xl shadow-lg border border-stone-100 py-1 min-w-[220px]",
+            class: "absolute right-4 top-1 z-50 bg-warm-white rounded-xl shadow-lg border border-stone-200 p-1 min-w-[220px]",
+            style: "animation: popIn 0.16s ease-out; transform-origin: top right;",
             if renaming() {
                 div { class: "px-4 py-3",
                     p { class: "text-[10px] font-medium text-stone-400 uppercase tracking-wide mb-2", {t(&lang, "chat-menu-rename")} }
@@ -118,7 +119,7 @@ pub fn ChatMenu(props: ChatMenuProps) -> Element {
                 }
             } else {
                 button {
-                    class: "w-full flex items-center gap-3 px-4 py-3 text-sm text-stone-700 active:bg-stone-50",
+                    class: "w-full flex items-center gap-2.5 px-3 py-2.5 rounded-lg text-sm text-stone-800 text-left active:bg-stone-100 hover:bg-stone-100 transition-colors duration-150",
                     disabled: !has_conversation,
                     onclick: move |_| {
                         if let Some(ref cid) = conversation_id() {
@@ -133,8 +134,9 @@ pub fn ChatMenu(props: ChatMenuProps) -> Element {
                     IconPencil { size: 18 }
                     {t(&lang, "chat-menu-rename-action")}
                 }
+                div { class: "h-px bg-stone-100 my-1 mx-2" }
                 button {
-                    class: "w-full flex items-center gap-3 px-4 py-3 text-sm text-ios-red active:bg-stone-50",
+                    class: "w-full flex items-center gap-2.5 px-3 py-2.5 rounded-lg text-sm text-ios-red text-left active:bg-ios-red/10 hover:bg-ios-red/10 transition-colors duration-150",
                     disabled: !has_conversation,
                     onclick: move |_| {
                         confirm_delete.set(true);

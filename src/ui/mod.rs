@@ -1,6 +1,7 @@
 mod attachment_modal;
 mod chat;
 mod chat_input;
+mod clipboard;
 mod consent;
 mod fab;
 pub(crate) mod folder_picker;
@@ -116,6 +117,12 @@ pub fn App() -> Element {
         transcription_done_badge: Signal::new(0),
         audio_import_requested: Signal::new(false),
         sync_data_version: Signal::new(0),
+        view_history: Signal::new(Vec::new()),
+        view_future: Signal::new(Vec::new()),
+        history_nav: Signal::new(false),
+        picker_kb_up: Signal::new(0),
+        picker_kb_down: Signal::new(0),
+        picker_kb_commit: Signal::new(0),
     });
 
     use_future(move || {
@@ -192,6 +199,212 @@ pub fn App() -> Element {
                 app.notes_version.set((app.notes_version)() + 1);
                 app.folders_version.set((app.folders_version)() + 1);
                 app.attachments_version.set((app.attachments_version)() + 1);
+            }
+        }
+    });
+
+    use_effect(move || {
+        let _ = (app.view)();
+        let mut app = app;
+        app.show_folder_picker.set(false);
+    });
+
+    let mut last_view = use_signal(|| app.view.peek().clone());
+    use_effect(move || {
+        let v = (app.view)();
+        let prev = last_view.peek().clone();
+        if v == prev {
+            return;
+        }
+        last_view.set(v);
+        let mut app = app;
+        if *app.history_nav.peek() {
+            app.history_nav.set(false);
+            return;
+        }
+        let mut history = app.view_history.write();
+        history.push(prev);
+        if history.len() > 20 {
+            history.remove(0);
+        }
+        drop(history);
+        app.view_future.write().clear();
+    });
+
+    #[cfg(target_os = "macos")]
+    use_future(move || {
+        let mut app = app;
+        async move {
+            let mut eval = dioxus::document::eval(
+                r#"
+                var lastEsc = 0;
+                var lastCtrl = 0;
+                function inField() {
+                    var el = document.activeElement;
+                    return el && (el.tagName === 'INPUT' || el.tagName === 'TEXTAREA');
+                }
+                document.addEventListener('keydown', function(e) {
+                    if (e.ctrlKey && e.key !== 'Control') { lastCtrl = 0; }
+                    if (e.metaKey && e.shiftKey && e.key === 'Enter') { e.preventDefault(); dioxus.send('new-chat'); }
+                    else if (e.metaKey && e.key === 'n') { e.preventDefault(); dioxus.send('new-note'); }
+                    else if (e.metaKey && e.key === 'f') { e.preventDefault(); dioxus.send('search'); }
+                    else if (e.metaKey && e.key === ',') { e.preventDefault(); dioxus.send('settings'); }
+                    else if (e.ctrlKey && e.key === 'ArrowLeft') { e.preventDefault(); dioxus.send('tab-notes'); }
+                    else if (e.ctrlKey && e.key === 'ArrowRight') { e.preventDefault(); dioxus.send('tab-chats'); }
+                    else if (e.metaKey && e.key === 'ArrowLeft' && !inField()) { e.preventDefault(); dioxus.send('nav-back'); }
+                    else if (e.metaKey && e.key === 'ArrowRight' && !inField()) { e.preventDefault(); dioxus.send('nav-forward'); }
+                    else if (e.key === 'Control' && !e.metaKey && !e.altKey && !e.shiftKey) {
+                        var nowC = Date.now();
+                        if (nowC - lastCtrl < 400) { lastCtrl = 0; dioxus.send('picker-toggle'); }
+                        else { lastCtrl = nowC; }
+                    }
+                    else if (e.key === 'ArrowDown' && !inField() && !e.metaKey && !e.ctrlKey) { e.preventDefault(); dioxus.send('kb-down'); }
+                    else if (e.key === 'ArrowUp' && !inField() && !e.metaKey && !e.ctrlKey) { e.preventDefault(); dioxus.send('kb-up'); }
+                    else if (e.key === 'Enter' && !inField() && !e.metaKey && !e.ctrlKey && !e.shiftKey) { dioxus.send('kb-enter'); }
+                    else if (e.key === 'Escape') {
+                        var now = Date.now();
+                        if (now - lastEsc < 400) {
+                            lastEsc = 0;
+                            dioxus.send('escape-home');
+                        } else {
+                            lastEsc = now;
+                            dioxus.send('escape');
+                        }
+                    }
+                });
+                "#,
+            );
+            while let Ok(msg) = eval.recv::<String>().await {
+                match msg.as_str() {
+                    "new-note" => {
+                        app.show_folder_picker.set(false);
+                        if matches!((app.view)(), View::NoteDetail { .. }) {
+                            app.view.set(View::NotesList);
+                            spawn(async move {
+                                futures_timer::Delay::new(
+                                    std::time::Duration::from_millis(30),
+                                )
+                                .await;
+                                app.view.set(View::NoteDetail {
+                                    note_id: String::new(),
+                                });
+                            });
+                        } else {
+                            app.view.set(View::NoteDetail {
+                                note_id: String::new(),
+                            });
+                        }
+                    }
+                    "search" => {
+                        app.show_folder_picker.set(false);
+                        app.view.set(View::NotesList);
+                        dioxus::document::eval(
+                            r#"
+                            requestAnimationFrame(function() {
+                                var el = document.getElementById('note-search');
+                                if (el) el.focus();
+                            });
+                            "#,
+                        );
+                    }
+                    "settings" => {
+                        app.show_folder_picker.set(false);
+                        if !matches!(
+                            (app.view)(),
+                            View::Settings | View::SettingsSection(_)
+                        ) {
+                            app.view.set(View::Settings);
+                        }
+                    }
+                    "new-chat" => {
+                        app.show_folder_picker.set(false);
+                        app.sidebar_tab.set(SidebarTab::Chats);
+                        app.previous_view.set(Some(View::NotesList));
+                        app.view.set(View::Chat {
+                            conversation_id: None,
+                        });
+                    }
+                    "tab-notes" => {
+                        app.sidebar_tab.set(SidebarTab::Notes);
+                        app.sidebar_open.set(true);
+                    }
+                    "tab-chats" => {
+                        app.sidebar_tab.set(SidebarTab::Chats);
+                        app.sidebar_open.set(true);
+                    }
+                    "nav-back" => {
+                        let target = app.view_history.write().pop();
+                        if let Some(target) = target {
+                            app.view_future
+                                .write()
+                                .push(app.view.peek().clone());
+                            app.history_nav.set(true);
+                            app.show_folder_picker.set(false);
+                            app.view.set(target);
+                        }
+                    }
+                    "nav-forward" => {
+                        let target = app.view_future.write().pop();
+                        if let Some(target) = target {
+                            app.view_history
+                                .write()
+                                .push(app.view.peek().clone());
+                            app.history_nav.set(true);
+                            app.show_folder_picker.set(false);
+                            app.view.set(target);
+                        }
+                    }
+                    "picker-toggle" => {
+                        if matches!(
+                            (app.view)(),
+                            View::NotesList
+                                | View::NoteDetail { .. }
+                                | View::Chat { .. }
+                        ) {
+                            let cur = (app.show_folder_picker)();
+                            app.show_folder_picker.set(!cur);
+                            if !cur {
+                                dioxus::document::eval(
+                                    "if (document.activeElement) document.activeElement.blur();",
+                                );
+                            }
+                        }
+                    }
+                    "kb-down" => {
+                        if (app.show_folder_picker)() {
+                            let next = *app.picker_kb_down.peek() + 1;
+                            app.picker_kb_down.set(next);
+                        }
+                    }
+                    "kb-up" => {
+                        if (app.show_folder_picker)() {
+                            let next = *app.picker_kb_up.peek() + 1;
+                            app.picker_kb_up.set(next);
+                        }
+                    }
+                    "kb-enter" => {
+                        if (app.show_folder_picker)() {
+                            let next = *app.picker_kb_commit.peek() + 1;
+                            app.picker_kb_commit.set(next);
+                        }
+                    }
+                    "escape" => {
+                        app.show_folder_picker.set(false);
+                        app.show_note_menu.set(false);
+                        app.show_chat_menu.set(false);
+                        app.sidebar_open.set(false);
+                        app.attachment_modal.set(None);
+                    }
+                    "escape-home" => {
+                        app.show_folder_picker.set(false);
+                        app.show_note_menu.set(false);
+                        app.show_chat_menu.set(false);
+                        app.sidebar_open.set(false);
+                        app.attachment_modal.set(None);
+                        sidebar::navigate_with_slide(app, View::NotesList);
+                    }
+                    _ => {}
+                }
             }
         }
     });
@@ -303,7 +516,7 @@ pub fn App() -> Element {
                                 } else {
                                     "animation: slideInFromLeft 0.15s ease-out;"
                                 },
-                                div { class: "w-full lg:max-w-3xl lg:mx-auto flex-1 flex flex-col min-h-0",
+                                div { class: "w-full flex-1 flex flex-col min-h-0",
                                     NoteDetail {}
                                 }
                             }
@@ -316,7 +529,7 @@ pub fn App() -> Element {
                                 } else {
                                     "animation: slideInRight 0.15s ease-out;"
                                 },
-                                div { class: "w-full lg:max-w-3xl lg:mx-auto flex-1 flex flex-col min-h-0",
+                                div { class: "w-full flex-1 flex flex-col min-h-0",
                                     ChatView {}
                                 }
                             }
@@ -373,6 +586,29 @@ pub fn App() -> Element {
                                 },
                                 div { class: "w-full lg:max-w-2xl lg:mx-auto",
                                     SyncView {}
+                                }
+                            }
+                        }
+                        if (app.show_folder_picker)() {
+                            div {
+                                class: "fixed inset-0 z-10",
+                                onclick: move |_| {
+                                    let mut app = app;
+                                    app.show_folder_picker.set(false);
+                                },
+                            }
+                            {
+                                match (app.view)() {
+                                    View::NotesList => rsx! {
+                                        folder_picker::FolderPicker { selected: app.selected_folder_id }
+                                    },
+                                    View::NoteDetail { .. } => rsx! {
+                                        folder_picker::FolderPicker { selected: app.detail_folder_id }
+                                    },
+                                    View::Chat { .. } => rsx! {
+                                        folder_picker::FolderPicker { selected: app.chat_scope_folder_id }
+                                    },
+                                    _ => rsx! {},
                                 }
                             }
                         }

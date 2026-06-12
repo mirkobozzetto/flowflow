@@ -32,6 +32,8 @@ pub fn AudioSection(
     };
     let mut audios_expanded = use_signal(|| false);
     let mut transcribing_audio_id: Signal<Option<String>> = use_signal(|| None);
+    let mut transcribe_error: Signal<Option<(String, String)>> =
+        use_signal(|| None);
 
     let transcribing_short = t(&lang, "note-transcribing-short");
     let transcribe_action = t(&lang, "note-transcribe-action");
@@ -44,15 +46,12 @@ pub fn AudioSection(
                 rsx! {
                     div { class: "mt-3",
                         button {
-                            class: "flex items-center gap-2 w-full py-2 text-left active:opacity-70 transition-opacity duration-150",
+                            class: "flex items-center gap-2 w-full py-2 text-left active:opacity-70 hover:opacity-70 transition-opacity duration-150",
                             onclick: move |_| audios_expanded.set(!audios_expanded()),
                             span { class: "text-xs font-medium text-stone-500", "{audio_label}" }
                             span {
-                                class: if audios_expanded() {
-                                    "inline-block w-1.5 h-1.5 border-r-[1.5px] border-b-[1.5px] border-stone-400 transition-transform duration-150 -rotate-[135deg]"
-                                } else {
-                                    "inline-block w-1.5 h-1.5 border-r-[1.5px] border-b-[1.5px] border-stone-400 transition-transform duration-150 rotate-45"
-                                },
+                                class: "inline-block w-1.5 h-1.5 border-r-[1.5px] border-b-[1.5px] border-stone-400 chevron-pivot",
+                                class: if audios_expanded() { "-rotate-[135deg]" } else { "rotate-45" },
                             }
                         }
                         if audios_expanded() {
@@ -64,12 +63,16 @@ pub fn AudioSection(
                                         let file_path = audio.file_path.clone();
                                         let file_path_tr = audio.file_path.clone();
                                         let resolved = audio::resolve_audio_path(&file_path);
+                                        let file_exists = std::path::Path::new(&resolved).exists();
                                         let date = format_relative_date(&audio.created_at, &lang);
                                         let transcription = audio.transcription.clone();
                                         let is_transcribing_this = transcribing_audio_id() == Some(audio.id.clone());
+                                        let error_msg = transcribe_error()
+                                            .filter(|(id, _)| *id == audio.id)
+                                            .map(|(_, msg)| msg);
                                         rsx! {
                                             div { class: "space-y-1",
-                                                p { class: "text-[10px] text-stone-400 px-1", "{date}" }
+                                                p { class: "text-xs text-stone-500 px-1", "{date}" }
                                                 AudioPlayer {
                                                     audio_path: resolved,
                                                     duration_secs: audio.duration_secs,
@@ -89,13 +92,14 @@ pub fn AudioSection(
                                                         style: "animation: pulseSoft 1.5s ease-in-out infinite;",
                                                         "{transcribing_short}"
                                                     }
-                                                } else {
+                                                } else if file_exists {
                                                     button {
-                                                        class: "text-xs text-ios-orange-dark px-1 pb-1 active:opacity-70",
+                                                        class: "text-xs text-ios-orange-dark px-1 pb-1 active:opacity-70 hover:opacity-70 transition-opacity duration-150",
                                                         onclick: move |_| {
                                                             let aid = audio_id_tr.clone();
                                                             let fp = file_path_tr.clone();
                                                             let path = audio::resolve_audio_path(&fp);
+                                                            transcribe_error.set(None);
                                                             transcribing_audio_id.set(Some(aid.clone()));
                                                             spawn(async move {
                                                                 let result = async {
@@ -108,6 +112,7 @@ pub fn AudioSection(
                                                                     }
                                                                     Err(e) => {
                                                                         eprintln!("[transcribe] error: {e}");
+                                                                        transcribe_error.set(Some((aid.clone(), e)));
                                                                     }
                                                                 }
                                                                 transcribing_audio_id.set(None);
@@ -116,6 +121,9 @@ pub fn AudioSection(
                                                         },
                                                         "{transcribe_action}"
                                                     }
+                                                }
+                                                if let Some(ref msg) = error_msg {
+                                                    p { class: "text-xs text-ios-red px-1 pb-1", "{msg}" }
                                                 }
                                             }
                                         }

@@ -6,7 +6,7 @@ use crate::models::{
 use crate::services::audio::RecordingState;
 use crate::services::embed::{embed_attachment, embed_note};
 use crate::services::i18n::{t, t_args};
-use crate::ui::folder_picker::FolderPicker;
+use crate::ui::icons::{IconCheck, IconCopy};
 use crate::ui::notes::attachments::AttachmentSection;
 use crate::ui::notes::audio_section::{AudioJobBanner, AudioSection};
 use crate::ui::notes::dates::{format_absolute_short, format_relative_date};
@@ -88,6 +88,7 @@ pub fn NoteDetail() -> Element {
     let mut import_requested = use_signal(|| false);
     let mut import_status: Signal<Option<String>> = use_signal(|| None);
     let mut import_in_progress = use_signal(|| false);
+    let mut note_copied = use_signal(|| false);
     let mut pending_audio: Signal<Option<(String, f64)>> = use_signal(|| None);
     let mut audios_version = use_signal(|| 0u32);
 
@@ -517,11 +518,8 @@ pub fn NoteDetail() -> Element {
             }
         }
         div {
-            class: "relative overflow-y-auto safe-pb-40 px-4 pt-3",
+            class: "relative overflow-y-auto safe-pb-40 px-4 pt-3 lg:px-[max(1rem,calc((100%-48rem)/2))]",
             style: "height: calc(100% - var(--keyboard-inset, 0px));",
-            if (app.show_folder_picker)() {
-                FolderPicker { selected: app.detail_folder_id }
-            }
             if updated_from_peer() {
                 button {
                     class: "w-full min-h-[44px] mb-2 px-3 py-2 rounded-xl bg-ios-orange/10 border border-ios-orange/30 text-ios-orange-dark text-xs font-medium text-left active:bg-ios-orange/25",
@@ -563,9 +561,9 @@ pub fn NoteDetail() -> Element {
                 }
                 if !modified_date.is_empty() {
                     div { class: "mt-2 px-1",
-                        p { class: "text-xs text-stone-400", "{modified_date}" }
+                        p { class: "text-xs text-stone-500", "{modified_date}" }
                         if !created_date.is_empty() {
-                            p { class: "text-[10px] text-stone-300 mt-0.5", "{created_on_text}" }
+                            p { class: "text-xs text-stone-400 mt-0.5", "{created_on_text}" }
                         }
                     }
                 }
@@ -583,6 +581,43 @@ pub fn NoteDetail() -> Element {
                 placeholder: if is_transcribing { transcribing_placeholder.as_str() } else { content_placeholder.as_str() },
                 value: "{content}",
                 oninput: move |evt| content.set(evt.value()),
+            }
+            div { class: "flex justify-end mt-1",
+                button {
+                    class: if note_copied() {
+                        "flex items-center gap-1 text-xs text-ios-green transition-colors duration-150"
+                    } else {
+                        "flex items-center gap-1 text-xs text-stone-400 active:text-stone-600 hover:text-stone-600 transition-colors duration-150"
+                    },
+                    onclick: move |_| {
+                        if note_copied() {
+                            return;
+                        }
+                        let note_title = title();
+                        let body = content();
+                        let text = if note_title.trim().is_empty() {
+                            body
+                        } else {
+                            format!("{note_title}\n\n{body}")
+                        };
+                        crate::ui::clipboard::copy_text(&text);
+                        note_copied.set(true);
+                        spawn(async move {
+                            futures_timer::Delay::new(
+                                std::time::Duration::from_millis(1500),
+                            )
+                            .await;
+                            note_copied.set(false);
+                        });
+                    },
+                    if note_copied() {
+                        IconCheck { size: 12 }
+                        {t(&lang, "chat-copied")}
+                    } else {
+                        IconCopy { size: 12 }
+                        {t(&lang, "chat-copy")}
+                    }
+                }
             }
             ReminderSuggestions {
                 local_note_id,

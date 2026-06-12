@@ -245,7 +245,7 @@ pub fn SyncPairingView() -> Element {
                                         div { class: "min-w-0",
                                             p { class: "text-sm text-stone-900 truncate", "{peer.device_id}" }
                                             if let Some(ref at) = peer.paired_at {
-                                                p { class: "text-[10px] text-stone-400", "{at}" }
+                                                p { class: "text-xs text-stone-500", "{at}" }
                                             }
                                         }
                                         button {

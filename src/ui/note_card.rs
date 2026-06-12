@@ -44,7 +44,7 @@ pub fn NoteCard(note: Note) -> Element {
 
     rsx! {
         div {
-            class: "bg-warm-white p-4 border border-stone-200 rounded-xl mb-2.5 lg:mb-0",
+            class: "bg-warm-white p-4 border border-stone-200 rounded-xl mb-2.5 lg:mb-0 cursor-pointer hover:border-stone-300 hover:shadow-sm transition-all duration-150",
             onclick: move |_| {
                 app.show_folder_picker.set(false);
                 app.view.set(View::NoteDetail { note_id: note_id.clone() });
@@ -73,7 +73,7 @@ pub fn NoteCard(note: Note) -> Element {
                 }
             }
             div { class: "flex items-center gap-2",
-                span { class: "text-stone-400 text-xs", "{date}" }
+                span { class: "text-stone-500 text-xs", "{date}" }
                 if let Some(ref fname) = folder_name {
                     span { class: "text-xs text-stone-400", "·" }
                     span { class: "text-xs text-ios-orange-dark", "{fname}" }

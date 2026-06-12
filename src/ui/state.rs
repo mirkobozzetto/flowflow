@@ -18,6 +18,7 @@ pub enum SettingsSection {
     Storage,
     Backup,
     Privacy,
+    Shortcuts,
 }
 
 impl SettingsSection {
@@ -29,6 +30,7 @@ impl SettingsSection {
             Self::Storage => "settings-storage-title",
             Self::Backup => "settings-backup-title",
             Self::Privacy => "settings-section-privacy",
+            Self::Shortcuts => "settings-section-shortcuts",
         }
     }
 }
@@ -70,4 +72,10 @@ pub struct AppState {
     pub transcription_done_badge: Signal<usize>,
     pub audio_import_requested: Signal<bool>,
     pub sync_data_version: Signal<u64>,
+    pub view_history: Signal<Vec<View>>,
+    pub view_future: Signal<Vec<View>>,
+    pub history_nav: Signal<bool>,
+    pub picker_kb_up: Signal<u32>,
+    pub picker_kb_down: Signal<u32>,
+    pub picker_kb_commit: Signal<u32>,
 }
