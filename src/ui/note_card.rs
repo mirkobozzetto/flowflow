@@ -44,7 +44,7 @@ pub fn NoteCard(note: Note) -> Element {
 
     rsx! {
         div {
-            class: "bg-warm-white p-4 border border-stone-200 rounded-xl mb-2.5 lg:mb-0 cursor-pointer hover:border-stone-300 hover:shadow-sm transition-all duration-150",
+            class: "bg-warm-white p-4 border border-stone-200 rounded-xl mb-2.5 cursor-pointer break-inside-avoid hover:border-stone-300 hover:shadow-sm transition-all duration-150",
             onclick: move |_| {
                 app.show_folder_picker.set(false);
                 app.view.set(View::NoteDetail { note_id: note_id.clone() });
