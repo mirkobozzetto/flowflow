@@ -239,16 +239,31 @@ pub fn App() -> Element {
                 r#"
                 var lastEsc = 0;
                 var lastCtrl = 0;
+                var lastMeta = 0;
                 function inField() {
                     var el = document.activeElement;
                     return el && (el.tagName === 'INPUT' || el.tagName === 'TEXTAREA');
                 }
                 document.addEventListener('keydown', function(e) {
                     if (e.ctrlKey && e.key !== 'Control') { lastCtrl = 0; }
+                    if (e.metaKey && e.key !== 'Meta') { lastMeta = 0; }
+                    if (e.key === 'Meta' && !e.ctrlKey && !e.altKey && !e.shiftKey) {
+                        var nowM = Date.now();
+                        if (nowM - lastMeta < 400) {
+                            lastMeta = 0;
+                            dioxus.send('tab-toggle');
+                            return;
+                        }
+                        lastMeta = nowM;
+                        return;
+                    }
                     if (e.metaKey && e.shiftKey && e.key === 'Enter') { e.preventDefault(); dioxus.send('new-chat'); }
+                    else if (e.ctrlKey && e.shiftKey && e.key === 'Enter') { e.preventDefault(); dioxus.send('new-chat'); }
                     else if (e.metaKey && e.key === 'n') { e.preventDefault(); dioxus.send('new-note'); }
                     else if (e.metaKey && e.key === 'f') { e.preventDefault(); dioxus.send('search'); }
                     else if (e.metaKey && e.key === ',') { e.preventDefault(); dioxus.send('settings'); }
+                    else if (e.metaKey && e.key === '1') { e.preventDefault(); dioxus.send('tab-notes'); }
+                    else if (e.metaKey && e.key === '2') { e.preventDefault(); dioxus.send('tab-chats'); }
                     else if (e.ctrlKey && e.key === 'ArrowLeft') { e.preventDefault(); dioxus.send('tab-notes'); }
                     else if (e.ctrlKey && e.key === 'ArrowRight') { e.preventDefault(); dioxus.send('tab-chats'); }
                     else if (e.metaKey && e.key === 'ArrowLeft' && !inField()) { e.preventDefault(); dioxus.send('nav-back'); }
@@ -323,6 +338,15 @@ pub fn App() -> Element {
                         app.view.set(View::Chat {
                             conversation_id: None,
                         });
+                    }
+                    "tab-toggle" => {
+                        let next = if (app.sidebar_tab)() == SidebarTab::Notes {
+                            SidebarTab::Chats
+                        } else {
+                            SidebarTab::Notes
+                        };
+                        app.sidebar_tab.set(next);
+                        app.sidebar_open.set(true);
                     }
                     "tab-notes" => {
                         app.sidebar_tab.set(SidebarTab::Notes);
@@ -401,7 +425,8 @@ pub fn App() -> Element {
                         app.show_chat_menu.set(false);
                         app.sidebar_open.set(false);
                         app.attachment_modal.set(None);
-                        sidebar::navigate_with_slide(app, View::NotesList);
+                        app.previous_view.set(None);
+                        app.view.set(View::NotesList);
                     }
                     _ => {}
                 }
@@ -493,11 +518,16 @@ pub fn App() -> Element {
                             let sliding_back = (app.sliding_out)();
                             let shifted = is_bg && !sliding_back;
                             let shift_dir = if is_note { "30%" } else { "-30%" };
+                            let instant = cfg!(target_os = "macos");
                             rsx! {
                                 div {
                                     class: "absolute inset-0 overflow-y-auto px-4 py-3 safe-pb-20",
                                     class: if is_bg { "pointer-events-none" } else { "" },
-                                    style: if shifted {
+                                    style: if instant && shifted {
+                                        format!("transform: translateX({shift_dir}); opacity: 0.5;")
+                                    } else if instant {
+                                        "transform: translateX(0); opacity: 1;".to_string()
+                                    } else if shifted {
                                         format!("transform: translateX({shift_dir}); opacity: 0.5; transition: transform 0.15s ease, opacity 0.15s ease;")
                                     } else {
                                         "transform: translateX(0); opacity: 1; transition: transform 0.15s ease, opacity 0.15s ease;".to_string()
@@ -511,7 +541,9 @@ pub fn App() -> Element {
                         if matches!((app.view)(), View::NoteDetail { .. }) {
                             div {
                                 class: "absolute inset-0 flex flex-col min-h-0 bg-stone-100",
-                                style: if (app.sliding_out)() {
+                                style: if cfg!(target_os = "macos") {
+                                    ""
+                                } else if (app.sliding_out)() {
                                     "animation: slideOutToLeft 0.15s ease-in forwards;"
                                 } else {
                                     "animation: slideInFromLeft 0.15s ease-out;"
@@ -524,7 +556,9 @@ pub fn App() -> Element {
                         if matches!((app.view)(), View::Chat { .. }) {
                             div {
                                 class: "absolute inset-0 flex flex-col min-h-0 bg-stone-100",
-                                style: if (app.sliding_out)() {
+                                style: if cfg!(target_os = "macos") {
+                                    ""
+                                } else if (app.sliding_out)() {
                                     "animation: slideOutRight 0.15s ease-in forwards;"
                                 } else {
                                     "animation: slideInRight 0.15s ease-out;"
@@ -542,12 +576,17 @@ pub fn App() -> Element {
                                 || pairing_from_settings;
                             let in_section = settings_stack && !matches!(view_now, View::Settings);
                             let sliding_back = (app.sliding_out)();
+                            let instant = cfg!(target_os = "macos");
                             if settings_stack {
                                 rsx! {
                                     div {
                                         class: "absolute inset-0 flex flex-col min-h-0 px-4 safe-py-3 bg-stone-100 overflow-y-auto",
                                         class: if in_section && !sliding_back { "pointer-events-none" } else { "" },
-                                        style: if sliding_back && !in_section {
+                                        style: if instant && in_section {
+                                            "transform: translateX(-30%); opacity: 0.5;"
+                                        } else if instant {
+                                            ""
+                                        } else if sliding_back && !in_section {
                                             "animation: slideOutRight 0.15s ease-in forwards;"
                                         } else if in_section && !sliding_back {
                                             "animation: slideInRight 0.15s ease-out; transform: translateX(-30%); opacity: 0.5; transition: transform 0.15s ease, opacity 0.15s ease;"
@@ -566,7 +605,9 @@ pub fn App() -> Element {
                         if matches!((app.view)(), View::SettingsSection(_)) {
                             div {
                                 class: "absolute inset-0 flex flex-col min-h-0 px-4 safe-py-3 bg-stone-100 overflow-y-auto",
-                                style: if (app.sliding_out)() {
+                                style: if cfg!(target_os = "macos") {
+                                    ""
+                                } else if (app.sliding_out)() {
                                     "animation: slideOutRight 0.15s ease-in forwards;"
                                 } else {
                                     "animation: slideInRight 0.15s ease-out;"
@@ -579,7 +620,9 @@ pub fn App() -> Element {
                         if matches!((app.view)(), View::SyncPairing) {
                             div {
                                 class: "absolute inset-0 flex flex-col min-h-0 px-4 safe-py-3 bg-stone-100 overflow-y-auto",
-                                style: if (app.sliding_out)() {
+                                style: if cfg!(target_os = "macos") {
+                                    ""
+                                } else if (app.sliding_out)() {
                                     "animation: slideOutRight 0.15s ease-in forwards;"
                                 } else {
                                     "animation: slideInRight 0.15s ease-out;"

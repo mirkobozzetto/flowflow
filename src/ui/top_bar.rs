@@ -59,7 +59,9 @@ pub fn TopBar() -> Element {
                         app.show_folder_picker.set(false);
                         let target = (app.previous_view)()
                             .unwrap_or(View::NotesList);
-                        if matches!(target, View::Chat { .. }) {
+                        if cfg!(target_os = "macos")
+                            || matches!(target, View::Chat { .. })
+                        {
                             app.previous_view.set(None);
                             app.view.set(target);
                             return;

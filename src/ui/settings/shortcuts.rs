@@ -9,10 +9,10 @@ pub fn ShortcutsSettings() -> Element {
 
     let rows: Vec<(Vec<&'static str>, String)> = vec![
         (vec!["⌘", "N"], t(&lang, "shortcut-new-note")),
-        (vec!["⇧", "⌘", "Enter"], t(&lang, "shortcut-new-chat")),
+        (vec!["⇧⌘Enter", "⇧⌃Enter"], t(&lang, "shortcut-new-chat")),
         (vec!["⌘", "F"], t(&lang, "shortcut-search")),
         (vec!["⌘", ","], t(&lang, "shortcut-settings")),
-        (vec!["⌃", "←", "→"], t(&lang, "shortcut-menus")),
+        (vec!["⌘⌘", "⌘1", "⌘2"], t(&lang, "shortcut-menus")),
         (vec!["⌃", "⌃"], t(&lang, "shortcut-theme-picker")),
         (vec!["⌘", "←"], t(&lang, "shortcut-back")),
         (vec!["⌘", "→"], t(&lang, "shortcut-forward")),

@@ -15,7 +15,10 @@ pub(crate) fn navigate_with_slide(mut app: AppState, target: View) {
     if (app.view)() == target {
         return;
     }
-    if target != View::NotesList || (app.view)() == View::NotesList {
+    if cfg!(target_os = "macos")
+        || target != View::NotesList
+        || (app.view)() == View::NotesList
+    {
         app.previous_view.set(None);
         app.view.set(target);
         return;
