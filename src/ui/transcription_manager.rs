@@ -258,8 +258,9 @@ fn cleanup_file(path: &Path) {
 }
 
 fn client_from_db(db: &Database) -> Result<SonioxClient, String> {
+    let lang = crate::services::i18n::ui_lang(db);
     if db.get_setting("ai_consent") != Some("true".to_string()) {
-        return Err("Consentement IA requis".to_string());
+        return Err(crate::services::i18n::t(&lang, "error-ai-consent"));
     }
     let key = db
         .get_setting("soniox_api_key")
@@ -267,9 +268,9 @@ fn client_from_db(db: &Database) -> Result<SonioxClient, String> {
         .or_else(|| option_env!("SONIOX_API_KEY").map(String::from))
         .unwrap_or_default();
     if key.is_empty() || key == "your_key_here" {
-        return Err("SONIOX_API_KEY not configured".to_string());
+        return Err(crate::services::i18n::t(&lang, "stt-error-soniox-key"));
     }
-    Ok(SonioxClient::new(key))
+    Ok(SonioxClient::new(key).with_lang(lang))
 }
 
 fn resolve_resume_path(stored: Option<&str>) -> PathBuf {
@@ -324,7 +325,10 @@ async fn process_local(
             reg,
             note_id,
             &job.id,
-            JobStatus::Failed("Fichier audio introuvable".to_string()),
+            JobStatus::Failed(crate::services::i18n::t(
+                &crate::services::i18n::ui_lang(db),
+                "stt-error-file-missing",
+            )),
         );
         return;
     }

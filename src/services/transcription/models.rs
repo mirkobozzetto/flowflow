@@ -2,8 +2,70 @@ use crate::services::constants::{WhisperCatalogEntry, WHISPER_CATALOG};
 use sha2::{Digest, Sha256};
 use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::Mutex;
 
 static DOWNLOAD_ACTIVE: AtomicBool = AtomicBool::new(false);
+static DOWNLOAD_PROGRESS: Mutex<Option<(String, u64, u64)>> = Mutex::new(None);
+static DOWNLOAD_ERROR: Mutex<Option<String>> = Mutex::new(None);
+
+pub fn download_progress() -> Option<(String, u64, u64)> {
+    DOWNLOAD_PROGRESS.lock().unwrap().clone()
+}
+
+pub fn take_download_error() -> Option<String> {
+    DOWNLOAD_ERROR.lock().unwrap().take()
+}
+
+pub fn start_background_download(dir: PathBuf, id: &'static str) {
+    {
+        let mut p = DOWNLOAD_PROGRESS.lock().unwrap();
+        if p.is_some() {
+            return;
+        }
+        *p = Some((id.to_string(), 0, 0));
+    }
+    std::thread::spawn(move || {
+        let rt = match tokio::runtime::Runtime::new() {
+            Ok(rt) => rt,
+            Err(e) => {
+                *DOWNLOAD_PROGRESS.lock().unwrap() = None;
+                *DOWNLOAD_ERROR.lock().unwrap() = Some(format!("Runtime: {e}"));
+                return;
+            }
+        };
+        rt.block_on(async move {
+            let mut last_pct = 0u64;
+            let result = download(&dir, id, |done, total| {
+                let pct = if total > 0 { done * 100 / total } else { 0 };
+                if pct != last_pct || done >= total {
+                    last_pct = pct;
+                    *DOWNLOAD_PROGRESS.lock().unwrap() =
+                        Some((id.to_string(), done, total));
+                }
+            })
+            .await;
+            match result {
+                Ok(()) => {
+                    if let Ok(db) = crate::db::Database::open() {
+                        let key = crate::db::settings_repo::WHISPER_MODEL_KEY;
+                        let has_active = db
+                            .get_setting(key)
+                            .filter(|v| !v.is_empty())
+                            .is_some();
+                        if !has_active {
+                            let _ = db.set_setting(key, id);
+                        }
+                    }
+                }
+                Err(e) => {
+                    *DOWNLOAD_ERROR.lock().unwrap() =
+                        Some(format!("{id}: {e}"));
+                }
+            }
+            *DOWNLOAD_PROGRESS.lock().unwrap() = None;
+        });
+    });
+}
 
 pub fn catalog() -> &'static [WhisperCatalogEntry] {
     WHISPER_CATALOG

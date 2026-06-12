@@ -30,6 +30,7 @@ struct TranscriptResponse {
 pub struct SonioxClient {
     client: reqwest::Client,
     api_key: String,
+    lang: String,
 }
 
 impl SonioxClient {
@@ -39,12 +40,22 @@ impl SonioxClient {
             .timeout(Duration::from_secs(600))
             .build()
             .unwrap_or_else(|_| reqwest::Client::new());
-        Self { client, api_key }
+        Self {
+            client,
+            api_key,
+            lang: crate::platform::detect_system_language(),
+        }
+    }
+
+    pub fn with_lang(mut self, lang: String) -> Self {
+        self.lang = lang;
+        self
     }
 
     pub fn from_db(db: &crate::db::Database) -> Result<Self, String> {
+        let lang = crate::services::i18n::ui_lang(db);
         if db.get_setting("ai_consent") != Some("true".to_string()) {
-            return Err("Consentement IA requis".to_string());
+            return Err(crate::services::i18n::t(&lang, "error-ai-consent"));
         }
         let key = db
             .get_setting("soniox_api_key")
@@ -52,9 +63,12 @@ impl SonioxClient {
             .or_else(|| option_env!("SONIOX_API_KEY").map(String::from))
             .unwrap_or_default();
         if key.is_empty() || key == "your_key_here" {
-            return Err("SONIOX_API_KEY not configured".to_string());
+            return Err(crate::services::i18n::t(
+                &lang,
+                "stt-error-soniox-key",
+            ));
         }
-        Ok(Self::new(key))
+        Ok(Self::new(key).with_lang(lang))
     }
 
     async fn upload_file(&self, path: &Path) -> Result<String, String> {
@@ -170,7 +184,7 @@ impl SonioxClient {
                 Ok(Some(self.fetch_transcript(transcription_id).await?))
             }
             "error" | "failed" => {
-                Err("Transcription failed on server".to_string())
+                Err(crate::services::i18n::t(&self.lang, "stt-error-server"))
             }
             _ => Ok(None),
         }
@@ -187,7 +201,7 @@ impl SonioxClient {
             }
             tokio::time::sleep(POLL_INTERVAL).await;
         }
-        Err("Transcription timeout (5 h)".to_string())
+        Err(crate::services::i18n::t(&self.lang, "stt-error-timeout"))
     }
 
     async fn fetch_transcript(

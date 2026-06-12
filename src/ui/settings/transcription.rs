@@ -128,10 +128,32 @@ fn WhisperModelsSection() -> Element {
     let app: AppState = use_context();
     let mut models_version = use_signal(|| 0u32);
     let mut downloading: Signal<Option<(String, u64, u64)>> =
-        use_signal(|| None);
+        use_signal(models::download_progress);
     let mut dl_error: Signal<Option<String>> = use_signal(|| None);
     let mut confirm_dl: Signal<Option<&'static str>> = use_signal(|| None);
     let lang = (app.current_lang)();
+
+    use_future(move || async move {
+        if let Some(e) = models::take_download_error() {
+            dl_error.set(Some(e));
+        }
+        let mut last = models::download_progress();
+        loop {
+            let now = models::download_progress();
+            if now != last {
+                if now.is_none() {
+                    if let Some(e) = models::take_download_error() {
+                        dl_error.set(Some(e));
+                    }
+                    models_version.set(models_version() + 1);
+                }
+                downloading.set(now.clone());
+                last = now;
+            }
+            futures_timer::Delay::new(std::time::Duration::from_millis(300))
+                .await;
+        }
+    });
 
     let _ = models_version();
     let dir = models::models_dir();
@@ -175,9 +197,15 @@ fn WhisperModelsSection() -> Element {
                                     if is_downloading_this {
                                         {
                                             let (_, done, total) = dl_state.clone().unwrap();
+                                            let verifying = total > 0 && done >= total;
                                             let pct = if total > 0 { done * 100 / total } else { 0 };
+                                            let label = if verifying {
+                                                t(&lang, "whisper-verifying")
+                                            } else {
+                                                format!("{pct}%")
+                                            };
                                             rsx! {
-                                                span { class: "text-xs text-ios-orange tabular-nums shrink-0", "{pct}%" }
+                                                span { class: "text-xs text-ios-orange tabular-nums shrink-0", "{label}" }
                                             }
                                         }
                                     } else if downloaded {
@@ -251,32 +279,7 @@ fn WhisperModelsSection() -> Element {
                                                             confirm_dl.set(None);
                                                             dl_error.set(None);
                                                             downloading.set(Some((id.to_string(), 0, 0)));
-                                                            spawn(async move {
-                                                                let dir = models::models_dir();
-                                                                let mut last_pct = 0u64;
-                                                                let result = models::download(&dir, id, |done, total| {
-                                                                    let pct = if total > 0 { done * 100 / total } else { 0 };
-                                                                    if pct != last_pct || done == total {
-                                                                        last_pct = pct;
-                                                                        downloading.set(Some((id.to_string(), done, total)));
-                                                                    }
-                                                                })
-                                                                .await;
-                                                                downloading.set(None);
-                                                                match result {
-                                                                    Ok(()) => {
-                                                                        let has_active = db()
-                                                                            .get_setting(WHISPER_MODEL_KEY)
-                                                                            .filter(|v| !v.is_empty())
-                                                                            .is_some();
-                                                                        if !has_active {
-                                                                            let _ = db().set_setting(WHISPER_MODEL_KEY, id);
-                                                                        }
-                                                                    }
-                                                                    Err(e) => dl_error.set(Some(e)),
-                                                                }
-                                                                models_version.set(models_version() + 1);
-                                                            });
+                                                            models::start_background_download(models::models_dir(), id);
                                                         },
                                                         {t(&lang, "whisper-confirm-yes")}
                                                     }

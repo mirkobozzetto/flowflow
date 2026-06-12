@@ -9,6 +9,7 @@ fn facade_dispatch_chain_from_default_to_ready_whisper() {
     let db_dir = tempdir().expect("db dir");
     let db = Database::open_at(db_dir.path().join("flowflow_test.db"))
         .expect("open_at");
+    db.set_setting("language", "fr").unwrap();
 
     assert_eq!(
         TranscriptionClient::provider_from_db(&db),

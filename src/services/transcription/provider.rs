@@ -64,18 +64,30 @@ impl TranscriptionClient {
     }
 
     pub fn whisper_from_db(db: &Database) -> Result<WhisperLocal, String> {
+        let lang = crate::services::i18n::ui_lang(db);
         if db.get_setting("ai_consent") != Some("true".to_string()) {
-            return Err("Consentement IA requis".to_string());
+            return Err(crate::services::i18n::t(&lang, "error-ai-consent"));
         }
         let model_id = db
             .get_setting(WHISPER_MODEL_KEY)
             .filter(|v| !v.is_empty())
-            .ok_or_else(|| "Aucun modèle Whisper sélectionné".to_string())?;
+            .ok_or_else(|| {
+                crate::services::i18n::t(&lang, "stt-error-no-model")
+            })?;
         let dir = models::models_dir();
-        let path = models::model_path(&dir, &model_id)
-            .ok_or_else(|| format!("Modèle inconnu: {model_id}"))?;
+        let path = models::model_path(&dir, &model_id).ok_or_else(|| {
+            crate::services::i18n::t_args(
+                &lang,
+                "stt-error-model-unknown",
+                &[("id", &model_id)],
+            )
+        })?;
         if !path.is_file() {
-            return Err(format!("Modèle Whisper non téléchargé: {model_id}"));
+            return Err(crate::services::i18n::t_args(
+                &lang,
+                "stt-error-model-missing",
+                &[("id", &model_id)],
+            ));
         }
         Ok(WhisperLocal::new(path))
     }
