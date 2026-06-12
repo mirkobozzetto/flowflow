@@ -1,7 +1,27 @@
 use crate::db::{now_iso, sync_meta, Database};
 use crate::models::conversation::{Conversation, ConversationMessage};
 
+fn chat_scope_key(conversation_id: &str) -> String {
+    format!("chat_scope:{conversation_id}")
+}
+
 impl Database {
+    pub fn chat_scope(&self, conversation_id: &str) -> Option<String> {
+        self.get_setting(&chat_scope_key(conversation_id))
+            .filter(|v| !v.is_empty())
+    }
+
+    pub fn set_chat_scope(
+        &self,
+        conversation_id: &str,
+        folder_id: Option<&str>,
+    ) -> Result<(), String> {
+        self.set_setting(
+            &chat_scope_key(conversation_id),
+            folder_id.unwrap_or(""),
+        )
+    }
+
     pub fn create_conversation(
         &self,
         title: &str,
@@ -65,6 +85,8 @@ impl Database {
         sync_meta::tombstone_entity(&tx, "conversation", id)?;
         tx.execute("DELETE FROM conversations WHERE id = ?1", [id])
             .map_err(|e| format!("Delete conversation: {e}"))?;
+        tx.execute("DELETE FROM settings WHERE key = ?1", [chat_scope_key(id)])
+            .map_err(|e| format!("Delete conversation scope: {e}"))?;
         tx.commit()
             .map_err(|e| format!("Delete conversation commit: {e}"))?;
         Ok(())
