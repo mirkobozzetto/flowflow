@@ -3,15 +3,13 @@ feature: Backup, export & restore des données FlowFlow
 slug: data-backup-export
 type: prd
 status: ready
-built: no
+built: yes
 stepsCompleted: [0, 1, 2, 3, 4]
 ---
 
-> NOTE (2026-06-11): spec finalisee (status: ready) mais NON implementee - zero
-> code dans `src/`. "ready" = pret a construire, pas construit. La RFC 0001 (revision 2,
-> post-sync RFC 0004) porte le design technique a jour et ETEND le scope au desktop
-> macOS (decide avec Mirko le 2026-06-11). Implementer via
-> `/ship docs/rfcs/0001-data-backup-export/RFC.md` une fois la RFC Accepted.
+> NOTE (2026-06-11): implementee et mergee dans main via PR #35 (RFC 0001 revision 2,
+> scope etendu au desktop macOS). Code: `src/services/backup.rs` + protocole sync v3.
+> Trace d'implementation: `docs/rfcs/0001-data-backup-export/trace.md`.
 
 # PRD: Backup, export & restore des données FlowFlow
 

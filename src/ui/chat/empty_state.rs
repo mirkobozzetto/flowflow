@@ -13,7 +13,7 @@ pub fn ChatEmptyState() -> Element {
                 src: asset!("/assets/flowflow-icon-300.png"),
                 width: "150",
                 height: "150",
-                class: "mb-6 rounded-3xl",
+                class: "mb-6 rounded-2xl",
             }
             p { class: "text-stone-900 font-semibold text-base mb-1",
                 {t(&lang, "chat-empty-title")}

@@ -24,19 +24,34 @@ pub fn ChatInputBar(
         || matches!(recording_state, RecordingState::Error(_))
         || matches!(recording_state, RecordingState::Transcribed(_));
 
+    let mut do_send = move || {
+        let q = input().trim().to_string();
+        if !q.is_empty() && !disabled {
+            input.set(String::new());
+            dioxus::document::eval(
+                r#"
+                var ta = document.querySelector('.chat-textarea');
+                if (ta) { ta.style.height = 'auto'; }
+                "#,
+            );
+            on_send.call(q);
+        }
+    };
+
     rsx! {
-        div { class: "fixed bottom-0 left-0 right-0 px-4 py-2 bg-warm-white border-t border-stone-200 z-30 keyboard-aware",
+        div { class: "fixed bottom-0 left-0 right-0 px-4 py-2 bg-warm-white border-t border-stone-200 z-30 keyboard-aware lg:left-72",
+            div { class: "lg:max-w-3xl lg:mx-auto",
             if is_idle {
                 div { class: "flex items-end gap-2",
                     button {
-                        class: "w-10 h-10 shrink-0 rounded-full bg-warm-white border border-ios-orange/15 flex items-center justify-center text-ios-orange-dark transition-colors duration-150",
+                        class: "w-10 h-10 lg:w-12 lg:h-12 shrink-0 rounded-full bg-warm-white border border-ios-orange/15 flex items-center justify-center text-ios-orange-dark hover:bg-ios-orange-50 transition-colors duration-150",
                         disabled: disabled,
                         onclick: move |_| start_recording(recorder, app),
                         IconMic { size: 18 }
                     }
                     textarea {
-                        class: "chat-textarea flex-1 bg-stone-100 rounded-2xl px-4 py-2.5 text-sm outline-none text-stone-900 placeholder-stone-400 resize-none overflow-y-auto",
-                        style: "max-height: 120px; min-height: 40px;",
+                        class: "chat-textarea flex-1 bg-stone-100 rounded-2xl px-4 py-2.5 lg:py-3.5 text-sm outline-none text-stone-900 placeholder-stone-400 resize-none overflow-y-auto min-h-[40px] lg:min-h-[48px]",
+                        style: "max-height: 120px;",
                         rows: "1",
                         placeholder: "{placeholder}",
                         value: "{input}",
@@ -49,27 +64,26 @@ pub fn ChatInputBar(
                                 "#,
                             );
                         },
+                        onkeydown: move |evt| {
+                            if cfg!(target_os = "ios") {
+                                return;
+                            }
+                            if evt.key() == Key::Enter
+                                && !evt.modifiers().shift()
+                            {
+                                evt.prevent_default();
+                                do_send();
+                            }
+                        },
                     }
                     button {
                         class: if disabled || input().trim().is_empty() {
-                            "w-10 h-10 shrink-0 rounded-full bg-stone-200 flex items-center justify-center text-stone-400 transition-colors duration-150"
+                            "w-10 h-10 lg:w-12 lg:h-12 shrink-0 rounded-full bg-stone-200 flex items-center justify-center text-stone-400 transition-colors duration-150"
                         } else {
-                            "w-10 h-10 shrink-0 rounded-full bg-ios-orange flex items-center justify-center text-white transition-colors duration-150"
+                            "w-10 h-10 lg:w-12 lg:h-12 shrink-0 rounded-full bg-ios-orange flex items-center justify-center text-white hover:opacity-85 transition-opacity duration-150"
                         },
                         disabled: disabled || input().trim().is_empty(),
-                        onclick: move |_| {
-                            let q = input().trim().to_string();
-                            if !q.is_empty() && !disabled {
-                                input.set(String::new());
-                                dioxus::document::eval(
-                                    r#"
-                                    var ta = document.querySelector('.chat-textarea');
-                                    if (ta) { ta.style.height = 'auto'; }
-                                    "#,
-                                );
-                                on_send.call(q);
-                            }
-                        },
+                        onclick: move |_| do_send(),
                         IconPaperPlaneRight { size: 16 }
                     }
                 }
@@ -78,6 +92,7 @@ pub fn ChatInputBar(
                 }
             } else {
                 RecordingControls { pending_audio: dummy_pending_audio, transcribe_only: true }
+            }
             }
         }
     }

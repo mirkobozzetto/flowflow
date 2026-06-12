@@ -21,6 +21,19 @@ use dioxus::desktop::{tao, WindowBuilder};
 #[cfg(all(feature = "mobile", not(feature = "desktop")))]
 use dioxus::mobile::{tao, WindowBuilder};
 
+#[cfg(feature = "desktop")]
+fn build_window() -> WindowBuilder {
+    WindowBuilder::new()
+        .with_title("FlowFlow")
+        .with_inner_size(tao::dpi::LogicalSize::new(1280.0, 850.0))
+        .with_min_inner_size(tao::dpi::LogicalSize::new(760.0, 520.0))
+}
+
+#[cfg(all(feature = "mobile", not(feature = "desktop")))]
+fn build_window() -> WindowBuilder {
+    WindowBuilder::new().with_title("FlowFlow")
+}
+
 fn main() {
     flowflow::services::backup::apply_pending_restore_or_abort();
     dotenvy::dotenv().ok();
@@ -31,7 +44,7 @@ fn main() {
     dioxus::LaunchBuilder::new()
         .with_cfg(dioxus::prelude::client! {
             DesktopConfig::new()
-                .with_window(WindowBuilder::new().with_title("FlowFlow"))
+                .with_window(build_window())
                 .with_custom_index(INDEX_HTML.to_string())
                 .with_custom_event_handler(|event, _target| {
                     if let tao::event::Event::Opened { urls } = event {

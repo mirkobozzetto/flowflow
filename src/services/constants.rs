@@ -1,4 +1,58 @@
 pub const OPENAI_BASE_URL: &str = "https://api.openai.com";
+
+pub const WHISPER_MODELS_SUBDIR: &str = "models/whisper";
+
+pub struct WhisperCatalogEntry {
+    pub id: &'static str,
+    pub filename: &'static str,
+    pub url: &'static str,
+    pub bytes: u64,
+    pub sha256: &'static str,
+    pub quality_key: &'static str,
+}
+
+pub const WHISPER_CATALOG: &[WhisperCatalogEntry] = &[
+    WhisperCatalogEntry {
+        id: "tiny",
+        filename: "ggml-tiny.bin",
+        url: "https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-tiny.bin",
+        bytes: 77_691_713,
+        sha256: "be07e048e1e599ad46341c8d2a135645097a538221678b7acdd1b1919c6e1b21",
+        quality_key: "whisper-quality-fastest",
+    },
+    WhisperCatalogEntry {
+        id: "base",
+        filename: "ggml-base.bin",
+        url: "https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-base.bin",
+        bytes: 147_951_465,
+        sha256: "60ed5bc3dd14eea856493d334349b405782ddcaf0028d4b5df4088345fba2efe",
+        quality_key: "whisper-quality-fast",
+    },
+    WhisperCatalogEntry {
+        id: "small-q5_1",
+        filename: "ggml-small-q5_1.bin",
+        url: "https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-small-q5_1.bin",
+        bytes: 190_085_487,
+        sha256: "ae85e4a935d7a567bd102fe55afc16bb595bdb618e11b2fc7591bc08120411bb",
+        quality_key: "whisper-quality-balanced",
+    },
+    WhisperCatalogEntry {
+        id: "medium-q5_0",
+        filename: "ggml-medium-q5_0.bin",
+        url: "https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-medium-q5_0.bin",
+        bytes: 539_212_467,
+        sha256: "19fea4b380c3a618ec4723c3eef2eb785ffba0d0538cf43f8f235e7b3b34220f",
+        quality_key: "whisper-quality-accurate",
+    },
+    WhisperCatalogEntry {
+        id: "large-v3-turbo-q5_0",
+        filename: "ggml-large-v3-turbo-q5_0.bin",
+        url: "https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-large-v3-turbo-q5_0.bin",
+        bytes: 574_041_195,
+        sha256: "394221709cd5ad1f40c46e6031ca61bce88931e6e088c188294c6d5a55ffa7e2",
+        quality_key: "whisper-quality-best",
+    },
+];
 pub const EMBEDDING_MODEL: &str = "text-embedding-3-small";
 pub const CHAT_MODEL: &str = "gpt-4o-mini";
 pub const ANTHROPIC_CHAT_MODEL: &str = "claude-sonnet-4-6";

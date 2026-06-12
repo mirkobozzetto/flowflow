@@ -58,7 +58,7 @@ Must return `Transporter.app`.
 open -a Transporter
 ```
 
-On first launch, sign in with your Apple Developer ID (`mirko@mirko.re`). Regular password, not app-specific.
+On first launch, sign in with your Apple Developer ID (`$APPLE_ID`). Regular password, not app-specific.
 
 If Apple asks for 2FA (6-digit code on iPhone): approve via Settings → Apple ID → Apple ID Verification Code on your iPhone.
 
@@ -328,7 +328,7 @@ The app does not collect personal data and does not track users. All notes are s
 System requirements: iOS 16.0+. iPhone only.
 ```
 
-- **Contact Info**: name (Mirko Bozzetto), email (`mirko@mirko.re`), phone (+32 484 906 499)
+- **Contact Info**: name (Mirko Bozzetto), email (`$APPLE_ID`), phone (<phone>)
 - **Demo Account**: leave empty (no login in FlowFlow)
 - **Additional Notes**: leave empty
 

@@ -97,7 +97,7 @@ Once all the above are applied, validate locally with the same tool Apple uses p
 xcrun altool --validate-app \
   -f /Users/mirkobozzetto/code/flowflow/FlowFlow.ipa \
   -t ios \
-  -u mirko@mirko.re \
+  -u $APPLE_ID \
   -p <app-specific-password>
 ```
 
@@ -128,7 +128,7 @@ If you get warnings (like the version mismatch), fix and re-validate. Validation
 1. `xcodebuild -downloadPlatform iOS` (one-time, only if `actool` reports runtime mismatch)
 2. Add `APPLE_TEAM_ID=R477R8NK27` to `.env`
 3. `make appstore` → produces `FlowFlow.ipa` at repo root
-4. Validate locally: `xcrun altool --validate-app -f FlowFlow.ipa -t ios -u mirko@mirko.re -p <app-specific>`
+4. Validate locally: `xcrun altool --validate-app -f FlowFlow.ipa -t ios -u $APPLE_ID -p <app-specific>`
 5. Drag IPA into Transporter → `Distribuer`
 
 ## What we'd push upstream (Dioxus issue #3817)

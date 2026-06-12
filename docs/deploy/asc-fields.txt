@@ -92,7 +92,7 @@ Source code available. Bring your own API keys (OpenAI, Anthropic, Soniox).
 APP REVIEW (left sidebar -> App Review)
 ------------------------------------------------------------
 Sign-In Required : No
-Contact Info     : Mirko Bozzetto, mirko@mirko.re, +32 484 906 499
+Contact Info     : Mirko Bozzetto, $APPLE_ID, <phone>
 Demo Account     : (leave empty)
 Additional Notes : (leave empty)
 

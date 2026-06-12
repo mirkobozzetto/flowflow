@@ -1391,6 +1391,63 @@ mod archive_tests {
     }
 
     #[test]
+    fn archive_never_contains_whisper_model_files() {
+        let source_dir = tempfile::tempdir().unwrap();
+        let staging_dir = tempfile::tempdir().unwrap();
+        let audio_dir = source_dir.path().join("audio");
+        let staging = staging_dir.path().join("export_staging");
+        let db_file = seed_with_audio(source_dir.path(), &audio_dir);
+
+        let db = Database::open_at(db_file.clone()).unwrap();
+        db.set_setting("stt_provider", "whisper_local").unwrap();
+        db.set_setting("whisper_model", "tiny").unwrap();
+        drop(db);
+
+        let models_dir = source_dir.path().join("models/whisper");
+        std::fs::create_dir_all(&models_dir).unwrap();
+        std::fs::write(models_dir.join("ggml-tiny.bin"), b"fake model")
+            .unwrap();
+        std::fs::write(
+            audio_dir.join("ggml-small-q5_1.bin"),
+            b"model hiding in audio dir",
+        )
+        .unwrap();
+
+        let snapshot = create_scrubbed_snapshot(&db_file, &staging).unwrap();
+        let archive_path = staging_dir.path().join("backup.ffbak.zip");
+        build_archive(&snapshot, &audio_dir, &archive_path).unwrap();
+
+        let names = archive_entry_names(&archive_path);
+        assert!(
+            names
+                .iter()
+                .all(|n| !n.contains("model") && !n.ends_with(".bin")),
+            "no model file may enter the archive: {names:?}"
+        );
+
+        let extract_dir = tempfile::tempdir().unwrap();
+        let out_path = extract_dir.path().join("restored.db");
+        {
+            let file = std::fs::File::open(&archive_path).unwrap();
+            let mut zip = zip::ZipArchive::new(file).unwrap();
+            let mut entry = zip.by_name("db/flowflow.db").unwrap();
+            let mut out = std::fs::File::create(&out_path).unwrap();
+            std::io::copy(&mut entry, &mut out).unwrap();
+        }
+        let restored = Database::open_at(out_path).unwrap();
+        assert_eq!(
+            restored.get_setting("stt_provider").as_deref(),
+            Some("whisper_local"),
+            "provider choice must survive the backup"
+        );
+        assert_eq!(
+            restored.get_setting("whisper_model").as_deref(),
+            Some("tiny"),
+            "active model id must survive the backup"
+        );
+    }
+
+    #[test]
     fn manifest_crc_matches_zip_entry_crc() {
         let source_dir = tempfile::tempdir().unwrap();
         let staging_dir = tempfile::tempdir().unwrap();

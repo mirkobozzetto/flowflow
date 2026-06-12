@@ -8,7 +8,6 @@ use crate::ui::chat::models::ChatMsg;
 use crate::ui::chat::typing_indicator::TypingIndicator;
 use crate::ui::chat::user_bubble::UserBubble;
 use crate::ui::chat_input::ChatInputBar;
-use crate::ui::folder_picker::FolderPicker;
 use crate::ui::state::View;
 use crate::ui::AppState;
 use dioxus::prelude::*;
@@ -26,6 +25,16 @@ pub fn ChatView() -> Element {
 
     let mut conversation_id: Signal<Option<String>> =
         use_signal(|| initial_conv_id.clone());
+
+    let scope_init = use_signal(|| {
+        let restored = initial_conv_id
+            .as_deref()
+            .and_then(|cid| db.peek().chat_scope(cid))
+            .filter(|fid| db.peek().get_folder(fid).ok().flatten().is_some());
+        app.chat_scope_folder_id.set(restored);
+        true
+    });
+    let _ = scope_init();
 
     let initial_msgs = if let Some(ref cid) = initial_conv_id {
         load_messages_from_db(&db(), cid)
@@ -85,6 +94,38 @@ pub fn ChatView() -> Element {
         }
     });
 
+    use_effect(move || {
+        let view_cid = match (app.view)() {
+            View::Chat {
+                conversation_id: cid,
+            } => cid,
+            _ => return,
+        };
+        if view_cid == *conversation_id.peek() || *loading.peek() {
+            return;
+        }
+        let msgs = match &view_cid {
+            Some(cid) => load_messages_from_db(&db(), cid),
+            None => vec![],
+        };
+        let restored = view_cid
+            .as_deref()
+            .and_then(|cid| db.peek().chat_scope(cid))
+            .filter(|fid| db.peek().get_folder(fid).ok().flatten().is_some());
+        conversation_id.set(view_cid);
+        messages.set(msgs);
+        input.set(String::new());
+        tool_status.set(None);
+        app.chat_scope_folder_id.set(restored);
+    });
+
+    use_effect(move || {
+        let scope = (app.chat_scope_folder_id)();
+        if let Some(cid) = conversation_id.peek().clone() {
+            let _ = db.peek().set_chat_scope(&cid, scope.as_deref());
+        }
+    });
+
     let is_empty = messages().is_empty();
     let show_menu = (app.show_chat_menu)();
 
@@ -100,10 +141,7 @@ pub fn ChatView() -> Element {
         div {
             class: "overflow-hidden relative",
             style: "height: calc(100% - var(--keyboard-inset, 0px));",
-            if (app.show_folder_picker)() {
-                FolderPicker { selected: app.chat_scope_folder_id }
-            }
-            div { id: "chat-messages", class: "h-full overflow-y-auto px-4 pt-4 safe-pb-40",
+            div { id: "chat-messages", class: "h-full overflow-y-auto px-4 pt-4 safe-pb-40 lg:px-[max(1rem,calc((100%-48rem)/2))]",
                 if is_empty && !loading() {
                     ChatEmptyState {}
                 } else {
@@ -141,7 +179,14 @@ pub fn ChatView() -> Element {
                     let title: String = q.chars().take(50).collect();
                     if let Ok(conv) = db().create_conversation(&title) {
                         let cid = conv.id.clone();
-                        conversation_id.set(Some(cid));
+                        let _ = db().set_chat_scope(
+                            &cid,
+                            (app.chat_scope_folder_id)().as_deref(),
+                        );
+                        conversation_id.set(Some(cid.clone()));
+                        app.view.set(View::Chat {
+                            conversation_id: Some(cid),
+                        });
                     }
                 }
                 let folder = (app.chat_scope_folder_id)();

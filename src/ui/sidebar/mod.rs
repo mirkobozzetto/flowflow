@@ -11,6 +11,27 @@ use crate::ui::{AppState, SidebarTab, View};
 use dioxus::prelude::*;
 use std::sync::Arc;
 
+pub(crate) fn navigate_with_slide(mut app: AppState, target: View) {
+    if (app.view)() == target {
+        return;
+    }
+    if cfg!(target_os = "macos")
+        || target != View::NotesList
+        || (app.view)() == View::NotesList
+    {
+        app.previous_view.set(None);
+        app.view.set(target);
+        return;
+    }
+    app.sliding_out.set(true);
+    spawn(async move {
+        futures_timer::Delay::new(std::time::Duration::from_millis(150)).await;
+        app.sliding_out.set(false);
+        app.previous_view.set(None);
+        app.view.set(target);
+    });
+}
+
 #[component]
 pub fn SidebarOverlay() -> Element {
     let mut app: AppState = use_context();
@@ -20,21 +41,21 @@ pub fn SidebarOverlay() -> Element {
 
     rsx! {
         div {
-            class: "fixed inset-0 bg-black/30 z-40 transition-opacity duration-200",
+            class: "fixed inset-0 bg-black/35 z-40 transition-opacity duration-200 lg:hidden",
             class: if is_open { "opacity-100" } else { "opacity-0 pointer-events-none" },
             onclick: move |_| app.sidebar_open.set(false),
         }
         div {
-            class: "fixed left-0 top-0 w-[85vw] max-w-[340px] h-full bg-warm-white z-50 flex flex-col border-r border-stone-200 transition-transform duration-200 safe-pt",
+            class: "fixed left-0 top-0 w-[85vw] max-w-[340px] h-full bg-warm-white z-50 flex flex-col border-r border-stone-200 transition-transform duration-200 safe-pt lg:static lg:translate-x-0 lg:w-72 lg:shrink-0 lg:h-screen",
             class: if is_open { "translate-x-0" } else { "-translate-x-full" },
             onclick: move |evt| evt.stop_propagation(),
 
-            div { class: "flex border-b border-stone-200",
+            div { class: "relative flex border-b border-stone-200 lg:h-[68px]",
                 button {
                     class: if (app.sidebar_tab)() == SidebarTab::Notes {
-                        "flex-1 py-3 text-sm font-semibold text-ios-orange-dark border-b-2 border-ios-orange-dark"
+                        "flex-1 flex items-center justify-center py-3 text-sm font-semibold text-ios-orange-dark transition-colors duration-200"
                     } else {
-                        "flex-1 py-3 text-sm font-medium text-stone-400"
+                        "flex-1 flex items-center justify-center py-3 text-sm font-medium text-stone-400 hover:text-stone-600 transition-colors duration-200"
                     },
                     onclick: move |_| app.sidebar_tab.set(SidebarTab::Notes),
                     div { class: "flex items-center justify-center gap-1.5",
@@ -44,15 +65,19 @@ pub fn SidebarOverlay() -> Element {
                 }
                 button {
                     class: if (app.sidebar_tab)() == SidebarTab::Chats {
-                        "flex-1 py-3 text-sm font-semibold text-ios-orange-dark border-b-2 border-ios-orange-dark"
+                        "flex-1 flex items-center justify-center py-3 text-sm font-semibold text-ios-orange-dark transition-colors duration-200"
                     } else {
-                        "flex-1 py-3 text-sm font-medium text-stone-400"
+                        "flex-1 flex items-center justify-center py-3 text-sm font-medium text-stone-400 hover:text-stone-600 transition-colors duration-200"
                     },
                     onclick: move |_| app.sidebar_tab.set(SidebarTab::Chats),
                     div { class: "flex items-center justify-center gap-1.5",
                         IconChats { size: 16 }
                         {t(&lang, "sidebar-tab-chats")}
                     }
+                }
+                div {
+                    class: "absolute bottom-0 left-0 w-1/2 h-0.5 bg-ios-orange-dark transition-transform duration-200 ease-out",
+                    class: if (app.sidebar_tab)() == SidebarTab::Chats { "translate-x-full" } else { "translate-x-0" },
                 }
             }
 
@@ -61,11 +86,32 @@ pub fn SidebarOverlay() -> Element {
                     SidebarTab::Notes => rsx! {
                         div { class: "py-2 pb-4",
                             button {
-                                class: "flex items-center gap-2.5 w-full px-2 py-3 text-base text-stone-900 font-semibold rounded-lg min-h-[44px]",
+                                class: "flex items-center gap-2.5 w-full px-2 py-3 text-sm font-medium text-ios-orange-dark rounded-lg min-h-[44px] hover:bg-ios-orange-50 transition-colors duration-150",
+                                onclick: move |_| {
+                                    app.show_folder_picker.set(false);
+                                    app.sidebar_open.set(false);
+                                    if matches!((app.view)(), View::NoteDetail { .. }) {
+                                        app.view.set(View::NotesList);
+                                        spawn(async move {
+                                            futures_timer::Delay::new(
+                                                std::time::Duration::from_millis(30),
+                                            )
+                                            .await;
+                                            app.view.set(View::NoteDetail { note_id: String::new() });
+                                        });
+                                    } else {
+                                        app.view.set(View::NoteDetail { note_id: String::new() });
+                                    }
+                                },
+                                IconPlus { size: 16 }
+                                {t(&lang, "sidebar-new-note")}
+                            }
+                            button {
+                                class: "flex items-center gap-2.5 w-full px-2 py-3 text-base text-stone-900 font-semibold rounded-lg min-h-[44px] hover:bg-stone-100 transition-colors duration-150",
                                 onclick: move |_| {
                                     app.selected_folder_id.set(None);
-                                    app.view.set(View::NotesList);
                                     app.sidebar_open.set(false);
+                                    navigate_with_slide(app, View::NotesList);
                                 },
                                 IconNotebook { size: 20 }
                                 {t(&lang, "sidebar-all-notes")}
@@ -82,7 +128,7 @@ pub fn SidebarOverlay() -> Element {
 
             div { class: "border-t border-stone-200 p-4",
                 button {
-                    class: "flex items-center gap-2.5 w-full px-2 py-3 text-sm text-stone-500 rounded-lg min-h-[44px]",
+                    class: "flex items-center gap-2.5 w-full px-2 py-3 text-sm text-stone-500 rounded-lg min-h-[44px] lg:min-h-[48px] hover:bg-stone-100 transition-colors duration-150",
                     onclick: move |_| {
                         app.view.set(View::Settings);
                         app.sidebar_open.set(false);

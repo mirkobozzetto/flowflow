@@ -68,10 +68,12 @@ impl LlmClient {
     }
 
     pub fn from_db(db: &crate::db::Database) -> Result<Self, LlmError> {
+        let lang = crate::services::i18n::ui_lang(db);
         if db.get_setting("ai_consent") != Some("true".to_string()) {
-            return Err(LlmError::NotConfigured(
-                "Consentement IA requis".into(),
-            ));
+            return Err(LlmError::NotConfigured(crate::services::i18n::t(
+                &lang,
+                "error-ai-consent",
+            )));
         }
         let openai_key = db
             .get_setting("openai_api_key")
@@ -79,9 +81,10 @@ impl LlmClient {
             .or_else(|| option_env!("OPENAI_API_KEY").map(String::from))
             .unwrap_or_default();
         if openai_key.is_empty() || openai_key == "your_key_here" {
-            return Err(LlmError::NotConfigured(
-                "OPENAI_API_KEY not configured".into(),
-            ));
+            return Err(LlmError::NotConfigured(crate::services::i18n::t(
+                &lang,
+                "llm-error-openai-key",
+            )));
         }
         let openai = openai::Client::new(&openai_key)
             .map_err(|e| LlmError::NotConfigured(e.to_string()))?;

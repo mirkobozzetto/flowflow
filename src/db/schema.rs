@@ -9,6 +9,7 @@ pub const MIGRATIONS: &[(i64, &str)] = &[
     (8, V8_SCHEMA),
     (9, V9_SCHEMA),
     (10, V10_SCHEMA),
+    (11, V11_SCHEMA),
 ];
 
 const V1_SCHEMA: &str = "
@@ -234,4 +235,22 @@ CREATE TABLE IF NOT EXISTS chunks (
 );
 CREATE INDEX IF NOT EXISTS idx_chunks_owner
     ON chunks(owner_id);
+";
+
+const V11_SCHEMA: &str = "
+CREATE TABLE pending_transcriptions_v11 (
+    note_id TEXT PRIMARY KEY,
+    transcription_id TEXT,
+    soniox_file_id TEXT,
+    provider TEXT NOT NULL DEFAULT 'soniox',
+    file_path TEXT,
+    created_at TEXT NOT NULL
+        DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now'))
+);
+INSERT INTO pending_transcriptions_v11
+    (note_id, transcription_id, soniox_file_id, created_at)
+SELECT note_id, transcription_id, soniox_file_id, created_at
+FROM pending_transcriptions;
+DROP TABLE pending_transcriptions;
+ALTER TABLE pending_transcriptions_v11 RENAME TO pending_transcriptions;
 ";

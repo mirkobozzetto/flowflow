@@ -43,6 +43,7 @@ Mirko Bozzetto — freelance full-stack developer, Brussels.
 | E | Embeddings + RAG + Chat + Settings + Tags | Done |
 | F | RIG framework + agent tools + multi-provider | Done |
 | G | Document attachments (TXT, MD, CSV, PDF, DOCX) | Done |
+| H | Pluggable STT providers + local Whisper models (RFC 0005) | Built - device validation pending |
 
 ### Track F Progress
 
@@ -114,7 +115,12 @@ src/
     embed.rs               embed_note, embed_attachment, delete_note_embeddings, delete_attachment_embeddings (background)
     rag.rs                 RAG pipeline (embed query → vector search → context → agent with tools)
     audio.rs               AudioRecorder (cpal, WAV capture)
-    transcription.rs       SonioxClient (upload, poll, transcribe)
+    transcription/         STT layer (RFC 0005)
+      client.rs            SonioxClient (upload, poll, transcribe) - cloud path, untouched
+      provider.rs          SttProvider enum + TranscriptionClient facade (from_db dispatch Soniox/WhisperLocal)
+      whisper.rs           WhisperLocal (whisper-rs, spawn_blocking, Semaphore(1), WAV→mono 16k) + bench
+      models.rs            ggml model manager (5-model catalog, download .part+sha256+rename, disk guardrail 2x)
+      hesitations.rs       clean_hesitations post-processing
   platform/                OS-specific
     ios.rs                 AVAudioSession, documents_dir, open_file_picker (UIDocumentPickerViewController), read_file_as_text (txt/md/csv/pdf/docx)
   ui/                      Dioxus components (1 component = 1 file)
@@ -163,8 +169,9 @@ src/
 
 ### Settings (key-value)
 - key (PK), value — stores API keys and `llm_provider` in SQLite
-- Known keys: `openai_api_key`, `anthropic_api_key`, `soniox_api_key`, `llm_provider` (openai/anthropic)
+- Known keys: `openai_api_key`, `anthropic_api_key`, `soniox_api_key`, `llm_provider` (openai/anthropic), `stt_provider` (soniox/whisper_local), `whisper_model` (catalog id)
 - Fallback chain: DB → env var → compile-time `option_env!()`
+- `stt_provider`/`whisper_model` travel in backup; model files never do (device-local artifacts)
 
 ## Styling
 
@@ -179,9 +186,14 @@ src/
 
 ```
 Note Pipeline:
-  Mic capture → WAV → Soniox REST → transcription
+  Mic capture → WAV → TranscriptionClient (Soniox REST or local Whisper per stt_provider)
     → SQLite (metadata) + auto-embed on save
     → OpenAI embed → chunk → LanceDB (vector)
+
+Local Whisper Path (offline):
+  Settings → download ggml model (size confirm, sha256 verified, .part+rename)
+    → WhisperLocal: WAV decode → mono 16 kHz → whisper-rs (Metal) → clean_hesitations
+    → airplane mode works end to end; consent gate applies to all providers
 
 RAG Chat Pipeline:
   User question → OpenAI embed (query vector, always OpenAI)
@@ -214,6 +226,9 @@ RAG Chat Pipeline:
 - zip 2 (DOCX archive reading)
 - quick-xml 0.36 (DOCX word/document.xml parser)
 - futures 0.3.32 (stream collect for LanceDB queries)
+- whisper-rs 0.16 (local STT, whisper.cpp via cmake, metal feature on apple targets)
+- fs4 0.13 (free disk space check for model downloads)
+- libc 0.2 (getrusage peak RSS in the whisper bench)
 - Rust 1.94.1
 - iOS targets: aarch64-apple-ios, aarch64-apple-ios-sim
 - IPHONEOS_DEPLOYMENT_TARGET=16.0 (required for lancedb/zstd-sys)
@@ -299,7 +314,7 @@ xcrun devicectl manage pair --device <DEVICE_ID>
 <!-- gitnexus:start -->
 # GitNexus — Code Intelligence
 
-This project is indexed by GitNexus as **flowflow** (3189 symbols, 7264 relationships, 270 execution flows). Use the GitNexus MCP tools to understand code, assess impact, and navigate safely.
+This project is indexed by GitNexus as **flowflow** (3473 symbols, 7890 relationships, 294 execution flows). Use the GitNexus MCP tools to understand code, assess impact, and navigate safely.
 
 > Index stale? Run `node .gitnexus/run.cjs analyze` from the project root — it auto-selects an available runner. No `.gitnexus/run.cjs` yet? `npx gitnexus analyze` (npm 11 crash → `npm i -g gitnexus`; #1939).
 

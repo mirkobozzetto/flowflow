@@ -38,11 +38,11 @@ pub fn SourcesAccordion(
                         }}, 350);"#
                     ));
                 },
-                span { class: "text-[11px] font-medium text-stone-500",
+                span { class: "text-xs font-medium text-stone-500",
                     "{label}"
                 }
                 span {
-                    class: "text-[10px] text-stone-400 inline-block",
+                    class: "text-xs text-stone-400 inline-block",
                     style: "{arrow_style}",
                     "▼"
                 }
@@ -89,7 +89,7 @@ fn SourceCard(source: ChatSource, conversation_id: Option<String>) -> Element {
 
     rsx! {
         button {
-            class: "w-full text-left px-2.5 py-1.5 rounded-lg bg-warm-white border border-ios-orange/20 active:bg-ios-orange/10 transition-colors duration-150",
+            class: "w-full text-left px-2.5 py-1.5 rounded-lg bg-warm-white border border-ios-orange/20 active:bg-ios-orange/10 hover:bg-ios-orange/5 transition-colors duration-150",
             onclick: move |_| {
                 app.previous_view.set(Some(View::Chat {
                     conversation_id: conversation_id.clone(),
@@ -99,16 +99,16 @@ fn SourceCard(source: ChatSource, conversation_id: Option<String>) -> Element {
                 });
             },
             div { class: "flex items-center justify-between",
-                span { class: "text-[11px] font-medium text-ios-orange-dark",
+                span { class: "text-xs font-medium text-ios-orange-dark",
                     "{source.title}"
                 }
                 if !date_label.is_empty() {
-                    span { class: "text-[9px] text-stone-400 ml-1 shrink-0",
+                    span { class: "text-xs text-stone-500 ml-1 shrink-0",
                         "{date_label}"
                     }
                 }
             }
-            p { class: "text-[10px] text-stone-400 leading-tight mt-0.5 line-clamp-1",
+            p { class: "text-xs text-stone-500 leading-tight mt-0.5 line-clamp-1",
                 "{preview}"
             }
         }

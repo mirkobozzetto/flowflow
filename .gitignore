@@ -28,3 +28,4 @@ secrets/
 
 # Desktop build: parked original Dioxus.toml (make desktop / desktop-build)
 .Dioxus.toml.ios
+dist/

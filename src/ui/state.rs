@@ -10,12 +10,38 @@ pub enum SidebarTab {
     Chats,
 }
 
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub enum SettingsSection {
+    General,
+    Intelligence,
+    Transcription,
+    Storage,
+    Backup,
+    Privacy,
+    Shortcuts,
+}
+
+impl SettingsSection {
+    pub fn title_key(self) -> &'static str {
+        match self {
+            Self::General => "settings-section-general",
+            Self::Intelligence => "settings-section-intelligence",
+            Self::Transcription => "settings-section-transcription",
+            Self::Storage => "settings-storage-title",
+            Self::Backup => "settings-backup-title",
+            Self::Privacy => "settings-section-privacy",
+            Self::Shortcuts => "settings-section-shortcuts",
+        }
+    }
+}
+
 #[derive(Clone, Debug, PartialEq)]
 pub enum View {
     NotesList,
     NoteDetail { note_id: String },
     Chat { conversation_id: Option<String> },
     Settings,
+    SettingsSection(SettingsSection),
     SyncPairing,
 }
 
@@ -46,4 +72,10 @@ pub struct AppState {
     pub transcription_done_badge: Signal<usize>,
     pub audio_import_requested: Signal<bool>,
     pub sync_data_version: Signal<u64>,
+    pub view_history: Signal<Vec<View>>,
+    pub view_future: Signal<Vec<View>>,
+    pub history_nav: Signal<bool>,
+    pub picker_kb_up: Signal<u32>,
+    pub picker_kb_down: Signal<u32>,
+    pub picker_kb_commit: Signal<u32>,
 }

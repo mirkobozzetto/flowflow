@@ -74,6 +74,12 @@ pub fn reminder_due_label(
     }
 }
 
+pub fn ui_lang(db: &crate::db::Database) -> String {
+    db.get_setting(crate::db::settings_repo::LANGUAGE_KEY)
+        .filter(|v| !v.is_empty())
+        .unwrap_or_else(crate::platform::detect_system_language)
+}
+
 pub fn t(lang: &str, key: &str) -> String {
     t_args(lang, key, &[])
 }

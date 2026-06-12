@@ -47,7 +47,7 @@ pub fn ConsentScreen() -> Element {
                     h2 { class: "font-semibold text-base text-stone-800 mb-2",
                         {t(&lang, "consent-title")}
                     }
-                    p { class: "text-[13px] text-stone-500 leading-relaxed",
+                    p { class: "text-sm text-stone-500 leading-relaxed",
                         {t(&lang, "consent-description")}
                     }
                 }
@@ -81,14 +81,14 @@ pub fn ConsentScreen() -> Element {
                     }
                 }
                 button {
-                    class: "w-full bg-ios-orange text-white font-semibold py-4 rounded-2xl text-[15px]",
+                    class: crate::ui::kit::BTN_HERO,
                     onclick: move |_| {
                         let _ = db().set_setting("ai_consent", "true");
                         app.ai_consent.set(Some(true));
                     },
                     {t(&lang, "consent-cta")}
                 }
-                p { class: "text-[10px] text-stone-400/50 text-center mt-3 px-4 leading-relaxed",
+                p { class: "text-xs text-stone-400/50 text-center mt-3 px-4 leading-relaxed",
                     {t(&lang, "consent-disclaimer")}
                 }
             }

@@ -24,6 +24,39 @@
 .keyboard-aware {
     padding-bottom: calc(0.5rem + env(safe-area-inset-bottom));
 }
+@media (width >= 64rem) {
+    .keyboard-aware {
+        padding-top: 1rem;
+        padding-bottom: 1rem;
+    }
+    * {
+        scrollbar-width: thin;
+        scrollbar-color: oklch(0.78 0.01 50 / 0.7) transparent;
+    }
+    *::-webkit-scrollbar {
+        display: block;
+        width: 6px;
+        height: 6px;
+    }
+    *::-webkit-scrollbar-thumb {
+        background: oklch(0.78 0.01 50 / 0.7);
+        border-radius: 3px;
+    }
+    *::-webkit-scrollbar-track {
+        background: transparent;
+    }
+}
+
+.chevron-pivot {
+    transition:
+        rotate 0.2s ease,
+        transform 0.2s ease;
+}
+
+.menu-pop {
+    animation: popIn 0.16s ease-out;
+    transform-origin: top right;
+}
 
 .fab-btn {
     position: relative;
@@ -83,7 +116,9 @@
 
 @theme {
     --color-ios-green: #34c759;
-    --color-ios-red: #ff3b30;
+    --color-ios-red: oklch(0.55 0.2 30);
+    --color-ios-red-dark: oklch(0.46 0.16 30);
+    --color-ios-red-50: oklch(0.96 0.025 30);
     --color-ios-orange-50: oklch(0.97 0.04 50);
     --color-ios-orange-100: oklch(0.92 0.07 50);
     --color-ios-orange: oklch(0.60 0.22 50);
@@ -96,6 +131,14 @@
         -webkit-tap-highlight-color: transparent;
         -webkit-text-size-adjust: 100%;
         scrollbar-width: none;
+        -webkit-user-select: none;
+        user-select: none;
+        -webkit-touch-callout: none;
+    }
+    input,
+    textarea {
+        -webkit-user-select: text;
+        user-select: text;
     }
     *::-webkit-scrollbar {
         display: none;
@@ -174,6 +217,26 @@
         to {
             max-height: 15rem;
             opacity: 1;
+        }
+    }
+    @keyframes slideUp {
+        from {
+            max-height: 15rem;
+            opacity: 1;
+        }
+        to {
+            max-height: 0;
+            opacity: 0;
+        }
+    }
+    @keyframes popIn {
+        from {
+            opacity: 0;
+            transform: scale(0.95) translateY(-4px);
+        }
+        to {
+            opacity: 1;
+            transform: scale(1) translateY(0);
         }
     }
     @keyframes fadeInUp {

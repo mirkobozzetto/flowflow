@@ -1,16 +1,18 @@
 use crate::db::Database;
 use crate::services::i18n::t;
-use crate::ui::folder_picker::FolderPicker;
 use crate::ui::icons::*;
 use crate::ui::note_card::NoteCard;
 use crate::ui::AppState;
 use dioxus::prelude::*;
 use std::sync::Arc;
 
+const NOTES_PAGE: usize = 30;
+
 #[component]
 pub fn NotesList() -> Element {
     let mut app: AppState = use_context();
     let db: Signal<Arc<Database>> = use_context();
+    let mut visible_count = use_signal(|| NOTES_PAGE);
 
     let notes = use_memo(move || {
         let _v = (app.notes_version)();
@@ -32,27 +34,67 @@ pub fn NotesList() -> Element {
             .collect()
     });
 
+    use_effect(move || {
+        let _ = (app.search_query)();
+        let _ = (app.selected_folder_id)();
+        visible_count.set(NOTES_PAGE);
+    });
+
+    use_future(move || async move {
+        let mut eval = dioxus::document::eval(
+            r#"
+            var ticking = false;
+            function onScroll() {
+                if (ticking) return;
+                ticking = true;
+                requestAnimationFrame(function() {
+                    ticking = false;
+                    var sc = document.getElementById('notes-scroll');
+                    if (!sc) return;
+                    if (sc.scrollTop + sc.clientHeight >= sc.scrollHeight - 800) {
+                        dioxus.send('more');
+                    }
+                });
+            }
+            setInterval(function() {
+                var sc = document.getElementById('notes-scroll');
+                if (sc && !sc._pagerBound) {
+                    sc._pagerBound = true;
+                    sc.addEventListener('scroll', onScroll);
+                }
+            }, 500);
+            "#,
+        );
+        while let Ok(msg) = eval.recv::<String>().await {
+            if msg == "more" {
+                let total = notes.peek().len();
+                let cur = *visible_count.peek();
+                if cur < total {
+                    visible_count.set((cur + NOTES_PAGE).min(total));
+                }
+            }
+        }
+    });
+
     let has_query = !(app.search_query)().is_empty();
     let lang = (app.current_lang)();
 
     rsx! {
-        if (app.show_folder_picker)() {
-            FolderPicker { selected: app.selected_folder_id }
-        }
         div { class: "mb-3",
             div { class: "relative",
                 div { class: "absolute left-3 top-1/2 -translate-y-1/2 text-stone-400",
                     IconMagnifyingGlass { size: 16 }
                 }
                 input {
-                    class: "w-full bg-warm-white border border-stone-200 rounded-xl pl-9 pr-9 py-2.5 text-sm outline-none text-stone-900 placeholder-stone-400",
+                    id: "note-search",
+                    class: "w-full bg-warm-white border border-stone-200 rounded-xl pl-9 pr-9 py-2.5 text-sm outline-none text-stone-900 placeholder-stone-400 hover:border-stone-300 focus:border-ios-orange-dark focus:ring-[3px] focus:ring-ios-orange-50 transition-colors duration-150",
                     placeholder: t(&lang, "note-list-search-placeholder"),
                     value: "{app.search_query}",
                     oninput: move |evt| app.search_query.set(evt.value()),
                 }
                 if has_query {
                     button {
-                        class: "absolute right-2 top-1/2 -translate-y-1/2 text-stone-400 active:text-stone-600 p-1",
+                        class: "absolute right-2 top-1/2 -translate-y-1/2 text-stone-400 active:text-stone-600 hover:text-stone-600 p-1 transition-colors duration-150",
                         onclick: move |_| app.search_query.set(String::new()),
                         IconX { size: 14 }
                     }
@@ -65,14 +107,14 @@ pub fn NotesList() -> Element {
                     p { class: "text-lg text-stone-400", {t(&lang, "note-list-no-results")} }
                     p { class: "text-sm text-stone-400", {t(&lang, "note-list-no-results-hint")} }
                 } else {
-                    img { src: asset!("/assets/flowflow-icon-300.png"), width: "200", height: "200", class: "mb-6 rounded-3xl" }
+                    img { src: asset!("/assets/flowflow-icon-300.png"), width: "200", height: "200", class: "mb-6 rounded-2xl" }
                     p { class: "text-lg font-semibold text-stone-900", {t(&lang, "note-list-welcome")} }
                     p { class: "text-sm text-stone-400 mt-1", {t(&lang, "note-list-first-note-hint")} }
                 }
             }
         } else {
-            div { class: "safe-pb-32",
-                for note in notes() {
+            div { class: "safe-pb-32 lg:grid lg:grid-cols-2 lg:gap-2.5 lg:items-start",
+                for note in notes().into_iter().take(visible_count()) {
                     NoteCard { note: note }
                 }
             }
