@@ -5,7 +5,7 @@
 <h1 align="center">FlowFlow</h1>
 
 <p align="center">
-  Voice notes app for mobile - 100% Rust, built with <a href="https://github.com/DioxusLabs/dioxus">Dioxus</a>.<br/>
+  Voice notes for iPhone and Mac - 100% Rust, built with <a href="https://github.com/DioxusLabs/dioxus">Dioxus</a>.<br/>
   Featured on <a href="https://dioxuslabs.com/awesome/">Awesome Dioxus</a>.
 </p>
 
@@ -17,18 +17,26 @@ FlowFlow is a voice notes app that captures what you say, transcribes it, and le
 
 No manual searching. No folders to dig through. Just talk, and find it later.
 
+## Download
+
+- **macOS (Apple Silicon)** - grab the DMG from the [latest release](https://github.com/mirkobozzetto/flowflow/releases/latest), drag FlowFlow to Applications. First launch: right-click > Open (the build is not notarized yet).
+- **iOS** - on the App Store (v1.0, selected regions while EU rollout completes).
+- **From source** - see [Setup](#setup) below; one `make` installs on your own iPhone or Mac.
+
 ## What it does
 
 - **Voice capture** - tap to record, real-time waveform, pause/resume, auto-transcription via Soniox or fully on-device with local Whisper models, background audio with a Dynamic Island live timer
-- **Offline transcription** - download a Whisper model (tiny to large-v3-turbo) in Settings and transcribe in airplane mode; audio never leaves the device, sha256-verified downloads
+- **Offline transcription** - download a Whisper model (tiny to large-v3-turbo) in Settings and transcribe in airplane mode; audio never leaves the device, sha256-verified downloads, errors surfaced inline in your language
 - **Multi-device sync** - encrypted LAN P2P between iPhone and Mac (Noise protocol, no server, no cloud), QR pairing, real-time UI refresh, zero data loss by design
 - **Backup & restore** - export everything (notes, audio, vectors) as one archive via the share sheet, API keys and pairing secrets never leave the device; import is a validated, crash-safe atomic replace, and sync reconverges without resurrecting deleted notes
-- **RAG chat** - powered by [rig](https://github.com/0xPlaygrounds/rig): ask questions about your notes, get answers with tappable sources; hybrid search (BM25 + vector + RRF + LLM rerank), temporal queries, folder-scoped chat, agent tools
-- **Smart reminders** - notes like "pick up the kids at 5pm" become iOS reminders, detected by LLM with one-tap confirm
-- **AI organization** - auto-title while you write, single-word auto-tags, folders with hierarchy
-- **Document import** - PDF (native OCR for scans), DOCX, TXT, MD, CSV via the native iOS picker, auto-embedded for chat
-- **Audio playback** - play, pause, delete recordings from any note; filler words (euh, um) auto-stripped from transcripts
-- **Bilingual** - English + French UI, auto-detected, switchable in Settings
+- **RAG chat** - powered by [rig](https://github.com/0xPlaygrounds/rig): ask questions about your notes, get answers with tappable sources; hybrid search (BM25 + vector + RRF + LLM rerank), temporal queries, agent tools, and a per-conversation theme scope that is remembered when you come back
+- **Smart reminders** - notes like "pick up the kids at 5pm" become iOS reminders, detected by LLM with one-tap confirm; reminder chips open Calendar on Mac too
+- **AI organization** - auto-title while you write, single-word auto-tags, themes with hierarchy, searchable chats
+- **Document import** - PDF (native OCR for scans), DOCX, TXT, MD, CSV via the native pickers on iOS and macOS, auto-embedded for chat
+- **Audio playback** - play, pause, delete recordings from any note, on both platforms; filler words (euh, um) auto-stripped from transcripts
+- **A real Mac app** - keyboard-first: ⌘N new note, ⇧⌘Enter new chat, ⌘F search, ⌘⌘ switch Notes/Chats, ⌃⌃ theme picker with arrow-key navigation, ⌘←/→ view history, double-Esc home; instant page switches, hover states, native file dialogs (full list in Settings > Keyboard shortcuts)
+- **Polished by design** - one design system: anchored context menus, confirm-before-delete everywhere, inline rename with Enter/Esc, copy any note or chat answer in one tap, incremental list rendering that stays smooth past hundreds of notes
+- **Bilingual** - English + French UI, auto-detected, switchable in Settings; even error messages are localized
 - **Local-first** - SQLite for metadata, LanceDB for vectors, your data stays on your devices
 
 ## Stack
@@ -46,14 +54,14 @@ No manual searching. No folders to dig through. Just talk, and find it later.
 | Sync          | LAN P2P, [snow](https://github.com/mcginty/snow) (Noise XXpsk3), version vectors, tombstones   |
 | Audio         | [cpal](https://github.com/RustAudio/cpal) 0.17 + [hound](https://github.com/ruuda/hound) 3.5   |
 | Transcription | [Soniox](https://soniox.com) REST API or local [whisper-rs](https://github.com/tazz4843/whisper-rs) 0.16 (Metal) |
-| PDF / DOCX    | Apple PDFKit (iOS, OCR) / [pdf-extract](https://crates.io/crates/pdf-extract); quick-xml + zip |
+| PDF / DOCX    | Apple PDFKit (iOS + macOS, OCR); quick-xml + zip                                               |
 | Async         | [tokio](https://tokio.rs)                                                                      |
-| Min iOS       | 16.0 (aarch64-apple-ios)                                                                       |
+| Targets       | iOS 16+ (aarch64-apple-ios), macOS (Apple Silicon)                                            |
 
 ## How it works
 
 ```
-Talk → Record → Transcribe → Clean fillers → Auto-embed → Store → AI title (1-3 words)
+Talk → Record → Transcribe (cloud or on-device) → Clean fillers → Auto-embed → Store → AI title
 
 Later: Ask → Embed query → Hybrid search (BM25 + vector + RRF)
      → LLM rerank → Temporal boost → Tag-enriched context → Agent with tools → Answer with sources
@@ -79,7 +87,9 @@ API keys can be set in-app via Settings (stored in SQLite, no recompile). OpenAI
 ```bash
 make all          # build + sign + icon + install on iPhone
 make ddev         # dx serve --ios --device (hot reload)
-make desktop-app  # build + install the Mac app
+make desktop-app  # build + install the Mac app in /Applications
+make dmg          # distributable Mac DMG in dist/
+make release      # make dmg + publish as a GitHub release
 make check        # fmt check + clippy
 make appstore     # release build + signed IPA
 ```
@@ -94,21 +104,21 @@ Everything beyond this page lives in [`docs/INDEX.md`](docs/INDEX.md):
 |---------|---------------------|
 | [01 Product](docs/INDEX.md#01-product) | Vision, features, history of what shipped |
 | [02 Architecture](docs/INDEX.md#02-architecture) | Modules, pipelines, data model |
-| [03 Dev guides](docs/INDEX.md#03-dev-guides) | Build, device setup, tests |
+| [03 Dev guides](docs/INDEX.md#03-dev-guides) | Build, device setup, desktop release (DMG), tests |
 | [04 App Store](docs/guides/appstore.md) | Provisioning, signing, submission, troubleshooting |
-| [05 Specs](docs/INDEX.md#05-specs) | RFCs and PRDs (sync, backup, realtime UX) |
+| [05 Specs](docs/INDEX.md#05-specs) | RFCs and PRDs (sync, backup, local Whisper, realtime UX) |
 | [06 History](docs/HISTORY.md) | Chronological log of every milestone |
 
 ## Tests
 
 ```bash
-cargo test
-cargo test -- --ignored
+cargo test                 # 269 tests
+cargo test -- --ignored    # API-key-gated integration tests
 ```
 
 ## Status
 
-Actively developed. The codebase evolves constantly - new features, better architecture, and deeper iOS integration land regularly.
+Actively developed. The codebase evolves constantly - new features, better architecture, and deeper platform integration land regularly.
 
 ## Contributing
 
