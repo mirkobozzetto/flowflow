@@ -1,5 +1,6 @@
 ---
 import Nav from "./Nav.astro";
+import LangSwitcher from "./LangSwitcher.astro";
 import Hero from "./Hero.astro";
 import Marquee from "./Marquee.astro";
 import HorizontalShowcase from "./HorizontalShowcase.astro";
@@ -19,6 +20,7 @@ const showcase = section(lang, "showcase");
 const { marquee, showcase: steps } = showcase;
 ---
 
+<LangSwitcher lang={lang} />
 <Nav lang={lang} />
 <Hero lang={lang} />
 <Marquee items={marquee.items} />

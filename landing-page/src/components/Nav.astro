@@ -1,6 +1,8 @@
 ---
+import { Image } from "astro:assets";
 import { useTranslations, localizePath } from "../lib/i18n";
 import { macDownloadUrl, externalLinkAttrs } from "../lib/links";
+import logo from "../assets/logo.png";
 
 interface Props {
   lang: string;
@@ -13,12 +15,12 @@ const t = useTranslations(lang, "hero");
 <nav>
   <div class="nav-inner">
     <a class="brand" href={localizePath("/", lang)}>
-      <img src="/logo.png" alt="" width="26" height="26" />
+      <Image src={logo} alt="" width={26} height={26} />
       FlowFlow
     </a>
     <div class="nav-right">
-      <a class="nav-link" href="#chapitre">{t("nav.product")}</a>
-      <a class="nav-link" href="#agentique">{t("nav.agentic")}</a>
+      <a class="nav-link" href="#product">{t("nav.product")}</a>
+      <a class="nav-link" href="#agentic">{t("nav.agentic")}</a>
       <a class="nav-link" href="#faq">{t("nav.faq")}</a>
       <a class="nav-cta" href={macDownloadUrl} {...externalLinkAttrs}>
         {t("nav.cta")}
@@ -50,6 +52,11 @@ const t = useTranslations(lang, "hero");
   @media (max-width: 1240px) {
     .nav-inner {
       margin: 14px 20px 0;
+    }
+  }
+  @media (max-width: 1300px) {
+    .nav-inner {
+      padding-right: 84px;
     }
   }
   .brand {

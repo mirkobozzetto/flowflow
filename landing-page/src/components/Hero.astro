@@ -1,7 +1,9 @@
 ---
+import { Image } from "astro:assets";
 import ParallaxScene from "./ParallaxScene.astro";
 import { useTranslations } from "../lib/i18n";
 import { macDownloadUrl, appStoreUrl, externalLinkAttrs } from "../lib/links";
+import logo from "../assets/logo.png";
 
 interface Props {
   lang: string;
@@ -15,12 +17,12 @@ const storeUrl = appStoreUrl(lang);
 <header class="hero">
   <div class="hero-glow"></div>
   <div class="container">
-    <img
+    <Image
       class="hero-logo reveal in"
-      src="/logo.png"
+      src={logo}
       alt={t("hero.logoAlt")}
-      width="176"
-      height="176"
+      width={176}
+      height={176}
     />
     <h1 class="reveal" data-d="1">
       {t("hero.h1Lead")} <em class="h1-accent">{t("hero.h1Accent")}</em>

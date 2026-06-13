@@ -1,7 +1,6 @@
 ---
 import { section } from "../lib/i18n";
 import GithubStars from "./GithubStars.astro";
-import LangSwitcher from "./LangSwitcher.astro";
 import { repoUrl, licenseUrl, externalLinkAttrs } from "../lib/links";
 
 interface Props {
@@ -40,7 +39,6 @@ const githubPath =
     </a>
     <span class="spacer"></span>
     <span>{t.footer.madeWith}</span>
-    <LangSwitcher lang={lang} />
   </div>
 </footer>
 
