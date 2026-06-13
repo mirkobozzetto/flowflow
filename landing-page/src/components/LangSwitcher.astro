@@ -39,25 +39,13 @@ function homePath(target: Lang): string {
 
 <style>
   .lang-switch {
-    position: fixed;
-    top: 18px;
-    right: 22px;
-    z-index: 95;
     display: inline-flex;
     align-items: center;
     gap: 2px;
     padding: 3px;
     border: 1px solid var(--stone-200);
-    border-radius: 11px;
-    background: color-mix(in srgb, var(--warm-white) 82%, transparent);
-    backdrop-filter: blur(16px);
-    box-shadow: 0 4px 16px rgba(22, 19, 17, 0.06);
-  }
-  @media (max-width: 600px) {
-    .lang-switch {
-      top: 14px;
-      right: 14px;
-    }
+    border-radius: 10px;
+    background: var(--stone-50);
   }
   .lang-opt {
     font-size: 12.5px;
@@ -66,7 +54,7 @@ function homePath(target: Lang): string {
     color: var(--stone-500);
     text-decoration: none;
     padding: 5px 9px;
-    border-radius: 8px;
+    border-radius: 7px;
     transition:
       color 0.15s,
       background 0.15s;
