@@ -1,0 +1,62 @@
+---
+import { supportedLangs } from "../lib/i18n";
+import { defaultLang, type Lang } from "../i18n/ui";
+
+interface Props {
+  lang: string;
+}
+
+const { lang } = Astro.props;
+const short: Record<Lang, string> = { en: "EN", fr: "FR" };
+
+function homePath(target: Lang): string {
+  return target === defaultLang ? "/" : `/${target}/`;
+}
+---
+
+<div class="lang-switch" role="group" aria-label="Language">
+  {
+    supportedLangs.map((code) => (
+      <a
+        class:list={["lang-opt", { active: code === lang }]}
+        href={homePath(code)}
+        aria-current={code === lang ? "true" : undefined}
+        hreflang={code}
+      >
+        {short[code]}
+      </a>
+    ))
+  }
+</div>
+
+<style>
+  .lang-switch {
+    display: inline-flex;
+    align-items: center;
+    gap: 2px;
+    padding: 2px;
+    border: 1px solid var(--stone-200);
+    border-radius: 9px;
+    background: var(--stone-50);
+  }
+  .lang-opt {
+    font-size: 12.5px;
+    font-weight: 600;
+    letter-spacing: 0.02em;
+    color: var(--stone-500);
+    text-decoration: none;
+    padding: 5px 9px;
+    border-radius: 7px;
+    transition:
+      color 0.15s,
+      background 0.15s;
+  }
+  .lang-opt:hover {
+    color: var(--ink);
+  }
+  .lang-opt.active {
+    color: var(--ink);
+    background: var(--warm-white);
+    box-shadow: 0 1px 2px rgba(22, 19, 17, 0.08);
+  }
+</style>

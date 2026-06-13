@@ -1,0 +1,111 @@
+---
+import ParallaxScene from "./ParallaxScene.astro";
+import { useTranslations } from "../lib/i18n";
+import { macDownloadUrl, appStoreUrl, externalLinkAttrs } from "../lib/links";
+
+interface Props {
+  lang: string;
+}
+
+const { lang } = Astro.props;
+const t = useTranslations(lang, "hero");
+const storeUrl = appStoreUrl(lang);
+---
+
+<header class="hero">
+  <div class="hero-glow"></div>
+  <div class="container">
+    <img
+      class="hero-logo reveal in"
+      src="/logo.png"
+      alt={t("hero.logoAlt")}
+      width="176"
+      height="176"
+    />
+    <h1 class="reveal" data-d="1">
+      {t("hero.h1Lead")} <em class="h1-accent">{t("hero.h1Accent")}</em>
+    </h1>
+    <p class="hero-sub reveal" data-d="2">
+      {t("hero.subLead")} <b>{t("hero.subStrong")}</b>
+    </p>
+    <div class="hero-ctas reveal" data-d="3">
+      <a class="btn-primary" href={macDownloadUrl} {...externalLinkAttrs}>
+        {t("hero.ctaPrimary")}
+      </a>
+      <a class="btn-ghost" href={storeUrl} {...externalLinkAttrs}>
+        {t("hero.ctaGhost")}
+      </a>
+    </div>
+  </div>
+
+  <ParallaxScene lang={lang} />
+</header>
+
+<style>
+  .hero {
+    padding: 116px 0 0;
+    text-align: center;
+    position: relative;
+  }
+  .hero-glow {
+    position: absolute;
+    top: -120px;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 900px;
+    height: 700px;
+    pointer-events: none;
+    background: radial-gradient(
+      45% 45% at 50% 38%,
+      color-mix(in srgb, var(--orange) 16%, transparent) 0%,
+      transparent 70%
+    );
+    filter: blur(10px);
+  }
+  .hero-logo {
+    width: 176px;
+    height: 176px;
+    border-radius: 44px;
+    margin: 0 auto;
+    display: block;
+    position: relative;
+    box-shadow:
+      0 30px 60px -18px color-mix(in srgb, var(--orange) 45%, transparent),
+      0 4px 14px rgba(22, 19, 17, 0.12),
+      inset 0 0 0 1px rgba(255, 255, 255, 0.4);
+    animation: logoFloat 5.5s ease-in-out infinite;
+  }
+  @keyframes logoFloat {
+    0%,
+    100% {
+      transform: translateY(0) rotate(-2deg);
+    }
+    50% {
+      transform: translateY(-10px) rotate(2deg);
+    }
+  }
+  .hero :global(h1) {
+    margin-top: 26px;
+    font-size: clamp(50px, 8.4vw, 104px);
+    line-height: 0.99;
+    letter-spacing: -0.035em;
+    font-weight: 760;
+    color: var(--ink);
+  }
+  .hero :global(h1 .h1-accent) {
+    font-family: var(--serif);
+    font-style: italic;
+    font-weight: 400;
+    color: var(--orange-dark);
+  }
+  .hero-sub {
+    font-size: clamp(15px, 1.8vw, 17.5px);
+    color: var(--stone-500);
+    max-width: 600px;
+    margin: 18px auto 0;
+  }
+  .hero-sub :global(b) {
+    color: var(--ink);
+    font-weight: 600;
+  }
+</style>

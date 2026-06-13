@@ -1,0 +1,89 @@
+---
+interface Props {
+  you: string;
+  then: string;
+  soon?: boolean;
+  soonLabel?: string;
+  delay?: 0 | 1 | 2 | 3;
+}
+
+const {
+  you,
+  then: result,
+  soon = false,
+  soonLabel = "bientôt",
+  delay,
+} = Astro.props;
+
+const micPath =
+  "M12 3C10 3 10 5 10 5l0 6s0 2 2 2 2-2 2-2V5s0-2-2-2zM5 10s0 7 7 7 " +
+  "7-7 7-7M12 17v4";
+const d = delay ? String(delay) : undefined;
+---
+
+<div class="action reveal" data-d={d}>
+  <div class="you">
+    <svg viewBox="0 0 24 24" aria-hidden="true">
+      <path d={micPath} />
+    </svg>
+    <span set:text={you} />
+    {soon && <span class="soon">{soonLabel}</span>}
+  </div>
+  <div class="then" set:text={result} />
+</div>
+
+<style>
+  .action {
+    background: var(--ink-2);
+    border: 1px solid #36302b;
+    border-radius: 18px;
+    padding: 22px 24px;
+    transition: border-color 0.25s ease, background 0.25s ease;
+  }
+  .action:hover {
+    border-color: color-mix(in srgb, var(--orange) 35%, #36302b);
+    background: #262019;
+  }
+  .you {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    font-family: var(--serif);
+    font-style: italic;
+    font-size: 19px;
+    color: var(--warm-white);
+  }
+  .you svg {
+    width: 17px;
+    height: 17px;
+    stroke: var(--orange-bright);
+    fill: none;
+    stroke-width: 1.8;
+    flex-shrink: 0;
+  }
+  .then {
+    display: flex;
+    align-items: center;
+    gap: 9px;
+    margin-top: 13px;
+    font-size: 13.5px;
+    color: var(--stone-400);
+  }
+  .then::before {
+    content: "\2192";
+    color: var(--orange-bright);
+    font-weight: 700;
+  }
+  .soon {
+    display: inline-block;
+    margin-left: 8px;
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--orange-bright);
+    border: 1px solid color-mix(in srgb, var(--orange-bright) 40%, transparent);
+    border-radius: 99px;
+    padding: 1px 8px;
+  }
+</style>

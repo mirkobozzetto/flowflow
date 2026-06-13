@@ -1,0 +1,16 @@
+{
+  "finale": {
+    "lead": "No sooner said",
+    "accent": "than done",
+    "ctaPrimary": "Download for Mac",
+    "ctaGhost": "App Store",
+    "note": "Free · your keys, your data · macOS Apple Silicon + iPhone"
+  },
+  "footer": {
+    "copyright": "© 2026 Mirko Bozzetto",
+    "license": "EUPL v1.2",
+    "github": "GitHub",
+    "starsAlt": "GitHub stars",
+    "madeWith": "Built in Rust with Dioxus"
+  }
+}

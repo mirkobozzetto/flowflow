@@ -1,0 +1,102 @@
+---
+interface Props {
+  question: string;
+  answer: string;
+}
+
+const { question, answer } = Astro.props;
+---
+
+<div class="qa">
+  <button class="q" type="button" aria-expanded="false">
+    {question}
+    <span class="plus" aria-hidden="true">
+      <svg viewBox="0 0 24 24" fill="none">
+        <path d="M12 5v14M5 12h14"></path>
+      </svg>
+    </span>
+  </button>
+  <div class="ans">
+    <div class="ans-in">
+      <p>{answer}</p>
+    </div>
+  </div>
+</div>
+
+<style>
+  .qa {
+    border-bottom: 1px solid var(--stone-200);
+  }
+  .q {
+    width: 100%;
+    background: none;
+    border: none;
+    font-family: inherit;
+    color: inherit;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+    padding: 22px 4px;
+    font-size: 16.5px;
+    font-weight: 600;
+    letter-spacing: -0.01em;
+    text-align: left;
+  }
+  .plus {
+    width: 28px;
+    height: 28px;
+    border-radius: 99px;
+    border: 1px solid var(--stone-300);
+    color: var(--stone-500);
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    transition:
+      transform 0.3s cubic-bezier(0.2, 0.8, 0.2, 1),
+      background 0.2s,
+      border-color 0.2s,
+      color 0.2s;
+  }
+  .plus svg {
+    width: 12px;
+    height: 12px;
+    stroke: currentColor;
+    stroke-width: 2;
+    stroke-linecap: round;
+    display: block;
+  }
+  .qa.open .plus {
+    transform: rotate(45deg);
+    background: var(--orange);
+    border-color: var(--orange);
+    color: white;
+  }
+  .ans {
+    display: grid;
+    grid-template-rows: 0fr;
+    transition: grid-template-rows 0.34s cubic-bezier(0.2, 0.8, 0.2, 1);
+  }
+  .qa.open .ans {
+    grid-template-rows: 1fr;
+  }
+  .ans-in {
+    overflow: hidden;
+  }
+  .ans-in p {
+    padding: 0 4px 22px;
+    font-size: 14.5px;
+    color: var(--stone-500);
+    max-width: 640px;
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .ans {
+      transition: none;
+    }
+    .plus {
+      transition: none;
+    }
+  }
+</style>

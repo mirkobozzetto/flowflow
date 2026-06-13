@@ -1,0 +1,85 @@
+---
+interface Connector {
+  name: string;
+  live: boolean;
+}
+
+interface Props {
+  label: string;
+  connectors: Connector[];
+}
+
+const { label, connectors } = Astro.props;
+---
+
+<div class="connectors reveal">
+  <div class="lbl">{label}</div>
+  <div class="chips">
+    {
+      connectors.map((c) => (
+        <span class="chip">
+          <span class={c.live ? "dot-on" : "dot-soon"} />
+          <span set:text={c.name} />
+        </span>
+      ))
+    }
+  </div>
+</div>
+
+<style>
+  .connectors {
+    margin-top: 56px;
+  }
+  .lbl {
+    font-size: 12px;
+    font-weight: 600;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--stone-500);
+    margin-bottom: 16px;
+  }
+  .chips {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 9px;
+  }
+  .chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 13.5px;
+    font-weight: 500;
+    color: var(--stone-300);
+    background: var(--ink-2);
+    border: 1px solid #36302b;
+    border-radius: 99px;
+    padding: 9px 16px;
+  }
+  .dot-on {
+    width: 7px;
+    height: 7px;
+    border-radius: 99px;
+    background: #34c759;
+  }
+  .dot-soon {
+    width: 7px;
+    height: 7px;
+    border-radius: 99px;
+    background: var(--orange-bright);
+    animation: pulseSoft 1.6s ease-in-out infinite;
+  }
+  @keyframes pulseSoft {
+    0%,
+    100% {
+      opacity: 1;
+    }
+    50% {
+      opacity: 0.35;
+    }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .dot-soon {
+      animation: none;
+    }
+  }
+</style>

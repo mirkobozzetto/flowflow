@@ -1,0 +1,98 @@
+---
+import { useTranslations, localizePath } from "../lib/i18n";
+import { macDownloadUrl, externalLinkAttrs } from "../lib/links";
+
+interface Props {
+  lang: string;
+}
+
+const { lang } = Astro.props;
+const t = useTranslations(lang, "hero");
+---
+
+<nav>
+  <div class="nav-inner">
+    <a class="brand" href={localizePath("/", lang)}>
+      <img src="/logo.png" alt="" width="26" height="26" />
+      FlowFlow
+    </a>
+    <div class="nav-right">
+      <a class="nav-link" href="#chapitre">{t("nav.product")}</a>
+      <a class="nav-link" href="#agentique">{t("nav.agentic")}</a>
+      <a class="nav-link" href="#faq">{t("nav.faq")}</a>
+      <a class="nav-cta" href={macDownloadUrl} {...externalLinkAttrs}>
+        {t("nav.cta")}
+      </a>
+    </div>
+  </div>
+</nav>
+
+<style>
+  nav {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    z-index: 90;
+  }
+  .nav-inner {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    max-width: 1180px;
+    margin: 14px auto 0;
+    padding: 9px 12px 9px 16px;
+    background: color-mix(in srgb, var(--warm-white) 78%, transparent);
+    backdrop-filter: blur(16px);
+    border: 1px solid var(--stone-200);
+    border-radius: 16px;
+  }
+  @media (max-width: 1240px) {
+    .nav-inner {
+      margin: 14px 20px 0;
+    }
+  }
+  .brand {
+    display: flex;
+    align-items: center;
+    gap: 9px;
+    font-weight: 700;
+    font-size: 15px;
+    color: var(--ink);
+    text-decoration: none;
+  }
+  .brand img {
+    width: 26px;
+    height: 26px;
+    border-radius: 7px;
+  }
+  .nav-right {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+  .nav-link {
+    font-size: 13.5px;
+    color: var(--stone-500);
+    text-decoration: none;
+    padding: 8px 12px;
+    border-radius: 9px;
+    transition: 0.15s;
+  }
+  .nav-link:hover {
+    color: var(--ink);
+    background: var(--stone-100);
+  }
+  .nav-cta {
+    font-size: 13.5px;
+    font-weight: 600;
+    color: white;
+    background: var(--ink);
+    padding: 9px 16px;
+    border-radius: 10px;
+    text-decoration: none;
+  }
+  .nav-cta:hover {
+    opacity: 0.85;
+  }
+</style>

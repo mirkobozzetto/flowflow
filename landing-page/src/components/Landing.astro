@@ -1,0 +1,30 @@
+---
+import Nav from "./Nav.astro";
+import Hero from "./Hero.astro";
+import Marquee from "./Marquee.astro";
+import HorizontalShowcase from "./HorizontalShowcase.astro";
+import AgenticChapter from "./AgenticChapter.astro";
+import Bento from "./Bento.astro";
+import Faq from "./Faq.astro";
+import Finale from "./Finale.astro";
+import Footer from "./Footer.astro";
+import { section } from "../lib/i18n";
+
+interface Props {
+  lang: string;
+}
+
+const { lang } = Astro.props;
+const showcase = section(lang, "showcase");
+const { marquee, showcase: steps } = showcase;
+---
+
+<Nav lang={lang} />
+<Hero lang={lang} />
+<Marquee items={marquee.items} />
+<HorizontalShowcase fig={steps.fig} panels={steps.panels} />
+<AgenticChapter lang={lang} />
+<Bento lang={lang} />
+<Faq lang={lang} />
+<Finale lang={lang} />
+<Footer lang={lang} />
