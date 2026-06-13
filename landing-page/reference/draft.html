@@ -5,7 +5,9 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>FlowFlow - À portée de voix</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://api.fontshare.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&display=swap" rel="stylesheet">
+<link href="https://api.fontshare.com/v2/css?f[]=clash-grotesk@400,500,600,700&display=swap" rel="stylesheet">
 <style>
 :root {
     --warm-white: #fdfcfb;
@@ -25,11 +27,12 @@
     --orange-50: oklch(0.97 0.04 50);
     --orange-100: oklch(0.92 0.07 50);
     --serif: "Instrument Serif", Georgia, serif;
+    --sans: "Clash Grotesk", -apple-system, BlinkMacSystemFont, sans-serif;
 }
 * { box-sizing: border-box; margin: 0; }
 html { scroll-behavior: smooth; }
 body {
-    font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", "Inter", sans-serif;
+    font-family: var(--sans);
     background: var(--warm-white); color: var(--stone-900, #1c1917);
     line-height: 1.5; overflow-x: hidden;
 }

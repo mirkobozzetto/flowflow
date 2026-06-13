@@ -1,0 +1,253 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>FlowFlow - Specimens typo</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="preconnect" href="https://api.fontshare.com" crossorigin>
+<!-- Google : combiné fiable -->
+<link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Bricolage+Grotesque:opsz,wght@12..96,400..800&family=Geist:wght@300..800&family=Schibsted+Grotesk:wght@400..800&display=swap" rel="stylesheet">
+<!-- Fontshare : un lien par famille (le combiné f[] ne sert que la premiere) -->
+<link href="https://api.fontshare.com/v2/css?f[]=clash-grotesk@400,500,600,700&display=swap" rel="stylesheet">
+<link href="https://api.fontshare.com/v2/css?f[]=cabinet-grotesk@400,500,700&display=swap" rel="stylesheet">
+<link href="https://api.fontshare.com/v2/css?f[]=general-sans@400,500,600,700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --warm-white:#fdfcfb;
+    --stone-100:#f5f5f4; --stone-200:#e7e5e4; --stone-300:#d6d3d1;
+    --stone-400:#a8a29e; --stone-500:#78716c; --stone-600:#57534e; --stone-700:#44403c;
+    --ink:#161311;
+    --orange:oklch(0.60 0.22 50);
+    --orange-dark:oklch(0.48 0.16 50);
+    --orange-50:oklch(0.97 0.04 50);
+    --orange-100:oklch(0.92 0.07 50);
+    --serif:"Instrument Serif", Georgia, serif;
+  }
+  *{box-sizing:border-box; margin:0;}
+  body{
+    background:var(--warm-white); color:var(--ink); line-height:1.5;
+    font-family:"Geist", -apple-system, sans-serif;
+    -webkit-font-smoothing:antialiased; text-rendering:optimizeLegibility;
+  }
+  .wrap{max-width:1180px; margin:0 auto; padding:54px 28px 90px;}
+
+  .page-head{margin-bottom:42px; max-width:720px;}
+  .page-head .kick{font-size:11px; font-weight:600; letter-spacing:.14em; text-transform:uppercase; color:var(--stone-400);}
+  .page-head h1{font-size:34px; letter-spacing:-.025em; margin-top:12px; font-weight:700;}
+  .page-head h1 em{font-family:var(--serif); font-style:italic; color:var(--orange-dark); font-weight:400;}
+  .page-head p{color:var(--stone-500); font-size:15px; margin-top:12px;}
+
+  .grid{display:grid; gap:22px;}
+  @media(min-width:980px){ .grid{grid-template-columns:1fr 1fr;} }
+
+  .card{
+    background:#fff; border:1px solid var(--stone-200); border-radius:20px;
+    padding:30px 30px 34px; position:relative; overflow:hidden;
+  }
+  .card .top{display:flex; align-items:flex-start; justify-content:space-between; gap:14px; margin-bottom:20px;}
+  .card .name{font-size:18px; font-weight:700; letter-spacing:-.01em;}
+  .card .name b{color:var(--orange-dark); font-weight:700;}
+  .card .vibe{font-size:12.5px; color:var(--stone-500); margin-top:3px; max-width:330px;}
+  .badges{display:flex; flex-direction:column; align-items:flex-end; gap:6px; flex:none;}
+  .chip{font-size:10px; font-weight:700; letter-spacing:.05em; text-transform:uppercase; color:var(--stone-600); background:var(--stone-100); border:1px solid var(--stone-200); border-radius:99px; padding:3px 9px; white-space:nowrap;}
+  .chip.free{color:#3a7d33; background:oklch(0.96 0.04 145); border-color:oklch(0.88 0.06 145);}
+  .status{font-size:10px; font-weight:700; letter-spacing:.05em; text-transform:uppercase; border-radius:99px; padding:3px 9px; white-space:nowrap; color:var(--stone-400); background:var(--stone-100); border:1px solid var(--stone-200);}
+  .status.ok{color:#3a7d33; background:oklch(0.96 0.04 145); border-color:oklch(0.88 0.06 145);}
+  .status.ko{color:#b42318; background:oklch(0.96 0.03 30); border-color:oklch(0.88 0.06 30);}
+
+  .demo{font-family:var(--base);}
+  .demo .fig{font-size:11px; font-weight:600; letter-spacing:.14em; text-transform:uppercase; color:var(--stone-400); display:flex; align-items:center; gap:9px;}
+  .demo .fig::before{content:""; width:18px; height:1.5px; background:var(--stone-300);}
+  .demo h2{font-size:clamp(36px,4.6vw,54px); line-height:1.0; letter-spacing:-.034em; font-weight:760; margin-top:14px; color:var(--ink);}
+  .demo h2 em{font-family:var(--serif); font-style:italic; font-weight:400; color:var(--orange-dark); letter-spacing:0;}
+  .demo .sub{font-size:15px; color:var(--stone-500); margin-top:14px; max-width:430px;}
+  .demo .sub b{color:var(--ink); font-weight:600;}
+
+  .glyphs{font-family:var(--base); margin-top:20px; padding:14px 16px; background:var(--stone-50,#fafaf9); border:1px solid var(--stone-100); border-radius:12px;}
+  .glyphs .big{font-size:26px; font-weight:600; letter-spacing:-.01em; color:var(--ink);}
+  .glyphs .small{font-size:13px; color:var(--stone-500); margin-top:6px; font-variant-numeric:tabular-nums;}
+
+  .btns{display:flex; gap:11px; margin-top:22px; flex-wrap:wrap;}
+  .btn-primary{font-family:var(--base); font-size:14px; font-weight:600; color:#fff; background:var(--ink); padding:11px 18px; border-radius:11px; border:none; cursor:pointer;}
+  .btn-ghost{font-family:var(--base); font-size:14px; font-weight:500; color:var(--ink); background:#fff; padding:11px 18px; border-radius:11px; border:1px solid var(--stone-300); cursor:pointer;}
+
+  .body{margin-top:22px; padding-top:20px; border-top:1px solid var(--stone-100);}
+  .body p{font-size:14px; color:var(--stone-600); max-width:480px;}
+  .body .meta{display:flex; align-items:center; gap:10px; margin-top:16px; flex-wrap:wrap;}
+  kbd{font-family:var(--base); font-size:12px; font-weight:500; color:var(--stone-600); background:var(--warm-white); border:1px solid var(--stone-200); border-bottom-width:2px; border-radius:7px; padding:3px 9px;}
+  .conn{font-size:12.5px; font-weight:500; color:var(--stone-500); border:1px solid var(--stone-200); border-radius:99px; padding:4px 11px;}
+  .num{font-family:var(--base); font-variant-numeric:tabular-nums; font-size:12.5px; color:var(--stone-400); margin-left:auto;}
+
+  .foot{margin-top:44px; padding:26px 30px; background:#fff; border:1px solid var(--stone-200); border-radius:20px;}
+  .foot h3{font-size:15px; font-weight:700; margin-bottom:10px;}
+  .foot p{font-size:13.5px; color:var(--stone-500); margin-bottom:6px; max-width:760px;}
+  .foot code{font-family:"Geist", monospace; font-size:12.5px; background:var(--stone-100); padding:2px 7px; border-radius:6px; color:var(--stone-700);}
+  .foot .serif-row{display:flex; gap:28px; flex-wrap:wrap; margin-top:16px; padding-top:16px; border-top:1px solid var(--stone-100);}
+  .foot .serif-row div span{display:block; font-size:11px; color:var(--stone-400); margin-bottom:3px;}
+  .ex-instrument{font-family:"Instrument Serif"; font-style:italic; font-size:30px; color:var(--orange-dark);}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <div class="page-head">
+    <div class="kick">FlowFlow / typographie</div>
+    <h1>Choisis la <em>base</em></h1>
+    <p>Même bloc à chaque fois, seul le base font change. L'accent Instrument Serif (italique orange) reste partout. Cette fois : des polices avec du caractère, accents français vérifiés, et un badge qui confirme que chaque police a bien chargé (pas un fallback).</p>
+  </div>
+
+  <div class="grid">
+
+    <div class="card" data-font="Bricolage Grotesque" style="--base:'Bricolage Grotesque', sans-serif;">
+      <div class="top">
+        <div>
+          <div class="name">01 - Bricolage Grotesque</div>
+          <div class="vibe">Éditorial, vivant, un peu irrégulier. Le grotesque qui a une voix.</div>
+        </div>
+        <div class="badges"><span class="chip free">OFL libre</span><span class="status">…</span></div>
+      </div>
+      <div class="demo">
+        <div class="fig">Notes vocales</div>
+        <h2>À portée de <em>voix</em></h2>
+        <p class="sub">Tu parles, <b>FlowFlow s'occupe du reste</b>.</p>
+        <div class="glyphs"><div class="big">Àà Éé Èè Êê Çç Œœ Ùù</div><div class="small">déjà créé généré système 0123456789 — éàùçôî</div></div>
+        <div class="btns"><button class="btn-primary">Télécharger</button><button class="btn-ghost">Voir le code</button></div>
+        <div class="body">
+          <p>Enregistre une idée, elle est transcrite, titrée, taggée et rangée. Tu discutes avec tes notes en local, sans rien envoyer ailleurs. Du dire au faire, sans friction.</p>
+          <div class="meta"><kbd>Cmd</kbd><kbd>K</kbd><span class="conn">Calendrier</span><span class="conn">Rappels</span><span class="num">1 248 étoiles</span></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="card" data-font="Clash Grotesk" style="--base:'Clash Grotesk', sans-serif;">
+      <div class="top">
+        <div>
+          <div class="name">02 - Clash Grotesk <b>(reco)</b></div>
+          <div class="vibe">Contemporain, affirmé, très Awwwards. Du punch dans les titres.</div>
+        </div>
+        <div class="badges"><span class="chip free">Fontshare libre</span><span class="status">…</span></div>
+      </div>
+      <div class="demo">
+        <div class="fig">Notes vocales</div>
+        <h2>À portée de <em>voix</em></h2>
+        <p class="sub">Tu parles, <b>FlowFlow s'occupe du reste</b>.</p>
+        <div class="glyphs"><div class="big">Àà Éé Èè Êê Çç Œœ Ùù</div><div class="small">déjà créé généré système 0123456789 — éàùçôî</div></div>
+        <div class="btns"><button class="btn-primary">Télécharger</button><button class="btn-ghost">Voir le code</button></div>
+        <div class="body">
+          <p>Enregistre une idée, elle est transcrite, titrée, taggée et rangée. Tu discutes avec tes notes en local, sans rien envoyer ailleurs. Du dire au faire, sans friction.</p>
+          <div class="meta"><kbd>Cmd</kbd><kbd>K</kbd><span class="conn">Calendrier</span><span class="conn">Rappels</span><span class="num">1 248 étoiles</span></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="card" data-font="Cabinet Grotesk" style="--base:'Cabinet Grotesk', sans-serif;">
+      <div class="top">
+        <div>
+          <div class="name">03 - Cabinet Grotesk</div>
+          <div class="vibe">Haut, légèrement condensé, allure mode/édito. Élégant en gros titres.</div>
+        </div>
+        <div class="badges"><span class="chip free">Fontshare libre</span><span class="status">…</span></div>
+      </div>
+      <div class="demo">
+        <div class="fig">Notes vocales</div>
+        <h2>À portée de <em>voix</em></h2>
+        <p class="sub">Tu parles, <b>FlowFlow s'occupe du reste</b>.</p>
+        <div class="glyphs"><div class="big">Àà Éé Èè Êê Çç Œœ Ùù</div><div class="small">déjà créé généré système 0123456789 — éàùçôî</div></div>
+        <div class="btns"><button class="btn-primary">Télécharger</button><button class="btn-ghost">Voir le code</button></div>
+        <div class="body">
+          <p>Enregistre une idée, elle est transcrite, titrée, taggée et rangée. Tu discutes avec tes notes en local, sans rien envoyer ailleurs. Du dire au faire, sans friction.</p>
+          <div class="meta"><kbd>Cmd</kbd><kbd>K</kbd><span class="conn">Calendrier</span><span class="conn">Rappels</span><span class="num">1 248 étoiles</span></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="card" data-font="Geist" style="--base:'Geist', sans-serif;">
+      <div class="top">
+        <div>
+          <div class="name">04 - Geist <b>(reco)</b></div>
+          <div class="vibe">Vercel. Précision suisse, ADN outil-dev. Net et crédible.</div>
+        </div>
+        <div class="badges"><span class="chip free">OFL libre</span><span class="status">…</span></div>
+      </div>
+      <div class="demo">
+        <div class="fig">Notes vocales</div>
+        <h2>À portée de <em>voix</em></h2>
+        <p class="sub">Tu parles, <b>FlowFlow s'occupe du reste</b>.</p>
+        <div class="glyphs"><div class="big">Àà Éé Èè Êê Çç Œœ Ùù</div><div class="small">déjà créé généré système 0123456789 — éàùçôî</div></div>
+        <div class="btns"><button class="btn-primary">Télécharger</button><button class="btn-ghost">Voir le code</button></div>
+        <div class="body">
+          <p>Enregistre une idée, elle est transcrite, titrée, taggée et rangée. Tu discutes avec tes notes en local, sans rien envoyer ailleurs. Du dire au faire, sans friction.</p>
+          <div class="meta"><kbd>Cmd</kbd><kbd>K</kbd><span class="conn">Calendrier</span><span class="conn">Rappels</span><span class="num">1 248 étoiles</span></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="card" data-font="General Sans" style="--base:'General Sans', sans-serif;">
+      <div class="top">
+        <div>
+          <div class="name">05 - General Sans</div>
+          <div class="vibe">Humaniste chaleureux, géométrique mais doux. Accueillant.</div>
+        </div>
+        <div class="badges"><span class="chip free">Fontshare libre</span><span class="status">…</span></div>
+      </div>
+      <div class="demo">
+        <div class="fig">Notes vocales</div>
+        <h2>À portée de <em>voix</em></h2>
+        <p class="sub">Tu parles, <b>FlowFlow s'occupe du reste</b>.</p>
+        <div class="glyphs"><div class="big">Àà Éé Èè Êê Çç Œœ Ùù</div><div class="small">déjà créé généré système 0123456789 — éàùçôî</div></div>
+        <div class="btns"><button class="btn-primary">Télécharger</button><button class="btn-ghost">Voir le code</button></div>
+        <div class="body">
+          <p>Enregistre une idée, elle est transcrite, titrée, taggée et rangée. Tu discutes avec tes notes en local, sans rien envoyer ailleurs. Du dire au faire, sans friction.</p>
+          <div class="meta"><kbd>Cmd</kbd><kbd>K</kbd><span class="conn">Calendrier</span><span class="conn">Rappels</span><span class="num">1 248 étoiles</span></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="card" data-font="Schibsted Grotesk" style="--base:'Schibsted Grotesk', sans-serif;">
+      <div class="top">
+        <div>
+          <div class="name">06 - Schibsted Grotesk</div>
+          <div class="vibe">Neutre moderne avec une pointe de caractère. Le compromis sûr.</div>
+        </div>
+        <div class="badges"><span class="chip free">OFL libre</span><span class="status">…</span></div>
+      </div>
+      <div class="demo">
+        <div class="fig">Notes vocales</div>
+        <h2>À portée de <em>voix</em></h2>
+        <p class="sub">Tu parles, <b>FlowFlow s'occupe du reste</b>.</p>
+        <div class="glyphs"><div class="big">Àà Éé Èè Êê Çç Œœ Ùù</div><div class="small">déjà créé généré système 0123456789 — éàùçôî</div></div>
+        <div class="btns"><button class="btn-primary">Télécharger</button><button class="btn-ghost">Voir le code</button></div>
+        <div class="body">
+          <p>Enregistre une idée, elle est transcrite, titrée, taggée et rangée. Tu discutes avec tes notes en local, sans rien envoyer ailleurs. Du dire au faire, sans friction.</p>
+          <div class="meta"><kbd>Cmd</kbd><kbd>K</kbd><span class="conn">Calendrier</span><span class="conn">Rappels</span><span class="num">1 248 étoiles</span></div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+
+  <div class="foot">
+    <h3>Notes</h3>
+    <p>Toutes self-hostables (npm / Fontshare download) pour Astro - zéro dépendance au CDN en prod (perfs + RGPD).</p>
+    <p>Reco perso : <code>Clash Grotesk</code> pour du punch Awwwards, ou <code>Geist</code> pour rester crédible côté outil-dev. <code>Bricolage</code> si tu veux le plus de personnalité.</p>
+    <div class="serif-row">
+      <div><span>Accent (inchangé) - Instrument Serif</span><div class="ex-instrument">à portée de voix</div></div>
+    </div>
+  </div>
+
+</div>
+<script>
+  document.fonts.ready.then(function(){
+    document.querySelectorAll('[data-font]').forEach(function(card){
+      var fam = card.getAttribute('data-font');
+      var ok = document.fonts.check('24px "' + fam + '"');
+      var b = card.querySelector('.status');
+      b.textContent = ok ? 'chargée' : 'fallback';
+      b.classList.add(ok ? 'ok' : 'ko');
+    });
+  });
+</script>
+</body>
+</html>
