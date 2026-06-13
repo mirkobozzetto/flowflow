@@ -1,0 +1,114 @@
+---
+interface Props {
+  title: string;
+  blurb: string;
+  placeholder: string;
+  inputLabel: string;
+  submit: string;
+  ok: string;
+  endpoint?: string;
+}
+
+const {
+  title,
+  blurb,
+  placeholder,
+  inputLabel,
+  submit,
+  ok,
+  endpoint = "",
+} = Astro.props;
+---
+
+<div class="capture reveal">
+  <div>
+    <h3 set:text={title} />
+    <p set:text={blurb} />
+  </div>
+  <form data-capture data-endpoint={endpoint}>
+    <input
+      type="email"
+      required
+      placeholder={placeholder}
+      aria-label={inputLabel}
+    />
+    <button class="btn-primary" type="submit" set:text={submit} />
+  </form>
+  <span class="ok" data-capture-ok>
+    <svg viewBox="0 0 24 24" aria-hidden="true">
+      <path d="M5 13l4 4L19 7" />
+    </svg>
+    <span set:text={ok} />
+  </span>
+</div>
+
+<script>
+  import "../scripts/capture.ts";
+</script>
+
+<style>
+  .capture {
+    margin-top: 64px;
+    background: var(--ink-2);
+    border: 1px solid #36302b;
+    border-radius: 22px;
+    padding: 34px;
+    display: flex;
+    align-items: center;
+    gap: 26px;
+    flex-wrap: wrap;
+  }
+  .capture h3 {
+    font-size: 21px;
+    color: var(--warm-white);
+    letter-spacing: -0.01em;
+  }
+  .capture p {
+    font-size: 13.5px;
+    color: var(--stone-500);
+    margin-top: 4px;
+  }
+  form {
+    display: flex;
+    gap: 9px;
+    margin-left: auto;
+    flex-wrap: wrap;
+  }
+  input {
+    min-width: 260px;
+    min-height: 50px;
+    padding: 0 18px;
+    background: var(--ink);
+    border: 1px solid #36302b;
+    border-radius: 13px;
+    color: var(--warm-white);
+    font-size: 14.5px;
+    font-family: inherit;
+    outline: none;
+    transition: border-color 0.15s, box-shadow 0.15s;
+  }
+  input::placeholder {
+    color: var(--stone-600);
+  }
+  input:focus {
+    border-color: var(--orange);
+    box-shadow: 0 0 0 3px color-mix(in srgb, var(--orange) 22%, transparent);
+  }
+  .ok {
+    color: #34c759;
+    font-size: 14.5px;
+    font-weight: 600;
+    display: none;
+    align-items: center;
+    gap: 8px;
+  }
+  .ok svg {
+    width: 17px;
+    height: 17px;
+    stroke: #34c759;
+    fill: none;
+    stroke-width: 2.2;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+  }
+</style>

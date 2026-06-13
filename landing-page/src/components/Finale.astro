@@ -1,0 +1,53 @@
+---
+import { section } from "../lib/i18n";
+import { macDownloadUrl, appStoreUrl, externalLinkAttrs } from "../lib/links";
+
+interface Props {
+  lang: string;
+}
+
+const { lang } = Astro.props;
+const t = section(lang, "footer");
+const storeUrl = appStoreUrl(lang);
+---
+
+<section class="finale container">
+  <h2 class="reveal">{t.finale.lead}<br /><em>{t.finale.accent}</em></h2>
+  <div class="hero-ctas reveal" data-d="1">
+    <a class="btn-primary" href={macDownloadUrl} {...externalLinkAttrs}>
+      {t.finale.ctaPrimary}
+    </a>
+    <a class="btn-ghost" href={storeUrl} {...externalLinkAttrs}>
+      {t.finale.ctaGhost}
+    </a>
+  </div>
+  <p class="note reveal" data-d="2">{t.finale.note}</p>
+</section>
+
+<style>
+  .finale {
+    padding: 160px 0 100px;
+    text-align: center;
+    position: relative;
+  }
+  .finale h2 {
+    font-size: clamp(42px, 7.4vw, 96px);
+    letter-spacing: -0.037em;
+    line-height: 0.98;
+    color: var(--ink);
+  }
+  .finale h2 em {
+    font-family: var(--serif);
+    font-style: italic;
+    font-weight: 400;
+    color: var(--orange-dark);
+  }
+  .finale :global(.hero-ctas) {
+    margin-top: 40px;
+  }
+  .finale .note {
+    margin-top: 16px;
+    font-size: 12.5px;
+    color: var(--stone-400);
+  }
+</style>

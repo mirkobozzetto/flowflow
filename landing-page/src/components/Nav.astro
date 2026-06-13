@@ -1,0 +1,225 @@
+---
+import { Image } from "astro:assets";
+import { useTranslations, localizePath } from "../lib/i18n";
+import { macDownloadUrl, externalLinkAttrs } from "../lib/links";
+import LangSwitcher from "./LangSwitcher.astro";
+import logo from "../assets/logo.png";
+
+interface Props {
+  lang: string;
+}
+
+const { lang } = Astro.props;
+const t = useTranslations(lang, "hero");
+---
+
+<nav>
+  <div class="nav-inner">
+    <a class="brand" href={localizePath("/", lang)}>
+      <Image src={logo} alt="" width={26} height={26} />
+      FlowFlow
+    </a>
+
+    <div class="nav-right">
+      <div class="desktop-links">
+        <a class="nav-link" href="#product">{t("nav.product")}</a>
+        <a class="nav-link" href="#agentic">{t("nav.agentic")}</a>
+        <a class="nav-link" href="#faq">{t("nav.faq")}</a>
+      </div>
+
+      <a
+        class="nav-cta desktop-only"
+        href={macDownloadUrl}
+        {...externalLinkAttrs}
+      >
+        {t("nav.cta")}
+      </a>
+
+      <LangSwitcher lang={lang} />
+
+      <button
+        class="mobile-toggle"
+        type="button"
+        aria-label="Menu"
+        aria-expanded="false"
+        aria-controls="mobile-menu"
+        data-menu-toggle
+      >
+        <svg
+          width="20"
+          height="20"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          stroke-width="2.5"
+          stroke-linecap="round"
+        >
+          <line x1="4" y1="7" x2="20" y2="7"></line>
+          <line x1="4" y1="17" x2="20" y2="17"></line>
+        </svg>
+      </button>
+    </div>
+
+    <div class="mobile-panel" id="mobile-menu" data-open="false">
+      <a class="nav-link" href="#product">{t("nav.product")}</a>
+      <a class="nav-link" href="#agentic">{t("nav.agentic")}</a>
+      <a class="nav-link" href="#faq">{t("nav.faq")}</a>
+      <span class="panel-divider" aria-hidden="true"></span>
+      <a class="nav-cta" href={macDownloadUrl} {...externalLinkAttrs}>
+        {t("nav.cta")}
+      </a>
+    </div>
+  </div>
+</nav>
+
+<script>
+  const toggle = document.querySelector("[data-menu-toggle]");
+  const panel = document.getElementById("mobile-menu");
+  if (toggle && panel) {
+    const close = () => {
+      panel.setAttribute("data-open", "false");
+      toggle.setAttribute("aria-expanded", "false");
+    };
+    toggle.addEventListener("click", () => {
+      const open = panel.getAttribute("data-open") === "true";
+      const next = open ? "false" : "true";
+      panel.setAttribute("data-open", next);
+      toggle.setAttribute("aria-expanded", next);
+    });
+    for (const link of panel.querySelectorAll("a")) {
+      link.addEventListener("click", close);
+    }
+  }
+</script>
+
+<style>
+  nav {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    z-index: 90;
+    padding: 0 12px;
+  }
+  .nav-inner {
+    position: relative;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    max-width: 1180px;
+    margin: 14px auto 0;
+    padding: 7px 8px 7px 16px;
+    background: color-mix(in srgb, var(--warm-white) 78%, transparent);
+    backdrop-filter: blur(16px);
+    border: 1px solid var(--stone-200);
+    border-radius: 16px;
+  }
+  .brand {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    font-weight: 700;
+    font-size: 15px;
+    color: var(--ink);
+    text-decoration: none;
+  }
+  .brand img {
+    width: 26px;
+    height: 26px;
+    border-radius: 7px;
+  }
+  .nav-right {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .desktop-links {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+  }
+  .nav-link {
+    font-size: 13.5px;
+    font-weight: 500;
+    color: var(--stone-500);
+    text-decoration: none;
+    padding: 8px 12px;
+    border-radius: 9px;
+    transition: 0.15s;
+  }
+  .nav-link:hover {
+    color: var(--ink);
+    background: var(--stone-100);
+  }
+  .nav-cta {
+    font-size: 13.5px;
+    font-weight: 600;
+    color: white;
+    background: var(--ink);
+    padding: 9px 18px;
+    border-radius: 10px;
+    text-decoration: none;
+    text-align: center;
+    transition: 0.15s;
+  }
+  .nav-cta:hover {
+    opacity: 0.85;
+  }
+  .mobile-toggle {
+    display: none;
+    width: 40px;
+    height: 40px;
+    align-items: center;
+    justify-content: center;
+    border: none;
+    border-radius: 10px;
+    background: transparent;
+    color: var(--stone-600);
+    cursor: pointer;
+  }
+  .mobile-panel {
+    position: absolute;
+    top: calc(100% + 8px);
+    left: 0;
+    right: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    padding: 12px;
+    background: color-mix(in srgb, var(--warm-white) 92%, transparent);
+    backdrop-filter: blur(20px);
+    border: 1px solid var(--stone-200);
+    border-radius: 16px;
+    opacity: 0;
+    transform: translateY(-8px);
+    pointer-events: none;
+    transition: 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  }
+  .mobile-panel[data-open="true"] {
+    opacity: 1;
+    transform: translateY(0);
+    pointer-events: auto;
+  }
+  .panel-divider {
+    height: 1px;
+    background: var(--stone-200);
+    margin: 4px 0;
+  }
+  @media (max-width: 899px) {
+    .desktop-links,
+    .desktop-only {
+      display: none;
+    }
+    .mobile-toggle {
+      display: flex;
+    }
+    .nav-inner {
+      padding-right: 4px;
+    }
+  }
+  @media (min-width: 900px) {
+    .mobile-panel {
+      display: none;
+    }
+  }
+</style>

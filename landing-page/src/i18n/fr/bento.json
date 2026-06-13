@@ -1,0 +1,25 @@
+{
+  "fig": "et tout le reste",
+  "h2Lead": "Sérieux dedans,",
+  "h2Accent": "simple devant",
+  "chat": {
+    "title": "Chat avec tes notes",
+    "body": "Pose une question, la réponse cite ses sources - cliquables, filtrables par thème.",
+    "macSlot": "SCREENSHOT RÉEL Mac - conversation avec sources dépliées",
+    "phoneSlot": "SCREENSHOT iPhone",
+    "phoneSlotNote": "même conversation"
+  },
+  "sync": {
+    "title": "iPhone ↔ Mac, sans cloud",
+    "body": "Sync directe sur ton Wi-Fi, chiffrée de bout en bout. Personne au milieu, jamais.",
+    "lock": "chiffré"
+  },
+  "offline": {
+    "title": "Hors-ligne, vraiment",
+    "body": "Transcription locale avec Whisper, du tiny au large-v3-turbo. Mode avion compris, l'audio ne sort jamais."
+  },
+  "keyboard": {
+    "title": "Clavier-first sur Mac",
+    "body": "Navigation instantanée, tout au clavier."
+  }
+}

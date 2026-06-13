@@ -1,0 +1,70 @@
+{
+  "fig": "where it gets serious",
+  "h2Lead": "From word",
+  "h2Accent": "to action",
+  "subLead": "FlowFlow is not a notebook, it is an",
+  "subStrong": "agentic platform",
+  "subTail": ": your voice triggers actions, from your phone or your Mac.",
+  "soonBadge": "soon",
+  "actions": [
+    {
+      "you": "\"Pick up the kid at 5\"",
+      "then": "caught, confirmed with a tap, in your Calendar at the right slot. Available today.",
+      "soon": false
+    },
+    {
+      "you": "\"File this under the client folder\"",
+      "then": "titled, tagged, sorted into the right theme, indexed for chat. Available today.",
+      "soon": false
+    },
+    {
+      "you": "\"Send the recap to the client\"",
+      "then": "your n8n workflow fires with the note as payload: email, WhatsApp, CRM, whatever you wire.",
+      "soon": true
+    },
+    {
+      "you": "\"Run my Monday routine\"",
+      "then": "tools you install from the marketplace, run by voice. Open to creators.",
+      "soon": true
+    }
+  ],
+  "connectorsLabel": "Connectors",
+  "connectors": [
+    {
+      "name": "Calendar",
+      "live": true
+    },
+    {
+      "name": "Reminders",
+      "live": true
+    },
+    {
+      "name": "n8n",
+      "live": false
+    },
+    {
+      "name": "WhatsApp",
+      "live": false
+    },
+    {
+      "name": "Email",
+      "live": false
+    },
+    {
+      "name": "Webhooks",
+      "live": false
+    },
+    {
+      "name": "Tool marketplace",
+      "live": false
+    }
+  ],
+  "capture": {
+    "title": "Be there when the marketplace ships",
+    "blurb": "One announcement, zero spam. Promise.",
+    "placeholder": "you@email.com",
+    "inputLabel": "Email",
+    "submit": "Notify me",
+    "ok": "Noted. See you soon."
+  }
+}

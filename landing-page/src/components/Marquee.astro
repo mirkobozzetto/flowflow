@@ -1,0 +1,76 @@
+---
+interface Props {
+  items: string[];
+}
+
+const { items } = Astro.props;
+---
+
+<div class="marquee-wrap">
+  <div class="marquee">
+    <span aria-hidden="false">
+      {
+        items.map((item) => (
+          <>
+            {item} <i>✦</i>{" "}
+          </>
+        ))
+      }
+    </span>
+    <span aria-hidden="true">
+      {
+        items.map((item) => (
+          <>
+            {item} <i>✦</i>{" "}
+          </>
+        ))
+      }
+    </span>
+  </div>
+</div>
+
+<style>
+  .marquee-wrap {
+    margin-top: 130px;
+    border-top: 1px solid var(--stone-200);
+    border-bottom: 1px solid var(--stone-200);
+    padding: 17px 0;
+    overflow: hidden;
+  }
+
+  .marquee {
+    display: flex;
+    gap: 48px;
+    width: max-content;
+    animation: marquee 32s linear infinite;
+  }
+
+  .marquee span {
+    display: flex;
+    align-items: center;
+    gap: 48px;
+    font-family: var(--serif);
+    font-style: italic;
+    font-size: 21px;
+    color: var(--stone-500);
+    white-space: nowrap;
+  }
+
+  .marquee i {
+    font-style: normal;
+    color: var(--orange);
+    font-size: 13px;
+  }
+
+  @keyframes marquee {
+    to {
+      transform: translateX(-50%);
+    }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .marquee {
+      animation: none;
+    }
+  }
+</style>

@@ -1,0 +1,138 @@
+---
+interface Props {
+  num: string;
+  title: string;
+  text: string;
+  slot: string;
+  slotNote: string;
+}
+
+const { num, title, text, slot, slotNote } = Astro.props;
+---
+
+<div class="panel">
+  <div class="ptext">
+    <div class="pnum">{num}</div>
+    <h3>{title}</h3>
+    <p>{text}</p>
+  </div>
+  <div class="iphone-mini">
+    <div class="screen">
+      <div class="slot">
+        {slot}
+        <small>{slotNote}</small>
+      </div>
+    </div>
+  </div>
+</div>
+
+<style>
+  .panel {
+    flex-shrink: 0;
+    width: min(640px, 84vw);
+    background: var(--stone-50);
+    border: 1px solid var(--stone-200);
+    border-radius: 24px;
+    padding: 30px;
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    gap: 28px;
+  }
+
+  .ptext {
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+    flex: 1;
+  }
+
+  .pnum {
+    font-family: var(--serif);
+    font-style: italic;
+    font-size: 58px;
+    color: var(--orange);
+    line-height: 1;
+  }
+
+  h3 {
+    font-size: 27px;
+    letter-spacing: -0.02em;
+  }
+
+  p {
+    font-size: 14.5px;
+    color: var(--stone-500);
+    max-width: 430px;
+  }
+
+  .iphone-mini {
+    width: clamp(150px, 16vw, 196px);
+    aspect-ratio: 9/19.5;
+    border-radius: 30px;
+    padding: 7px;
+    position: relative;
+    flex-shrink: 0;
+    background: linear-gradient(160deg, #3a3531, #161311);
+    box-shadow:
+      0 26px 50px -22px rgba(22, 19, 17, 0.45),
+      inset 0 0 0 1.5px rgba(255, 255, 255, 0.14);
+  }
+
+  .iphone-mini::before {
+    content: "";
+    position: absolute;
+    top: 15px;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 32%;
+    height: 17px;
+    background: #0b0908;
+    border-radius: 99px;
+    z-index: 2;
+  }
+
+  .iphone-mini .screen {
+    width: 100%;
+    height: 100%;
+    border-radius: 23px;
+    overflow: hidden;
+    background: var(--warm-white);
+  }
+
+  .slot {
+    width: 100%;
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 7px;
+    color: var(--stone-400);
+    font-size: 11px;
+    font-weight: 500;
+    text-align: center;
+    padding: 18px;
+    background:
+      radial-gradient(85% 120% at 50% 0%, var(--orange-50) 0%, transparent 60%),
+      var(--stone-50);
+    border: 2px dashed var(--stone-300);
+    border-radius: inherit;
+  }
+
+  .slot small {
+    font-size: 10px;
+    opacity: 0.85;
+  }
+
+  @media (max-width: 560px) {
+    .panel {
+      flex-direction: column;
+      align-items: flex-start;
+    }
+
+    .iphone-mini {
+      align-self: center;
+    }
+  }
+</style>

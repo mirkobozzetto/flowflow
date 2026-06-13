@@ -1,0 +1,87 @@
+---
+import { section } from "../lib/i18n";
+import GithubStars from "./GithubStars.astro";
+import { repoUrl, licenseUrl, externalLinkAttrs } from "../lib/links";
+
+interface Props {
+  lang: string;
+}
+
+const { lang } = Astro.props;
+const t = section(lang, "footer");
+
+const githubPath =
+  "M12 .5C5.6.5.5 5.6.5 12c0 5.1 3.3 9.4 7.9 10.9.6.1.8-.2.8-.6v-2c-3.2" +
+  ".7-3.9-1.5-3.9-1.5-.5-1.3-1.3-1.7-1.3-1.7-1-.7.1-.7.1-.7 1.2.1 1.8 1." +
+  "2 1.8 1.2 1 1.8 2.7 1.3 3.4 1 .1-.8.4-1.3.7-1.6-2.6-.3-5.3-1.3-5.3-5." +
+  "7 0-1.3.4-2.3 1.2-3.1-.1-.3-.5-1.5.1-3.1 0 0 1-.3 3.2 1.2a11 11 0 0 1" +
+  " 5.8 0C17 4.7 18 5 18 5c.6 1.6.2 2.8.1 3.1.7.8 1.2 1.8 1.2 3.1 0 4.4-" +
+  "2.7 5.4-5.3 5.7.4.4.8 1.1.8 2.2v3.2c0 .4.2.7.8.6 4.6-1.5 7.9-5.8 7.9-" +
+  "10.9C23.5 5.6 18.4.5 12 .5z";
+---
+
+<footer>
+  <div class="container footer-inner">
+    <span>{t.footer.copyright}</span>
+    <a href={licenseUrl} {...externalLinkAttrs}>{t.footer.license}</a>
+    <a class="gh-btn" href={repoUrl} {...externalLinkAttrs}>
+      <svg
+        width="16"
+        height="16"
+        viewBox="0 0 24 24"
+        fill="currentColor"
+        aria-hidden="true"
+      >
+        <path d={githubPath}></path>
+      </svg>
+      {t.footer.github}
+      <GithubStars label={t.footer.starsAlt} />
+    </a>
+    <span class="spacer"></span>
+    <span>{t.footer.madeWith}</span>
+  </div>
+</footer>
+
+<style>
+  footer {
+    border-top: 1px solid var(--stone-200);
+    padding: 30px 0 46px;
+  }
+  .footer-inner {
+    display: flex;
+    align-items: center;
+    gap: 20px;
+    flex-wrap: wrap;
+    font-size: 13px;
+    color: var(--stone-400);
+  }
+  .footer-inner a {
+    color: var(--stone-500);
+    text-decoration: none;
+  }
+  .footer-inner a:hover {
+    color: var(--ink);
+  }
+  .footer-inner .spacer {
+    margin-left: auto;
+  }
+  .gh-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 9px;
+    border: 1px solid var(--stone-200);
+    border-radius: 11px;
+    background: var(--warm-white);
+    color: var(--ink) !important;
+    padding: 8px 14px;
+    font-size: 13.5px;
+    font-weight: 600;
+    transition:
+      border-color 0.2s,
+      box-shadow 0.2s;
+  }
+  .gh-btn:hover {
+    border-color: var(--stone-300);
+    box-shadow: 0 6px 18px -12px rgba(22, 19, 17, 0.25);
+  }
+</style>
