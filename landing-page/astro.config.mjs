@@ -2,7 +2,7 @@ import tailwindcss from "@tailwindcss/vite";
 import { defineConfig } from "astro/config";
 
 export default defineConfig({
-  site: "https://flowflow.app",
+  site: "https://flowflow.be",
   i18n: {
     defaultLocale: "en",
     locales: ["en", "fr"],

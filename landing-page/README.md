@@ -21,6 +21,25 @@ bun run check
 
 Static output in `dist/`.
 
+## Deploy (Docker / Dokploy)
+
+The site builds to static files served by nginx. `Dockerfile` is a two-stage build: Bun compiles `dist/`, nginx serves it on port 80.
+
+Local check:
+
+```bash
+docker compose up --build
+```
+
+Then open `http://localhost:8080/` (EN) and `http://localhost:8080/fr/` (FR).
+
+On Dokploy:
+
+- Create an Application, point it at this repo.
+- Build type: `Dockerfile`. Build path / context: `landing-page`. Dockerfile path: `landing-page/Dockerfile` (or `Dockerfile` if the app root is set to `landing-page`).
+- Container port: `80`. Generate a domain and map it to port 80.
+- Deploy. nginx serves the prebuilt static site; no env vars are required at runtime.
+
 ## Layout
 
 - `src/components/` one component per file, composed by `Landing.astro` in draft order.
