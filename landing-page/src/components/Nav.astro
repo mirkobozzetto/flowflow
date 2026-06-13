@@ -27,8 +27,6 @@ const t = useTranslations(lang, "hero");
         <a class="nav-link" href="#faq">{t("nav.faq")}</a>
       </div>
 
-      <LangSwitcher lang={lang} />
-
       <a
         class="nav-cta desktop-only"
         href={macDownloadUrl}
@@ -36,6 +34,8 @@ const t = useTranslations(lang, "hero");
       >
         {t("nav.cta")}
       </a>
+
+      <LangSwitcher lang={lang} />
 
       <button
         class="mobile-toggle"
