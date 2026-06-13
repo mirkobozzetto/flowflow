@@ -41,12 +41,6 @@ const sections = {
 
 export const supportedLangs = ["en", "fr"] as const;
 
-export function getLangFromUrl(url: URL): Lang {
-  const [, segment] = url.pathname.split("/");
-  if (segment === "fr") return "fr";
-  return defaultLang;
-}
-
 export function isLang(value: string): value is Lang {
   return (supportedLangs as readonly string[]).includes(value);
 }

@@ -38,7 +38,7 @@ Per-section strings live in namespaced JSON: `src/i18n/{en,fr}/{hero,showcase,ag
    t.actions.map((a) => a.you);
    ```
 
-Both fall back to EN when an FR key is missing. `localizePath(path, lang)` builds locale-prefixed hrefs (path first, lang second). `getLangFromUrl(url)` and `isLang(value)` are available for runtime checks. Page-level meta (title, description, og locale) lives in `src/i18n/ui.ts` via `getMeta(lang)`, consumed only by `Layout.astro`.
+Both fall back to EN when an FR key is missing. `localizePath(path, lang)` builds locale-prefixed hrefs (path first, lang second). `isLang(value)` is available for runtime checks. Page-level meta (title, description, og locale) lives in `src/i18n/ui.ts` via `getMeta(lang)`, consumed only by `Layout.astro`.
 
 EN is the base locale, but the validated hooks are FR wordplay. EN JSON carries native transcreations (flagged with `_note` keys for review), not literal translations.
 
