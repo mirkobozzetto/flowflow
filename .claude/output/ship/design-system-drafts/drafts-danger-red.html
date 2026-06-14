@@ -1,0 +1,120 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>FlowFlow - Rouge destructif</title>
+<style>
+:root {
+    --warm-white: #fdfcfb;
+    --stone-100: #f5f5f4;
+    --stone-200: #e7e5e4;
+    --stone-400: #a8a29e;
+    --stone-500: #78716c;
+    --stone-900: #1c1917;
+    --orange: oklch(0.60 0.22 50);
+    --orange-dark: oklch(0.48 0.16 50);
+    --orange-50: oklch(0.97 0.04 50);
+}
+* { box-sizing: border-box; font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", sans-serif; }
+body { margin: 0; background: #efedeb; color: var(--stone-900); padding: 32px 24px 80px; }
+h1 { font-size: 22px; margin: 0 0 4px; }
+.subtitle { font-size: 13px; color: var(--stone-500); margin-bottom: 32px; max-width: 720px; }
+.variants { display: flex; flex-wrap: wrap; gap: 24px; align-items: stretch; }
+.variant { background: var(--warm-white); border: 1px solid var(--stone-200); border-radius: 16px; padding: 16px; width: 320px; }
+.variant.reco { border: 2px solid var(--orange); }
+.variant-title { font-size: 13.5px; font-weight: 600; margin-bottom: 2px; display: flex; gap: 8px; align-items: center; }
+.badge { font-size: 10px; font-weight: 700; background: var(--orange); color: white; padding: 2px 7px; border-radius: 99px; text-transform: uppercase; }
+.variant-sub { font-size: 11.5px; color: var(--stone-500); margin-bottom: 14px; }
+.tokens { font-size: 10.5px; color: var(--stone-500); background: var(--stone-100); border-radius: 8px; padding: 8px 10px; margin-bottom: 12px; line-height: 1.6; font-family: ui-monospace, monospace; }
+.swatches { display: flex; gap: 6px; margin-bottom: 14px; }
+.sw { flex: 1; height: 34px; border-radius: 8px; border: 1px solid rgba(0,0,0,0.06); }
+.demo { border: 1px solid var(--stone-200); border-radius: 12px; padding: 12px; display: flex; flex-direction: column; gap: 10px; }
+.pop-item { display: flex; align-items: center; gap: 10px; border: none; cursor: pointer; padding: 10px; border-radius: 8px; font-size: 13.5px; font-family: inherit; text-align: left; min-height: 40px; background: transparent; transition: background 0.12s; }
+.icon { width: 15px; height: 15px; stroke: currentColor; fill: none; stroke-width: 1.7; }
+.btn { display: flex; align-items: center; justify-content: center; min-height: 44px; border: none; border-radius: 12px; color: white; font-size: 14px; font-weight: 500; font-family: inherit; cursor: pointer; transition: opacity 0.12s; }
+.btn:hover { opacity: 0.88; }
+.note { font-size: 11.5px; color: var(--stone-500); margin: 0; }
+.chiprow { display: flex; align-items: center; gap: 8px; }
+.bubble { font-size: 12px; padding: 8px 10px; border-radius: 10px; flex: 1; }
+ul.notes { font-size: 11.5px; color: var(--stone-500); line-height: 1.55; margin: 12px 0 0; padding-left: 16px; }
+</style>
+</head>
+<body>
+
+<h1>Rouge destructif aligné sur la palette</h1>
+<p class="subtitle">Le rouge actuel est le rouge système Apple (froid, saturé bleu). Les deux candidats sont définis en oklch comme tes oranges, en teinte chaude, avec les 3 mêmes déclinaisons : base (boutons pleins), dark (texte sur fond clair), 50 (fond hover). Survole les items et boutons.</p>
+
+<div class="variants">
+
+    <div class="variant">
+        <div class="variant-title">Actuel - rouge Apple</div>
+        <div class="variant-sub">#ff3b30 : vif, froid, hors palette. Référence pour comparer.</div>
+        <div class="swatches">
+            <div class="sw" style="background:#ff3b30"></div>
+            <div class="sw" style="background:#ff3b30; opacity:0.1"></div>
+        </div>
+        <div class="tokens">--ios-red: #ff3b30<br>fond hover: red/10</div>
+        <div class="demo">
+            <button class="pop-item" style="color:#ff3b30" onmouseover="this.style.background='rgba(255,59,48,0.1)'" onmouseout="this.style.background='transparent'">
+                <svg class="icon" viewBox="0 0 24 24"><path d="M4 7h16M9 7V5a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2m-9 0v12a1 1 0 0 0 1 1h8a1 1 0 0 0 1-1V7"/></svg>
+                Supprimer la note
+            </button>
+            <button class="btn" style="background:#ff3b30">Supprimer</button>
+        </div>
+        <ul class="notes"><li>Il crie à côté du stone/orange : c'est lui l'intrus.</li></ul>
+    </div>
+
+    <div class="variant reco">
+        <div class="variant-title">A. Vermillon chaud <span class="badge">Reco</span></div>
+        <div class="variant-sub">Teinte 30 : clairement rouge (le danger reste lisible), mais de la même famille chaude que l'orange.</div>
+        <div class="swatches">
+            <div class="sw" style="background:oklch(0.55 0.20 30)"></div>
+            <div class="sw" style="background:oklch(0.46 0.16 30)"></div>
+            <div class="sw" style="background:oklch(0.96 0.025 30)"></div>
+        </div>
+        <div class="tokens">--ios-red: oklch(0.55 0.20 30)<br>--ios-red-dark: oklch(0.46 0.16 30)<br>--ios-red-50: oklch(0.96 0.025 30)</div>
+        <div class="demo">
+            <button class="pop-item" style="color:oklch(0.46 0.16 30)" onmouseover="this.style.background='oklch(0.96 0.025 30)'" onmouseout="this.style.background='transparent'">
+                <svg class="icon" viewBox="0 0 24 24"><path d="M4 7h16M9 7V5a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2m-9 0v12a1 1 0 0 0 1 1h8a1 1 0 0 0 1-1V7"/></svg>
+                Supprimer la note
+            </button>
+            <button class="btn" style="background:oklch(0.55 0.20 30)">Supprimer</button>
+            <div class="chiprow">
+                <div class="bubble" style="background:oklch(0.96 0.025 30); color:oklch(0.46 0.16 30)">Échec de l'export : clé manquante</div>
+            </div>
+        </div>
+        <ul class="notes">
+            <li>Même logique que orange/orange-dark/orange-50 : texte en dark (contraste AA), fonds en 50.</li>
+            <li>Reste indiscutablement "rouge danger", jamais confondu avec l'orange de marque.</li>
+        </ul>
+    </div>
+
+    <div class="variant">
+        <div class="variant-title">B. Terracotta</div>
+        <div class="variant-sub">Teinte 35, chroma plus doux : brique chaleureuse, encore plus fondue dans la palette.</div>
+        <div class="swatches">
+            <div class="sw" style="background:oklch(0.52 0.16 35)"></div>
+            <div class="sw" style="background:oklch(0.44 0.13 35)"></div>
+            <div class="sw" style="background:oklch(0.96 0.02 35)"></div>
+        </div>
+        <div class="tokens">--ios-red: oklch(0.52 0.16 35)<br>--ios-red-dark: oklch(0.44 0.13 35)<br>--ios-red-50: oklch(0.96 0.02 35)</div>
+        <div class="demo">
+            <button class="pop-item" style="color:oklch(0.44 0.13 35)" onmouseover="this.style.background='oklch(0.96 0.02 35)'" onmouseout="this.style.background='transparent'">
+                <svg class="icon" viewBox="0 0 24 24"><path d="M4 7h16M9 7V5a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2m-9 0v12a1 1 0 0 0 1 1h8a1 1 0 0 0 1-1V7"/></svg>
+                Supprimer la note
+            </button>
+            <button class="btn" style="background:oklch(0.52 0.16 35)">Supprimer</button>
+            <div class="chiprow">
+                <div class="bubble" style="background:oklch(0.96 0.02 35); color:oklch(0.44 0.13 35)">Échec de l'export : clé manquante</div>
+            </div>
+        </div>
+        <ul class="notes">
+            <li>Le plus élégant, très "éditorial".</li>
+            <li>Mais : se rapproche de l'orange de marque - le danger perd un peu de saillance, risque de confusion bouton primaire/destructif.</li>
+        </ul>
+    </div>
+</div>
+
+</body>
+</html>
