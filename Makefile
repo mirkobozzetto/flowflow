@@ -13,6 +13,8 @@ APPLE_ID := $(shell sed -n 's/^APPLE_ID=//p' .env 2>/dev/null)
 
 VERSION := $(shell sed -n 's/^version = "\(.*\)"/\1/p' Cargo.toml | head -1)
 
+APPSTORE_VERSION := $(shell echo $(VERSION) | awk -F. '{printf "%d.%d.%d", $$1, $$2, $$3+1}')
+
 build:
 	cargo build --features mobile
 
@@ -164,7 +166,7 @@ appstore:
 	  target/dx/flowflow/release/ios/Flowflow.app/Info.plist
 	plutil -replace MinimumOSVersion -string 16.0 \
 	  target/dx/flowflow/release/ios/Flowflow.app/Info.plist
-	plutil -replace CFBundleShortVersionString -string 1.0.0 \
+	plutil -replace CFBundleShortVersionString -string $(APPSTORE_VERSION) \
 	  target/dx/flowflow/release/ios/Flowflow.app/Info.plist
 	plutil -replace CFBundleVersion -string $(APPSTORE_BUILD) \
 	  target/dx/flowflow/release/ios/Flowflow.app/Info.plist
@@ -197,7 +199,7 @@ appstore:
 	WPLIST=target/dx/flowflow/release/ios/Flowflow.app/PlugIns/recording_widget.appex/Info.plist; \
 	plutil -remove UIRequiredDeviceCapabilities $$WPLIST 2>/dev/null || true; \
 	plutil -insert UIRequiredDeviceCapabilities -json '["arm64"]' $$WPLIST; \
-	plutil -replace CFBundleShortVersionString -string 1.0.0 $$WPLIST; \
+	plutil -replace CFBundleShortVersionString -string $(APPSTORE_VERSION) $$WPLIST; \
 	plutil -replace CFBundleVersion -string $(APPSTORE_BUILD) $$WPLIST 2>/dev/null || plutil -insert CFBundleVersion -string $(APPSTORE_BUILD) $$WPLIST; \
 	plutil -replace DTPlatformName -string iphoneos $$WPLIST 2>/dev/null || plutil -insert DTPlatformName -string iphoneos $$WPLIST; \
 	plutil -replace DTPlatformVersion -string $$SDK_VERSION $$WPLIST 2>/dev/null || plutil -insert DTPlatformVersion -string $$SDK_VERSION $$WPLIST; \
@@ -263,7 +265,21 @@ appstore:
 	  echo "   Add both to .env to enable server-side validation."; \
 	fi
 	@echo $(APPSTORE_BUILD) > .appstore-build
-	@echo ">> FlowFlow.ipa ready (build $(APPSTORE_BUILD)). Upload via Transporter.app."
+	@sed -i '' 's/^version = ".*"/version = "$(APPSTORE_VERSION)"/' Cargo.toml
+	@echo ">> Cargo.toml version bumped to $(APPSTORE_VERSION) (next release base)."
+	@echo ">> FlowFlow.ipa ready (v$(APPSTORE_VERSION), build $(APPSTORE_BUILD)). Run 'make upload' or use Transporter.app."
+
+upload:
+	@[ -f FlowFlow.ipa ] || { echo "ERROR: FlowFlow.ipa not found. Run 'make appstore' first."; exit 1; }
+	@set -a && . ./.env && set +a; \
+	if [ -z "$$APPLE_ID" ] || [ -z "$$APP_SPEC_PASSWORD" ]; then \
+	  echo "ERROR: APPLE_ID and APP_SPEC_PASSWORD must be set in .env (App-Specific Password)."; \
+	  exit 1; \
+	fi; \
+	echo ">> Uploading FlowFlow.ipa to App Store Connect..."; \
+	xcrun altool --upload-app -f FlowFlow.ipa -t ios -u "$$APPLE_ID" -p "$$APP_SPEC_PASSWORD" && \
+	echo ">> Upload OK. ASC processing 5-30 min, then attach the build to a version and Submit." || \
+	{ echo ">> Upload FAILED. See errors above."; exit 1; }
 
 clean:
 	rm -rf target/dx target/ios-dev target/desktop-dev target/flycheck0 target/tmp
