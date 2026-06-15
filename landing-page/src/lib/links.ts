@@ -2,9 +2,7 @@ export const repoUrl = "https://github.com/mirkobozzetto/flowflow";
 
 export const licenseUrl = `${repoUrl}/blob/main/LICENSE`;
 
-const dmgFile = "FlowFlow-0.1.1-macos-arm64.dmg";
-
-export const macDownloadUrl = `${repoUrl}/releases/download/v0.1.1/${dmgFile}`;
+export const macDownloadUrl = `${repoUrl}/releases/latest/download/FlowFlow-macos-arm64.dmg`;
 
 const appStore = {
   en: "https://apps.apple.com/be/app/flowflow/id6773033233?l=en-GB",

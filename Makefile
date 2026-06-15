@@ -136,9 +136,12 @@ dmg: desktop-toml
 
 # Publish the DMG as a GitHub release (tag v$(VERSION)). Requires gh auth.
 release: dmg
-	gh release create v$(VERSION) dist/FlowFlow-$(VERSION)-macos-arm64.dmg \
+	cp dist/FlowFlow-$(VERSION)-macos-arm64.dmg dist/FlowFlow-macos-arm64.dmg
+	gh release create v$(VERSION) \
+	  dist/FlowFlow-$(VERSION)-macos-arm64.dmg \
+	  dist/FlowFlow-macos-arm64.dmg \
 	  --title "FlowFlow v$(VERSION)" --generate-notes
-	@echo ">> Release v$(VERSION) published"
+	@echo ">> Release v$(VERSION) published (stable asset FlowFlow-macos-arm64.dmg for the landing permalink)"
 
 # Device logs: Console.app → select iPhone → filter "FlowFlow"
 logs:
