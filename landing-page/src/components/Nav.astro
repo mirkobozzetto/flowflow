@@ -13,22 +13,27 @@ const { lang } = Astro.props;
 const t = useTranslations(lang, "hero");
 ---
 
-<nav>
-  <div class="nav-inner">
-    <a class="brand" href={localizePath("/", lang)}>
+<nav class="fixed top-0 left-0 right-0 z-90 px-3">
+  <div
+    class="nav-inner relative flex items-center justify-between max-w-295 mx-auto mt-3.5 py-1.75 pr-2 pl-4 max-lg:pr-1 border border-stone-200 rounded-2xl"
+  >
+    <a
+      class="brand flex items-center gap-2.5 font-bold text-[15px] text-ink no-underline"
+      href={localizePath("/", lang)}
+    >
       <Image src={logo} alt="" width={26} height={26} />
       FlowFlow
     </a>
 
-    <div class="nav-right">
-      <div class="desktop-links">
+    <div class="flex items-center gap-2">
+      <div class="hidden lg:flex items-center gap-1">
         <a class="nav-link" href="#product">{t("nav.product")}</a>
         <a class="nav-link" href="#agentic">{t("nav.agentic")}</a>
         <a class="nav-link" href="#faq">{t("nav.faq")}</a>
       </div>
 
       <a
-        class="nav-cta desktop-only"
+        class="nav-cta hidden lg:inline-block"
         href={macDownloadUrl}
         {...externalLinkAttrs}
       >
@@ -38,7 +43,7 @@ const t = useTranslations(lang, "hero");
       <LangSwitcher lang={lang} />
 
       <button
-        class="mobile-toggle"
+        class="mobile-toggle flex lg:hidden w-10 h-10 items-center justify-center border-none rounded-[10px] bg-transparent text-stone-600 cursor-pointer"
         type="button"
         aria-label="Menu"
         aria-expanded="false"
@@ -62,11 +67,15 @@ const t = useTranslations(lang, "hero");
       </button>
     </div>
 
-    <div class="mobile-panel" id="mobile-menu" data-open="false">
+    <div
+      class="mobile-panel lg:hidden absolute left-0 right-0 flex flex-col gap-1 p-3 border border-stone-200 rounded-2xl"
+      id="mobile-menu"
+      data-open="false"
+    >
       <a class="nav-link" href="#product">{t("nav.product")}</a>
       <a class="nav-link" href="#agentic">{t("nav.agentic")}</a>
       <a class="nav-link" href="#faq">{t("nav.faq")}</a>
-      <span class="panel-divider" aria-hidden="true"></span>
+      <span class="h-px bg-stone-200 my-1" aria-hidden="true"></span>
       <a class="nav-cta" href={macDownloadUrl} {...externalLinkAttrs}>
         {t("nav.cta")}
       </a>
@@ -95,50 +104,14 @@ const t = useTranslations(lang, "hero");
 </script>
 
 <style>
-  nav {
-    position: fixed;
-    top: 0;
-    left: 0;
-    right: 0;
-    z-index: 90;
-    padding: 0 12px;
-  }
   .nav-inner {
-    position: relative;
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    max-width: 1180px;
-    margin: 14px auto 0;
-    padding: 7px 8px 7px 16px;
     background: color-mix(in srgb, var(--warm-white) 78%, transparent);
     backdrop-filter: blur(16px);
-    border: 1px solid var(--stone-200);
-    border-radius: 16px;
-  }
-  .brand {
-    display: flex;
-    align-items: center;
-    gap: 10px;
-    font-weight: 700;
-    font-size: 15px;
-    color: var(--ink);
-    text-decoration: none;
   }
   .brand img {
     width: 26px;
     height: 26px;
     border-radius: 7px;
-  }
-  .nav-right {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-  }
-  .desktop-links {
-    display: flex;
-    align-items: center;
-    gap: 4px;
   }
   .nav-link {
     font-size: 13.5px;
@@ -167,31 +140,10 @@ const t = useTranslations(lang, "hero");
   .nav-cta:hover {
     opacity: 0.85;
   }
-  .mobile-toggle {
-    display: none;
-    width: 40px;
-    height: 40px;
-    align-items: center;
-    justify-content: center;
-    border: none;
-    border-radius: 10px;
-    background: transparent;
-    color: var(--stone-600);
-    cursor: pointer;
-  }
   .mobile-panel {
-    position: absolute;
     top: calc(100% + 8px);
-    left: 0;
-    right: 0;
-    display: flex;
-    flex-direction: column;
-    gap: 4px;
-    padding: 12px;
     background: color-mix(in srgb, var(--warm-white) 92%, transparent);
     backdrop-filter: blur(20px);
-    border: 1px solid var(--stone-200);
-    border-radius: 16px;
     opacity: 0;
     transform: translateY(-8px);
     pointer-events: none;
@@ -201,27 +153,5 @@ const t = useTranslations(lang, "hero");
     opacity: 1;
     transform: translateY(0);
     pointer-events: auto;
-  }
-  .panel-divider {
-    height: 1px;
-    background: var(--stone-200);
-    margin: 4px 0;
-  }
-  @media (max-width: 899px) {
-    .desktop-links,
-    .desktop-only {
-      display: none;
-    }
-    .mobile-toggle {
-      display: flex;
-    }
-    .nav-inner {
-      padding-right: 4px;
-    }
-  }
-  @media (min-width: 900px) {
-    .mobile-panel {
-      display: none;
-    }
   }
 </style>

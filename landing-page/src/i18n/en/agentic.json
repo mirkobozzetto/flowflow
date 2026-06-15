@@ -32,30 +32,37 @@
   "connectors": [
     {
       "name": "Calendar",
+      "icon": "calendar",
       "live": true
     },
     {
       "name": "Reminders",
+      "icon": "reminders",
       "live": true
     },
     {
       "name": "n8n",
+      "icon": "n8n",
       "live": false
     },
     {
       "name": "WhatsApp",
+      "icon": "whatsapp",
       "live": false
     },
     {
       "name": "Email",
+      "icon": "email",
       "live": false
     },
     {
       "name": "Webhooks",
+      "icon": "webhooks",
       "live": false
     },
     {
       "name": "Tool marketplace",
+      "icon": "marketplace",
       "live": false
     }
   ],

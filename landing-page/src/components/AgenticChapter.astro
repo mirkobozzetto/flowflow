@@ -14,17 +14,28 @@ const t = section(lang, "agentic");
 const delays: Array<0 | 1 | 2 | 3> = [0, 1, 1, 2];
 ---
 
-<section id="agentic" class="agentic">
+<section
+  id="agentic"
+  class="agentic mt-37.5 bg-ink text-stone-200 pt-30 pb-27.5 relative overflow-hidden"
+>
   <div class="container">
-    <div class="fig reveal">{t.fig}</div>
-    <h2 class="reveal" data-d="1">
-      {t.h2Lead}<br /><em>{t.h2Accent}</em>
+    <div class="fig reveal text-stone-500">{t.fig}</div>
+    <h2
+      class="reveal text-[clamp(40px,6.4vw,80px)] leading-[0.99] tracking-[-0.035em] text-warm-white mt-5"
+      data-d="1"
+    >
+      {t.h2Lead}<br /><em class="font-serif italic font-normal text-orange-bright"
+        >{t.h2Accent}</em
+      >
     </h2>
-    <p class="sub reveal" data-d="2">
+    <p
+      class="sub reveal text-stone-400 text-[17px] max-w-150 mt-5 [&_b]:text-stone-200"
+      data-d="2"
+    >
       {t.subLead} <b>{t.subStrong}</b>{t.subTail}
     </p>
 
-    <div class="actions">
+    <div class="actions grid grid-cols-2 max-[800px]:grid-cols-1 gap-3.5 mt-13.5 relative">
       {
         t.actions.map((a, i) => (
           <ActionCard
@@ -53,14 +64,6 @@ const delays: Array<0 | 1 | 2 | 3> = [0, 1, 1, 2];
 </section>
 
 <style>
-  .agentic {
-    margin-top: 150px;
-    background: var(--ink);
-    color: var(--stone-200);
-    padding: 120px 0 110px;
-    position: relative;
-    overflow: hidden;
-  }
   .agentic::before {
     content: "";
     position: absolute;
@@ -71,44 +74,7 @@ const delays: Array<0 | 1 | 2 | 3> = [0, 1, 1, 2];
       transparent 70%
     );
   }
-  .agentic :global(.fig) {
-    color: var(--stone-500);
-  }
   .agentic :global(.fig::before) {
     background: var(--stone-700);
-  }
-  .agentic h2 {
-    font-size: clamp(40px, 6.4vw, 80px);
-    line-height: 0.99;
-    letter-spacing: -0.035em;
-    color: var(--warm-white);
-    margin-top: 20px;
-  }
-  .agentic h2 em {
-    font-family: var(--serif);
-    font-style: italic;
-    font-weight: 400;
-    color: var(--orange-bright);
-  }
-  .agentic .sub {
-    color: var(--stone-400);
-    font-size: 17px;
-    max-width: 600px;
-    margin-top: 20px;
-  }
-  .agentic .sub :global(b) {
-    color: var(--stone-200);
-  }
-  .actions {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 14px;
-    margin-top: 54px;
-    position: relative;
-  }
-  @media (max-width: 800px) {
-    .actions {
-      grid-template-columns: 1fr;
-    }
   }
 </style>

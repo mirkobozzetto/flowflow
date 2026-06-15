@@ -1,6 +1,5 @@
 * {
   box-sizing: border-box;
-  margin: 0;
 }
 
 html {
@@ -24,7 +23,8 @@ body {
 .container {
   max-width: 1180px;
   margin: 0 auto;
-  padding: 0 28px;
+  padding-left: clamp(20px, 5vw, 28px) !important;
+  padding-right: clamp(20px, 5vw, 28px) !important;
 }
 
 body::after {

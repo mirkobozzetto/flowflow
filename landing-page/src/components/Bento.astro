@@ -9,17 +9,26 @@ const { lang } = Astro.props;
 const t = section(lang, "bento");
 ---
 
-<section class="block container">
+<section class="container pt-35">
   <div class="fig reveal">{t.fig}</div>
-  <h2 class="reveal" data-d="1">{t.h2Lead}<br />{t.h2Accent}</h2>
-  <div class="bento">
-    <div class="tile t-a reveal">
-      <h3>{t.chat.title}</h3>
-      <p>{t.chat.body}</p>
-      <div class="media-fill">
+  <h2
+    class="reveal mt-4 text-[clamp(30px,4.4vw,50px)] tracking-[-0.027em]"
+    data-d="1"
+  >
+    {t.h2Lead}<br />{t.h2Accent}
+  </h2>
+  <div
+    class="mt-11 grid grid-cols-6 gap-3.5 auto-rows-[96px] max-md:*:col-span-6 max-md:*:row-span-3"
+  >
+    <div
+      class="reveal relative overflow-hidden rounded-[20px] border border-stone-200 bg-stone-50 p-6 transition-[border-color,box-shadow] duration-250 ease-[ease] hover:border-orange-100 hover:shadow-[0_10px_30px_-22px_rgba(22,19,17,0.25)] col-span-4 row-span-3"
+    >
+      <h3 class="mb-1.25 text-[17px] tracking-[-0.01em]">{t.chat.title}</h3>
+      <p class="max-w-80 text-[13px] text-stone-500">{t.chat.body}</p>
+      <div class="media-fill absolute inset-x-0 bottom-0 top-32 border-t border-stone-200">
         <div class="slot">{t.chat.macSlot}</div>
       </div>
-      <div class="iphone-mini tile-phone">
+      <div class="iphone-mini tile-phone absolute bottom-4.5 right-5.5 z-2 shrink-0 max-[560px]:hidden">
         <div class="screen">
           <div class="slot slot-xs">
             {t.chat.phoneSlot}<small>{t.chat.phoneSlotNote}</small>
@@ -28,25 +37,33 @@ const t = section(lang, "bento");
       </div>
     </div>
 
-    <div class="tile t-b reveal" data-d="1">
-      <h3>{t.sync.title}</h3>
-      <p>{t.sync.body}</p>
-      <div class="sync-visual">
+    <div
+      class="reveal relative overflow-hidden rounded-[20px] border border-stone-200 bg-stone-50 p-6 transition-[border-color,box-shadow] duration-250 ease-[ease] hover:border-orange-100 hover:shadow-[0_10px_30px_-22px_rgba(22,19,17,0.25)] col-span-2 row-span-3"
+      data-d="1"
+    >
+      <h3 class="mb-1.25 text-[17px] tracking-[-0.01em]">{t.sync.title}</h3>
+      <p class="max-w-80 text-[13px] text-stone-500">{t.sync.body}</p>
+      <div class="sync-visual mt-5.5 flex items-center gap-3">
         <div class="device"></div>
         <div class="sync-line"><span class="lock">{t.sync.lock}</span></div>
         <div class="device macd"></div>
       </div>
     </div>
 
-    <div class="tile t-c reveal">
-      <h3>{t.offline.title}</h3>
-      <p>{t.offline.body}</p>
+    <div
+      class="reveal relative overflow-hidden rounded-[20px] border border-stone-200 bg-stone-50 p-6 transition-[border-color,box-shadow] duration-250 ease-[ease] hover:border-orange-100 hover:shadow-[0_10px_30px_-22px_rgba(22,19,17,0.25)] col-span-3 row-span-2"
+    >
+      <h3 class="mb-1.25 text-[17px] tracking-[-0.01em]">{t.offline.title}</h3>
+      <p class="max-w-80 text-[13px] text-stone-500">{t.offline.body}</p>
     </div>
 
-    <div class="tile t-d reveal" data-d="1">
-      <h3>{t.keyboard.title}</h3>
-      <p>{t.keyboard.body}</p>
-      <div class="kbds">
+    <div
+      class="reveal relative overflow-hidden rounded-[20px] border border-stone-200 bg-stone-50 p-6 transition-[border-color,box-shadow] duration-250 ease-[ease] hover:border-orange-100 hover:shadow-[0_10px_30px_-22px_rgba(22,19,17,0.25)] col-span-3 row-span-2"
+      data-d="1"
+    >
+      <h3 class="mb-1.25 text-[17px] tracking-[-0.01em]">{t.keyboard.title}</h3>
+      <p class="max-w-80 text-[13px] text-stone-500">{t.keyboard.body}</p>
+      <div class="mt-3.5 flex flex-wrap gap-1.75">
         <kbd>⌘N</kbd>
         <kbd>⇧⌘Enter</kbd>
         <kbd>⌘F</kbd>
@@ -59,69 +76,6 @@ const t = section(lang, "bento");
 </section>
 
 <style>
-  section.block {
-    padding: 140px 0 0;
-  }
-  .block h2 {
-    font-size: clamp(30px, 4.4vw, 50px);
-    letter-spacing: -0.027em;
-    margin-top: 16px;
-  }
-  .bento {
-    display: grid;
-    grid-template-columns: repeat(6, 1fr);
-    grid-auto-rows: 96px;
-    gap: 14px;
-    margin-top: 44px;
-  }
-  .tile {
-    background: var(--stone-50);
-    border: 1px solid var(--stone-200);
-    border-radius: 20px;
-    padding: 24px;
-    position: relative;
-    overflow: hidden;
-    transition: border-color 0.25s ease, box-shadow 0.25s ease;
-  }
-  .tile:hover {
-    border-color: var(--orange-100);
-    box-shadow: 0 10px 30px -22px rgba(22, 19, 17, 0.25);
-  }
-  .tile h3 {
-    font-size: 17px;
-    margin-bottom: 5px;
-    letter-spacing: -0.01em;
-  }
-  .tile p {
-    font-size: 13px;
-    color: var(--stone-500);
-    max-width: 320px;
-  }
-  .t-a {
-    grid-column: span 4;
-    grid-row: span 3;
-  }
-  .t-b {
-    grid-column: span 2;
-    grid-row: span 3;
-  }
-  .t-c {
-    grid-column: span 3;
-    grid-row: span 2;
-  }
-  .t-d {
-    grid-column: span 3;
-    grid-row: span 2;
-  }
-  @media (max-width: 880px) {
-    .t-a,
-    .t-b,
-    .t-c,
-    .t-d {
-      grid-column: span 6;
-      grid-row: span 3;
-    }
-  }
   .slot {
     width: 100%;
     height: 100%;
@@ -152,13 +106,7 @@ const t = section(lang, "bento");
   .slot-xs {
     font-size: 10px;
   }
-  .tile .media-fill {
-    position: absolute;
-    inset: auto 0 0 0;
-    top: 96px;
-    border-top: 1px solid var(--stone-200);
-  }
-  .tile .media-fill .slot {
+  .media-fill .slot {
     border: none;
     border-radius: 0;
   }
@@ -168,7 +116,6 @@ const t = section(lang, "bento");
     border-radius: 30px;
     padding: 7px;
     position: relative;
-    flex-shrink: 0;
     background: linear-gradient(160deg, #3a3531, #161311);
     box-shadow:
       0 26px 50px -22px rgba(22, 19, 17, 0.45),
@@ -197,10 +144,10 @@ const t = section(lang, "bento");
     position: absolute;
     right: 22px;
     bottom: 18px;
+    z-index: 2;
     width: 124px;
     border-radius: 22px;
     padding: 5px;
-    z-index: 2;
   }
   .tile-phone::before {
     top: 10px;
@@ -208,12 +155,6 @@ const t = section(lang, "bento");
   }
   .tile-phone .screen {
     border-radius: 17px;
-  }
-  .kbds {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 7px;
-    margin-top: 14px;
   }
   kbd {
     font-family: inherit;
@@ -225,12 +166,6 @@ const t = section(lang, "bento");
     border-bottom-width: 2px;
     border-radius: 7px;
     padding: 3px 9px;
-  }
-  .sync-visual {
-    display: flex;
-    align-items: center;
-    gap: 12px;
-    margin-top: 22px;
   }
   .device {
     width: 42px;

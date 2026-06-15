@@ -10,10 +10,10 @@ const { lang } = Astro.props;
 const t = section(lang, "faq");
 ---
 
-<section id="faq" class="block container">
+<section id="faq" class="container pt-35">
   <div class="fig reveal">{t.fig}</div>
-  <h2 class="reveal" data-d="1">{t.title}</h2>
-  <div class="faq reveal" data-d="2">
+  <h2 class="reveal mt-4 text-[clamp(30px,4.4vw,50px)] tracking-[-0.027em]" data-d="1">{t.title}</h2>
+  <div class="reveal mx-auto mt-11 max-w-190" data-d="2">
     {t.items.map((item) => <FaqItem question={item.q} answer={item.a} />)}
   </div>
 </section>
@@ -22,18 +22,3 @@ const t = section(lang, "faq");
   import { initFaq } from "../scripts/faq";
   initFaq();
 </script>
-
-<style>
-  section.block {
-    padding: 140px 0 0;
-  }
-  .block h2 {
-    font-size: clamp(30px, 4.4vw, 50px);
-    letter-spacing: -0.027em;
-    margin-top: 16px;
-  }
-  .faq {
-    max-width: 760px;
-    margin: 44px auto 0;
-  }
-</style>

@@ -6,22 +6,22 @@ interface Props {
 const { items } = Astro.props;
 ---
 
-<div class="marquee-wrap">
-  <div class="marquee">
-    <span aria-hidden="false">
+<div class="mt-32.5 overflow-hidden border-y border-stone-200 py-4.25">
+  <div class="marquee flex w-max gap-12">
+    <span class="flex items-center gap-12 whitespace-nowrap font-serif text-[21px] italic text-stone-500">
       {
         items.map((item) => (
           <>
-            {item} <i>✦</i>{" "}
+            {item} <i class="text-[13px] not-italic text-orange">✦</i>{" "}
           </>
         ))
       }
     </span>
-    <span aria-hidden="true">
+    <span aria-hidden="true" class="flex items-center gap-12 whitespace-nowrap font-serif text-[21px] italic text-stone-500">
       {
         items.map((item) => (
           <>
-            {item} <i>✦</i>{" "}
+            {item} <i class="text-[13px] not-italic text-orange">✦</i>{" "}
           </>
         ))
       }
@@ -30,36 +30,8 @@ const { items } = Astro.props;
 </div>
 
 <style>
-  .marquee-wrap {
-    margin-top: 130px;
-    border-top: 1px solid var(--stone-200);
-    border-bottom: 1px solid var(--stone-200);
-    padding: 17px 0;
-    overflow: hidden;
-  }
-
   .marquee {
-    display: flex;
-    gap: 48px;
-    width: max-content;
     animation: marquee 32s linear infinite;
-  }
-
-  .marquee span {
-    display: flex;
-    align-items: center;
-    gap: 48px;
-    font-family: var(--serif);
-    font-style: italic;
-    font-size: 21px;
-    color: var(--stone-500);
-    white-space: nowrap;
-  }
-
-  .marquee i {
-    font-style: normal;
-    color: var(--orange);
-    font-size: 13px;
   }
 
   @keyframes marquee {

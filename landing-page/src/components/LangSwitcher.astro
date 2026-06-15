@@ -15,16 +15,23 @@ function homePath(target: Lang): string {
 }
 ---
 
-<div class="lang-switch" role="group" aria-label={groupLabel}>
+<div
+  class="inline-flex items-center gap-0.5 p-0.75 border border-stone-200 rounded-[10px] bg-stone-50"
+  role="group"
+  aria-label={groupLabel}
+>
   {
     supportedLangs.map((code) =>
       code === lang ? (
-        <span class="lang-opt active" aria-current="true">
+        <span
+          class="lang-opt active text-[12.5px] font-semibold tracking-[0.02em] px-2.25 py-1.25 rounded-[7px] text-ink bg-warm-white"
+          aria-current="true"
+        >
           {short[code]}
         </span>
       ) : (
         <a
-          class="lang-opt"
+          class="lang-opt text-[12.5px] font-semibold tracking-[0.02em] px-2.25 py-1.25 rounded-[7px] text-stone-500 no-underline transition-[color,background] duration-150 hover:text-ink focus-visible:outline-2 focus-visible:outline-orange focus-visible:outline-offset-2"
           href={homePath(code)}
           hreflang={code}
           lang={code}
@@ -38,37 +45,7 @@ function homePath(target: Lang): string {
 </div>
 
 <style>
-  .lang-switch {
-    display: inline-flex;
-    align-items: center;
-    gap: 2px;
-    padding: 3px;
-    border: 1px solid var(--stone-200);
-    border-radius: 10px;
-    background: var(--stone-50);
-  }
-  .lang-opt {
-    font-size: 12.5px;
-    font-weight: 600;
-    letter-spacing: 0.02em;
-    color: var(--stone-500);
-    text-decoration: none;
-    padding: 5px 9px;
-    border-radius: 7px;
-    transition:
-      color 0.15s,
-      background 0.15s;
-  }
-  a.lang-opt:hover {
-    color: var(--ink);
-  }
-  a.lang-opt:focus-visible {
-    outline: 2px solid var(--orange);
-    outline-offset: 2px;
-  }
   .lang-opt.active {
-    color: var(--ink);
-    background: var(--warm-white);
     box-shadow: 0 1px 2px rgba(22, 19, 17, 0.08);
   }
 </style>

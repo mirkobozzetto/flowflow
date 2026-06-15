@@ -1,5 +1,5 @@
 const REPO = "mirkobozzetto/flowflow";
-const FALLBACK = "★";
+const FALLBACK = "—";
 
 export function formatStars(count: number): string {
   if (count >= 1000) return `${(count / 1000).toFixed(1)}k`;

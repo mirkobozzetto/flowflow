@@ -20,13 +20,20 @@ const {
 } = Astro.props;
 ---
 
-<div class="capture reveal">
+<div
+  class="capture reveal mt-16 border rounded-[22px] p-8.5 flex items-center gap-6.5 flex-wrap"
+>
   <div>
-    <h3 set:text={title} />
-    <p set:text={blurb} />
+    <h3 class="text-[21px] text-warm-white tracking-[-0.01em]" set:text={title} />
+    <p class="text-[13.5px] text-stone-500 mt-1" set:text={blurb} />
   </div>
-  <form data-capture data-endpoint={endpoint}>
+  <form
+    class="flex gap-2.25 ml-auto flex-wrap"
+    data-capture
+    data-endpoint={endpoint}
+  >
     <input
+      class="min-w-65 min-h-12.5 px-4.5 border rounded-[13px] text-warm-white text-[14.5px] font-[inherit] outline-none transition-[border-color,box-shadow] duration-150"
       type="email"
       required
       placeholder={placeholder}
@@ -34,8 +41,11 @@ const {
     />
     <button class="btn-primary" type="submit" set:text={submit} />
   </form>
-  <span class="ok" data-capture-ok>
-    <svg viewBox="0 0 24 24" aria-hidden="true">
+  <span
+    class="ok text-[14.5px] font-semibold items-center gap-2"
+    data-capture-ok
+  >
+    <svg viewBox="0 0 24 24" aria-hidden="true" class="w-4.25 h-4.25">
       <path d="M5 13l4 4L19 7" />
     </svg>
     <span set:text={ok} />
@@ -48,44 +58,12 @@ const {
 
 <style>
   .capture {
-    margin-top: 64px;
     background: var(--ink-2);
-    border: 1px solid #36302b;
-    border-radius: 22px;
-    padding: 34px;
-    display: flex;
-    align-items: center;
-    gap: 26px;
-    flex-wrap: wrap;
-  }
-  .capture h3 {
-    font-size: 21px;
-    color: var(--warm-white);
-    letter-spacing: -0.01em;
-  }
-  .capture p {
-    font-size: 13.5px;
-    color: var(--stone-500);
-    margin-top: 4px;
-  }
-  form {
-    display: flex;
-    gap: 9px;
-    margin-left: auto;
-    flex-wrap: wrap;
+    border-color: #36302b;
   }
   input {
-    min-width: 260px;
-    min-height: 50px;
-    padding: 0 18px;
     background: var(--ink);
-    border: 1px solid #36302b;
-    border-radius: 13px;
-    color: var(--warm-white);
-    font-size: 14.5px;
-    font-family: inherit;
-    outline: none;
-    transition: border-color 0.15s, box-shadow 0.15s;
+    border-color: #36302b;
   }
   input::placeholder {
     color: var(--stone-600);
@@ -96,15 +74,9 @@ const {
   }
   .ok {
     color: #34c759;
-    font-size: 14.5px;
-    font-weight: 600;
     display: none;
-    align-items: center;
-    gap: 8px;
   }
   .ok svg {
-    width: 17px;
-    height: 17px;
     stroke: #34c759;
     fill: none;
     stroke-width: 2.2;

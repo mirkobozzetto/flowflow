@@ -30,13 +30,13 @@
   ],
   "connectorsLabel": "Connecteurs",
   "connectors": [
-    { "name": "Calendrier", "live": true },
-    { "name": "Rappels", "live": true },
-    { "name": "n8n", "live": false },
-    { "name": "WhatsApp", "live": false },
-    { "name": "Email", "live": false },
-    { "name": "Webhooks", "live": false },
-    { "name": "Marketplace d'outils", "live": false }
+    { "name": "Calendrier", "icon": "calendar", "live": true },
+    { "name": "Rappels", "icon": "reminders", "live": true },
+    { "name": "n8n", "icon": "n8n", "live": false },
+    { "name": "WhatsApp", "icon": "whatsapp", "live": false },
+    { "name": "Email", "icon": "email", "live": false },
+    { "name": "Webhooks", "icon": "webhooks", "live": false },
+    { "name": "Marketplace d'outils", "icon": "marketplace", "live": false }
   ],
   "capture": {
     "title": "Sois là au lancement de la marketplace",

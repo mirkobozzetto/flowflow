@@ -13,35 +13,19 @@ const starPath =
   "9.1l6.9-.8z";
 ---
 
-<span class="gh-stars" aria-label={label}>
+<span
+  class="inline-flex items-center gap-1.25 border-l border-stone-200 pl-2.5 ml-0.5 text-stone-500 text-[12.5px]"
+  aria-label={label}
+>
   <svg
     width="12"
     height="12"
     viewBox="0 0 24 24"
     fill="currentColor"
     aria-hidden="true"
+    class="text-orange"
   >
     <path d={starPath}></path>
   </svg>
-  <b>{stars}</b>
+  <b class="font-semibold text-stone-700">{stars}</b>
 </span>
-
-<style>
-  .gh-stars {
-    display: inline-flex;
-    align-items: center;
-    gap: 5px;
-    border-left: 1px solid var(--stone-200);
-    padding-left: 10px;
-    margin-left: 2px;
-    color: var(--stone-500);
-    font-size: 12.5px;
-  }
-  .gh-stars svg {
-    color: var(--orange);
-  }
-  .gh-stars b {
-    font-weight: 600;
-    color: var(--stone-700);
-  }
-</style>

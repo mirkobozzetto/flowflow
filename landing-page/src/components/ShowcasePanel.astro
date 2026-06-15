@@ -10,13 +10,17 @@ interface Props {
 const { num, title, text, slot, slotNote } = Astro.props;
 ---
 
-<div class="panel">
-  <div class="ptext">
-    <div class="pnum">{num}</div>
-    <h3>{title}</h3>
-    <p>{text}</p>
+<div
+  class="flex w-[min(640px,84vw)] shrink-0 flex-row items-center gap-7 rounded-3xl border border-stone-200 bg-stone-50 p-7.5 max-[560px]:flex-col max-[560px]:items-start"
+>
+  <div class="flex flex-1 flex-col gap-3.5">
+    <div class="font-serif text-[58px] italic leading-none text-orange">
+      {num}
+    </div>
+    <h3 class="text-[27px] tracking-[-0.02em]">{title}</h3>
+    <p class="max-w-107.5 text-[14.5px] text-stone-500">{text}</p>
   </div>
-  <div class="iphone-mini">
+  <div class="iphone-mini max-[560px]:self-center">
     <div class="screen">
       <div class="slot">
         {slot}
@@ -27,45 +31,6 @@ const { num, title, text, slot, slotNote } = Astro.props;
 </div>
 
 <style>
-  .panel {
-    flex-shrink: 0;
-    width: min(640px, 84vw);
-    background: var(--stone-50);
-    border: 1px solid var(--stone-200);
-    border-radius: 24px;
-    padding: 30px;
-    display: flex;
-    flex-direction: row;
-    align-items: center;
-    gap: 28px;
-  }
-
-  .ptext {
-    display: flex;
-    flex-direction: column;
-    gap: 14px;
-    flex: 1;
-  }
-
-  .pnum {
-    font-family: var(--serif);
-    font-style: italic;
-    font-size: 58px;
-    color: var(--orange);
-    line-height: 1;
-  }
-
-  h3 {
-    font-size: 27px;
-    letter-spacing: -0.02em;
-  }
-
-  p {
-    font-size: 14.5px;
-    color: var(--stone-500);
-    max-width: 430px;
-  }
-
   .iphone-mini {
     width: clamp(150px, 16vw, 196px);
     aspect-ratio: 9/19.5;
@@ -123,16 +88,5 @@ const { num, title, text, slot, slotNote } = Astro.props;
   .slot small {
     font-size: 10px;
     opacity: 0.85;
-  }
-
-  @media (max-width: 560px) {
-    .panel {
-      flex-direction: column;
-      align-items: flex-start;
-    }
-
-    .iphone-mini {
-      align-self: center;
-    }
   }
 </style>

@@ -20,11 +20,22 @@ const githubPath =
   "10.9C23.5 5.6 18.4.5 12 .5z";
 ---
 
-<footer>
-  <div class="container footer-inner">
+<footer class="border-t border-stone-200 pt-7.5 pb-11.5">
+  <div
+    class="container flex flex-wrap items-center gap-5 text-[13px] text-stone-400"
+  >
     <span>{t.footer.copyright}</span>
-    <a href={licenseUrl} {...externalLinkAttrs}>{t.footer.license}</a>
-    <a class="gh-btn" href={repoUrl} {...externalLinkAttrs}>
+    <a
+      href={licenseUrl}
+      {...externalLinkAttrs}
+      class="text-stone-500 no-underline transition-colors hover:text-ink"
+      >{t.footer.license}</a
+    >
+    <a
+      class="inline-flex items-center gap-2.25 rounded-[11px] border border-stone-200 bg-warm-white px-3.5 py-2 text-[13.5px] font-semibold text-ink! transition-[border-color,box-shadow] duration-200 hover:border-stone-300 hover:shadow-[0_6px_18px_-12px_rgba(22,19,17,0.25)]"
+      href={repoUrl}
+      {...externalLinkAttrs}
+    >
       <svg
         width="16"
         height="16"
@@ -37,51 +48,7 @@ const githubPath =
       {t.footer.github}
       <GithubStars label={t.footer.starsAlt} />
     </a>
-    <span class="spacer"></span>
+    <span class="ml-auto"></span>
     <span>{t.footer.madeWith}</span>
   </div>
 </footer>
-
-<style>
-  footer {
-    border-top: 1px solid var(--stone-200);
-    padding: 30px 0 46px;
-  }
-  .footer-inner {
-    display: flex;
-    align-items: center;
-    gap: 20px;
-    flex-wrap: wrap;
-    font-size: 13px;
-    color: var(--stone-400);
-  }
-  .footer-inner a {
-    color: var(--stone-500);
-    text-decoration: none;
-  }
-  .footer-inner a:hover {
-    color: var(--ink);
-  }
-  .footer-inner .spacer {
-    margin-left: auto;
-  }
-  .gh-btn {
-    display: inline-flex;
-    align-items: center;
-    gap: 9px;
-    border: 1px solid var(--stone-200);
-    border-radius: 11px;
-    background: var(--warm-white);
-    color: var(--ink) !important;
-    padding: 8px 14px;
-    font-size: 13.5px;
-    font-weight: 600;
-    transition:
-      border-color 0.2s,
-      box-shadow 0.2s;
-  }
-  .gh-btn:hover {
-    border-color: var(--stone-300);
-    box-shadow: 0 6px 18px -12px rgba(22, 19, 17, 0.25);
-  }
-</style>

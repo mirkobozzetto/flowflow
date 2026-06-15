@@ -9,7 +9,7 @@
     "preview": "astro preview",
     "check": "astro check",
     "astro": "astro",
-    "format": "biome check --write .",
+    "format": "tailwind-suggest-canonical-classes \"src/**/*.astro\" --css src/styles/global.css && biome check --write .",
     "lint": "biome check . && eslint \"src/**/*.astro\"",
     "lint:astro": "eslint \"src/**/*.astro\""
   },
@@ -19,6 +19,7 @@
   "devDependencies": {
     "@astrojs/check": "^0.9.9",
     "@biomejs/biome": "^2.5.0",
+    "@laststance/tailwind-suggest-canonical-classes": "^0.1.1",
     "@tailwindcss/vite": "^4.3.1",
     "@typescript-eslint/parser": "^8.61.0",
     "eslint": "^10.5.0",

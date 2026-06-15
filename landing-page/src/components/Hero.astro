@@ -14,21 +14,30 @@ const t = useTranslations(lang, "hero");
 const storeUrl = appStoreUrl(lang);
 ---
 
-<header class="hero">
+<header class="hero pt-29 text-center relative">
   <div class="hero-glow"></div>
   <div class="container">
     <Image
-      class="hero-logo reveal in"
+      class="hero-logo reveal in w-44 h-44 rounded-[44px] mx-auto block relative shadow-[0_30px_60px_-18px_color-mix(in_srgb,var(--orange)_45%,transparent),0_4px_14px_rgba(22,19,17,0.12),inset_0_0_0_1px_rgba(255,255,255,0.4)]"
       src={logo}
       alt={t("hero.logoAlt")}
       width={176}
       height={176}
     />
-    <h1 class="reveal" data-d="1">
-      {t("hero.h1Lead")} <em class="h1-accent">{t("hero.h1Accent")}</em>
+    <h1
+      class="reveal mt-6.5 text-[clamp(50px,8.4vw,104px)] leading-[0.99] tracking-[-0.035em] font-[760] text-ink"
+      data-d="1"
+    >
+      {t("hero.h1Lead")}{" "}
+      <em class="font-serif italic font-normal text-orange-dark">
+        {t("hero.h1Accent")}
+      </em>
     </h1>
-    <p class="hero-sub reveal" data-d="2">
-      {t("hero.subLead")} <b>{t("hero.subStrong")}</b>
+    <p
+      class="reveal text-[clamp(15px,1.8vw,17.5px)] text-stone-500 max-w-150 mx-auto mt-4.5"
+      data-d="2"
+    >
+      {t("hero.subLead")} <b class="text-ink font-semibold">{t("hero.subStrong")}</b>
     </p>
     <div class="hero-ctas reveal" data-d="3">
       <a class="btn-primary" href={macDownloadUrl} {...externalLinkAttrs}>
@@ -44,11 +53,6 @@ const storeUrl = appStoreUrl(lang);
 </header>
 
 <style>
-  .hero {
-    padding: 116px 0 0;
-    text-align: center;
-    position: relative;
-  }
   .hero-glow {
     position: absolute;
     top: -120px;
@@ -65,16 +69,6 @@ const storeUrl = appStoreUrl(lang);
     filter: blur(10px);
   }
   .hero-logo {
-    width: 176px;
-    height: 176px;
-    border-radius: 44px;
-    margin: 0 auto;
-    display: block;
-    position: relative;
-    box-shadow:
-      0 30px 60px -18px color-mix(in srgb, var(--orange) 45%, transparent),
-      0 4px 14px rgba(22, 19, 17, 0.12),
-      inset 0 0 0 1px rgba(255, 255, 255, 0.4);
     animation: logoFloat 5.5s ease-in-out infinite;
   }
   @keyframes logoFloat {
@@ -85,29 +79,5 @@ const storeUrl = appStoreUrl(lang);
     50% {
       transform: translateY(-10px) rotate(2deg);
     }
-  }
-  .hero :global(h1) {
-    margin-top: 26px;
-    font-size: clamp(50px, 8.4vw, 104px);
-    line-height: 0.99;
-    letter-spacing: -0.035em;
-    font-weight: 760;
-    color: var(--ink);
-  }
-  .hero :global(h1 .h1-accent) {
-    font-family: var(--serif);
-    font-style: italic;
-    font-weight: 400;
-    color: var(--orange-dark);
-  }
-  .hero-sub {
-    font-size: clamp(15px, 1.8vw, 17.5px);
-    color: var(--stone-500);
-    max-width: 600px;
-    margin: 18px auto 0;
-  }
-  .hero-sub :global(b) {
-    color: var(--ink);
-    font-weight: 600;
   }
 </style>

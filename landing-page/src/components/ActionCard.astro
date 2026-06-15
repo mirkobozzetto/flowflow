@@ -21,69 +21,29 @@ const micPath =
 const d = delay ? String(delay) : undefined;
 ---
 
-<div class="action reveal" data-d={d}>
-  <div class="you">
-    <svg viewBox="0 0 24 24" aria-hidden="true">
+<div
+  class="action reveal rounded-[18px] border border-[#36302b] bg-(--ink-2) px-6 py-5.5 transition-[border-color,background] duration-250 ease-[ease] hover:border-[color-mix(in_srgb,var(--orange)_35%,#36302b)] hover:bg-[#262019]"
+  data-d={d}
+>
+  <div class="you flex items-center gap-2.5 font-serif text-[19px] italic text-warm-white">
+    <svg
+      class="h-4.25 w-4.25 shrink-0 fill-none stroke-orange-bright stroke-[1.8]"
+      viewBox="0 0 24 24"
+      aria-hidden="true"
+    >
       <path d={micPath} />
     </svg>
     <span set:text={you} />
-    {soon && <span class="soon">{soonLabel}</span>}
+    {
+      soon && (
+        <span class="ml-2 inline-block rounded-[99px] border border-[color-mix(in_srgb,var(--orange-bright)_40%,transparent)] px-2 py-px text-[10px] font-bold uppercase tracking-[0.06em] text-orange-bright">
+          {soonLabel}
+        </span>
+      )
+    }
   </div>
-  <div class="then" set:text={result} />
+  <div
+    class="then mt-3.25 flex items-center gap-2.25 text-[13.5px] text-stone-400 before:font-bold before:text-orange-bright before:content-['\2192']"
+    set:text={result}
+  />
 </div>
-
-<style>
-  .action {
-    background: var(--ink-2);
-    border: 1px solid #36302b;
-    border-radius: 18px;
-    padding: 22px 24px;
-    transition: border-color 0.25s ease, background 0.25s ease;
-  }
-  .action:hover {
-    border-color: color-mix(in srgb, var(--orange) 35%, #36302b);
-    background: #262019;
-  }
-  .you {
-    display: flex;
-    align-items: center;
-    gap: 10px;
-    font-family: var(--serif);
-    font-style: italic;
-    font-size: 19px;
-    color: var(--warm-white);
-  }
-  .you svg {
-    width: 17px;
-    height: 17px;
-    stroke: var(--orange-bright);
-    fill: none;
-    stroke-width: 1.8;
-    flex-shrink: 0;
-  }
-  .then {
-    display: flex;
-    align-items: center;
-    gap: 9px;
-    margin-top: 13px;
-    font-size: 13.5px;
-    color: var(--stone-400);
-  }
-  .then::before {
-    content: "\2192";
-    color: var(--orange-bright);
-    font-weight: 700;
-  }
-  .soon {
-    display: inline-block;
-    margin-left: 8px;
-    font-size: 10px;
-    font-weight: 700;
-    letter-spacing: 0.06em;
-    text-transform: uppercase;
-    color: var(--orange-bright);
-    border: 1px solid color-mix(in srgb, var(--orange-bright) 40%, transparent);
-    border-radius: 99px;
-    padding: 1px 8px;
-  }
-</style>
