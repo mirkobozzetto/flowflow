@@ -1,0 +1,345 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>FlowFlow - Threads Concept</title>
+
+    <script src="https://cdn.tailwindcss.com"></script>
+
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        'ios-green': '#34c759',
+                        'ios-red': 'oklch(0.55 0.2 30)',
+                        'ios-red-dark': 'oklch(0.46 0.16 30)',
+                        'ios-red-50': 'oklch(0.96 0.025 30)',
+                        'ios-orange-50': 'oklch(0.97 0.04 50)',
+                        'ios-orange-100': 'oklch(0.92 0.07 50)',
+                        'ios-orange': 'oklch(0.60 0.22 50)',
+                        'ios-orange-dark': 'oklch(0.48 0.16 50)',
+                        'warm-white': 'oklch(0.99 0.005 50)'
+                    },
+                    fontFamily: {
+                        sans: ['-apple-system', 'BlinkMacSystemFont', '"SF Pro Text"', 'Segoe UI', 'Roboto', 'Helvetica', 'Arial', 'sans-serif'],
+                    },
+                    animation: {
+                        'fadeInUp': 'fadeInUp 0.3s cubic-bezier(0.2, 0.8, 0.2, 1) forwards',
+                        'slideInUp': 'slideInUp 0.4s cubic-bezier(0.2, 0.8, 0.2, 1) forwards',
+                        'pulseSoft': 'pulseSoft 1.5s cubic-bezier(0.4, 0, 0.6, 1) infinite',
+                        'pulseRing': 'pulseRing 2s cubic-bezier(0.2, 0.8, 0.2, 1) infinite',
+                    },
+                    keyframes: {
+                        fadeInUp: {
+                            '0%': { opacity: '0', transform: 'translateY(12px)' },
+                            '100%': { opacity: '1', transform: 'translateY(0)' },
+                        },
+                        slideInUp: {
+                            '0%': { transform: 'translateY(100%)' },
+                            '100%': { transform: 'translateY(0)' },
+                        },
+                        pulseSoft: {
+                            '0%, 100%': { opacity: '1' },
+                            '50%': { opacity: '0.4' },
+                        },
+                        pulseRing: {
+                            '0%': { transform: 'scale(0.8)', opacity: '0.8' },
+                            '100%': { transform: 'scale(2.5)', opacity: '0' },
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+
+    <style>
+        body {
+            -webkit-font-smoothing: antialiased;
+            -moz-osx-font-smoothing: grayscale;
+            background-color: #E7E5E4;
+        }
+
+        .no-scrollbar::-webkit-scrollbar {
+            display: none;
+        }
+        .no-scrollbar {
+            -ms-overflow-style: none;
+            scrollbar-width: none;
+        }
+
+        .iphone-frame {
+            box-shadow:
+                0 0 0 12px #1c1c1e,
+                0 0 0 13px #3a3a3c,
+                0 25px 50px -12px rgba(0, 0, 0, 0.4);
+        }
+
+        .notch {
+            position: absolute;
+            top: 0;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 120px;
+            height: 30px;
+            background-color: #1c1c1e;
+            border-bottom-left-radius: 16px;
+            border-bottom-right-radius: 16px;
+            z-index: 50;
+        }
+    </style>
+</head>
+<body class="min-h-screen py-12 px-4 flex flex-col items-center">
+
+    <header class="text-center mb-12 max-w-2xl">
+        <h1 class="text-3xl font-semibold text-stone-900 mb-2 tracking-tight">FlowFlow - Threads</h1>
+        <p class="text-stone-500 text-base">Concept visuel : chaînage séquentiel de notes vocales et textuelles.</p>
+    </header>
+
+    <div class="flex flex-wrap justify-center gap-10 max-w-[1300px] w-full items-start">
+
+        <div class="iphone-frame relative w-[390px] h-[844px] bg-stone-50 rounded-[48px] overflow-hidden flex flex-col shrink-0 border-[6px] border-[#1c1c1e]">
+            <div class="notch"></div>
+
+            <div class="h-12 w-full flex justify-between items-center px-8 pt-3 text-stone-900 font-medium text-sm z-40 relative">
+                <span>09:41</span>
+                <div class="flex gap-1.5 items-center">
+                    <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 24 24"><path d="M12 21A9 9 0 1 1 21 12A9 9 0 0 1 12 21M12 4A8 8 0 1 0 20 12A8 8 0 0 0 12 4Z"/></svg>
+                    <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 24 24"><path d="M2 11h20v2H2z"/></svg>
+                </div>
+            </div>
+
+            <div class="px-5 pt-4 pb-2 z-10 bg-stone-50/80 backdrop-blur-md sticky top-0">
+                <h1 class="text-3xl font-bold text-stone-900 tracking-tight">Notes</h1>
+            </div>
+
+            <div class="flex-1 overflow-y-auto no-scrollbar px-4 pb-24 pt-2 flex flex-col gap-2.5">
+
+                <div class="bg-warm-white p-4 border border-stone-200 rounded-xl cursor-pointer hover:border-stone-300 hover:shadow-sm transition-all duration-150">
+                    <div class="flex justify-between items-start mb-1">
+                        <h3 class="font-semibold text-base text-stone-900">Rappel client Dubois</h3>
+                        <div class="w-2 h-2 rounded-full bg-ios-orange/50 mt-1.5"></div>
+                    </div>
+                    <p class="text-stone-600 text-sm line-clamp-2 leading-relaxed mb-3">Penser à envoyer le devis révisé avant ce soir, inclure la nouvelle option de maintenance mensuelle.</p>
+                    <div class="flex items-center justify-between">
+                        <div class="flex items-center gap-1.5">
+                            <span class="text-ios-orange-dark text-xs font-medium">Pro, Clients</span>
+                            <span class="text-stone-400 text-xs">&middot;</span>
+                            <span class="text-stone-500 text-xs">10:42</span>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="relative w-full cursor-pointer group mt-2 mb-3">
+                    <div class="absolute inset-0 border border-stone-200/60 rounded-xl bg-warm-white scale-[0.90] translate-y-3 z-0 shadow-sm transition-transform duration-200 group-hover:translate-y-4"></div>
+                    <div class="absolute inset-0 border border-stone-200/80 rounded-xl bg-warm-white scale-[0.95] translate-y-1.5 z-10 shadow-sm transition-transform duration-200 group-hover:translate-y-2"></div>
+
+                    <div class="relative z-20 bg-warm-white p-4 border border-stone-200 rounded-xl group-hover:border-stone-300 group-hover:shadow-md transition-all duration-200">
+                        <div class="flex items-center gap-2 mb-2">
+                            <span class="px-2.5 py-0.5 rounded-full bg-ios-orange-50 text-ios-orange-dark text-xs font-semibold tracking-wide uppercase">Thread &middot; 4 notes</span>
+                        </div>
+
+                        <div class="flex justify-between items-start mb-1">
+                            <h3 class="font-semibold text-base text-stone-900">Concept App de Plantes</h3>
+                            <div class="flex gap-1 mt-1.5">
+                                <div class="w-1.5 h-1.5 rounded-full bg-ios-orange/50"></div>
+                                <div class="w-1.5 h-1.5 rounded-full bg-ios-orange/50"></div>
+                            </div>
+                        </div>
+                        <p class="text-stone-600 text-sm line-clamp-2 leading-relaxed mb-3">Idée d'application pour la gestion des plantes d'intérieur. On pourrait utiliser la caméra pour identifier les maladies via une API...</p>
+
+                        <div class="flex items-center justify-between mt-1 pt-3 border-t border-stone-100">
+                            <div class="flex items-center gap-1.5">
+                                <span class="px-2 py-0.5 rounded-full bg-warm-white border border-ios-orange/25 text-ios-orange-dark text-xs font-medium">Idées</span>
+                                <span class="px-2 py-0.5 rounded-full bg-warm-white border border-ios-orange/25 text-ios-orange-dark text-xs font-medium">Projet P</span>
+                            </div>
+                            <span class="text-stone-500 text-xs">Hier</span>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="bg-warm-white p-4 border border-stone-200 rounded-xl cursor-pointer hover:border-stone-300 hover:shadow-sm transition-all duration-150">
+                    <div class="flex justify-between items-start mb-1">
+                        <h3 class="font-semibold text-base text-stone-900">Liste de courses</h3>
+                    </div>
+                    <p class="text-stone-600 text-sm line-clamp-2 leading-relaxed mb-3">Lait d'avoine, œufs, pain complet, avocat, tomates cerises.</p>
+                    <div class="flex items-center justify-between">
+                        <div class="flex items-center gap-1.5">
+                            <span class="text-ios-orange-dark text-xs font-medium">Personnel</span>
+                            <span class="text-stone-400 text-xs">&middot;</span>
+                            <span class="text-stone-500 text-xs">Mar</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="absolute bottom-0 w-full bg-stone-50/90 backdrop-blur-xl border-t border-stone-200 pb-8 pt-3 px-6 flex justify-around items-center z-40">
+                <div class="flex flex-col items-center gap-1 text-ios-orange">
+                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 002-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"></path></svg>
+                </div>
+                <div class="w-14 h-14 bg-ios-orange rounded-full flex items-center justify-center shadow-lg -translate-y-4 text-warm-white cursor-pointer">
+                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4"></path></svg>
+                </div>
+                <div class="flex flex-col items-center gap-1 text-stone-400">
+                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path></svg>
+                </div>
+            </div>
+        </div>
+
+
+        <div class="iphone-frame relative w-[390px] h-[844px] bg-stone-50 rounded-[48px] overflow-hidden flex flex-col shrink-0 border-[6px] border-[#1c1c1e]">
+            <div class="notch"></div>
+
+            <div class="h-12 w-full flex justify-between items-center px-8 pt-3 text-stone-900 font-medium text-sm z-40 relative">
+                <span>09:42</span>
+                <div class="flex gap-1.5 items-center">
+                    <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 24 24"><path d="M12 21A9 9 0 1 1 21 12A9 9 0 0 1 12 21M12 4A8 8 0 1 0 20 12A8 8 0 0 0 12 4Z"/></svg>
+                    <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 24 24"><path d="M2 11h20v2H2z"/></svg>
+                </div>
+            </div>
+
+            <div class="px-4 py-3 z-30 bg-stone-50/95 backdrop-blur-md sticky top-0 border-b border-stone-200/50 flex items-center justify-between">
+                <div class="flex items-center text-ios-orange cursor-pointer">
+                    <svg class="w-5 h-5 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M15 19l-7-7 7-7"></path></svg>
+                    <span class="text-base font-medium">Notes</span>
+                </div>
+                <div class="text-stone-900 font-semibold text-sm truncate max-w-[150px]">Concept App Plantes</div>
+                <div class="w-16"></div>
+            </div>
+
+            <div class="flex-1 overflow-y-auto no-scrollbar relative pt-6 pb-32">
+
+                <div class="absolute left-[35px] top-[46px] bottom-[40px] w-[2px] bg-stone-300 z-0"></div>
+
+                <div class="relative pl-[58px] pr-4 mb-6 z-10">
+                    <div class="absolute left-[31px] top-[20px] w-2.5 h-2.5 rounded-full bg-ios-orange/40 ring-4 ring-stone-50 z-20"></div>
+
+                    <div class="bg-warm-white p-4 border border-stone-200 rounded-xl shadow-sm">
+                        <div class="flex items-center gap-2 mb-2">
+                            <div class="w-2 h-2 rounded-full bg-ios-orange/50"></div>
+                            <span class="text-stone-500 text-xs font-medium">Hier, 14:20</span>
+                        </div>
+                        <p class="text-stone-800 text-[15px] leading-relaxed">
+                            Idée d'application pour la gestion des plantes d'intérieur. Beaucoup de gens tuent leurs plantes par manque de connaissances.
+                        </p>
+                    </div>
+                </div>
+
+                <div class="relative pl-[58px] pr-4 mb-6 z-10">
+                    <div class="absolute left-[31px] top-[20px] w-2.5 h-2.5 rounded-full bg-ios-orange/40 ring-4 ring-stone-50 z-20"></div>
+                    <div class="bg-warm-white p-4 border border-stone-200 rounded-xl shadow-sm">
+                        <div class="flex items-center gap-2 mb-2">
+                            <span class="text-stone-500 text-xs font-medium">Hier, 14:25</span>
+                        </div>
+                        <p class="text-stone-800 text-[15px] leading-relaxed">
+                            On pourrait utiliser la caméra pour identifier la plante et potentiellement ses maladies. Ça créerait une fiche d'arrosage automatique.
+                        </p>
+                    </div>
+                </div>
+
+                <div class="relative pl-[58px] pr-4 mb-6 z-10">
+                    <div class="absolute left-[31px] top-[20px] w-2.5 h-2.5 rounded-full bg-ios-orange/40 ring-4 ring-stone-50 z-20"></div>
+                    <div class="bg-warm-white p-4 border border-stone-200 rounded-xl shadow-sm">
+                        <div class="flex items-center gap-2 mb-2">
+                            <div class="w-2 h-2 rounded-full bg-ios-orange/50"></div>
+                            <span class="text-stone-500 text-xs font-medium">Hier, 16:40</span>
+                        </div>
+                        <p class="text-stone-800 text-[15px] leading-relaxed">
+                            Je viens de regarder l'API PlantID. C'est exactement ce qu'il faut. Par contre, il faut vérifier les coûts pour une version gratuite.
+                        </p>
+                    </div>
+                </div>
+
+                <div class="relative pl-[58px] pr-4 mb-8 z-10">
+                    <div class="absolute left-[31px] top-[20px] w-2.5 h-2.5 rounded-full bg-ios-orange/40 ring-4 ring-stone-50 z-20"></div>
+                    <div class="bg-warm-white p-4 border border-stone-200 rounded-xl shadow-sm">
+                        <div class="flex items-center gap-2 mb-2">
+                            <span class="text-stone-500 text-xs font-medium">Aujourd'hui, 09:15</span>
+                        </div>
+                        <p class="text-stone-800 text-[15px] leading-relaxed">
+                            Le prix de l'API est trop cher pour commencer. Décision : on va lancer une v1 avec un catalogue manuel limité aux 50 plantes les plus courantes.
+                        </p>
+                    </div>
+                </div>
+            </div>
+
+            <div class="absolute bottom-0 w-full bg-stone-50/95 backdrop-blur-xl border-t border-stone-200 pt-3 pb-8 px-4 z-40">
+                <div class="flex items-center gap-3">
+                    <div class="flex-1 bg-warm-white border border-stone-200 rounded-2xl p-3 flex items-center justify-between text-stone-400 cursor-text hover:border-stone-300 transition-colors">
+                        <span class="text-[15px]">Continuer le thread...</span>
+                    </div>
+                    <button class="w-12 h-12 bg-ios-orange rounded-full flex items-center justify-center text-warm-white shadow-md hover:bg-ios-orange-dark transition-colors shrink-0">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z"></path></svg>
+                    </button>
+                </div>
+            </div>
+        </div>
+
+
+        <div class="iphone-frame relative w-[390px] h-[844px] bg-stone-50 rounded-[48px] overflow-hidden flex flex-col shrink-0 border-[6px] border-[#1c1c1e]">
+            <div class="notch"></div>
+
+            <div class="h-12 w-full flex justify-between items-center px-8 pt-3 text-stone-900 font-medium text-sm z-40 relative">
+                <span>09:43</span>
+                <div class="flex gap-1.5 items-center">
+                    <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 24 24"><path d="M12 21A9 9 0 1 1 21 12A9 9 0 0 1 12 21M12 4A8 8 0 1 0 20 12A8 8 0 0 0 12 4Z"/></svg>
+                    <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 24 24"><path d="M2 11h20v2H2z"/></svg>
+                </div>
+            </div>
+
+            <div class="px-4 py-3 z-30 bg-stone-50/95 backdrop-blur-md sticky top-0 border-b border-stone-200/50 flex items-center justify-between">
+                <div class="flex items-center text-ios-orange cursor-pointer">
+                    <svg class="w-5 h-5 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M15 19l-7-7 7-7"></path></svg>
+                    <span class="text-base font-medium">Notes</span>
+                </div>
+                <div class="text-stone-900 font-semibold text-sm truncate max-w-[150px]">Concept App Plantes</div>
+                <div class="w-16"></div>
+            </div>
+
+            <div class="flex-1 overflow-y-auto no-scrollbar relative pt-6 pb-40 flex flex-col justify-end">
+
+                <div class="absolute left-[35px] top-[-500px] bottom-[100px] w-[2px] bg-stone-300 z-0"></div>
+
+                <div class="relative pl-[58px] pr-4 mb-6 z-10 opacity-70">
+                    <div class="absolute left-[31px] top-[20px] w-2.5 h-2.5 rounded-full bg-stone-300 ring-4 ring-stone-50 z-20"></div>
+                    <div class="bg-warm-white p-4 border border-stone-200 rounded-xl">
+                        <p class="text-stone-600 text-[15px] leading-relaxed line-clamp-2">
+                            Le prix de l'API est trop cher pour commencer. Décision : on va lancer une v1 avec un catalogue manuel...
+                        </p>
+                    </div>
+                </div>
+
+                <div class="relative pl-[58px] pr-4 mb-4 z-10 animate-fadeInUp">
+                    <div class="absolute left-[31px] top-[20px] w-2.5 h-2.5 rounded-full bg-ios-orange z-20 ring-4 ring-stone-50">
+                        <div class="absolute inset-0 bg-ios-orange rounded-full animate-pulseRing"></div>
+                    </div>
+
+                    <div class="bg-warm-white p-4 border-2 border-ios-orange/30 rounded-xl shadow-sm relative overflow-hidden">
+                        <div class="flex items-center gap-2 mb-2">
+                            <div class="w-2 h-2 rounded-full bg-ios-orange animate-pulseSoft"></div>
+                            <span class="text-ios-orange text-xs font-medium">Enregistrement vocal...</span>
+                            <span class="text-stone-400 text-xs ml-auto">00:04</span>
+                        </div>
+
+                        <p class="text-stone-800 text-[15px] leading-relaxed">
+                            Ok, donc pour la prochaine étape, il faut designer l'interface de la fiche plante. Je vais m'en occuper ce... <span class="inline-block w-1 h-4 bg-ios-orange-dark ml-1 align-middle animate-pulseSoft"></span>
+                        </p>
+                    </div>
+                </div>
+            </div>
+
+            <div class="absolute bottom-0 w-full bg-stone-50/95 backdrop-blur-xl border-t border-stone-200 pt-3 pb-8 px-4 z-40 animate-slideInUp">
+                <div class="flex items-center gap-3">
+                    <div class="flex-1 bg-ios-orange-50 border border-ios-orange/20 rounded-2xl p-3.5 flex items-center justify-center text-ios-orange-dark font-medium cursor-pointer transition-colors">
+                        <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path><path stroke-linecap="round" stroke-linejoin="round" d="M9 10a1 1 0 011-1h4a1 1 0 011 1v4a1 1 0 01-1 1h-4a1 1 0 01-1-1v-4z"></path></svg>
+                        Arrêter l'enregistrement
+                    </div>
+                </div>
+            </div>
+        </div>
+
+    </div>
+
+</body>
+</html>
