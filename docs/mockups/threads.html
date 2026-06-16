@@ -1,345 +1,653 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="fr">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>FlowFlow - Threads Concept</title>
+    <head>
+        <meta charset="UTF-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+        <title>FlowFlow - Threads</title>
+        <script src="https://cdn.tailwindcss.com"></script>
+        <script>
+            tailwind.config = {
+                theme: {
+                    extend: {
+                        colors: {
+                            "ios-green": "#34c759",
+                            "ios-orange-50": "oklch(0.97 0.04 50)",
+                            "ios-orange-100": "oklch(0.92 0.07 50)",
+                            "ios-orange": "oklch(0.60 0.22 50)",
+                            "ios-orange-dark": "oklch(0.48 0.16 50)",
+                            "warm-white": "oklch(0.99 0.005 50)",
+                        },
+                        fontFamily: {
+                            sans: [
+                                "-apple-system",
+                                "BlinkMacSystemFont",
+                                '"SF Pro Text"',
+                                "Segoe UI",
+                                "Roboto",
+                                "Helvetica",
+                                "Arial",
+                                "sans-serif",
+                            ],
+                        },
+                    },
+                },
+            };
+        </script>
+        <style>
+            body {
+                -webkit-font-smoothing: antialiased;
+                background-color: #e7e5e4;
+            }
+            .no-scrollbar::-webkit-scrollbar {
+                display: none;
+            }
+            .no-scrollbar {
+                -ms-overflow-style: none;
+                scrollbar-width: none;
+            }
 
-    <script src="https://cdn.tailwindcss.com"></script>
+            .iphone-frame {
+                box-shadow:
+                    0 0 0 12px #1c1c1e,
+                    0 0 0 13px #3a3a3c,
+                    0 25px 50px -12px rgba(0, 0, 0, 0.4);
+            }
+            .island {
+                position: absolute;
+                top: 11px;
+                left: 50%;
+                transform: translateX(-50%);
+                width: 112px;
+                height: 33px;
+                background: #000;
+                border-radius: 999px;
+                z-index: 50;
+            }
 
-    <script>
-        tailwind.config = {
-            theme: {
-                extend: {
-                    colors: {
-                        'ios-green': '#34c759',
-                        'ios-red': 'oklch(0.55 0.2 30)',
-                        'ios-red-dark': 'oklch(0.46 0.16 30)',
-                        'ios-red-50': 'oklch(0.96 0.025 30)',
-                        'ios-orange-50': 'oklch(0.97 0.04 50)',
-                        'ios-orange-100': 'oklch(0.92 0.07 50)',
-                        'ios-orange': 'oklch(0.60 0.22 50)',
-                        'ios-orange-dark': 'oklch(0.48 0.16 50)',
-                        'warm-white': 'oklch(0.99 0.005 50)'
-                    },
-                    fontFamily: {
-                        sans: ['-apple-system', 'BlinkMacSystemFont', '"SF Pro Text"', 'Segoe UI', 'Roboto', 'Helvetica', 'Arial', 'sans-serif'],
-                    },
-                    animation: {
-                        'fadeInUp': 'fadeInUp 0.3s cubic-bezier(0.2, 0.8, 0.2, 1) forwards',
-                        'slideInUp': 'slideInUp 0.4s cubic-bezier(0.2, 0.8, 0.2, 1) forwards',
-                        'pulseSoft': 'pulseSoft 1.5s cubic-bezier(0.4, 0, 0.6, 1) infinite',
-                        'pulseRing': 'pulseRing 2s cubic-bezier(0.2, 0.8, 0.2, 1) infinite',
-                    },
-                    keyframes: {
-                        fadeInUp: {
-                            '0%': { opacity: '0', transform: 'translateY(12px)' },
-                            '100%': { opacity: '1', transform: 'translateY(0)' },
-                        },
-                        slideInUp: {
-                            '0%': { transform: 'translateY(100%)' },
-                            '100%': { transform: 'translateY(0)' },
-                        },
-                        pulseSoft: {
-                            '0%, 100%': { opacity: '1' },
-                            '50%': { opacity: '0.4' },
-                        },
-                        pulseRing: {
-                            '0%': { transform: 'scale(0.8)', opacity: '0.8' },
-                            '100%': { transform: 'scale(2.5)', opacity: '0' },
-                        }
-                    }
+            /* Left thread rail: line segment from this node's dot down to the next node */
+            .rail {
+                position: relative;
+            }
+            .rail::before {
+                content: "";
+                position: absolute;
+                left: 15px;
+                top: 26px;
+                bottom: -18px;
+                width: 2px;
+                background: #d6d3d1;
+                z-index: 0;
+            }
+            .rail.rail-end::before {
+                display: none;
+            }
+
+            @keyframes pulseSoft {
+                0%,
+                100% {
+                    opacity: 1;
+                }
+                50% {
+                    opacity: 0.4;
                 }
             }
-        }
-    </script>
+            @keyframes pulseRing {
+                0% {
+                    transform: scale(0.8);
+                    opacity: 0.7;
+                }
+                100% {
+                    transform: scale(2.4);
+                    opacity: 0;
+                }
+            }
+            @keyframes fadeInUp {
+                from {
+                    opacity: 0;
+                    transform: translateY(8px);
+                }
+                to {
+                    opacity: 1;
+                    transform: translateY(0);
+                }
+            }
+            .animate-pulse-soft {
+                animation: pulseSoft 1.5s ease-in-out infinite;
+            }
+            .animate-pulse-ring {
+                animation: pulseRing 2s cubic-bezier(0.2, 0.8, 0.2, 1) infinite;
+            }
+            .animate-fade-up {
+                animation: fadeInUp 0.3s ease-out forwards;
+            }
+            .blink {
+                display: inline-block;
+                width: 2px;
+                height: 1em;
+                background: var(--cb, oklch(0.48 0.16 50));
+                vertical-align: -2px;
+                margin-left: 2px;
+                animation: pulseSoft 1s ease-in-out infinite;
+            }
+        </style>
+    </head>
+    <body class="min-h-screen flex flex-col items-center py-12 px-4">
+        <header class="text-center mb-10">
+            <h1 class="text-xl font-semibold text-stone-900 tracking-tight">
+                FlowFlow - Threads
+            </h1>
+            <p class="text-sm text-stone-500 mt-1">
+                Notes chaînées : fil à gauche, Copier + Enregistrements par
+                note, + en bout de fil.
+            </p>
+        </header>
 
-    <style>
-        body {
-            -webkit-font-smoothing: antialiased;
-            -moz-osx-font-smoothing: grayscale;
-            background-color: #E7E5E4;
-        }
+        <div class="flex flex-wrap justify-center gap-12 items-start">
+            <!-- ============ PHONE 1 : THREAD (lecture) ============ -->
+            <div
+                class="iphone-frame relative w-[390px] h-[844px] bg-stone-50 rounded-[48px] overflow-hidden flex flex-col shrink-0 border-[6px] border-[#1c1c1e]"
+            >
+                <div class="island"></div>
 
-        .no-scrollbar::-webkit-scrollbar {
-            display: none;
-        }
-        .no-scrollbar {
-            -ms-overflow-style: none;
-            scrollbar-width: none;
-        }
-
-        .iphone-frame {
-            box-shadow:
-                0 0 0 12px #1c1c1e,
-                0 0 0 13px #3a3a3c,
-                0 25px 50px -12px rgba(0, 0, 0, 0.4);
-        }
-
-        .notch {
-            position: absolute;
-            top: 0;
-            left: 50%;
-            transform: translateX(-50%);
-            width: 120px;
-            height: 30px;
-            background-color: #1c1c1e;
-            border-bottom-left-radius: 16px;
-            border-bottom-right-radius: 16px;
-            z-index: 50;
-        }
-    </style>
-</head>
-<body class="min-h-screen py-12 px-4 flex flex-col items-center">
-
-    <header class="text-center mb-12 max-w-2xl">
-        <h1 class="text-3xl font-semibold text-stone-900 mb-2 tracking-tight">FlowFlow - Threads</h1>
-        <p class="text-stone-500 text-base">Concept visuel : chaînage séquentiel de notes vocales et textuelles.</p>
-    </header>
-
-    <div class="flex flex-wrap justify-center gap-10 max-w-[1300px] w-full items-start">
-
-        <div class="iphone-frame relative w-[390px] h-[844px] bg-stone-50 rounded-[48px] overflow-hidden flex flex-col shrink-0 border-[6px] border-[#1c1c1e]">
-            <div class="notch"></div>
-
-            <div class="h-12 w-full flex justify-between items-center px-8 pt-3 text-stone-900 font-medium text-sm z-40 relative">
-                <span>09:41</span>
-                <div class="flex gap-1.5 items-center">
-                    <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 24 24"><path d="M12 21A9 9 0 1 1 21 12A9 9 0 0 1 12 21M12 4A8 8 0 1 0 20 12A8 8 0 0 0 12 4Z"/></svg>
-                    <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 24 24"><path d="M2 11h20v2H2z"/></svg>
-                </div>
-            </div>
-
-            <div class="px-5 pt-4 pb-2 z-10 bg-stone-50/80 backdrop-blur-md sticky top-0">
-                <h1 class="text-3xl font-bold text-stone-900 tracking-tight">Notes</h1>
-            </div>
-
-            <div class="flex-1 overflow-y-auto no-scrollbar px-4 pb-24 pt-2 flex flex-col gap-2.5">
-
-                <div class="bg-warm-white p-4 border border-stone-200 rounded-xl cursor-pointer hover:border-stone-300 hover:shadow-sm transition-all duration-150">
-                    <div class="flex justify-between items-start mb-1">
-                        <h3 class="font-semibold text-base text-stone-900">Rappel client Dubois</h3>
-                        <div class="w-2 h-2 rounded-full bg-ios-orange/50 mt-1.5"></div>
+                <!-- status bar -->
+                <div
+                    class="h-12 flex justify-between items-center px-8 pt-3 text-stone-900 font-semibold text-sm z-40"
+                >
+                    <span>9:41</span>
+                    <div class="flex gap-1.5 items-center">
+                        <svg
+                            class="w-4 h-3.5"
+                            fill="currentColor"
+                            viewBox="0 0 24 24"
+                        >
+                            <path
+                                d="M2 16h3v4H2zM7 12h3v8H7zM12 8h3v12h-3zM17 4h3v16h-3z"
+                            />
+                        </svg>
+                        <svg
+                            class="w-4 h-3.5"
+                            fill="currentColor"
+                            viewBox="0 0 24 24"
+                        >
+                            <path
+                                d="M12 6c3.3 0 6.3 1.3 8.5 3.4l-1.4 1.4C17.3 9 14.8 8 12 8s-5.3 1-7.1 2.8L3.5 9.4C5.7 7.3 8.7 6 12 6zm0 5c1.7 0 3.2.7 4.3 1.8l-1.4 1.4c-.7-.7-1.7-1.2-2.9-1.2s-2.2.5-2.9 1.2L7.7 12.8C8.8 11.7 10.3 11 12 11zm0 4l2 2-2 2-2-2 2-2z"
+                            />
+                        </svg>
+                        <span
+                            class="ml-1 text-xs font-bold border border-stone-900/40 rounded-[3px] px-1"
+                            >45</span
+                        >
                     </div>
-                    <p class="text-stone-600 text-sm line-clamp-2 leading-relaxed mb-3">Penser à envoyer le devis révisé avant ce soir, inclure la nouvelle option de maintenance mensuelle.</p>
-                    <div class="flex items-center justify-between">
-                        <div class="flex items-center gap-1.5">
-                            <span class="text-ios-orange-dark text-xs font-medium">Pro, Clients</span>
-                            <span class="text-stone-400 text-xs">&middot;</span>
-                            <span class="text-stone-500 text-xs">10:42</span>
-                        </div>
-                    </div>
                 </div>
 
-                <div class="relative w-full cursor-pointer group mt-2 mb-3">
-                    <div class="absolute inset-0 border border-stone-200/60 rounded-xl bg-warm-white scale-[0.90] translate-y-3 z-0 shadow-sm transition-transform duration-200 group-hover:translate-y-4"></div>
-                    <div class="absolute inset-0 border border-stone-200/80 rounded-xl bg-warm-white scale-[0.95] translate-y-1.5 z-10 shadow-sm transition-transform duration-200 group-hover:translate-y-2"></div>
+                <!-- header bar -->
+                <div
+                    class="relative h-12 flex items-center px-3 bg-ios-orange-50/40 border-b border-stone-200 z-30"
+                >
+                    <button
+                        class="flex items-center text-ios-orange-dark text-base font-medium"
+                    >
+                        <svg
+                            class="w-5 h-5 mr-0.5"
+                            fill="none"
+                            stroke="currentColor"
+                            viewBox="0 0 24 24"
+                            stroke-width="2.5"
+                        >
+                            <path
+                                stroke-linecap="round"
+                                stroke-linejoin="round"
+                                d="M15 19l-7-7 7-7"
+                            />
+                        </svg>
+                        Notes
+                    </button>
+                    <div
+                        class="absolute left-1/2 -translate-x-1/2 flex items-center gap-1"
+                    >
+                        <span class="font-semibold text-stone-900 text-[15px]"
+                            >Concept App Plantes</span
+                        >
+                        <svg
+                            class="w-3 h-3 text-stone-400 mt-0.5"
+                            fill="none"
+                            stroke="currentColor"
+                            viewBox="0 0 24 24"
+                            stroke-width="2.5"
+                        >
+                            <path
+                                stroke-linecap="round"
+                                stroke-linejoin="round"
+                                d="M19.5 8.25l-7.5 7.5-7.5-7.5"
+                            />
+                        </svg>
+                    </div>
+                    <button class="ml-auto p-1.5 text-stone-500">
+                        <svg
+                            class="w-5 h-5"
+                            fill="currentColor"
+                            viewBox="0 0 24 24"
+                        >
+                            <path
+                                d="M12 6.5a1.5 1.5 0 110-3 1.5 1.5 0 010 3zM12 13.5a1.5 1.5 0 110-3 1.5 1.5 0 010 3zM12 20.5a1.5 1.5 0 110-3 1.5 1.5 0 010 3z"
+                            />
+                        </svg>
+                    </button>
+                </div>
 
-                    <div class="relative z-20 bg-warm-white p-4 border border-stone-200 rounded-xl group-hover:border-stone-300 group-hover:shadow-md transition-all duration-200">
-                        <div class="flex items-center gap-2 mb-2">
-                            <span class="px-2.5 py-0.5 rounded-full bg-ios-orange-50 text-ios-orange-dark text-xs font-semibold tracking-wide uppercase">Thread &middot; 4 notes</span>
-                        </div>
+                <!-- thread-level tags -->
+                <div class="px-4 pt-3 pb-1 flex gap-2 shrink-0">
+                    <span
+                        class="px-2 py-0.5 rounded-full bg-warm-white border border-ios-orange/25 text-ios-orange-dark text-xs font-medium"
+                        >Idées Apps</span
+                    >
+                    <span
+                        class="px-2 py-0.5 rounded-full border border-stone-300 text-stone-400 text-xs font-medium"
+                        >+ tag</span
+                    >
+                </div>
 
-                        <div class="flex justify-between items-start mb-1">
-                            <h3 class="font-semibold text-base text-stone-900">Concept App de Plantes</h3>
-                            <div class="flex gap-1 mt-1.5">
-                                <div class="w-1.5 h-1.5 rounded-full bg-ios-orange/50"></div>
-                                <div class="w-1.5 h-1.5 rounded-full bg-ios-orange/50"></div>
+                <!-- thread body -->
+                <div
+                    class="flex-1 overflow-y-auto no-scrollbar px-4 pt-2 pb-28 flex flex-col"
+                >
+                    <!-- day marker -->
+                    <div class="relative h-7 mb-1">
+                        <span
+                            class="absolute left-[1px] top-1/2 -translate-y-1/2 px-2 py-0.5 rounded-full bg-stone-100 text-stone-500 text-[11px] font-semibold tracking-wide"
+                            >Hier</span
+                        >
+                    </div>
+
+                    <!-- node 1 -->
+                    <div class="rail pl-9 pb-5">
+                        <span
+                            class="absolute left-[9px] top-[16px] w-3.5 h-3.5 rounded-full bg-ios-orange ring-2 ring-stone-50 z-10"
+                        ></span>
+                        <div
+                            class="bg-warm-white border border-stone-200 rounded-xl p-4"
+                        >
+                            <p
+                                class="text-stone-800 text-[15px] leading-relaxed"
+                            >
+                                Idée d'app pour gérer les plantes d'intérieur.
+                                Beaucoup de gens les tuent par manque de
+                                connaissances.
+                            </p>
+                            <div
+                                class="flex items-center justify-between mt-2.5"
+                            >
+                                <div
+                                    class="flex items-center gap-1.5 text-xs text-stone-400"
+                                >
+                                    <span
+                                        class="w-1.5 h-1.5 rounded-full bg-stone-300"
+                                    ></span>
+                                    Hier, 14:20
+                                </div>
+                                <button
+                                    class="flex items-center gap-1 text-xs text-stone-400 hover:text-stone-600"
+                                >
+                                    <svg
+                                        class="w-3 h-3"
+                                        fill="none"
+                                        stroke="currentColor"
+                                        viewBox="0 0 24 24"
+                                        stroke-width="2"
+                                    >
+                                        <path
+                                            stroke-linecap="round"
+                                            stroke-linejoin="round"
+                                            d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"
+                                        />
+                                    </svg>
+                                    Copier
+                                </button>
                             </div>
                         </div>
-                        <p class="text-stone-600 text-sm line-clamp-2 leading-relaxed mb-3">Idée d'application pour la gestion des plantes d'intérieur. On pourrait utiliser la caméra pour identifier les maladies via une API...</p>
+                    </div>
 
-                        <div class="flex items-center justify-between mt-1 pt-3 border-t border-stone-100">
-                            <div class="flex items-center gap-1.5">
-                                <span class="px-2 py-0.5 rounded-full bg-warm-white border border-ios-orange/25 text-ios-orange-dark text-xs font-medium">Idées</span>
-                                <span class="px-2 py-0.5 rounded-full bg-warm-white border border-ios-orange/25 text-ios-orange-dark text-xs font-medium">Projet P</span>
+                    <!-- node 2 : with audio (voice) + Enregistrements accordion expanded -->
+                    <div class="rail pl-9 pb-5">
+                        <span
+                            class="absolute left-[9px] top-[16px] w-3.5 h-3.5 rounded-full bg-ios-orange ring-2 ring-stone-50 z-10"
+                        ></span>
+                        <div
+                            class="bg-warm-white border border-stone-200 rounded-xl p-4"
+                        >
+                            <p
+                                class="text-stone-800 text-[15px] leading-relaxed"
+                            >
+                                On utilise la caméra pour identifier la plante
+                                et ses maladies. Ça génère une fiche d'arrosage
+                                automatique.
+                            </p>
+                            <div
+                                class="flex items-center justify-between mt-2.5"
+                            >
+                                <div
+                                    class="flex items-center gap-1.5 text-xs text-stone-400"
+                                >
+                                    <span
+                                        class="w-1.5 h-1.5 rounded-full bg-stone-300"
+                                    ></span>
+                                    Hier, 16:45
+                                </div>
+                                <button
+                                    class="flex items-center gap-1 text-xs text-stone-400 hover:text-stone-600"
+                                >
+                                    <svg
+                                        class="w-3 h-3"
+                                        fill="none"
+                                        stroke="currentColor"
+                                        viewBox="0 0 24 24"
+                                        stroke-width="2"
+                                    >
+                                        <path
+                                            stroke-linecap="round"
+                                            stroke-linejoin="round"
+                                            d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"
+                                        />
+                                    </svg>
+                                    Copier
+                                </button>
                             </div>
-                            <span class="text-stone-500 text-xs">Hier</span>
+                            <!-- Enregistrements accordion (collapsed = default state) -->
+                            <div class="mt-1 border-t border-stone-100 pt-1">
+                                <button
+                                    class="flex items-center gap-2 w-full py-2 text-left"
+                                >
+                                    <span
+                                        class="text-xs font-medium text-stone-500"
+                                        >Enregistrements (1)</span
+                                    >
+                                    <span
+                                        class="inline-block w-1.5 h-1.5 border-r-[1.5px] border-b-[1.5px] border-stone-400 rotate-45"
+                                    ></span>
+                                </button>
+                            </div>
                         </div>
+                    </div>
+
+                    <!-- day marker -->
+                    <div class="relative h-7 mb-1">
+                        <span
+                            class="absolute left-[1px] top-1/2 -translate-y-1/2 px-2 py-0.5 rounded-full bg-ios-orange-50 text-ios-orange-dark text-[11px] font-semibold tracking-wide"
+                            >Aujourd'hui</span
+                        >
+                    </div>
+
+                    <!-- node 3 (last note, emphasised) -->
+                    <div class="rail pl-9 pb-5">
+                        <span
+                            class="absolute left-[8px] top-[15px] w-4 h-4 rounded-full bg-ios-orange ring-2 ring-stone-50 z-10"
+                        ></span>
+                        <div
+                            class="bg-warm-white border border-ios-orange/30 rounded-xl p-4 shadow-sm"
+                        >
+                            <p
+                                class="text-stone-800 text-[15px] leading-relaxed"
+                            >
+                                Le prix de l'API est trop cher pour commencer.
+                                Décision : v1 avec un catalogue manuel des 50
+                                plantes les plus courantes.
+                            </p>
+                            <div
+                                class="flex items-center justify-between mt-2.5"
+                            >
+                                <div
+                                    class="flex items-center gap-1.5 text-xs text-stone-400"
+                                >
+                                    <span
+                                        class="w-1.5 h-1.5 rounded-full bg-stone-300"
+                                    ></span>
+                                    Aujourd'hui, 09:15
+                                </div>
+                                <button
+                                    class="flex items-center gap-1 text-xs text-stone-400 hover:text-stone-600"
+                                >
+                                    <svg
+                                        class="w-3 h-3"
+                                        fill="none"
+                                        stroke="currentColor"
+                                        viewBox="0 0 24 24"
+                                        stroke-width="2"
+                                    >
+                                        <path
+                                            stroke-linecap="round"
+                                            stroke-linejoin="round"
+                                            d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"
+                                        />
+                                    </svg>
+                                    Copier
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- terminal node : the + that continues the thread -->
+                    <div class="rail rail-end pl-9">
+                        <button
+                            class="absolute left-[1px] top-[2px] w-[30px] h-[30px] rounded-full bg-warm-white border-[1.5px] border-ios-orange-100 flex items-center justify-center text-ios-orange shadow-sm ring-4 ring-stone-50 z-10 hover:scale-105 transition-transform"
+                        >
+                            <svg
+                                class="w-4 h-4"
+                                fill="none"
+                                stroke="currentColor"
+                                viewBox="0 0 24 24"
+                                stroke-width="2.5"
+                            >
+                                <path
+                                    stroke-linecap="round"
+                                    stroke-linejoin="round"
+                                    d="M12 5v14M5 12h14"
+                                />
+                            </svg>
+                        </button>
+                        <span
+                            class="text-[13px] font-medium text-stone-400 leading-[30px]"
+                            >Ajouter une note</span
+                        >
                     </div>
                 </div>
 
-                <div class="bg-warm-white p-4 border border-stone-200 rounded-xl cursor-pointer hover:border-stone-300 hover:shadow-sm transition-all duration-150">
-                    <div class="flex justify-between items-start mb-1">
-                        <h3 class="font-semibold text-base text-stone-900">Liste de courses</h3>
-                    </div>
-                    <p class="text-stone-600 text-sm line-clamp-2 leading-relaxed mb-3">Lait d'avoine, œufs, pain complet, avocat, tomates cerises.</p>
-                    <div class="flex items-center justify-between">
-                        <div class="flex items-center gap-1.5">
-                            <span class="text-ios-orange-dark text-xs font-medium">Personnel</span>
-                            <span class="text-stone-400 text-xs">&middot;</span>
-                            <span class="text-stone-500 text-xs">Mar</span>
-                        </div>
-                    </div>
+                <!-- Dicter bar -->
+                <div
+                    class="absolute bottom-0 inset-x-0 px-4 py-2 pb-7 bg-warm-white border-t border-stone-200 z-40"
+                >
+                    <button
+                        class="w-full flex items-center justify-center gap-2.5 h-12 rounded-full bg-warm-white border border-ios-orange/25 text-ios-orange-dark text-sm font-medium"
+                    >
+                        <svg
+                            class="w-5 h-5"
+                            fill="none"
+                            stroke="currentColor"
+                            viewBox="0 0 24 24"
+                            stroke-width="2"
+                        >
+                            <path
+                                stroke-linecap="round"
+                                stroke-linejoin="round"
+                                d="M12 18.75a6 6 0 006-6v-1.5m-6 7.5a6 6 0 01-6-6v-1.5m6 7.5v3.75m-3.75 0h7.5M12 15.75a3 3 0 01-3-3V4.5a3 3 0 116 0v8.25a3 3 0 01-3 3z"
+                            />
+                        </svg>
+                        Dicter
+                    </button>
                 </div>
             </div>
 
-            <div class="absolute bottom-0 w-full bg-stone-50/90 backdrop-blur-xl border-t border-stone-200 pb-8 pt-3 px-6 flex justify-around items-center z-40">
-                <div class="flex flex-col items-center gap-1 text-ios-orange">
-                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 002-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"></path></svg>
+            <!-- ============ PHONE 2 : AJOUT EN COURS (dictée) ============ -->
+            <div
+                class="iphone-frame relative w-[390px] h-[844px] bg-stone-50 rounded-[48px] overflow-hidden flex flex-col shrink-0 border-[6px] border-[#1c1c1e]"
+            >
+                <div class="island"></div>
+
+                <div
+                    class="h-12 flex justify-between items-center px-8 pt-3 text-stone-900 font-semibold text-sm z-40"
+                >
+                    <span>9:43</span>
+                    <div class="flex gap-1.5 items-center">
+                        <svg
+                            class="w-4 h-3.5"
+                            fill="currentColor"
+                            viewBox="0 0 24 24"
+                        >
+                            <path
+                                d="M2 16h3v4H2zM7 12h3v8H7zM12 8h3v12h-3zM17 4h3v16h-3z"
+                            />
+                        </svg>
+                        <svg
+                            class="w-4 h-3.5"
+                            fill="currentColor"
+                            viewBox="0 0 24 24"
+                        >
+                            <path
+                                d="M12 6c3.3 0 6.3 1.3 8.5 3.4l-1.4 1.4C17.3 9 14.8 8 12 8s-5.3 1-7.1 2.8L3.5 9.4C5.7 7.3 8.7 6 12 6zm0 5c1.7 0 3.2.7 4.3 1.8l-1.4 1.4c-.7-.7-1.7-1.2-2.9-1.2s-2.2.5-2.9 1.2L7.7 12.8C8.8 11.7 10.3 11 12 11zm0 4l2 2-2 2-2-2 2-2z"
+                            />
+                        </svg>
+                        <span
+                            class="ml-1 text-xs font-bold border border-stone-900/40 rounded-[3px] px-1"
+                            >45</span
+                        >
+                    </div>
                 </div>
-                <div class="w-14 h-14 bg-ios-orange rounded-full flex items-center justify-center shadow-lg -translate-y-4 text-warm-white cursor-pointer">
-                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4"></path></svg>
+
+                <div
+                    class="relative h-12 flex items-center px-3 bg-ios-orange-50/40 border-b border-stone-200 z-30"
+                >
+                    <button
+                        class="flex items-center text-ios-orange-dark text-base font-medium"
+                    >
+                        <svg
+                            class="w-5 h-5 mr-0.5"
+                            fill="none"
+                            stroke="currentColor"
+                            viewBox="0 0 24 24"
+                            stroke-width="2.5"
+                        >
+                            <path
+                                stroke-linecap="round"
+                                stroke-linejoin="round"
+                                d="M15 19l-7-7 7-7"
+                            />
+                        </svg>
+                        Notes
+                    </button>
+                    <div
+                        class="absolute left-1/2 -translate-x-1/2 flex items-center gap-1"
+                    >
+                        <span class="font-semibold text-stone-900 text-[15px]"
+                            >Concept App Plantes</span
+                        >
+                        <svg
+                            class="w-3 h-3 text-stone-400 mt-0.5"
+                            fill="none"
+                            stroke="currentColor"
+                            viewBox="0 0 24 24"
+                            stroke-width="2.5"
+                        >
+                            <path
+                                stroke-linecap="round"
+                                stroke-linejoin="round"
+                                d="M19.5 8.25l-7.5 7.5-7.5-7.5"
+                            />
+                        </svg>
+                    </div>
+                    <button class="ml-auto p-1.5 text-stone-500">
+                        <svg
+                            class="w-5 h-5"
+                            fill="currentColor"
+                            viewBox="0 0 24 24"
+                        >
+                            <path
+                                d="M12 6.5a1.5 1.5 0 110-3 1.5 1.5 0 010 3zM12 13.5a1.5 1.5 0 110-3 1.5 1.5 0 010 3zM12 20.5a1.5 1.5 0 110-3 1.5 1.5 0 010 3z"
+                            />
+                        </svg>
+                    </button>
                 </div>
-                <div class="flex flex-col items-center gap-1 text-stone-400">
-                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path></svg>
-                </div>
-            </div>
-        </div>
 
-
-        <div class="iphone-frame relative w-[390px] h-[844px] bg-stone-50 rounded-[48px] overflow-hidden flex flex-col shrink-0 border-[6px] border-[#1c1c1e]">
-            <div class="notch"></div>
-
-            <div class="h-12 w-full flex justify-between items-center px-8 pt-3 text-stone-900 font-medium text-sm z-40 relative">
-                <span>09:42</span>
-                <div class="flex gap-1.5 items-center">
-                    <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 24 24"><path d="M12 21A9 9 0 1 1 21 12A9 9 0 0 1 12 21M12 4A8 8 0 1 0 20 12A8 8 0 0 0 12 4Z"/></svg>
-                    <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 24 24"><path d="M2 11h20v2H2z"/></svg>
-                </div>
-            </div>
-
-            <div class="px-4 py-3 z-30 bg-stone-50/95 backdrop-blur-md sticky top-0 border-b border-stone-200/50 flex items-center justify-between">
-                <div class="flex items-center text-ios-orange cursor-pointer">
-                    <svg class="w-5 h-5 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M15 19l-7-7 7-7"></path></svg>
-                    <span class="text-base font-medium">Notes</span>
-                </div>
-                <div class="text-stone-900 font-semibold text-sm truncate max-w-[150px]">Concept App Plantes</div>
-                <div class="w-16"></div>
-            </div>
-
-            <div class="flex-1 overflow-y-auto no-scrollbar relative pt-6 pb-32">
-
-                <div class="absolute left-[35px] top-[46px] bottom-[40px] w-[2px] bg-stone-300 z-0"></div>
-
-                <div class="relative pl-[58px] pr-4 mb-6 z-10">
-                    <div class="absolute left-[31px] top-[20px] w-2.5 h-2.5 rounded-full bg-ios-orange/40 ring-4 ring-stone-50 z-20"></div>
-
-                    <div class="bg-warm-white p-4 border border-stone-200 rounded-xl shadow-sm">
-                        <div class="flex items-center gap-2 mb-2">
-                            <div class="w-2 h-2 rounded-full bg-ios-orange/50"></div>
-                            <span class="text-stone-500 text-xs font-medium">Hier, 14:20</span>
+                <div
+                    class="flex-1 overflow-y-auto no-scrollbar px-4 pt-3 pb-28 flex flex-col justify-end"
+                >
+                    <!-- previous last note (dimmed) -->
+                    <div class="rail pl-9 pb-5 opacity-60">
+                        <span
+                            class="absolute left-[10px] top-[16px] w-3 h-3 rounded-full bg-stone-300 ring-4 ring-stone-50 z-10"
+                        ></span>
+                        <div
+                            class="bg-warm-white border border-stone-200 rounded-xl p-4"
+                        >
+                            <p
+                                class="text-stone-600 text-[15px] leading-relaxed line-clamp-2"
+                            >
+                                Le prix de l'API est trop cher pour commencer.
+                                Décision : v1 avec un catalogue manuel...
+                            </p>
+                            <div
+                                class="flex items-center gap-1.5 text-xs text-stone-400 mt-2.5"
+                            >
+                                <span
+                                    class="w-1.5 h-1.5 rounded-full bg-stone-300"
+                                ></span>
+                                Aujourd'hui, 09:15
+                            </div>
                         </div>
-                        <p class="text-stone-800 text-[15px] leading-relaxed">
-                            Idée d'application pour la gestion des plantes d'intérieur. Beaucoup de gens tuent leurs plantes par manque de connaissances.
-                        </p>
                     </div>
-                </div>
 
-                <div class="relative pl-[58px] pr-4 mb-6 z-10">
-                    <div class="absolute left-[31px] top-[20px] w-2.5 h-2.5 rounded-full bg-ios-orange/40 ring-4 ring-stone-50 z-20"></div>
-                    <div class="bg-warm-white p-4 border border-stone-200 rounded-xl shadow-sm">
-                        <div class="flex items-center gap-2 mb-2">
-                            <span class="text-stone-500 text-xs font-medium">Hier, 14:25</span>
+                    <!-- new node being dictated -->
+                    <div class="rail rail-end pl-9 animate-fade-up">
+                        <span
+                            class="absolute left-[9px] top-[15px] w-3.5 h-3.5 rounded-full bg-ios-orange ring-4 ring-stone-50 z-10"
+                        >
+                            <span
+                                class="absolute inset-0 rounded-full bg-ios-orange animate-pulse-ring"
+                            ></span>
+                        </span>
+                        <div
+                            class="bg-warm-white border-2 border-ios-orange/30 rounded-xl p-4"
+                        >
+                            <div class="flex items-center gap-2 mb-2">
+                                <span
+                                    class="w-2 h-2 rounded-full bg-ios-orange animate-pulse-soft"
+                                ></span>
+                                <span
+                                    class="text-ios-orange-dark text-xs font-medium"
+                                    >Enregistrement vocal...</span
+                                >
+                                <span
+                                    class="ml-auto text-xs text-stone-400 tabular-nums"
+                                    >00:04</span
+                                >
+                            </div>
+                            <p
+                                class="text-stone-800 text-[15px] leading-relaxed"
+                            >
+                                Pour la prochaine étape, il faut designer
+                                l'interface de la fiche plante. Je m'en occupe
+                                ce<span class="blink"></span>
+                            </p>
                         </div>
-                        <p class="text-stone-800 text-[15px] leading-relaxed">
-                            On pourrait utiliser la caméra pour identifier la plante et potentiellement ses maladies. Ça créerait une fiche d'arrosage automatique.
-                        </p>
                     </div>
                 </div>
 
-                <div class="relative pl-[58px] pr-4 mb-6 z-10">
-                    <div class="absolute left-[31px] top-[20px] w-2.5 h-2.5 rounded-full bg-ios-orange/40 ring-4 ring-stone-50 z-20"></div>
-                    <div class="bg-warm-white p-4 border border-stone-200 rounded-xl shadow-sm">
-                        <div class="flex items-center gap-2 mb-2">
-                            <div class="w-2 h-2 rounded-full bg-ios-orange/50"></div>
-                            <span class="text-stone-500 text-xs font-medium">Hier, 16:40</span>
-                        </div>
-                        <p class="text-stone-800 text-[15px] leading-relaxed">
-                            Je viens de regarder l'API PlantID. C'est exactement ce qu'il faut. Par contre, il faut vérifier les coûts pour une version gratuite.
-                        </p>
-                    </div>
-                </div>
-
-                <div class="relative pl-[58px] pr-4 mb-8 z-10">
-                    <div class="absolute left-[31px] top-[20px] w-2.5 h-2.5 rounded-full bg-ios-orange/40 ring-4 ring-stone-50 z-20"></div>
-                    <div class="bg-warm-white p-4 border border-stone-200 rounded-xl shadow-sm">
-                        <div class="flex items-center gap-2 mb-2">
-                            <span class="text-stone-500 text-xs font-medium">Aujourd'hui, 09:15</span>
-                        </div>
-                        <p class="text-stone-800 text-[15px] leading-relaxed">
-                            Le prix de l'API est trop cher pour commencer. Décision : on va lancer une v1 avec un catalogue manuel limité aux 50 plantes les plus courantes.
-                        </p>
-                    </div>
-                </div>
-            </div>
-
-            <div class="absolute bottom-0 w-full bg-stone-50/95 backdrop-blur-xl border-t border-stone-200 pt-3 pb-8 px-4 z-40">
-                <div class="flex items-center gap-3">
-                    <div class="flex-1 bg-warm-white border border-stone-200 rounded-2xl p-3 flex items-center justify-between text-stone-400 cursor-text hover:border-stone-300 transition-colors">
-                        <span class="text-[15px]">Continuer le thread...</span>
-                    </div>
-                    <button class="w-12 h-12 bg-ios-orange rounded-full flex items-center justify-center text-warm-white shadow-md hover:bg-ios-orange-dark transition-colors shrink-0">
-                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z"></path></svg>
+                <!-- Recording controls bar -->
+                <div
+                    class="absolute bottom-0 inset-x-0 px-4 py-2 pb-7 bg-warm-white border-t border-stone-200 z-40"
+                >
+                    <button
+                        class="w-full flex items-center justify-center gap-2.5 h-12 rounded-full bg-ios-orange-50 border border-ios-orange/30 text-ios-orange-dark text-sm font-medium"
+                    >
+                        <span
+                            class="w-4 h-4 rounded-full border-2 border-ios-orange-dark flex items-center justify-center"
+                        >
+                            <span
+                                class="w-1.5 h-1.5 bg-ios-orange-dark rounded-[1px]"
+                            ></span>
+                        </span>
+                        Arrêter l'enregistrement
                     </button>
                 </div>
             </div>
         </div>
-
-
-        <div class="iphone-frame relative w-[390px] h-[844px] bg-stone-50 rounded-[48px] overflow-hidden flex flex-col shrink-0 border-[6px] border-[#1c1c1e]">
-            <div class="notch"></div>
-
-            <div class="h-12 w-full flex justify-between items-center px-8 pt-3 text-stone-900 font-medium text-sm z-40 relative">
-                <span>09:43</span>
-                <div class="flex gap-1.5 items-center">
-                    <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 24 24"><path d="M12 21A9 9 0 1 1 21 12A9 9 0 0 1 12 21M12 4A8 8 0 1 0 20 12A8 8 0 0 0 12 4Z"/></svg>
-                    <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 24 24"><path d="M2 11h20v2H2z"/></svg>
-                </div>
-            </div>
-
-            <div class="px-4 py-3 z-30 bg-stone-50/95 backdrop-blur-md sticky top-0 border-b border-stone-200/50 flex items-center justify-between">
-                <div class="flex items-center text-ios-orange cursor-pointer">
-                    <svg class="w-5 h-5 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M15 19l-7-7 7-7"></path></svg>
-                    <span class="text-base font-medium">Notes</span>
-                </div>
-                <div class="text-stone-900 font-semibold text-sm truncate max-w-[150px]">Concept App Plantes</div>
-                <div class="w-16"></div>
-            </div>
-
-            <div class="flex-1 overflow-y-auto no-scrollbar relative pt-6 pb-40 flex flex-col justify-end">
-
-                <div class="absolute left-[35px] top-[-500px] bottom-[100px] w-[2px] bg-stone-300 z-0"></div>
-
-                <div class="relative pl-[58px] pr-4 mb-6 z-10 opacity-70">
-                    <div class="absolute left-[31px] top-[20px] w-2.5 h-2.5 rounded-full bg-stone-300 ring-4 ring-stone-50 z-20"></div>
-                    <div class="bg-warm-white p-4 border border-stone-200 rounded-xl">
-                        <p class="text-stone-600 text-[15px] leading-relaxed line-clamp-2">
-                            Le prix de l'API est trop cher pour commencer. Décision : on va lancer une v1 avec un catalogue manuel...
-                        </p>
-                    </div>
-                </div>
-
-                <div class="relative pl-[58px] pr-4 mb-4 z-10 animate-fadeInUp">
-                    <div class="absolute left-[31px] top-[20px] w-2.5 h-2.5 rounded-full bg-ios-orange z-20 ring-4 ring-stone-50">
-                        <div class="absolute inset-0 bg-ios-orange rounded-full animate-pulseRing"></div>
-                    </div>
-
-                    <div class="bg-warm-white p-4 border-2 border-ios-orange/30 rounded-xl shadow-sm relative overflow-hidden">
-                        <div class="flex items-center gap-2 mb-2">
-                            <div class="w-2 h-2 rounded-full bg-ios-orange animate-pulseSoft"></div>
-                            <span class="text-ios-orange text-xs font-medium">Enregistrement vocal...</span>
-                            <span class="text-stone-400 text-xs ml-auto">00:04</span>
-                        </div>
-
-                        <p class="text-stone-800 text-[15px] leading-relaxed">
-                            Ok, donc pour la prochaine étape, il faut designer l'interface de la fiche plante. Je vais m'en occuper ce... <span class="inline-block w-1 h-4 bg-ios-orange-dark ml-1 align-middle animate-pulseSoft"></span>
-                        </p>
-                    </div>
-                </div>
-            </div>
-
-            <div class="absolute bottom-0 w-full bg-stone-50/95 backdrop-blur-xl border-t border-stone-200 pt-3 pb-8 px-4 z-40 animate-slideInUp">
-                <div class="flex items-center gap-3">
-                    <div class="flex-1 bg-ios-orange-50 border border-ios-orange/20 rounded-2xl p-3.5 flex items-center justify-center text-ios-orange-dark font-medium cursor-pointer transition-colors">
-                        <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path><path stroke-linecap="round" stroke-linejoin="round" d="M9 10a1 1 0 011-1h4a1 1 0 011 1v4a1 1 0 01-1 1h-4a1 1 0 01-1-1v-4z"></path></svg>
-                        Arrêter l'enregistrement
-                    </div>
-                </div>
-            </div>
-        </div>
-
-    </div>
-
-</body>
+    </body>
 </html>
