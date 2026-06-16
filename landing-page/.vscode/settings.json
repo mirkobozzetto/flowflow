@@ -1,9 +1,0 @@
-{
-  "biome.configurationPath": "./biome.json",
-  "biome.lspBin": "node_modules/@biomejs/biome/bin/biome",
-  "biome.enabled": true,
-  "[astro]": {
-    "editor.defaultFormatter": "astro-build.astro-vscode"
-  },
-  "astro.format.enable": true
-}
