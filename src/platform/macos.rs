@@ -49,6 +49,10 @@ pub fn open_calendar_at(
     });
 }
 
+pub fn open_url(url: &str) {
+    let _ = std::process::Command::new("/usr/bin/open").arg(url).spawn();
+}
+
 pub fn play_audio(path: &str) {
     stop_audio();
     eprintln!("[player] afplay path: {path}");

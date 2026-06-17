@@ -87,7 +87,7 @@ pub use crate::platform::parsers::read_file_as_text;
 pub use crate::platform::pdf::extract as read_pdf_text;
 pub use picker::{open_audio_picker, open_file_picker};
 pub use player::{is_playing, play_audio, stop_audio};
-pub use share::share_file;
+pub use share::{open_url, share_file};
 
 pub fn hide_keyboard_accessory() {
     unsafe {
