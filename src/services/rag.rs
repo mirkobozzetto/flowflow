@@ -68,7 +68,7 @@ pub fn rrf_merge(
 }
 
 pub fn build_context(results: &[SearchResult]) -> String {
-    let mut ctx = String::from("--- Notes de l'utilisateur ---\n\n");
+    let mut ctx = String::from("--- User notes ---\n\n");
     for (i, r) in results.iter().enumerate() {
         ctx.push_str(&format!(
             "[Source {}] Note: \"{}\"\n{}\n\n",
@@ -457,12 +457,10 @@ pub async fn query(
     };
 
     let context = if results.is_empty() {
-        String::from(
-            "--- Notes de l'utilisateur ---\n\n(aucun extrait initial)\n",
-        )
+        String::from("--- User notes ---\n\n(no relevant excerpts)\n")
     } else {
         let db_tags = Database::open().ok();
-        let mut ctx = String::from("--- Notes de l'utilisateur ---\n\n");
+        let mut ctx = String::from("--- User notes ---\n\n");
         for (i, r) in results.iter().enumerate() {
             match r.source_type {
                 SourceType::Web => {

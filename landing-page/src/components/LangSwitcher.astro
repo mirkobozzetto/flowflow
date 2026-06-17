@@ -1,0 +1,51 @@
+---
+import { supportedLangs } from "../lib/i18n";
+import { defaultLang, languages, type Lang } from "../i18n/ui";
+
+interface Props {
+  lang: string;
+}
+
+const { lang } = Astro.props;
+const short: Record<Lang, string> = { en: "EN", fr: "FR" };
+const groupLabel = lang === "fr" ? "Choix de la langue" : "Language";
+
+function homePath(target: Lang): string {
+  return target === defaultLang ? "/" : `/${target}/`;
+}
+---
+
+<div
+  class="inline-flex items-center gap-0.5 p-0.75 border border-stone-200 rounded-[10px] bg-stone-50"
+  role="group"
+  aria-label={groupLabel}
+>
+  {
+    supportedLangs.map((code) =>
+      code === lang ? (
+        <span
+          class="lang-opt active text-[12.5px] font-semibold tracking-[0.02em] px-2.25 py-1.25 rounded-[7px] text-ink bg-warm-white"
+          aria-current="true"
+        >
+          {short[code]}
+        </span>
+      ) : (
+        <a
+          class="lang-opt text-[12.5px] font-semibold tracking-[0.02em] px-2.25 py-1.25 rounded-[7px] text-stone-500 no-underline transition-[color,background] duration-150 hover:text-ink focus-visible:outline-2 focus-visible:outline-orange focus-visible:outline-offset-2"
+          href={homePath(code)}
+          hreflang={code}
+          lang={code}
+          aria-label={languages[code]}
+        >
+          {short[code]}
+        </a>
+      )
+    )
+  }
+</div>
+
+<style>
+  .lang-opt.active {
+    box-shadow: 0 1px 2px rgba(22, 19, 17, 0.08);
+  }
+</style>

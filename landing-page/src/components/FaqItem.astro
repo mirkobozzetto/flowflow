@@ -1,0 +1,60 @@
+---
+interface Props {
+  question: string;
+  answer: string;
+}
+
+const { question, answer } = Astro.props;
+---
+
+<div class="qa border-b border-stone-200">
+  <button
+    class="q flex w-full cursor-pointer items-center justify-between gap-4 border-none bg-none px-1 py-5.5 text-left font-[inherit] text-[16.5px] font-semibold tracking-[-0.01em] text-inherit"
+    type="button"
+    aria-expanded="false"
+  >
+    {question}
+    <span
+      class="plus inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-full border border-stone-300 text-stone-500"
+      aria-hidden="true"
+    >
+      <svg viewBox="0 0 24 24" fill="none" class="block h-3 w-3" stroke="currentColor" stroke-width="2" stroke-linecap="round">
+        <path d="M12 5v14M5 12h14"></path>
+      </svg>
+    </span>
+  </button>
+  <div class="ans grid">
+    <div class="ans-in overflow-hidden">
+      <p class="max-w-160 px-1 pb-5.5 text-[14.5px] text-stone-500">{answer}</p>
+    </div>
+  </div>
+</div>
+
+<style>
+  .plus {
+    transition:
+      transform 0.3s cubic-bezier(0.2, 0.8, 0.2, 1),
+      background 0.2s,
+      border-color 0.2s,
+      color 0.2s;
+  }
+  .qa.open .plus {
+    transform: rotate(45deg);
+    background: var(--orange);
+    border-color: var(--orange);
+    color: white;
+  }
+  .ans {
+    grid-template-rows: 0fr;
+    transition: grid-template-rows 0.34s cubic-bezier(0.2, 0.8, 0.2, 1);
+  }
+  .qa.open .ans {
+    grid-template-rows: 1fr;
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .ans,
+    .plus {
+      transition: none;
+    }
+  }
+</style>

@@ -1,0 +1,9 @@
+services:
+  web:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: flowflow-web:latest
+    restart: unless-stopped
+    expose:
+      - "80"

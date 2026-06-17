@@ -1,0 +1,31 @@
+---
+import { getStarCount } from "../lib/github";
+
+interface Props {
+  label: string;
+}
+
+const { label } = Astro.props;
+const stars = await getStarCount();
+
+const starPath =
+  "M12 2l2.9 6.3 6.9.8-5.1 4.7 1.4 6.8L12 17.2 5.9 20.6l1.4-6.8L2.2 " +
+  "9.1l6.9-.8z";
+---
+
+<span
+  class="inline-flex items-center gap-1.25 border-l border-stone-200 pl-2.5 ml-0.5 text-stone-500 text-[12.5px]"
+  aria-label={label}
+>
+  <svg
+    width="12"
+    height="12"
+    viewBox="0 0 24 24"
+    fill="currentColor"
+    aria-hidden="true"
+    class="text-orange"
+  >
+    <path d={starPath}></path>
+  </svg>
+  <b class="font-semibold text-stone-700">{stars}</b>
+</span>

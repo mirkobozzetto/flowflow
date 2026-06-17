@@ -3,6 +3,21 @@ use crate::services::ai::chunk_text;
 use crate::services::llm::LlmClient;
 use crate::services::vectordb::{Chunk, VectorStore};
 
+const EMBED_MIN_CHARS: usize = 10;
+
+pub(crate) fn too_short_to_embed(content: &str) -> bool {
+    content.trim().chars().count() < EMBED_MIN_CHARS
+}
+
+fn embed_text(title: &str, content: &str) -> String {
+    let t = title.trim();
+    if t.is_empty() {
+        content.to_string()
+    } else {
+        format!("{t}\n{content}")
+    }
+}
+
 // Chunks have no tracking triggers (they travel inside their owner's sync
 // payload, RFC 0004 T17), so after writing fresh BLOBs the owner's sync meta
 // must be bumped for the new vectors to propagate. The alive-check and the
@@ -135,6 +150,44 @@ fn log(msg: &str) {
     }
 }
 
+pub(crate) async fn embed_note_core(
+    store: &VectorStore,
+    ai: &LlmClient,
+    note_id: &str,
+    title: &str,
+    content: &str,
+    tags: &[String],
+    note_created_at: &str,
+) -> Result<usize, String> {
+    let chunks_text = chunk_text(&embed_text(title, content));
+    let tags_json =
+        serde_json::to_string(tags).unwrap_or_else(|_| "[]".to_string());
+    let mut entries = Vec::new();
+    for (i, text) in chunks_text.iter().enumerate() {
+        let vector = ai
+            .embed(text)
+            .await
+            .map_err(|e| format!("embed chunk {i}: {e}"))?;
+        entries.push(Chunk {
+            id: format!("note:{note_id}:{i}"),
+            note_id: note_id.to_string(),
+            chunk_text: text.clone(),
+            chunk_index: i as i32,
+            vector,
+            title: title.to_string(),
+            tags: tags_json.clone(),
+            created_at: note_created_at.to_string(),
+        });
+    }
+    let n = entries.len();
+    persist_chunk_blobs(note_id, "note", &entries);
+    store
+        .store_chunks(entries)
+        .await
+        .map_err(|e| format!("embed store: {e}"))?;
+    Ok(n)
+}
+
 pub fn embed_note(
     note_id: String,
     title: String,
@@ -144,12 +197,12 @@ pub fn embed_note(
 ) {
     log(&format!(
         "embed triggered for {note_id} ({} chars)",
-        content.len()
+        content.chars().count()
     ));
     std::thread::spawn(move || {
         let rt = tokio::runtime::Runtime::new().unwrap();
         rt.block_on(async move {
-            if content.len() < 50 {
+            if too_short_to_embed(&content) {
                 log("embed skip: too short");
                 purge_owner_chunks(&note_id, "note").await;
                 return;
@@ -172,42 +225,78 @@ pub fn embed_note(
                     return;
                 }
             };
-            let chunks_text = chunk_text(&content);
-            log(&format!("embed: {} chunks", chunks_text.len()));
-            let tags_json = serde_json::to_string(&tags)
-                .unwrap_or_else(|_| "[]".to_string());
-            let mut entries = Vec::new();
-            for (i, text) in chunks_text.iter().enumerate() {
-                match ai.embed(text).await {
-                    Ok(vector) => {
-                        log(&format!(
-                            "embed chunk {i} OK ({} dims)",
-                            vector.len()
-                        ));
-                        entries.push(Chunk {
-                            id: format!("note:{note_id}:{i}"),
-                            note_id: note_id.clone(),
-                            chunk_text: text.clone(),
-                            chunk_index: i as i32,
-                            vector,
-                            title: title.clone(),
-                            tags: tags_json.clone(),
-                            created_at: note_created_at.clone(),
-                        });
-                    }
-                    Err(e) => {
-                        log(&format!("embed chunk {i}: {e}"));
-                        return;
-                    }
-                }
-            }
-            persist_chunk_blobs(&note_id, "note", &entries);
-            match store.store_chunks(entries).await {
-                Ok(()) => log(&format!("embed done for {note_id}")),
-                Err(e) => log(&format!("embed store: {e}")),
+            match embed_note_core(
+                &store,
+                &ai,
+                &note_id,
+                &title,
+                &content,
+                &tags,
+                &note_created_at,
+            )
+            .await
+            {
+                Ok(n) => log(&format!("embed done for {note_id} ({n} chunks)")),
+                Err(e) => log(&format!("embed {note_id}: {e}")),
             }
         });
     });
+}
+
+pub(crate) async fn embed_missing_notes(
+    db: &crate::db::Database,
+    store: &VectorStore,
+) -> usize {
+    if !ai_consent_granted() {
+        return 0;
+    }
+    let ai = match LlmClient::from_env() {
+        Ok(c) => c,
+        Err(_) => return 0,
+    };
+    let notes = match db.list_notes() {
+        Ok(n) => n,
+        Err(e) => {
+            log(&format!("embed missing: list notes {e}"));
+            return 0;
+        }
+    };
+    let mut embedded = 0usize;
+    for note in &notes {
+        if too_short_to_embed(&note.content) {
+            continue;
+        }
+        match db.count_chunks_for_owner(&note.id, "note") {
+            Ok(0) => {}
+            Ok(_) => continue,
+            Err(e) => {
+                log(&format!("embed missing: count {} {e}", note.id));
+                continue;
+            }
+        }
+        let title = note.title.clone().unwrap_or_default();
+        match embed_note_core(
+            store,
+            &ai,
+            &note.id,
+            &title,
+            &note.content,
+            &note.tags,
+            &note.created_at,
+        )
+        .await
+        {
+            Ok(n) => {
+                embedded += 1;
+                log(&format!("embed missing: {} (+{n} chunks)", note.id));
+            }
+            Err(e) => log(&format!("embed missing: {} {e}", note.id)),
+        }
+    }
+    if embedded > 0 {
+        log(&format!("embed missing: {embedded} notes embedded"));
+    }
+    embedded
 }
 
 pub fn delete_note_embeddings(note_id: String) {
@@ -234,12 +323,12 @@ pub fn embed_attachment(
 ) {
     log(&format!(
         "embed attachment {attachment_id} ({} chars)",
-        content.len()
+        content.chars().count()
     ));
     std::thread::spawn(move || {
         let rt = tokio::runtime::Runtime::new().unwrap();
         rt.block_on(async move {
-            if content.len() < 50 {
+            if too_short_to_embed(&content) {
                 log("embed attachment skip: too short");
                 purge_owner_chunks(&attachment_id, "attachment").await;
                 return;

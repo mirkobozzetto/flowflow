@@ -1,0 +1,86 @@
+---
+interface Props {
+  title: string;
+  blurb: string;
+  placeholder: string;
+  inputLabel: string;
+  submit: string;
+  ok: string;
+  endpoint?: string;
+}
+
+const {
+  title,
+  blurb,
+  placeholder,
+  inputLabel,
+  submit,
+  ok,
+  endpoint = "",
+} = Astro.props;
+---
+
+<div
+  class="capture reveal mt-16 border rounded-[22px] p-8.5 flex items-center gap-6.5 flex-wrap"
+>
+  <div>
+    <h3 class="text-[21px] text-warm-white tracking-[-0.01em]" set:text={title} />
+    <p class="text-[13.5px] text-stone-500 mt-1" set:text={blurb} />
+  </div>
+  <form
+    class="flex gap-2.25 ml-auto flex-wrap"
+    data-capture
+    data-endpoint={endpoint}
+  >
+    <input
+      class="min-w-65 min-h-12.5 px-4.5 border rounded-[13px] text-warm-white text-[14.5px] font-[inherit] outline-none transition-[border-color,box-shadow] duration-150"
+      type="email"
+      required
+      placeholder={placeholder}
+      aria-label={inputLabel}
+    />
+    <button class="btn-primary" type="submit" set:text={submit} />
+  </form>
+  <span
+    class="ok text-[14.5px] font-semibold items-center gap-2"
+    data-capture-ok
+  >
+    <svg viewBox="0 0 24 24" aria-hidden="true" class="w-4.25 h-4.25">
+      <path d="M5 13l4 4L19 7" />
+    </svg>
+    <span set:text={ok} />
+  </span>
+</div>
+
+<script>
+  import "../scripts/capture.ts";
+</script>
+
+<style>
+  .capture {
+    background: var(--ink-2);
+    border-color: #36302b;
+  }
+  input {
+    background: var(--ink);
+    border-color: #36302b;
+  }
+  input::placeholder {
+    color: var(--stone-600);
+  }
+  input:focus {
+    border-color: var(--orange);
+    box-shadow: 0 0 0 3px color-mix(in srgb, var(--orange) 22%, transparent);
+  }
+  .ok {
+    color: #34c759;
+    display: none;
+  }
+  .ok svg {
+    stroke: #34c759;
+    fill: none;
+    stroke-width: 2.2;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+  }
+</style>

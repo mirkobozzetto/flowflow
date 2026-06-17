@@ -1,0 +1,78 @@
+---
+interface Connector {
+  name: string;
+  icon: string;
+  live: boolean;
+}
+
+interface Props {
+  label: string;
+  connectors: Connector[];
+}
+
+const { label, connectors } = Astro.props;
+
+const icons: Record<string, string> = {
+  calendar:
+    '<rect x="3" y="4.5" width="18" height="16.5" rx="2.5" fill="none" stroke="currentColor" stroke-width="1.75"/><path d="M3 9.5h18" fill="none" stroke="currentColor" stroke-width="1.75"/><path d="M8 2.5v4M16 2.5v4" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round"/>',
+  reminders:
+    '<rect x="3.5" y="3.5" width="17" height="17" rx="3" fill="none" stroke="currentColor" stroke-width="1.75"/><path d="M7.5 9l2 2 4-4M7.5 15l2 2 4-4" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"/>',
+  email:
+    '<rect x="2.5" y="4.5" width="19" height="15" rx="2.5" fill="none" stroke="currentColor" stroke-width="1.75"/><path d="M3.5 6.5l8.5 6 8.5-6" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"/>',
+  marketplace:
+    '<rect x="3" y="3" width="7" height="7" rx="1.6" fill="none" stroke="currentColor" stroke-width="1.75"/><rect x="14" y="3" width="7" height="7" rx="1.6" fill="none" stroke="currentColor" stroke-width="1.75"/><rect x="3" y="14" width="7" height="7" rx="1.6" fill="none" stroke="currentColor" stroke-width="1.75"/><rect x="14" y="14" width="7" height="7" rx="1.6" fill="none" stroke="currentColor" stroke-width="1.75"/>',
+  n8n: '<svg viewBox="0 0 24 24" fill="currentColor" class="h-4 w-4 shrink-0"><path d="M21.4737 5.6842c-1.1772 0-2.1663.8051-2.4468 1.8947h-2.8955c-1.235 0-2.289.893-2.492 2.111l-.1038.623a1.263 1.263 0 0 1-1.246 1.0555H11.289c-.2805-1.0896-1.2696-1.8947-2.4468-1.8947s-2.1663.8051-2.4467 1.8947H4.973c-.2805-1.0896-1.2696-1.8947-2.4468-1.8947C1.1311 9.4737 0 10.6047 0 12s1.131 2.5263 2.5263 2.5263c1.1772 0 2.1663-.8051 2.4468-1.8947h1.4223c.2804 1.0896 1.2696 1.8947 2.4467 1.8947 1.1772 0 2.1663-.8051 2.4468-1.8947h1.0008a1.263 1.263 0 0 1 1.2459 1.0555l.1038.623c.203 1.218 1.257 2.111 2.492 2.111h.3692c.2804 1.0895 1.2696 1.8947 2.4468 1.8947 1.3952 0 2.5263-1.131 2.5263-2.5263s-1.131-2.5263-2.5263-2.5263c-1.1772 0-2.1664.805-2.4468 1.8947h-.3692a1.263 1.263 0 0 1-1.246-1.0555l-.1037-.623A2.52 2.52 0 0 0 13.9607 12a2.52 2.52 0 0 0 .821-1.4794l.1038-.623a1.263 1.263 0 0 1 1.2459-1.0555h2.8955c.2805 1.0896 1.2696 1.8947 2.4468 1.8947 1.3952 0 2.5263-1.131 2.5263-2.5263s-1.131-2.5263-2.5263-2.5263m0 1.2632a1.263 1.263 0 0 1 1.2631 1.2631 1.263 1.263 0 0 1-1.2631 1.2632 1.263 1.263 0 0 1-1.2632-1.2632 1.263 1.263 0 0 1 1.2632-1.2631M2.5263 10.7368A1.263 1.263 0 0 1 3.7895 12a1.263 1.263 0 0 1-1.2632 1.2632A1.263 1.263 0 0 1 1.2632 12a1.263 1.263 0 0 1 1.2631-1.2632m6.3158 0A1.263 1.263 0 0 1 10.1053 12a1.263 1.263 0 0 1-1.2632 1.2632A1.263 1.263 0 0 1 7.579 12a1.263 1.263 0 0 1 1.2632-1.2632m10.1053 3.7895a1.263 1.263 0 0 1 1.2631 1.2632 1.263 1.263 0 0 1-1.2631 1.2631 1.263 1.263 0 0 1-1.2632-1.2631 1.263 1.263 0 0 1 1.2632-1.2632"/></svg>',
+  whatsapp:
+    '<svg viewBox="0 0 24 24" fill="currentColor" class="h-4 w-4 shrink-0"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413Z"/></svg>',
+  webhooks:
+    '<svg viewBox="0 0 256 256" fill="none" class="h-4 w-4 shrink-0"><circle cx="192" cy="168" r="16" fill="currentColor"/><circle cx="128" cy="64" r="16" fill="currentColor"/><circle cx="64" cy="168" r="16" fill="currentColor"/><path d="M32,144a40,40,0,1,0,72,24h88" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="16"/><path d="M164.66,48A40,40,0,1,0,107,98.07L64,168" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="16"/><path d="M192,208a40,40,0,1,0-21-74.07L128,64" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="16"/></svg>',
+};
+
+const generic = new Set(["calendar", "reminders", "email", "marketplace"]);
+
+function iconMarkup(slug: string): string {
+  const inner = icons[slug] ?? "";
+  if (generic.has(slug)) {
+    return `<svg viewBox="0 0 24 24" class="h-4 w-4 shrink-0">${inner}</svg>`;
+  }
+  return inner;
+}
+---
+
+<div class="connectors reveal mt-14">
+  <div class="lbl mb-4 text-[12px] font-semibold uppercase tracking-widest text-stone-500">{label}</div>
+  <div class="chips flex flex-wrap gap-2.25">
+    {
+      connectors.map((c) => (
+        <span class="chip inline-flex items-center gap-2 rounded-[99px] border border-[#36302b] bg-(--ink-2) px-4 py-2.25 text-[13.5px] font-medium text-stone-300">
+          <span
+            class={`brand inline-flex items-center ${c.live ? "text-[#34c759]" : "text-orange-bright"}`}
+            set:html={iconMarkup(c.icon)}
+          />
+          <span set:text={c.name} />
+          {!c.live && <span class="dot-soon h-1.5 w-1.5 rounded-[99px] bg-orange-bright" />}
+        </span>
+      ))
+    }
+  </div>
+</div>
+
+<style>
+  .dot-soon {
+    animation: pulseSoft 1.6s ease-in-out infinite;
+  }
+  @keyframes pulseSoft {
+    0%,
+    100% {
+      opacity: 1;
+    }
+    50% {
+      opacity: 0.35;
+    }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .dot-soon {
+      animation: none;
+    }
+  }
+</style>

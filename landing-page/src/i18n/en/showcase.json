@@ -1,0 +1,47 @@
+{
+  "marquee": {
+    "items": [
+      "meetings",
+      "pitch ideas",
+      "groceries",
+      "brainstorms",
+      "3am dreams",
+      "car rides",
+      "standups",
+      "endless lists"
+    ]
+  },
+  "showcase": {
+    "fig": "from voice to memory",
+    "panels": [
+      {
+        "num": "01",
+        "title": "Speak",
+        "text": "One tap. Live waveform, Dynamic Island, it keeps going with the phone locked.",
+        "slot": "REAL GIF - iPhone recording",
+        "slotNote": "waveform + Dynamic Island"
+      },
+      {
+        "num": "02",
+        "title": "Transcribe",
+        "text": "Cloud, or 100% local with Whisper - airplane mode included. The \"ums\" vanish.",
+        "slot": "REAL GIF - transcription in airplane mode",
+        "slotNote": "local model + note filling in"
+      },
+      {
+        "num": "03",
+        "title": "Organize",
+        "text": "Title, tags, theme: filed away while you move on to the next thing.",
+        "slot": "REAL GIF - auto-title + tags",
+        "slotNote": "title pulse, chips appearing"
+      },
+      {
+        "num": "04",
+        "title": "Recall",
+        "text": "\"What was that pricing idea again?\" - a sourced answer, clickable notes.",
+        "slot": "REAL GIF - question then answer + sources",
+        "slotNote": "tap a source, the note opens"
+      }
+    ]
+  }
+}

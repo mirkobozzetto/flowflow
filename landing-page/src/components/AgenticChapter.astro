@@ -1,0 +1,80 @@
+---
+import ActionCard from "./ActionCard.astro";
+import ConnectorChips from "./ConnectorChips.astro";
+import EmailCapture from "./EmailCapture.astro";
+import { section } from "../lib/i18n";
+
+interface Props {
+  lang: string;
+  captureEndpoint?: string;
+}
+
+const { lang, captureEndpoint = "" } = Astro.props;
+const t = section(lang, "agentic");
+const delays: Array<0 | 1 | 2 | 3> = [0, 1, 1, 2];
+---
+
+<section
+  id="agentic"
+  class="agentic mt-37.5 bg-ink text-stone-200 pt-30 pb-27.5 relative overflow-hidden"
+>
+  <div class="container">
+    <div class="fig reveal text-stone-500">{t.fig}</div>
+    <h2
+      class="reveal text-[clamp(40px,6.4vw,80px)] leading-[0.99] tracking-[-0.035em] text-warm-white mt-5"
+      data-d="1"
+    >
+      {t.h2Lead}<br /><em class="font-serif italic font-normal text-orange-bright"
+        >{t.h2Accent}</em
+      >
+    </h2>
+    <p
+      class="sub reveal text-stone-400 text-[17px] max-w-150 mt-5 [&_b]:text-stone-200"
+      data-d="2"
+    >
+      {t.subLead} <b>{t.subStrong}</b>{t.subTail}
+    </p>
+
+    <div class="actions grid grid-cols-2 max-[800px]:grid-cols-1 gap-3.5 mt-13.5 relative">
+      {
+        t.actions.map((a, i) => (
+          <ActionCard
+            you={a.you}
+            then={a.then}
+            soon={a.soon}
+            soonLabel={t.soonBadge}
+            delay={delays[i] ?? 0}
+          />
+        ))
+      }
+    </div>
+
+    <ConnectorChips label={t.connectorsLabel} connectors={t.connectors} />
+
+    <EmailCapture
+      title={t.capture.title}
+      blurb={t.capture.blurb}
+      placeholder={t.capture.placeholder}
+      inputLabel={t.capture.inputLabel}
+      submit={t.capture.submit}
+      ok={t.capture.ok}
+      endpoint={captureEndpoint}
+    />
+  </div>
+</section>
+
+<style>
+  .agentic::before {
+    content: "";
+    position: absolute;
+    inset: -10%;
+    background: radial-gradient(
+      40% 50% at 75% 10%,
+      color-mix(in srgb, var(--orange) 17%, transparent),
+      transparent 70%
+    );
+  }
+  .agentic :global(.fig::before) {
+    background: var(--stone-700);
+  }
+</style>

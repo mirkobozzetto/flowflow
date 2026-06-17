@@ -1,0 +1,92 @@
+---
+interface Props {
+  num: string;
+  title: string;
+  text: string;
+  slot: string;
+  slotNote: string;
+}
+
+const { num, title, text, slot, slotNote } = Astro.props;
+---
+
+<div
+  class="flex w-[min(640px,84vw)] shrink-0 flex-row items-center gap-7 rounded-3xl border border-stone-200 bg-stone-50 p-7.5 max-[560px]:flex-col max-[560px]:items-start"
+>
+  <div class="flex flex-1 flex-col gap-3.5">
+    <div class="font-serif text-[58px] italic leading-none text-orange">
+      {num}
+    </div>
+    <h3 class="text-[27px] tracking-[-0.02em]">{title}</h3>
+    <p class="max-w-107.5 text-[14.5px] text-stone-500">{text}</p>
+  </div>
+  <div class="iphone-mini max-[560px]:self-center">
+    <div class="screen">
+      <div class="slot">
+        {slot}
+        <small>{slotNote}</small>
+      </div>
+    </div>
+  </div>
+</div>
+
+<style>
+  .iphone-mini {
+    width: clamp(150px, 16vw, 196px);
+    aspect-ratio: 9/19.5;
+    border-radius: 30px;
+    padding: 7px;
+    position: relative;
+    flex-shrink: 0;
+    background: linear-gradient(160deg, #3a3531, #161311);
+    box-shadow:
+      0 26px 50px -22px rgba(22, 19, 17, 0.45),
+      inset 0 0 0 1.5px rgba(255, 255, 255, 0.14);
+  }
+
+  .iphone-mini::before {
+    content: "";
+    position: absolute;
+    top: 15px;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 32%;
+    height: 17px;
+    background: #0b0908;
+    border-radius: 99px;
+    z-index: 2;
+  }
+
+  .iphone-mini .screen {
+    width: 100%;
+    height: 100%;
+    border-radius: 23px;
+    overflow: hidden;
+    background: var(--warm-white);
+  }
+
+  .slot {
+    width: 100%;
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 7px;
+    color: var(--stone-400);
+    font-size: 11px;
+    font-weight: 500;
+    text-align: center;
+    padding: 18px;
+    background:
+      radial-gradient(85% 120% at 50% 0%, var(--orange-50) 0%, transparent 60%),
+      var(--stone-50);
+    border: 2px dashed var(--stone-300);
+    border-radius: inherit;
+  }
+
+  .slot small {
+    font-size: 10px;
+    opacity: 0.85;
+  }
+</style>

@@ -1,0 +1,30 @@
+{
+  "fig": "questions",
+  "title": "FAQ",
+  "items": [
+    {
+      "q": "Where do my notes actually go?",
+      "a": "Nowhere. SQLite and the vector store live on your devices, the iPhone ↔ Mac sync runs directly over your Wi-Fi, encrypted. Only the AI requests (cloud transcription if you choose it, embeddings, chat) leave - with your own API keys."
+    },
+    {
+      "q": "What does it cost?",
+      "a": "The app is free. You only pay for your API usage (OpenAI, and Soniox if you use cloud transcription) - a few cents per real use. Local Whisper transcription is free and unlimited."
+    },
+    {
+      "q": "Does it work without a connection?",
+      "a": "Capture, transcription (local Whisper model) and reading your notes: yes, airplane mode included. AI chat needs the network to query the model."
+    },
+    {
+      "q": "What is the marketplace?",
+      "a": "Tools your voice triggers: connectors (n8n, WhatsApp, email, webhooks), automations, programs. Installable in one tap, some free, some paid - and open to third-party creators, in a controlled way. Under construction."
+    },
+    {
+      "q": "Which devices?",
+      "a": "iPhone (iOS 16+, App Store) and Apple Silicon Mac (DMG on GitHub). First launch on Mac: right-click > Open."
+    },
+    {
+      "q": "Can I see the code?",
+      "a": "Yes, it is all on GitHub (EUPL). 100% Rust, Dioxus for the UI. You can build and install it on your own iPhone with a single make."
+    }
+  ]
+}

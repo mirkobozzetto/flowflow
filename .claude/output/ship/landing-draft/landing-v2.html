@@ -1,0 +1,441 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>FlowFlow - La mémoire de ce que tu dis</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&display=swap" rel="stylesheet">
+<style>
+:root {
+    --warm-white: #fdfcfb;
+    --stone-50: #fafaf9;
+    --stone-100: #f5f5f4;
+    --stone-200: #e7e5e4;
+    --stone-300: #d6d3d1;
+    --stone-400: #a8a29e;
+    --stone-500: #78716c;
+    --stone-600: #57534e;
+    --stone-700: #44403c;
+    --stone-900: #1c1917;
+    --ink: #161311;
+    --orange: oklch(0.60 0.22 50);
+    --orange-dark: oklch(0.48 0.16 50);
+    --orange-50: oklch(0.97 0.04 50);
+    --orange-100: oklch(0.92 0.07 50);
+    --serif: "Instrument Serif", Georgia, serif;
+}
+* { box-sizing: border-box; margin: 0; }
+html { scroll-behavior: smooth; }
+body {
+    font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", "Inter", sans-serif;
+    background: var(--warm-white);
+    color: var(--stone-900);
+    line-height: 1.5;
+    overflow-x: hidden;
+}
+::selection { background: var(--orange-100); }
+.container { max-width: 1160px; margin: 0 auto; padding: 0 28px; }
+
+/* grain overlay */
+body::after {
+    content: ""; position: fixed; inset: 0; pointer-events: none; z-index: 99;
+    opacity: 0.035; mix-blend-mode: multiply;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2'/%3E%3C/filter%3E%3Crect width='160' height='160' filter='url(%23n)'/%3E%3C/svg%3E");
+}
+
+/* progress */
+#progress { position: fixed; top: 0; left: 0; height: 2px; width: 0; background: var(--orange); z-index: 100; transition: width 0.08s linear; }
+
+/* fig labels */
+.fig { font-size: 11px; font-weight: 600; letter-spacing: 0.14em; text-transform: uppercase; color: var(--stone-400); display: flex; align-items: center; gap: 10px; }
+.fig::before { content: ""; width: 26px; height: 1px; background: var(--stone-300); }
+
+/* reveal */
+.reveal { opacity: 0; transform: translateY(26px); transition: opacity 0.7s cubic-bezier(0.2, 0.7, 0.2, 1), transform 0.7s cubic-bezier(0.2, 0.7, 0.2, 1); }
+.reveal.in { opacity: 1; transform: none; }
+.reveal[data-d="1"] { transition-delay: 0.08s; } .reveal[data-d="2"] { transition-delay: 0.16s; } .reveal[data-d="3"] { transition-delay: 0.24s; }
+
+/* ===== nav ===== */
+nav { position: fixed; top: 0; left: 0; right: 0; z-index: 90; }
+.nav-inner {
+    display: flex; align-items: center; justify-content: space-between;
+    max-width: 1160px; margin: 14px auto 0; padding: 10px 16px 10px 18px;
+    background: color-mix(in srgb, var(--warm-white) 80%, transparent);
+    backdrop-filter: blur(14px); border: 1px solid var(--stone-200); border-radius: 16px;
+}
+@media (max-width: 1220px) { .nav-inner { margin: 14px 20px 0; } }
+.brand { display: flex; align-items: center; gap: 10px; font-weight: 700; font-size: 15.5px; color: var(--ink); text-decoration: none; letter-spacing: -0.01em; }
+.brand img { width: 28px; height: 28px; border-radius: 8px; }
+.nav-right { display: flex; align-items: center; gap: 8px; }
+.nav-link { font-size: 13.5px; color: var(--stone-500); text-decoration: none; padding: 8px 12px; border-radius: 9px; transition: color 0.15s, background 0.15s; }
+.nav-link:hover { color: var(--ink); background: var(--stone-100); }
+.nav-cta {
+    font-size: 13.5px; font-weight: 600; color: white; background: var(--ink);
+    padding: 9px 16px; border-radius: 10px; text-decoration: none; transition: opacity 0.15s;
+}
+.nav-cta:hover { opacity: 0.85; }
+
+/* ===== hero ===== */
+.hero { padding: 168px 0 0; }
+.hero h1 {
+    font-size: clamp(46px, 8.2vw, 104px);
+    line-height: 0.98; letter-spacing: -0.035em; font-weight: 750;
+    color: var(--ink);
+}
+.hero h1 .swap-wrap { display: inline-block; position: relative; color: var(--orange-dark); }
+.hero h1 .swap {
+    font-family: var(--serif); font-style: italic; font-weight: 400; letter-spacing: -0.01em;
+    display: inline-block;
+}
+.swap.out { animation: wordOut 0.32s cubic-bezier(0.5, 0, 0.7, 0.4) forwards; }
+.swap.inn { animation: wordIn 0.4s cubic-bezier(0.2, 0.7, 0.2, 1) backwards; }
+@keyframes wordOut { to { opacity: 0; transform: translateY(-0.5em); filter: blur(3px); } }
+@keyframes wordIn { from { opacity: 0; transform: translateY(0.55em); filter: blur(3px); } }
+.hero-row { display: flex; align-items: flex-end; justify-content: space-between; gap: 40px; margin-top: 34px; flex-wrap: wrap; }
+.hero-sub { font-size: 17px; color: var(--stone-500); max-width: 430px; }
+.hero-sub b { color: var(--stone-700); font-weight: 600; }
+.hero-ctas { display: flex; gap: 10px; flex-wrap: wrap; }
+.btn-primary {
+    display: inline-flex; align-items: center; gap: 9px; min-height: 50px; padding: 0 26px;
+    border: none; border-radius: 13px; background: var(--orange); color: white;
+    font-size: 15px; font-weight: 600; font-family: inherit; text-decoration: none; cursor: pointer;
+    transition: transform 0.18s cubic-bezier(0.2, 0.8, 0.2, 1), box-shadow 0.18s, opacity 0.15s;
+    box-shadow: 0 1px 2px rgba(0,0,0,0.08);
+}
+.btn-primary:hover { transform: translateY(-1px); box-shadow: 0 10px 24px -10px color-mix(in srgb, var(--orange) 55%, transparent); }
+.btn-primary:active { transform: scale(0.98); }
+.btn-ghost {
+    display: inline-flex; align-items: center; gap: 8px; min-height: 50px; padding: 0 22px;
+    border: 1px solid var(--stone-200); border-radius: 13px; background: var(--warm-white);
+    color: var(--ink); font-size: 15px; font-weight: 500; text-decoration: none;
+    transition: border-color 0.15s, background 0.15s;
+}
+.btn-ghost:hover { border-color: var(--stone-300); background: var(--stone-50); }
+
+/* hero media : REAL SCREENSHOT SLOTS */
+.hero-media { position: relative; margin-top: 64px; }
+.shot-mac {
+    aspect-ratio: 16 / 9.6; border-radius: 18px; overflow: hidden;
+    border: 1px solid var(--stone-200);
+    box-shadow: 0 40px 90px -40px rgba(22, 19, 17, 0.35);
+    background: var(--stone-50);
+    transform: perspective(1600px) rotateX(var(--tiltX, 4deg));
+    transform-origin: center top;
+    transition: transform 0.1s linear;
+}
+.slot {
+    width: 100%; height: 100%;
+    display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 8px;
+    border: 2px dashed var(--stone-300); border-radius: inherit;
+    color: var(--stone-400); font-size: 13px; font-weight: 500; text-align: center; padding: 20px;
+    background:
+        radial-gradient(80% 120% at 50% 0%, var(--orange-50) 0%, transparent 55%),
+        var(--stone-50);
+}
+.slot small { font-size: 11px; color: var(--stone-400); opacity: 0.8; }
+.shot-iphone {
+    position: absolute; right: 4%; bottom: -10%;
+    width: clamp(140px, 18vw, 230px); aspect-ratio: 9 / 19.5;
+    border-radius: 30px; overflow: hidden;
+    border: 1px solid var(--stone-200);
+    box-shadow: 0 30px 60px -25px rgba(22, 19, 17, 0.4);
+    background: var(--warm-white);
+    transform: rotate(3deg);
+}
+@media (max-width: 640px) { .shot-iphone { display: none; } }
+
+/* marquee */
+.marquee-wrap { margin: 120px 0 0; border-top: 1px solid var(--stone-200); border-bottom: 1px solid var(--stone-200); padding: 18px 0; overflow: hidden; }
+.marquee { display: flex; gap: 48px; width: max-content; animation: marquee 30s linear infinite; }
+.marquee span { display: flex; align-items: center; gap: 48px; font-family: var(--serif); font-style: italic; font-size: 22px; color: var(--stone-500); white-space: nowrap; }
+.marquee i { font-style: normal; color: var(--orange); font-size: 14px; }
+@keyframes marquee { to { transform: translateX(-50%); } }
+
+/* ===== horizontal chapter ===== */
+#hscroll { position: relative; height: 380vh; }
+.hsticky { position: sticky; top: 0; height: 100vh; overflow: hidden; display: flex; flex-direction: column; justify-content: center; }
+.hhead { padding-bottom: 28px; }
+.htrack { display: flex; gap: 22px; will-change: transform; padding: 0 max(28px, calc((100vw - 1160px) / 2)); }
+.panel {
+    flex-shrink: 0; width: min(620px, 82vw);
+    background: var(--stone-50); border: 1px solid var(--stone-200); border-radius: 22px;
+    padding: 30px; display: flex; flex-direction: column; gap: 18px;
+}
+.panel .pnum { font-family: var(--serif); font-style: italic; font-size: 42px; color: var(--orange); line-height: 1; }
+.panel h3 { font-size: 26px; letter-spacing: -0.02em; }
+.panel p { font-size: 14.5px; color: var(--stone-500); max-width: 420px; }
+.panel .media { aspect-ratio: 16/10; border-radius: 14px; overflow: hidden; margin-top: auto; }
+
+/* ===== bento ===== */
+.bento { display: grid; grid-template-columns: repeat(6, 1fr); grid-auto-rows: 96px; gap: 14px; margin-top: 44px; }
+.tile {
+    background: var(--stone-50); border: 1px solid var(--stone-200); border-radius: 20px;
+    padding: 24px; position: relative; overflow: hidden;
+    transition: border-color 0.2s, transform 0.25s cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+.tile:hover { border-color: var(--stone-300); transform: translateY(-3px); }
+.tile h3 { font-size: 17px; letter-spacing: -0.01em; margin-bottom: 5px; }
+.tile p { font-size: 13px; color: var(--stone-500); max-width: 300px; }
+.t-a { grid-column: span 4; grid-row: span 3; }
+.t-b { grid-column: span 2; grid-row: span 3; }
+.t-c { grid-column: span 2; grid-row: span 2; }
+.t-d { grid-column: span 2; grid-row: span 2; }
+.t-e { grid-column: span 2; grid-row: span 2; }
+@media (max-width: 880px) { .t-a, .t-b, .t-c, .t-d, .t-e { grid-column: span 6; grid-row: span 3; } .bento { grid-auto-rows: 80px; } }
+.tile .media-fill { position: absolute; inset: auto 0 0 0; top: 92px; border-top: 1px solid var(--stone-200); }
+.tile .media-fill .slot { border: none; border-radius: 0; }
+.kbds { display: flex; flex-wrap: wrap; gap: 7px; margin-top: 14px; }
+kbd { font-family: inherit; font-size: 12px; font-weight: 500; color: var(--stone-600); background: var(--warm-white); border: 1px solid var(--stone-200); border-bottom-width: 2px; border-radius: 7px; padding: 3px 9px; }
+.sync-visual { display: flex; align-items: center; gap: 12px; margin-top: 20px; color: var(--stone-400); }
+.device { width: 44px; height: 64px; border: 1.5px solid var(--stone-300); border-radius: 9px; position: relative; background: var(--warm-white); }
+.device.mac { width: 86px; height: 56px; border-radius: 7px; }
+.sync-line { flex: 1; height: 1.5px; background: repeating-linear-gradient(90deg, var(--orange) 0 6px, transparent 6px 12px); position: relative; animation: dash 1.2s linear infinite; background-size: 12px 100%; }
+@keyframes dash { to { background-position: 12px 0; } }
+.lock { position: absolute; top: -9px; left: 50%; transform: translateX(-50%); background: var(--orange-50); border: 1px solid var(--orange-100); color: var(--orange-dark); font-size: 10px; border-radius: 99px; padding: 1px 8px; }
+.code-tile { font-family: ui-monospace, "SF Mono", monospace; font-size: 12px; color: var(--stone-500); background: var(--ink); border-radius: 12px; padding: 14px 16px; margin-top: 16px; }
+.code-tile .k { color: #e8a06a; } .code-tile .f { color: #d6d3d1; }
+
+/* ===== dark chapter ===== */
+.dark-chapter { margin-top: 140px; background: var(--ink); color: var(--stone-200); padding: 130px 0 120px; position: relative; overflow: hidden; }
+.dark-chapter::before {
+    content: ""; position: absolute; inset: -20%;
+    background: radial-gradient(50% 50% at 70% 20%, color-mix(in srgb, var(--orange) 14%, transparent) 0%, transparent 70%);
+}
+.dark-chapter .fig { color: var(--stone-500); } .dark-chapter .fig::before { background: var(--stone-700); }
+.dark-chapter h2 { font-size: clamp(36px, 5.6vw, 68px); line-height: 1.02; letter-spacing: -0.03em; color: var(--warm-white); margin-top: 18px; max-width: 880px; }
+.dark-chapter h2 em { font-family: var(--serif); font-style: italic; font-weight: 400; color: var(--orange); }
+.dark-sub { color: var(--stone-400); font-size: 16px; max-width: 560px; margin-top: 22px; }
+.stats { display: flex; gap: 60px; flex-wrap: wrap; margin-top: 64px; }
+.stat b { display: block; font-size: 44px; font-weight: 700; letter-spacing: -0.02em; color: var(--warm-white); }
+.stat span { font-size: 13px; color: var(--stone-500); }
+
+/* ===== finale ===== */
+.finale { padding: 150px 0 90px; text-align: center; }
+.finale h2 { font-size: clamp(40px, 7vw, 86px); letter-spacing: -0.035em; line-height: 1; color: var(--ink); }
+.finale h2 em { font-family: var(--serif); font-style: italic; font-weight: 400; color: var(--orange-dark); }
+.finale .hero-ctas { justify-content: center; margin-top: 38px; }
+.finale .note { margin-top: 16px; font-size: 12.5px; color: var(--stone-400); }
+
+footer { border-top: 1px solid var(--stone-200); padding: 30px 0 44px; }
+.footer-inner { display: flex; align-items: center; gap: 20px; flex-wrap: wrap; font-size: 13px; color: var(--stone-400); }
+.footer-inner a { color: var(--stone-500); text-decoration: none; } .footer-inner a:hover { color: var(--ink); }
+.footer-inner .spacer { margin-left: auto; }
+
+section.block { padding: 130px 0 0; }
+
+@media (prefers-reduced-motion: reduce) {
+    .reveal { opacity: 1; transform: none; transition: none; }
+    .marquee { animation: none; }
+    .swap.out, .swap.inn { animation: none; }
+    #hscroll { height: auto; }
+    .hsticky { position: static; height: auto; }
+    .htrack { overflow-x: auto; }
+    .shot-mac { transform: none !important; }
+}
+</style>
+</head>
+<body>
+
+<div id="progress"></div>
+
+<nav>
+    <div class="nav-inner">
+        <a class="brand" href="#"><img src="logo.png" alt=""> FlowFlow</a>
+        <div class="nav-right">
+            <a class="nav-link" href="#chapitre">Le produit</a>
+            <a class="nav-link" href="#features">Fonctionnalités</a>
+            <a class="nav-link" href="https://github.com/mirkobozzetto/flowflow">GitHub</a>
+            <a class="nav-cta" href="https://github.com/mirkobozzetto/flowflow/releases/latest">Télécharger</a>
+        </div>
+    </div>
+</nav>
+
+<header class="hero container">
+    <div class="fig reveal">FIG 0.1 - second cerveau vocal · iPhone + Mac</div>
+    <h1 class="reveal" data-d="1" style="margin-top: 22px;">
+        Tes <span class="swap-wrap"><span class="swap" id="swap">idées</span></span><br>méritent mieux<br>qu'un oubli.
+    </h1>
+    <div class="hero-row reveal" data-d="2">
+        <p class="hero-sub">Tu parles, FlowFlow transcrit, range et indexe. Plus tard, tu poses une question - <b>la réponse remonte avec les notes sources</b>. En local, sur tes appareils.</p>
+        <div class="hero-ctas">
+            <a class="btn-primary" href="https://github.com/mirkobozzetto/flowflow/releases/latest">Télécharger pour Mac</a>
+            <a class="btn-ghost" href="#">App Store</a>
+        </div>
+    </div>
+
+    <div class="hero-media reveal" data-d="3">
+        <div class="shot-mac" id="tilt">
+            <div class="slot">
+                SCREENSHOT RÉEL - app Mac, vue "Toutes mes notes" + chat ouvert
+                <small>capture 2880x1730 (16:9.6) - ou un GIF de l'enregistrement → transcription</small>
+            </div>
+        </div>
+        <div class="shot-iphone">
+            <div class="slot" style="font-size: 11px;">SCREENSHOT iPhone<small>1179x2556</small></div>
+        </div>
+    </div>
+</header>
+
+<div class="marquee-wrap">
+    <div class="marquee">
+        <span>réunions <i>✦</i> idées de pitch <i>✦</i> courses <i>✦</i> brainstorms <i>✦</i> rêves notés à 3h <i>✦</i> trajets en voiture <i>✦</i> standups <i>✦</i> listes infinies <i>✦</i></span>
+        <span>réunions <i>✦</i> idées de pitch <i>✦</i> courses <i>✦</i> brainstorms <i>✦</i> rêves notés à 3h <i>✦</i> trajets en voiture <i>✦</i> standups <i>✦</i> listes infinies <i>✦</i></span>
+    </div>
+</div>
+
+<section id="chapitre" aria-label="Comment ça marche">
+    <div id="hscroll">
+        <div class="hsticky">
+            <div class="container hhead">
+                <div class="fig">FIG 1.0 - de la voix à la mémoire</div>
+            </div>
+            <div class="htrack" id="htrack">
+                <div class="panel">
+                    <div class="pnum">01</div>
+                    <h3>Parle</h3>
+                    <p>Un tap. Waveform en direct, Dynamic Island, ça continue téléphone verrouillé.</p>
+                    <div class="media"><div class="slot">GIF RÉEL - enregistrement iPhone<small>waveform + Dynamic Island</small></div></div>
+                </div>
+                <div class="panel">
+                    <div class="pnum">02</div>
+                    <h3>Transcrit</h3>
+                    <p>Cloud, ou 100% local avec Whisper - mode avion compris. Les "euh" disparaissent.</p>
+                    <div class="media"><div class="slot">GIF RÉEL - transcription en mode avion<small>Réglages > modèle local + note qui se remplit</small></div></div>
+                </div>
+                <div class="panel">
+                    <div class="pnum">03</div>
+                    <h3>Range</h3>
+                    <p>Titre, tags, thème : l'IA classe pendant que tu passes à autre chose.</p>
+                    <div class="media"><div class="slot">GIF RÉEL - auto-titre + tags qui apparaissent<small>pulse du titre, chips de tags</small></div></div>
+                </div>
+                <div class="panel">
+                    <div class="pnum">04</div>
+                    <h3>Retrouve</h3>
+                    <p>"C'était quoi cette idée de pricing ?" - réponse sourcée, notes cliquables.</p>
+                    <div class="media"><div class="slot">GIF RÉEL - question dans le chat → réponse + sources<small>tap sur une source → la note s'ouvre</small></div></div>
+                </div>
+            </div>
+        </div>
+    </div>
+</section>
+
+<section id="features" class="block container">
+    <div class="fig reveal">FIG 2.0 - sous le capot</div>
+    <h2 class="reveal" data-d="1" style="font-size: clamp(30px, 4.4vw, 48px); letter-spacing: -0.025em; margin-top: 16px;">Sérieux dedans,<br>simple devant.</h2>
+    <div class="bento">
+        <div class="tile t-a reveal">
+            <h3>Chat avec tes notes</h3>
+            <p>Recherche hybride (mots-clés + sens + rerank), filtrée par thème si tu veux. Chaque réponse cite ses sources.</p>
+            <div class="media-fill"><div class="slot">SCREENSHOT RÉEL - conversation avec sources dépliées</div></div>
+        </div>
+        <div class="tile t-b reveal" data-d="1">
+            <h3>Sync sans cloud</h3>
+            <p>iPhone ↔ Mac en direct sur ton Wi-Fi, chiffré (Noise). Personne au milieu.</p>
+            <div class="sync-visual">
+                <div class="device"></div>
+                <div class="sync-line"><span class="lock">chiffré</span></div>
+                <div class="device mac"></div>
+            </div>
+        </div>
+        <div class="tile t-c reveal">
+            <h3>Hors-ligne, vraiment</h3>
+            <p>Modèles Whisper en local, du tiny au large-v3-turbo. L'audio ne sort jamais.</p>
+        </div>
+        <div class="tile t-d reveal" data-d="1">
+            <h3>Clavier-first sur Mac</h3>
+            <div class="kbds">
+                <kbd>⌘N</kbd><kbd>⇧⌘Enter</kbd><kbd>⌘F</kbd><kbd>⌃⌃</kbd><kbd>⌘←</kbd><kbd>⌘→</kbd>
+            </div>
+        </div>
+        <div class="tile t-e reveal" data-d="2">
+            <h3>Open source</h3>
+            <div class="code-tile"><span class="k">git</span> <span class="f">clone</span> mirkobozzetto/flowflow<br><span class="k">make</span> <span class="f">all</span> <span style="color:#78716c"># sur ton iPhone</span></div>
+        </div>
+    </div>
+</section>
+
+<section class="dark-chapter">
+    <div class="container">
+        <div class="fig reveal">FIG 3.0 - propriété</div>
+        <h2 class="reveal" data-d="1">Pas de compte. Pas de cloud.<br>Tes pensées restent <em>à toi</em>.</h2>
+        <p class="dark-sub reveal" data-d="2">SQLite et LanceDB sur tes appareils. Export complet en une archive. Le code est ouvert : tu n'as pas à nous croire sur parole.</p>
+        <div class="stats">
+            <div class="stat reveal"><b>0</b><span>serveur entre tes appareils</span></div>
+            <div class="stat reveal" data-d="1"><b>100%</b><span>Rust, code ouvert (EUPL)</span></div>
+            <div class="stat reveal" data-d="2"><b>1</b><span>archive pour tout exporter</span></div>
+        </div>
+    </div>
+</section>
+
+<section class="finale container">
+    <h2 class="reveal">Parle.<br><em>Retrouve tout.</em></h2>
+    <div class="hero-ctas reveal" data-d="1">
+        <a class="btn-primary" href="https://github.com/mirkobozzetto/flowflow/releases/latest">Télécharger pour Mac</a>
+        <a class="btn-ghost" href="#">App Store</a>
+        <a class="btn-ghost" href="https://github.com/mirkobozzetto/flowflow">Sources</a>
+    </div>
+    <p class="note reveal" data-d="2">Gratuit · macOS Apple Silicon · premier lancement : clic droit > Ouvrir</p>
+</section>
+
+<footer>
+    <div class="container footer-inner">
+        <span>© 2026 Mirko Bozzetto</span>
+        <a href="https://github.com/mirkobozzetto/flowflow/blob/main/LICENSE">EUPL v1.2</a>
+        <a href="https://github.com/mirkobozzetto/flowflow">GitHub</a>
+        <span class="spacer"></span>
+        <span>Rust + Dioxus, zéro JavaScript dans l'app. (Un peu ici, pardon.)</span>
+    </div>
+</footer>
+
+<script>
+const reduced = matchMedia("(prefers-reduced-motion: reduce)").matches;
+
+const words = ["idées", "réunions", "brainstorms", "pitchs", "rêves", "listes"];
+let wi = 0;
+const swap = document.getElementById("swap");
+if (!reduced) setInterval(() => {
+    swap.classList.add("out");
+    setTimeout(() => {
+        wi = (wi + 1) % words.length;
+        swap.textContent = words[wi];
+        swap.classList.remove("out");
+        swap.classList.add("inn");
+        setTimeout(() => swap.classList.remove("inn"), 450);
+    }, 320);
+}, 2600);
+
+const io = new IntersectionObserver(es => {
+    for (const e of es) if (e.isIntersecting) { e.target.classList.add("in"); io.unobserve(e.target); }
+}, { threshold: 0.18 });
+document.querySelectorAll(".reveal").forEach(el => io.observe(el));
+
+const hs = document.getElementById("hscroll");
+const track = document.getElementById("htrack");
+const tilt = document.getElementById("tilt");
+const bar = document.getElementById("progress");
+
+function onScroll() {
+    const max = document.documentElement.scrollHeight - innerHeight;
+    bar.style.width = (scrollY / max * 100) + "%";
+
+    if (!reduced && tilt) {
+        const r = tilt.getBoundingClientRect();
+        const p = Math.min(1, Math.max(0, 1 - r.top / innerHeight));
+        tilt.style.setProperty("--tiltX", (4 - p * 4) + "deg");
+    }
+
+    if (!reduced && hs && track) {
+        const r = hs.getBoundingClientRect();
+        const total = hs.offsetHeight - innerHeight;
+        const p = Math.min(1, Math.max(0, -r.top / total));
+        const dist = track.scrollWidth - innerWidth;
+        track.style.transform = `translateX(${-p * dist}px)`;
+    }
+}
+addEventListener("scroll", onScroll, { passive: true });
+onScroll();
+</script>
+
+</body>
+</html>

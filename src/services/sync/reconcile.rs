@@ -260,6 +260,7 @@ pub fn spawn_reconcile_pass() {
             if let Err(e) = backfill_legacy_chunks(&db, &store).await {
                 eprintln!("[reconcile] backfill: {e}");
             }
+            crate::services::embed::embed_missing_notes(&db, &store).await;
             if let Err(e) = reconcile_once(&db, &store).await {
                 eprintln!("[reconcile] reconcile: {e}");
             }

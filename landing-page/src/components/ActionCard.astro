@@ -1,0 +1,49 @@
+---
+interface Props {
+  you: string;
+  then: string;
+  soon?: boolean;
+  soonLabel?: string;
+  delay?: 0 | 1 | 2 | 3;
+}
+
+const {
+  you,
+  then: result,
+  soon = false,
+  soonLabel = "bientôt",
+  delay,
+} = Astro.props;
+
+const micPath =
+  "M12 3C10 3 10 5 10 5l0 6s0 2 2 2 2-2 2-2V5s0-2-2-2zM5 10s0 7 7 7 " +
+  "7-7 7-7M12 17v4";
+const d = delay ? String(delay) : undefined;
+---
+
+<div
+  class="action reveal rounded-[18px] border border-[#36302b] bg-(--ink-2) px-6 py-5.5 transition-[border-color,background] duration-250 ease-[ease] hover:border-[color-mix(in_srgb,var(--orange)_35%,#36302b)] hover:bg-[#262019]"
+  data-d={d}
+>
+  <div class="you flex items-center gap-2.5 font-serif text-[19px] italic text-warm-white">
+    <svg
+      class="h-4.25 w-4.25 shrink-0 fill-none stroke-orange-bright stroke-[1.8]"
+      viewBox="0 0 24 24"
+      aria-hidden="true"
+    >
+      <path d={micPath} />
+    </svg>
+    <span set:text={you} />
+    {
+      soon && (
+        <span class="ml-2 inline-block rounded-[99px] border border-[color-mix(in_srgb,var(--orange-bright)_40%,transparent)] px-2 py-px text-[10px] font-bold uppercase tracking-[0.06em] text-orange-bright">
+          {soonLabel}
+        </span>
+      )
+    }
+  </div>
+  <div
+    class="then mt-3.25 flex items-center gap-2.25 text-[13.5px] text-stone-400 before:font-bold before:text-orange-bright before:content-['\2192']"
+    set:text={result}
+  />
+</div>

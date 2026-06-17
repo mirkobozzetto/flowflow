@@ -1,0 +1,15 @@
+node_modules
+dist
+.astro
+.git
+.gitignore
+.vscode
+.env
+.env.production
+*.log
+.DS_Store
+reference
+README.md
+docker-compose.yml
+Dockerfile
+.dockerignore

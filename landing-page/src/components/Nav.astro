@@ -1,0 +1,157 @@
+---
+import { Image } from "astro:assets";
+import { useTranslations, localizePath } from "../lib/i18n";
+import { macDownloadUrl, externalLinkAttrs } from "../lib/links";
+import LangSwitcher from "./LangSwitcher.astro";
+import logo from "../assets/logo.png";
+
+interface Props {
+  lang: string;
+}
+
+const { lang } = Astro.props;
+const t = useTranslations(lang, "hero");
+---
+
+<nav class="fixed top-0 left-0 right-0 z-90 px-3">
+  <div
+    class="nav-inner relative flex items-center justify-between max-w-295 mx-auto mt-3.5 py-1.75 pr-2 pl-4 max-lg:pr-1 border border-stone-200 rounded-2xl"
+  >
+    <a
+      class="brand flex items-center gap-2.5 font-bold text-[15px] text-ink no-underline"
+      href={localizePath("/", lang)}
+    >
+      <Image src={logo} alt="" width={26} height={26} />
+      FlowFlow
+    </a>
+
+    <div class="flex items-center gap-2">
+      <div class="hidden lg:flex items-center gap-1">
+        <a class="nav-link" href="#product">{t("nav.product")}</a>
+        <a class="nav-link" href="#agentic">{t("nav.agentic")}</a>
+        <a class="nav-link" href="#faq">{t("nav.faq")}</a>
+      </div>
+
+      <a
+        class="nav-cta hidden lg:inline-block"
+        href={macDownloadUrl}
+        {...externalLinkAttrs}
+      >
+        {t("nav.cta")}
+      </a>
+
+      <LangSwitcher lang={lang} />
+
+      <button
+        class="mobile-toggle flex lg:hidden w-10 h-10 items-center justify-center border-none rounded-[10px] bg-transparent text-stone-600 cursor-pointer"
+        type="button"
+        aria-label="Menu"
+        aria-expanded="false"
+        aria-controls="mobile-menu"
+        data-menu-toggle
+      >
+        <svg
+          width="20"
+          height="20"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          stroke-width="2.5"
+          stroke-linecap="round"
+          aria-hidden="true"
+          focusable="false"
+        >
+          <line x1="4" y1="7" x2="20" y2="7"></line>
+          <line x1="4" y1="17" x2="20" y2="17"></line>
+        </svg>
+      </button>
+    </div>
+
+    <div
+      class="mobile-panel lg:hidden absolute left-0 right-0 flex flex-col gap-1 p-3 border border-stone-200 rounded-2xl"
+      id="mobile-menu"
+      data-open="false"
+    >
+      <a class="nav-link" href="#product">{t("nav.product")}</a>
+      <a class="nav-link" href="#agentic">{t("nav.agentic")}</a>
+      <a class="nav-link" href="#faq">{t("nav.faq")}</a>
+      <span class="h-px bg-stone-200 my-1" aria-hidden="true"></span>
+      <a class="nav-cta" href={macDownloadUrl} {...externalLinkAttrs}>
+        {t("nav.cta")}
+      </a>
+    </div>
+  </div>
+</nav>
+
+<script>
+  const toggle = document.querySelector("[data-menu-toggle]");
+  const panel = document.getElementById("mobile-menu");
+  if (toggle && panel) {
+    const close = () => {
+      panel.setAttribute("data-open", "false");
+      toggle.setAttribute("aria-expanded", "false");
+    };
+    toggle.addEventListener("click", () => {
+      const open = panel.getAttribute("data-open") === "true";
+      const next = open ? "false" : "true";
+      panel.setAttribute("data-open", next);
+      toggle.setAttribute("aria-expanded", next);
+    });
+    for (const link of panel.querySelectorAll("a")) {
+      link.addEventListener("click", close);
+    }
+  }
+</script>
+
+<style>
+  .nav-inner {
+    background: color-mix(in srgb, var(--warm-white) 78%, transparent);
+    backdrop-filter: blur(16px);
+  }
+  .brand img {
+    width: 26px;
+    height: 26px;
+    border-radius: 7px;
+  }
+  .nav-link {
+    font-size: 13.5px;
+    font-weight: 500;
+    color: var(--stone-500);
+    text-decoration: none;
+    padding: 8px 12px;
+    border-radius: 9px;
+    transition: 0.15s;
+  }
+  .nav-link:hover {
+    color: var(--ink);
+    background: var(--stone-100);
+  }
+  .nav-cta {
+    font-size: 13.5px;
+    font-weight: 600;
+    color: white;
+    background: var(--ink);
+    padding: 9px 18px;
+    border-radius: 10px;
+    text-decoration: none;
+    text-align: center;
+    transition: 0.15s;
+  }
+  .nav-cta:hover {
+    opacity: 0.85;
+  }
+  .mobile-panel {
+    top: calc(100% + 8px);
+    background: color-mix(in srgb, var(--warm-white) 92%, transparent);
+    backdrop-filter: blur(20px);
+    opacity: 0;
+    transform: translateY(-8px);
+    pointer-events: none;
+    transition: 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  }
+  .mobile-panel[data-open="true"] {
+    opacity: 1;
+    transform: translateY(0);
+    pointer-events: auto;
+  }
+</style>

@@ -1,0 +1,31 @@
+{
+  "name": "flowflow-web",
+  "type": "module",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "dev": "astro dev",
+    "build": "astro build",
+    "preview": "astro preview",
+    "check": "astro check",
+    "astro": "astro",
+    "format": "tailwind-suggest-canonical-classes \"src/**/*.astro\" --css src/styles/global.css && biome check --write .",
+    "lint": "biome check . && eslint \"src/**/*.astro\"",
+    "lint:astro": "eslint \"src/**/*.astro\""
+  },
+  "dependencies": {
+    "astro": "^6.4.6"
+  },
+  "devDependencies": {
+    "@astrojs/check": "^0.9.9",
+    "@biomejs/biome": "^2.5.0",
+    "@laststance/tailwind-suggest-canonical-classes": "^0.1.1",
+    "@tailwindcss/vite": "^4.3.1",
+    "@typescript-eslint/parser": "^8.61.0",
+    "eslint": "^10.5.0",
+    "eslint-plugin-astro": "^1.7.0",
+    "tailwindcss": "^4.3.1",
+    "typescript": "^6.0.3",
+    "typescript-eslint": "^8.61.0"
+  }
+}

@@ -1,0 +1,47 @@
+{
+  "marquee": {
+    "items": [
+      "réunions",
+      "idées de pitch",
+      "courses",
+      "brainstorms",
+      "rêves notés à 3h",
+      "trajets en voiture",
+      "standups",
+      "listes infinies"
+    ]
+  },
+  "showcase": {
+    "fig": "de la voix à la mémoire",
+    "panels": [
+      {
+        "num": "01",
+        "title": "Parle",
+        "text": "Un tap. Waveform en direct, Dynamic Island, ça continue téléphone verrouillé.",
+        "slot": "GIF RÉEL - enregistrement iPhone",
+        "slotNote": "waveform + Dynamic Island"
+      },
+      {
+        "num": "02",
+        "title": "Transcrit",
+        "text": "Cloud, ou 100% local avec Whisper - mode avion compris. Les \"euh\" disparaissent.",
+        "slot": "GIF RÉEL - transcription en mode avion",
+        "slotNote": "modèle local + note qui se remplit"
+      },
+      {
+        "num": "03",
+        "title": "Range",
+        "text": "Titre, tags, thème : classé pendant que tu passes à autre chose.",
+        "slot": "GIF RÉEL - auto-titre + tags",
+        "slotNote": "pulse du titre, chips qui apparaissent"
+      },
+      {
+        "num": "04",
+        "title": "Retrouve",
+        "text": "\"C'était quoi cette idée de pricing ?\" - réponse sourcée, notes cliquables.",
+        "slot": "GIF RÉEL - question puis réponse + sources",
+        "slotNote": "tap sur une source, la note s'ouvre"
+      }
+    ]
+  }
+}

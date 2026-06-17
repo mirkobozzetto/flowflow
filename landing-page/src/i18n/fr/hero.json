@@ -1,0 +1,25 @@
+{
+  "nav": {
+    "product": "Le produit",
+    "agentic": "Agentique",
+    "faq": "FAQ",
+    "cta": "Télécharger"
+  },
+  "hero": {
+    "logoAlt": "FlowFlow",
+    "h1Lead": "À portée de",
+    "h1Accent": "voix",
+    "subLead": "Parle,",
+    "subStrong": "FlowFlow exécute",
+    "ctaPrimary": "Télécharger pour Mac",
+    "ctaGhost": "App Store"
+  },
+  "scene": {
+    "fig": "de la voix à la mémoire",
+    "macTitle": "FlowFlow",
+    "macSlot": "SCREENSHOT RÉEL - app Mac, notes + chat avec sources",
+    "macSlotNote": "capture native de ta fenêtre, ratio 16:9.4 (ou GIF)",
+    "iphoneSlot": "SCREENSHOT RÉEL iPhone",
+    "iphoneSlotNote": "capture native plein écran de TON iPhone, telle quelle"
+  }
+}

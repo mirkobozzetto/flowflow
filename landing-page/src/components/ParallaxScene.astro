@@ -1,0 +1,193 @@
+---
+import { useTranslations } from "../lib/i18n";
+
+interface Props {
+  lang: string;
+}
+
+const { lang } = Astro.props;
+const t = useTranslations(lang, "hero");
+---
+
+<div class="container stage">
+  <div class="orb orb-1"></div>
+  <div class="orb orb-2"></div>
+  <div class="scene" id="scene">
+    <div class="mac">
+      <div class="mac-bar">
+        <span class="dot" style="background:#ff5f57"></span>
+        <span class="dot" style="background:#febc2e"></span>
+        <span class="dot" style="background:#28c840"></span>
+        <span class="mac-title">{t("scene.macTitle")}</span>
+      </div>
+      <div class="mac-screen">
+        <div class="slot">
+          {t("scene.macSlot")}
+          <small>{t("scene.macSlotNote")}</small>
+        </div>
+      </div>
+    </div>
+    <div class="iphone">
+      <div class="iphone-screen">
+        <div class="slot small">
+          {t("scene.iphoneSlot")}
+          <small>{t("scene.iphoneSlotNote")}</small>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+  import { initParallax } from "../scripts/parallax";
+  initParallax("scene");
+</script>
+
+<style>
+  .stage {
+    perspective: 1800px;
+    margin-top: 56px;
+    position: relative;
+    height: clamp(380px, 52vw, 640px);
+  }
+  .scene {
+    position: absolute;
+    inset: 0;
+    transform-style: preserve-3d;
+    transition: transform 0.25s cubic-bezier(0.2, 0.8, 0.2, 1);
+  }
+  .mac {
+    position: absolute;
+    left: 50%;
+    top: 0;
+    width: min(860px, 86vw);
+    transform: translateX(-54%) translateZ(0px) rotateX(6deg);
+    border-radius: 16px;
+    overflow: hidden;
+    background: var(--warm-white);
+    border: 1px solid var(--stone-200);
+    box-shadow:
+      0 60px 120px -40px rgba(22, 19, 17, 0.45),
+      0 2px 0 rgba(255, 255, 255, 0.6) inset;
+  }
+  .mac-bar {
+    display: flex;
+    align-items: center;
+    gap: 7px;
+    padding: 11px 14px;
+    border-bottom: 1px solid var(--stone-200);
+    background: linear-gradient(var(--warm-white), var(--stone-50));
+  }
+  .dot {
+    width: 11px;
+    height: 11px;
+    border-radius: 99px;
+  }
+  .mac-title {
+    margin: 0 auto;
+    font-size: 11.5px;
+    color: var(--stone-400);
+    transform: translateX(-26px);
+  }
+  .mac-screen {
+    aspect-ratio: 16 / 9.4;
+  }
+  .slot {
+    width: 100%;
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 7px;
+    color: var(--stone-400);
+    font-size: 13px;
+    font-weight: 500;
+    text-align: center;
+    padding: 18px;
+    background:
+      radial-gradient(85% 120% at 50% 0%, var(--orange-50) 0%, transparent 60%),
+      var(--stone-50);
+    border: 2px dashed var(--stone-300);
+    border-radius: inherit;
+  }
+  .slot.small {
+    font-size: 11px;
+  }
+  .slot small {
+    font-size: 11px;
+    opacity: 0.85;
+  }
+  .iphone {
+    position: absolute;
+    right: max(2%, calc(50% - 480px));
+    bottom: -6%;
+    width: clamp(150px, 17vw, 225px);
+    aspect-ratio: 9 / 19.5;
+    transform: translateZ(120px) rotateX(4deg) rotate(4deg);
+    border-radius: 36px;
+    padding: 9px;
+    background: linear-gradient(160deg, #3a3531, #161311);
+    box-shadow:
+      0 50px 90px -30px rgba(22, 19, 17, 0.55),
+      inset 0 0 0 1.5px rgba(255, 255, 255, 0.16);
+  }
+  .iphone::before {
+    content: "";
+    position: absolute;
+    top: 19px;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 32%;
+    height: 22px;
+    background: #0b0908;
+    border-radius: 99px;
+    z-index: 2;
+  }
+  .iphone-screen {
+    width: 100%;
+    height: 100%;
+    border-radius: 28px;
+    overflow: hidden;
+    background: var(--warm-white);
+  }
+  @media (max-width: 680px) {
+    .iphone {
+      display: none;
+    }
+    .stage {
+      height: auto;
+      perspective: none;
+    }
+    .scene {
+      position: static;
+      transform: none !important;
+    }
+    .mac {
+      position: relative;
+      left: 0;
+      transform: none;
+      width: 100%;
+    }
+  }
+  .orb {
+    position: absolute;
+    border-radius: 50%;
+    filter: blur(60px);
+    pointer-events: none;
+  }
+  .orb-1 {
+    width: 340px;
+    height: 340px;
+    left: -80px;
+    top: 30%;
+    background: color-mix(in srgb, var(--orange) 12%, transparent);
+  }
+  .orb-2 {
+    width: 280px;
+    height: 280px;
+    right: -60px;
+    top: 5%;
+    background: color-mix(in srgb, var(--orange-bright) 10%, transparent);
+  }
+</style>

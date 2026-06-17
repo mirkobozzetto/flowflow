@@ -1,0 +1,48 @@
+---
+interface Props {
+  items: string[];
+}
+
+const { items } = Astro.props;
+---
+
+<div class="mt-32.5 overflow-hidden border-y border-stone-200 py-4.25">
+  <div class="marquee flex w-max gap-12">
+    <span class="flex items-center gap-12 whitespace-nowrap font-serif text-[21px] italic text-stone-500">
+      {
+        items.map((item) => (
+          <>
+            {item} <i class="text-[13px] not-italic text-orange">✦</i>{" "}
+          </>
+        ))
+      }
+    </span>
+    <span aria-hidden="true" class="flex items-center gap-12 whitespace-nowrap font-serif text-[21px] italic text-stone-500">
+      {
+        items.map((item) => (
+          <>
+            {item} <i class="text-[13px] not-italic text-orange">✦</i>{" "}
+          </>
+        ))
+      }
+    </span>
+  </div>
+</div>
+
+<style>
+  .marquee {
+    animation: marquee 32s linear infinite;
+  }
+
+  @keyframes marquee {
+    to {
+      transform: translateX(-50%);
+    }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .marquee {
+      animation: none;
+    }
+  }
+</style>

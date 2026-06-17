@@ -1,0 +1,83 @@
+---
+import { Image } from "astro:assets";
+import ParallaxScene from "./ParallaxScene.astro";
+import { useTranslations } from "../lib/i18n";
+import { macDownloadUrl, appStoreUrl, externalLinkAttrs } from "../lib/links";
+import logo from "../assets/logo.png";
+
+interface Props {
+  lang: string;
+}
+
+const { lang } = Astro.props;
+const t = useTranslations(lang, "hero");
+const storeUrl = appStoreUrl(lang);
+---
+
+<header class="hero pt-29 text-center relative">
+  <div class="hero-glow"></div>
+  <div class="container">
+    <Image
+      class="hero-logo reveal in w-44 h-44 rounded-[44px] mx-auto block relative shadow-[0_30px_60px_-18px_color-mix(in_srgb,var(--orange)_45%,transparent),0_4px_14px_rgba(22,19,17,0.12),inset_0_0_0_1px_rgba(255,255,255,0.4)]"
+      src={logo}
+      alt={t("hero.logoAlt")}
+      width={176}
+      height={176}
+    />
+    <h1
+      class="reveal mt-6.5 text-[clamp(50px,8.4vw,104px)] leading-[0.99] tracking-[-0.035em] font-[760] text-ink"
+      data-d="1"
+    >
+      {t("hero.h1Lead")}{" "}
+      <em class="font-serif italic font-normal text-orange-dark">
+        {t("hero.h1Accent")}
+      </em>
+    </h1>
+    <p
+      class="reveal text-[clamp(15px,1.8vw,17.5px)] text-stone-500 max-w-150 mx-auto mt-4.5"
+      data-d="2"
+    >
+      {t("hero.subLead")} <b class="text-ink font-semibold">{t("hero.subStrong")}</b>
+    </p>
+    <div class="hero-ctas reveal" data-d="3">
+      <a class="btn-primary" href={macDownloadUrl} {...externalLinkAttrs}>
+        {t("hero.ctaPrimary")}
+      </a>
+      <a class="btn-ghost" href={storeUrl} {...externalLinkAttrs}>
+        {t("hero.ctaGhost")}
+      </a>
+    </div>
+  </div>
+
+  <ParallaxScene lang={lang} />
+</header>
+
+<style>
+  .hero-glow {
+    position: absolute;
+    top: -120px;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 900px;
+    height: 700px;
+    pointer-events: none;
+    background: radial-gradient(
+      45% 45% at 50% 38%,
+      color-mix(in srgb, var(--orange) 16%, transparent) 0%,
+      transparent 70%
+    );
+    filter: blur(10px);
+  }
+  .hero-logo {
+    animation: logoFloat 5.5s ease-in-out infinite;
+  }
+  @keyframes logoFloat {
+    0%,
+    100% {
+      transform: translateY(0) rotate(-2deg);
+    }
+    50% {
+      transform: translateY(-10px) rotate(2deg);
+    }
+  }
+</style>

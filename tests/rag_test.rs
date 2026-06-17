@@ -89,14 +89,14 @@ fn test_rag_response_clone() {
 #[test]
 fn test_build_context_empty() {
     let ctx = build_context(&[]);
-    assert_eq!(ctx, "--- Notes de l'utilisateur ---\n\n");
+    assert_eq!(ctx, "--- User notes ---\n\n");
 }
 
 #[test]
 fn test_build_context_single_source() {
     let results = vec![make_result("n1", "Mon titre", "Contenu du chunk", 0.1)];
     let ctx = build_context(&results);
-    let expected = "--- Notes de l'utilisateur ---\n\n[Source 1] Note: \"Mon titre\"\nContenu du chunk\n\n";
+    let expected = "--- User notes ---\n\n[Source 1] Note: \"Mon titre\"\nContenu du chunk\n\n";
     assert_eq!(ctx, expected);
 }
 
@@ -111,7 +111,7 @@ fn test_build_context_multiple_sources_numbered() {
     assert!(ctx.contains("[Source 1] Note: \"Note A\"\nTexte A"));
     assert!(ctx.contains("[Source 2] Note: \"Note B\"\nTexte B"));
     assert!(ctx.contains("[Source 3] Note: \"Note C\"\nTexte C"));
-    assert!(ctx.starts_with("--- Notes de l'utilisateur ---"));
+    assert!(ctx.starts_with("--- User notes ---"));
 }
 
 #[test]

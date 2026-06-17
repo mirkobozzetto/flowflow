@@ -13,6 +13,9 @@ assets/tailwind.css
 .hide/
 .rnd/
 .gitnexus
+
+# Private research dossier (kept local, not committed)
+docs/research/
 generated-images/
 src/ios/plugin/.build/
 src/ios/widget/.build/

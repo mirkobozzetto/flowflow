@@ -1,0 +1,109 @@
+---
+import ShowcasePanel from "./ShowcasePanel.astro";
+
+interface Panel {
+  num: string;
+  title: string;
+  text: string;
+  slot: string;
+  slotNote: string;
+}
+
+interface Props {
+  fig: string;
+  panels: Panel[];
+}
+
+const { fig, panels } = Astro.props;
+---
+
+<section id="product" aria-label={fig}>
+  <div id="hscroll">
+    <div class="hsticky">
+      <div class="container"><div class="fig">{fig}</div></div>
+      <div class="htrack" id="htrack">
+        {panels.map((panel) => <ShowcasePanel {...panel} />)}
+      </div>
+    </div>
+  </div>
+</section>
+
+<script>
+  import "../scripts/horizontalScroll.ts";
+</script>
+
+<style>
+  #hscroll {
+    position: relative;
+    height: 360vh;
+  }
+
+  .hsticky {
+    position: sticky;
+    top: 0;
+    height: 100vh;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+  }
+
+  .htrack {
+    display: flex;
+    gap: 22px;
+    will-change: transform;
+    padding: 26px max(28px, calc((100vw - 1180px) / 2)) 0;
+  }
+
+  #hscroll[data-fallback="true"] {
+    height: auto;
+  }
+
+  #hscroll[data-fallback="true"] .hsticky {
+    position: static;
+    height: auto;
+    padding: 56px 0;
+    gap: 22px;
+  }
+
+  #hscroll[data-fallback="true"] .htrack {
+    flex-direction: column;
+    transform: none !important;
+    padding: 26px max(28px, calc((100vw - 1180px) / 2)) 0;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    #hscroll {
+      height: auto;
+    }
+
+    .hsticky {
+      position: static;
+      height: auto;
+      padding: 56px 0;
+      gap: 22px;
+    }
+
+    .htrack {
+      flex-direction: column;
+      transform: none !important;
+    }
+  }
+
+  @media (max-width: 768px) {
+    #hscroll {
+      height: auto;
+    }
+
+    .hsticky {
+      position: static;
+      height: auto;
+      padding: 40px 0;
+      gap: 22px;
+    }
+
+    .htrack {
+      flex-direction: column;
+    }
+  }
+</style>

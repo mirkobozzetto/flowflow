@@ -1,0 +1,49 @@
+{
+  "fig": "là où ça devient sérieux",
+  "h2Lead": "Du dire",
+  "h2Accent": "au faire",
+  "subLead": "FlowFlow n'est pas un carnet, c'est une",
+  "subStrong": "plateforme agentique",
+  "subTail": ": ta voix déclenche des actions, depuis ton téléphone ou ton Mac.",
+  "soonBadge": "bientôt",
+  "actions": [
+    {
+      "you": "\"Récupérer la petite à 17h\"",
+      "then": "détecté, confirmé d'un tap, dans ton Calendrier au bon créneau. Dispo aujourd'hui.",
+      "soon": false
+    },
+    {
+      "you": "\"Range ça dans le dossier client\"",
+      "then": "titré, taggé, classé dans le bon thème, indexé pour le chat. Dispo aujourd'hui.",
+      "soon": false
+    },
+    {
+      "you": "\"Envoie le récap au client\"",
+      "then": "ton workflow n8n part avec la note en payload : email, WhatsApp, CRM, ce que tu veux.",
+      "soon": true
+    },
+    {
+      "you": "\"Lance ma routine du lundi\"",
+      "then": "des outils installables depuis la marketplace, qui s'exécutent à la voix. Ouvert aux créateurs.",
+      "soon": true
+    }
+  ],
+  "connectorsLabel": "Connecteurs",
+  "connectors": [
+    { "name": "Calendrier", "icon": "calendar", "live": true },
+    { "name": "Rappels", "icon": "reminders", "live": true },
+    { "name": "n8n", "icon": "n8n", "live": false },
+    { "name": "WhatsApp", "icon": "whatsapp", "live": false },
+    { "name": "Email", "icon": "email", "live": false },
+    { "name": "Webhooks", "icon": "webhooks", "live": false },
+    { "name": "Marketplace d'outils", "icon": "marketplace", "live": false }
+  ],
+  "capture": {
+    "title": "Sois là au lancement de la marketplace",
+    "blurb": "Une seule annonce, zéro spam. Promis.",
+    "placeholder": "ton@email.com",
+    "inputLabel": "Email",
+    "submit": "Me prévenir",
+    "ok": "C'est noté. À bientôt."
+  }
+}

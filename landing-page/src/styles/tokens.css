@@ -1,0 +1,21 @@
+:root {
+  --warm-white: #fdfcfb;
+  --stone-50: #fafaf9;
+  --stone-100: #f5f5f4;
+  --stone-200: #e7e5e4;
+  --stone-300: #d6d3d1;
+  --stone-400: #a8a29e;
+  --stone-500: #78716c;
+  --stone-600: #57534e;
+  --stone-700: #44403c;
+  --stone-900: #1c1917;
+  --ink: #161311;
+  --ink-2: #211c19;
+  --orange: oklch(0.6 0.22 50);
+  --orange-bright: oklch(0.68 0.21 50);
+  --orange-dark: oklch(0.48 0.16 50);
+  --orange-50: oklch(0.97 0.04 50);
+  --orange-100: oklch(0.92 0.07 50);
+  --serif: "Instrument Serif", Georgia, serif;
+  --sans: "Clash Grotesk", -apple-system, BlinkMacSystemFont, sans-serif;
+}
