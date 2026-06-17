@@ -16,6 +16,7 @@ pub struct WebResult {
     pub title: String,
     pub url: String,
     pub snippet: String,
+    pub published_date: Option<String>,
 }
 
 #[derive(Deserialize)]
@@ -32,6 +33,8 @@ struct ExaResult {
     url: Option<String>,
     #[serde(default)]
     highlights: Vec<String>,
+    #[serde(default, rename = "publishedDate")]
+    published_date: Option<String>,
 }
 
 pub async fn exa_search(query: &str, api_key: &str) -> Vec<WebResult> {
@@ -82,6 +85,7 @@ pub async fn exa_search(query: &str, api_key: &str) -> Vec<WebResult> {
             title: r.title.unwrap_or_default(),
             url: r.url.unwrap_or_default(),
             snippet: r.highlights.into_iter().next().unwrap_or_default(),
+            published_date: r.published_date,
         })
         .collect()
 }

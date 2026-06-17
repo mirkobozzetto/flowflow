@@ -22,6 +22,13 @@ pub struct Chunk {
     pub created_at: String,
 }
 
+#[derive(Clone, Copy, PartialEq, Eq, Debug, Default)]
+pub enum SourceType {
+    #[default]
+    Local,
+    Web,
+}
+
 #[derive(Clone)]
 pub struct SearchResult {
     pub chunk_text: String,
@@ -29,6 +36,8 @@ pub struct SearchResult {
     pub title: String,
     pub distance: f32,
     pub created_at: String,
+    pub source_type: SourceType,
+    pub url: Option<String>,
 }
 
 pub fn vectordb_path() -> String {
@@ -244,6 +253,8 @@ impl VectorStore {
                     created_at: date_col
                         .map(|c| c.value(i).to_string())
                         .unwrap_or_default(),
+                    source_type: SourceType::Local,
+                    url: None,
                 });
             }
         }
@@ -356,6 +367,8 @@ impl VectorStore {
                     created_at: date_col
                         .map(|c| c.value(i).to_string())
                         .unwrap_or_default(),
+                    source_type: SourceType::Local,
+                    url: None,
                 });
             }
         }
