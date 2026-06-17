@@ -10,6 +10,8 @@ pub fn IntelligenceSettings() -> Element {
     let app: AppState = use_context();
     let mut openai_key =
         use_signal(|| db().get_setting("openai_api_key").unwrap_or_default());
+    let mut exa_key =
+        use_signal(|| db().get_setting("exa_api_key").unwrap_or_default());
     let mut max_sources = use_signal(|| {
         db().get_setting("rag_max_sources")
             .and_then(|v| v.parse::<i64>().ok())
@@ -36,6 +38,19 @@ pub fn IntelligenceSettings() -> Element {
             }
 
             h2 { class: "text-lg font-semibold text-stone-900 pt-2", {t(&lang, "settings-search-title")} }
+            div {
+                label { class: "block text-sm font-medium text-stone-700 mb-1", {t(&lang, "settings-exa-label")} }
+                input {
+                    class: crate::ui::kit::INPUT,
+                    r#type: "password",
+                    placeholder: t(&lang, "settings-exa-placeholder"),
+                    value: "{exa_key}",
+                    oninput: move |evt| {
+                        exa_key.set(evt.value());
+                        saved.set(false);
+                    },
+                }
+            }
             div {
                 div { class: "flex justify-between items-center mb-1",
                     label { class: "text-sm font-medium text-stone-700",
@@ -70,6 +85,10 @@ pub fn IntelligenceSettings() -> Element {
                     let ok = openai_key().trim().to_string();
                     if !ok.is_empty() {
                         let _ = db().set_setting("openai_api_key", &ok);
+                    }
+                    let ek = exa_key().trim().to_string();
+                    if !ek.is_empty() {
+                        let _ = db().set_setting("exa_api_key", &ek);
                     }
                     let _ = db().set_setting(
                         "rag_max_sources",

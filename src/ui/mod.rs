@@ -128,14 +128,21 @@ pub fn App() -> Element {
 
     // ponytail: temporary spike trigger for issue #43, delete after device validation
     #[cfg(debug_assertions)]
-    use_future(|| async move {
-        let key = crate::services::web_search::spike_key();
-        let results = crate::services::web_search::exa_search(
-            "latest rust async runtime news",
-            &key,
-        )
-        .await;
-        eprintln!("[exa spike #43] {} results: {:#?}", results.len(), results);
+    use_future(move || {
+        let db = _db();
+        async move {
+            let key = crate::services::web_search::exa_api_key(&db);
+            let results = crate::services::web_search::exa_search(
+                "latest rust async runtime news",
+                &key,
+            )
+            .await;
+            eprintln!(
+                "[exa spike #43] {} results: {:#?}",
+                results.len(),
+                results
+            );
+        }
     });
 
     use_future(move || {
