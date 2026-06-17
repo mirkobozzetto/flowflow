@@ -102,7 +102,7 @@ async fn present_picker(
     let delegate = PickerDelegate::new(mtm);
     picker.setDelegate(Some(ProtocolObject::from_ref(delegate.deref())));
     picker.setAllowsMultipleSelection(false);
-    unsafe {
+    {
         let docs = super::documents_dir();
         let dir_url = NSURL::fileURLWithPath(&NSString::from_str(
             &docs.to_string_lossy(),
