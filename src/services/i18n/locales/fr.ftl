@@ -158,6 +158,7 @@ chat-transcript-assistant = Assistant
 
 chat-empty-title = Chat avec tes notes
 chat-empty-hint = Pose une question, je cherche dans tes notes.
+note-chat-entry = Ouvrir le chat
 
 chat-tool-search = Recherche dans les notes...
 chat-tool-create = Création de la note...

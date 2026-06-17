@@ -27,11 +27,12 @@ pub fn ChatView() -> Element {
         use_signal(|| initial_conv_id.clone());
 
     let scope_init = use_signal(|| {
-        let restored = initial_conv_id
-            .as_deref()
-            .and_then(|cid| db.peek().chat_scope(cid))
-            .filter(|fid| db.peek().get_folder(fid).ok().flatten().is_some());
-        app.chat_scope_folder_id.set(restored);
+        if let Some(cid) = initial_conv_id.as_deref() {
+            let restored = db.peek().chat_scope(cid).filter(|fid| {
+                db.peek().get_folder(fid).ok().flatten().is_some()
+            });
+            app.chat_scope_folder_id.set(restored);
+        }
         true
     });
     let _ = scope_init();
