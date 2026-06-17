@@ -3,8 +3,13 @@ use std::time::Duration;
 
 const EXA_URL: &str = "https://api.exa.ai/search";
 
-// ponytail: spike key, move to Settings/SQLite in #44
-pub const SPIKE_KEY: &str = "PASTE_YOUR_EXA_API_KEY_HERE";
+// ponytail: env key for the spike, moves to Settings/SQLite in #44
+pub fn spike_key() -> String {
+    std::env::var("EXA_API_KEY")
+        .ok()
+        .or_else(|| option_env!("EXA_API_KEY").map(String::from))
+        .unwrap_or_default()
+}
 
 #[derive(Debug, Clone)]
 pub struct WebResult {
