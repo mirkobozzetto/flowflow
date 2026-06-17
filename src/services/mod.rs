@@ -12,6 +12,7 @@ pub mod sync;
 pub mod tools;
 pub mod transcription;
 pub mod vectordb;
+pub mod web_search;
 
 pub use audio::{AudioRecorder, RecordingState};
 pub use embed::{

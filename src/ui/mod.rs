@@ -126,6 +126,17 @@ pub fn App() -> Element {
         picker_kb_commit: Signal::new(0),
     });
 
+    // ponytail: temporary spike trigger for issue #43, delete after device validation
+    #[cfg(debug_assertions)]
+    use_future(|| async move {
+        let results = crate::services::web_search::exa_search(
+            "latest rust async runtime news",
+            crate::services::web_search::SPIKE_KEY,
+        )
+        .await;
+        eprintln!("[exa spike #43] {} results: {:#?}", results.len(), results);
+    });
+
     use_future(move || {
         let manager = manager.clone();
         let db = _db();
