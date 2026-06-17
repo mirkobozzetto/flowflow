@@ -1,0 +1,4 @@
+# Keep GitHub's language bar focused on the Rust app.
+# The marketing site and HTML mockups are not the product code.
+landing-page/** linguist-vendored
+docs/mockups/** linguist-vendored

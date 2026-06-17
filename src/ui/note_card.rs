@@ -1,7 +1,7 @@
 use crate::db::Database;
 use crate::models::Note;
 use crate::services::i18n::t;
-use crate::ui::icons::IconBell;
+use crate::ui::icons::{IconArrowUpRight, IconBell};
 use crate::ui::{AppState, View};
 use dioxus::prelude::*;
 use std::sync::Arc;
@@ -55,6 +55,9 @@ pub fn NoteCard(note: Note) -> Element {
             div { class: "flex justify-between items-center mb-2",
                 h3 { class: "font-semibold text-base text-stone-900", "{title}" }
                 div { class: "flex items-center gap-1.5 shrink-0",
+                    if note.sources_json.is_some() {
+                        span { class: "text-ios-orange-dark", IconArrowUpRight { size: 14 } }
+                    }
                     if has_reminder {
                         span { class: "text-ios-orange-dark", IconBell { size: 14 } }
                     }

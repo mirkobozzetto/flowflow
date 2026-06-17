@@ -6,7 +6,8 @@ use crate::models::{
 use crate::services::audio::RecordingState;
 use crate::services::embed::{embed_attachment, embed_note};
 use crate::services::i18n::{t, t_args};
-use crate::ui::icons::{IconCheck, IconCopy};
+use crate::ui::chat::md_to_html;
+use crate::ui::icons::{IconCheck, IconCopy, IconPencil};
 use crate::ui::notes::attachments::AttachmentSection;
 use crate::ui::notes::audio_section::{AudioJobBanner, AudioSection};
 use crate::ui::notes::dates::{format_absolute_short, format_relative_date};
@@ -72,6 +73,7 @@ pub fn NoteDetail() -> Element {
 
     let mut title = use_signal(|| initial_title.clone());
     let mut content = use_signal(|| initial_content.clone());
+    let mut editing = use_signal(|| is_new);
     let mut tags: Signal<Vec<String>> = use_signal(|| initial_tags.clone());
     let mut base_title = use_signal(|| initial_title.clone());
     let mut base_content = use_signal(|| initial_content.clone());
@@ -498,6 +500,7 @@ pub fn NoteDetail() -> Element {
         .map(|n| format_absolute_short(&n.created_at, &lang))
         .unwrap_or_default();
 
+    let note_sources_json = note.as_ref().and_then(|n| n.sources_json.clone());
     let show_menu = (app.show_note_menu)();
     let title_placeholder = t(&lang, "note-title-placeholder");
     let content_placeholder = t(&lang, "note-content-placeholder");
@@ -540,19 +543,19 @@ pub fn NoteDetail() -> Element {
                 }
             }
             div { class: "pt-2 pb-3",
-                div { class: "inline-block relative",
+                div { class: "relative w-full",
                     span {
-                        class: "text-xl font-semibold invisible whitespace-pre py-1.5 px-3 border border-transparent",
+                        class: "block w-full text-xl font-semibold invisible whitespace-pre-wrap break-words py-1.5 px-3 border border-transparent",
                         {
                             let t_disp = if title().is_empty() { title_placeholder.clone() } else { title() };
-                            rsx! { "{t_disp}" }
+                            rsx! { "{t_disp} " }
                         }
                     }
-                    input {
+                    textarea {
                         class: if generating_title() {
-                            "absolute inset-0 text-xl font-semibold outline-none py-1.5 px-3 border border-stone-200/60 rounded-lg text-stone-400 bg-white/25 animate-pulse"
+                            "absolute inset-0 w-full h-full resize-none overflow-hidden whitespace-pre-wrap break-words text-xl font-semibold outline-none py-1.5 px-3 border border-stone-200/60 rounded-lg text-stone-400 bg-white/25 animate-pulse"
                         } else {
-                            "absolute inset-0 text-xl font-semibold outline-none py-1.5 px-3 border border-stone-200/60 rounded-lg text-stone-900 bg-white/25 focus:border-ios-orange-dark/40 transition-colors duration-150"
+                            "absolute inset-0 w-full h-full resize-none overflow-hidden whitespace-pre-wrap break-words text-xl font-semibold outline-none py-1.5 px-3 border border-stone-200/60 rounded-lg text-stone-900 bg-white/25 focus:border-ios-orange-dark/40 transition-colors duration-150"
                         },
                         placeholder: "{title_placeholder}",
                         value: "{title}",
@@ -572,17 +575,40 @@ pub fn NoteDetail() -> Element {
             div { class: "border-t border-stone-100 pt-3 pb-2",
                 TagsSection { tags, tag_input, tagging, content }
             }
-            textarea {
-                class: if is_transcribing {
-                    "w-full min-h-[300px] border border-ios-orange/30 rounded-xl p-3 mt-3 text-sm resize-none font-sans outline-none text-stone-900"
-                } else {
-                    "w-full min-h-[300px] border border-stone-200 rounded-xl p-3 mt-3 text-sm resize-none font-sans outline-none text-stone-900 focus:border-stone-300 transition-colors duration-150"
-                },
-                placeholder: if is_transcribing { transcribing_placeholder.as_str() } else { content_placeholder.as_str() },
-                value: "{content}",
-                oninput: move |evt| content.set(evt.value()),
+            if editing() || is_transcribing {
+                textarea {
+                    class: if is_transcribing {
+                        "w-full min-h-[300px] border border-ios-orange/30 rounded-xl p-3 mt-3 text-sm resize-none font-sans outline-none text-stone-900"
+                    } else {
+                        "w-full min-h-[300px] border border-stone-200 rounded-xl p-3 mt-3 text-sm resize-none font-sans outline-none text-stone-900 focus:border-stone-300 transition-colors duration-150"
+                    },
+                    placeholder: if is_transcribing { transcribing_placeholder.as_str() } else { content_placeholder.as_str() },
+                    value: "{content}",
+                    oninput: move |evt| content.set(evt.value()),
+                }
+            } else {
+                div {
+                    class: "w-full min-h-[300px] p-3 mt-3 text-sm prose prose-sm max-w-none text-stone-900 break-words overflow-x-hidden [&_*]:[overflow-wrap:anywhere] [&_pre]:whitespace-pre-wrap [&_pre]:break-words",
+                    onclick: move |_| editing.set(true),
+                    if content().trim().is_empty() {
+                        span { class: "text-stone-400", "{content_placeholder}" }
+                    } else {
+                        div { dangerous_inner_html: md_to_html(&content()) }
+                    }
+                }
             }
-            div { class: "flex justify-end mt-1",
+            div { class: "flex justify-end gap-3 mt-1",
+                button {
+                    class: "flex items-center gap-1 text-xs text-stone-400 active:text-stone-600 hover:text-stone-600 transition-colors duration-150",
+                    onclick: move |_| editing.set(!editing()),
+                    if editing() {
+                        IconCheck { size: 12 }
+                        {t(&lang, "note-preview")}
+                    } else {
+                        IconPencil { size: 12 }
+                        {t(&lang, "note-edit")}
+                    }
+                }
                 button {
                     class: if note_copied() {
                         "flex items-center gap-1 text-xs text-ios-green transition-colors duration-150"
@@ -618,6 +644,9 @@ pub fn NoteDetail() -> Element {
                         {t(&lang, "chat-copy")}
                     }
                 }
+            }
+            crate::ui::chat::NoteWebSources {
+                sources_json: note_sources_json.clone(),
             }
             ReminderSuggestions {
                 local_note_id,

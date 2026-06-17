@@ -24,6 +24,7 @@ pub(super) const KINDS: &[KindSpec] = &[
             "title",
             "content",
             "tags",
+            "sources_json",
             "created_at",
             "modified_at",
         ],

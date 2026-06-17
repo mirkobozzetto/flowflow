@@ -1,8 +1,135 @@
 use crate::db::Database;
+use crate::models::{generate_auto_title, NewTextNote, UpdateNote};
 use crate::services::rag;
 use crate::ui::chat::models::{tool_label, ChatMsg, ChatSource};
 use dioxus::prelude::*;
 use std::sync::Arc;
+
+pub fn serialize_sources(sources: &[ChatSource]) -> Option<String> {
+    if sources.is_empty() {
+        return None;
+    }
+    let data: Vec<serde_json::Value> = sources
+        .iter()
+        .map(|s| {
+            serde_json::json!({
+                "note_id": s.note_id,
+                "title": s.title,
+                "chunk_text": s.chunk_text,
+                "distance": s.distance,
+                "created_at": s.created_at,
+                "url": s.url,
+            })
+        })
+        .collect();
+    Some(serde_json::to_string(&data).unwrap_or_default())
+}
+
+pub fn parse_sources(json: &str) -> Vec<ChatSource> {
+    serde_json::from_str::<Vec<serde_json::Value>>(json)
+        .ok()
+        .map(|arr| {
+            arr.into_iter()
+                .map(|v| ChatSource {
+                    note_id: v["note_id"]
+                        .as_str()
+                        .unwrap_or_default()
+                        .to_string(),
+                    title: v["title"].as_str().unwrap_or_default().to_string(),
+                    chunk_text: v["chunk_text"]
+                        .as_str()
+                        .unwrap_or_default()
+                        .to_string(),
+                    distance: v["distance"].as_f64().unwrap_or(0.0) as f32,
+                    created_at: v["created_at"]
+                        .as_str()
+                        .unwrap_or_default()
+                        .to_string(),
+                    url: v["url"].as_str().map(String::from),
+                })
+                .collect()
+        })
+        .unwrap_or_default()
+}
+
+pub fn save_as_note(
+    db: &Database,
+    folder_id: Option<&str>,
+    content: String,
+    tags: Vec<String>,
+    web_sources: &[ChatSource],
+    lang: &str,
+) -> Result<String, String> {
+    if let Some(existing) = find_saved_note(db, folder_id, &content) {
+        return Ok(existing);
+    }
+    let note = db.create_text_note(&NewTextNote {
+        title: Some(generate_auto_title(lang)),
+        content,
+        tags,
+    })?;
+    if let Some(fid) = folder_id {
+        let _ = db.add_note_to_folder(&note.id, fid);
+    }
+    if let Some(json) = serialize_sources(web_sources) {
+        let _ = db.set_note_sources(&note.id, Some(&json));
+    }
+    let title_for_embed = note.title.clone().unwrap_or_default();
+    crate::services::embed::embed_note(
+        note.id.clone(),
+        title_for_embed,
+        note.content.clone(),
+        note.tags.clone(),
+        note.created_at.clone(),
+    );
+    generate_note_title_bg(
+        note.id.clone(),
+        note.content.clone(),
+        lang.to_string(),
+    );
+    Ok(note.id)
+}
+
+pub fn generate_note_title_bg(note_id: String, content: String, lang: String) {
+    std::thread::spawn(move || {
+        let Ok(rt) = tokio::runtime::Runtime::new() else {
+            return;
+        };
+        rt.block_on(async move {
+            let Ok(db) = Database::open() else {
+                return;
+            };
+            let Ok(ai) = crate::services::llm::LlmClient::from_db(&db) else {
+                return;
+            };
+            if let Ok(title) = ai.generate_title(&content, &lang).await {
+                let _ = db.update_note(
+                    &note_id,
+                    &UpdateNote {
+                        title: Some(title),
+                        content: None,
+                        tags: None,
+                    },
+                );
+            }
+        });
+    });
+}
+
+pub fn find_saved_note(
+    db: &Database,
+    folder_id: Option<&str>,
+    content: &str,
+) -> Option<String> {
+    let notes = match folder_id {
+        Some(fid) => db.list_notes_in_folder(fid).ok()?,
+        None => db.list_notes().ok()?,
+    };
+    notes
+        .into_iter()
+        .find(|n| n.content == content)
+        .map(|n| n.id)
+}
 
 pub fn md_to_html(md: &str) -> String {
     use pulldown_cmark::{html, Parser};
@@ -70,24 +197,7 @@ pub fn send_question(
                     })
                     .collect();
 
-                let sources_json = if sources.is_empty() {
-                    None
-                } else {
-                    let src_data: Vec<serde_json::Value> = sources
-                        .iter()
-                        .map(|s| {
-                            serde_json::json!({
-                                "note_id": s.note_id,
-                                "title": s.title,
-                                "chunk_text": s.chunk_text,
-                                "distance": s.distance,
-                                "created_at": s.created_at,
-                                "url": s.url,
-                            })
-                        })
-                        .collect();
-                    Some(serde_json::to_string(&src_data).unwrap_or_default())
-                };
+                let sources_json = serialize_sources(&sources);
 
                 if let Some(ref cid) = conv_signal() {
                     let _ = db().add_message(
@@ -137,35 +247,7 @@ pub fn load_messages_from_db(
                 let sources = m
                     .sources_json
                     .as_deref()
-                    .and_then(|json| {
-                        serde_json::from_str::<Vec<serde_json::Value>>(json)
-                            .ok()
-                    })
-                    .map(|arr| {
-                        arr.into_iter()
-                            .map(|v| ChatSource {
-                                note_id: v["note_id"]
-                                    .as_str()
-                                    .unwrap_or_default()
-                                    .to_string(),
-                                title: v["title"]
-                                    .as_str()
-                                    .unwrap_or_default()
-                                    .to_string(),
-                                chunk_text: v["chunk_text"]
-                                    .as_str()
-                                    .unwrap_or_default()
-                                    .to_string(),
-                                distance: v["distance"].as_f64().unwrap_or(0.0)
-                                    as f32,
-                                created_at: v["created_at"]
-                                    .as_str()
-                                    .unwrap_or_default()
-                                    .to_string(),
-                                url: v["url"].as_str().map(String::from),
-                            })
-                            .collect()
-                    })
+                    .map(parse_sources)
                     .unwrap_or_default();
                 ChatMsg::Bot {
                     text: m.content,

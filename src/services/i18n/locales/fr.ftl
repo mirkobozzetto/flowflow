@@ -147,9 +147,14 @@ chat-menu-delete-warning = Cette action est irréversible.
 chat-menu-delete = Supprimer
 chat-menu-rename-action = Renommer
 chat-menu-delete-chat = Supprimer le chat
+chat-menu-save-thread = Sauver le chat en note
 
 chat-copy = Copier
 chat-copied = Copié
+chat-save-note = Sauver
+chat-saved = Sauvé
+chat-transcript-user = Vous
+chat-transcript-assistant = Assistant
 
 chat-empty-title = Chat avec tes notes
 chat-empty-hint = Pose une question, je cherche dans tes notes.
@@ -181,6 +186,8 @@ note-title-placeholder = Titre
 note-updated-from-peer = Note mise à jour depuis un autre appareil. Touchez pour recharger.
 note-created-on = Créé le { $date }
 note-content-placeholder = Contenu de la note...
+note-edit = Éditer
+note-preview = Aperçu
 note-transcribing-placeholder = Transcription en cours...
 note-transcribing-short = Transcription...
 note-transcribe-action = Transcrire
