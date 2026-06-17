@@ -1,0 +1,55 @@
+# FlowFlow history
+
+> Everything that shipped, oldest first. One block per milestone, updated with each significant merged PR.
+
+## 2026-05 - Foundations (Tracks A-D)
+
+Dioxus iOS scaffold, mic capture (cpal + hound, WAV), Soniox REST transcription, SQLite storage, Tailwind V4 UI. The 5-layer architecture (models / db / services / platform / ui) lands here.
+
+## 2026-05 - RAG and chat (Track E)
+
+OpenAI embeddings + LanceDB on device, auto-embed on save, in-app Settings for API keys, tag chips with LLM auto-gen, chat UI with RAG pipeline and source citations, persistent conversations with sidebar tabs.
+
+## 2026-05 - Agent and providers (Track F)
+
+Migration to rig-core: agent tools (search_notes, create_note, summarize_folder), unified reqwest, Anthropic as second chat provider.
+
+## 2026-05 - Document attachments (Track G)
+
+SQLite V3 migration, attachment cards + modal viewer, native iOS file picker, PDF (pdf-extract, then PDFKit with OCR) and DOCX (zip + quick-xml) parsing, auto-embed of imported documents.
+
+## 2026-05 - Architecture and audio rewrite (PR #3, #4)
+
+SRP refactoring (6 files -> 22 then 64 modules), audio player (AVAudioPlayer FFI, V4 migration, WAV lifecycle), recording UX fixes, orange rebrand (#E85D0A) and gear icon, EUPL 1.2.
+
+## 2026-05 - Multi-audio and i18n
+
+V5/V6 migrations, multiple audios per note, chat scope per folder, smart mic routing, FR/EN i18n (fluent, 96+ keys, system-language detection).
+
+## 2026-06 - App Store v1.0
+
+Release pipeline (make appstore: distribution signing, IPA, validator green), CFBundleVersion auto-bump, screenshots, AI consent screen, review API keys flow. v1.0 approved and live (non-EU; EU pending DSA trader verification). See [guides/appstore.md](guides/appstore.md).
+
+## 2026-06 - Smart reminders (RFC 0003)
+
+LLM detection of reminder intents in notes ("pick up the kids at 5pm"), EventKit integration, one-tap confirm, recurrence basics. Device-validated.
+
+## 2026-06 - Multidevice sync (RFC 0004)
+
+Encrypted LAN P2P sync iPhone <-> Mac: Noise XXpsk3 over TCP, pairing by code/QR, version-vector merge, tombstones + GC, full-state reconcile, conflict policy, sync triggers, at-rest protection. SQLite V10. 200+ tests. See [rfcs/0004-multidevice-sync/](rfcs/0004-multidevice-sync/).
+
+## 2026-06 - Desktop app hardening (PR #20)
+
+Mac build without the iOS widget, durable data dir in Application Support.
+
+## 2026-06 - Sync realtime UX (PRD sync-realtime-ux, issues #22 #23 #24)
+
+Real-time UI refresh after inbound sync (< 1 s, global data-version signal), edit-collision banner with zero keystroke loss, full safe-area support (viewport-fit=cover, top + bottom insets), QR pairing via the flowflow:// URL scheme (camera scan -> prefilled one-tap confirm, cold-start included). Device-validated. See [prd/sync-realtime-ux/](prd/sync-realtime-ux/).
+
+## 2026-06 - Backup, export & restore (RFC 0001, issue #33)
+
+One-tap export of all data as a single archive (scrubbed SQLite snapshot with vectors as BLOBs + WAV files + CRC manifest) via the iOS share sheet or macOS save dialog; API keys, Noise keys and pairings never leave the device. Import = read-only validation, then a crash-safe atomic swap at next cold launch (fault-injection tested at every state), vector index rebuilt offline. Sync protocol v3 reconverges without resurrections: restored flag + floor exemption + HLC guard + confirmed re-pairing. 249 tests. See [rfcs/0001-data-backup-export/](rfcs/0001-data-backup-export/).
+
+## 2026-06 - Web search in chat (Exa + RRF, issues #43-#47)
+
+Optional live web search fused with the local RAG. A Settings toggle runs an Exa web search in parallel (`tokio::join!`) with the LanceDB retrieval; Reciprocal Rank Fusion (Cormack et al., SIGIR 2009 - fuse on rank, not score) merges the two non-comparable score spaces (cosine distance vs Exa score) into one ranked list (K=60, local weight 1.2 / web 1.0). Web off keeps the existing path byte-for-byte; an Exa failure degrades to local-only and never breaks the answer; latency is max(web, local). Web sources render in their own section and open in the default browser (UIApplication.openURL on iOS, `open` on macOS), and notes keep their theme on open. Also fixed a UTF-8 char-boundary panic when truncating accented text in rerank and note previews. Shipped as #43 (spike + iOS cross-compile), #44 (Exa key in Settings), #45 (RRF fusion), #46 (toggle), #47 (web sources UI).

@@ -33,9 +33,7 @@ secrets/
 .Dioxus.toml.ios
 dist/
 
-# ship: ephemeral execution ledgers (contract/trace/bundle)
-.claude/output/ship/
-
-# Claude Code agent skills (local tooling, not app code)
-.claude/skills/
+# Local tooling, not app code, not shared (Claude Code, agents, editor)
+.claude/
 .agents/
+.zed/

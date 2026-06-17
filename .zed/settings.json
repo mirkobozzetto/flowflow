@@ -1,7 +1,0 @@
-{
-  "languages": {
-    "Astro": {
-      "language_servers": ["astro-language-server", "eslint", "!biome", "..."]
-    }
-  }
-}
