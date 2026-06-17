@@ -30,6 +30,7 @@ No manual searching. No folders to dig through. Just talk, and find it later.
 - **Multi-device sync** - encrypted LAN P2P between iPhone and Mac (Noise protocol, no server, no cloud), QR pairing, real-time UI refresh, zero data loss by design
 - **Backup & restore** - export everything (notes, audio, vectors) as one archive via the share sheet, API keys and pairing secrets never leave the device; import is a validated, crash-safe atomic replace, and sync reconverges without resurrecting deleted notes
 - **RAG chat** - powered by [rig](https://github.com/0xPlaygrounds/rig): ask questions about your notes, get answers with tappable sources; hybrid search (BM25 + vector + RRF + LLM rerank), temporal queries, agent tools, and a per-conversation theme scope that is remembered when you come back
+- **Web search in chat** - flip a toggle and the chat queries the web via [Exa](https://exa.ai) in parallel with your notes; the two ranked lists are fused by Reciprocal Rank Fusion (rank, not score), so fresh web facts and your own notes land in one answer, with web sources in their own section that open in your browser
 - **Smart reminders** - notes like "pick up the kids at 5pm" become iOS reminders, detected by LLM with one-tap confirm; reminder chips open Calendar on Mac too
 - **AI organization** - auto-title while you write, single-word auto-tags, themes with hierarchy, searchable chats
 - **Document import** - PDF (native OCR for scans), DOCX, TXT, MD, CSV via the native pickers on iOS and macOS, auto-embedded for chat
@@ -49,6 +50,7 @@ No manual searching. No folders to dig through. Just talk, and find it later.
 | Styling       | [Tailwind CSS V4](https://tailwindcss.com)                                                     |
 | LLM           | [rig-core 0.36](https://github.com/0xPlaygrounds/rig) (OpenAI, Anthropic)                      |
 | Embeddings    | OpenAI text-embedding-3-small (1536 dims)                                                      |
+| Web search    | [Exa](https://exa.ai) REST API (optional, toggle in Settings)                                  |
 | Vector DB     | [LanceDB 0.27.2](https://lancedb.com) (local, cosine)                                          |
 | Database      | SQLite ([rusqlite](https://github.com/rusqlite/rusqlite) 0.34, bundled, WAL mode)              |
 | Sync          | LAN P2P, [snow](https://github.com/mcginty/snow) (Noise XXpsk3), version vectors, tombstones   |
@@ -63,8 +65,8 @@ No manual searching. No folders to dig through. Just talk, and find it later.
 ```
 Talk → Record → Transcribe (cloud or on-device) → Clean fillers → Auto-embed → Store → AI title
 
-Later: Ask → Embed query → Hybrid search (BM25 + vector + RRF)
-     → LLM rerank → Temporal boost → Tag-enriched context → Agent with tools → Answer with sources
+Later: Ask → Embed query → Hybrid search (BM25 + vector)  ∥  Web search (Exa, when enabled)
+     → RRF fusion → LLM rerank → Temporal boost → Tag-enriched context → Agent with tools → Answer with sources
 
 Sync:  Save → debounced trigger → Noise-encrypted LAN session → version-vector merge → UI refresh < 1 s
 

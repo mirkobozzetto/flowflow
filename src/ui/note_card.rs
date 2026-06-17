@@ -18,8 +18,11 @@ pub fn NoteCard(note: Note) -> Element {
         .clone()
         .unwrap_or_else(|| t(&lang, "note-card-untitled"));
 
-    let preview = if note.content.len() > 120 {
-        format!("{}...", &note.content[..120])
+    let preview = if note.content.chars().count() > 120 {
+        format!(
+            "{}...",
+            crate::services::ai::char_prefix(&note.content, 120)
+        )
     } else {
         note.content.clone()
     };

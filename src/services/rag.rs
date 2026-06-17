@@ -1,11 +1,14 @@
 use crate::db::Database;
 use crate::services::constants::{
-    DEFAULT_RAG_MAX_SOURCES, RAG_AGENT_SYSTEM_PROMPT, RAG_DISTANCE_THRESHOLD,
-    RAG_FINAL_K, RAG_INITIAL_K, RERANK_PROMPT, TEMPORAL_DETECT_PROMPT,
+    DEFAULT_RAG_MAX_SOURCES, RAG_AGENT_SYSTEM_PROMPT,
+    RAG_AGENT_WEB_SYSTEM_PROMPT, RAG_DISTANCE_THRESHOLD, RAG_FINAL_K,
+    RAG_INITIAL_K, RERANK_PROMPT, RRF_K, RRF_LOCAL_WEIGHT, RRF_WEB_WEIGHT,
+    TEMPORAL_DETECT_PROMPT,
 };
 use crate::services::llm::LlmClient;
 use crate::services::tools::{prompt_agent_with_tools, ToolEvent};
-use crate::services::vectordb::{SearchResult, VectorStore};
+use crate::services::vectordb::{SearchResult, SourceType, VectorStore};
+use crate::services::web_search::WebResult;
 use chrono::{Datelike, Local, NaiveDate};
 use std::collections::HashSet;
 use std::sync::Arc;
@@ -18,12 +21,50 @@ pub struct RagSource {
     pub chunk_text: String,
     pub distance: f32,
     pub created_at: String,
+    pub source_type: SourceType,
+    pub url: Option<String>,
 }
 
 #[derive(Clone)]
 pub struct RagResponse {
     pub answer: String,
     pub sources: Vec<RagSource>,
+}
+
+fn web_to_search_result(w: WebResult) -> SearchResult {
+    SearchResult {
+        chunk_text: w.snippet,
+        note_id: String::new(),
+        title: w.title,
+        distance: 0.0,
+        created_at: w.published_date.unwrap_or_default(),
+        source_type: SourceType::Web,
+        url: Some(w.url),
+    }
+}
+
+pub fn rrf_merge(
+    local: Vec<SearchResult>,
+    web: Vec<WebResult>,
+    k: f32,
+    local_weight: f32,
+    web_weight: f32,
+) -> Vec<SearchResult> {
+    let mut scored: Vec<(SearchResult, f32)> =
+        Vec::with_capacity(local.len() + web.len());
+    for (rank, r) in local.into_iter().enumerate() {
+        scored.push((r, local_weight / (k + rank as f32 + 1.0)));
+    }
+    for (rank, w) in web.into_iter().enumerate() {
+        scored.push((
+            web_to_search_result(w),
+            web_weight / (k + rank as f32 + 1.0),
+        ));
+    }
+    scored.sort_by(|a, b| {
+        b.1.partial_cmp(&a.1).unwrap_or(std::cmp::Ordering::Equal)
+    });
+    scored.into_iter().map(|(r, _)| r).collect()
 }
 
 pub fn build_context(results: &[SearchResult]) -> String {
@@ -62,8 +103,8 @@ async fn llm_rerank(
         .iter()
         .enumerate()
         .map(|(i, r)| {
-            let preview_len = 200.min(r.chunk_text.len());
-            format!("[{}] {}: {}", i + 1, r.title, &r.chunk_text[..preview_len])
+            let preview = crate::services::ai::char_prefix(&r.chunk_text, 200);
+            format!("[{}] {}: {}", i + 1, r.title, preview)
         })
         .collect::<Vec<_>>()
         .join("\n\n");
@@ -112,7 +153,11 @@ fn apply_temporal_boost(results: &mut [SearchResult]) {
         let boost = 1.0 / (1.0 + days_ago / 30.0);
         r.distance *= 1.0 - (boost * 0.3);
     }
-    results.sort_by(|a, b| a.distance.partial_cmp(&b.distance).unwrap());
+    results.sort_by(|a, b| {
+        a.distance
+            .partial_cmp(&b.distance)
+            .unwrap_or(std::cmp::Ordering::Equal)
+    });
 }
 
 fn filter_and_dedup(results: Vec<SearchResult>) -> Vec<SearchResult> {
@@ -122,6 +167,34 @@ fn filter_and_dedup(results: Vec<SearchResult>) -> Vec<SearchResult> {
         .filter(|r| r.distance <= RAG_DISTANCE_THRESHOLD)
         .filter(|r| seen.insert(r.note_id.clone()))
         .collect()
+}
+
+fn dedup_merged(results: Vec<SearchResult>) -> Vec<SearchResult> {
+    let mut seen_notes = HashSet::new();
+    let mut seen_web = HashSet::new();
+    results
+        .into_iter()
+        .filter(|r| match r.source_type {
+            SourceType::Local => {
+                r.distance <= RAG_DISTANCE_THRESHOLD
+                    && seen_notes.insert(r.note_id.clone())
+            }
+            SourceType::Web => {
+                let key: String = r.chunk_text.chars().take(200).collect();
+                seen_web.insert(key)
+            }
+        })
+        .collect()
+}
+
+fn web_search_config() -> (bool, String) {
+    let Ok(db) = Database::open() else {
+        return (false, String::new());
+    };
+    let enabled =
+        db.get_setting("web_search_enabled").as_deref() == Some("true");
+    let key = crate::services::web_search::exa_api_key(&db);
+    (enabled, key)
 }
 
 fn read_max_sources() -> usize {
@@ -325,29 +398,63 @@ pub async fn query(
     } else {
         RAG_INITIAL_K
     };
-    let candidates = store
-        .hybrid_search(
-            question,
-            query_vector,
-            fetch_k,
-            allowed_note_ids.as_deref(),
-        )
-        .await?;
+    let (web_enabled, exa_key) = web_search_config();
+    let web_on = web_enabled && !exa_key.trim().is_empty();
 
-    let candidates = if let Some(ref range) = date_range {
-        apply_date_filter(candidates, range)
+    let results: Vec<SearchResult> = if web_on {
+        if let Some(ref tx) = status_tx {
+            let _ = tx.send(ToolEvent::Started("web_search".into()));
+        }
+        let (local_res, web_res) = tokio::join!(
+            store.hybrid_search(
+                question,
+                query_vector,
+                fetch_k,
+                allowed_note_ids.as_deref(),
+            ),
+            crate::services::web_search::exa_search(question, &exa_key),
+        );
+        if let Some(ref tx) = status_tx {
+            let _ = tx.send(ToolEvent::Finished("web_search".into()));
+        }
+        let local = local_res?;
+        let local = if let Some(ref range) = date_range {
+            apply_date_filter(local, range)
+        } else {
+            local
+        };
+        eprintln!("[rag] web on: {} local, {} web", local.len(), web_res.len());
+        let merged =
+            rrf_merge(local, web_res, RRF_K, RRF_LOCAL_WEIGHT, RRF_WEB_WEIGHT);
+        let reranked = llm_rerank(&ai, question, merged, RAG_FINAL_K).await;
+        let filtered = dedup_merged(reranked);
+        let count = read_max_sources().min(RAG_FINAL_K).min(filtered.len());
+        filtered.into_iter().take(count).collect()
     } else {
-        candidates
+        let candidates = store
+            .hybrid_search(
+                question,
+                query_vector,
+                fetch_k,
+                allowed_note_ids.as_deref(),
+            )
+            .await?;
+
+        let candidates = if let Some(ref range) = date_range {
+            apply_date_filter(candidates, range)
+        } else {
+            candidates
+        };
+
+        let mut reranked =
+            llm_rerank(&ai, question, candidates, RAG_FINAL_K).await;
+        apply_temporal_boost(&mut reranked);
+        let filtered = filter_and_dedup(reranked);
+
+        let user_max = read_max_sources();
+        let source_count = compute_source_count(&filtered, user_max);
+        filtered.into_iter().take(source_count).collect()
     };
-
-    let mut reranked = llm_rerank(&ai, question, candidates, RAG_FINAL_K).await;
-    apply_temporal_boost(&mut reranked);
-    let filtered = filter_and_dedup(reranked);
-
-    let user_max = read_max_sources();
-    let source_count = compute_source_count(&filtered, user_max);
-    let results: Vec<SearchResult> =
-        filtered.into_iter().take(source_count).collect();
 
     let context = if results.is_empty() {
         String::from("--- User notes ---\n\n(no relevant excerpts)\n")
@@ -355,35 +462,49 @@ pub async fn query(
         let db_tags = Database::open().ok();
         let mut ctx = String::from("--- User notes ---\n\n");
         for (i, r) in results.iter().enumerate() {
-            let tags: Vec<String> = db_tags
-                .as_ref()
-                .and_then(|d| d.get_note(&r.note_id).ok().flatten())
-                .map(|n| n.tags)
-                .unwrap_or_default();
-            let tags_str = if tags.is_empty() {
-                String::new()
-            } else {
-                format!(" [Tags: {}]", tags.join(", "))
-            };
-            ctx.push_str(&format!(
-                "[Source {}] Note: \"{}\"{}\n{}\n\n",
-                i + 1,
-                r.title,
-                tags_str,
-                r.chunk_text
-            ));
+            match r.source_type {
+                SourceType::Web => {
+                    ctx.push_str(&format!(
+                        "[Source {}] Web: \"{}\" ({})\n{}\n\n",
+                        i + 1,
+                        r.title,
+                        r.url.as_deref().unwrap_or(""),
+                        r.chunk_text
+                    ));
+                }
+                SourceType::Local => {
+                    let tags: Vec<String> = db_tags
+                        .as_ref()
+                        .and_then(|d| d.get_note(&r.note_id).ok().flatten())
+                        .map(|n| n.tags)
+                        .unwrap_or_default();
+                    let tags_str = if tags.is_empty() {
+                        String::new()
+                    } else {
+                        format!(" [Tags: {}]", tags.join(", "))
+                    };
+                    ctx.push_str(&format!(
+                        "[Source {}] Note: \"{}\"{}\n{}\n\n",
+                        i + 1,
+                        r.title,
+                        tags_str,
+                        r.chunk_text
+                    ));
+                }
+            }
         }
         ctx
     };
     let user_msg = format!("{context}\n--- Question ---\n{question}");
 
-    let answer = prompt_agent_with_tools(
-        ai,
-        RAG_AGENT_SYSTEM_PROMPT,
-        &user_msg,
-        status_tx,
-    )
-    .await?;
+    let system_prompt = if web_on {
+        RAG_AGENT_WEB_SYSTEM_PROMPT
+    } else {
+        RAG_AGENT_SYSTEM_PROMPT
+    };
+    let answer =
+        prompt_agent_with_tools(ai, system_prompt, &user_msg, status_tx)
+            .await?;
 
     let sources = results
         .into_iter()
@@ -393,8 +514,73 @@ pub async fn query(
             chunk_text: r.chunk_text,
             distance: r.distance,
             created_at: r.created_at,
+            source_type: r.source_type,
+            url: r.url,
         })
         .collect();
 
     Ok(RagResponse { answer, sources })
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn local(title: &str, distance: f32) -> SearchResult {
+        SearchResult {
+            chunk_text: format!("text-{title}"),
+            note_id: format!("id-{title}"),
+            title: title.into(),
+            distance,
+            created_at: "2026-01-01T00:00:00".into(),
+            source_type: SourceType::Local,
+            url: None,
+        }
+    }
+
+    fn web(title: &str) -> WebResult {
+        WebResult {
+            title: title.into(),
+            url: format!("https://{title}"),
+            snippet: format!("snip-{title}"),
+            published_date: None,
+        }
+    }
+
+    fn titles(rs: &[SearchResult]) -> Vec<String> {
+        rs.iter().map(|r| r.title.clone()).collect()
+    }
+
+    #[test]
+    fn empty_web_is_identity() {
+        let l = vec![local("a", 0.1), local("b", 0.2), local("c", 0.3)];
+        let merged = rrf_merge(l, vec![], 60.0, 1.2, 1.0);
+        assert_eq!(titles(&merged), ["a", "b", "c"]);
+        assert_eq!(merged[0].distance, 0.1);
+        assert!(merged.iter().all(|r| r.source_type == SourceType::Local));
+    }
+
+    #[test]
+    fn empty_local_keeps_web_order() {
+        let merged =
+            rrf_merge(vec![], vec![web("w1"), web("w2")], 60.0, 1.2, 1.0);
+        assert_eq!(titles(&merged), ["w1", "w2"]);
+        assert!(merged
+            .iter()
+            .all(|r| r.source_type == SourceType::Web && r.url.is_some()));
+    }
+
+    #[test]
+    fn local_outranks_web_at_same_rank() {
+        let merged =
+            rrf_merge(vec![local("L0", 0.1)], vec![web("W0")], 60.0, 1.2, 1.0);
+        assert_eq!(titles(&merged), ["L0", "W0"]);
+    }
+
+    #[test]
+    fn web_top_interleaves_below_first_local() {
+        let locals = vec![local("L0", 0.1), local("L1", 0.2), local("L2", 0.3)];
+        let merged = rrf_merge(locals, vec![web("W0")], 1.0, 1.2, 1.0);
+        assert_eq!(titles(&merged), ["L0", "W0", "L1", "L2"]);
+    }
 }

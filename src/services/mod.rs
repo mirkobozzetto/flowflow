@@ -12,6 +12,7 @@ pub mod sync;
 pub mod tools;
 pub mod transcription;
 pub mod vectordb;
+pub mod web_search;
 
 pub use audio::{AudioRecorder, RecordingState};
 pub use embed::{
@@ -21,4 +22,4 @@ pub use embed::{
 pub use error::LlmError;
 pub use llm::{LlmClient, Provider};
 pub use rag::{RagResponse, RagSource};
-pub use vectordb::{Chunk, SearchResult, VectorStore};
+pub use vectordb::{Chunk, SearchResult, SourceType, VectorStore};

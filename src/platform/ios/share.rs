@@ -1,6 +1,8 @@
 use objc2::runtime::AnyObject;
 use objc2::MainThreadOnly;
-use objc2_foundation::{MainThreadMarker, NSArray, NSString, NSURL};
+use objc2_foundation::{
+    MainThreadMarker, NSArray, NSDictionary, NSString, NSURL,
+};
 use objc2_ui_kit::{UIActivityViewController, UIApplication};
 use std::path::Path;
 
@@ -33,4 +35,23 @@ pub fn share_file(path: &Path) -> Result<(), String> {
     }
     eprintln!("[backup] share sheet presented for {}", path.display());
     Ok(())
+}
+
+pub fn open_url(url: &str) {
+    let url = url.trim();
+    let Some(mtm) = MainThreadMarker::new() else {
+        eprintln!("[web] open_url not on main thread");
+        return;
+    };
+    let ns = NSString::from_str(url);
+    let Some(nsurl) = NSURL::URLWithString(&ns) else {
+        eprintln!("[web] open_url: invalid url {url}");
+        return;
+    };
+    let app = UIApplication::sharedApplication(mtm);
+    let options = NSDictionary::new();
+    eprintln!("[web] opening {url}");
+    unsafe {
+        app.openURL_options_completionHandler(&nsurl, &options, None);
+    }
 }

@@ -32,3 +32,10 @@ secrets/
 # Desktop build: parked original Dioxus.toml (make desktop / desktop-build)
 .Dioxus.toml.ios
 dist/
+
+# ship: ephemeral execution ledgers (contract/trace/bundle)
+.claude/output/ship/
+
+# Claude Code agent skills (local tooling, not app code)
+.claude/skills/
+.agents/

@@ -8,6 +8,7 @@ pub const SENSITIVE_SETTINGS: &[&str] = &[
     "openai_api_key",
     "anthropic_api_key",
     "soniox_api_key",
+    "exa_api_key",
     "sync_static_privkey",
     "sync_static_pubkey",
 ];

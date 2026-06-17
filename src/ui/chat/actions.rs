@@ -66,6 +66,7 @@ pub fn send_question(
                         chunk_text: s.chunk_text.clone(),
                         distance: s.distance,
                         created_at: s.created_at.clone(),
+                        url: s.url.clone(),
                     })
                     .collect();
 
@@ -81,6 +82,7 @@ pub fn send_question(
                                 "chunk_text": s.chunk_text,
                                 "distance": s.distance,
                                 "created_at": s.created_at,
+                                "url": s.url,
                             })
                         })
                         .collect();
@@ -160,6 +162,7 @@ pub fn load_messages_from_db(
                                     .as_str()
                                     .unwrap_or_default()
                                     .to_string(),
+                                url: v["url"].as_str().map(String::from),
                             })
                             .collect()
                     })

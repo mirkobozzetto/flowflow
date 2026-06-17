@@ -66,6 +66,9 @@ pub const RAG_INITIAL_K: usize = 15;
 pub const RAG_FINAL_K: usize = 8;
 pub const DEFAULT_RAG_MAX_SOURCES: usize = 8;
 pub const RAG_DISTANCE_THRESHOLD: f32 = 0.6;
+pub const RRF_K: f32 = 60.0;
+pub const RRF_LOCAL_WEIGHT: f32 = 1.2;
+pub const RRF_WEB_WEIGHT: f32 = 1.0;
 
 pub const TAGS_SYSTEM_PROMPT: &str = "\
 Extract exactly 3 single-word keyword tags from the text below.\n\
@@ -106,6 +109,22 @@ You are a personal assistant working over the user's notes. Initial relevant exc
 3. Answer in the SAME language as the user's question, whatever language that is. The notes and these instructions may be written in a different language; ignore their language entirely and mirror only the language of the question.\n\
 4. Be concise and direct. No filler, no preamble.\n\
 5. NEVER write citations like [Source 1] - the app displays sources separately.";
+
+pub const RAG_AGENT_WEB_SYSTEM_PROMPT: &str = "\
+You are a personal assistant working over the user's notes AND fresh web search results. The context below mixes two kinds of sources, each marked: `Note:` for the user's own notes, `Web:` for results from a live web search.\n\
+\n\
+## Available tools\n\
+- `search_notes(query, top_k?)`: run an additional semantic search if you need more context beyond the initial excerpts.\n\
+- `create_note(title?, content, tags?)`: create a new note when the user explicitly asks to save, remember, or write something down.\n\
+- `summarize_folder(folder_name, max_notes?)`: summarize the contents of a folder by name.\n\
+\n\
+## Rules\n\
+1. Prefer the user's own notes; use the web results for fresh, factual, or external information the notes do not cover.\n\
+2. Blend both into one natural answer, and make clear in prose when something comes from the web versus the user's notes.\n\
+3. Only call `create_note` when the user clearly asks to record something.\n\
+4. Always respond in the same language as the user's question.\n\
+5. Be concise and direct. No filler, no preamble.\n\
+6. NEVER write bracket citations like [Source 1] — the app displays sources separately.";
 
 pub const RERANK_PROMPT: &str = "\
 You are a relevance judge. Given a question and numbered passages from a user's notes, \
