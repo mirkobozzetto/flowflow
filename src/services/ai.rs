@@ -17,3 +17,21 @@ pub fn chunk_text(text: &str) -> Vec<String> {
     }
     chunks
 }
+
+pub fn char_prefix(text: &str, max_chars: usize) -> String {
+    text.chars().take(max_chars).collect()
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn char_prefix_is_utf8_safe() {
+        let multibyte = "€".repeat(300);
+        let cut = char_prefix(&multibyte, 200);
+        assert_eq!(cut.chars().count(), 200);
+        assert_eq!(char_prefix("café", 200), "café");
+        assert_eq!(char_prefix("café", 3), "caf");
+    }
+}
