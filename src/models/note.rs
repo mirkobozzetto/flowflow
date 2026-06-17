@@ -87,6 +87,8 @@ pub struct Note {
     pub title: Option<String>,
     pub content: String,
     pub tags: Vec<String>,
+    #[serde(default)]
+    pub sources_json: Option<String>,
     pub created_at: String,
     pub modified_at: String,
 }

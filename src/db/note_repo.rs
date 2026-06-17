@@ -14,6 +14,7 @@ fn row_to_note(row: &rusqlite::Row) -> rusqlite::Result<Note> {
         title: row.get("title")?,
         content: row.get("content")?,
         tags,
+        sources_json: row.get("sources_json")?,
         created_at: row.get("created_at")?,
         modified_at: row.get("modified_at")?,
     })
@@ -54,6 +55,20 @@ impl Database {
             .map_err(|e| format!("Insert note: {e}"))?;
         self.get_note(&id)?
             .ok_or_else(|| "Note not found after insert".into())
+    }
+
+    pub fn set_note_sources(
+        &self,
+        note_id: &str,
+        sources_json: Option<&str>,
+    ) -> Result<(), String> {
+        self.conn()
+            .execute(
+                "UPDATE notes SET sources_json = ?1 WHERE id = ?2",
+                rusqlite::params![sources_json, note_id],
+            )
+            .map_err(|e| format!("Set note sources: {e}"))?;
+        Ok(())
     }
 
     pub fn get_note(&self, id: &str) -> Result<Option<Note>, String> {

@@ -10,7 +10,12 @@ pub const MIGRATIONS: &[(i64, &str)] = &[
     (9, V9_SCHEMA),
     (10, V10_SCHEMA),
     (11, V11_SCHEMA),
+    (12, V12_SCHEMA),
 ];
+
+const V12_SCHEMA: &str = "
+ALTER TABLE notes ADD COLUMN sources_json TEXT;
+";
 
 const V1_SCHEMA: &str = "
 CREATE TABLE IF NOT EXISTS notes (

@@ -1,11 +1,14 @@
+use crate::db::Database;
 use crate::services::i18n::t;
-use crate::ui::chat::actions::md_to_html;
+use crate::ui::chat::actions::{find_saved_note, md_to_html, save_as_note};
 use crate::ui::chat::models::ChatSource;
 use crate::ui::chat::sources_accordion::SourcesAccordion;
 use crate::ui::clipboard::copy_text;
-use crate::ui::icons::{IconCheck, IconCopy};
+use crate::ui::icons::{IconCheck, IconCopy, IconFloppyDisk};
+use crate::ui::state::View;
 use crate::ui::AppState;
 use dioxus::prelude::*;
+use std::sync::Arc;
 
 #[component]
 pub fn BotBubble(
@@ -13,12 +16,30 @@ pub fn BotBubble(
     sources: Vec<ChatSource>,
     conversation_id: Option<String>,
 ) -> Element {
-    let app: AppState = use_context();
+    let mut app: AppState = use_context();
+    let db: Signal<Arc<Database>> = use_context();
     let lang = (app.current_lang)();
     let mut copied = use_signal(|| false);
+    let text_for_lookup = text.clone();
+    let saved_id = use_memo(move || {
+        let _ = (app.notes_version)();
+        let _ = (app.sync_data_version)();
+        let scope = (app.chat_scope_folder_id)();
+        find_saved_note(&db(), scope.as_deref(), &text_for_lookup)
+    });
     let copy_label = t(&lang, "chat-copy");
     let copied_label = t(&lang, "chat-copied");
+    let save_label = t(&lang, "chat-save-note");
+    let saved_label = t(&lang, "chat-saved");
     let text_for_copy = text.clone();
+    let text_for_save = text.clone();
+    let lang_for_save = lang.clone();
+    let web_sources_for_save: Vec<ChatSource> = sources
+        .iter()
+        .filter(|s| s.url.is_some())
+        .cloned()
+        .collect();
+    let conv_for_open = conversation_id.clone();
 
     rsx! {
         div {
@@ -29,7 +50,50 @@ pub fn BotBubble(
                     class: "text-sm text-stone-900 leading-relaxed break-words prose prose-sm",
                     dangerous_inner_html: md_to_html(&text),
                 }
-                div { class: "flex justify-end mt-1.5",
+                div { class: "flex justify-end gap-3 mt-1.5",
+                    button {
+                        class: if saved_id().is_some() {
+                            "flex items-center gap-1 text-xs text-ios-green transition-colors duration-150"
+                        } else {
+                            "flex items-center gap-1 text-xs text-stone-400 active:text-stone-600 hover:text-stone-600 transition-colors duration-150"
+                        },
+                        onclick: move |_| {
+                            if let Some(nid) = saved_id() {
+                                let folder = db()
+                                    .folders_for_note(&nid)
+                                    .ok()
+                                    .and_then(|f| f.first().map(|f| f.id.clone()));
+                                app.detail_folder_id.set(folder);
+                                app.previous_view.set(Some(View::Chat {
+                                    conversation_id: conv_for_open.clone(),
+                                }));
+                                app.view.set(View::NoteDetail { note_id: nid });
+                                return;
+                            }
+                            let database = db();
+                            let scope = (app.chat_scope_folder_id)();
+                            if save_as_note(
+                                &database,
+                                scope.as_deref(),
+                                text_for_save.clone(),
+                                vec!["chat".to_string()],
+                                &web_sources_for_save,
+                                &lang_for_save,
+                            )
+                            .is_ok()
+                            {
+                                app.notes_version
+                                    .set((app.notes_version)() + 1);
+                            }
+                        },
+                        if saved_id().is_some() {
+                            IconCheck { size: 12 }
+                            "{saved_label}"
+                        } else {
+                            IconFloppyDisk { size: 12 }
+                            "{save_label}"
+                        }
+                    }
                     button {
                         class: if copied() {
                             "flex items-center gap-1 text-xs text-ios-green transition-colors duration-150"

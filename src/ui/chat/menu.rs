@@ -1,5 +1,6 @@
 use crate::db::Database;
 use crate::services::i18n::t;
+use crate::ui::chat::models::ChatSource;
 use crate::ui::icons::*;
 use crate::ui::kit;
 use crate::ui::state::View;
@@ -128,6 +129,68 @@ pub fn ChatMenu(props: ChatMenuProps) -> Element {
                     }
                 }
             } else {
+                button {
+                    class: kit::MENU_ITEM,
+                    disabled: !has_conversation,
+                    onclick: move |_| {
+                        if let Some(ref cid) = conversation_id() {
+                            let database = db();
+                            if let Ok(msgs) = database.list_messages(cid) {
+                                if !msgs.is_empty() {
+                                    let user_label =
+                                        t(&lang, "chat-transcript-user");
+                                    let bot_label =
+                                        t(&lang, "chat-transcript-assistant");
+                                    let transcript = msgs
+                                        .iter()
+                                        .map(|m| {
+                                            let who = if m.role == "user" {
+                                                &user_label
+                                            } else {
+                                                &bot_label
+                                            };
+                                            format!("{who}:\n{}", m.content)
+                                        })
+                                        .collect::<Vec<_>>()
+                                        .join("\n\n");
+                                    let mut web_sources: Vec<ChatSource> =
+                                        Vec::new();
+                                    let mut seen = std::collections::HashSet::new();
+                                    for m in &msgs {
+                                        if let Some(ref sj) = m.sources_json {
+                                            for s in crate::ui::chat::actions::parse_sources(sj) {
+                                                if let Some(ref u) = s.url {
+                                                    if seen.insert(u.clone()) {
+                                                        web_sources.push(s);
+                                                    }
+                                                }
+                                            }
+                                        }
+                                    }
+                                    let scope = (app.chat_scope_folder_id)();
+                                    if let Ok(id) = crate::ui::chat::actions::save_as_note(
+                                        &database,
+                                        scope.as_deref(),
+                                        transcript,
+                                        vec!["chat".to_string()],
+                                        &web_sources,
+                                        &lang,
+                                    ) {
+                                        app.detail_folder_id.set(scope.clone());
+                                        app.previous_view.set(Some(View::Chat {
+                                            conversation_id: conversation_id(),
+                                        }));
+                                        app.view.set(View::NoteDetail { note_id: id });
+                                    }
+                                }
+                            }
+                        }
+                        app.show_chat_menu.set(false);
+                    },
+                    IconFloppyDisk { size: 16 }
+                    {t(&lang, "chat-menu-save-thread")}
+                }
+                div { class: kit::MENU_SEP }
                 button {
                     class: kit::MENU_ITEM,
                     disabled: !has_conversation,

@@ -167,6 +167,33 @@ fn SourceCard(source: ChatSource, conversation_id: Option<String>) -> Element {
 }
 
 #[component]
+pub fn NoteWebSources(sources_json: Option<String>) -> Element {
+    let app: AppState = use_context();
+    let lang = (app.current_lang)();
+    let web: Vec<ChatSource> = sources_json
+        .as_deref()
+        .map(super::actions::parse_sources)
+        .unwrap_or_default()
+        .into_iter()
+        .filter(|s| s.url.is_some())
+        .collect();
+    if web.is_empty() {
+        return rsx! {};
+    }
+    let web_label = t(&lang, "sources-web");
+    rsx! {
+        div { class: "mt-3 pt-3 border-t border-stone-100",
+            p { class: "text-xs font-medium text-stone-500 mb-2", "{web_label}" }
+            div { class: "flex flex-col gap-2",
+                for (j, src) in web.iter().enumerate() {
+                    WebSourceCard { key: "w{j}", source: src.clone() }
+                }
+            }
+        }
+    }
+}
+
+#[component]
 fn WebSourceCard(source: ChatSource) -> Element {
     let mut expanded = use_signal(|| false);
     let url = source.url.clone().unwrap_or_default();
