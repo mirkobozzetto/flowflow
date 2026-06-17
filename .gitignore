@@ -32,3 +32,6 @@ dist/
 
 # ship: ephemeral execution ledgers (contract/trace/bundle)
 .claude/output/ship/
+
+# Claude Code agent skills (local tooling, not app code)
+.claude/skills/
