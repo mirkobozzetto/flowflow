@@ -354,6 +354,7 @@ pub fn App() -> Element {
                     "new-chat" => {
                         app.show_folder_picker.set(false);
                         app.sidebar_tab.set(SidebarTab::Chats);
+                        app.chat_scope_folder_id.set(None);
                         app.previous_view.set(Some(View::NotesList));
                         app.view.set(View::Chat {
                             conversation_id: None,

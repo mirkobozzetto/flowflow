@@ -15,6 +15,9 @@ pub fn TopBar() -> Element {
         matches!((app.view)(), View::Settings | View::SettingsSection(_));
     let is_sync_pairing = matches!((app.view)(), View::SyncPairing);
     let is_inner = is_detail || is_chat || is_settings || is_sync_pairing;
+    let chat_from_note = is_chat
+        && matches!((app.previous_view)(), Some(View::NoteDetail { .. }));
+    let show_back = (is_inner && !is_chat) || chat_from_note;
     let lang = (app.current_lang)();
 
     let title = match (app.view)() {
@@ -52,7 +55,7 @@ pub fn TopBar() -> Element {
 
     rsx! {
         div { class: "flex items-center px-4 py-3 bg-warm-white border-b border-stone-200 sticky top-0 z-30 gap-3 min-h-[44px]",
-            if is_inner && !is_chat {
+            if show_back {
                 button {
                     class: "min-w-[44px] min-h-[44px] flex items-center justify-center text-stone-700 hover:text-stone-900 transition-colors duration-150",
                     onclick: move |_| {
@@ -60,7 +63,10 @@ pub fn TopBar() -> Element {
                         let target = (app.previous_view)()
                             .unwrap_or(View::NotesList);
                         if cfg!(target_os = "macos")
-                            || matches!(target, View::Chat { .. })
+                            || matches!(
+                                target,
+                                View::Chat { .. } | View::NoteDetail { .. }
+                            )
                         {
                             app.previous_view.set(None);
                             app.view.set(target);
@@ -136,6 +142,7 @@ pub fn TopBar() -> Element {
                     onclick: move |_| {
                         app.show_folder_picker.set(false);
                         app.sidebar_tab.set(SidebarTab::Chats);
+                        app.chat_scope_folder_id.set(None);
                         app.previous_view.set(Some(View::NotesList));
                         app.view.set(View::Chat { conversation_id: None });
                     },

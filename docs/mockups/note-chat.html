@@ -1,0 +1,361 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>FlowFlow - Navigation Note & Chat</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        :root {
+            --color-ios-green: #34c759;
+            --color-ios-orange-50: oklch(0.97 0.04 50);
+            --color-ios-orange-100: oklch(0.92 0.07 50);
+            --color-ios-orange: oklch(0.60 0.22 50);
+            --color-ios-orange-dark: oklch(0.48 0.16 50);
+            --color-warm-white: oklch(0.99 0.005 50);
+            --color-header-bg: oklch(0.985 0.012 55);
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            background-color: #e7e5e4;
+            color: #1c1c1e;
+            -webkit-font-smoothing: antialiased;
+        }
+
+        .iphone-frame {
+            width: 390px;
+            height: 844px;
+            background-color: var(--color-warm-white);
+            border-radius: 48px;
+            border: 6px solid #000;
+            box-shadow:
+                0 0 0 12px #1c1c1e,
+                0 0 0 13px #3a3a3c,
+                0 25px 50px -12px rgba(0,0,0,0.4);
+            position: relative;
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .dynamic-island {
+            position: absolute;
+            top: 11px;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 112px;
+            height: 33px;
+            background-color: #000;
+            border-radius: 999px;
+            z-index: 50;
+        }
+
+        .no-scrollbar::-webkit-scrollbar {
+            display: none;
+        }
+        .no-scrollbar {
+            -ms-overflow-style: none;
+            scrollbar-width: none;
+        }
+
+        @keyframes fadeInUp {
+            from {
+                opacity: 0;
+                transform: translateY(8px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+        .animate-fade-in-up {
+            animation: fadeInUp 0.3s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+        }
+
+        .delay-100 { animation-delay: 100ms; }
+        .delay-200 { animation-delay: 200ms; }
+    </style>
+</head>
+<body class="min-h-screen flex flex-col items-center py-16 px-8">
+
+    <header class="text-center mb-16 max-w-2xl">
+        <h1 class="text-3xl font-semibold text-stone-900 mb-3 tracking-tight">FlowFlow - Note ↔ Chat</h1>
+        <p class="text-stone-600 text-[15px] leading-relaxed">
+            Aller-retour fluide entre une note et le chat. Le contexte est gardé via le RAG de manière visible, et la flèche retour ramène directement sur la note.
+        </p>
+    </header>
+
+    <main class="flex flex-row flex-wrap justify-center gap-12 max-w-[1400px] mx-auto">
+
+        <!-- FRAME 1: NOTE ENTRY -->
+        <div class="flex flex-col items-center gap-6">
+            <div class="iphone-frame bg-stone-50">
+                <div class="dynamic-island"></div>
+
+                <div class="h-[44px] px-6 pt-3 flex justify-between items-center text-stone-900 z-40 relative w-full pointer-events-none">
+                    <span class="text-[14px] font-semibold tracking-wide ml-2 mt-0.5">9:41</span>
+                    <div class="flex items-center gap-1.5 mr-1">
+                        <svg width="17" height="11" viewBox="0 0 17 11" fill="none" class="mt-0.5">
+                            <rect y="7" width="3" height="4" rx="1" fill="currentColor"/>
+                            <rect x="4" y="5" width="3" height="6" rx="1" fill="currentColor"/>
+                            <rect x="8" y="2" width="3" height="9" rx="1" fill="currentColor"/>
+                            <rect x="12" width="3" height="11" rx="1" fill="currentColor"/>
+                        </svg>
+                        <svg width="15" height="11" viewBox="0 0 15 11" fill="none" class="mt-0.5">
+                            <path d="M7.5 11C8.28105 11 8.91421 10.3668 8.91421 9.58579C8.91421 8.80474 8.28105 8.17157 7.5 8.17157C6.71895 8.17157 6.08579 8.80474 6.08579 9.58579C6.08579 10.3668 6.71895 11 7.5 11Z" fill="currentColor"/>
+                            <path fill-rule="evenodd" clip-rule="evenodd" d="M11.6455 5.43936C9.35579 3.14963 5.64412 3.14963 3.3544 5.43936L2.41151 4.49646C5.22152 1.68645 9.77839 1.68645 12.5884 4.49646L11.6455 5.43936ZM14.4739 2.61099C10.6366 -1.22631 4.36332 -1.22631 0.526016 2.61099L1.46891 3.55388C4.78591 0.236873 10.214 0.236873 13.531 3.55388L14.4739 2.61099Z" fill="currentColor"/>
+                        </svg>
+                        <div class="flex items-center ml-0.5">
+                            <div class="w-[23px] h-[11.5px] border-[1px] border-stone-900 rounded-[3.5px] p-[1.5px] flex items-center justify-center relative">
+                                <span class="text-[8px] font-bold absolute">45</span>
+                            </div>
+                            <div class="w-[1px] h-[4px] bg-stone-900 rounded-r-sm ml-[1px]"></div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="h-[48px] bg-[var(--color-header-bg)] border-b border-stone-200/80 flex items-center justify-between px-3 shrink-0">
+                    <div class="flex items-center gap-2">
+                        <button class="p-1.5 text-[var(--color-ios-orange-dark)] flex items-center">
+                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m15 18-6-6 6-6"/></svg>
+                        </button>
+                        <div class="flex items-center gap-1 cursor-pointer">
+                            <span class="font-semibold text-stone-900 text-[16px]">Idées Apps</span>
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-stone-400 mt-0.5"><path d="m6 9 6 6 6-6"/></svg>
+                        </div>
+                    </div>
+                    <button class="p-2 text-stone-500">
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="1"/><circle cx="12" cy="5" r="1"/><circle cx="12" cy="19" r="1"/></svg>
+                    </button>
+                </div>
+
+                <div class="flex-1 overflow-y-auto no-scrollbar pb-[100px] px-4 pt-4 flex flex-col gap-4 bg-stone-50/50">
+
+                    <div class="rounded-lg border border-stone-200 bg-[var(--color-warm-white)] px-4 py-3 shadow-[0_1px_2px_rgba(0,0,0,0.02)] opacity-0 animate-fade-in-up">
+                        <h2 class="text-xl font-semibold text-stone-900 tracking-tight">Application contact amis</h2>
+                    </div>
+
+                    <div class="flex items-center gap-2 px-1 opacity-0 animate-fade-in-up delay-100">
+                        <div class="bg-stone-200/60 text-stone-600 rounded-full px-3 py-1 text-[13px] font-medium tracking-wide">Auto-tag</div>
+                        <div class="border border-stone-300 text-stone-400 rounded-full px-3 py-1 text-[13px] font-medium tracking-wide">+ tag</div>
+                    </div>
+
+                    <div class="rounded-xl border border-stone-200 bg-[var(--color-warm-white)] p-4 relative shadow-[0_1px_2px_rgba(0,0,0,0.02)] min-h-[140px] opacity-0 animate-fade-in-up delay-200">
+                        <p class="text-stone-800 text-[15px] leading-relaxed">
+                            L'idée serait une application ultra simple pour garder le contact avec ses amis proches. Pas de flux infini, juste un système de "ping" hebdomadaire pour penser à prendre des nouvelles.
+                            <br><br>
+                            Il faudrait pouvoir catégoriser la fréquence (famille, amis proches, connaissances).
+                        </p>
+
+                        <div class="absolute bottom-3 right-3 flex items-center gap-1 text-[12px] text-stone-400 cursor-pointer hover:text-stone-600 transition-colors">
+                            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="14" height="14" x="8" y="8" rx="2" ry="2"/><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"/></svg>
+                            <span>Copier</span>
+                        </div>
+                    </div>
+
+                    <div class="flex items-center gap-1.5 px-2 mt-2 cursor-pointer opacity-0 animate-fade-in-up delay-200">
+                        <span class="text-xs font-medium text-stone-500 uppercase tracking-wider">Enregistrements (1)</span>
+                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-stone-400"><path d="m6 9 6 6 6-6"/></svg>
+                    </div>
+                </div>
+
+                <div class="absolute bottom-0 left-0 right-0 bg-[var(--color-warm-white)] border-t border-stone-200 px-4 pt-3 pb-[34px] flex gap-3 items-center z-10">
+
+                    <button class="flex-1 h-12 rounded-full bg-[var(--color-warm-white)] border border-[var(--color-ios-orange)]/30 flex items-center justify-center gap-2 shadow-[0_2px_8px_rgba(0,0,0,0.02)] active:bg-stone-50 transition-colors">
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--color-ios-orange-dark)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" x2="12" y1="19" y2="22"/></svg>
+                        <span class="text-[var(--color-ios-orange-dark)] text-[15px] font-medium tracking-tight">Dicter</span>
+                    </button>
+
+                    <button class="w-12 h-12 shrink-0 rounded-full bg-[var(--color-warm-white)] border-[1.5px] border-[var(--color-ios-orange-100)] flex items-center justify-center shadow-[0_2px_10px_rgba(0,0,0,0.06)] active:scale-95 transition-transform relative group">
+                        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="var(--color-ios-orange)" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="m3 21 1.9-5.7a8.5 8.5 0 1 1 3.8 3.8z"/></svg>
+
+                        <div class="absolute inset-0 rounded-full border border-[var(--color-ios-orange)]/40 animate-ping opacity-20 pointer-events-none"></div>
+                    </button>
+                </div>
+            </div>
+
+            <div class="flex flex-col items-center gap-2">
+                <span class="text-sm font-semibold text-stone-800 bg-white px-4 py-1.5 rounded-full shadow-sm border border-stone-200">1 - Note (écran de départ)</span>
+                <span class="text-xs text-stone-500">Le bouton rond ouvre le chat</span>
+            </div>
+        </div>
+
+        <!-- FRAME 2: CHAT (SCOPED TO NOTE) -->
+        <div class="flex flex-col items-center gap-6">
+            <div class="iphone-frame bg-stone-50">
+                <div class="dynamic-island"></div>
+
+                <div class="h-[44px] px-6 pt-3 flex justify-between items-center text-stone-900 z-40 relative w-full pointer-events-none">
+                    <span class="text-[14px] font-semibold tracking-wide ml-2 mt-0.5">9:41</span>
+                    <div class="flex items-center gap-1.5 mr-1">
+                        <svg width="17" height="11" viewBox="0 0 17 11" fill="none" class="mt-0.5"><rect y="7" width="3" height="4" rx="1" fill="currentColor"/><rect x="4" y="5" width="3" height="6" rx="1" fill="currentColor"/><rect x="8" y="2" width="3" height="9" rx="1" fill="currentColor"/><rect x="12" width="3" height="11" rx="1" fill="currentColor"/></svg>
+                        <svg width="15" height="11" viewBox="0 0 15 11" fill="none" class="mt-0.5"><path d="M7.5 11C8.28105 11 8.91421 10.3668 8.91421 9.58579C8.91421 8.80474 8.28105 8.17157 7.5 8.17157C6.71895 8.17157 6.08579 8.80474 6.08579 9.58579C6.08579 10.3668 6.71895 11 7.5 11Z" fill="currentColor"/><path fill-rule="evenodd" clip-rule="evenodd" d="M11.6455 5.43936C9.35579 3.14963 5.64412 3.14963 3.3544 5.43936L2.41151 4.49646C5.22152 1.68645 9.77839 1.68645 12.5884 4.49646L11.6455 5.43936ZM14.4739 2.61099C10.6366 -1.22631 4.36332 -1.22631 0.526016 2.61099L1.46891 3.55388C4.78591 0.236873 10.214 0.236873 13.531 3.55388L14.4739 2.61099Z" fill="currentColor"/></svg>
+                        <div class="flex items-center ml-0.5">
+                            <div class="w-[23px] h-[11.5px] border-[1px] border-stone-900 rounded-[3.5px] p-[1.5px] flex items-center justify-center relative"><span class="text-[8px] font-bold absolute">45</span></div>
+                            <div class="w-[1px] h-[4px] bg-stone-900 rounded-r-sm ml-[1px]"></div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="h-[48px] bg-[var(--color-header-bg)] border-b border-stone-200/80 flex items-center justify-between px-3 shrink-0 relative z-20">
+                    <button class="p-1.5 flex items-center gap-1 text-[var(--color-ios-orange-dark)] active:opacity-60 group">
+                        <div class="bg-[var(--color-ios-orange)]/10 rounded-full p-1 group-active:bg-[var(--color-ios-orange)]/20 transition-colors">
+                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="m15 18-6-6 6-6"/></svg>
+                        </div>
+                    </button>
+
+                    <span class="font-semibold text-stone-900 text-[16px] absolute left-1/2 -translate-x-1/2">Chat</span>
+
+                    <button class="p-2 text-stone-500">
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="1"/><circle cx="12" cy="5" r="1"/><circle cx="12" cy="19" r="1"/></svg>
+                    </button>
+                </div>
+
+                <div class="px-4 py-3 shrink-0 bg-stone-50 z-10 border-b border-stone-100">
+                    <div class="bg-[var(--color-ios-orange-50)] rounded-full px-3 py-1.5 flex items-center justify-between shadow-[0_1px_2px_rgba(0,0,0,0.02)] border border-[var(--color-ios-orange)]/10">
+                        <div class="flex items-center gap-2 overflow-hidden">
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--color-ios-orange-dark)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="shrink-0"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="6"/><circle cx="12" cy="12" r="2"/></svg>
+                            <span class="text-[var(--color-ios-orange-dark)] text-[12px] font-medium leading-[14px] truncate pb-[1px]">À propos de : Application contact amis</span>
+                        </div>
+                        <button class="text-stone-400 p-0.5 ml-2 hover:text-stone-600 shrink-0">
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>
+                        </button>
+                    </div>
+                </div>
+
+                <div class="flex-1 overflow-y-auto no-scrollbar px-4 pt-6 pb-[90px] flex flex-col gap-5 bg-stone-50">
+
+                    <div class="self-end max-w-[78%] opacity-0 animate-fade-in-up">
+                        <div class="bg-[var(--color-ios-orange-50)] text-stone-800 rounded-[18px] rounded-br-[4px] px-4 py-2.5 shadow-sm border border-[var(--color-ios-orange)]/5">
+                            <p class="text-[15px] leading-snug">Aide-moi à brainstormer des features simples pour cette app.</p>
+                        </div>
+                    </div>
+
+                    <div class="self-start max-w-[85%] flex flex-col gap-1.5 opacity-0 animate-fade-in-up delay-200">
+                        <div class="bg-[var(--color-warm-white)] border border-stone-200 text-stone-800 rounded-[18px] rounded-bl-[4px] px-4 py-3 shadow-[0_1px_3px_rgba(0,0,0,0.02)]">
+                            <p class="text-[15px] leading-relaxed mb-2 font-medium text-stone-900">Voici quelques idées simples :</p>
+                            <ul class="text-[15px] leading-relaxed space-y-1.5 text-stone-700">
+                                <li class="flex items-start gap-2">
+                                    <span class="text-[var(--color-ios-orange)] mt-1.5 w-1 h-1 rounded-full bg-[var(--color-ios-orange)] shrink-0"></span>
+                                    <span><strong>Roulette de contact :</strong> un widget qui propose une personne aléatoire à appeler.</span>
+                                </li>
+                                <li class="flex items-start gap-2">
+                                    <span class="text-[var(--color-ios-orange)] mt-1.5 w-1 h-1 rounded-full bg-[var(--color-ios-orange)] shrink-0"></span>
+                                    <span><strong>Indicateur de temps :</strong> jauges colorées (vert, jaune, rouge) depuis le dernier contact.</span>
+                                </li>
+                                <li class="flex items-start gap-2">
+                                    <span class="text-[var(--color-ios-orange)] mt-1.5 w-1 h-1 rounded-full bg-[var(--color-ios-orange)] shrink-0"></span>
+                                    <span><strong>Rappels doux :</strong> notification "Il pleut à Lyon, envoie un message à Lucas".</span>
+                                </li>
+                            </ul>
+                        </div>
+
+                        <div class="ml-2 mt-0.5 border border-stone-200 bg-[var(--color-warm-white)] rounded-full px-2.5 py-[3px] w-max flex items-center gap-1.5 shadow-sm">
+                            <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-stone-400"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/><path d="M16 13H8"/><path d="M16 17H8"/><path d="M10 9H8"/></svg>
+                            <span class="text-[11px] font-medium text-stone-500 uppercase tracking-wide">Source : App contact amis</span>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="absolute bottom-0 left-0 right-0 bg-[var(--color-warm-white)] border-t border-stone-200 px-3 pt-3 pb-[34px] z-20">
+                    <div class="bg-stone-100 border border-stone-200 rounded-[20px] px-3.5 py-2 flex items-end gap-2.5 min-h-[44px]">
+                        <button class="text-stone-400 pb-0.5 hover:text-stone-600 transition-colors">
+                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" x2="12" y1="19" y2="22"/></svg>
+                        </button>
+                        <textarea rows="1" class="flex-1 bg-transparent border-none outline-none resize-none text-[15px] text-stone-800 placeholder-stone-400 pb-[3px] max-h-[100px] no-scrollbar leading-tight" placeholder="Répondre..."></textarea>
+                        <button class="w-[30px] h-[30px] shrink-0 rounded-full bg-[var(--color-ios-orange)] flex items-center justify-center shadow-sm">
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="m5 12 7-7 7 7"/><path d="M12 19V5"/></svg>
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <div class="flex flex-col items-center gap-2">
+                <span class="text-sm font-semibold text-stone-800 bg-white px-4 py-1.5 rounded-full shadow-sm border border-stone-200">2 - Chat (contexte note)</span>
+                <span class="text-xs text-stone-500">Le chip maintient le contexte</span>
+            </div>
+        </div>
+
+        <!-- FRAME 3: RETURN TO NOTE -->
+        <div class="flex flex-col items-center gap-6">
+            <div class="iphone-frame bg-stone-50">
+                <div class="dynamic-island"></div>
+
+                <div class="h-[44px] px-6 pt-3 flex justify-between items-center text-stone-900 z-40 relative w-full pointer-events-none">
+                    <span class="text-[14px] font-semibold tracking-wide ml-2 mt-0.5">9:41</span>
+                    <div class="flex items-center gap-1.5 mr-1">
+                        <svg width="17" height="11" viewBox="0 0 17 11" fill="none" class="mt-0.5"><rect y="7" width="3" height="4" rx="1" fill="currentColor"/><rect x="4" y="5" width="3" height="6" rx="1" fill="currentColor"/><rect x="8" y="2" width="3" height="9" rx="1" fill="currentColor"/><rect x="12" width="3" height="11" rx="1" fill="currentColor"/></svg>
+                        <svg width="15" height="11" viewBox="0 0 15 11" fill="none" class="mt-0.5"><path d="M7.5 11C8.28105 11 8.91421 10.3668 8.91421 9.58579C8.91421 8.80474 8.28105 8.17157 7.5 8.17157C6.71895 8.17157 6.08579 8.80474 6.08579 9.58579C6.08579 10.3668 6.71895 11 7.5 11Z" fill="currentColor"/><path fill-rule="evenodd" clip-rule="evenodd" d="M11.6455 5.43936C9.35579 3.14963 5.64412 3.14963 3.3544 5.43936L2.41151 4.49646C5.22152 1.68645 9.77839 1.68645 12.5884 4.49646L11.6455 5.43936ZM14.4739 2.61099C10.6366 -1.22631 4.36332 -1.22631 0.526016 2.61099L1.46891 3.55388C4.78591 0.236873 10.214 0.236873 13.531 3.55388L14.4739 2.61099Z" fill="currentColor"/></svg>
+                        <div class="flex items-center ml-0.5">
+                            <div class="w-[23px] h-[11.5px] border-[1px] border-stone-900 rounded-[3.5px] p-[1.5px] flex items-center justify-center relative"><span class="text-[8px] font-bold absolute">45</span></div>
+                            <div class="w-[1px] h-[4px] bg-stone-900 rounded-r-sm ml-[1px]"></div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="h-[48px] bg-[var(--color-header-bg)] border-b border-stone-200/80 flex items-center justify-between px-3 shrink-0">
+                    <div class="flex items-center gap-2">
+                        <button class="p-1.5 text-[var(--color-ios-orange-dark)] flex items-center">
+                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m15 18-6-6 6-6"/></svg>
+                        </button>
+                        <div class="flex items-center gap-1 cursor-pointer">
+                            <span class="font-semibold text-stone-900 text-[16px]">Idées Apps</span>
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-stone-400 mt-0.5"><path d="m6 9 6 6 6-6"/></svg>
+                        </div>
+                    </div>
+                    <button class="p-2 text-stone-500">
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="1"/><circle cx="12" cy="5" r="1"/><circle cx="12" cy="19" r="1"/></svg>
+                    </button>
+                </div>
+
+                <div class="flex-1 overflow-y-auto no-scrollbar pb-[100px] px-4 pt-4 flex flex-col gap-4 bg-stone-50/50">
+
+                    <div class="rounded-lg border border-stone-200 bg-[var(--color-warm-white)] px-4 py-3 shadow-[0_1px_2px_rgba(0,0,0,0.02)]">
+                        <h2 class="text-xl font-semibold text-stone-900 tracking-tight">Application contact amis</h2>
+                    </div>
+
+                    <div class="flex items-center gap-2 px-1">
+                        <div class="bg-stone-200/60 text-stone-600 rounded-full px-3 py-1 text-[13px] font-medium tracking-wide">Auto-tag</div>
+                        <div class="border border-stone-300 text-stone-400 rounded-full px-3 py-1 text-[13px] font-medium tracking-wide">+ tag</div>
+                    </div>
+
+                    <div class="rounded-xl border border-stone-200 bg-[var(--color-warm-white)] p-4 relative shadow-[0_1px_2px_rgba(0,0,0,0.02)] min-h-[140px]">
+                        <p class="text-stone-800 text-[15px] leading-relaxed">
+                            L'idée serait une application ultra simple pour garder le contact avec ses amis proches. Pas de flux infini, juste un système de "ping" hebdomadaire pour penser à prendre des nouvelles.
+                            <br><br>
+                            Il faudrait pouvoir catégoriser la fréquence (famille, amis proches, connaissances).
+                        </p>
+
+                        <div class="absolute bottom-3 right-3 flex items-center gap-1 text-[12px] text-stone-400 cursor-pointer">
+                            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="14" height="14" x="8" y="8" rx="2" ry="2"/><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"/></svg>
+                            <span>Copier</span>
+                        </div>
+                    </div>
+
+                    <div class="flex items-center gap-1.5 px-2 mt-2 cursor-pointer">
+                        <span class="text-xs font-medium text-stone-500 uppercase tracking-wider">Enregistrements (1)</span>
+                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-stone-400"><path d="m6 9 6 6 6-6"/></svg>
+                    </div>
+                </div>
+
+                <div class="absolute bottom-0 left-0 right-0 bg-[var(--color-warm-white)] border-t border-stone-200 px-4 pt-3 pb-[34px] flex gap-3 items-center z-10">
+                    <button class="flex-1 h-12 rounded-full bg-[var(--color-warm-white)] border border-[var(--color-ios-orange)]/30 flex items-center justify-center gap-2 shadow-[0_2px_8px_rgba(0,0,0,0.02)]">
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--color-ios-orange-dark)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" x2="12" y1="19" y2="22"/></svg>
+                        <span class="text-[var(--color-ios-orange-dark)] text-[15px] font-medium tracking-tight">Dicter</span>
+                    </button>
+                    <button class="w-12 h-12 shrink-0 rounded-full bg-[var(--color-warm-white)] border-[1.5px] border-[var(--color-ios-orange-100)] flex items-center justify-center shadow-[0_2px_10px_rgba(0,0,0,0.06)] relative">
+                        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="var(--color-ios-orange)" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="m3 21 1.9-5.7a8.5 8.5 0 1 1 3.8 3.8z"/></svg>
+                    </button>
+                </div>
+            </div>
+
+            <div class="flex flex-col items-center gap-2">
+                <span class="text-sm font-semibold text-stone-800 bg-white px-4 py-1.5 rounded-full shadow-sm border border-stone-200">3 - Retour (via ←)</span>
+                <span class="text-xs text-stone-500">Retour à la même note</span>
+            </div>
+        </div>
+
+    </main>
+</body>
+</html>
