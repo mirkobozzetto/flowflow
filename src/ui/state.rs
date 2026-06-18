@@ -1,4 +1,5 @@
 use crate::models::Attachment;
+use crate::models::ChatScope;
 use crate::services::audio::RecordingState;
 use crate::ui::transcription_manager::Job;
 use dioxus::prelude::*;
@@ -39,6 +40,7 @@ impl SettingsSection {
 pub enum View {
     NotesList,
     NoteDetail { note_id: String },
+    ThreadDetail { thread_id: String },
     Chat { conversation_id: Option<String> },
     Settings,
     SettingsSection(SettingsSection),
@@ -62,9 +64,10 @@ pub struct AppState {
     pub attachments_version: Signal<u32>,
     pub attachment_modal: Signal<Option<Attachment>>,
     pub show_chat_menu: Signal<bool>,
+    pub show_thread_menu: Signal<bool>,
     pub sidebar_tab: Signal<SidebarTab>,
     pub show_folder_picker: Signal<bool>,
-    pub chat_scope_folder_id: Signal<Option<String>>,
+    pub chat_scope: Signal<Option<ChatScope>>,
     pub detail_folder_id: Signal<Option<String>>,
     pub ai_consent: Signal<Option<bool>>,
     pub current_lang: Signal<String>,

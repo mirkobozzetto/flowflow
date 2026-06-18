@@ -3,7 +3,7 @@ use crate::models::{NewTextNote, Note, NoteAudio, NoteType, UpdateNote};
 use std::str::FromStr;
 use uuid::Uuid;
 
-fn row_to_note(row: &rusqlite::Row) -> rusqlite::Result<Note> {
+pub(crate) fn row_to_note(row: &rusqlite::Row) -> rusqlite::Result<Note> {
     let tags_json: String = row.get("tags")?;
     let tags: Vec<String> =
         serde_json::from_str(&tags_json).unwrap_or_default();
@@ -15,6 +15,7 @@ fn row_to_note(row: &rusqlite::Row) -> rusqlite::Result<Note> {
         content: row.get("content")?,
         tags,
         sources_json: row.get("sources_json")?,
+        thread_id: row.get("thread_id")?,
         created_at: row.get("created_at")?,
         modified_at: row.get("modified_at")?,
     })
@@ -57,6 +58,36 @@ impl Database {
             .ok_or_else(|| "Note not found after insert".into())
     }
 
+    pub fn create_text_note_in_thread(
+        &self,
+        note: &NewTextNote,
+        thread_id: &str,
+    ) -> Result<Note, String> {
+        let id = Uuid::new_v4().to_string();
+        let now = now_iso();
+        let tags_json = serde_json::to_string(&note.tags)
+            .unwrap_or_else(|_| "[]".to_string());
+        self.conn()
+            .execute(
+                "INSERT INTO notes
+                 (id, note_type, title, content, tags, thread_id, created_at, modified_at)
+                 VALUES (?1,?2,?3,?4,?5,?6,?7,?8)",
+                rusqlite::params![
+                    id,
+                    "text",
+                    note.title,
+                    note.content,
+                    tags_json,
+                    thread_id,
+                    now,
+                    now
+                ],
+            )
+            .map_err(|e| format!("Insert note in thread: {e}"))?;
+        self.get_note(&id)?
+            .ok_or_else(|| "Note not found after insert".into())
+    }
+
     pub fn set_note_sources(
         &self,
         note_id: &str,
@@ -90,6 +121,26 @@ impl Database {
         let conn = self.conn();
         let mut stmt = conn
             .prepare("SELECT * FROM notes ORDER BY created_at DESC")
+            .map_err(|e| format!("Prepare: {e}"))?;
+        let rows = stmt
+            .query_map([], row_to_note)
+            .map_err(|e| format!("Query: {e}"))?;
+        let mut notes = Vec::new();
+        for row in rows {
+            notes.push(row.map_err(|e| format!("Row: {e}"))?);
+        }
+        Ok(notes)
+    }
+
+    pub fn list_root_notes(&self) -> Result<Vec<Note>, String> {
+        let conn = self.conn();
+        let mut stmt = conn
+            .prepare(
+                "SELECT * FROM notes n
+                 WHERE n.thread_id IS NULL
+                    OR (SELECT COUNT(*) FROM notes m WHERE m.thread_id = n.thread_id) < 2
+                 ORDER BY n.created_at DESC",
+            )
             .map_err(|e| format!("Prepare: {e}"))?;
         let rows = stmt
             .query_map([], row_to_note)

@@ -24,8 +24,11 @@ pub fn BotBubble(
     let saved_id = use_memo(move || {
         let _ = (app.notes_version)();
         let _ = (app.sync_data_version)();
-        let scope = (app.chat_scope_folder_id)();
-        find_saved_note(&db(), scope.as_deref(), &text_for_lookup)
+        let folder = crate::ui::chat::actions::scope_save_folder(
+            &db(),
+            &(app.chat_scope)(),
+        );
+        find_saved_note(&db(), folder.as_deref(), &text_for_lookup)
     });
     let copy_label = t(&lang, "chat-copy");
     let copied_label = t(&lang, "chat-copied");
@@ -71,10 +74,13 @@ pub fn BotBubble(
                                 return;
                             }
                             let database = db();
-                            let scope = (app.chat_scope_folder_id)();
+                            let folder = crate::ui::chat::actions::scope_save_folder(
+                                &database,
+                                &(app.chat_scope)(),
+                            );
                             if save_as_note(
                                 &database,
-                                scope.as_deref(),
+                                folder.as_deref(),
                                 text_for_save.clone(),
                                 vec!["chat".to_string()],
                                 &web_sources_for_save,

@@ -16,6 +16,7 @@ mod settings;
 mod sidebar;
 mod state;
 mod sync;
+mod thread;
 mod top_bar;
 pub mod transcription_manager;
 
@@ -42,6 +43,7 @@ use restore_lock::RestoreLockScreen;
 use settings::{SettingsSectionView, SettingsView};
 use sidebar::SidebarOverlay;
 use sync::SyncView;
+use thread::ThreadDetail;
 use top_bar::TopBar;
 
 #[component]
@@ -56,6 +58,7 @@ pub fn App() -> Element {
             db.cleanup_orphan_audio(&crate::services::audio::output_dir());
         }
         crate::services::backup::finalize_restore_bak();
+        let _ = db.collapse_singleton_threads();
         run_boot_reconcile();
         #[cfg(target_os = "ios")]
         {
@@ -108,9 +111,10 @@ pub fn App() -> Element {
         attachments_version: Signal::new(0),
         attachment_modal: Signal::new(None),
         show_chat_menu: Signal::new(false),
+        show_thread_menu: Signal::new(false),
         sidebar_tab: Signal::new(SidebarTab::Notes),
         show_folder_picker: Signal::new(false),
-        chat_scope_folder_id: Signal::new(None),
+        chat_scope: Signal::new(None),
         detail_folder_id: Signal::new(None),
         ai_consent: Signal::new(consent_value),
         current_lang: Signal::new(initial_lang),
@@ -354,7 +358,7 @@ pub fn App() -> Element {
                     "new-chat" => {
                         app.show_folder_picker.set(false);
                         app.sidebar_tab.set(SidebarTab::Chats);
-                        app.chat_scope_folder_id.set(None);
+                        app.chat_scope.set(None);
                         app.previous_view.set(Some(View::NotesList));
                         app.view.set(View::Chat {
                             conversation_id: None,
@@ -535,7 +539,7 @@ pub fn App() -> Element {
                     div { class: "flex-1 overflow-hidden relative",
                         {
                             let is_bg = !matches!((app.view)(), View::NotesList);
-                            let is_note = matches!((app.view)(), View::NoteDetail { .. });
+                            let is_note = matches!((app.view)(), View::NoteDetail { .. } | View::ThreadDetail { .. });
                             let sliding_back = (app.sliding_out)();
                             let shifted = is_bg && !sliding_back;
                             let shift_dir = if is_note { "30%" } else { "-30%" };
@@ -572,6 +576,21 @@ pub fn App() -> Element {
                                 },
                                 div { class: "w-full flex-1 flex flex-col min-h-0",
                                     NoteDetail {}
+                                }
+                            }
+                        }
+                        if matches!((app.view)(), View::ThreadDetail { .. }) {
+                            div {
+                                class: "absolute inset-0 flex flex-col min-h-0 bg-stone-100",
+                                style: if cfg!(target_os = "macos") {
+                                    ""
+                                } else if (app.sliding_out)() {
+                                    "animation: slideOutToLeft 0.15s ease-in forwards;"
+                                } else {
+                                    "animation: slideInFromLeft 0.15s ease-out;"
+                                },
+                                div { class: "w-full flex-1 flex flex-col min-h-0",
+                                    ThreadDetail {}
                                 }
                             }
                         }
@@ -665,13 +684,13 @@ pub fn App() -> Element {
                             {
                                 match (app.view)() {
                                     View::NotesList => rsx! {
-                                        folder_picker::FolderPicker { selected: app.selected_folder_id }
+                                        folder_picker::FolderPicker { selected: app.selected_folder_id, on_pick: move |_| {} }
                                     },
                                     View::NoteDetail { .. } => rsx! {
-                                        folder_picker::FolderPicker { selected: app.detail_folder_id }
+                                        folder_picker::FolderPicker { selected: app.detail_folder_id, on_pick: move |_| {} }
                                     },
                                     View::Chat { .. } => rsx! {
-                                        folder_picker::FolderPicker { selected: app.chat_scope_folder_id }
+                                        folder_picker::ChatScopePicker {}
                                     },
                                     _ => rsx! {},
                                 }

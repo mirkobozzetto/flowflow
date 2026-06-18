@@ -1,12 +1,36 @@
 use crate::db::Database;
+use crate::models::{Note, Thread};
 use crate::services::i18n::t;
 use crate::ui::icons::*;
 use crate::ui::note_card::NoteCard;
+use crate::ui::thread::ThreadCard;
 use crate::ui::AppState;
 use dioxus::prelude::*;
 use std::sync::Arc;
 
 const NOTES_PAGE: usize = 30;
+
+#[derive(Clone, PartialEq)]
+enum FeedItem {
+    Note(Note),
+    Thread(Thread),
+}
+
+impl FeedItem {
+    fn recency(&self) -> &str {
+        match self {
+            FeedItem::Note(n) => &n.created_at,
+            FeedItem::Thread(t) => &t.modified_at,
+        }
+    }
+}
+
+fn note_matches(n: &Note, q: &str) -> bool {
+    q.is_empty()
+        || n.title.as_deref().unwrap_or("").to_lowercase().contains(q)
+        || n.content.to_lowercase().contains(q)
+        || n.tags.iter().any(|t| t.to_lowercase().contains(q))
+}
 
 #[component]
 pub fn NotesList() -> Element {
@@ -16,22 +40,34 @@ pub fn NotesList() -> Element {
 
     let notes = use_memo(move || {
         let _v = (app.notes_version)();
+        let _s = (app.sync_data_version)();
         let db = db();
-        let all = match (app.selected_folder_id)() {
-            Some(fid) => db.list_notes_in_folder(&fid).unwrap_or_default(),
-            None => db.list_notes().unwrap_or_default(),
-        };
         let q = (app.search_query)().to_lowercase();
-        if q.is_empty() {
-            return all;
+        match (app.selected_folder_id)() {
+            Some(fid) => db
+                .list_notes_in_folder(&fid)
+                .unwrap_or_default()
+                .into_iter()
+                .filter(|n| note_matches(n, &q))
+                .map(FeedItem::Note)
+                .collect::<Vec<_>>(),
+            None => {
+                let mut items: Vec<FeedItem> = db
+                    .list_root_notes()
+                    .unwrap_or_default()
+                    .into_iter()
+                    .filter(|n| note_matches(n, &q))
+                    .map(FeedItem::Note)
+                    .collect();
+                for th in db.list_feed_threads().unwrap_or_default() {
+                    if q.is_empty() || th.title.to_lowercase().contains(&q) {
+                        items.push(FeedItem::Thread(th));
+                    }
+                }
+                items.sort_by(|a, b| b.recency().cmp(a.recency()));
+                items
+            }
         }
-        all.into_iter()
-            .filter(|n| {
-                n.title.as_deref().unwrap_or("").to_lowercase().contains(&q)
-                    || n.content.to_lowercase().contains(&q)
-                    || n.tags.iter().any(|t| t.to_lowercase().contains(&q))
-            })
-            .collect()
     });
 
     use_effect(move || {
@@ -115,9 +151,12 @@ pub fn NotesList() -> Element {
                 }
             }
         } else {
-            div { class: "safe-pb-32 lg:columns-2 lg:gap-2.5",
-                for note in notes().into_iter().take(visible_count()) {
-                    NoteCard { note: note }
+            div { class: "safe-pb-32 lg:grid lg:grid-cols-2 lg:gap-2.5",
+                for item in notes().into_iter().take(visible_count()) {
+                    match item {
+                        FeedItem::Note(note) => rsx! { NoteCard { key: "{note.id}", note: note } },
+                        FeedItem::Thread(thread) => rsx! { ThreadCard { key: "{thread.id}", thread: thread } },
+                    }
                 }
             }
         }

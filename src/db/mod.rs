@@ -10,6 +10,7 @@ pub mod pending_transcription_repo;
 mod schema;
 pub mod settings_repo;
 pub mod sync_meta;
+pub mod thread_repo;
 
 use rusqlite::Connection;
 use schema::MIGRATIONS;
@@ -261,6 +262,9 @@ impl Database {
                     self.migrate_audio_paths_to_relative(&conn);
                 }
                 if version == 10 {
+                    sync_meta::install_sync_triggers(&conn)?;
+                }
+                if version == 13 {
                     sync_meta::install_sync_triggers(&conn)?;
                 }
                 conn.execute(

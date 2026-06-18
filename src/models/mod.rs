@@ -3,6 +3,7 @@ pub mod conversation;
 pub mod folder;
 pub mod note;
 pub mod reminder;
+pub mod thread;
 
 pub use attachment::*;
 pub use conversation::*;
@@ -16,3 +17,4 @@ pub use reminder::{
     BACKEND_USER_NOTIFICATIONS, DEFAULT_REMINDER_HOUR, REMINDER_STATE_ACTIVE,
     REMINDER_STATE_TOMBSTONE,
 };
+pub use thread::{NewThread, Thread, UpdateThread};

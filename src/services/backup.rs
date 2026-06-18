@@ -42,6 +42,7 @@ pub struct Manifest {
 pub struct Counts {
     pub notes: i64,
     pub folders: i64,
+    pub threads: i64,
     pub attachments: i64,
     pub conversations: i64,
     pub audio_files: i64,
@@ -1059,6 +1060,7 @@ pub fn snapshot_counts(db_file: &Path) -> Result<Counts, String> {
     Ok(Counts {
         notes: count("notes")?,
         folders: count("folders")?,
+        threads: count("threads")?,
         attachments: count("attachments")?,
         conversations: count("conversations")?,
         audio_files: count("note_audios")?,
@@ -1078,6 +1080,7 @@ mod manifest_tests {
             Counts {
                 notes: 3,
                 folders: 1,
+                threads: 1,
                 attachments: 2,
                 conversations: 4,
                 audio_files: 5,

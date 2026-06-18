@@ -1,12 +1,32 @@
 use crate::db::Database;
-use crate::models::Folder;
+use crate::models::{ChatScope, Folder};
 use crate::services::i18n::t;
 use crate::ui::AppState;
 use dioxus::prelude::*;
 use std::sync::Arc;
 
 #[component]
-pub fn FolderPicker(selected: Signal<Option<String>>) -> Element {
+pub fn ChatScopePicker() -> Element {
+    let mut app: AppState = use_context();
+    let highlight = use_signal(|| match (app.chat_scope)() {
+        Some(ChatScope::Folder(id)) => Some(id),
+        _ => None,
+    });
+    rsx! {
+        FolderPicker {
+            selected: highlight,
+            on_pick: move |v: Option<String>| {
+                app.chat_scope.set(v.map(ChatScope::Folder));
+            },
+        }
+    }
+}
+
+#[component]
+pub fn FolderPicker(
+    selected: Signal<Option<String>>,
+    on_pick: EventHandler<Option<String>>,
+) -> Element {
     let db: Signal<Arc<Database>> = use_context();
     let mut app: AppState = use_context();
     let mut picked: Signal<Option<Option<String>>> = use_signal(|| None);
@@ -30,7 +50,8 @@ pub fn FolderPicker(selected: Signal<Option<String>>) -> Element {
             closing.set(true);
             futures_timer::Delay::new(std::time::Duration::from_millis(140))
                 .await;
-            selected.set(value);
+            selected.set(value.clone());
+            on_pick.call(value);
             app.show_folder_picker.set(false);
         });
     };

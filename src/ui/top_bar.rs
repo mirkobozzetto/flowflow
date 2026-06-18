@@ -1,4 +1,5 @@
 use crate::db::Database;
+use crate::models::ChatScope;
 use crate::services::i18n::t;
 use crate::ui::icons::*;
 use crate::ui::{AppState, SidebarTab, View};
@@ -10,15 +11,29 @@ pub fn TopBar() -> Element {
     let mut app: AppState = use_context();
     let db: Signal<Arc<Database>> = use_context();
     let is_detail = matches!((app.view)(), View::NoteDetail { .. });
+    let is_thread = matches!((app.view)(), View::ThreadDetail { .. });
     let is_chat = matches!((app.view)(), View::Chat { .. });
     let is_settings =
         matches!((app.view)(), View::Settings | View::SettingsSection(_));
     let is_sync_pairing = matches!((app.view)(), View::SyncPairing);
-    let is_inner = is_detail || is_chat || is_settings || is_sync_pairing;
-    let chat_from_note = is_chat
-        && matches!((app.previous_view)(), Some(View::NoteDetail { .. }));
-    let show_back = (is_inner && !is_chat) || chat_from_note;
+    let is_inner =
+        is_detail || is_thread || is_chat || is_settings || is_sync_pairing;
+    let chat_from_detail = is_chat
+        && matches!(
+            (app.previous_view)(),
+            Some(View::NoteDetail { .. }) | Some(View::ThreadDetail { .. })
+        );
+    let show_back = (is_inner && !is_chat) || chat_from_detail;
     let lang = (app.current_lang)();
+
+    let thread_title = |id: &str| {
+        db().get_thread(id)
+            .ok()
+            .flatten()
+            .map(|th| th.title)
+            .filter(|s| !s.is_empty())
+            .unwrap_or_else(|| t(&lang, "thread-untitled"))
+    };
 
     let title = match (app.view)() {
         View::NotesList => match (app.selected_folder_id)() {
@@ -39,13 +54,15 @@ pub fn TopBar() -> Element {
                 .unwrap_or_else(|| t(&lang, "top-bar-all-notes")),
             None => t(&lang, "top-bar-all-notes"),
         },
-        View::Chat { .. } => match (app.chat_scope_folder_id)() {
-            Some(ref fid) => db()
+        View::ThreadDetail { ref thread_id } => thread_title(thread_id),
+        View::Chat { .. } => match (app.chat_scope)() {
+            Some(ChatScope::Folder(ref fid)) => db()
                 .get_folder(fid)
                 .ok()
                 .flatten()
                 .map(|f| f.name)
                 .unwrap_or_else(|| t(&lang, "top-bar-all-notes")),
+            Some(ChatScope::Thread(ref tid)) => thread_title(tid),
             None => t(&lang, "top-bar-all-notes"),
         },
         View::Settings => t(&lang, "sidebar-settings"),
@@ -65,7 +82,9 @@ pub fn TopBar() -> Element {
                         if cfg!(target_os = "macos")
                             || matches!(
                                 target,
-                                View::Chat { .. } | View::NoteDetail { .. }
+                                View::Chat { .. }
+                                    | View::NoteDetail { .. }
+                                    | View::ThreadDetail { .. }
                             )
                         {
                             app.previous_view.set(None);
@@ -126,6 +145,16 @@ pub fn TopBar() -> Element {
                     },
                     IconDotsThreeVertical { size: 22 }
                 }
+            } else if is_thread {
+                button {
+                    class: "min-w-[44px] min-h-[44px] flex items-center justify-center text-stone-700 hover:text-stone-900 transition-colors duration-150",
+                    onclick: move |_| {
+                        app.show_folder_picker.set(false);
+                        let cur = (app.show_thread_menu)();
+                        app.show_thread_menu.set(!cur);
+                    },
+                    IconDotsThreeVertical { size: 22 }
+                }
             } else if is_chat {
                 button {
                     class: "min-w-[44px] min-h-[44px] flex items-center justify-center text-stone-700 hover:text-stone-900 transition-colors duration-150",
@@ -142,7 +171,7 @@ pub fn TopBar() -> Element {
                     onclick: move |_| {
                         app.show_folder_picker.set(false);
                         app.sidebar_tab.set(SidebarTab::Chats);
-                        app.chat_scope_folder_id.set(None);
+                        app.chat_scope.set(None);
                         app.previous_view.set(Some(View::NotesList));
                         app.view.set(View::Chat { conversation_id: None });
                     },

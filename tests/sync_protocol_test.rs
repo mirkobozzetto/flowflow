@@ -1,6 +1,7 @@
 use flowflow::db::chunk_repo::ChunkRecord;
 use flowflow::db::Database;
 use flowflow::models::note::{NewTextNote, UpdateNote};
+use flowflow::models::NewThread;
 use flowflow::services::sync::{peers, protocol};
 use std::net::TcpListener;
 use std::sync::{Arc, Once};
@@ -123,6 +124,56 @@ fn edit_propagates_and_meta_converges() {
     let meta_a = read_meta(&db_a, "note", &note);
     let meta_b = read_meta(&db_b, "note", &note);
     assert_eq!(meta_a, meta_b, "meta must be identical after sync");
+}
+
+#[test]
+fn threads_sync_and_delete_returns_members_to_flat_on_peer() {
+    let (db_a, _da) = open_db();
+    let (db_b, _db) = open_db();
+    let (id_a, _) = pair(&db_a, &db_b);
+
+    let thread = db_a
+        .create_thread(&NewThread {
+            title: "Plan".into(),
+            folder_id: None,
+        })
+        .expect("thread");
+    let member = make_note(&db_a, "entry", "body in thread");
+    db_a.add_note_to_thread(&member, &thread.id).expect("add");
+
+    sync_once(&db_a, &db_b, &id_a, 50);
+
+    let on_b = db_b
+        .get_thread(&thread.id)
+        .expect("q")
+        .expect("thread on B");
+    assert_eq!(on_b.title, "Plan");
+    let member_on_b = db_b.get_note(&member).expect("q").expect("note on B");
+    assert_eq!(member_on_b.thread_id.as_deref(), Some(thread.id.as_str()));
+    assert_eq!(db_b.list_thread_notes(&thread.id).expect("list").len(), 1);
+
+    db_a.delete_thread(&thread.id).expect("delete");
+    sync_once(&db_a, &db_b, &id_a, 50);
+
+    assert!(
+        db_b.get_thread(&thread.id).expect("q").is_none(),
+        "thread tombstoned on the peer"
+    );
+    let member_b2 =
+        db_b.get_note(&member).expect("q").expect("note still on B");
+    assert_eq!(
+        member_b2.thread_id, None,
+        "member returns to flat on the peer (delete convergence)"
+    );
+
+    assert_eq!(
+        read_meta(&db_a, "thread", &thread.id),
+        read_meta(&db_b, "thread", &thread.id)
+    );
+    assert_eq!(
+        read_meta(&db_a, "note", &member),
+        read_meta(&db_b, "note", &member)
+    );
 }
 
 fn read_meta(
