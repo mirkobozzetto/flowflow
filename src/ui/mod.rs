@@ -58,7 +58,6 @@ pub fn App() -> Element {
             db.cleanup_orphan_audio(&crate::services::audio::output_dir());
         }
         crate::services::backup::finalize_restore_bak();
-        let _ = db.collapse_singleton_threads();
         run_boot_reconcile();
         #[cfg(target_os = "ios")]
         {
