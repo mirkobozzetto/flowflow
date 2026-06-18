@@ -3,6 +3,7 @@ use flowflow::db::Database;
 use flowflow::models::attachment::NewAttachment;
 use flowflow::models::folder::NewFolder;
 use flowflow::models::note::{NewTextNote, UpdateNote};
+use flowflow::models::thread::NewThread;
 use flowflow::services::sync::conflict::{
     decide, dismiss_conflict, restore_note_conflict, ArchivedChunk,
     MergeOutcome, VersionInfo,
@@ -426,6 +427,240 @@ fn restore_note_conflict_brings_back_text_and_vectors() {
             .len(),
         2,
         "restored vectors propagate with their note"
+    );
+}
+
+// RFC 0007: restoring a conflicted note must land it back in the surviving
+// original's folder + thread, not detached.
+fn seed_foldered_threaded_conflict(
+    db_a: &Arc<Database>,
+    db_b: &Arc<Database>,
+    id_a: &str,
+) -> (String, String, String) {
+    let folder = db_a
+        .create_folder(&NewFolder {
+            name: "dossier".into(),
+            description: None,
+            parent_id: None,
+        })
+        .expect("folder")
+        .id;
+    let thread = db_a
+        .create_thread(&NewThread {
+            title: "fil".into(),
+            folder_id: None,
+        })
+        .expect("thread")
+        .id;
+    let note = db_a
+        .create_text_note_in_thread(
+            &NewTextNote {
+                title: Some("base".into()),
+                content: "base".into(),
+                tags: vec![],
+            },
+            &thread,
+        )
+        .expect("note")
+        .id;
+    db_a.create_text_note_in_thread(
+        &NewTextNote {
+            title: Some("sibling".into()),
+            content: "sibling".into(),
+            tags: vec![],
+        },
+        &thread,
+    )
+    .expect("sibling makes a real >=2 thread");
+    db_a.add_note_to_folder(&note, &folder).expect("link");
+    sync_once(db_a, db_b, id_a);
+
+    db_a.update_note(
+        &note,
+        &UpdateNote {
+            title: Some("A version".into()),
+            content: Some("body from A".into()),
+            tags: None,
+        },
+    )
+    .expect("update a");
+    db_b.update_note(
+        &note,
+        &UpdateNote {
+            title: Some("B version".into()),
+            content: Some("body from B".into()),
+            tags: None,
+        },
+    )
+    .expect("update b");
+    sync_once(db_a, db_b, id_a);
+    (folder, thread, note)
+}
+
+fn losing_side<'a>(
+    db_a: &'a Arc<Database>,
+    db_b: &'a Arc<Database>,
+) -> (&'a Arc<Database>, flowflow::db::conflict_repo::SyncConflict) {
+    if let Some(c) = db_a
+        .list_unresolved_conflicts()
+        .expect("list a")
+        .into_iter()
+        .next()
+    {
+        (db_a, c)
+    } else {
+        (
+            db_b,
+            db_b.list_unresolved_conflicts()
+                .expect("list b")
+                .into_iter()
+                .next()
+                .expect("one conflict somewhere"),
+        )
+    }
+}
+
+#[test]
+fn restore_conflict_inherits_folder_and_thread() {
+    let (db_a, _da) = open_db();
+    let (db_b, _db) = open_db();
+    let (id_a, _) = pair(&db_a, &db_b);
+
+    let (folder, thread, note) =
+        seed_foldered_threaded_conflict(&db_a, &db_b, &id_a);
+    let (db_with, conflict) = losing_side(&db_a, &db_b);
+
+    let restored = restore_note_conflict(db_with, &conflict).expect("restore");
+    assert_ne!(restored.id, note, "restored as a NEW note");
+    assert_eq!(
+        restored.thread_id.as_deref(),
+        Some(thread.as_str()),
+        "restored note inherits the surviving original's thread"
+    );
+    let folders = db_with.folders_for_note(&restored.id).expect("folders");
+    assert_eq!(folders.len(), 1, "restored note inherits the folder");
+    assert_eq!(folders[0].id, folder);
+}
+
+// The user's literal scenario: a restored note's inherited thread + folder must
+// survive the NEXT sync, not just exist locally. Proves RFC 0007 D5 (re-link +
+// thread_id propagate on the fresh id) end to end, through apply_batch.
+#[test]
+fn restore_conflict_inherited_structure_propagates_to_peer() {
+    let (db_a, _da) = open_db();
+    let (db_b, _db) = open_db();
+    let (id_a, _) = pair(&db_a, &db_b);
+
+    let (folder, thread, _note) =
+        seed_foldered_threaded_conflict(&db_a, &db_b, &id_a);
+    let (db_with, conflict) = losing_side(&db_a, &db_b);
+
+    let restored = restore_note_conflict(db_with, &conflict).expect("restore");
+    sync_once(&db_a, &db_b, &id_a);
+
+    let db_other: &Database = if Arc::ptr_eq(db_with, &db_a) {
+        &db_b
+    } else {
+        &db_a
+    };
+    let on_other = db_other
+        .get_note(&restored.id)
+        .expect("q")
+        .expect("restored note reaches the peer");
+    assert_eq!(
+        on_other.thread_id.as_deref(),
+        Some(thread.as_str()),
+        "inherited thread membership crosses the wire"
+    );
+    assert!(
+        db_other.get_thread(&thread).expect("q").is_some(),
+        "the thread row exists on the peer"
+    );
+    let folders = db_other.folders_for_note(&restored.id).expect("folders");
+    assert!(
+        folders.iter().any(|f| f.id == folder),
+        "inherited folder link crosses the wire"
+    );
+}
+
+// RFC 0007 F4: the thread_id guard drops a dangling reference. If the original
+// note still carries a thread_id but the thread ROW is gone, the restored note
+// must come back flat (no thread) while still inheriting the folder.
+#[test]
+fn restore_conflict_drops_dangling_thread_keeps_folder() {
+    let (db_a, _da) = open_db();
+    let (db_b, _db) = open_db();
+    let (id_a, _) = pair(&db_a, &db_b);
+
+    let (folder, thread, note) =
+        seed_foldered_threaded_conflict(&db_a, &db_b, &id_a);
+    let (db_with, conflict) = losing_side(&db_a, &db_b);
+
+    // Inject the dangling state the get_thread guard exists to catch: a note
+    // still carrying thread_id while the thread row is gone. FK is ON locally
+    // (ON DELETE SET NULL would null the member), so drop the row with FK off -
+    // exactly how it arises on a peer, where apply runs foreign_keys=OFF.
+    {
+        let conn = db_with.conn();
+        conn.execute_batch("PRAGMA foreign_keys=OFF;")
+            .expect("fk off");
+        conn.execute("DELETE FROM threads WHERE id = ?1", [&thread])
+            .expect("raw delete thread row");
+        conn.execute_batch("PRAGMA foreign_keys=ON;")
+            .expect("fk on");
+    }
+    assert_eq!(
+        db_with
+            .get_note(&note)
+            .expect("q")
+            .expect("original alive")
+            .thread_id
+            .as_deref(),
+        Some(thread.as_str()),
+        "original still references the now-missing thread"
+    );
+
+    let restored = restore_note_conflict(db_with, &conflict).expect("restore");
+    assert!(
+        restored.thread_id.is_none(),
+        "dangling thread reference is dropped, restored note is flat"
+    );
+    assert_eq!(
+        db_with
+            .folders_for_note(&restored.id)
+            .expect("folders")
+            .len(),
+        1,
+        "folder is still inherited even when the thread is gone"
+    );
+}
+
+#[test]
+fn restore_conflict_falls_back_to_flat_when_original_gone() {
+    let (db_a, _da) = open_db();
+    let (db_b, _db) = open_db();
+    let (id_a, _) = pair(&db_a, &db_b);
+
+    let (_folder, _thread, _note) =
+        seed_foldered_threaded_conflict(&db_a, &db_b, &id_a);
+    let (db_with, conflict) = losing_side(&db_a, &db_b);
+
+    db_with
+        .delete_note(&conflict.entity_id)
+        .expect("delete the surviving original before restore");
+
+    let restored = restore_note_conflict(db_with, &conflict).expect("restore");
+    assert!(
+        restored.thread_id.is_none(),
+        "no thread inherited when the original is gone"
+    );
+    assert_eq!(
+        db_with
+            .folders_for_note(&restored.id)
+            .expect("folders")
+            .len(),
+        0,
+        "no folder inherited when the original is gone"
     );
 }
 

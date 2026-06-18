@@ -109,7 +109,13 @@ impl Database {
     }
 
     // A thread with fewer than 2 members is not a thread: delete it, returning
-    // any lone member to a flat note. Run at boot and on leaving a thread.
+    // any lone member to a flat note. Explicit, local-only cleanup: never run it
+    // automatically during the sync-convergence window. Membership is split
+    // across two synced rows (the thread row + each note's thread_id), so a
+    // still-converging thread can look like a singleton locally while the peer
+    // holds it whole; collapsing then deletes a live thread and spawns spurious
+    // conflicts (RFC 0007). Singletons are already hidden by list_root_notes* /
+    // list_feed_threads filtering, so no auto-collapse is needed for display.
     pub fn collapse_singleton_threads(&self) -> Result<(), String> {
         let ids: Vec<String> = {
             let conn = self.conn();

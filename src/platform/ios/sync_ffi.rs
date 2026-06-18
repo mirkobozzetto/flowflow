@@ -19,7 +19,7 @@ fn bg_task_invalid() -> usize {
     unsafe { objc2_ui_kit::UIBackgroundTaskInvalid }
 }
 
-// RFC 0004 T20: a short grace window so a sync session survives the user
+// A short grace window so a sync session survives the user
 // backgrounding the app mid-transfer. Begin/end are documented thread-safe,
 // but the objc2 typed UIApplication API is gated on MainThreadMarker, so the
 // two calls go through the dynamic runtime instead. If the window expires
@@ -87,7 +87,7 @@ fn end_bg_task(task_id: &Arc<AtomicUsize>) {
     }
 }
 
-// RFC 0004 T16: NSFileProtection class CompleteUntilFirstUserAuthentication
+// NSFileProtection class CompleteUntilFirstUserAuthentication
 // (NOT Complete) on the SQLite file family. Complete would make the mmapped
 // -wal/-shm unreadable once the screen locks and corrupt a foreground sync
 // that survives the lock; CompleteUntilFirstUserAuthentication keeps them
@@ -132,6 +132,7 @@ pub fn observe_restore_foreground() {
                 {
                     crate::services::backup::activate_restore_lock();
                 }
+                crate::services::sync::engine::sync_now_if_live();
             },
         );
         let center = NSNotificationCenter::defaultCenter();
@@ -145,7 +146,7 @@ pub fn observe_restore_foreground() {
     });
 }
 
-// RFC 0004 T16: checkpoint the WAL when the app moves to the background so a
+// Checkpoint the WAL when the app moves to the background so a
 // later lock/eviction never catches a fat WAL mid-flight. The work runs on a
 // short-lived thread; iOS grants a few seconds of grace after this
 // notification, enough for a passive checkpoint of our small DB.

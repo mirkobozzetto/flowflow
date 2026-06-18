@@ -201,7 +201,11 @@ fn snapshot_str(snapshot: &Value, key: &str) -> Option<String> {
 // comes back as a first-class synced entity (the create path fires the
 // tracking triggers, so the restored note propagates to every device), and
 // its archived vectors are copied back under the new note's deterministic
-// chunk ids - zero re-embedding.
+// chunk ids - zero re-embedding. The restored note also inherits the
+// structure of the LIVE surviving original (its folders + thread), so
+// recovering a conflict no longer detaches the note from where it lives
+// (RFC 0007); if the original was deleted meanwhile, the restored note stays
+// flat (safe fallback).
 //
 // Ordering (review fixes): the conflict is CLAIMED first (resolved=0 -> 1,
 // guarded), so a double-tap or a stale list cannot run the restore twice and
@@ -229,12 +233,31 @@ pub fn restore_note_conflict(
     let tags: Vec<String> = snapshot_str(&snapshot, "tags")
         .and_then(|raw| serde_json::from_str(&raw).ok())
         .unwrap_or_default();
+    // Inherit structure from the LIVE surviving note (the winner at entity_id),
+    // not the losing snapshot: folder links live only in the notes_folders
+    // junction (absent from the snapshot), and "restore next to the original"
+    // means where the note lives now. Read before the claim; both collapse to a
+    // flat note if the original was deleted meanwhile.
+    let folders = db.folders_for_note(&conflict.entity_id).unwrap_or_default();
+    let live_thread = db
+        .get_note(&conflict.entity_id)
+        .ok()
+        .flatten()
+        .and_then(|n| n.thread_id)
+        .filter(|tid| matches!(db.get_thread(tid), Ok(Some(_))));
     db.resolve_conflict(conflict.id)?;
-    let note = match db.create_text_note(&NewTextNote {
+    let new = NewTextNote {
         title: snapshot_str(&snapshot, "title"),
         content,
         tags,
-    }) {
+    };
+    // thread_id rides in the INSERT (atomic with the row); a fresh id means no
+    // id fork, no new conflict.
+    let create = match &live_thread {
+        Some(tid) => db.create_text_note_in_thread(&new, tid),
+        None => db.create_text_note(&new),
+    };
+    let note = match create {
         Ok(n) => n,
         Err(e) => {
             if let Err(rb) = db.unresolve_conflict(conflict.id) {
@@ -243,6 +266,21 @@ pub fn restore_note_conflict(
             return Err(e);
         }
     };
+    // Folders are the only post-insert structural step. A failure here would
+    // leave a detached note behind a resolved conflict (lost structure, no
+    // retry), so roll the whole restore back and keep the conflict visible.
+    for folder in &folders {
+        if let Err(e) = db.add_note_to_folder(&note.id, &folder.id) {
+            let _ = db.delete_note(&note.id);
+            if let Err(rb) = db.unresolve_conflict(conflict.id) {
+                eprintln!(
+                    "[sync] conflict {} unclaim after folder re-link: {rb}",
+                    conflict.id
+                );
+            }
+            return Err(format!("restore folder re-link: {e}"));
+        }
+    }
     if let Some(raw) = &conflict.losing_vector_ref {
         match serde_json::from_str::<Vec<ArchivedChunk>>(raw) {
             Ok(chunks) => restore_chunks(db, &note.id, &chunks),
