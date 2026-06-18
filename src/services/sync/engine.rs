@@ -1,4 +1,4 @@
-// RFC 0004 T20: the sync triggers. Owns WHEN a sync runs - a foreground
+// Owns WHEN a sync runs - a foreground
 // listener serving inbound peers, an outbound pass at app open, the "Sync
 // now" button, and a debounced pass after each save - plus the shared
 // activity state the UI indicator polls. The protocol itself (T17) stays
@@ -103,6 +103,20 @@ pub fn poke_after_data_change() {
     };
     if let Some(engine) = slot.lock().unwrap().upgrade() {
         engine.schedule_debounced();
+    }
+}
+
+// Called when the app returns to the foreground. After a Wi-Fi/DHCP change the
+// stored peer endpoint can be stale; only an inbound contact refreshes it. An
+// outbound pass on resume lets the device that moved re-reach the peer whose
+// address is still valid, and the peer's serve_loop then heals the stale record
+// in both directions.
+pub fn sync_now_if_live() {
+    let Some(slot) = LIVE_ENGINE.get() else {
+        return;
+    };
+    if let Some(engine) = slot.lock().unwrap().upgrade() {
+        engine.sync_now();
     }
 }
 
