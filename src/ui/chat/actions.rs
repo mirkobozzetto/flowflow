@@ -1,5 +1,5 @@
 use crate::db::Database;
-use crate::models::{generate_auto_title, NewTextNote, UpdateNote};
+use crate::models::{generate_auto_title, ChatScope, NewTextNote, UpdateNote};
 use crate::services::rag;
 use crate::ui::chat::models::{tool_label, ChatMsg, ChatSource};
 use dioxus::prelude::*;
@@ -116,6 +116,19 @@ pub fn generate_note_title_bg(note_id: String, content: String, lang: String) {
     });
 }
 
+pub fn scope_save_folder(
+    db: &Database,
+    scope: &Option<ChatScope>,
+) -> Option<String> {
+    match scope {
+        Some(ChatScope::Folder(id)) => Some(id.clone()),
+        Some(ChatScope::Thread(tid)) => {
+            db.get_thread(tid).ok().flatten().and_then(|t| t.folder_id)
+        }
+        None => None,
+    }
+}
+
 pub fn find_saved_note(
     db: &Database,
     folder_id: Option<&str>,
@@ -147,7 +160,7 @@ pub fn send_question(
     tool_status: &mut Signal<Option<String>>,
     conversation_id: Signal<Option<String>>,
     db: Signal<Arc<Database>>,
-    folder_id: Option<String>,
+    scope: Option<rag::ChatScope>,
     lang: String,
 ) {
     messages.write().push(ChatMsg::User(question.clone()));
@@ -181,8 +194,9 @@ pub fn send_question(
         }
     });
 
+    let lang_for_query = lang.clone();
     spawn(async move {
-        match rag::query(&question, Some(tx), folder_id).await {
+        match rag::query(&question, Some(tx), scope, &lang_for_query).await {
             Ok(r) => {
                 let sources: Vec<ChatSource> = r
                     .sources

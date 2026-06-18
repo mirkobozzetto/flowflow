@@ -34,7 +34,7 @@ pub fn ConversationSection() -> Element {
             class: "flex items-center gap-2 w-full px-2 py-3 text-sm font-medium text-ios-orange-dark rounded-lg min-h-[44px] mb-2 hover:bg-ios-orange-50 transition-colors duration-150",
             onclick: move |_| {
                 app.sidebar_open.set(false);
-                app.chat_scope_folder_id.set(None);
+                app.chat_scope.set(None);
                 crate::ui::sidebar::navigate_with_slide(
                     app,
                     View::Chat { conversation_id: None },

@@ -14,6 +14,8 @@ use std::collections::HashSet;
 use std::sync::Arc;
 use tokio::sync::mpsc;
 
+pub use crate::models::ChatScope;
+
 #[derive(Clone)]
 pub struct RagSource {
     pub note_id: String,
@@ -361,20 +363,36 @@ fn apply_date_filter(
 pub async fn query(
     question: &str,
     status_tx: Option<mpsc::UnboundedSender<ToolEvent>>,
-    folder_id: Option<String>,
+    scope: Option<ChatScope>,
+    lang: &str,
 ) -> Result<RagResponse, String> {
     let ai = Arc::new(LlmClient::from_env()?);
     let store = VectorStore::open().await?;
 
-    let allowed_note_ids: Option<Vec<String>> = folder_id.and_then(|fid| {
-        Database::open().ok().map(|db| {
+    let allowed_note_ids: Option<Vec<String>> = match scope {
+        Some(ChatScope::Thread(tid)) => Database::open().ok().map(|db| {
+            db.list_thread_notes(&tid)
+                .unwrap_or_default()
+                .into_iter()
+                .map(|n| n.id)
+                .collect()
+        }),
+        Some(ChatScope::Folder(fid)) => Database::open().ok().map(|db| {
             db.list_notes_in_folder(&fid)
                 .unwrap_or_default()
                 .into_iter()
                 .map(|n| n.id)
                 .collect()
-        })
-    });
+        }),
+        None => None,
+    };
+
+    if matches!(allowed_note_ids, Some(ref ids) if ids.is_empty()) {
+        return Ok(RagResponse {
+            answer: crate::services::i18n::t(lang, "chat-empty-scope"),
+            sources: vec![],
+        });
+    }
 
     let date_range = detect_temporal_regex(question);
     let date_range = match date_range {

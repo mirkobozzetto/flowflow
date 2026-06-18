@@ -11,10 +11,28 @@ pub const MIGRATIONS: &[(i64, &str)] = &[
     (10, V10_SCHEMA),
     (11, V11_SCHEMA),
     (12, V12_SCHEMA),
+    (13, V13_SCHEMA),
 ];
 
 const V12_SCHEMA: &str = "
 ALTER TABLE notes ADD COLUMN sources_json TEXT;
+";
+
+const V13_SCHEMA: &str = "
+CREATE TABLE IF NOT EXISTS threads (
+    id TEXT PRIMARY KEY,
+    title TEXT NOT NULL DEFAULT '',
+    folder_id TEXT,
+    created_at TEXT NOT NULL
+        DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')),
+    modified_at TEXT NOT NULL
+        DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')),
+    FOREIGN KEY (folder_id) REFERENCES folders(id) ON DELETE SET NULL
+);
+CREATE INDEX IF NOT EXISTS idx_threads_folder ON threads(folder_id);
+
+ALTER TABLE notes ADD COLUMN thread_id TEXT REFERENCES threads(id) ON DELETE SET NULL;
+CREATE INDEX IF NOT EXISTS idx_notes_thread ON notes(thread_id);
 ";
 
 const V1_SCHEMA: &str = "

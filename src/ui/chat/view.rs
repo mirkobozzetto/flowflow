@@ -1,4 +1,5 @@
 use crate::db::Database;
+use crate::models::ChatScope;
 use crate::services::audio::RecordingState;
 use crate::ui::chat::actions::{load_messages_from_db, send_question};
 use crate::ui::chat::bot_bubble::BotBubble;
@@ -28,10 +29,11 @@ pub fn ChatView() -> Element {
 
     let scope_init = use_signal(|| {
         if let Some(cid) = initial_conv_id.as_deref() {
-            let restored = db.peek().chat_scope(cid).filter(|fid| {
-                db.peek().get_folder(fid).ok().flatten().is_some()
-            });
-            app.chat_scope_folder_id.set(restored);
+            let restored = db
+                .peek()
+                .chat_scope(cid)
+                .filter(|s| scope_alive(&db.peek(), s));
+            app.chat_scope.set(restored);
         }
         true
     });
@@ -112,18 +114,18 @@ pub fn ChatView() -> Element {
         let restored = view_cid
             .as_deref()
             .and_then(|cid| db.peek().chat_scope(cid))
-            .filter(|fid| db.peek().get_folder(fid).ok().flatten().is_some());
+            .filter(|s| scope_alive(&db.peek(), s));
         conversation_id.set(view_cid);
         messages.set(msgs);
         input.set(String::new());
         tool_status.set(None);
-        app.chat_scope_folder_id.set(restored);
+        app.chat_scope.set(restored);
     });
 
     use_effect(move || {
-        let scope = (app.chat_scope_folder_id)();
+        let scope = (app.chat_scope)();
         if let Some(cid) = conversation_id.peek().clone() {
-            let _ = db.peek().set_chat_scope(&cid, scope.as_deref());
+            let _ = db.peek().set_chat_scope(&cid, scope.as_ref());
         }
     });
 
@@ -182,7 +184,7 @@ pub fn ChatView() -> Element {
                         let cid = conv.id.clone();
                         let _ = db().set_chat_scope(
                             &cid,
-                            (app.chat_scope_folder_id)().as_deref(),
+                            (app.chat_scope)().as_ref(),
                         );
                         conversation_id.set(Some(cid.clone()));
                         app.view.set(View::Chat {
@@ -190,10 +192,17 @@ pub fn ChatView() -> Element {
                         });
                     }
                 }
-                let folder = (app.chat_scope_folder_id)();
+                let scope = (app.chat_scope)();
                 let lang = (app.current_lang)();
-                send_question(q, &mut messages, &mut loading, &mut tool_status, conversation_id, db, folder, lang);
+                send_question(q, &mut messages, &mut loading, &mut tool_status, conversation_id, db, scope, lang);
             },
         }
+    }
+}
+
+fn scope_alive(db: &Database, scope: &ChatScope) -> bool {
+    match scope {
+        ChatScope::Folder(id) => db.get_folder(id).ok().flatten().is_some(),
+        ChatScope::Thread(id) => db.get_thread(id).ok().flatten().is_some(),
     }
 }

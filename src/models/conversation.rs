@@ -1,4 +1,10 @@
 #[derive(Clone, Debug, PartialEq)]
+pub enum ChatScope {
+    Folder(String),
+    Thread(String),
+}
+
+#[derive(Clone, Debug, PartialEq)]
 pub struct Conversation {
     pub id: String,
     pub title: String,

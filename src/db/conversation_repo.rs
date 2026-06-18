@@ -1,25 +1,42 @@
 use crate::db::{now_iso, sync_meta, Database};
 use crate::models::conversation::{Conversation, ConversationMessage};
+use crate::models::ChatScope;
 
 fn chat_scope_key(conversation_id: &str) -> String {
     format!("chat_scope:{conversation_id}")
 }
 
+fn parse_scope(raw: &str) -> ChatScope {
+    if let Some(id) = raw.strip_prefix("thread:") {
+        ChatScope::Thread(id.to_string())
+    } else if let Some(id) = raw.strip_prefix("folder:") {
+        ChatScope::Folder(id.to_string())
+    } else {
+        ChatScope::Folder(raw.to_string())
+    }
+}
+
+fn scope_value(scope: Option<&ChatScope>) -> String {
+    match scope {
+        Some(ChatScope::Folder(id)) => format!("folder:{id}"),
+        Some(ChatScope::Thread(id)) => format!("thread:{id}"),
+        None => String::new(),
+    }
+}
+
 impl Database {
-    pub fn chat_scope(&self, conversation_id: &str) -> Option<String> {
+    pub fn chat_scope(&self, conversation_id: &str) -> Option<ChatScope> {
         self.get_setting(&chat_scope_key(conversation_id))
             .filter(|v| !v.is_empty())
+            .map(|v| parse_scope(&v))
     }
 
     pub fn set_chat_scope(
         &self,
         conversation_id: &str,
-        folder_id: Option<&str>,
+        scope: Option<&ChatScope>,
     ) -> Result<(), String> {
-        self.set_setting(
-            &chat_scope_key(conversation_id),
-            folder_id.unwrap_or(""),
-        )
+        self.set_setting(&chat_scope_key(conversation_id), &scope_value(scope))
     }
 
     pub fn create_conversation(

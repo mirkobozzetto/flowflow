@@ -33,6 +33,7 @@ No manual searching. No folders to dig through. Just talk, and find it later.
 - **Web search in chat** - flip a toggle and the chat queries the web via [Exa](https://exa.ai) in parallel with your notes; the two ranked lists are fused by Reciprocal Rank Fusion (rank, not score), so fresh web facts and your own notes land in one answer, with web sources in their own section that open in your browser
 - **Save from chat** - keep any answer or a whole thread as a note: AI-titled, embedded for search, filed in the chat's own folder, with its web sources preserved and openable; saved notes render as clean markdown
 - **Note to chat** - jump from any note straight into the chat, already scoped to that note's theme, then one tap on the back arrow returns you to the exact note; the round trip works on iPhone and Mac
+- **Note threads** - group related notes into one titled, chronological thread you read top to bottom and append to in place; a thread needs at least two notes (a lone one stays a plain note), chat can be scoped to a single thread, and threads sync and back up like everything else
 - **Smart reminders** - notes like "pick up the kids at 5pm" become iOS reminders, detected by LLM with one-tap confirm; reminder chips open Calendar on Mac too
 - **AI organization** - auto-title while you write, single-word auto-tags, themes with hierarchy, searchable chats
 - **Document import** - PDF (native OCR for scans), DOCX, TXT, MD, CSV via the native pickers on iOS and macOS, auto-embedded for chat
@@ -116,7 +117,7 @@ Everything beyond this page lives in [`docs/INDEX.md`](docs/INDEX.md):
 ## Tests
 
 ```bash
-cargo test                 # 269 tests
+cargo test                 # 285 tests
 cargo test -- --ignored    # API-key-gated integration tests
 ```
 

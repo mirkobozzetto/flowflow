@@ -89,6 +89,8 @@ pub struct Note {
     pub tags: Vec<String>,
     #[serde(default)]
     pub sources_json: Option<String>,
+    #[serde(default)]
+    pub thread_id: Option<String>,
     pub created_at: String,
     pub modified_at: String,
 }

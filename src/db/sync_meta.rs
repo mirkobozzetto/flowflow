@@ -55,6 +55,15 @@ const TRACKED: &[Tracked] = &[
         update_trigger: true,
     },
     Tracked {
+        table: "threads",
+        kind: "thread",
+        new_id: "NEW.id",
+        seed_id: "t.id",
+        deleted_new: "0",
+        deleted_seed: "0",
+        update_trigger: true,
+    },
+    Tracked {
         table: "notes_folders",
         kind: "notes_folders",
         new_id: "NEW.folder_id || ':' || NEW.note_id",
@@ -152,6 +161,16 @@ pub fn install_sync_triggers(conn: &Connection) -> Result<(), String> {
     let guard = "sync_is_applying() = 0";
     let mut sql = String::new();
     for t in TRACKED {
+        let table_exists: bool = conn
+            .query_row(
+                "SELECT EXISTS(SELECT 1 FROM sqlite_master WHERE type='table' AND name=?1)",
+                [t.table],
+                |r| r.get(0),
+            )
+            .unwrap_or(false);
+        if !table_exists {
+            continue;
+        }
         sql.push_str(&format!(
             "CREATE TRIGGER IF NOT EXISTS trg_sync_{table}_ai
 AFTER INSERT ON {table}

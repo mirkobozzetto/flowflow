@@ -1,5 +1,5 @@
 use flowflow::services::rag::{build_context, RagResponse, RagSource};
-use flowflow::services::vectordb::SearchResult;
+use flowflow::services::vectordb::{SearchResult, SourceType};
 
 fn make_source(
     note_id: &str,
@@ -13,6 +13,8 @@ fn make_source(
         chunk_text: text.to_string(),
         distance,
         created_at: String::new(),
+        source_type: SourceType::Local,
+        url: None,
     }
 }
 
@@ -28,6 +30,8 @@ fn make_result(
         chunk_text: text.to_string(),
         distance,
         created_at: String::new(),
+        source_type: SourceType::Local,
+        url: None,
     }
 }
 

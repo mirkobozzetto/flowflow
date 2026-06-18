@@ -167,16 +167,19 @@ pub fn ChatMenu(props: ChatMenuProps) -> Element {
                                             }
                                         }
                                     }
-                                    let scope = (app.chat_scope_folder_id)();
+                                    let folder = crate::ui::chat::actions::scope_save_folder(
+                                        &database,
+                                        &(app.chat_scope)(),
+                                    );
                                     if let Ok(id) = crate::ui::chat::actions::save_as_note(
                                         &database,
-                                        scope.as_deref(),
+                                        folder.as_deref(),
                                         transcript,
                                         vec!["chat".to_string()],
                                         &web_sources,
                                         &lang,
                                     ) {
-                                        app.detail_folder_id.set(scope.clone());
+                                        app.detail_folder_id.set(folder.clone());
                                         app.previous_view.set(Some(View::Chat {
                                             conversation_id: conversation_id(),
                                         }));

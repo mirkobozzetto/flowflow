@@ -128,6 +128,12 @@ pub fn NoteMenu(
     let mut import_requested = import_requested;
     let mut confirm_delete = use_signal(|| false);
     let lang = (app.current_lang)();
+    let _ = (app.notes_version)();
+    let note = db().get_note(&note_id).ok().flatten();
+    let in_thread = note
+        .as_ref()
+        .map(|n| n.thread_id.is_some())
+        .unwrap_or(false);
     let import_label = t(&lang, "note-menu-import");
     let import_audio_label = t(&lang, "note-menu-import-audio");
     let delete_label = t(&lang, "note-menu-delete");
@@ -198,6 +204,22 @@ pub fn NoteMenu(
                     "{import_audio_label}"
                 }
                 div { class: kit::MENU_SEP }
+                if in_thread {
+                    button {
+                        class: kit::MENU_ITEM,
+                        onclick: {
+                            let note_id = note_id.clone();
+                            move |_| {
+                                let _ = db().remove_note_from_thread(&note_id);
+                                app.notes_version.set((app.notes_version)() + 1);
+                                app.show_note_menu.set(false);
+                            }
+                        },
+                        IconX { size: 16 }
+                        {t(&lang, "thread-remove-from")}
+                    }
+                    div { class: kit::MENU_SEP }
+                }
                 button {
                     class: kit::MENU_ITEM_DANGER,
                     onclick: move |_| confirm_delete.set(true),
