@@ -79,6 +79,35 @@ impl Database {
         Ok(threads)
     }
 
+    // Same >= 2 global rule, scoped to a folder: a thread surfaces in a folder
+    // when at least one of its members lives there.
+    pub fn list_feed_threads_in_folder(
+        &self,
+        folder_id: &str,
+    ) -> Result<Vec<Thread>, String> {
+        let conn = self.conn();
+        let mut stmt = conn
+            .prepare(
+                "SELECT t.* FROM threads t
+                 WHERE (SELECT COUNT(*) FROM notes n WHERE n.thread_id = t.id) >= 2
+                   AND EXISTS (
+                       SELECT 1 FROM notes n
+                       JOIN notes_folders nf ON nf.note_id = n.id
+                       WHERE n.thread_id = t.id AND nf.folder_id = ?1
+                   )
+                 ORDER BY t.modified_at DESC",
+            )
+            .map_err(|e| format!("Prepare: {e}"))?;
+        let rows = stmt
+            .query_map([folder_id], row_to_thread)
+            .map_err(|e| format!("Query: {e}"))?;
+        let mut threads = Vec::new();
+        for row in rows {
+            threads.push(row.map_err(|e| format!("Row: {e}"))?);
+        }
+        Ok(threads)
+    }
+
     // A thread with fewer than 2 members is not a thread: delete it, returning
     // any lone member to a flat note. Run at boot and on leaving a thread.
     pub fn collapse_singleton_threads(&self) -> Result<(), String> {

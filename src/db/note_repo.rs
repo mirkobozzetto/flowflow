@@ -175,6 +175,31 @@ impl Database {
         Ok(notes)
     }
 
+    pub fn list_root_notes_in_folder(
+        &self,
+        folder_id: &str,
+    ) -> Result<Vec<Note>, String> {
+        let conn = self.conn();
+        let mut stmt = conn
+            .prepare(
+                "SELECT n.* FROM notes n
+                 JOIN notes_folders nf ON nf.note_id = n.id
+                 WHERE nf.folder_id = ?1
+                   AND (n.thread_id IS NULL
+                        OR (SELECT COUNT(*) FROM notes m WHERE m.thread_id = n.thread_id) < 2)
+                 ORDER BY n.created_at DESC",
+            )
+            .map_err(|e| format!("Prepare: {e}"))?;
+        let rows = stmt
+            .query_map([folder_id], row_to_note)
+            .map_err(|e| format!("Query: {e}"))?;
+        let mut notes = Vec::new();
+        for row in rows {
+            notes.push(row.map_err(|e| format!("Row: {e}"))?);
+        }
+        Ok(notes)
+    }
+
     pub fn update_note(
         &self,
         id: &str,

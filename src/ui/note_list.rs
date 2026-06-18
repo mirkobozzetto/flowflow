@@ -43,31 +43,28 @@ pub fn NotesList() -> Element {
         let _s = (app.sync_data_version)();
         let db = db();
         let q = (app.search_query)().to_lowercase();
-        match (app.selected_folder_id)() {
-            Some(fid) => db
-                .list_notes_in_folder(&fid)
-                .unwrap_or_default()
-                .into_iter()
-                .filter(|n| note_matches(n, &q))
-                .map(FeedItem::Note)
-                .collect::<Vec<_>>(),
-            None => {
-                let mut items: Vec<FeedItem> = db
-                    .list_root_notes()
-                    .unwrap_or_default()
-                    .into_iter()
-                    .filter(|n| note_matches(n, &q))
-                    .map(FeedItem::Note)
-                    .collect();
-                for th in db.list_feed_threads().unwrap_or_default() {
-                    if q.is_empty() || th.title.to_lowercase().contains(&q) {
-                        items.push(FeedItem::Thread(th));
-                    }
-                }
-                items.sort_by(|a, b| b.recency().cmp(a.recency()));
-                items
+        let (root_notes, feed_threads) = match (app.selected_folder_id)() {
+            Some(fid) => (
+                db.list_root_notes_in_folder(&fid).unwrap_or_default(),
+                db.list_feed_threads_in_folder(&fid).unwrap_or_default(),
+            ),
+            None => (
+                db.list_root_notes().unwrap_or_default(),
+                db.list_feed_threads().unwrap_or_default(),
+            ),
+        };
+        let mut items: Vec<FeedItem> = root_notes
+            .into_iter()
+            .filter(|n| note_matches(n, &q))
+            .map(FeedItem::Note)
+            .collect();
+        for th in feed_threads {
+            if q.is_empty() || th.title.to_lowercase().contains(&q) {
+                items.push(FeedItem::Thread(th));
             }
         }
+        items.sort_by(|a, b| b.recency().cmp(a.recency()));
+        items
     });
 
     use_effect(move || {
