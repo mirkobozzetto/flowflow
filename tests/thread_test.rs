@@ -199,6 +199,116 @@ fn list_root_notes_excludes_members_includes_dangling() {
 }
 
 #[test]
+fn folder_feed_collapses_thread_and_hides_members() {
+    let (db, _dir) = open_test_db();
+    let folder = db
+        .create_folder(&flowflow::models::NewFolder {
+            name: "F".into(),
+            description: None,
+            parent_id: None,
+        })
+        .unwrap();
+
+    let flat = make_note(&db, "flat");
+    db.add_note_to_folder(&flat, &folder.id).unwrap();
+
+    let thread = db
+        .create_thread(&NewThread {
+            title: "T".into(),
+            folder_id: Some(folder.id.clone()),
+        })
+        .unwrap();
+    let m1 = make_note(&db, "m1");
+    let m2 = make_note(&db, "m2");
+    db.add_note_to_thread(&m1, &thread.id).unwrap();
+    db.add_note_to_thread(&m2, &thread.id).unwrap();
+    db.add_note_to_folder(&m1, &folder.id).unwrap();
+    db.add_note_to_folder(&m2, &folder.id).unwrap();
+
+    let root: Vec<String> = db
+        .list_root_notes_in_folder(&folder.id)
+        .unwrap()
+        .into_iter()
+        .map(|n| n.id)
+        .collect();
+    assert!(root.contains(&flat), "flat note visible in folder");
+    assert!(
+        !root.contains(&m1) && !root.contains(&m2),
+        "thread members hidden in folder feed"
+    );
+
+    let threads = db.list_feed_threads_in_folder(&folder.id).unwrap();
+    assert_eq!(threads.len(), 1, "thread collapses into one card in its folder");
+    assert_eq!(threads[0].id, thread.id);
+}
+
+#[test]
+fn folder_feed_hides_member_even_when_alone_and_reverts_on_remove() {
+    let (db, _dir) = open_test_db();
+    let f = db
+        .create_folder(&flowflow::models::NewFolder {
+            name: "F".into(),
+            description: None,
+            parent_id: None,
+        })
+        .unwrap();
+    let g = db
+        .create_folder(&flowflow::models::NewFolder {
+            name: "G".into(),
+            description: None,
+            parent_id: None,
+        })
+        .unwrap();
+
+    let thread = db
+        .create_thread(&NewThread {
+            title: "T".into(),
+            folder_id: None,
+        })
+        .unwrap();
+    let m1 = make_note(&db, "m1");
+    let m2 = make_note(&db, "m2");
+    db.add_note_to_thread(&m1, &thread.id).unwrap();
+    db.add_note_to_thread(&m2, &thread.id).unwrap();
+    db.add_note_to_folder(&m1, &f.id).unwrap();
+    db.add_note_to_folder(&m2, &g.id).unwrap();
+
+    let root_f: Vec<String> = db
+        .list_root_notes_in_folder(&f.id)
+        .unwrap()
+        .into_iter()
+        .map(|n| n.id)
+        .collect();
+    assert!(
+        !root_f.contains(&m1),
+        "member stays hidden even when alone in its folder"
+    );
+    assert_eq!(
+        db.list_feed_threads_in_folder(&f.id).unwrap().len(),
+        1,
+        "thread surfaces in every folder that holds a member"
+    );
+    assert_eq!(db.list_feed_threads_in_folder(&g.id).unwrap().len(), 1);
+
+    db.remove_note_from_thread(&m1).unwrap();
+
+    assert!(
+        db.list_feed_threads_in_folder(&f.id).unwrap().is_empty(),
+        "below 2 members the thread is no longer a thread"
+    );
+    let root_f2: Vec<String> = db
+        .list_root_notes_in_folder(&f.id)
+        .unwrap()
+        .into_iter()
+        .map(|n| n.id)
+        .collect();
+    assert!(
+        root_f2.contains(&m1),
+        "removed member returns as a flat note in its folder"
+    );
+}
+
+#[test]
 fn thread_needs_two_members_to_be_a_thread() {
     let (db, _dir) = open_test_db();
     let thread = db
