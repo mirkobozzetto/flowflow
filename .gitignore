@@ -37,3 +37,6 @@ dist/
 .claude/
 .agents/
 .zed/
+
+# Local-only docs (may contain secrets: admin tokens, device ids). Never committed.
+*.local.md
