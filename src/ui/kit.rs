@@ -10,6 +10,10 @@ pub const CONFIRM_BTN_GHOST: &str = "flex-1 h-9 flex items-center justify-center
 
 pub const CONFIRM_BTN_DANGER: &str = "flex-1 h-9 flex items-center justify-center rounded-lg bg-ios-red text-white text-sm font-medium hover:opacity-90 active:opacity-80 transition-opacity duration-150";
 
+pub const PILL_PRIMARY: &str = "shrink-0 h-9 px-3 flex items-center justify-center rounded-lg bg-ios-orange text-white text-xs font-medium hover:opacity-90 active:opacity-80 disabled:opacity-45 transition-opacity duration-150";
+
+pub const PILL_GHOST: &str = "shrink-0 h-9 px-3 flex items-center justify-center rounded-lg bg-stone-100 text-stone-900 text-xs font-medium hover:bg-stone-200 active:bg-stone-200 disabled:opacity-45 transition-colors duration-150";
+
 pub const MENU_PANEL: &str = "z-50 min-w-[200px] bg-warm-white border border-stone-200 rounded-xl shadow-lg p-1 menu-pop";
 
 pub const MENU_ITEM: &str = "w-full flex items-center gap-2.5 px-3 py-2.5 min-h-[40px] rounded-lg text-sm text-stone-800 text-left active:bg-stone-100 hover:bg-stone-100 transition-colors duration-150";

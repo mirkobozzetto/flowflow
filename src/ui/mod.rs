@@ -645,6 +645,12 @@ pub fn App() -> Element {
                                         String::new()
                                     } else if sliding_back && !in_section {
                                         "animation: slideOutRight 0.15s ease-in forwards;".to_string()
+                                    } else if sliding_back && in_section {
+                                        // Going back from a section: un-shift the list to 0 in
+                                        // parallel with the section sliding out, instead of waiting
+                                        // for the view flip (which animated them in sequence). Keep
+                                        // the slideInRight token so it never replays here.
+                                        "animation: slideInRight 0.15s ease-out; transform: translateX(0); opacity: 1; transition: transform 0.15s ease, opacity 0.15s ease;".to_string()
                                     } else if in_section {
                                         "animation: slideInRight 0.15s ease-out; transform: translateX(-30%); opacity: 0.5; transition: transform 0.15s ease, opacity 0.15s ease;".to_string()
                                     } else {

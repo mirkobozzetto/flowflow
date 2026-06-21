@@ -62,7 +62,7 @@ pub fn ConnectionsSettings() -> Element {
                             "{device_id}"
                         }
                         button {
-                            class: "shrink-0 h-9 px-3 flex items-center justify-center rounded-lg bg-stone-100 text-stone-900 text-xs font-medium hover:bg-stone-200 active:bg-stone-200 transition-colors duration-150",
+                            class: crate::ui::kit::PILL_GHOST,
                             onclick: move |_| crate::ui::clipboard::copy_text(&device_id()),
                             {t(&lang, "connections-copy")}
                         }
@@ -101,73 +101,96 @@ pub fn ConnectionsSettings() -> Element {
 
             if connectors().is_empty() {
                 p { class: "text-xs text-stone-400", {t(&lang, "connections-empty")} }
-            }
-
-            for c in connectors() {
-                div {
-                    key: "{c.provider}",
-                    class: "rounded-xl bg-warm-white border border-stone-200 p-4 flex items-center justify-between",
-                    div {
-                        p { class: "text-sm font-medium text-stone-800", "{c.name}" }
-                        p {
-                            class: if c.connected { "text-xs text-ios-green" } else { "text-xs text-stone-400" },
+            } else {
+                div { class: "rounded-xl bg-warm-white border border-stone-200 divide-y divide-stone-100 overflow-hidden",
+                    for c in connectors() {
+                        div {
+                            key: "{c.provider}",
+                            class: "min-h-[64px] px-4 py-3 flex items-center gap-3",
+                            // Catalogue is backend-driven, so the connector identity is derived
+                            // from its name. Swap this tile for per-brand logos once the backend
+                            // catalogue ships icon assets.
+                            div { class: "w-10 h-10 shrink-0 rounded-xl bg-ios-orange-50 flex items-center justify-center",
+                                span { class: "text-ios-orange-dark font-semibold text-base",
+                                    {c.name.chars().next().map(|ch| ch.to_uppercase().to_string()).unwrap_or_default()}
+                                }
+                            }
+                            div { class: "flex-1 min-w-0",
+                                p { class: "text-sm font-medium text-stone-800 truncate", "{c.name}" }
+                                div { class: "flex items-center gap-1.5 mt-0.5 min-w-0",
+                                    span {
+                                        class: if c.connected {
+                                            "w-1.5 h-1.5 shrink-0 rounded-full bg-ios-green"
+                                        } else {
+                                            "w-1.5 h-1.5 shrink-0 rounded-full bg-stone-300"
+                                        },
+                                    }
+                                    span {
+                                        class: if c.connected {
+                                            "text-[11px] text-ios-green truncate"
+                                        } else {
+                                            "text-[11px] text-stone-400 truncate"
+                                        },
+                                        if c.connected {
+                                            {t(&lang, "connections-connected")}
+                                        } else {
+                                            {t(&lang, "connections-not-connected")}
+                                        }
+                                    }
+                                }
+                            }
                             if c.connected {
-                                {t(&lang, "connections-connected")}
+                                button {
+                                    class: crate::ui::kit::PILL_GHOST,
+                                    disabled: busy(),
+                                    onclick: {
+                                        let provider = c.provider.clone();
+                                        move |_| {
+                                            if busy() { return; }
+                                            busy.set(true);
+                                            status.set(None);
+                                            let provider = provider.clone();
+                                            spawn(async move {
+                                                let database = db();
+                                                if let Some(client) = BackendClient::from_db(&database) {
+                                                    if let Err(e) = client.disconnect(&database, &provider).await {
+                                                        status.set(Some(e.to_string()));
+                                                    }
+                                                }
+                                                busy.set(false);
+                                                reload.set(reload() + 1);
+                                            });
+                                        }
+                                    },
+                                    {t(&lang, "connections-disconnect")}
+                                }
                             } else {
-                                {t(&lang, "connections-not-connected")}
+                                button {
+                                    class: crate::ui::kit::PILL_PRIMARY,
+                                    disabled: busy(),
+                                    onclick: {
+                                        let provider = c.provider.clone();
+                                        move |_| {
+                                            if busy() { return; }
+                                            busy.set(true);
+                                            status.set(None);
+                                            let provider = provider.clone();
+                                            spawn(async move {
+                                                let database = db();
+                                                match connect_flow(&database, &provider).await {
+                                                    Ok(()) => {}
+                                                    Err(e) => status.set(Some(e)),
+                                                }
+                                                busy.set(false);
+                                                reload.set(reload() + 1);
+                                            });
+                                        }
+                                    },
+                                    {t(&lang, "connections-connect")}
+                                }
                             }
                         }
                     }
-                    if c.connected {
-                            button {
-                                class: crate::ui::kit::CONFIRM_BTN_GHOST,
-                                disabled: busy(),
-                                onclick: {
-                                    let provider = c.provider.clone();
-                                    move |_| {
-                                        if busy() { return; }
-                                        busy.set(true);
-                                        status.set(None);
-                                        let provider = provider.clone();
-                                        spawn(async move {
-                                            let database = db();
-                                            if let Some(client) = BackendClient::from_db(&database) {
-                                                if let Err(e) = client.disconnect(&database, &provider).await {
-                                                    status.set(Some(e.to_string()));
-                                                }
-                                            }
-                                            busy.set(false);
-                                            reload.set(reload() + 1);
-                                        });
-                                    }
-                                },
-                                {t(&lang, "connections-disconnect")}
-                            }
-                        } else {
-                            button {
-                                class: crate::ui::kit::CONFIRM_BTN_PRIMARY,
-                                disabled: busy(),
-                                onclick: {
-                                    let provider = c.provider.clone();
-                                    move |_| {
-                                        if busy() { return; }
-                                        busy.set(true);
-                                        status.set(None);
-                                        let provider = provider.clone();
-                                        spawn(async move {
-                                            let database = db();
-                                            match connect_flow(&database, &provider).await {
-                                                Ok(()) => {}
-                                                Err(e) => status.set(Some(e)),
-                                            }
-                                            busy.set(false);
-                                            reload.set(reload() + 1);
-                                        });
-                                    }
-                                },
-                                {t(&lang, "connections-connect")}
-                            }
-                        }
                 }
             }
         }
