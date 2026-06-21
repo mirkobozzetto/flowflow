@@ -238,7 +238,11 @@ fn folder_feed_collapses_thread_and_hides_members() {
     );
 
     let threads = db.list_feed_threads_in_folder(&folder.id).unwrap();
-    assert_eq!(threads.len(), 1, "thread collapses into one card in its folder");
+    assert_eq!(
+        threads.len(),
+        1,
+        "thread collapses into one card in its folder"
+    );
     assert_eq!(threads[0].id, thread.id);
 }
 

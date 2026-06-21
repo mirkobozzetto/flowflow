@@ -228,11 +228,7 @@ pub fn send_question(
                 });
             }
             Err(e) => {
-                let err_msg = format!(
-                    "{} : {}",
-                    crate::services::i18n::t(&lang, "chat-error"),
-                    e
-                );
+                let err_msg = chat_error_message(&lang, &e);
                 if let Some(ref cid) = conv_signal() {
                     let _ = db().add_message(cid, "bot", &err_msg, None);
                 }
@@ -245,6 +241,23 @@ pub fn send_question(
         ts.set(None);
         ld.set(false);
     });
+}
+
+// A connector/auth failure that reaches the chat gets an actionable hint pointing to the
+// Connections screen; everything else stays the generic chat error. Heuristic on the
+// (stringified) error since rag::query collapses all errors to String.
+fn chat_error_message(lang: &str, err: &str) -> String {
+    let low = err.to_lowercase();
+    let connector = low.contains("unauthorized")
+        || low.contains("connector")
+        || low.contains("backend")
+        || low.contains("mcp");
+    let key = if connector {
+        "chat-connector-error"
+    } else {
+        "chat-error"
+    };
+    format!("{} : {}", crate::services::i18n::t(lang, key), err)
 }
 
 pub fn load_messages_from_db(

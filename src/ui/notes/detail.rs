@@ -655,6 +655,12 @@ pub fn NoteDetail() -> Element {
                 tags,
                 initial_content: initial_content.clone(),
             }
+            crate::ui::notes::note_actions::NoteActions {
+                local_note_id,
+                title,
+                content,
+                tags,
+            }
             AudioSection { local_note_id, audios_version }
             AttachmentSection { attachments, confirm_delete_att }
             if let Some(ref status) = import_status() {

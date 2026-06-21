@@ -387,7 +387,14 @@ pub fn App() -> Element {
                                 .write()
                                 .push(app.view.peek().clone());
                             app.history_nav.set(true);
+                            // Reset transient nav/overlay state so the previous and next
+                            // views never render layered on top of each other.
+                            app.sliding_out.set(false);
+                            app.previous_view.set(None);
                             app.show_folder_picker.set(false);
+                            app.show_note_menu.set(false);
+                            app.show_chat_menu.set(false);
+                            app.show_thread_menu.set(false);
                             app.view.set(target);
                         }
                     }
@@ -398,7 +405,12 @@ pub fn App() -> Element {
                                 .write()
                                 .push(app.view.peek().clone());
                             app.history_nav.set(true);
+                            app.sliding_out.set(false);
+                            app.previous_view.set(None);
                             app.show_folder_picker.set(false);
+                            app.show_note_menu.set(false);
+                            app.show_chat_menu.set(false);
+                            app.show_thread_menu.set(false);
                             app.view.set(target);
                         }
                     }
@@ -608,38 +620,40 @@ pub fn App() -> Element {
                                 }
                             }
                         }
+                        if matches!(
+                            (app.view)(),
+                            View::Settings | View::SettingsSection(_)
+                        ) || (matches!((app.view)(), View::SyncPairing)
+                            && (app.previous_view)() == Some(View::Settings))
                         {
-                            let view_now = (app.view)();
-                            let pairing_from_settings = matches!(view_now, View::SyncPairing)
-                                && (app.previous_view)() == Some(View::Settings);
-                            let settings_stack = matches!(view_now, View::Settings | View::SettingsSection(_))
-                                || pairing_from_settings;
-                            let in_section = settings_stack && !matches!(view_now, View::Settings);
-                            let sliding_back = (app.sliding_out)();
-                            let instant = cfg!(target_os = "macos");
-                            if settings_stack {
-                                rsx! {
-                                    div {
-                                        class: "absolute inset-0 flex flex-col min-h-0 px-4 safe-py-3 bg-stone-100 overflow-y-auto",
-                                        class: if in_section && !sliding_back { "pointer-events-none" } else { "" },
-                                        style: if instant && in_section {
-                                            "transform: translateX(-30%); opacity: 0.5;"
-                                        } else if instant {
-                                            ""
-                                        } else if sliding_back && !in_section {
-                                            "animation: slideOutRight 0.15s ease-in forwards;"
-                                        } else if in_section && !sliding_back {
-                                            "animation: slideInRight 0.15s ease-out; transform: translateX(-30%); opacity: 0.5; transition: transform 0.15s ease, opacity 0.15s ease;"
-                                        } else {
-                                            "animation: slideInRight 0.15s ease-out; transform: translateX(0); opacity: 1; transition: transform 0.15s ease, opacity 0.15s ease;"
-                                        },
-                                        div { class: "w-full lg:max-w-2xl lg:mx-auto",
-                                            SettingsView {}
-                                        }
+                            div {
+                                class: "absolute inset-0 flex flex-col min-h-0 px-4 safe-py-3 bg-stone-100 overflow-y-auto",
+                                class: if !matches!((app.view)(), View::Settings)
+                                    && !(app.sliding_out)()
+                                {
+                                    "pointer-events-none"
+                                } else {
+                                    ""
+                                },
+                                style: {
+                                    let in_section =
+                                        !matches!((app.view)(), View::Settings);
+                                    let sliding_back = (app.sliding_out)();
+                                    if cfg!(target_os = "macos") {
+                                        // Desktop: opaque, no depth dimming. The dim+shift
+                                        // left a ghost settings panel on transitions.
+                                        String::new()
+                                    } else if sliding_back && !in_section {
+                                        "animation: slideOutRight 0.15s ease-in forwards;".to_string()
+                                    } else if in_section {
+                                        "animation: slideInRight 0.15s ease-out; transform: translateX(-30%); opacity: 0.5; transition: transform 0.15s ease, opacity 0.15s ease;".to_string()
+                                    } else {
+                                        "animation: slideInRight 0.15s ease-out; transform: translateX(0); opacity: 1; transition: transform 0.15s ease, opacity 0.15s ease;".to_string()
                                     }
+                                },
+                                div { class: "w-full lg:max-w-2xl lg:mx-auto",
+                                    SettingsView {}
                                 }
-                            } else {
-                                rsx! {}
                             }
                         }
                         if matches!((app.view)(), View::SettingsSection(_)) {

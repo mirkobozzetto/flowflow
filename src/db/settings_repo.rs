@@ -11,18 +11,28 @@ pub const SENSITIVE_SETTINGS: &[&str] = &[
     "exa_api_key",
     "sync_static_privkey",
     "sync_static_pubkey",
+    "backend_device_privkey",
+    "backend_device_pubkey",
+    "backend_session_token",
 ];
 
 pub const SENSITIVE_SETTING_PREFIXES: &[&str] = &["sync_psk_"];
 
-pub const DEVICE_LOCAL_SETTINGS: &[&str] =
-    &["ai_consent", "sync_restored_pending", "sync_restored_floor"];
+pub const DEVICE_LOCAL_SETTINGS: &[&str] = &[
+    "ai_consent",
+    "sync_restored_pending",
+    "sync_restored_floor",
+    "backend_base_url",
+    "backend_session_expires_at",
+];
 
 pub const DEVICE_LOCAL_SETTING_PREFIXES: &[&str] = &[
     "sync_peer_addr_",
     "sync_peer_acked_by_",
     "sync_restored_done_",
     "sync_rebind_",
+    // cached result of running a note as an action (per note); a local display cache, not synced
+    "note_action:",
 ];
 
 pub fn is_excluded_from_backup(key: &str) -> bool {

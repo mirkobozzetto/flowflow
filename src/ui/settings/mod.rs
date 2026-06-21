@@ -1,4 +1,5 @@
 mod backup;
+mod connections;
 mod general;
 mod intelligence;
 mod privacy;
@@ -11,6 +12,7 @@ use crate::services::backup as backup_service;
 use crate::services::i18n::t;
 use crate::ui::{AppState, SettingsSection, View};
 use backup::BackupSettings;
+use connections::ConnectionsSettings;
 use dioxus::prelude::*;
 use general::GeneralSettings;
 use intelligence::IntelligenceSettings;
@@ -87,6 +89,10 @@ pub fn SettingsView() -> Element {
                     section: SettingsSection::Backup,
                 }
                 SectionRow {
+                    label: t(&lang, "settings-section-connections"),
+                    section: SettingsSection::Connections,
+                }
+                SectionRow {
                     label: t(&lang, "settings-section-privacy"),
                     section: SettingsSection::Privacy,
                 }
@@ -138,6 +144,9 @@ pub fn SettingsSectionView() -> Element {
         },
         SettingsSection::Backup => rsx! {
             BackupSettings {}
+        },
+        SettingsSection::Connections => rsx! {
+            ConnectionsSettings {}
         },
         SettingsSection::Privacy => rsx! {
             PrivacySettings {}

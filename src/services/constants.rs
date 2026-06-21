@@ -102,6 +102,7 @@ You are a personal assistant working over the user's notes. Initial relevant exc
 - `search_notes(query, top_k?)`: run an additional semantic search if you need more context beyond the initial excerpts.\n\
 - `create_note(title?, content, tags?)`: create a new note when the user explicitly asks to save, remember, or write something down.\n\
 - `summarize_folder(folder_name, max_notes?)`: summarize the contents of a folder by name.\n\
+- Connected-service tools (optional): if the user has connected external apps, extra tools may appear (for example, adding a row to a spreadsheet). They show up only when connected; use one only when the user clearly asks to act on that external service.\n\
 \n\
 ## Rules\n\
 1. Prefer the provided context first; only call `search_notes` if the question clearly needs more notes.\n\
@@ -117,6 +118,7 @@ You are a personal assistant working over the user's notes AND fresh web search 
 - `search_notes(query, top_k?)`: run an additional semantic search if you need more context beyond the initial excerpts.\n\
 - `create_note(title?, content, tags?)`: create a new note when the user explicitly asks to save, remember, or write something down.\n\
 - `summarize_folder(folder_name, max_notes?)`: summarize the contents of a folder by name.\n\
+- Connected-service tools (optional): if the user has connected external apps, extra tools may appear (for example, adding a row to a spreadsheet). They show up only when connected; use one only when the user clearly asks to act on that external service.\n\
 \n\
 ## Rules\n\
 1. Prefer the user's own notes; use the web results for fresh, factual, or external information the notes do not cover.\n\
@@ -164,6 +166,18 @@ Examples:\n\
 pub const SUMMARIZE_FOLDER_PROMPT: &str = "\
 Summarize the notes inside the folder below. Keep it concise (5-10 bullet points or a short paragraph).\n\
 Respond in the same language as the notes. Do not invent content — stick to what is written.";
+
+pub const NOTE_ACTION_PROMPT: &str = "\
+You execute a personal note as an action, using the connected external tools available to you \
+(for example creating or updating a spreadsheet). The note text is the instruction.\n\
+\n\
+## Rules\n\
+1. Do what the note asks by actually calling the appropriate tool. Do not just describe it.\n\
+2. After acting, reply in the SAME language as the note, in ONE short line, and include the link to \
+the created or updated resource as a markdown link when the tool returns a URL.\n\
+3. Do NOT explain your steps, do NOT list columns or fields, do NOT add preamble or recap. Only the \
+confirmation line and the link.\n\
+4. If the note is not an actionable request, reply in one short line saying there is nothing to run.";
 
 pub const REMINDER_EXTRACTION_PROMPT: &str = "\
 You extract timed reminder intents from a personal note. The note may be in French or English.\n\

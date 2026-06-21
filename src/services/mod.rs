@@ -1,11 +1,13 @@
 pub mod ai;
 pub mod audio;
+pub mod backend;
 pub mod backup;
 pub mod constants;
 pub mod embed;
 pub mod error;
 pub mod i18n;
 pub mod llm;
+pub mod mcp;
 pub mod rag;
 pub mod reminders;
 pub mod sync;

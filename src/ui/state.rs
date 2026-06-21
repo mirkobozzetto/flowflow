@@ -18,6 +18,7 @@ pub enum SettingsSection {
     Transcription,
     Storage,
     Backup,
+    Connections,
     Privacy,
     Shortcuts,
 }
@@ -30,6 +31,7 @@ impl SettingsSection {
             Self::Transcription => "settings-section-transcription",
             Self::Storage => "settings-storage-title",
             Self::Backup => "settings-backup-title",
+            Self::Connections => "settings-section-connections",
             Self::Privacy => "settings-section-privacy",
             Self::Shortcuts => "settings-section-shortcuts",
         }

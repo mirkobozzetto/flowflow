@@ -190,6 +190,10 @@ pub fn ChatView() -> Element {
                         app.view.set(View::Chat {
                             conversation_id: Some(cid),
                         });
+                        // Refresh the sidebar Chats list: it slides via CSS (stays mounted),
+                        // so a new conversation only shows if a watched signal changes.
+                        app.sync_data_version
+                            .set((app.sync_data_version)() + 1);
                     }
                 }
                 let scope = (app.chat_scope)();

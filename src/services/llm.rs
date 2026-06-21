@@ -222,17 +222,26 @@ impl LlmClient {
         user_message: &str,
         status_tx: Option<mpsc::UnboundedSender<ToolEvent>>,
     ) -> Result<String, LlmError> {
+        // Connector tools are dark unless a backend is configured AND reachable. The
+        // registry is held in scope for the whole prompt so the tools' server sink stays
+        // valid; an empty/failed registry leaves exactly the three notes tools (finding 32).
+        let mcp = self.connect_mcp().await;
+        let mcp = mcp.as_ref().filter(|r| !r.is_empty());
+
         match self.provider {
             Provider::OpenAi => {
-                let agent = self
+                let mut builder = self
                     .openai
                     .agent(CHAT_MODEL)
                     .preamble(preamble)
                     .temperature(0.3)
                     .tool(SearchNotes::new(self.clone()))
                     .tool(CreateNote::new())
-                    .tool(SummarizeFolder::new(self.clone()))
-                    .build();
+                    .tool(SummarizeFolder::new(self.clone()));
+                if let Some(reg) = mcp {
+                    builder = builder.rmcp_tools(reg.tools(), reg.peer());
+                }
+                let agent = builder.build();
                 let request = agent.prompt(user_message).max_turns(4);
                 let result = if let Some(tx) = status_tx {
                     request.with_hook(ToolStatusHook::new(tx)).await
@@ -247,15 +256,18 @@ impl LlmClient {
                         "Anthropic client not initialized".into(),
                     )
                 })?;
-                let agent = client
+                let mut builder = client
                     .agent(ANTHROPIC_CHAT_MODEL)
                     .preamble(preamble)
                     .temperature(0.3)
                     .max_tokens(ANTHROPIC_MAX_TOKENS)
                     .tool(SearchNotes::new(self.clone()))
                     .tool(CreateNote::new())
-                    .tool(SummarizeFolder::new(self.clone()))
-                    .build();
+                    .tool(SummarizeFolder::new(self.clone()));
+                if let Some(reg) = mcp {
+                    builder = builder.rmcp_tools(reg.tools(), reg.peer());
+                }
+                let agent = builder.build();
                 let request = agent.prompt(user_message).max_turns(4);
                 let result = if let Some(tx) = status_tx {
                     request.with_hook(ToolStatusHook::new(tx)).await
@@ -263,6 +275,20 @@ impl LlmClient {
                     request.await
                 };
                 result.map_err(|e| LlmError::Completion(e.to_string()))
+            }
+        }
+    }
+
+    /// Connect to the backend MCP proxy if one is configured. Returns None (notes-only
+    /// agent, identical to pre-RFC behavior) when no backend is set or the connect fails.
+    async fn connect_mcp(&self) -> Option<crate::services::mcp::McpRegistry> {
+        let db = crate::db::Database::open().ok()?;
+        let backend = crate::services::backend::BackendClient::from_db(&db)?;
+        match crate::services::mcp::McpRegistry::connect(&db, &backend).await {
+            Ok(reg) => Some(reg),
+            Err(e) => {
+                eprintln!("MCP connect failed, notes tools only: {e}");
+                None
             }
         }
     }
