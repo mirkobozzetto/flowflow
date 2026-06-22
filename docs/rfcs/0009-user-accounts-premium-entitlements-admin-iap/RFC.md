@@ -6,6 +6,7 @@ status: Review
 author: "Mirko Bozzetto"
 created: "2026-06-21"
 updated: "2026-06-21"
+extension: "§12 connector/agent catalog + per-account entitlements (hybrid, ship-on-seam, generic OAuth) - 2026-06-21"
 stepsCompleted: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9]
 review_blockers: 7
 review_major: 10
@@ -505,3 +506,279 @@ Moot after this revision: §11 findings F1, F2, F3, F11, F14, F18 (Better Auth o
 
 ### Disposition
 All 7 BLOCKERs and the structural MAJORs are resolved in **§6bis Design revisions (post-review)** below; the impl plan (§10) and open questions (§8) are updated accordingly. None were waived.
+
+## 12. Extension: Connector/Agent Catalog & Per-Account Entitlement Resolution
+
+> Added 2026-06-21. This section extends the entitlement model of §6bis. Where §6bis made premium an account-level boolean ("EXISTS an active entitlement row"), §12 generalizes it into a **DB-driven catalog** of connectors and agents plus **per-account, per-item** resolution. Repo: backend `marketplace-flowflow`, app `flowflow`.
+
+### 12.1 Problem
+
+The connector layer is hardcoded to one provider:
+- `oauth::list` (`/v1/connectors`) returns a fixed one-element vec `[{provider:"google", name:"Google Sheets"}]`. It does not read any catalog and does not consider who is asking.
+- Routes are per-provider string literals: `/v1/connectors/google/authorize`, `/v1/connectors/google/callback`, `DELETE /v1/connectors/google`. `oauth.rs` hardcodes Google's scopes/endpoints; `proxy.rs` hardcodes one `sheets_mcp_url`.
+- Access is a single global boolean (`devices.premium`): a device is either premium-for-everything or nothing. There is no notion of "this account gets connector A and agent B, that account gets only connector A".
+
+This blocks the locked marketplace vision (`docs/vision/marketplace-agents.md`: accounts -> entitlements -> connectors/agents, toggleable per account). Every new connector or agent today means new Rust code + a redeploy, and there is no per-account control surface.
+
+### 12.2 Goals / Non-Goals (extension)
+
+**Goals**
+1. **Catalog in DB**: connectors and agents are rows, not code. Adding/hiding one is a DB write, not a redeploy.
+2. **Per-account resolution**: `/v1/connectors` (and a catalog view) returns exactly the items the calling account is entitled to, with per-connector connection status.
+3. **Hybrid entitlements**: a plan bundles a default set of items; per-account overrides grant or revoke individual items on top (chosen fork, §12.3).
+4. **Generic OAuth**: the per-provider hardcode is lifted into catalog rows; one generic handler serves any OAuth2+PKCE connector (chosen fork, §12.3).
+5. **Ship on the existing seam**: build now keyed on the live device seam; flip the key to account at the 0009 cutover, reusing the §6bis R3/F4 device->user re-key (chosen fork, §12.3). No dependency on the unbuilt accounts frontend.
+
+**Non-Goals**
+- NOT building the Connections UI redesign here. This RFC is the model; the visual redo of `src/ui/settings/connections.rs` is a separate `/ship` (per the locked decision: model first, UI after).
+- NOT supporting non-OAuth2 auth shapes (API-key, basic) in v1. The generic flow targets OAuth2 authorization-code + PKCE + refresh-token (the only shape that exists today). `auth_type` discriminates; other shapes are rejected at catalog-write and deferred.
+- NOT moving agent *execution* server-side. Agents keep running app-side (note-as-action via rig). The backend resolves agent *entitlement* and serves the catalog; the app surfaces/gates accordingly. Server-side agent execution is future work.
+- NOT re-keying connector storage in this RFC independently. The device->account re-key rides the single §6bis R3/F4 migration, not a second one.
+
+### 12.3 Alternatives (the three forks, decided)
+
+**Fork A - entitlement granularity.** (a) Plan-bundle: premium = one fixed set, same for everyone; weakest fit for "piloté par compte". (b) Per-item per account: each account independently toggled; honest marketplace, but no shared default. (c) **Hybrid [CHOSEN]**: a plan supplies the default bundle, per-account overrides grant/revoke individual items. Picked because the marketplace vision requires per-account toggles AND a launch needs a sane default bundle without enumerating every account; the cost is one extra reconcile step (precedence rules, §12.4).
+
+**Fork B - sequencing vs accounts.** (a) **Ship on the seam now [CHOSEN]**: build the catalog + resolver keyed on the existing gate subject (`device_id` today), flip to `user_id` at the 0009 cutover via the same R3/F4 re-key. (b) Block on 0009 Phase-1 accounts first. Picked (a) because 0009 accounts depend on the heavy TanStack+Better-Auth frontend that does not exist; the `PremiumDevice` seam already resolves per-subject, so the catalog can ride it immediately and inherit accounts later through one swap.
+
+**Fork C - de-hardcoding depth.** (a) **Catalog-driven generic OAuth [CHOSEN]**: lift Google's constants into the catalog row; routes become `/v1/connectors/{slug}/...`; one generic handler. (b) DB-drive `list` only, keep coded per-provider flows. Picked (a) because a `list` that advertises connectors the backend cannot actually OAuth into is hollow; Google's handler is already ~90% generic (only scopes/endpoints/the proxy target are provider-specific, all of which move cleanly into a catalog row).
+
+### 12.4 Design
+
+#### Data model (3 new tables; reuses §6bis `entitlements`)
+
+```mermaid
+erDiagram
+  catalog_items ||--o{ plan_items : "bundled into"
+  catalog_items ||--o{ account_item_overrides : "toggled per subject"
+  entitlements }o--|| plans : "grants"
+  plans ||--o{ plan_items : "contains"
+  catalog_items {
+    text id PK "slug, e.g. 'google', 'agent-weekly-digest'"
+    text kind "connector | agent"
+    text display_name
+    text status "active | hidden | deprecated"
+    text auth_type "oauth2_pkce (connectors); null for agents"
+    text config "JSON: connector oauth refs / agent definition"
+    text created_at
+    text updated_at
+  }
+  plan_items {
+    text plan "matches entitlements.plan, e.g. 'premium'"
+    text catalog_item_id FK
+  }
+  account_item_overrides {
+    text subject_id PK "device_id pre-0009, user_id post-0009"
+    text catalog_item_id PK "FK -> catalog_items"
+    text effect "grant | revoke"
+  }
+```
+
+- **`catalog_items.config` is JSON** (`ponytail:` single table + JSON config, not kind-specific columns or two tables - the connector and agent shapes differ and will evolve; upgrade path is typed columns only if the JSON proves unqueryable). Admin-authored, backend-read; never user input.
+  - connector config: `{ auth_endpoint, token_endpoint, revoke_endpoint, scopes, client_id_env, client_secret_env, mcp_url }`.
+  - agent config: `{ tools: [...], system_prompt_ref, model }`.
+- **Secrets never enter the DB.** Config stores the *env-key name* (`client_secret_env: "GOOGLE_CLIENT_SECRET"`), and the backend resolves the value from env/vault at runtime. A catalog write that contains a value at a `*_env` position (heuristic: looks like a secret, not an identifier) is rejected (§12.6 risk).
+- **`plans`** can stay implicit (a plan is just the string in `entitlements.plan` + its `plan_items` rows); a `plans` table is optional metadata, not required for resolution.
+
+#### Entitlement resolution (hybrid)
+
+For a gate subject, the set of accessible items is:
+
+```
+entitled(subject) =
+    ( ⋃ plan_items[p]  for each plan p active for subject )   -- base bundle
+    ∪ { i : override(subject, i) = 'grant' }                   -- per-account add
+    \ { i : override(subject, i) = 'revoke' }                  -- per-account remove
+accessible(subject) = { i ∈ entitled(subject) : catalog_items[i].status = 'active' }
+```
+
+Precedence, fixed: **revoke beats grant**; **`status='active'` is the final hard filter** (a revoked-or-hidden item is never accessible even if a plan bundles it). A grant of a hidden/deprecated item is a no-op until the item is reactivated. A revoke of an item not in any plan is a harmless no-op. These edge cases are in the test matrix (§12.7 C9).
+
+Single resolving query (connector view):
+
+```sql
+-- accessible connectors for a subject, with connection status
+SELECT c.id, c.kind, c.display_name,
+       (t.device_id IS NOT NULL) AS connected, COALESCE(t.scopes,'') AS scopes
+FROM catalog_items c
+LEFT JOIN connector_tokens t
+       ON t.provider = c.id AND t.device_id = ?dev   -- token column stays `device_id` (E1); connection
+                                                      -- status is per CALLING device, distinct from ?1 subject
+WHERE c.status = 'active' AND c.kind = 'connector'
+  AND c.id IN ( /* entitled(?1): plan_items of active plans, ∪ grants, \ revokes */ )
+ORDER BY c.display_name;
+```
+
+`ponytail:` resolution is a handful of small reads at this scale - one JOIN + a sub-resolve; revisit only if the catalog grows past hundreds of rows.
+
+#### Ship-on-seam adapter (Fork B)
+
+The resolver takes a `subject_id`; the gate supplies it. Today there is no `user_id` (0009 not built):
+- **Pre-0009:** `subject_id = device_id`. A subject's "active plan" derives from the live boolean: `devices.premium = 1 -> plan 'premium'`, `0 -> no plan`. Overrides are keyed by `device_id`.
+- **Post-0009 cutover:** `subject_id = user_id`. Active plans come from `entitlements` rows. The override table's `subject_id` column is rewritten `device_id -> user_id` in the **same migration that re-keys `connector_tokens`** (§6bis R3/F4) - one re-key event, not two. `connector_tokens.device_id` is likewise read as the subject key (the existing column; renamed/aliased to `subject_id` in that migration).
+
+This is why §12 is an *extension* of 0009 and not a standalone RFC: it consumes 0009's `entitlements`/plan concept, the `PremiumDevice` seam, the device->account re-key, and the admin-grant model.
+
+#### Generic OAuth (Fork C)
+
+Google's constants move into its catalog row's `config`. Routes generalize:
+- `POST   /v1/connectors/{slug}/authorize` - load catalog row by slug; require `slug ∈ accessible(subject)` (403 otherwise); build PKCE + state (`oauth_states.provider = slug`); redirect URL from `config.auth_endpoint` + `config.scopes` + `client_id_env`.
+- `GET    /v1/connectors/{slug}/callback` - state-bound to slug; exchange at `config.token_endpoint` with the env-resolved secret; store under `connector_tokens(subject_id, slug)`.
+- `DELETE /v1/connectors/{slug}` - generic disconnect/revoke via `config.revoke_endpoint`.
+- `valid_access_token(subject, slug)` - the existing single-flight refresh, parameterized by slug + config.
+- **redirect_uri** is derived per slug: `{cfg.public_base}/v1/connectors/{slug}/callback`; each provider's OAuth client must whitelist its slug-specific URI.
+- **Backward compat:** the existing Google rows in `connector_tokens` are `provider='google'`, so the seed catalog row keeps `id='google'` (display_name "Google Sheets"). No `connector_tokens` data migration for the existing token shape.
+
+#### Generic MCP proxy
+
+`proxy::mcp_proxy` hardcodes `sheets_mcp_url` + a Google token. Generalize to `POST /v1/connectors/{slug}/mcp`: resolve `config.mcp_url` from the catalog row and inject `valid_access_token(subject, slug)`. Gate on `slug ∈ accessible(subject)`. The app's `McpRegistry` updates from `/v1/mcp` to the slug route (C8).
+
+#### Admin surface (extends §6bis admin)
+
+- `GET  /v1/admin/catalog` / `POST /v1/admin/catalog` - list / upsert catalog items (slug, kind, display_name, status, auth_type, config). Validates: no secret values in config; `auth_type ∈ {oauth2_pkce}` for connectors; endpoint/`mcp_url` hosts pass an allowlist (SSRF guard, §12.6).
+- `POST /v1/admin/plan-items` - set which catalog items a plan bundles.
+- `POST /v1/admin/entitlements` - set a per-account override `{subject_id, catalog_item_id, effect}`.
+- The existing `POST /v1/admin/premium` keeps working: it sets the subject's premium flag/plan; via `plan_items('premium', ...)` it now resolves to the bundled default set. The boolean bridge becomes "has active plan 'premium'".
+
+#### Migration
+
+New tables ship via the same idempotent `CREATE TABLE IF NOT EXISTS` mechanism the live schema already uses (no dependency on 0009's not-yet-built versioned runner; `ponytail:` ride the existing schema path - when the 0009 runner lands it stamps these as baseline tables). Seed: one `catalog_items` row for `google` (the old hardcode, now data) + `plan_items('premium','google')`. No destructive change; the `devices.premium` boolean stays the plan source until the 0009 cutover.
+
+### 12.5 Module / file map
+
+| Path | Repo | Change | Why |
+|------|------|--------|-----|
+| `src/db.rs` | backend | modified | add `catalog_items`, `plan_items`, `account_item_overrides`; seed google row + plan_items |
+| `src/catalog.rs` | backend | new | catalog read/write; `resolve_entitled_items(subject)`; the connector-view query |
+| `src/oauth.rs` | backend | modified | generic authorize/callback/disconnect/`valid_access_token` keyed by slug + catalog config; drop Google constants + the hardcoded `list` vec |
+| `src/proxy.rs` | backend | modified | `/v1/connectors/{slug}/mcp`: mcp_url + token from catalog |
+| `src/admin.rs` | backend | modified | catalog CRUD, plan-items, per-account overrides; secret/auth_type/SSRF validation |
+| `src/gate.rs` | backend | modified | gate exposes `subject_id`; add an entitlement check helper used by the slug handlers |
+| `src/lib.rs` | backend | modified | mount `/v1/connectors/{slug}/*`, `/v1/admin/catalog`, etc. |
+| `src/state.rs` | backend | modified | `public_base` for redirect derivation; drop the single `sheets_mcp_url`/google fields |
+| `src/services/backend/mod.rs` | app | modified | `McpRegistry`/`BackendClient`: migrate the MCP client from `/v1/mcp` to the slug route (the breaking change); read `/v1/catalog` for agents |
+| `src/ui/settings/connections.rs` | app | modified | ALREADY renders `/v1/connectors` dynamically (no hardcoded card to kill - E11); add the agent dimension; visual redo is a SEPARATE ship |
+
+### 12.6 Drawbacks & Risks (extension)
+
+| Risk | Likelihood | Impact | Mitigation |
+|------|-----------|--------|------------|
+| Secret leaks into `catalog_items.config` (admin GET / db dump) | medium | high | config stores `*_env` references only; reject secret-looking values at catalog-write; never echo config secrets in admin responses |
+| SSRF: backend now dials `token_endpoint`/`mcp_url` from DB rows | low | high | catalog writes are admin-only (already gated); host allowlist + scheme=https validation on write; treat as admin-trusted but defend against admin-token compromise |
+| Generic OAuth assumes one shape; a deviating provider breaks it | medium | medium | `auth_type` discriminator; v1 accepts only `oauth2_pkce`; reject others at write; provider-specific token-parse quirks captured in config, not code |
+| Hybrid resolution edge cases (grant hidden item, revoke non-bundled) | medium | low | fixed precedence (revoke > grant; status=active hard filter last); explicit test matrix (C9) |
+| Over-advertising: `list` shows an entitled connector whose `client_secret_env` is unset -> connect fails | medium | low | filter out items whose required env secret is missing, or surface `configured:false`; do not offer connect for unconfigured rows |
+| App-side agent gate is client-trusted (note-as-action runs locally) | medium | medium | connector-backed agent tools are still backend-gated at the connector seam; pure-local agents are a soft show/hide gate in v1; server-side enforcement is future work (open Q) |
+| Existing `connector_tokens.device_id` vs new `subject_id` naming churn | low | medium | keep `provider='google'` slug + the existing column; the rename rides the §6bis R3/F4 re-key, not a separate migration |
+
+### 12.7 Implementation Plan - Phase C (catalog), on the device seam
+
+| ID | Title | Files | Depends on | Effort | Accept criteria |
+|----|-------|-------|------------|--------|-----------------|
+| C1 | Schema + seed (catalog_items, plan_items, account_item_overrides; google row) | `src/db.rs` | none | S | tables exist; google seed row present; plan_items('premium','google') seeded; idempotent |
+| C2 | Resolver `resolve_entitled_items(subject)` + pre-0009 device adapter | `src/catalog.rs`, `src/gate.rs` | C1 | M | plan ∪ grant − revoke; status=active filter; device.premium -> plan 'premium' |
+| C3 | `/v1/connectors` + `/v1/catalog` resolve per subject; drop hardcoded `list` vec | `src/oauth.rs`/`src/catalog.rs`, `src/lib.rs` | C2 | S | returns only accessible items + per-connector connected status; no hardcoded vec |
+| C4 | Generic OAuth: lift google config to catalog row; slug authorize/callback/disconnect/refresh; per-provider token/refresh/revoke adapter (E7); drop `req_env` Google trio + fix `Config{..}` fixtures (E10) | `src/oauth.rs`, `src/state.rs`, `src/lib.rs`, `tests/` | C1, C2 | L (split C4a plumbing / C4b quirk-adapter) | google connect/refresh/disconnect work via `/v1/connectors/google/*`; constants gone from code; fixtures updated |
+| C5 | Generic MCP proxy `/v1/connectors/{slug}/mcp` + per-connector `auth_injection` spec (E8); keep `/v1/mcp` alias >=1 release (E4) | `src/proxy.rs`, `src/lib.rs` | C4 | M | mcp_url + auth header resolved from catalog; sheets proxy works via slug route AND legacy `/v1/mcp`; entitlement-gated |
+| C6 | Admin catalog CRUD + plan-items + per-account overrides | `src/admin.rs`, `src/lib.rs` | C2 | M | upsert item, set plan_items, set override; unauth -> 401/403; actions audit-logged |
+| C7 | Catalog-write validation: no secret values; auth_type allowlist; SSRF host allowlist | `src/admin.rs`, `src/catalog.rs` | C6 | S | secret-in-config rejected; non-oauth2_pkce rejected; non-allowlisted host rejected |
+| C8 | App: migrate MCP client to the slug route (the real work; connector LIST is ALREADY `/v1/connectors`-driven - E11), read `/v1/catalog` for agents, soft-gate note-as-action on agent entitlement; release-coordinate with deployed C5 | `src/services/backend/mod.rs`, `src/ui/settings/connections.rs` | C3, C5 (deployed) | M | sheets works end-to-end over the slug route; agents listed from catalog |
+| C9 | Tests: resolver matrix, generic oauth happy path, admin CRUD, backward-compat google tokens | `tests/integration.rs` | C2-C7 | S | matrix (plan/grant/revoke/status) green; offline; existing google token row still resolves |
+| C-cut | Cutover (rides 0009): flip resolver subject device_id -> user_id; plan source devices.premium -> entitlements | `src/catalog.rs`, `src/gate.rs` | 0009 P1.2/P1.3, §6bis R3/F4 | S | same re-key as connector_tokens; resolver reads user plans; no second migration |
+
+```mermaid
+graph TD
+  C1 --> C2 --> C3
+  C2 --> C4 --> C5
+  C2 --> C6 --> C7
+  C3 --> C8
+  C5 --> C8
+  C2 --> C9
+  C2 -.0009 cutover.-> Ccut[C-cut]
+```
+
+Critical path: C1 -> C2 -> C3 -> C8, with C4/C5 (generic flow) and C6/C7 (admin) parallel. Phase C is fully shippable on the device seam with zero dependency on the unbuilt accounts frontend; C-cut folds into the 0009 cutover.
+
+### 12.8 Open Questions (extension)
+
+| # | Question | Owner | Deadline |
+|---|----------|-------|----------|
+| 12.1 | Agent entitlement enforcement: app-side soft gate (v1, bypassable) vs route agent execution through the backend (server-enforced)? | Mirko | before C8 |
+| 12.2 | Plan taxonomy: single 'premium' plan now, or tiers from day one? (ties to §8 OQ4) | Mirko | before C1 |
+| 12.3 | Catalog authorship: admin-API only, or a repo seed file + admin overrides on top? | Mirko | before C6 |
+| 12.4 | MCP backend per connector: each connector = a self-hosted MCP server - how are those deployed/managed on Dokploy, and where does `mcp_url` point (internal network)? | Mirko | before C5 |
+| 12.5 | Unconfigured-connector behavior: hide entitled-but-unconfigured items, or show `configured:false`? | Mirko | before C3 |
+
+### 12.9 Recommendation (extension)
+
+Adopt §12 as designed: **Hybrid** entitlements (plan bundle + per-account overrides), **shipped on the existing device seam now** (C1-C9), with **catalog-driven generic OAuth** replacing the Google hardcode, and a **C-cut** step that folds into the 0009 device->account cutover. This unblocks the marketplace per-account control surface and the "add a same-provider item without a redeploy" property immediately (a NEW OAuth provider still needs out-of-band registration - see E9), while the heavier accounts/frontend work (0009 Phase 1) proceeds in parallel and is inherited through a single, already-planned cutover. Confidence: medium-high - the seam, the schema mechanism, and the Google flow are all reused, and the one genuinely new surface (generic OAuth from config) is bounded by the `oauth2_pkce`-only Non-Goal.
+
+### 12.10 Review Findings (extension)
+
+**Reviewers:** two adversarial `general-purpose` subagents (gap-hunter + impl-realism critic), both verified against the live `marketplace-flowflow` and `flowflow` code. **Date:** 2026-06-21. Consolidated + deduped below. Each is resolved in §12.11.
+
+| # | Severity | Issue | Evidence |
+|---|----------|-------|----------|
+| E1 | BLOCKER | Subject vs token key conflation. The resolver/list keyed on `subject_id`, but the live `connector_tokens` PK/column is `device_id` (`db.rs:73,80`) and 0009 R3/F4 keeps connectors per-device (re-key is "explicit future work", never scheduled). Post-cut, resolving on `user_id` while tokens stay per-device would match no rows (every connector `connected:false`). C-cut's post-0009 leg also needs the whole 0009 `entitlements`/`users` tables (live count = 0), not "just a re-key". | `db.rs:70-85`; RFC §6bis R3; `grep` entitlements/users = 0 |
+| E2 | BLOCKER | Premium-loss window. The ship-on-seam plan source is `devices.premium=1 -> plan 'premium'`, but 0009 P1.1 DROPS `devices.premium` in the same release as the `auth::verify` INSERT change. Between the drop and the entitlements-resolver wiring, every subject resolves to no-plan -> all connectors 403. | RFC §6bis R5/F8; `gate.rs:46-53` |
+| E3 | MAJOR | Generic callback replay. The current callback selects only `device_id, code_verifier, expires_at` from `oauth_states` and never reads `provider` (`oauth.rs:105`). If the generic callback takes the slug from the URL path instead of the device-bound state row, a stolen single-use state could be replayed against a DIFFERENT provider's token endpoint. | `oauth.rs:104-118`; `db.rs:56-64` |
+| E4 | MAJOR | `/v1/mcp` -> `/v1/connectors/{slug}/mcp` is a breaking change for the shipped app (db5b56b): the app bakes `mcp_url()={base}/v1/mcp` (`backend/mod.rs:136-138`) consumed by rmcp's `McpRegistry` (`mcp/mod.rs:34`). No alias / dual-route / release-coordination task. | `backend/mod.rs:136-138`, `mcp/mod.rs:34,87` |
+| E5 | MAJOR | Seed ordering hazard. Keeping `id='google'` avoids a token migration, but the resolver now gates list/connect. If `catalog_items('google')` + `plan_items('premium','google')` are missing/misordered at deploy, every existing premium device with a valid `provider='google'` token instantly loses access (list empty, proxy 403). | `oauth.rs:157-171`; resolver gating |
+| E6 | MAJOR | "Reject secret-looking values" is hand-waving - no reliable signal distinguishes a secret from an env-name; false-negatives leak, false-positives reject valid refs. | §12.4/§12.6 secret mitigation |
+| E7 | MAJOR | Token/refresh/revoke shapes are NOT config-expressible. `GoogleTokenResp{access_token,expires_in,refresh_token}` is a fixed struct (`oauth.rs:63-68`); `access_type=offline&prompt=consent` (`oauth.rs:46`), the `invalid_grant`-string purge (`oauth.rs:246`), short-scope `"drive.file"` vs URL scope (`oauth.rs:13,169`), and the form-encoded revoke (`oauth.rs:322-327`) are provider quirks. JSON config cannot express "parse a different token JSON"; a code-side per-provider adapter is required. C4 is therefore L, not M. | `oauth.rs:13,46,63-68,147,169,246,322-327` |
+| E8 | MAJOR | Proxy `x-auth-data` (base64-JSON `{access_token}`) is the Sheets server's bespoke shape ("reads this, NOT Authorization: Bearer", `proxy.rs:17`). A second MCP backend may want a different header/encoding. `mcp_url` alone is insufficient; need a per-connector `auth_injection` spec. C5 is M, not S. | `proxy.rs:13-26` |
+| E9 | MAJOR | Goal 1 ("DB write, not a redeploy") is false for a NEW OAuth provider: it needs out-of-band redirect-URI + client_id/secret registration in the provider's console, AND its `token_endpoint`/`mcp_url` host added to the SSRF allowlist (which, if env/compile-time, is itself a redeploy). https-only SSRF rule also clashes with internal-network http MCP targets (OQ 12.4). | §12.6 SSRF; `state.rs` |
+| E10 | MAJOR | Dropping `google_*`/`sheets_mcp_url` from `Config` breaks `Config::from_env` (`req_env("GOOGLE_CLIENT_ID")` etc.) AND every `Config{..}` test literal - the same break class as 0009 finding #22. `from_env` must stop requiring the Google trio (behavior change). | `state.rs` Config/from_env |
+| E11 | MAJOR | Fact correction: the app `connections.rs` is ALREADY data-driven off `/v1/connectors` (`connections.rs:106` iterates `client.list_connectors()` -> `backend/mod.rs:319`). §12.1/C8's "kill the hardcoded Google Sheets card" misdescribes the live app - the hardcode is backend-only (`oauth::list`). Real C8 work = the MCP route migration + agents. | `connections.rs:106`, `backend/mod.rs:319` |
+| E12 | MAJOR | Agent items can leak into connector-route entitlement checks: `entitled(subject)` is computed over all kinds; the list query re-filters `kind='connector'`, but `valid_access_token`/proxy gate on `slug ∈ accessible(subject)` without asserting kind, so an `agent` slug granted via an override could pass a connector-route check. | §12.4 resolution + gate helper |
+| E13 | MINOR | `account_item_overrides` had no PK/uniqueness; `POST /v1/admin/entitlements` could insert conflicting grant+revoke rows (resolution tolerates it but admin reads get ambiguous, table grows unbounded). The override endpoint also lacks the unknown-subject 400 that `set_premium` has (`admin.rs:59-63`). | `admin.rs:59-63` |
+| E14 | MINOR | The load-bearing `entitled()` SQL (UNION plan_items ∪ grants EXCEPT revokes, precedence revoke>grant) is hand-waved as "a sub-resolve". It is the hard part of C2/C3 and must be written out. | §12.4 |
+| E15 | MINOR | 0009's baseline-aware migration runner (R5/F6) must include `catalog_items`/`plan_items`/`account_item_overrides` in its baseline set, else it re-runs/conflicts once it lands. Not in any task. | RFC §6bis R5 |
+| E16 | NIT | "Filter items whose required env secret is missing" adds an env read into the hot list path, contradicting the "handful of small reads" cost claim. Should be cached at catalog-write. | §12.4/§12.6 |
+| E17 | NIT | Catalog-write (SSRF target injection) + per-account grant inherit 0009 finding #10's UNRESOLVED admin MAJOR (static `ADMIN_TOKEN`, no CSRF/audit/session, `gate.rs:61`). §12 raises the blast radius but only says "already gated". | `gate.rs:61-88`; 0009 finding #10 |
+
+#### Counts
+- BLOCKER: 2  MAJOR: 10  MINOR: 3  NIT: 2
+
+### 12.11 Design revisions (post-review) - authoritative
+
+This subsection supersedes §12.4-§12.7 where they conflict. No finding waived.
+
+- **E1 (two distinct keys).** Phase C does NOT rename `connector_tokens.device_id`. There are two deliberately separate keys: (1) **connection ownership** is always the CALLING `device_id` (OAuth tokens are device-held - a user's N devices each connect their own Google); (2) **entitlement subject** is `device_id` pre-0009, `user_id` post-0009 (which plans/overrides apply). The list query takes both: token join on `?dev` (calling device), catalog filter on `accessible(?subject)`. Pre-0009 they're equal. This dissolves the "connected:false after cutover" hole: status stays per-device forever; only entitlement resolution flips. `account_item_overrides.subject_id` is the only column re-keyed at cutover. **C-cut `Depends on` = 0009 P1.1 (entitlements/users tables) + P1.3 (account resolver)**, not merely R3/F4; C1-C9 ship standalone on `devices.premium`, C-cut cannot.
+- **E2 (no premium window).** C-cut ships in lockstep with 0009 P1.1's `devices.premium` drop and reads `entitlements`, with the §6bis R8 discipline reused verbatim: keep the old plan source as an OR-branch through the cutover release, gate removal on a verified LIVE `200` for Mirko, keep >=2 releases. The "boolean stays the source until cutover" claim is corrected: the boolean is the source ONLY until C-cut, which replaces it atomically with the column drop.
+- **E3 (callback binds to state, not path).** The generic callback reads `provider` (slug) from the single-use, device-bound `oauth_states` row and uses THAT to select `token_endpoint`/config. Any path slug is asserted equal to `state.provider` or rejected. The existing no-device-session, device_id-bound-to-state identity model is preserved unchanged. (`oauth_states` already has the `provider` column - C4 just starts reading it.)
+- **E4 / E11 (MCP route + app reality).** Keep `POST /v1/mcp` mounted as a back-compat alias to `/v1/connectors/google/mcp` for >=1 release (mirrors the env-fallback discipline); delete only after the app build adopting the slug route is shipped AND adopted. The app's connector LIST is already `/v1/connectors`-driven; C8 is scoped to the MCP-client route migration + `/v1/catalog` (agents) + agent soft-gate + release coordination, NOT a list rewrite. New task **C10**: `/v1/mcp` alias + app/back-end release-coordination.
+- **E5 (seed atomicity).** Hard deploy invariant: `catalog_items('google')` + `plan_items('premium','google')` MUST commit before `/v1/connectors` starts resolving (seed in the same migration that introduces the tables, C1). C9 gains a backward-compat test: an existing `provider='google'` token on a premium device still lists AND proxies after the switch.
+- **E6 (structural secret rule).** Drop the heuristic. `*_env` fields MUST match `^[A-Z][A-Z0-9_]*$` (env-name shape) and MUST resolve to a set env var at catalog-write time; reject otherwise. Verifiable, not "looks like a secret". The real control remains admin-only write + the SSRF allowlist.
+- **E7 (code-side token adapter).** v1 connector token/refresh/revoke handling is a small code-side adapter keyed by an `provider_family` in config (`google` being the first); JSON config carries endpoints/scopes/flags (`access_type`, `prompt`) but NOT the response parser. C4 re-rated **L**, split C4a (slug plumbing + config lift) / C4b (per-family token/refresh/revoke adapter). The `oauth2_pkce`-only Non-Goal stands; "config-only generality" in §12.4 is corrected to "config + a thin per-family adapter".
+- **E8 (auth-injection spec).** Connector config gains `auth_injection: { transport: "x-auth-data-b64json" | "bearer" | ..., key }`. The proxy reads it to shape the upstream auth header. C5 re-rated **M**. Sheets keeps `x-auth-data-b64json`.
+- **E9 (Goal 1 scoped honestly).** Goal 1 means: a NEW catalog item for an ALREADY-registered provider/secret is a pure DB write; a NEW OAuth provider still requires out-of-band registration (redirect URI in the provider console + `client_*_env` secrets in the env + its host on the SSRF allowlist). The SSRF allowlist lives in the DB (a small `allowed_hosts` set the admin manages), NOT compile-time, so it is not itself a redeploy; the https-only rule is relaxed to "https for public hosts; an explicit internal-host allowlist entry may be http" to permit internal MCP targets (OQ 12.4).
+- **E10 (Config break).** C4 explicitly: remove the three `req_env` Google calls from `Config::from_env` (resolve per-row at runtime from `client_*_env`), drop `sheets_mcp_url`, add `public_base`, and update every `Config{..}` literal + integration fixture in lockstep (listed in C4's files).
+- **E12 (kind-aware gate).** `accessible(subject)` is kind-aware: connector routes (`authorize`/`callback`/`mcp`/`disconnect`) assert the slug resolves to a `kind='connector'` accessible item; agent entitlement is a separate check. No agent slug can satisfy a connector-route gate.
+- **E13 (override PK + 400).** `account_item_overrides` PK = `(subject_id, catalog_item_id)`, `effect` a column, admin writes upsert on conflict. `POST /v1/admin/entitlements` returns 400 on an unknown subject (mirrors `set_premium`).
+- **E14 (write the SQL).** `entitled(subject)` is, explicitly:
+  ```sql
+  SELECT pi.catalog_item_id FROM plan_items pi
+    WHERE pi.plan IN (/* active plans for ?subject */)
+  UNION
+  SELECT o.catalog_item_id FROM account_item_overrides o
+    WHERE o.subject_id = ?subject AND o.effect = 'grant'
+  EXCEPT
+  SELECT o.catalog_item_id FROM account_item_overrides o
+    WHERE o.subject_id = ?subject AND o.effect = 'revoke';
+  ```
+  Precedence revoke>grant is the trailing `EXCEPT`; `status='active'` is applied by the outer catalog join. This is C2's accept criterion.
+- **E15 (baseline handoff).** New task **C11**: when 0009's versioned runner (R5) lands, its baseline set includes `catalog_items`/`plan_items`/`account_item_overrides`.
+- **E16 (cache configured-ness).** Validate env presence at catalog-write and store a `configured` flag on the row; the list path reads the flag, no per-request env probe.
+- **E17 (admin hardening inherited).** Catalog-write and per-account grant are gated by the SAME `AdminAuth` whose hardening (CSRF/audit/session/rotation) is 0009 finding #10, still open. The SSRF allowlist is the only barrier between an `ADMIN_TOKEN` leak and arbitrary backend-side outbound requests; catalog-write MUST NOT ship before finding #10's hardening, and every catalog/grant action is audit-logged with actor.
+
+#### Revised task delta
+- **C4** -> L, split C4a/C4b (E7, E10).
+- **C5** -> M (E8); keep `/v1/mcp` alias (E4).
+- **C10** (new): `/v1/mcp` back-compat alias + app/backend release coordination (E4).
+- **C11** (new): catalog tables in the 0009 baseline-runner set (E15).
+- **C7** absorbs the structural secret rule (E6), the DB-resident SSRF allowlist + internal-http exception (E9), and the configured-flag-at-write (E16).
+- **C6** absorbs the override PK/upsert + unknown-subject 400 (E13), and is blocked on 0009 finding #10's admin hardening (E17).
+
+#### Disposition
+Both BLOCKERs (E1, E2) and all MAJORs are resolved above; the Phase C plan is updated accordingly. Net effect: Phase C (C1-C9, +C10/C11) ships standalone on the device seam; **C-cut is the only piece that hard-depends on 0009 Phase 1**, and it carries the §6bis R8 no-gap cutover discipline.
