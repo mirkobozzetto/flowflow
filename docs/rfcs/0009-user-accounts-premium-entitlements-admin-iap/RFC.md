@@ -5,8 +5,9 @@ title: "User Accounts, Premium Entitlements, Admin Frontend & IAP"
 status: Review
 author: "Mirko Bozzetto"
 created: "2026-06-21"
-updated: "2026-06-21"
+updated: "2026-06-22"
 extension: "§12 connector/agent catalog + per-account entitlements (hybrid, ship-on-seam, generic OAuth) - 2026-06-21"
+pivot: "§6ter Rust-only auth + device-cluster accounts (1 user / <=3 devices), TanStack+Bun+shadcn admin shell, gate pubkey->account->premium; Better Auth + email-code both dropped - 2026-06-22"
 stepsCompleted: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9]
 review_blockers: 7
 review_major: 10
@@ -35,6 +36,8 @@ skip_review: false
 # 0009: User Accounts, Premium Entitlements, Admin Frontend & IAP
 
 ## 1. Summary
+
+> **Pivot banner (2026-06-22) - read §6ter (authoritative) first.** The Phase-1 prose below (Better Auth inside TanStack Start, JWKS, email codes) predates the pivot. Current direction: auth + accounts + entitlements + the gate are **100% Rust** in the one backend - **Better Auth and the §6 email one-time-code are both dropped**. An **account is a cluster of 1..3 paired devices** (RFC 0004 transport), not an email identity; the gate is **`pubkey -> account -> premium`**. **TanStack Start + Bun + shadcn/ui** stays, but only as a thin **admin** web shell over the Rust admin API (it hosts no auth). Throughout this RFC, read every `user_id`/`subject_id` as `account_id`.
 
 FlowFlow's premium gate is a manual env allowlist of device pubkeys (`PREMIUM_PUBKEYS`) - accountless, unscalable (one redeploy per user), and unmonetizable (Apple forbids selling premium any other way). This RFC makes premium **account-based**, in three phases:
 
@@ -94,7 +97,7 @@ Premium is an env allowlist of device pubkeys (`PREMIUM_PUBKEYS`), checked in `P
 ## 4. Goals / Non-Goals
 
 ### Goals
-1. **Account = stable identity** independent of any device; one account owns N devices (N:1 `device -> user`).
+1. **Account = stable identity** independent of any device; one account (one human user) owns 1..3 devices, hard cap 3 (N:1 `device -> account`). Post-pivot the account is the cluster of paired devices (§6ter), so identity = membership, not an email.
 2. **Premium = an account entitlement** (a subscription state with status/expiry, not a boolean flag), resolved at the single existing seam `PremiumDevice`.
 3. **Self-serve premium**: a user can become premium without anyone touching infra - via Apple IAP and/or an admin grant.
 4. **Admin surface**: Mirko creates/lists users, grants/revokes premium, and sees captured profile info from a UI, never by editing env.
@@ -169,6 +172,8 @@ Decision axes bundled into coherent alternatives: (a) identity/login model, (b) 
 The phasing is natural: **accounts + entitlements + admin grant (Alt 1) is a strict subset of Alt 3.** Alt 3 = Alt 1 + Apple IAP self-serve. So Alt 1 is not a dead end - it is Phase 1 of Alt 3 if IAP is deferred until there is something to sell.
 
 ## 6. Proposed Design
+
+> **SUPERSEDED (history) - jump to §6ter.** This section and its diagram (`axum+htmx SSR`, email one-time-code, SMTP, `devices.user_id` via email) are the ORIGINAL Alt-3 design, kept only for reasoning history. They do NOT reflect the current direction. The authoritative auth/account/admin design is **§6ter** (2026-06-22 pivot): Rust-only auth, device-cluster accounts, TanStack + shadcn admin shell - NO htmx, NO email, NO Better Auth.
 
 **Base: Alt 3, phased.** Auth is Rust-native email + one-time code (no Node, no Better Auth in Phase 1 - revisit for social/passkeys later). Phase 1 = accounts + entitlements + admin grant. Phase 2 = Apple IAP.
 
@@ -322,6 +327,114 @@ A frontend decision (web = **TanStack Start**) and the adversarial review change
 - **R9 (F5,F19)** `DELETE /account` (Better Auth) cascades: Better Auth purges email/PII; Rust purges entitlements + `connector_tokens` (upstream revoke first) + device sessions and nulls `devices.user_id`; an active IAP sub surfaces "Manage Subscription" and a tombstone keyed by `original_transaction_id`.
 - **R12 (F15,F16)** Phase 2: account link required before purchase; entitlement keyed by `original_transaction_id`; add "Restore Purchases" + "Manage Subscription".
 
+### 6ter. PIVOT (authoritative, 2026-06-22): Rust-only auth, device-cluster accounts, TanStack admin shell
+
+This subsection supersedes the AUTH and ACCOUNT-CREATION parts of §6bis (Better Auth, JWKS/JWT, magic-link) and the §6 Rust email one-time-code. The `PremiumDevice` seam, the `entitlements` table, the admin-grant model, the migration/cutover discipline, and all of §12 stand unchanged; only HOW an account exists and how login works changes.
+
+**Naming bridge.** §6/§6bis/§12 call the entitlement subject `user_id` / `subject_id`. Under the pivot the stable subject is `account_id`. Read every `user_id`/`subject_id` in this RFC as `account_id` (`devices.user_id` becomes `devices.account_id`; `account_item_overrides.subject_id` post-cutover holds `account_id`). The `users` table becomes `accounts`.
+
+**What changes vs §6bis**
+1. **Better Auth: removed.** No Node auth runtime, no JWKS verification, no JWT `sub`. Auth + accounts + entitlements + the gate are 100% Rust, in the one backend. The §6 hand-rolled email one-time-code is also dropped - the cluster model deletes that whole surface rather than patching its blockers (F1/F2/F3/F11/F18).
+2. **Account = a cluster of 1..3 paired devices**, not an email identity. It reuses the RFC 0004 pairing transport (Noise + PSK) already shipped: no email, no password, no magic link, no consumer login screen. A stable `account_id` is shared by the cluster's devices.
+3. **TanStack Start + Bun + shadcn/ui** stays, but as the ADMIN web front ONLY: a thin React shell over the Rust admin API. It hosts NO auth library; admin auth is the Rust-side `AdminAuth` (finding #10 hardening). The app's design tokens are re-expressed in the shadcn/Tailwind-v4 theme (a re-implementation, not a literal share - the accepted cost of React over a Dioxus-web shared kit).
+
+**Front stack (pinned, verified on the web 2026-06-22)**
+
+| Piece | Pin | Note |
+|-------|-----|------|
+| Runtime / pkg mgr | Bun `1.3.14` | latest stable (2026-05); bundles SQLite 3.53, unused here (backend owns the DB) |
+| Framework | TanStack Start `@tanstack/react-start` `1.168.x` (Router `1.170.x`) | v1 **RELEASE CANDIDATE**, not yet 1.0 stable; per TanStack's own guidance pin EXACT and treat version bumps as planned work |
+| Components | shadcn CLI `4.11.0` | `shadcn init --template tanstack-start` is first-class; `--base radix` (or Base UI); `new-york` style; `sonner` toasts |
+| UI runtime | React 19 + Tailwind v4 | shadcn default since 2026 |
+
+`ponytail:` the admin is a handful of CRUD screens (accounts, devices, grant/revoke, the §12 catalog). It needs no auth stack of its own and no SSR cleverness; shadcn over the Rust admin API is the floor that works. The TanStack-Start RC risk is bounded - the admin is internal (Mirko-only), so RC churn never reaches a consumer. Upgrade path: pin to 1.0 stable when it cuts.
+
+**Account lifecycle (Rust, device-cluster)**
+- **Create:** a device's first TOFU registration (`auth::verify`, unchanged) mints a new `account_id` and sets `devices.account_id`. One device = one solo account (free tier).
+- **Join (pair):** when device B pairs with device A (RFC 0004 handshake), B ADOPTS A's `account_id` via a backend account-join step - NOT a client-asserted payload (see §6ter.1: inviter-authorized, server-bound join token carried over the existing Noise channel). The server enforces the cap: a join that would exceed 3 active devices is rejected (`409 account_device_limit`).
+- **Merge (a device that already had a solo account, then pairs):** the joiner's prior solo account is superseded and its devices fold into the inviter's `account_id`. An entitlement on the abandoned solo account is dropped (admin comp) or re-pointed by `original_transaction_id` (IAP, open Q). Rare in practice: a fresh install pairs before buying anything.
+- **Leave / revoke a device:** removing a device nulls its `account_id`; it falls back to a fresh solo account on next use and loses premium (premium follows the account).
+
+**The gate: `pubkey -> account -> premium`** (replaces the §6bis `device -> user` resolver):
+```sql
+SELECT 1 FROM devices d
+JOIN entitlements e ON e.account_id = d.account_id
+WHERE d.device_id = ?1               -- ?1 = calling device pubkey (b64)
+  AND d.account_id IS NOT NULL
+  AND e.status = 'active'
+  AND (e.expires_at IS NULL OR e.expires_at > ?2);   -- ?2 = now
+```
+A solo/unpaired device with no granted account, or no active entitlement -> `Forbidden`. Connector connection status stays per CALLING device (§12 E1: OAuth tokens are device-held); only the ENTITLEMENT subject is the account. In §12 the resolver `subject = account_id` while its token-join stays `device_id`.
+
+**Premium provisioning**
+- **Admin grant (now):** Mirko, in the TanStack admin, finds an account by `account_id` or by any member device pubkey and writes `entitlement(account_id, source=admin, status=active)`. Free comp, no env, no redeploy; retires `PREMIUM_PUBKEYS` at cutover.
+- **Apple IAP (Phase 2, deferred):** a purchase on any member device writes `entitlement(account_id, source=iap, original_transaction_id=...)`. Because premium is per-account, the other <=2 paired devices inherit it automatically; "Restore Purchases" on a reinstalled device re-binds by re-pairing into the same `account_id`. §6bis R12 "link before purchase" becomes "be a member of an account before purchase", which every device already is (solo-account minimum). Backend validation: `app-store-server-library` `4.3` (Rust, `SignedDataVerifier` + OCSP), keyed by `original_transaction_id`.
+
+**Data-model delta vs §6bis**
+- `users` -> `accounts` `{ account_id PK, created_at, display_name? }`. NO email, NO PII. `display_name` is an optional admin-only label.
+- `devices.user_id` -> `devices.account_id` (nullable until register/pair sets it).
+- `login_codes`: DROPPED entirely (no email codes).
+- `entitlements.user_id` -> `entitlements.account_id`; status/source/expiry/`original_transaction_id` unchanged (§6bis R4).
+- Cap invariant enforced at join: `COUNT(devices WHERE account_id = ?) <= 3`.
+
+**Account data model (current, post-pivot):**
+
+```mermaid
+erDiagram
+  accounts ||--o{ devices : "owns (1..3)"
+  accounts ||--o{ entitlements : "has"
+  accounts {
+    text account_id PK
+    text created_at
+    text display_name "optional admin label; no PII"
+  }
+  devices {
+    text device_id PK "Ed25519 pubkey b64"
+    text account_id FK "null until register/pair"
+    text created_at
+    text last_seen
+  }
+  entitlements {
+    text id PK
+    text account_id FK
+    text plan "premium"
+    text status "active|expired|revoked"
+    text source "admin|iap"
+    text expires_at "null = no expiry (admin comp)"
+    text original_transaction_id "iap only"
+  }
+```
+
+**Apple compliance shift**
+- No email/identity "account creation" in the 5.1.2(v) sense -> the mandatory in-app account-DELETION obligation is lighter: there is no PII account to delete. Still ship a "Leave account / delete my data" action (local wipe + leave cluster + purge entitlements/`connector_tokens`) for hygiene and IAP-sub handling.
+- 4.8 "Sign in with Apple" concern disappears: there is NO social or third-party login at all.
+
+**Review blockers this moots vs still in force**
+- MOOT (no email-code surface): §11 F1, F2, F3, F11, F14, F18. F5/F19 (deletion) shrink to local-wipe + leave-cluster + entitlement/token purge.
+- STILL IN FORCE, unchanged: F6/F8/F13 (baseline-aware migration runner), F7/F20 (no-gap cutover: keep the env OR-branch through cutover, gate removal on a verified live 200, >=2 releases), F10 (AdminAuth: server session + CSRF + audit + rotation - the TanStack admin CONSUMES it, does not replace it), F12/F24 (entitlement multi-writer rules), and every §12 E-finding.
+
+#### 6ter.1 Review correction (2026-06-22): pairing is P2P, the backend needs an explicit account-join step
+
+An adversarial pass against the live code (2 critics, both repos) confirmed the keystone risk and corrects the "Join (pair)" sketch above. Verified facts (file:line):
+- RFC 0004 pairing is shipped and the Noise+PSK transport is reusable: `flowflow/src/services/sync/transport.rs` (`Noise_XXpsk3_25519_ChaChaPoly_BLAKE2s`), PSK in `services/sync/peers.rs:31-35`.
+- But pairing is PURELY peer-to-peer and LOCAL (device-to-device over Noise TCP on the LAN). The backend `marketplace-flowflow` is ENTIRELY unaware of which devices are paired: it TOFU-registers each device independently (`src/auth.rs:96-104`) and has NO `/v1/account/*` routes (`src/lib.rs`).
+- The app tracks paired devices only LOCALLY, in `sync_peers` (`flowflow/src/db/peer_repo.rs`). The `PairingPayload` (`peers.rs:23-29`) carries `device_id, addr, port, psk, static_pubkey` and NO `account_id`.
+
+Consequence: "account = cluster of paired devices" CANNOT be derived by the backend from RFC 0004 as-is. It needs a NEW backend touchpoint, and the `account_id` MUST NOT be client-asserted - a device claiming an arbitrary `account_id` would inherit that account's premium (the cluster-model rebirth of §11 F1 device-binding theft).
+
+**Account-join mechanism (authoritative, replaces the §6ter "Join (pair)" payload sketch): inviter-authorized, server-bound.**
+1. **Invite** (inviter = already a member, already backend-authenticated): the inviter device calls `POST /v1/account/invite { new_device_pubkey }` on its own Ed25519 session. Backend checks `COUNT(devices WHERE account_id = inviter.account_id) < 3`, then mints a short-TTL single-use `join_token` bound to `(account_id, new_device_pubkey)`.
+2. **Carry over Noise:** the `join_token` travels to the joiner over the EXISTING mutually-authenticated RFC 0004 Noise+PSK channel (the only place the two devices already trust each other). The handshake/`PairingPayload` gains one field for it; the joiner never sees a raw `account_id` to assert.
+3. **Join** (joiner): device B calls `POST /v1/account/join { join_token }` on its own Ed25519 session. Backend validates the token, RE-checks the cap, sets `devices.account_id = account_id` for B, burns the token. Exceed 3 -> `409 account_device_limit`; bad/expired token -> `401`.
+
+The `account_id` is established ONLY by an existing member's backend-authenticated authority, never by a client claim. The first device's solo `account_id` is minted at TOFU register (`auth::verify`), transport unchanged.
+
+**App-side delta (net-new, the §6ter "reuse 0004 unchanged" line understated this):** `PairingPayload` + the post-handshake step gain the `join_token` round-trip and the `POST /v1/account/join` call; `sync_peers` may cache `account_id` for display. The transport is reused; the account-binding step is added.
+
+**Merge / recovery (open question OQ-pivot-1).** The live rebind path (`peers.rs` `authorize_rebind` / `rebind_recently_rotated`) only clears ack/GC state - it does NO account merge. When a device that already had a solo account joins another, or a re-keyed device restores, the backend must decide: fold the joiner's old account into the inviter's, drop an admin-comp entitlement, or re-point an IAP entitlement by `original_transaction_id`. Unresolved; owner Mirko, before Q1.2b.
+
+These corrections add backend tasks Q1.2a (invite) + Q1.2b (join, cap, token) and app task Q1.2c (join_token over Noise + backend join call) to Plan revision 2. Net: the keystone is buildable, but it is NOT a free reuse of RFC 0004 - it adds an inviter-authorized backend join step.
+
 ## 7. Drawbacks & Risks
 
 ### Drawbacks (inherent)
@@ -364,10 +477,10 @@ A frontend decision (web = **TanStack Start**) and the adversarial review change
 
 **Recommendation:** Adopt the **§6bis LOCKED direction**, phased:
 - **Phase 0 (bridge, already coded):** `PREMIUM_PUBKEYS` env allowlist (#64 B2+B3) -> Mirko premium now, zero new build.
-- **Phase 1 (real):** accounts + admin via **TanStack Start + Better Auth** (the JS frontend, hosting auth); the **Rust backend verifies the Better-Auth JWT via JWKS** and owns the `entitlements` resolver at the single `PremiumDevice` seam. No hand-rolled Rust auth.
+- **Phase 1 (real), post-pivot (§6ter, authoritative):** accounts + entitlements + the gate are **100% Rust** in the one backend - **no Better Auth, no email codes**. An **account is a cluster of 1..3 paired devices** (RFC 0004); the gate is `pubkey -> account -> premium` at the single `PremiumDevice` seam. **TanStack Start + Bun + shadcn/ui** is only a thin **admin** web shell over the Rust admin API (hosts no auth).
 - **Phase 2:** Apple IAP self-serve.
 
-The original §6 Rust email-code design is superseded by §6bis (Better Auth owns login once the JS frontend exists).
+The original §6 Rust email-code design was superseded by §6bis, and §6bis's Better-Auth direction is in turn superseded by **§6ter** (the 2026-06-22 pivot): Rust-only auth, device-cluster accounts, TanStack/shadcn admin shell. §6 and §6bis are kept for reasoning history; §6ter is the authoritative auth/account direction.
 
 **Confidence:** medium-high. The seam (`PremiumDevice`) and the Ed25519 device layer are unchanged; auth is offloaded to a maintained framework that lives in the frontend you are building anyway; the real unknowns (Better-Auth<->Ed25519 glue, StoreKit shim) are isolated and Phase 2 is deferred. The env bridge means there is no window without premium for Mirko.
 
@@ -417,6 +530,9 @@ The original §6 Rust email-code design is superseded by §6bis (Better Auth own
 | T15 | App Store Connect product + paywall UI | `src/ui/settings/account.rs` | T13 | S | reviewer can load the IAP on the paywall |
 
 ### Dependency graph
+
+> **SUPERSEDED - see the Q1.x graph in Plan revision 2 below.** These T01-T15 codes are the ORIGINAL plan (email-code + htmx admin). The authoritative task graph is the Q1.x one.
+
 ```mermaid
 graph TD
   T01 --> T02
@@ -466,6 +582,67 @@ The task table above is superseded where it conflicts; the tasks that built a Ru
 
 Moot after this revision: §11 findings F1, F2, F3, F11, F14, F18 (Better Auth owns login/sessions). Still in force: F4, F5, F6, F7, F8, F9, F12, F13, F16, F17, F19, F20, F21 (Rust-side entitlements/migrations/cutover/deletion/IAP), resolved in §6bis.
 
+### Plan revision 2 (post-pivot, 2026-06-22, authoritative)
+
+Supersedes the "Plan revision (post frontend/auth decision)" table above where they conflict: the Better-Auth/JWKS tasks (P1.2, P1.5 in their Better-Auth form) are REMOVED. Per §6ter.
+
+**Phase 0 - Bridge (DONE):** `PREMIUM_PUBKEYS` (#64 B2+B3). Mirko premium now. Retires at cutover.
+
+**Phase 1 - Rust accounts + entitlements + admin (no Node auth):**
+
+| ID | Title | Where | Depends on | Effort |
+|----|-------|-------|------------|--------|
+| Q1.1 | Baseline-aware migrations + WAL/busy_timeout (F6/F8/F13); `accounts`, `entitlements`(+`account_id`,`original_transaction_id`), `devices.account_id`; NO `login_codes`; drop `devices.premium` WITH the `auth::verify` INSERT change (F8) | backend `db.rs`,`auth.rs` | none | M |
+| Q1.2a | Register mints `account_id` (`auth::verify`); `POST /v1/account/invite` (member-authorized, mints a capped single-use join_token) - §6ter.1 | backend `auth.rs`,`account.rs`,`lib.rs` | Q1.1 | M |
+| Q1.2b | `POST /v1/account/join` (validate token, re-check 3-cap, set `devices.account_id`, `409`/`401`); leave + merge resolution (OQ-pivot-1) | backend `account.rs` | Q1.2a | M |
+| Q1.2c | App: carry join_token over the RFC 0004 Noise channel + call `/v1/account/join` post-handshake; cache `account_id` in `sync_peers` | app `services/sync/peers.rs`,`services/backend/mod.rs` | Q1.2b | M |
+| Q1.3 | Resolver in `PremiumDevice` = `pubkey -> account -> active entitlement` (`account_id IS NOT NULL`); `PREMIUM_PUBKEYS` OR-fallback (F7/F20) | backend `gate.rs` | Q1.1 | S |
+| Q1.4 | Admin entitlement API (grant/revoke by `account_id` or member pubkey) behind hardened `AdminAuth` (server session + CSRF + audit + rotation, F10) | backend `admin.rs` | Q1.2b,Q1.3 | M |
+| Q1.5 | TanStack Start (1.168 RC) + Bun (1.3.14) + shadcn (4.11) admin shell: accounts/devices list, grant/revoke, catalog (§12 C6). Thin React over the Rust admin API; design tokens themed; NO auth lib | frontend (new dir/repo) | Q1.4 | M |
+| Q1.6 | iOS app: account/premium screen (`GET /v1/account` -> account_id, premium, member devices, cap); "leave account / delete data" | app `ui/settings/account.rs`,`services/backend/mod.rs` | Q1.3 | S |
+| Q1.7 | Cutover: swap resolver, admin-grant Mirko, verify live 200, retire env + drop `devices.premium` (>=2 releases, R8) | backend | Q1.3,Q1.4,Q1.6 | S |
+| Q1.8 | Tests: register->account, pair-join, 3rd-device cap 409, merge, resolver active/expired/unpaired, admin grant/revoke, migration baseline | backend `tests/` | Q1.1-Q1.4 | S |
+
+**Phase 2 - Apple IAP (deferred):** StoreKit-2 Swift shim (XL, spike first) -> Rust JWS validation (`app-store-server-library` 4.3, `SignedDataVerifier` + OCSP, keyed by `original_transaction_id`) -> Server Notifications V2 webhook -> entitlement on `account_id`; "Restore Purchases" + "Manage Subscription". Premium auto-shared across the <=3 paired devices.
+
+**Dependencies:** Q1.5 (front) depends only on Q1.4's API contract; build it in parallel once that shape is frozen. §12 Phase C ships standalone on the device seam; its C-cut folds into Q1.7.
+
+**Task mapping from the prior revision:** P1.1->Q1.1, P1.3->Q1.3, P1.4->Q1.4, P1.6->Q1.6, P1.7->Q1.7; Q1.2a/b/c (device-cluster account join, §6ter.1) + Q1.8 (tests) are net-new; **P1.2 (Better-Auth JWKS) and P1.5 (Better-Auth) are dropped**.
+
+**Dependency graph (Q1.x, authoritative)** - solid = Phase 1, dashed = Phase 2 (deferred IAP). `A --> B` means B needs A first.
+
+```mermaid
+graph TD
+  Q11["Q1.1 migrations + schema"]
+  Q12a["Q1.2a register mints account_id + invite"]
+  Q12b["Q1.2b join + 3-device cap"]
+  Q12c["Q1.2c app: join_token over Noise + join call"]
+  Q13["Q1.3 gate resolver pubkey-account-premium"]
+  Q14["Q1.4 admin API (AdminAuth hardened)"]
+  Q15["Q1.5 TanStack+shadcn admin shell"]
+  Q16["Q1.6 iOS account screen"]
+  Q17["Q1.7 cutover + retire env/devices.premium"]
+  Q18["Q1.8 tests"]
+  Q11 --> Q12a
+  Q12a --> Q12b
+  Q12b --> Q12c
+  Q12b --> Q14
+  Q11 --> Q13
+  Q13 --> Q14
+  Q14 --> Q15
+  Q13 --> Q16
+  Q16 --> Q17
+  Q13 --> Q17
+  Q14 --> Q17
+  Q11 --> Q18
+  Q12b --> Q18
+  Q13 --> Q18
+  Q14 --> Q18
+  Q13 -.-> P2a["Phase 2: StoreKit-2 shim"]
+  P2a -.-> P2b["IAP JWS validate (account_id)"]
+  P2b -.-> P2c["Server Notifications V2"]
+```
+
 ## 11. Review Findings
 
 **Reviewers:** two adversarial subagents (`general-purpose`): a gap-hunter and an impl-realism critic, both verified against the live code.
@@ -510,6 +687,8 @@ All 7 BLOCKERs and the structural MAJORs are resolved in **§6bis Design revisio
 ## 12. Extension: Connector/Agent Catalog & Per-Account Entitlement Resolution
 
 > Added 2026-06-21. This section extends the entitlement model of §6bis. Where §6bis made premium an account-level boolean ("EXISTS an active entitlement row"), §12 generalizes it into a **DB-driven catalog** of connectors and agents plus **per-account, per-item** resolution. Repo: backend `marketplace-flowflow`, app `flowflow`.
+>
+> **Post-pivot note (2026-06-22, §6ter):** read every `user_id`/`subject_id` here as `account_id`. §12's conclusion is unchanged and reinforced - the entitlement subject is now a cheap device-cluster account, so "ship §12 on the device seam now, inherit accounts at the 0009 cutover" still holds and gets cheaper. Fork B's rationale ("heavy TanStack+Better-Auth frontend") is obsolete: Better Auth is dropped and the front is a thin admin shell, but the sequencing decision (ship-on-seam) is the same.
 
 ### 12.1 Problem
 
