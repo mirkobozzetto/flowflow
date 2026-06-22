@@ -14,6 +14,7 @@ pub enum SidebarTab {
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub enum SettingsSection {
     General,
+    Account,
     Intelligence,
     Transcription,
     Storage,
@@ -27,6 +28,7 @@ impl SettingsSection {
     pub fn title_key(self) -> &'static str {
         match self {
             Self::General => "settings-section-general",
+            Self::Account => "settings-section-account",
             Self::Intelligence => "settings-section-intelligence",
             Self::Transcription => "settings-section-transcription",
             Self::Storage => "settings-storage-title",

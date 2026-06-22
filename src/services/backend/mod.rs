@@ -105,6 +105,36 @@ struct AuthorizeResp {
     auth_url: String,
 }
 
+#[derive(Serialize)]
+struct InviteReq<'a> {
+    new_device_pubkey: &'a str,
+}
+
+#[derive(serde::Deserialize)]
+struct InviteResp {
+    join_token: String,
+}
+
+#[derive(Serialize)]
+struct JoinReq<'a> {
+    join_token: &'a str,
+}
+
+#[derive(Clone, Debug, serde::Deserialize)]
+pub struct MemberDevice {
+    pub device_id: String,
+    pub created_at: String,
+    pub last_seen: String,
+}
+
+#[derive(Clone, Debug, serde::Deserialize)]
+pub struct Account {
+    pub account_id: String,
+    pub premium: bool,
+    pub device_cap: i64,
+    pub devices: Vec<MemberDevice>,
+}
+
 impl BackendClient {
     /// Build the client if a backend is configured, else None (feature stays dark).
     /// Fallback chain mirrors the API-key loading in `llm.rs`: DB -> env -> compile-time.
@@ -392,6 +422,59 @@ impl BackendClient {
             return Err(BackendError::Status(status.as_u16(), body));
         }
         Ok(())
+    }
+}
+
+// Device-cluster account management (RFC 0009 §6ter.1). An existing member invites a new device by
+// minting a server-bound, single-use join token; the new device redeems it to adopt the cluster's
+// account. The account_id is never carried on the wire - only the token is.
+impl BackendClient {
+    /// Inviter side: mint a join token bound to the joiner's Ed25519 backend pubkey. The account is
+    /// taken from this device's authenticated session, never asserted by the caller.
+    pub async fn invite(
+        &self,
+        db: &Database,
+        new_device_pubkey: &str,
+    ) -> Result<String, BackendError> {
+        let url = format!("{}/v1/account/invite", self.base_url);
+        let body = InviteReq { new_device_pubkey };
+        let resp = self
+            .authed(db, |c, t| c.post(&url).bearer_auth(t).json(&body))
+            .await?;
+        let parsed: InviteResp = Self::read_json(resp).await?;
+        Ok(parsed.join_token)
+    }
+
+    /// Joiner side: redeem the token on this device's own session to adopt the inviter's account.
+    pub async fn join(
+        &self,
+        db: &Database,
+        join_token: &str,
+    ) -> Result<(), BackendError> {
+        let url = format!("{}/v1/account/join", self.base_url);
+        let body = JoinReq { join_token };
+        let resp = self
+            .authed(db, |c, t| c.post(&url).bearer_auth(t).json(&body))
+            .await?;
+        Self::expect_success(resp).await
+    }
+
+    /// Read this device's account: id, premium status, the device cap, and the cluster members.
+    pub async fn account(
+        &self,
+        db: &Database,
+    ) -> Result<Account, BackendError> {
+        let url = format!("{}/v1/account", self.base_url);
+        let resp = self.authed(db, |c, t| c.get(&url).bearer_auth(t)).await?;
+        Self::read_json(resp).await
+    }
+
+    /// Leave the account: the backend nulls this device's account_id (it drops to a fresh solo, free
+    /// account) and purges the cluster's entitlements if it empties.
+    pub async fn leave(&self, db: &Database) -> Result<(), BackendError> {
+        let url = format!("{}/v1/account/leave", self.base_url);
+        let resp = self.authed(db, |c, t| c.post(&url).bearer_auth(t)).await?;
+        Self::expect_success(resp).await
     }
 }
 
