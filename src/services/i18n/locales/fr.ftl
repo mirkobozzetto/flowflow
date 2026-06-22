@@ -107,6 +107,7 @@ sync-waiting = En attente de l'autre appareil...
 sync-paired-with = Appairé avec
 sync-cancelled = Appairage annulé
 sync-failed = Échec de l'appairage
+sync-or = ou
 sync-join-title = Rejoindre avec un code
 sync-join-hint = Collez le code d'appairage affiché sur votre autre appareil.
 sync-connect = Connecter

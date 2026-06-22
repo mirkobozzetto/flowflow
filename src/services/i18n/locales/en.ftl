@@ -107,6 +107,7 @@ sync-waiting = Waiting for the other device...
 sync-paired-with = Paired with
 sync-cancelled = Pairing cancelled
 sync-failed = Pairing failed
+sync-or = or
 sync-join-title = Join with a code
 sync-join-hint = Paste the pairing code shown on your other device.
 sync-connect = Connect

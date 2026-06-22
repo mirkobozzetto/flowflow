@@ -295,6 +295,25 @@
     .prose li {
         margin: 0.15em 0;
     }
+    .prose table {
+        display: block;
+        width: 100%;
+        overflow-x: auto;
+        border-collapse: collapse;
+        margin: 0.6em 0;
+        font-size: 0.9em;
+    }
+    .prose th,
+    .prose td {
+        border: 1px solid oklch(0.9 0.01 60);
+        padding: 0.35em 0.6em;
+        text-align: left;
+        white-space: nowrap;
+    }
+    .prose th {
+        background: oklch(0.96 0.008 50);
+        font-weight: 600;
+    }
     .prose h3 {
         font-weight: 600;
         font-size: 0.95em;

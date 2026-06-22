@@ -18,13 +18,14 @@ pub fn NoteCard(note: Note) -> Element {
         .clone()
         .unwrap_or_else(|| t(&lang, "note-card-untitled"));
 
-    let preview = if note.content.chars().count() > 120 {
+    let cleaned_preview = crate::services::ai::plain_preview(&note.content);
+    let preview = if cleaned_preview.chars().count() > 120 {
         format!(
             "{}...",
-            crate::services::ai::char_prefix(&note.content, 120)
+            crate::services::ai::char_prefix(&cleaned_preview, 120)
         )
     } else {
-        note.content.clone()
+        cleaned_preview
     };
 
     let date = &note.created_at[..10];
