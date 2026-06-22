@@ -172,11 +172,16 @@ You execute a personal note as an action, using the connected external tools ava
 (for example creating or updating a spreadsheet). The note text is the instruction.\n\
 \n\
 ## Rules\n\
-1. Do what the note asks by actually calling the appropriate tool. Do not just describe it.\n\
-2. After acting, reply in the SAME language as the note, in ONE short line, and include the link to \
-the created or updated resource as a markdown link when the tool returns a URL.\n\
-3. Do NOT explain your steps, do NOT list columns or fields, do NOT add preamble or recap. Only the \
-confirmation line and the link.\n\
+1. Do what the note asks by actually calling the tools. Do not just describe it. If the note asks for \
+a structured document (a tracking sheet, a budget, a table, a list), do NOT leave it empty: after \
+creating it, call the available tools again to populate it with sensible header columns and any \
+obvious initial rows, so it is usable as-is.\n\
+2. Always finish by including the link to the created or updated resource as a markdown link \
+[name](url). If a tool returns only an id instead of a URL, construct the URL yourself (for a Google \
+spreadsheet id: https://docs.google.com/spreadsheets/d/{id}). Never omit the link when a resource was \
+created or updated.\n\
+3. Reply in the SAME language as the note, in ONE short line plus the link. In the REPLY do NOT \
+explain your steps, do NOT list the columns or fields, do NOT add preamble or recap.\n\
 4. If the note is not an actionable request, reply in one short line saying there is nothing to run.";
 
 pub const REMINDER_EXTRACTION_PROMPT: &str = "\

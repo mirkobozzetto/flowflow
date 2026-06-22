@@ -6,6 +6,7 @@ pub mod constants;
 pub mod embed;
 pub mod error;
 pub mod i18n;
+pub mod intent;
 pub mod llm;
 pub mod mcp;
 pub mod rag;

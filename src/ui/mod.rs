@@ -1,3 +1,4 @@
+mod action_card;
 mod attachment_modal;
 mod chat;
 mod chat_input;

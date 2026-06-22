@@ -145,8 +145,14 @@ pub fn find_saved_note(
 }
 
 pub fn md_to_html(md: &str) -> String {
-    use pulldown_cmark::{html, Parser};
-    let parser = Parser::new(md);
+    use pulldown_cmark::{html, Options, Parser};
+    // GFM tables/strikethrough/tasklists are off by default in pulldown-cmark, so a `| a | b |`
+    // table from the agent rendered as raw piped text. Enable them.
+    let mut opts = Options::empty();
+    opts.insert(Options::ENABLE_TABLES);
+    opts.insert(Options::ENABLE_STRIKETHROUGH);
+    opts.insert(Options::ENABLE_TASKLISTS);
+    let parser = Parser::new_ext(md, opts);
     let mut html_output = String::new();
     html::push_html(&mut html_output, parser);
     html_output
@@ -196,7 +202,14 @@ pub fn send_question(
 
     let lang_for_query = lang.clone();
     spawn(async move {
-        match rag::query(&question, Some(tx), scope, &lang_for_query).await {
+        // "lance xxx" runs the note-action path (clean confirmation + link card); anything else
+        // is a normal RAG question. Narrow trigger so real questions are never hijacked.
+        let result = if crate::services::intent::is_action_trigger(&question) {
+            rag::run_action(&question, Some(tx)).await
+        } else {
+            rag::query(&question, Some(tx), scope, &lang_for_query).await
+        };
+        match result {
             Ok(r) => {
                 let sources: Vec<ChatSource> = r
                     .sources

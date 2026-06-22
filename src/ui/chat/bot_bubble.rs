@@ -1,5 +1,6 @@
 use crate::db::Database;
 use crate::services::i18n::t;
+use crate::ui::action_card::ActionResultCard;
 use crate::ui::chat::actions::{find_saved_note, md_to_html, save_as_note};
 use crate::ui::chat::models::ChatSource;
 use crate::ui::chat::sources_accordion::SourcesAccordion;
@@ -43,6 +44,21 @@ pub fn BotBubble(
         .cloned()
         .collect();
     let conv_for_open = conversation_id.clone();
+
+    // An executed-action reply (one line + link) renders as the same clean card as in a note,
+    // without the save/copy/sources chrome. Heuristic, so it also catches the agent autonomously
+    // running a connector mid-chat. Stable per message, so the early return is hook-safe.
+    if crate::services::intent::looks_like_action(&text) {
+        return rsx! {
+            div {
+                class: "flex justify-start",
+                style: "animation: fadeInUp 0.15s ease-out;",
+                div { class: "max-w-[85%]",
+                    ActionResultCard { text: text.clone() }
+                }
+            }
+        };
+    }
 
     rsx! {
         div {

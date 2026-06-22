@@ -540,6 +540,29 @@ pub async fn query(
     Ok(RagResponse { answer, sources })
 }
 
+/// Run an explicit "lance xxx" message straight through the note-action agent path
+/// (NOTE_ACTION_PROMPT + connected tools), bypassing RAG retrieval. The reply is a one-line
+/// confirmation with a link, rendered as the same action card as in a note. No notes are
+/// retrieved, so the response carries no sources.
+pub async fn run_action(
+    question: &str,
+    status_tx: Option<mpsc::UnboundedSender<ToolEvent>>,
+) -> Result<RagResponse, String> {
+    let ai = Arc::new(LlmClient::from_env()?);
+    let answer = prompt_agent_with_tools(
+        ai,
+        crate::services::constants::NOTE_ACTION_PROMPT,
+        question,
+        status_tx,
+    )
+    .await
+    .map_err(|e| e.to_string())?;
+    Ok(RagResponse {
+        answer,
+        sources: vec![],
+    })
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
