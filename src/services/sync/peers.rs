@@ -323,12 +323,20 @@ fn lan_ipv4_from_interfaces() -> Option<String> {
 struct PairRequest {
     kind: String,
     device_id: String,
+    // RFC 0009 Q1.2c: the joiner advertises its Ed25519 backend pubkey so the inviter can mint a
+    // join token bound to it. Optional + default so a peer running pre-0009 code still parses.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    backend_pubkey: Option<String>,
 }
 
 #[derive(Debug, Serialize, Deserialize)]
 struct PairOk {
     kind: String,
     device_id: String,
+    // RFC 0009 Q1.2c: the inviter returns a server-bound join token for the joiner to redeem. The
+    // raw account_id never crosses the wire.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    join_token: Option<String>,
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -484,9 +492,13 @@ fn host_handle_connection(
     if let Some(ip) = peer_ip {
         super::engine::seed_peer_endpoint(db, &req.device_id, &ip);
     }
+    // The pairing host is the inviter: mint a join token for the joiner's backend pubkey and return
+    // it in the pair_ok. Best-effort - pairing still succeeds when no backend is configured.
+    let join_token = mint_join_token(db, req.backend_pubkey.as_deref());
     let ok = PairOk {
         kind: "pair_ok".into(),
         device_id: identity.device_id.clone(),
+        join_token,
     };
     let raw = serde_json::to_vec(&ok)
         .map_err(|e| SyncError::Pairing(format!("encode pair_ok: {e}")))?;
@@ -510,6 +522,9 @@ pub fn join_pairing(db: &Database, uri: &str) -> Result<String, SyncError> {
     let req = PairRequest {
         kind: "pair_request".into(),
         device_id: identity.device_id.clone(),
+        backend_pubkey: crate::services::backend::BackendClient::device_pubkey(
+            db,
+        ),
     };
     let raw = serde_json::to_vec(&req)
         .map_err(|e| SyncError::Pairing(format!("encode pair request: {e}")))?;
@@ -524,7 +539,58 @@ pub fn join_pairing(db: &Database, uri: &str) -> Result<String, SyncError> {
     }
     bind_peer(db, &payload.device_id, &payload.static_pubkey, &payload.psk)?;
     super::engine::seed_peer_endpoint(db, &payload.device_id, &payload.addr);
+    // The joiner adopts the inviter's account by redeeming the token over its own backend session.
+    if let Some(token) = ok.join_token {
+        redeem_join_token(db, &token);
+    }
     Ok(payload.device_id)
+}
+
+// Account join over the established Noise channel (RFC 0009 §6ter.1, Q1.2c). Both sides are
+// best-effort: pairing (RFC 0004 sync) must still succeed when no backend is configured or the call
+// fails, so every error is logged and swallowed - the binding can be retried later from the account
+// screen. Sync code runs off the async runtime (a std::thread host, a spawn_blocking joiner), so each
+// call drives a short-lived runtime, matching the repo idiom (chat/actions.rs, embed.rs).
+fn block_on_backend<F, T>(
+    fut: F,
+) -> Result<T, crate::services::backend::BackendError>
+where
+    F: std::future::Future<
+        Output = Result<T, crate::services::backend::BackendError>,
+    >,
+{
+    let rt = tokio::runtime::Runtime::new().map_err(|e| {
+        crate::services::backend::BackendError::Network(format!("runtime: {e}"))
+    })?;
+    rt.block_on(fut)
+}
+
+// Inviter: mint a server-bound join token for the joiner's backend pubkey. None when this device has
+// no backend configured, the joiner advertised no pubkey, or the mint fails.
+fn mint_join_token(
+    db: &Database,
+    joiner_backend_pubkey: Option<&str>,
+) -> Option<String> {
+    let pubkey = joiner_backend_pubkey?;
+    let client = crate::services::backend::BackendClient::from_db(db)?;
+    match block_on_backend(client.invite(db, pubkey)) {
+        Ok(token) => Some(token),
+        Err(e) => {
+            eprintln!("[account] invite failed: {e}");
+            None
+        }
+    }
+}
+
+// Joiner: redeem the token on this device's own backend session to adopt the inviter's account.
+fn redeem_join_token(db: &Database, join_token: &str) {
+    let Some(client) = crate::services::backend::BackendClient::from_db(db)
+    else {
+        return;
+    };
+    if let Err(e) = block_on_backend(client.join(db, join_token)) {
+        eprintln!("[account] join failed: {e}");
+    }
 }
 
 pub fn unpair(db: &Database, device_id: &str) -> Result<(), SyncError> {

@@ -441,6 +441,40 @@ impl Database {
         Ok(count)
     }
 
+    // Hard local wipe for "delete my data" (RFC 0009 Q1.6). RAW deletes (not tombstones) so nothing
+    // propagates to former cluster peers, and the sync lineage is cleared so the device restarts as a
+    // fresh solo install. Settings (device identity, API keys, backend URL) are preserved so the app
+    // still boots; the caller removes the returned audio files and purges the vector store.
+    pub fn wipe_local_content(&self) -> Result<Vec<String>, String> {
+        let audio_paths = self.all_audio_paths().unwrap_or_default();
+        let conn = self.conn();
+        let tx = conn
+            .unchecked_transaction()
+            .map_err(|e| format!("wipe tx: {e}"))?;
+        for table in [
+            "note_audios",
+            "attachments",
+            "note_reminders",
+            "conversation_messages",
+            "conversations",
+            "notes_folders",
+            "chunks",
+            "pending_transcriptions",
+            "notes",
+            "threads",
+            "folders",
+            "sync_row_meta",
+            "sync_seq",
+            "sync_conflicts",
+            "sync_peers",
+        ] {
+            tx.execute(&format!("DELETE FROM {table}"), [])
+                .map_err(|e| format!("wipe {table}: {e}"))?;
+        }
+        tx.commit().map_err(|e| format!("wipe commit: {e}"))?;
+        Ok(audio_paths)
+    }
+
     pub fn list_all_tags(&self) -> Vec<String> {
         let notes = self.list_notes().unwrap_or_default();
         let mut tags: Vec<String> =

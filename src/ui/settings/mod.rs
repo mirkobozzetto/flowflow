@@ -1,3 +1,4 @@
+mod account;
 mod backup;
 mod connections;
 mod general;
@@ -11,6 +12,7 @@ use crate::db::Database;
 use crate::services::backup as backup_service;
 use crate::services::i18n::t;
 use crate::ui::{AppState, SettingsSection, View};
+use account::AccountSettings;
 use backup::BackupSettings;
 use connections::ConnectionsSettings;
 use dioxus::prelude::*;
@@ -60,6 +62,10 @@ pub fn SettingsView() -> Element {
                 SectionRow {
                     label: t(&lang, "settings-section-general"),
                     section: SettingsSection::General,
+                }
+                SectionRow {
+                    label: t(&lang, "settings-section-account"),
+                    section: SettingsSection::Account,
                 }
                 SectionRow {
                     label: t(&lang, "settings-section-intelligence"),
@@ -132,6 +138,9 @@ pub fn SettingsSectionView() -> Element {
     match section {
         SettingsSection::General => rsx! {
             GeneralSettings {}
+        },
+        SettingsSection::Account => rsx! {
+            AccountSettings {}
         },
         SettingsSection::Intelligence => rsx! {
             IntelligenceSettings {}
