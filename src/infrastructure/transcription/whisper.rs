@@ -1,11 +1,41 @@
 use super::hesitations::clean_hesitations;
 use std::path::{Path, PathBuf};
+use std::sync::{Arc, LazyLock, Mutex};
 use tokio::sync::Semaphore;
 use whisper_rs::{
     FullParams, SamplingStrategy, WhisperContext, WhisperContextParameters,
 };
 
 static WHISPER_LOCK: Semaphore = Semaphore::const_new(1);
+
+// Load the model once and reuse it across transcriptions. Building a WhisperContext loads the full
+// (hundreds of MB) model from disk and inits the Metal backend; doing that on every call was the
+// multi-second warm-up felt before each transcription. The per-inference state stays cheap and is
+// created fresh each call. Keyed by model path so switching the model in Settings reloads it.
+type ContextCache = Mutex<Option<(PathBuf, Arc<WhisperContext>)>>;
+static CONTEXT_CACHE: LazyLock<ContextCache> =
+    LazyLock::new(|| Mutex::new(None));
+
+fn cached_context(model: &Path) -> Result<Arc<WhisperContext>, String> {
+    let mut cache = CONTEXT_CACHE.lock().unwrap();
+    if let Some((path, ctx)) = cache.as_ref() {
+        if path == model {
+            return Ok(ctx.clone());
+        }
+    }
+    let model_str = model
+        .to_str()
+        .ok_or_else(|| "non-utf8 model path".to_string())?;
+    let ctx = Arc::new(
+        WhisperContext::new_with_params(
+            model_str,
+            WhisperContextParameters::default(),
+        )
+        .map_err(|e| format!("Whisper model load: {e}"))?,
+    );
+    *cache = Some((model.to_path_buf(), ctx.clone()));
+    Ok(ctx)
+}
 
 pub fn available_slots() -> usize {
     WHISPER_LOCK.available_permits()
@@ -85,14 +115,7 @@ fn run_whisper(
     wav: &Path,
     language: Option<&str>,
 ) -> Result<String, String> {
-    let model_str = model
-        .to_str()
-        .ok_or_else(|| "non-utf8 model path".to_string())?;
-    let ctx = WhisperContext::new_with_params(
-        model_str,
-        WhisperContextParameters::default(),
-    )
-    .map_err(|e| format!("Whisper model load: {e}"))?;
+    let ctx = cached_context(model)?;
     let audio = load_wav_mono_16k(wav)?;
     if audio.is_empty() {
         return Err("Empty audio".to_string());
