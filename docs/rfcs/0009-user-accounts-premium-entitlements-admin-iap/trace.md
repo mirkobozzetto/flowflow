@@ -1,39 +1,49 @@
 ---
-artifact: RFC 0009 (status Review, gate overridden by Mirko 2026-06-22)
-scope: Q1.2c (join_token over Noise + /v1/account/join) + Q1.6 (account screen)
+artifact: RFC 0009 (status Review/Accepted, gate overridden by Mirko)
+scope: Q1.7 cutover - retire PREMIUM_PUBKEYS + drop devices.premium (+ §12 C-cut)
 engine: solo
 stepsCompleted: [0, 1, 2, 3, 4, 5]
-final_status: shipped (code complete + all checks green; device install + backend deploy pending)
+final_status: code complete (32 tests green, clippy clean) - DEPLOY HELD behind the live-200 gate
 ---
 
-# Ship trace - RFC 0009 Q1.2c + Q1.6
+# Ship trace - RFC 0009 Q1.7 cutover
 
 ## Definition of done
+Retire the two pre-0009 premium bridges so an active account entitlement is the
+SOLE premium source, and drop the now-dead `devices.premium` column - all in one
+release (F8), without a premium-loss gap (R8 / finding 7) and without breaking
+connector access (the §12 C-cut, finding E2).
 
-### Q1.2c - account join over the RFC 0004 Noise channel
-- The joiner advertises its backend Ed25519 pubkey inside the existing
-  `PairRequest`; the inviter (pairing host) mints a `join_token` via
-  `POST /v1/account/invite` and returns it inside the existing `PairOk`.
-- The joiner redeems it with `POST /v1/account/join` on its own session.
-- Best-effort: pairing (RFC 0004 sync) still succeeds when no backend is
-  configured, the runtime is unavailable, or the join call fails. No raw
-  `account_id` is ever carried on the wire (server-bound token only).
-- Rule: the device that SHOWS the code is the inviter (keeps its account);
-  the device that SCANS folds into it (backend `join` handles the merge).
+## Scope (8 files - bigger than "env + column")
+- `src/state.rs` - drop `premium_pubkeys` field + `load_premium_pubkeys` + the
+  `PREMIUM_PUBKEYS` env read; drop the now-unused `HashSet` import.
+- `src/gate.rs` - `is_premium` becomes pure `pubkey -> account -> active
+  entitlement`; removed the env allowlist short-circuit AND the `d.premium = 1`
+  OR-branch. `PremiumDevice` doc updated.
+- `src/auth.rs` - `verify` device INSERT no longer writes `premium` (F8).
+- `src/catalog.rs` - C-cut: `active_plans` now derives the `premium` plan from
+  `gate::is_premium` (account entitlement) instead of `SELECT premium FROM
+  devices`. One source of truth shared with the gate. `subject_id` stays
+  device-keyed (overrides table has no writer; re-key only when it gets one).
+- `src/admin.rs` - removed `POST /v1/admin/premium` (`set_premium` +
+  `SetPremiumReq`); `/v1/admin/devices` listing drops the `premium` field
+  (premium is per-account now, read via `/v1/admin/entitlements`).
+- `src/lib.rs` - removed the `/v1/admin/premium` route.
+- `src/db.rs` - V4 migration: `ALTER TABLE devices DROP COLUMN premium`,
+  version-gated + transactional like every forward step. Plain DROP COLUMN
+  (bundled SQLite >= 3.35; prod runs the same pinned lib).
+- `tests/integration.rs` - `grant_premium` helper now writes an account
+  entitlement; deleted `admin_grant_revoke_and_list` + `resolver_env_fallback`
+  + `mk_state_premium_env`; `catalog_resolver_matrix` and
+  `admin_entitlement_grant_revoke` exercise the entitlement->premium-plan path;
+  `migration_baseline_stamps_without_clobber` is now the V4 drop guard (asserts
+  schema_version 4 and the `premium` column is gone).
 
-### Q1.6 - account / premium screen
-- New `GET /v1/account` backend route -> `{ account_id, premium, device_cap,
-  devices[] }`, gated by the device session, premium resolved by the shared
-  `gate::is_premium` helper (env allowlist OR legacy flag OR active entitlement).
-- New Settings > Account screen: account id, premium badge, members / cap,
-  member device list, "leave account" (backend `leave`), "delete my data"
-  (leave + local content wipe behind confirmation).
+## Checks (Claude, on host)
+- `cargo fmt` clean, `cargo clippy --all-targets` clean.
+- `cargo test`: 32 passed (was 34; 2 legacy-bridge tests removed).
 
-## Backend gap closed
-- `GET /v1/account` did not exist (lib.rs had only invite/join/leave). Added.
-
-## Files
-- backend: `src/gate.rs`, `src/account.rs`, `src/lib.rs`
-- app: `src/services/backend/mod.rs`, `src/services/sync/peers.rs`,
-  `src/db/mod.rs`, `src/ui/state.rs`, `src/ui/settings/mod.rs`,
-  `src/ui/settings/account.rs`, `src/services/i18n/locales/{fr,en}.ftl`
+## DEPLOY GATE - NOT yet deployed (see verification-bundle.md)
+V4 is forward-only and drops a column: irreversible. Deploy is HELD until
+Mirko's account is confirmed to carry an active entitlement on prod (so removing
+the env bridge cannot strip his premium). The bundle is the runbook.

@@ -1,43 +1,84 @@
-# Verification - RFC 0009 Q1.2c + Q1.6
+# Verification - RFC 0009 Q1.7 cutover (retire PREMIUM_PUBKEYS + drop devices.premium)
 
-Status of automated checks (run by Claude):
-- backend `cargo build` + `cargo test`: 34 passed (incl. new `account_view_reports_members_and_premium`)
-- backend `cargo clippy`: clean
-- app `cargo check --features desktop`: clean
-- app iOS cross-compile `cargo build --features mobile --target aarch64-apple-ios`: clean
-- app `cargo clippy` (desktop): clean
-- app tests (sync + db + new `account_wipe`): 36 passed
+Automated checks (run by Claude, marketplace-flowflow on host):
+- `cargo fmt`: clean
+- `cargo clippy --all-targets`: clean
+- `cargo test`: 32 passed (incl. the V4 drop guard `migration_baseline_stamps_without_clobber`)
 
-Device install was skipped: the iPhone shows `unavailable` in `devicectl`. Reconnect it, then Claude runs `make all`.
+This release is DESTRUCTIVE: the V4 migration runs `DROP COLUMN devices.premium`
+on the prod DB on first boot, forward-only. The code no longer reads
+`PREMIUM_PUBKEYS`. So once you deploy, the env bridge and the column are gone for
+good. Do the pre-deploy gate first - it is the difference between a clean cutover
+and the Mac (premium today only via the #64 allowlist) silently dropping to Free.
 
-## Step 0 - deploy the backend FIRST (blocking for Q1.6)
-`GET /v1/account` is a NEW route. The app account screen calls it, so api.flowflow.be must be redeployed before the screen shows anything.
-- Deploy `marketplace-flowflow` to Dokploy.
-- Smoke test (any registered device session token):
-  `curl -s https://api.flowflow.be/v1/account -H "Authorization: Bearer <session>"`
-  -> JSON `{ account_id, premium, device_cap, devices[] }`.
+Env for the curls below (you fill these):
+```
+BASE=https://api.flowflow.be
+ADMIN_TOKEN=<the prod admin token>
+MAC_DEVICE=<the Mac device pubkey, b64 - shown in app Settings -> Connections>
+```
 
-## Step 1 - account screen (Q1.6)
-On the iPhone, after `make all`:
-1. Settings -> Account (new row, just under General).
-2. Confirm it shows: account ID, a Premium/Free badge matching reality, `N / 3` devices, and the device list with "This device" tagged on yours.
-3. Tap "Leave account" -> confirm -> the screen reloads to a fresh solo (Free) account with 1 device. Your local notes are still there.
+## GATE A - prove the entitlement path carries Mirko's premium (BEFORE deploy)
+The env still masks everything pre-deploy, so do NOT trust GET /v1/account here;
+check the entitlement row directly via the admin API.
 
-## Step 2 - join over the Noise channel (Q1.2c)
-Needs two devices both pointed at api.flowflow.be (Settings -> Connections -> backend URL baked or set).
-1. On device A (the one to KEEP its account / premium): Settings -> Sync -> "Show code".
-2. On device B: scan / paste the code -> "Connect".
-3. Pairing succeeds as before (RFC 0004). Then on device B open Settings -> Account:
-   - its account ID now equals device A's account ID,
-   - device count is 2 / 3,
-   - if A was premium, B shows Premium too.
-Rule to remember: the device that SHOWS the code keeps its account; the device that SCANS folds into it.
+1. Admin login -> session cookie + csrf:
+```
+curl -s -c cj.txt -X POST $BASE/v1/admin/login \
+  -H 'content-type: application/json' -d "{\"token\":\"$ADMIN_TOKEN\"}"
+# copy the "csrf" value -> CSRF=...
+```
+2. Find the Mac's account_id (device -> account map):
+```
+curl -s -b cj.txt $BASE/v1/admin/devices | jq '.[] | select(.device_id=="'"$MAC_DEVICE"'")'
+# -> note .account_id -> ACC=...
+```
+3. Confirm an ACTIVE entitlement on that account (this is what premium rides
+   post-cutover):
+```
+curl -s -b cj.txt "$BASE/v1/admin/entitlements?account_id=$ACC" | jq '.[] | select(.status=="active")'
+```
+   - If it returns an active row -> GATE A PASSED, go to Step B.
+   - If empty -> grant it, then re-check:
+```
+curl -s -b cj.txt -X POST $BASE/v1/admin/entitlements/grant \
+  -H "x-csrf-token: $CSRF" -H 'content-type: application/json' \
+  -d "{\"device_pubkey\":\"$MAC_DEVICE\"}"
+```
+Do NOT deploy until step 3 shows an active entitlement.
 
-Edge checks:
-- Pair a device with no backend configured -> pairing still works, no account change, no crash (best-effort).
-- 4th device join -> backend returns 409; pairing still completes, account just stays unbound (logged).
+## GATE B - backup the prod DB (rollback is restore-only; V4 is forward-only)
+Snapshot `app.db` (Dokploy volume) before deploy. If anything goes wrong after,
+the only rollback for the dropped column is: redeploy the previous image AND
+restore this backup.
 
-## Step 3 - delete my data (Q1.6, destructive)
-1. Settings -> Account -> "Delete my data" -> confirm the red warning.
-2. App returns to the notes list, now empty (notes, chats, attachments, audio, embeddings all gone).
-3. Settings still has your keys/backend URL; the device works as a fresh solo install.
+## Step C - deploy
+Deploy marketplace-flowflow to Dokploy. On boot, migrate() runs V4 (drops the
+column). Confirm health:
+```
+curl -s $BASE/healthz   # -> ok
+```
+
+## Step D - prove premium survived the cutover (AFTER deploy)
+Now the env is gone, so premium is purely the entitlement. From the Mac
+(authenticated session):
+```
+curl -s $BASE/v1/account -H "Authorization: Bearer <mac session token>" | jq '.premium'
+# -> true
+```
+And a premium-gated connector route still works (the §12 C-cut):
+```
+curl -s -o /dev/null -w '%{http_code}\n' -X POST \
+  $BASE/v1/connectors/google/authorize -H "Authorization: Bearer <mac session token>"
+# -> 200 (not 403)
+```
+- Both green -> cutover done. You can drop `PREMIUM_PUBKEYS` from the Dokploy env
+  (the code already ignores it; this is just cleanup).
+- `premium:false` or `403` -> ROLLBACK: redeploy the previous image + restore the
+  GATE B backup, then re-open the gate (the entitlement was not actually live).
+
+## Step E - app side (no code change, just confirm nothing regressed)
+On the iPhone/Mac app: Settings -> Account still shows the right Premium/Free
+badge, and Settings -> Connections still lists Google Sheets for the premium
+account. No new build is required for Q1.7 (backend-only), but a smoke pass
+confirms the gate and the catalog agree.
