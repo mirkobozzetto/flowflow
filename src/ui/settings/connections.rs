@@ -1,6 +1,6 @@
-use crate::db::Database;
-use crate::services::backend::{BackendClient, Connector};
-use crate::services::i18n::t;
+use crate::application::i18n::t;
+use crate::infrastructure::backend::{BackendClient, Connector};
+use crate::infrastructure::persistence::Database;
 use crate::ui::AppState;
 use dioxus::prelude::*;
 use std::sync::Arc;
@@ -208,7 +208,7 @@ async fn connect_flow(db: &Database, provider: &str) -> Result<(), String> {
         .authorize(db, provider)
         .await
         .map_err(|e| e.to_string())?;
-    crate::platform::open_url(&auth_url);
+    crate::infrastructure::platform::open_url(&auth_url);
 
     // ~5 min of foreground polling. iOS suspends the timer while the browser is up, so
     // this is wall-clock back in the app after consent, not real time.

@@ -1,4 +1,4 @@
-use flowflow::services::tools::{
+use flowflow::application::tools::{
     CreateNote, CreateNoteArgs, CreateNoteResult, SearchNotesArgs,
     SearchNotesHit, SummarizeFolderArgs, SummarizeFolderResult, ToolEvent,
     ToolFailure, ToolStatusHook,

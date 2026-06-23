@@ -1,6 +1,6 @@
-use crate::db::settings_repo::LANGUAGE_KEY;
-use crate::db::Database;
-use crate::services::i18n::t;
+use crate::application::i18n::t;
+use crate::infrastructure::persistence::settings_repo::LANGUAGE_KEY;
+use crate::infrastructure::persistence::Database;
 use crate::ui::AppState;
 use dioxus::prelude::*;
 use std::sync::Arc;

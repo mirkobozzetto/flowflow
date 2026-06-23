@@ -1,9 +1,9 @@
-use flowflow::db::Database;
-use flowflow::models::note::NewTextNote;
-use flowflow::services::sync::engine::{
+use flowflow::domain::note::NewTextNote;
+use flowflow::infrastructure::persistence::Database;
+use flowflow::infrastructure::sync::engine::{
     set_peer_endpoint, SyncActivity, SyncEngine,
 };
-use flowflow::services::sync::peers;
+use flowflow::infrastructure::sync::peers;
 use std::sync::{Arc, Once};
 use tempfile::tempdir;
 

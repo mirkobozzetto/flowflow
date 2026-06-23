@@ -1,14 +1,14 @@
-use flowflow::db::chunk_repo::ChunkRecord;
-use flowflow::db::Database;
-use flowflow::models::attachment::NewAttachment;
-use flowflow::models::folder::NewFolder;
-use flowflow::models::note::{NewTextNote, UpdateNote};
-use flowflow::models::thread::NewThread;
-use flowflow::services::sync::conflict::{
+use flowflow::domain::attachment::NewAttachment;
+use flowflow::domain::folder::NewFolder;
+use flowflow::domain::note::{NewTextNote, UpdateNote};
+use flowflow::domain::thread::NewThread;
+use flowflow::infrastructure::persistence::chunk_repo::ChunkRecord;
+use flowflow::infrastructure::persistence::Database;
+use flowflow::infrastructure::sync::conflict::{
     decide, dismiss_conflict, restore_note_conflict, ArchivedChunk,
     MergeOutcome, VersionInfo,
 };
-use flowflow::services::sync::{peers, protocol};
+use flowflow::infrastructure::sync::{peers, protocol};
 use std::net::TcpListener;
 use std::sync::{Arc, Once};
 use tempfile::tempdir;
@@ -77,8 +77,10 @@ fn seed_chunks(db: &Database, note_id: &str, fill: f32) {
     db.replace_chunks(note_id, "note", &records)
         .expect("seed chunks");
     let conn = db.conn();
-    flowflow::db::sync_meta::mark_entity_updated(&conn, "note", note_id)
-        .expect("bump owner");
+    flowflow::infrastructure::persistence::sync_meta::mark_entity_updated(
+        &conn, "note", note_id,
+    )
+    .expect("bump owner");
 }
 
 fn first_vector_value(c: &ArchivedChunk) -> f32 {
@@ -500,7 +502,10 @@ fn seed_foldered_threaded_conflict(
 fn losing_side<'a>(
     db_a: &'a Arc<Database>,
     db_b: &'a Arc<Database>,
-) -> (&'a Arc<Database>, flowflow::db::conflict_repo::SyncConflict) {
+) -> (
+    &'a Arc<Database>,
+    flowflow::infrastructure::persistence::conflict_repo::SyncConflict,
+) {
     if let Some(c) = db_a
         .list_unresolved_conflicts()
         .expect("list a")

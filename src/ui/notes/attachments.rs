@@ -1,7 +1,7 @@
-use crate::db::Database;
-use crate::models::Attachment;
-use crate::services::embed::delete_attachment_embeddings;
-use crate::services::i18n::t;
+use crate::application::embed::delete_attachment_embeddings;
+use crate::application::i18n::t;
+use crate::domain::Attachment;
+use crate::infrastructure::persistence::Database;
 use crate::ui::icons::*;
 use crate::ui::AppState;
 use dioxus::prelude::*;

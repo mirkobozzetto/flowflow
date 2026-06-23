@@ -1,6 +1,6 @@
-use crate::db::Database;
-use crate::models::ChatScope;
-use crate::services::i18n::t;
+use crate::application::i18n::t;
+use crate::domain::ChatScope;
+use crate::infrastructure::persistence::Database;
 use crate::ui::icons::*;
 use crate::ui::{AppState, SidebarTab, View};
 use dioxus::prelude::*;

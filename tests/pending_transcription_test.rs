@@ -1,4 +1,4 @@
-use flowflow::db::Database;
+use flowflow::infrastructure::persistence::Database;
 use tempfile::tempdir;
 
 fn open_test_db() -> (Database, tempfile::TempDir) {

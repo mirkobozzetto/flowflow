@@ -1,7 +1,7 @@
-use crate::db::Database;
-use crate::services::i18n::t;
-use crate::services::sync::deeplink;
-use crate::services::sync::peers::{self, PairingHost, PairingStatus};
+use crate::application::i18n::t;
+use crate::infrastructure::persistence::Database;
+use crate::infrastructure::sync::deeplink;
+use crate::infrastructure::sync::peers::{self, PairingHost, PairingStatus};
 use crate::ui::clipboard::copy_text;
 use crate::ui::icons::{IconCheck, IconCopy};
 use crate::ui::AppState;

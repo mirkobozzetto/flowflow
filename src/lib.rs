@@ -1,6 +1,5 @@
-pub mod db;
-pub mod models;
-pub mod platform;
+pub mod application;
+pub mod domain;
+pub mod infrastructure;
 pub mod prelude;
-pub mod services;
 pub mod ui;

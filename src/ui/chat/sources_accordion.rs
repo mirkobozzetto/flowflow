@@ -1,5 +1,5 @@
-use crate::db::Database;
-use crate::services::i18n::{t, t_args};
+use crate::application::i18n::{t, t_args};
+use crate::infrastructure::persistence::Database;
 use crate::ui::chat::models::ChatSource;
 use crate::ui::state::View;
 use crate::ui::AppState;
@@ -256,7 +256,7 @@ fn WebSourceCard(source: ChatSource) -> Element {
             button {
                 class: "w-full text-left px-3 py-2.5 min-h-[44px] bg-ios-orange/5 active:bg-ios-orange/10 hover:bg-ios-orange/10 transition-colors duration-150 flex items-center justify-between",
                 onclick: move |_| {
-                    crate::platform::open_url(&url_for_open);
+                    crate::infrastructure::platform::open_url(&url_for_open);
                 },
                 span { class: "text-xs font-medium text-ios-orange-dark truncate",
                     "{domain}"

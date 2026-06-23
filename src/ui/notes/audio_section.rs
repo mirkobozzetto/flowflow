@@ -1,8 +1,8 @@
-use crate::db::Database;
-use crate::models::NoteAudio;
-use crate::services::audio;
-use crate::services::i18n::{t, t_args};
-use crate::services::transcription::TranscriptionClient;
+use crate::application::i18n::{t, t_args};
+use crate::domain::NoteAudio;
+use crate::infrastructure::audio;
+use crate::infrastructure::persistence::Database;
+use crate::infrastructure::transcription::TranscriptionClient;
 use crate::ui::icons::IconX;
 use crate::ui::notes::audio_player::AudioPlayer;
 use crate::ui::notes::dates::format_relative_date;

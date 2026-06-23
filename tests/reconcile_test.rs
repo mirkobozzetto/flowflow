@@ -1,11 +1,11 @@
-use flowflow::db::chunk_repo::ChunkRecord;
-use flowflow::db::Database;
-use flowflow::models::{NewAttachment, NewTextNote};
-use flowflow::services::constants::EMBEDDING_DIMS;
-use flowflow::services::sync::reconcile::{
+use flowflow::application::constants::EMBEDDING_DIMS;
+use flowflow::domain::{NewAttachment, NewTextNote};
+use flowflow::infrastructure::persistence::chunk_repo::ChunkRecord;
+use flowflow::infrastructure::persistence::Database;
+use flowflow::infrastructure::sync::reconcile::{
     backfill_legacy_chunks, reconcile_once, reconstruct_from_blob,
 };
-use flowflow::services::vectordb::{Chunk, VectorStore};
+use flowflow::infrastructure::vectordb::{Chunk, VectorStore};
 use std::sync::{Mutex, MutexGuard};
 use tempfile::tempdir;
 

@@ -17,7 +17,7 @@ pub enum ChatMsg {
     },
 }
 
-use crate::services::i18n::t;
+use crate::application::i18n::t;
 
 pub fn tool_label(lang: &str, name: &str) -> String {
     let key = match name {

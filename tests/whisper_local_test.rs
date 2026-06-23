@@ -1,4 +1,4 @@
-use flowflow::services::transcription::WhisperLocal;
+use flowflow::infrastructure::transcription::WhisperLocal;
 use std::path::{Path, PathBuf};
 
 #[tokio::test]

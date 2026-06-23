@@ -1,6 +1,6 @@
-use crate::db::Database;
-use crate::services::i18n::t;
-use crate::services::llm::LlmClient;
+use crate::application::i18n::t;
+use crate::infrastructure::llm::LlmClient;
+use crate::infrastructure::persistence::Database;
 use crate::ui::icons::*;
 use crate::ui::AppState;
 use dioxus::prelude::*;

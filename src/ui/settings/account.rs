@@ -1,6 +1,6 @@
-use crate::db::Database;
-use crate::services::backend::{Account, BackendClient};
-use crate::services::i18n::t;
+use crate::application::i18n::t;
+use crate::infrastructure::backend::{Account, BackendClient};
+use crate::infrastructure::persistence::Database;
 use crate::ui::icons::{IconArrowUpRight, IconCheck, IconCopy, IconTrash};
 use crate::ui::{AppState, View};
 use dioxus::prelude::*;
@@ -267,13 +267,13 @@ fn monogram(id: &str) -> String {
 async fn delete_my_data(db: &Database) {
     match db.wipe_local_content() {
         Ok(audio_paths) => {
-            let audio_dir = crate::services::audio::output_dir();
+            let audio_dir = crate::infrastructure::audio::output_dir();
             let dir = std::path::Path::new(&audio_dir);
             for p in &audio_paths {
                 let _ = std::fs::remove_file(dir.join(p));
             }
             let _ = std::fs::remove_dir_all(
-                crate::services::vectordb::vectordb_path(),
+                crate::infrastructure::vectordb::vectordb_path(),
             );
         }
         Err(e) => eprintln!("[account] local wipe failed: {e}"),

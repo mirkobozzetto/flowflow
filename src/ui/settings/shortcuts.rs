@@ -1,4 +1,4 @@
-use crate::services::i18n::t;
+use crate::application::i18n::t;
 use crate::ui::AppState;
 use dioxus::prelude::*;
 

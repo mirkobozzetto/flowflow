@@ -1,6 +1,6 @@
 #![cfg(not(target_os = "ios"))]
 
-use flowflow::db::migrate_legacy_temp_data;
+use flowflow::infrastructure::persistence::migrate_legacy_temp_data;
 use rusqlite::Connection;
 use tempfile::tempdir;
 

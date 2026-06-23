@@ -1,4 +1,4 @@
-use flowflow::services::sync::transport;
+use flowflow::infrastructure::sync::transport;
 use std::net::TcpListener;
 
 #[test]

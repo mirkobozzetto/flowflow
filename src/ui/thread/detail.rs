@@ -1,6 +1,6 @@
-use crate::db::Database;
-use crate::models::{generate_auto_title, ChatScope, NewTextNote, Note};
-use crate::services::i18n::t;
+use crate::application::i18n::t;
+use crate::domain::{generate_auto_title, ChatScope, NewTextNote, Note};
+use crate::infrastructure::persistence::Database;
 use crate::ui::icons::{IconChatAi, IconPlus};
 use crate::ui::thread::header_menu::ThreadHeaderMenu;
 use crate::ui::{AppState, SidebarTab, View};

@@ -1,5 +1,5 @@
-use crate::services::audio::{AudioRecorder, RecordingState};
-use crate::services::i18n::t;
+use crate::application::i18n::t;
+use crate::infrastructure::audio::{AudioRecorder, RecordingState};
 use crate::ui::icons::*;
 use crate::ui::recording::{start_recording, RecordingControls};
 use crate::ui::AppState;

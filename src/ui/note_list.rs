@@ -1,6 +1,6 @@
-use crate::db::Database;
-use crate::models::{Note, Thread};
-use crate::services::i18n::t;
+use crate::application::i18n::t;
+use crate::domain::{Note, Thread};
+use crate::infrastructure::persistence::Database;
 use crate::ui::icons::*;
 use crate::ui::note_card::NoteCard;
 use crate::ui::thread::ThreadCard;

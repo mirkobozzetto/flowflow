@@ -1,8 +1,10 @@
-use crate::db::settings_repo::{STT_PROVIDER_KEY, WHISPER_MODEL_KEY};
-use crate::db::Database;
-use crate::services::i18n::{t, t_args};
-use crate::services::transcription::models;
-use crate::services::transcription::SttProvider;
+use crate::application::i18n::{t, t_args};
+use crate::infrastructure::persistence::settings_repo::{
+    STT_PROVIDER_KEY, WHISPER_MODEL_KEY,
+};
+use crate::infrastructure::persistence::Database;
+use crate::infrastructure::transcription::models;
+use crate::infrastructure::transcription::SttProvider;
 use crate::ui::AppState;
 use dioxus::prelude::*;
 use std::str::FromStr;
@@ -341,7 +343,7 @@ fn WhisperBenchSection() -> Element {
                                             let dir = models::models_dir();
                                             let report = match models::model_path(&dir, id) {
                                                 Some(model) => {
-                                                    crate::services::transcription::whisper::bench(model, wav).await
+                                                    crate::infrastructure::transcription::whisper::bench(model, wav).await
                                                 }
                                                 None => Err("Modèle inconnu".to_string()),
                                             };
@@ -367,7 +369,7 @@ fn WhisperBenchSection() -> Element {
 }
 
 fn largest_wav() -> Option<std::path::PathBuf> {
-    let dir = crate::services::audio::output_dir();
+    let dir = crate::infrastructure::audio::output_dir();
     let mut best: Option<(u64, std::path::PathBuf)> = None;
     for entry in std::fs::read_dir(dir).ok()?.flatten() {
         let path = entry.path();

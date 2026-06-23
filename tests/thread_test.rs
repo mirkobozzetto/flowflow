@@ -1,6 +1,6 @@
-use flowflow::db::Database;
-use flowflow::models::{NewTextNote, NewThread, UpdateThread};
-use flowflow::services::backup;
+use flowflow::application::backup;
+use flowflow::domain::{NewTextNote, NewThread, UpdateThread};
+use flowflow::infrastructure::persistence::Database;
 use tempfile::tempdir;
 
 fn open_test_db() -> (Database, tempfile::TempDir) {
@@ -90,7 +90,7 @@ fn existing_notes_are_flat_after_migration() {
 fn thread_crud_and_membership() {
     let (db, _dir) = open_test_db();
     let folder = db
-        .create_folder(&flowflow::models::NewFolder {
+        .create_folder(&flowflow::domain::NewFolder {
             name: "Idées".into(),
             description: None,
             parent_id: None,
@@ -202,7 +202,7 @@ fn list_root_notes_excludes_members_includes_dangling() {
 fn folder_feed_collapses_thread_and_hides_members() {
     let (db, _dir) = open_test_db();
     let folder = db
-        .create_folder(&flowflow::models::NewFolder {
+        .create_folder(&flowflow::domain::NewFolder {
             name: "F".into(),
             description: None,
             parent_id: None,
@@ -250,14 +250,14 @@ fn folder_feed_collapses_thread_and_hides_members() {
 fn folder_feed_hides_member_even_when_alone_and_reverts_on_remove() {
     let (db, _dir) = open_test_db();
     let f = db
-        .create_folder(&flowflow::models::NewFolder {
+        .create_folder(&flowflow::domain::NewFolder {
             name: "F".into(),
             description: None,
             parent_id: None,
         })
         .unwrap();
     let g = db
-        .create_folder(&flowflow::models::NewFolder {
+        .create_folder(&flowflow::domain::NewFolder {
             name: "G".into(),
             description: None,
             parent_id: None,

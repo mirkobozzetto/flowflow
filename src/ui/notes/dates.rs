@@ -1,4 +1,4 @@
-use crate::services::i18n::{month_abbr, t, t_args};
+use crate::application::i18n::{month_abbr, t, t_args};
 use chrono::{Datelike, NaiveDateTime, Utc};
 
 pub fn format_relative_date(iso: &str, lang: &str) -> String {

@@ -1,6 +1,6 @@
-use crate::db::Database;
-use crate::services::audio;
-use crate::services::i18n::t;
+use crate::application::i18n::t;
+use crate::infrastructure::audio;
+use crate::infrastructure::persistence::Database;
 use crate::ui::AppState;
 use dioxus::prelude::*;
 use std::sync::Arc;

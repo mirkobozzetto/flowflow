@@ -8,9 +8,9 @@ mod shortcuts;
 mod storage;
 mod transcription;
 
-use crate::db::Database;
-use crate::services::backup as backup_service;
-use crate::services::i18n::t;
+use crate::application::backup as backup_service;
+use crate::application::i18n::t;
+use crate::infrastructure::persistence::Database;
 use crate::ui::{AppState, SettingsSection, View};
 use account::AccountSettings;
 use backup::BackupSettings;

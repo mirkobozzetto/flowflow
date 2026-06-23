@@ -1,7 +1,7 @@
-use crate::db::Database;
-use crate::services::audio::{self, AudioRecorder, RecordingState};
-use crate::services::i18n::t;
-use crate::services::transcription::TranscriptionClient;
+use crate::application::i18n::t;
+use crate::infrastructure::audio::{self, AudioRecorder, RecordingState};
+use crate::infrastructure::persistence::Database;
+use crate::infrastructure::transcription::TranscriptionClient;
 use crate::ui::icons::*;
 use crate::ui::recording::Waveform;
 use crate::ui::AppState;
@@ -123,7 +123,7 @@ pub fn RecordingControls(
                     }
                     let event = rec.lock().unwrap().poll_interruption();
                     if let Some(event) = event {
-                        use crate::services::audio::InterruptionEvent;
+                        use crate::infrastructure::audio::InterruptionEvent;
                         match event {
                             InterruptionEvent::Began => {
                                 rec.lock().unwrap().on_interruption_began();
