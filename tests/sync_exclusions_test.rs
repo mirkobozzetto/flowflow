@@ -5,10 +5,10 @@
 // every device even when the rows have different ids (cross-id cancel); a
 // later re-add of the intent wins over the cancel.
 
-use flowflow::db::Database;
-use flowflow::models::note::NewTextNote;
-use flowflow::models::NewNoteReminder;
-use flowflow::services::sync::{peers, protocol};
+use flowflow::domain::note::NewTextNote;
+use flowflow::domain::NewNoteReminder;
+use flowflow::infrastructure::persistence::Database;
+use flowflow::infrastructure::sync::{peers, protocol};
 use std::net::TcpListener;
 use std::sync::{Arc, Once};
 use tempfile::tempdir;

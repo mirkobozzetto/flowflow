@@ -1,6 +1,6 @@
-use crate::db::Database;
-use crate::models::ChatScope;
-use crate::services::audio::RecordingState;
+use crate::domain::ChatScope;
+use crate::infrastructure::audio::RecordingState;
+use crate::infrastructure::persistence::Database;
 use crate::ui::chat::actions::{load_messages_from_db, send_question};
 use crate::ui::chat::bot_bubble::BotBubble;
 use crate::ui::chat::empty_state::ChatEmptyState;

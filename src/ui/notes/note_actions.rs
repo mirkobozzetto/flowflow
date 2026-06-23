@@ -1,9 +1,9 @@
-use crate::db::Database;
-use crate::models::NewTextNote;
-use crate::services::backend::BackendClient;
-use crate::services::constants::NOTE_ACTION_PROMPT;
-use crate::services::i18n::t;
-use crate::services::llm::LlmClient;
+use crate::application::constants::NOTE_ACTION_PROMPT;
+use crate::application::i18n::t;
+use crate::domain::NewTextNote;
+use crate::infrastructure::backend::BackendClient;
+use crate::infrastructure::llm::LlmClient;
+use crate::infrastructure::persistence::Database;
 use crate::ui::action_card::ActionResultCard;
 use crate::ui::AppState;
 use dioxus::prelude::*;
@@ -54,7 +54,7 @@ pub fn NoteActions(
     let running_label = t(&lang, "note-running-action");
 
     rsx! {
-        if backend_on() && crate::services::intent::is_actionable(&content()) {
+        if backend_on() && crate::application::intent::is_actionable(&content()) {
             div { class: "mt-3",
                 button {
                     class: "w-full min-h-[44px] flex items-center justify-center gap-2 rounded-xl bg-ios-orange/10 text-ios-orange-dark text-sm font-medium active:bg-ios-orange/25 disabled:opacity-50 transition-colors duration-150",

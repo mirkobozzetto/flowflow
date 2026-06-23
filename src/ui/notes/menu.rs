@@ -1,5 +1,5 @@
-use crate::services::embed::delete_note_embeddings;
-use crate::services::i18n::t;
+use crate::application::embed::delete_note_embeddings;
+use crate::application::i18n::t;
 use crate::ui::icons::*;
 use crate::ui::kit;
 use crate::ui::AppState;
@@ -16,15 +16,16 @@ pub async fn import_file_content(
 ) -> Result<Option<ImportedFile>, String> {
     #[cfg(any(target_os = "ios", target_os = "macos"))]
     {
-        use crate::platform::parsers::read_file_as_text;
-        use crate::platform::pdf::extract as read_pdf_text;
-        use crate::services::i18n::t_args;
+        use crate::application::i18n::t_args;
+        use crate::infrastructure::platform::parsers::read_file_as_text;
+        use crate::infrastructure::platform::pdf::extract as read_pdf_text;
         const MAX_FILE_SIZE: u64 = 20 * 1024 * 1024;
         const EXTENSIONS: &[&str] = &["txt", "md", "csv", "pdf", "docx"];
         #[cfg(target_os = "ios")]
-        let picked = crate::platform::ios::open_file_picker(EXTENSIONS)
-            .await
-            .and_then(|p| p.into_iter().next());
+        let picked =
+            crate::infrastructure::platform::ios::open_file_picker(EXTENSIONS)
+                .await
+                .and_then(|p| p.into_iter().next());
         #[cfg(target_os = "macos")]
         let picked = rfd::FileDialog::new()
             .add_filter("Documents", EXTENSIONS)
@@ -95,7 +96,7 @@ pub async fn import_file_content(
 pub async fn import_audio_file() -> Option<std::path::PathBuf> {
     #[cfg(target_os = "ios")]
     {
-        use crate::platform::ios::open_audio_picker;
+        use crate::infrastructure::platform::ios::open_audio_picker;
         let paths = open_audio_picker().await?;
         paths.into_iter().next()
     }
@@ -121,8 +122,9 @@ pub fn NoteMenu(
     deleted: Signal<bool>,
 ) -> Element {
     let mut app: AppState = use_context();
-    let db: Signal<Arc<crate::db::Database>> = use_context();
-    let engine: Signal<Arc<crate::services::sync::engine::SyncEngine>> =
+    let db: Signal<Arc<crate::infrastructure::persistence::Database>> =
+        use_context();
+    let engine: Signal<Arc<crate::infrastructure::sync::engine::SyncEngine>> =
         use_context();
     let mut deleted = deleted;
     let mut import_requested = import_requested;
@@ -172,7 +174,7 @@ pub fn NoteMenu(
                                     app.show_note_menu.set(false);
                                     deleted.set(true);
                                     for a in db().list_audios(&note_id).unwrap_or_default() {
-                                        let _ = std::fs::remove_file(crate::services::audio::resolve_audio_path(&a.file_path));
+                                        let _ = std::fs::remove_file(crate::infrastructure::audio::resolve_audio_path(&a.file_path));
                                     }
                                     let _ = db().delete_note(&note_id);
                                     delete_note_embeddings(note_id.clone());

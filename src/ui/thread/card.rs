@@ -1,6 +1,6 @@
-use crate::db::Database;
-use crate::models::Thread;
-use crate::services::i18n::t;
+use crate::application::i18n::t;
+use crate::domain::Thread;
+use crate::infrastructure::persistence::Database;
 use crate::ui::icons::{IconArrowUpRight, IconBell};
 use crate::ui::{AppState, View};
 use dioxus::prelude::*;
@@ -21,7 +21,7 @@ pub fn ThreadCard(thread: Thread) -> Element {
             if n.content.chars().count() > 120 {
                 format!(
                     "{}...",
-                    crate::services::ai::char_prefix(&n.content, 120)
+                    crate::application::ai::char_prefix(&n.content, 120)
                 )
             } else {
                 n.content.clone()

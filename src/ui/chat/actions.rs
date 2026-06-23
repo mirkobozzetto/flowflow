@@ -1,6 +1,6 @@
-use crate::db::Database;
-use crate::models::{generate_auto_title, ChatScope, NewTextNote, UpdateNote};
-use crate::services::rag;
+use crate::application::rag;
+use crate::domain::{generate_auto_title, ChatScope, NewTextNote, UpdateNote};
+use crate::infrastructure::persistence::Database;
 use crate::ui::chat::models::{tool_label, ChatMsg, ChatSource};
 use dioxus::prelude::*;
 use std::sync::Arc;
@@ -75,7 +75,7 @@ pub fn save_as_note(
         let _ = db.set_note_sources(&note.id, Some(&json));
     }
     let title_for_embed = note.title.clone().unwrap_or_default();
-    crate::services::embed::embed_note(
+    crate::application::embed::embed_note(
         note.id.clone(),
         title_for_embed,
         note.content.clone(),
@@ -99,7 +99,8 @@ pub fn generate_note_title_bg(note_id: String, content: String, lang: String) {
             let Ok(db) = Database::open() else {
                 return;
             };
-            let Ok(ai) = crate::services::llm::LlmClient::from_db(&db) else {
+            let Ok(ai) = crate::infrastructure::llm::LlmClient::from_db(&db)
+            else {
                 return;
             };
             if let Ok(title) = ai.generate_title(&content, &lang).await {
@@ -190,10 +191,10 @@ pub fn send_question(
     spawn(async move {
         while let Some(event) = rx.recv().await {
             match event {
-                crate::services::tools::ToolEvent::Started(name) => {
+                crate::application::tools::ToolEvent::Started(name) => {
                     ts.set(Some(tool_label(&lang_for_tools, &name)));
                 }
-                crate::services::tools::ToolEvent::Finished(_) => {
+                crate::application::tools::ToolEvent::Finished(_) => {
                     ts.set(None);
                 }
             }
@@ -204,7 +205,8 @@ pub fn send_question(
     spawn(async move {
         // "lance xxx" runs the note-action path (clean confirmation + link card); anything else
         // is a normal RAG question. Narrow trigger so real questions are never hijacked.
-        let result = if crate::services::intent::is_action_trigger(&question) {
+        let result = if crate::application::intent::is_action_trigger(&question)
+        {
             rag::run_action(&question, Some(tx)).await
         } else {
             rag::query(&question, Some(tx), scope, &lang_for_query).await
@@ -270,7 +272,7 @@ fn chat_error_message(lang: &str, err: &str) -> String {
     } else {
         "chat-error"
     };
-    format!("{} : {}", crate::services::i18n::t(lang, key), err)
+    format!("{} : {}", crate::application::i18n::t(lang, key), err)
 }
 
 pub fn load_messages_from_db(

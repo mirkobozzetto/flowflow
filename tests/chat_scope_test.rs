@@ -1,5 +1,5 @@
-use flowflow::db::Database;
-use flowflow::models::ChatScope;
+use flowflow::domain::ChatScope;
+use flowflow::infrastructure::persistence::Database;
 use tempfile::tempdir;
 
 #[test]

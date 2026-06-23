@@ -1,6 +1,6 @@
-use crate::db::Database;
-use crate::services::i18n::t;
-use crate::services::sync::engine::{SyncActivity, SyncEngine};
+use crate::application::i18n::t;
+use crate::infrastructure::persistence::Database;
+use crate::infrastructure::sync::engine::{SyncActivity, SyncEngine};
 use crate::ui::icons::IconCheck;
 use crate::ui::AppState;
 use dioxus::prelude::*;

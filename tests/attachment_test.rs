@@ -1,5 +1,5 @@
-use flowflow::db::Database;
-use flowflow::models::{Attachment, NewAttachment, NewTextNote};
+use flowflow::domain::{Attachment, NewAttachment, NewTextNote};
+use flowflow::infrastructure::persistence::Database;
 use std::io::Write;
 use tempfile::tempdir;
 

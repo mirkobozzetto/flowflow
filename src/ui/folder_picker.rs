@@ -1,6 +1,6 @@
-use crate::db::Database;
-use crate::models::{ChatScope, Folder};
-use crate::services::i18n::t;
+use crate::application::i18n::t;
+use crate::domain::{ChatScope, Folder};
+use crate::infrastructure::persistence::Database;
 use crate::ui::AppState;
 use dioxus::prelude::*;
 use std::sync::Arc;

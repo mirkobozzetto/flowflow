@@ -23,10 +23,10 @@ pub mod transcription_manager;
 
 pub use state::{AppState, SettingsSection, SidebarTab, View};
 
-use crate::db::Database;
-use crate::services::audio::{AudioRecorder, RecordingState};
-use crate::services::sync::engine::SyncEngine;
-use crate::services::sync::reconcile::run_boot_reconcile;
+use crate::infrastructure::audio::{AudioRecorder, RecordingState};
+use crate::infrastructure::persistence::Database;
+use crate::infrastructure::sync::engine::SyncEngine;
+use crate::infrastructure::sync::reconcile::run_boot_reconcile;
 use dioxus::prelude::*;
 use std::collections::HashMap;
 use std::sync::{Arc, Mutex};
@@ -51,25 +51,25 @@ use top_bar::TopBar;
 pub fn App() -> Element {
     let _db = use_context_provider(|| {
         let db = Arc::new(Database::open().expect("Failed to open database"));
-        if crate::services::backup::restore_recovery_window_active() {
+        if crate::application::backup::restore_recovery_window_active() {
             eprintln!(
                 "[backup] orphan audio cleanup skipped (recovery window)"
             );
         } else {
-            db.cleanup_orphan_audio(&crate::services::audio::output_dir());
+            db.cleanup_orphan_audio(&crate::infrastructure::audio::output_dir());
         }
-        crate::services::backup::finalize_restore_bak();
+        crate::application::backup::finalize_restore_bak();
         run_boot_reconcile();
         #[cfg(target_os = "ios")]
         {
-            crate::platform::ios::sync_ffi::observe_background_checkpoint();
-            crate::platform::ios::sync_ffi::observe_restore_foreground();
+            crate::infrastructure::platform::ios::sync_ffi::observe_background_checkpoint();
+            crate::infrastructure::platform::ios::sync_ffi::observe_restore_foreground();
         }
         Signal::new(db)
     });
 
     let mut restore_locked =
-        use_signal(crate::services::backup::restore_lock_active);
+        use_signal(crate::application::backup::restore_lock_active);
     let mut index_rebuilding = use_signal(|| false);
 
     let _engine: Signal<Arc<SyncEngine>> =
@@ -92,8 +92,12 @@ pub fn App() -> Element {
     let consent_value = _db().get_setting("ai_consent").map(|v| v == "true");
 
     let initial_lang = _db()
-        .get_setting(crate::db::settings_repo::LANGUAGE_KEY)
-        .unwrap_or_else(crate::platform::detect_system_language);
+        .get_setting(
+            crate::infrastructure::persistence::settings_repo::LANGUAGE_KEY,
+        )
+        .unwrap_or_else(
+            crate::infrastructure::platform::detect_system_language,
+        );
 
     let app = use_context_provider(|| AppState {
         view: Signal::new(View::NotesList),
@@ -135,8 +139,8 @@ pub fn App() -> Element {
     use_future(move || {
         let db = _db();
         async move {
-            let key = crate::services::web_search::exa_api_key(&db);
-            let results = crate::services::web_search::exa_search(
+            let key = crate::application::web_search::exa_api_key(&db);
+            let results = crate::application::web_search::exa_search(
                 "latest rust async runtime news",
                 &key,
             )
@@ -196,13 +200,14 @@ pub fn App() -> Element {
                     400,
                 ))
                 .await;
-                let lock_now = crate::services::backup::restore_lock_active();
+                let lock_now =
+                    crate::application::backup::restore_lock_active();
                 if *restore_locked.peek() != lock_now {
                     restore_locked.set(lock_now);
                 }
                 let rebuilding =
-                    crate::services::backup::restore_recovery_window_active()
-                        && crate::services::sync::reconcile::reconcile_running(
+                    crate::application::backup::restore_recovery_window_active()
+                        && crate::infrastructure::sync::reconcile::reconcile_running(
                         );
                 if *index_rebuilding.peek() != rebuilding {
                     index_rebuilding.set(rebuilding);
@@ -544,7 +549,7 @@ pub fn App() -> Element {
                     if index_rebuilding() {
                         div { class: "bg-ios-orange/10 border-b border-ios-orange/20 px-4 py-1.5",
                             p { class: "text-xs text-ios-orange text-center",
-                                {crate::services::i18n::t(&(app.current_lang)(), "restore-banner-rebuilding")}
+                                {crate::application::i18n::t(&(app.current_lang)(), "restore-banner-rebuilding")}
                             }
                         }
                     }

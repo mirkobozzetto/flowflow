@@ -1,5 +1,5 @@
-use crate::db::Database;
-use crate::services::i18n::t;
+use crate::application::i18n::t;
+use crate::infrastructure::persistence::Database;
 use crate::ui::chat::models::ChatSource;
 use crate::ui::icons::*;
 use crate::ui::kit;

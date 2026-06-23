@@ -1,7 +1,7 @@
-use flowflow::db::Database;
-use flowflow::models::{
+use flowflow::domain::{
     NewAttachment, NewFolder, NewNoteReminder, NewTextNote,
 };
+use flowflow::infrastructure::persistence::Database;
 use tempfile::tempdir;
 
 fn open_test_db() -> (Database, tempfile::TempDir) {
@@ -132,7 +132,7 @@ fn test_update_note_bumps_version_and_seq() {
     let (_, seq1, _, count1) = meta(&db, "note", &id).unwrap();
     db.update_note(
         &id,
-        &flowflow::models::UpdateNote {
+        &flowflow::domain::UpdateNote {
             title: None,
             content: Some("v2".into()),
             tags: None,
@@ -151,7 +151,7 @@ fn test_origin_seq_is_unique_and_monotonic() {
     let b = make_note(&db, "b");
     db.update_note(
         &a,
-        &flowflow::models::UpdateNote {
+        &flowflow::domain::UpdateNote {
             title: None,
             content: Some("a2".into()),
             tags: None,
@@ -188,7 +188,7 @@ fn test_fresh_connection_still_tracks() {
     let db2 = Database::open_at(path).expect("open 2");
     db2.update_note(
         &id,
-        &flowflow::models::UpdateNote {
+        &flowflow::domain::UpdateNote {
             title: None,
             content: Some("by db2".into()),
             tags: None,

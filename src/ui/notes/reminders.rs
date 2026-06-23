@@ -1,6 +1,6 @@
-use crate::db::Database;
-use crate::models::{NewTextNote, NoteReminder, ReminderIntent};
-use crate::services::i18n::{reminder_due_label, t, t_args};
+use crate::application::i18n::{reminder_due_label, t, t_args};
+use crate::domain::{NewTextNote, NoteReminder, ReminderIntent};
+use crate::infrastructure::persistence::Database;
 use crate::ui::icons::{IconArrowUpRight, IconBell, IconTrash, IconX};
 use crate::ui::AppState;
 use chrono::{Local, NaiveTime, Timelike};
@@ -51,11 +51,11 @@ pub fn ActiveReminders(local_note_id: Signal<String>) -> Element {
                                         {
                                             let event_id_open = event_id_open.clone();
                                             spawn(async move {
-                                                crate::platform::ios::reminders::present_event(event_id_open).await;
+                                                crate::infrastructure::platform::ios::reminders::present_event(event_id_open).await;
                                             });
                                         }
                                         #[cfg(target_os = "macos")]
-                                        crate::platform::macos::open_calendar_at(
+                                        crate::infrastructure::platform::macos::open_calendar_at(
                                             _due_parts.0,
                                             _due_parts.1,
                                             _due_parts.2,
@@ -83,7 +83,7 @@ pub fn ActiveReminders(local_note_id: Signal<String>) -> Element {
                                                 {
                                                     let event_id_del = event_id_del.clone();
                                                     spawn(async move {
-                                                        if let Err(e) = crate::platform::ios::reminders::remove_event(event_id_del).await {
+                                                        if let Err(e) = crate::infrastructure::platform::ios::reminders::remove_event(event_id_del).await {
                                                             eprintln!("[reminder] remove_event failed: {e}");
                                                         }
                                                     });
@@ -165,7 +165,7 @@ pub fn ReminderSuggestions(
                 return;
             }
             detecting_reminders.set(true);
-            match crate::services::llm::LlmClient::from_db(&db()) {
+            match crate::infrastructure::llm::LlmClient::from_db(&db()) {
                 Ok(ai) => {
                     if let Ok(intents) =
                         ai.extract_reminders(&c, Local::now()).await
@@ -344,8 +344,8 @@ pub fn ReminderSuggestions(
                                                         cur
                                                     }
                                                 };
-                                                let res = crate::services::reminders::schedule(database, nid, intent.clone()).await;
-                                                use crate::services::reminders::ScheduleResult;
+                                                let res = crate::application::reminders::schedule(database, nid, intent.clone()).await;
+                                                use crate::application::reminders::ScheduleResult;
                                                 match res {
                                                     ScheduleResult::Created => {
                                                         app.notes_version.set((app.notes_version)() + 1);

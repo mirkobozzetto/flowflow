@@ -1,5 +1,7 @@
-use flowflow::db::Database;
-use flowflow::services::transcription::{SttProvider, TranscriptionClient};
+use flowflow::infrastructure::persistence::Database;
+use flowflow::infrastructure::transcription::{
+    SttProvider, TranscriptionClient,
+};
 use tempfile::tempdir;
 
 #[test]

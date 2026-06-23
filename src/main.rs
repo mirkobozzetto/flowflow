@@ -35,12 +35,12 @@ fn build_window() -> WindowBuilder {
 }
 
 fn main() {
-    flowflow::services::backup::apply_pending_restore_or_abort();
+    flowflow::application::backup::apply_pending_restore_or_abort();
     dotenvy::dotenv().ok();
     #[cfg(target_os = "ios")]
-    flowflow::platform::ios::configure_audio_session();
+    flowflow::infrastructure::platform::ios::configure_audio_session();
     #[cfg(target_os = "ios")]
-    flowflow::platform::ios::hide_keyboard_accessory();
+    flowflow::infrastructure::platform::ios::hide_keyboard_accessory();
     dioxus::LaunchBuilder::new()
         .with_cfg(dioxus::prelude::client! {
             DesktopConfig::new()
@@ -51,7 +51,7 @@ fn main() {
                         for url in urls {
                             let s = url.as_str();
                             if s.starts_with("flowflow://") {
-                                flowflow::services::sync::deeplink::push(s.to_string());
+                                flowflow::infrastructure::sync::deeplink::push(s.to_string());
                                 break;
                             }
                         }

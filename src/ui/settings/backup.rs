@@ -1,6 +1,6 @@
-use crate::db::Database;
-use crate::services::backup;
-use crate::services::i18n::{t, t_args};
+use crate::application::backup;
+use crate::application::i18n::{t, t_args};
+use crate::infrastructure::persistence::Database;
 use crate::ui::AppState;
 use dioxus::prelude::*;
 use std::sync::Arc;
@@ -98,13 +98,13 @@ pub fn BackupSettings() -> Element {
                                 spawn(async move {
                                     let result: Result<(), String> = async {
                                         let store =
-                                            crate::services::vectordb::VectorStore::open()
+                                            crate::infrastructure::vectordb::VectorStore::open()
                                                 .await?;
                                         let archive =
                                             backup::export_archive(&db(), &store).await?;
                                         #[cfg(target_os = "ios")]
                                         {
-                                            crate::platform::ios::share_file(&archive)?;
+                                            crate::infrastructure::platform::ios::share_file(&archive)?;
                                             backup_status.set(None);
                                         }
                                         #[cfg(not(target_os = "ios"))]
@@ -151,7 +151,7 @@ pub fn BackupSettings() -> Element {
                                     let picked: Option<std::path::PathBuf>;
                                     #[cfg(target_os = "ios")]
                                     {
-                                        picked = crate::platform::ios::open_file_picker(
+                                        picked = crate::infrastructure::platform::ios::open_file_picker(
                                             &["zip"],
                                         )
                                         .await

@@ -1,5 +1,5 @@
-use crate::services::audio::{AudioRecorder, RecordingState};
-use crate::services::i18n::t;
+use crate::application::i18n::t;
+use crate::infrastructure::audio::{AudioRecorder, RecordingState};
 use crate::ui::icons::*;
 use crate::ui::recording::{start_recording, RecordingControls};
 use crate::ui::state::View;
@@ -40,7 +40,7 @@ pub fn RecordingBar(pending_audio: Signal<Option<(String, f64)>>) -> Element {
                                 app.sidebar_tab.set(SidebarTab::Chats);
                                 app.chat_scope.set(
                                     (app.detail_folder_id)()
-                                        .map(crate::models::ChatScope::Folder),
+                                        .map(crate::domain::ChatScope::Folder),
                                 );
                                 app.previous_view
                                     .set(Some(View::NoteDetail { note_id: nid.clone() }));

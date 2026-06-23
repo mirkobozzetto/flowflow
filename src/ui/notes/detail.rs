@@ -1,11 +1,11 @@
-use crate::db::Database;
-use crate::models::{
+use crate::application::embed::{embed_attachment, embed_note};
+use crate::application::i18n::{t, t_args};
+use crate::domain::{
     generate_auto_title, is_auto_title, Attachment, NewAttachment, NewTextNote,
     UpdateNote,
 };
-use crate::services::audio::RecordingState;
-use crate::services::embed::{embed_attachment, embed_note};
-use crate::services::i18n::{t, t_args};
+use crate::infrastructure::audio::RecordingState;
+use crate::infrastructure::persistence::Database;
 use crate::ui::chat::md_to_html;
 use crate::ui::icons::{IconCheck, IconCopy, IconPencil};
 use crate::ui::notes::attachments::AttachmentSection;
@@ -26,7 +26,7 @@ use std::sync::Arc;
 pub fn NoteDetail() -> Element {
     let mut app: AppState = use_context();
     let db: Signal<Arc<Database>> = use_context();
-    let engine: Signal<Arc<crate::services::sync::engine::SyncEngine>> =
+    let engine: Signal<Arc<crate::infrastructure::sync::engine::SyncEngine>> =
         use_context();
     let manager: TranscriptionManager = use_context();
     let lang = (app.current_lang)();
@@ -277,7 +277,9 @@ pub fn NoteDetail() -> Element {
         let preview: String = c.chars().take(1500).collect();
         spawn(async move {
             let lang = (app.current_lang)();
-            if let Ok(ai) = crate::services::llm::LlmClient::from_db(&db()) {
+            if let Ok(ai) =
+                crate::infrastructure::llm::LlmClient::from_db(&db())
+            {
                 if let Ok(new_title) = ai.generate_title(&preview, &lang).await
                 {
                     title.set(new_title);

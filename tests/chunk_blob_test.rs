@@ -1,6 +1,8 @@
-use flowflow::db::chunk_repo::{blob_to_vector, vector_to_blob, ChunkRecord};
-use flowflow::db::Database;
-use flowflow::models::{NewAttachment, NewTextNote};
+use flowflow::domain::{NewAttachment, NewTextNote};
+use flowflow::infrastructure::persistence::chunk_repo::{
+    blob_to_vector, vector_to_blob, ChunkRecord,
+};
+use flowflow::infrastructure::persistence::Database;
 use tempfile::tempdir;
 
 fn open_test_db() -> (Database, tempfile::TempDir) {
