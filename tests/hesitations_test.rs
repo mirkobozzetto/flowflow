@@ -1,4 +1,4 @@
-use flowflow::services::transcription::clean_hesitations;
+use flowflow::infrastructure::transcription::clean_hesitations;
 
 #[test]
 fn test_empty_input() {

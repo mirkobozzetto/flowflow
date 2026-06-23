@@ -1,5 +1,5 @@
-use flowflow::db::Database;
-use flowflow::services::llm::{LlmClient, Provider};
+use flowflow::infrastructure::llm::{LlmClient, Provider};
+use flowflow::infrastructure::persistence::Database;
 use std::sync::Arc;
 use tokio::sync::Mutex;
 
@@ -83,7 +83,7 @@ async fn test_anthropic_chat_real() {
 #[tokio::test]
 #[ignore]
 async fn test_anthropic_agent_with_tools_real() {
-    use flowflow::services::tools::prompt_agent_with_tools;
+    use flowflow::application::tools::prompt_agent_with_tools;
 
     if std::env::var("ANTHROPIC_API_KEY").is_err() {
         eprintln!("skip: ANTHROPIC_API_KEY not set");
@@ -116,7 +116,7 @@ async fn test_anthropic_agent_with_tools_real() {
 #[tokio::test]
 #[ignore]
 async fn test_anthropic_missing_key_returns_error() {
-    use flowflow::services::error::LlmError;
+    use flowflow::application::error::LlmError;
 
     let _guard = PROVIDER_LOCK.lock().await;
     let db = Database::open().expect("open db");

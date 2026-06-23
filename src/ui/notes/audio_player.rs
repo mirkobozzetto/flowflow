@@ -1,4 +1,4 @@
-use crate::services::i18n::t;
+use crate::application::i18n::t;
 use crate::ui::icons::IconDotsThree;
 use crate::ui::AppState;
 use dioxus::prelude::*;
@@ -20,7 +20,9 @@ pub fn AudioPlayer(
         loop {
             futures_timer::Delay::new(std::time::Duration::from_millis(500))
                 .await;
-            if playing() && !crate::platform::macos::is_playing() {
+            if playing()
+                && !crate::infrastructure::platform::macos::is_playing()
+            {
                 playing.set(false);
             }
         }
@@ -44,15 +46,15 @@ pub fn AudioPlayer(
                 onclick: move |_| {
                     if playing() {
                         #[cfg(target_os = "ios")]
-                        crate::platform::ios::stop_audio();
+                        crate::infrastructure::platform::ios::stop_audio();
                         #[cfg(target_os = "macos")]
-                        crate::platform::macos::stop_audio();
+                        crate::infrastructure::platform::macos::stop_audio();
                         playing.set(false);
                     } else {
                         #[cfg(target_os = "ios")]
-                        crate::platform::ios::play_audio(&audio_path);
+                        crate::infrastructure::platform::ios::play_audio(&audio_path);
                         #[cfg(target_os = "macos")]
-                        crate::platform::macos::play_audio(&audio_path);
+                        crate::infrastructure::platform::macos::play_audio(&audio_path);
                         playing.set(true);
                     }
                 },
@@ -79,9 +81,9 @@ pub fn AudioPlayer(
                     class: "text-xs text-ios-red font-medium",
                     onclick: move |_| {
                         #[cfg(target_os = "ios")]
-                        crate::platform::ios::stop_audio();
+                        crate::infrastructure::platform::ios::stop_audio();
                         #[cfg(target_os = "macos")]
-                        crate::platform::macos::stop_audio();
+                        crate::infrastructure::platform::macos::stop_audio();
                         playing.set(false);
                         confirm_delete.set(false);
                         on_delete.call(());

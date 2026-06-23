@@ -1,5 +1,5 @@
-use crate::db::Database;
-use crate::services::i18n::t;
+use crate::application::i18n::t;
+use crate::infrastructure::persistence::Database;
 use crate::ui::icons::*;
 use crate::ui::kit;
 use crate::ui::{AppState, View};
@@ -78,7 +78,7 @@ pub fn ConversationSection() -> Element {
 
 #[component]
 fn ConversationItem(
-    conv: crate::models::conversation::Conversation,
+    conv: crate::domain::conversation::Conversation,
     version: Signal<u32>,
 ) -> Element {
     let mut app: AppState = use_context();

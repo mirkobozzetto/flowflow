@@ -1,11 +1,11 @@
-use crate::db::conflict_repo::SyncConflict;
-use crate::db::Database;
-use crate::services::i18n::t;
-use crate::services::sync::conflict::{
+use crate::application::i18n::t;
+use crate::infrastructure::persistence::conflict_repo::SyncConflict;
+use crate::infrastructure::persistence::Database;
+use crate::infrastructure::sync::conflict::{
     dismiss_conflict, restore_note_conflict,
 };
-use crate::services::sync::engine::SyncEngine;
-use crate::services::sync::reconcile::spawn_reconcile_pass;
+use crate::infrastructure::sync::engine::SyncEngine;
+use crate::infrastructure::sync::reconcile::spawn_reconcile_pass;
 use crate::ui::AppState;
 use dioxus::prelude::*;
 use std::sync::Arc;

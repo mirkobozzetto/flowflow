@@ -1,5 +1,5 @@
-use flowflow::services::constants::EMBEDDING_DIMS;
-use flowflow::services::vectordb::{Chunk, VectorStore};
+use flowflow::application::constants::EMBEDDING_DIMS;
+use flowflow::infrastructure::vectordb::{Chunk, VectorStore};
 use std::sync::Once;
 use tokio::sync::OnceCell;
 use uuid::Uuid;
@@ -297,7 +297,7 @@ async fn test_vectordb_store_upserts_same_note_id() {
 #[tokio::test]
 #[ignore]
 async fn test_real_embedding() {
-    use flowflow::services::llm::LlmClient;
+    use flowflow::infrastructure::llm::LlmClient;
 
     let client = LlmClient::from_env().expect("OPENAI_API_KEY required");
     let vector = client
@@ -319,7 +319,7 @@ async fn test_real_embedding() {
 #[tokio::test]
 #[ignore]
 async fn test_real_chat() {
-    use flowflow::services::llm::LlmClient;
+    use flowflow::infrastructure::llm::LlmClient;
 
     let client = LlmClient::from_env().expect("OPENAI_API_KEY required");
     let response = client
@@ -339,7 +339,7 @@ async fn test_real_chat() {
 #[tokio::test]
 #[ignore]
 async fn test_real_rag_pipeline() {
-    use flowflow::services::llm::LlmClient;
+    use flowflow::infrastructure::llm::LlmClient;
 
     let client = LlmClient::from_env().expect("OPENAI_API_KEY required");
     let store = ensure_table().await;

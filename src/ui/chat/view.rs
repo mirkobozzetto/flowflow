@@ -1,6 +1,6 @@
-use crate::db::Database;
-use crate::models::ChatScope;
-use crate::services::audio::RecordingState;
+use crate::domain::ChatScope;
+use crate::infrastructure::audio::RecordingState;
+use crate::infrastructure::persistence::Database;
 use crate::ui::chat::actions::{load_messages_from_db, send_question};
 use crate::ui::chat::bot_bubble::BotBubble;
 use crate::ui::chat::empty_state::ChatEmptyState;
@@ -190,6 +190,10 @@ pub fn ChatView() -> Element {
                         app.view.set(View::Chat {
                             conversation_id: Some(cid),
                         });
+                        // Refresh the sidebar Chats list: it slides via CSS (stays mounted),
+                        // so a new conversation only shows if a watched signal changes.
+                        app.sync_data_version
+                            .set((app.sync_data_version)() + 1);
                     }
                 }
                 let scope = (app.chat_scope)();

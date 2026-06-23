@@ -28,6 +28,7 @@ Mirko Bozzetto — freelance full-stack developer, Brussels.
 - No predefined file structure beyond current step.
 - If it doesn't compile or work → fix before moving forward.
 - No assumptions — test everything.
+- Builds and installs are run by Claude, not Mirko. Claude runs the toolchain itself (`cargo`, `make all` for the iOS device, `make desktop-app` for the Mac app), fixes what breaks, and then hands Mirko only the manual test steps (what to tap and observe). Never hand Mirko a build or serve command (`make ddev`/`make dev`/etc.) to run. Mirko validates on device; Claude does not push until he has.
 - When unsure between two approaches → present options with pros/cons → Mirko decides.
 - Git: commit after each validated step, descriptive messages.
 - File names, structure, architecture evolve as needed. Nothing is set in stone.
@@ -314,7 +315,7 @@ xcrun devicectl manage pair --device <DEVICE_ID>
 <!-- gitnexus:start -->
 # GitNexus — Code Intelligence
 
-This project is indexed by GitNexus as **flowflow** (3918 symbols, 8657 relationships, 300 execution flows). Use the GitNexus MCP tools to understand code, assess impact, and navigate safely.
+This project is indexed by GitNexus as **flowflow** (4443 symbols, 9355 relationships, 300 execution flows). Use the GitNexus MCP tools to understand code, assess impact, and navigate safely.
 
 > Index stale? Run `node .gitnexus/run.cjs analyze` from the project root — it auto-selects an available runner. No `.gitnexus/run.cjs` yet? `npx gitnexus analyze` (npm 11 crash → `npm i -g gitnexus`; #1939).
 

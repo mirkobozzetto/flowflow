@@ -4,8 +4,8 @@ mod folders;
 pub use conversations::*;
 pub use folders::*;
 
-use crate::db::Database;
-use crate::services::i18n::t;
+use crate::application::i18n::t;
+use crate::infrastructure::persistence::Database;
 use crate::ui::icons::*;
 use crate::ui::{AppState, SidebarTab, View};
 use dioxus::prelude::*;

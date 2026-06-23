@@ -1,5 +1,5 @@
-use flowflow::services::rag::{build_context, RagResponse, RagSource};
-use flowflow::services::vectordb::{SearchResult, SourceType};
+use flowflow::application::rag::{build_context, RagResponse, RagSource};
+use flowflow::infrastructure::vectordb::{SearchResult, SourceType};
 
 fn make_source(
     note_id: &str,

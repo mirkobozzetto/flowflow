@@ -1,8 +1,8 @@
-use flowflow::db::chunk_repo::ChunkRecord;
-use flowflow::db::Database;
-use flowflow::models::note::{NewTextNote, UpdateNote};
-use flowflow::models::NewThread;
-use flowflow::services::sync::{peers, protocol};
+use flowflow::domain::note::{NewTextNote, UpdateNote};
+use flowflow::domain::NewThread;
+use flowflow::infrastructure::persistence::chunk_repo::ChunkRecord;
+use flowflow::infrastructure::persistence::Database;
+use flowflow::infrastructure::sync::{peers, protocol};
 use std::net::TcpListener;
 use std::sync::{Arc, Once};
 use tempfile::tempdir;
@@ -199,7 +199,7 @@ fn delete_propagates_with_children_and_chunks() {
 
     let note = make_note(&db_a, "doomed", "note with attachment body");
     let att = db_a
-        .create_attachment(&flowflow::models::attachment::NewAttachment {
+        .create_attachment(&flowflow::domain::attachment::NewAttachment {
             note_id: note.clone(),
             filename: "doc.txt".to_string(),
             content_text: "attached words".to_string(),
@@ -241,8 +241,10 @@ fn seed_chunks(db: &Database, owner_id: &str, owner_kind: &str) {
     db.replace_chunks(owner_id, owner_kind, &records)
         .expect("seed chunks");
     let conn = db.conn();
-    flowflow::db::sync_meta::mark_entity_updated(&conn, owner_kind, owner_id)
-        .expect("bump owner");
+    flowflow::infrastructure::persistence::sync_meta::mark_entity_updated(
+        &conn, owner_kind, owner_id,
+    )
+    .expect("bump owner");
 }
 
 #[test]
@@ -573,7 +575,7 @@ fn folders_links_and_conversations_sync() {
     let (id_a, _) = pair(&db_a, &db_b);
 
     let folder = db_a
-        .create_folder(&flowflow::models::folder::NewFolder {
+        .create_folder(&flowflow::domain::folder::NewFolder {
             name: "Inbox".to_string(),
             description: None,
             parent_id: None,

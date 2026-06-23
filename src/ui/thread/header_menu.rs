@@ -1,6 +1,6 @@
-use crate::db::Database;
-use crate::models::UpdateThread;
-use crate::services::i18n::t;
+use crate::application::i18n::t;
+use crate::domain::UpdateThread;
+use crate::infrastructure::persistence::Database;
 use crate::ui::icons::*;
 use crate::ui::kit;
 use crate::ui::{AppState, View};

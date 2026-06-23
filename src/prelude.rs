@@ -1,6 +1,6 @@
-pub use crate::db::Database;
-pub use crate::models::{Attachment, NewAttachment};
-pub use crate::models::{Folder, NewFolder, UpdateFolder};
-pub use crate::models::{NewTextNote, Note, NoteType, UpdateNote};
-pub use crate::services::{LlmClient, Provider, VectorStore};
+pub use crate::domain::{Attachment, NewAttachment};
+pub use crate::domain::{Folder, NewFolder, UpdateFolder};
+pub use crate::domain::{NewTextNote, Note, NoteType, UpdateNote};
+pub use crate::infrastructure::persistence::Database;
+pub use crate::infrastructure::{LlmClient, Provider, VectorStore};
 pub use crate::ui::{AppState, View};

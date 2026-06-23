@@ -4,6 +4,7 @@ mod audio_section;
 mod dates;
 mod detail;
 mod menu;
+mod note_actions;
 mod reminders;
 mod tags;
 

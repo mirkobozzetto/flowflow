@@ -1,6 +1,6 @@
-use crate::models::Attachment;
-use crate::models::ChatScope;
-use crate::services::audio::RecordingState;
+use crate::domain::Attachment;
+use crate::domain::ChatScope;
+use crate::infrastructure::audio::RecordingState;
 use crate::ui::transcription_manager::Job;
 use dioxus::prelude::*;
 use std::collections::{HashMap, VecDeque};
@@ -14,10 +14,12 @@ pub enum SidebarTab {
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub enum SettingsSection {
     General,
+    Account,
     Intelligence,
     Transcription,
     Storage,
     Backup,
+    Connections,
     Privacy,
     Shortcuts,
 }
@@ -26,10 +28,12 @@ impl SettingsSection {
     pub fn title_key(self) -> &'static str {
         match self {
             Self::General => "settings-section-general",
+            Self::Account => "settings-section-account",
             Self::Intelligence => "settings-section-intelligence",
             Self::Transcription => "settings-section-transcription",
             Self::Storage => "settings-storage-title",
             Self::Backup => "settings-backup-title",
+            Self::Connections => "settings-section-connections",
             Self::Privacy => "settings-section-privacy",
             Self::Shortcuts => "settings-section-shortcuts",
         }

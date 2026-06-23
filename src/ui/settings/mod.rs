@@ -1,4 +1,6 @@
+mod account;
 mod backup;
+mod connections;
 mod general;
 mod intelligence;
 mod privacy;
@@ -6,11 +8,13 @@ mod shortcuts;
 mod storage;
 mod transcription;
 
-use crate::db::Database;
-use crate::services::backup as backup_service;
-use crate::services::i18n::t;
+use crate::application::backup as backup_service;
+use crate::application::i18n::t;
+use crate::infrastructure::persistence::Database;
 use crate::ui::{AppState, SettingsSection, View};
+use account::AccountSettings;
 use backup::BackupSettings;
+use connections::ConnectionsSettings;
 use dioxus::prelude::*;
 use general::GeneralSettings;
 use intelligence::IntelligenceSettings;
@@ -60,6 +64,10 @@ pub fn SettingsView() -> Element {
                     section: SettingsSection::General,
                 }
                 SectionRow {
+                    label: t(&lang, "settings-section-account"),
+                    section: SettingsSection::Account,
+                }
+                SectionRow {
                     label: t(&lang, "settings-section-intelligence"),
                     section: SettingsSection::Intelligence,
                 }
@@ -85,6 +93,10 @@ pub fn SettingsView() -> Element {
                 SectionRow {
                     label: t(&lang, "settings-backup-title"),
                     section: SettingsSection::Backup,
+                }
+                SectionRow {
+                    label: t(&lang, "settings-section-connections"),
+                    section: SettingsSection::Connections,
                 }
                 SectionRow {
                     label: t(&lang, "settings-section-privacy"),
@@ -127,6 +139,9 @@ pub fn SettingsSectionView() -> Element {
         SettingsSection::General => rsx! {
             GeneralSettings {}
         },
+        SettingsSection::Account => rsx! {
+            AccountSettings {}
+        },
         SettingsSection::Intelligence => rsx! {
             IntelligenceSettings {}
         },
@@ -138,6 +153,9 @@ pub fn SettingsSectionView() -> Element {
         },
         SettingsSection::Backup => rsx! {
             BackupSettings {}
+        },
+        SettingsSection::Connections => rsx! {
+            ConnectionsSettings {}
         },
         SettingsSection::Privacy => rsx! {
             PrivacySettings {}

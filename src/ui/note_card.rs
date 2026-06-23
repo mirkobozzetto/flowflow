@@ -1,6 +1,6 @@
-use crate::db::Database;
-use crate::models::Note;
-use crate::services::i18n::t;
+use crate::application::i18n::t;
+use crate::domain::Note;
+use crate::infrastructure::persistence::Database;
 use crate::ui::icons::{IconArrowUpRight, IconBell};
 use crate::ui::{AppState, View};
 use dioxus::prelude::*;
@@ -18,13 +18,14 @@ pub fn NoteCard(note: Note) -> Element {
         .clone()
         .unwrap_or_else(|| t(&lang, "note-card-untitled"));
 
-    let preview = if note.content.chars().count() > 120 {
+    let cleaned_preview = crate::application::ai::plain_preview(&note.content);
+    let preview = if cleaned_preview.chars().count() > 120 {
         format!(
             "{}...",
-            crate::services::ai::char_prefix(&note.content, 120)
+            crate::application::ai::char_prefix(&cleaned_preview, 120)
         )
     } else {
-        note.content.clone()
+        cleaned_preview
     };
 
     let date = &note.created_at[..10];
@@ -38,7 +39,7 @@ pub fn NoteCard(note: Note) -> Element {
     let has_reminder = !active_reminders.is_empty();
     let reminder_due = active_reminders
         .first()
-        .map(|r| crate::services::i18n::reminder_due_label(&lang, r));
+        .map(|r| crate::application::i18n::reminder_due_label(&lang, r));
 
     let folder_name = db()
         .folders_for_note(&note.id)

@@ -1,5 +1,5 @@
-use flowflow::services::error::LlmError;
-use flowflow::services::llm::{parse_tags, Provider};
+use flowflow::application::error::LlmError;
+use flowflow::infrastructure::llm::{parse_tags, Provider};
 use std::str::FromStr;
 
 #[test]

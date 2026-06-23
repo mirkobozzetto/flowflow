@@ -1,6 +1,6 @@
-use crate::db::Database;
-use crate::models::{generate_auto_title, ChatScope, NewTextNote, UpdateNote};
-use crate::services::rag;
+use crate::application::rag;
+use crate::domain::{generate_auto_title, ChatScope, NewTextNote, UpdateNote};
+use crate::infrastructure::persistence::Database;
 use crate::ui::chat::models::{tool_label, ChatMsg, ChatSource};
 use dioxus::prelude::*;
 use std::sync::Arc;
@@ -75,7 +75,7 @@ pub fn save_as_note(
         let _ = db.set_note_sources(&note.id, Some(&json));
     }
     let title_for_embed = note.title.clone().unwrap_or_default();
-    crate::services::embed::embed_note(
+    crate::application::embed::embed_note(
         note.id.clone(),
         title_for_embed,
         note.content.clone(),
@@ -99,7 +99,8 @@ pub fn generate_note_title_bg(note_id: String, content: String, lang: String) {
             let Ok(db) = Database::open() else {
                 return;
             };
-            let Ok(ai) = crate::services::llm::LlmClient::from_db(&db) else {
+            let Ok(ai) = crate::infrastructure::llm::LlmClient::from_db(&db)
+            else {
                 return;
             };
             if let Ok(title) = ai.generate_title(&content, &lang).await {
@@ -145,8 +146,14 @@ pub fn find_saved_note(
 }
 
 pub fn md_to_html(md: &str) -> String {
-    use pulldown_cmark::{html, Parser};
-    let parser = Parser::new(md);
+    use pulldown_cmark::{html, Options, Parser};
+    // GFM tables/strikethrough/tasklists are off by default in pulldown-cmark, so a `| a | b |`
+    // table from the agent rendered as raw piped text. Enable them.
+    let mut opts = Options::empty();
+    opts.insert(Options::ENABLE_TABLES);
+    opts.insert(Options::ENABLE_STRIKETHROUGH);
+    opts.insert(Options::ENABLE_TASKLISTS);
+    let parser = Parser::new_ext(md, opts);
     let mut html_output = String::new();
     html::push_html(&mut html_output, parser);
     html_output
@@ -184,10 +191,10 @@ pub fn send_question(
     spawn(async move {
         while let Some(event) = rx.recv().await {
             match event {
-                crate::services::tools::ToolEvent::Started(name) => {
+                crate::application::tools::ToolEvent::Started(name) => {
                     ts.set(Some(tool_label(&lang_for_tools, &name)));
                 }
-                crate::services::tools::ToolEvent::Finished(_) => {
+                crate::application::tools::ToolEvent::Finished(_) => {
                     ts.set(None);
                 }
             }
@@ -196,7 +203,15 @@ pub fn send_question(
 
     let lang_for_query = lang.clone();
     spawn(async move {
-        match rag::query(&question, Some(tx), scope, &lang_for_query).await {
+        // "lance xxx" runs the note-action path (clean confirmation + link card); anything else
+        // is a normal RAG question. Narrow trigger so real questions are never hijacked.
+        let result = if crate::application::intent::is_action_trigger(&question)
+        {
+            rag::run_action(&question, Some(tx)).await
+        } else {
+            rag::query(&question, Some(tx), scope, &lang_for_query).await
+        };
+        match result {
             Ok(r) => {
                 let sources: Vec<ChatSource> = r
                     .sources
@@ -228,11 +243,7 @@ pub fn send_question(
                 });
             }
             Err(e) => {
-                let err_msg = format!(
-                    "{} : {}",
-                    crate::services::i18n::t(&lang, "chat-error"),
-                    e
-                );
+                let err_msg = chat_error_message(&lang, &e);
                 if let Some(ref cid) = conv_signal() {
                     let _ = db().add_message(cid, "bot", &err_msg, None);
                 }
@@ -245,6 +256,23 @@ pub fn send_question(
         ts.set(None);
         ld.set(false);
     });
+}
+
+// A connector/auth failure that reaches the chat gets an actionable hint pointing to the
+// Connections screen; everything else stays the generic chat error. Heuristic on the
+// (stringified) error since rag::query collapses all errors to String.
+fn chat_error_message(lang: &str, err: &str) -> String {
+    let low = err.to_lowercase();
+    let connector = low.contains("unauthorized")
+        || low.contains("connector")
+        || low.contains("backend")
+        || low.contains("mcp");
+    let key = if connector {
+        "chat-connector-error"
+    } else {
+        "chat-error"
+    };
+    format!("{} : {}", crate::application::i18n::t(lang, key), err)
 }
 
 pub fn load_messages_from_db(

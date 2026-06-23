@@ -1,14 +1,14 @@
-use flowflow::db::chunk_repo::ChunkRecord;
-use flowflow::db::Database;
-use flowflow::models::note::NewTextNote;
-use flowflow::models::UpdateNote;
-use flowflow::services::backup;
-use flowflow::services::constants::EMBEDDING_DIMS;
-use flowflow::services::sync::reconcile::{
+use flowflow::application::backup;
+use flowflow::application::constants::EMBEDDING_DIMS;
+use flowflow::domain::note::NewTextNote;
+use flowflow::domain::UpdateNote;
+use flowflow::infrastructure::persistence::chunk_repo::ChunkRecord;
+use flowflow::infrastructure::persistence::Database;
+use flowflow::infrastructure::sync::reconcile::{
     backfill_legacy_chunks, reconcile_once,
 };
-use flowflow::services::sync::{gc, peers, protocol};
-use flowflow::services::vectordb::VectorStore;
+use flowflow::infrastructure::sync::{gc, peers, protocol};
+use flowflow::infrastructure::vectordb::VectorStore;
 use std::net::TcpListener;
 use std::path::{Path, PathBuf};
 use std::sync::{Arc, Mutex, Once};

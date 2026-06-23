@@ -4,10 +4,10 @@
 // device restored from an older backup converges through a full-state
 // session with ZERO resurrection and ZERO data loss.
 
-use flowflow::db::Database;
-use flowflow::models::attachment::NewAttachment;
-use flowflow::models::note::NewTextNote;
-use flowflow::services::sync::{gc, peers, protocol};
+use flowflow::domain::attachment::NewAttachment;
+use flowflow::domain::note::NewTextNote;
+use flowflow::infrastructure::persistence::Database;
+use flowflow::infrastructure::sync::{gc, peers, protocol};
 use std::net::TcpListener;
 use std::sync::{Arc, Once};
 use tempfile::tempdir;

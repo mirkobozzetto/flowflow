@@ -1,8 +1,8 @@
-use flowflow::db::Database;
-use flowflow::models::{NewFolder, NewTextNote};
-use flowflow::services::tools::{
+use flowflow::application::tools::{
     CreateNote, CreateNoteArgs, SearchNotesArgs, SummarizeFolderArgs,
 };
+use flowflow::domain::{NewFolder, NewTextNote};
+use flowflow::infrastructure::persistence::Database;
 use rig::tool::Tool;
 use std::sync::Once;
 use tokio::sync::Mutex;
@@ -102,8 +102,8 @@ async fn test_create_note_minimal_no_title_no_tags() {
 
 #[tokio::test]
 async fn test_summarize_folder_missing_folder_returns_error() {
-    use flowflow::services::llm::LlmClient;
-    use flowflow::services::tools::SummarizeFolder;
+    use flowflow::application::tools::SummarizeFolder;
+    use flowflow::infrastructure::llm::LlmClient;
     use std::sync::Arc;
 
     let llm = match LlmClient::from_env() {
@@ -126,8 +126,8 @@ async fn test_summarize_folder_missing_folder_returns_error() {
 
 #[tokio::test]
 async fn test_summarize_folder_empty_folder() {
-    use flowflow::services::llm::LlmClient;
-    use flowflow::services::tools::SummarizeFolder;
+    use flowflow::application::tools::SummarizeFolder;
+    use flowflow::infrastructure::llm::LlmClient;
     use std::sync::Arc;
 
     let llm = match LlmClient::from_env() {
@@ -165,8 +165,8 @@ async fn test_summarize_folder_empty_folder() {
 #[ignore]
 async fn test_search_notes_real() {
     isolate_store();
-    use flowflow::services::llm::LlmClient;
-    use flowflow::services::tools::SearchNotes;
+    use flowflow::application::tools::SearchNotes;
+    use flowflow::infrastructure::llm::LlmClient;
     use std::sync::Arc;
 
     let llm = Arc::new(LlmClient::from_env().expect("OPENAI_API_KEY required"));
@@ -187,8 +187,8 @@ async fn test_search_notes_real() {
 #[tokio::test]
 #[ignore]
 async fn test_summarize_folder_real() {
-    use flowflow::services::llm::LlmClient;
-    use flowflow::services::tools::SummarizeFolder;
+    use flowflow::application::tools::SummarizeFolder;
+    use flowflow::infrastructure::llm::LlmClient;
     use std::sync::Arc;
 
     let llm = Arc::new(LlmClient::from_env().expect("OPENAI_API_KEY required"));
@@ -235,8 +235,8 @@ async fn test_summarize_folder_real() {
 #[ignore]
 async fn test_agent_with_tools_e2e() {
     isolate_store();
-    use flowflow::services::llm::LlmClient;
-    use flowflow::services::tools::prompt_agent_with_tools;
+    use flowflow::application::tools::prompt_agent_with_tools;
+    use flowflow::infrastructure::llm::LlmClient;
     use std::sync::Arc;
 
     let llm = Arc::new(LlmClient::from_env().expect("OPENAI_API_KEY required"));

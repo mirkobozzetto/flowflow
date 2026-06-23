@@ -1,3 +1,4 @@
+mod action_card;
 mod attachment_modal;
 mod chat;
 mod chat_input;
@@ -22,10 +23,10 @@ pub mod transcription_manager;
 
 pub use state::{AppState, SettingsSection, SidebarTab, View};
 
-use crate::db::Database;
-use crate::services::audio::{AudioRecorder, RecordingState};
-use crate::services::sync::engine::SyncEngine;
-use crate::services::sync::reconcile::run_boot_reconcile;
+use crate::infrastructure::audio::{AudioRecorder, RecordingState};
+use crate::infrastructure::persistence::Database;
+use crate::infrastructure::sync::engine::SyncEngine;
+use crate::infrastructure::sync::reconcile::run_boot_reconcile;
 use dioxus::prelude::*;
 use std::collections::HashMap;
 use std::sync::{Arc, Mutex};
@@ -50,25 +51,25 @@ use top_bar::TopBar;
 pub fn App() -> Element {
     let _db = use_context_provider(|| {
         let db = Arc::new(Database::open().expect("Failed to open database"));
-        if crate::services::backup::restore_recovery_window_active() {
+        if crate::application::backup::restore_recovery_window_active() {
             eprintln!(
                 "[backup] orphan audio cleanup skipped (recovery window)"
             );
         } else {
-            db.cleanup_orphan_audio(&crate::services::audio::output_dir());
+            db.cleanup_orphan_audio(&crate::infrastructure::audio::output_dir());
         }
-        crate::services::backup::finalize_restore_bak();
+        crate::application::backup::finalize_restore_bak();
         run_boot_reconcile();
         #[cfg(target_os = "ios")]
         {
-            crate::platform::ios::sync_ffi::observe_background_checkpoint();
-            crate::platform::ios::sync_ffi::observe_restore_foreground();
+            crate::infrastructure::platform::ios::sync_ffi::observe_background_checkpoint();
+            crate::infrastructure::platform::ios::sync_ffi::observe_restore_foreground();
         }
         Signal::new(db)
     });
 
     let mut restore_locked =
-        use_signal(crate::services::backup::restore_lock_active);
+        use_signal(crate::application::backup::restore_lock_active);
     let mut index_rebuilding = use_signal(|| false);
 
     let _engine: Signal<Arc<SyncEngine>> =
@@ -91,8 +92,12 @@ pub fn App() -> Element {
     let consent_value = _db().get_setting("ai_consent").map(|v| v == "true");
 
     let initial_lang = _db()
-        .get_setting(crate::db::settings_repo::LANGUAGE_KEY)
-        .unwrap_or_else(crate::platform::detect_system_language);
+        .get_setting(
+            crate::infrastructure::persistence::settings_repo::LANGUAGE_KEY,
+        )
+        .unwrap_or_else(
+            crate::infrastructure::platform::detect_system_language,
+        );
 
     let app = use_context_provider(|| AppState {
         view: Signal::new(View::NotesList),
@@ -134,8 +139,8 @@ pub fn App() -> Element {
     use_future(move || {
         let db = _db();
         async move {
-            let key = crate::services::web_search::exa_api_key(&db);
-            let results = crate::services::web_search::exa_search(
+            let key = crate::application::web_search::exa_api_key(&db);
+            let results = crate::application::web_search::exa_search(
                 "latest rust async runtime news",
                 &key,
             )
@@ -195,13 +200,14 @@ pub fn App() -> Element {
                     400,
                 ))
                 .await;
-                let lock_now = crate::services::backup::restore_lock_active();
+                let lock_now =
+                    crate::application::backup::restore_lock_active();
                 if *restore_locked.peek() != lock_now {
                     restore_locked.set(lock_now);
                 }
                 let rebuilding =
-                    crate::services::backup::restore_recovery_window_active()
-                        && crate::services::sync::reconcile::reconcile_running(
+                    crate::application::backup::restore_recovery_window_active()
+                        && crate::infrastructure::sync::reconcile::reconcile_running(
                         );
                 if *index_rebuilding.peek() != rebuilding {
                     index_rebuilding.set(rebuilding);
@@ -387,7 +393,14 @@ pub fn App() -> Element {
                                 .write()
                                 .push(app.view.peek().clone());
                             app.history_nav.set(true);
+                            // Reset transient nav/overlay state so the previous and next
+                            // views never render layered on top of each other.
+                            app.sliding_out.set(false);
+                            app.previous_view.set(None);
                             app.show_folder_picker.set(false);
+                            app.show_note_menu.set(false);
+                            app.show_chat_menu.set(false);
+                            app.show_thread_menu.set(false);
                             app.view.set(target);
                         }
                     }
@@ -398,7 +411,12 @@ pub fn App() -> Element {
                                 .write()
                                 .push(app.view.peek().clone());
                             app.history_nav.set(true);
+                            app.sliding_out.set(false);
+                            app.previous_view.set(None);
                             app.show_folder_picker.set(false);
+                            app.show_note_menu.set(false);
+                            app.show_chat_menu.set(false);
+                            app.show_thread_menu.set(false);
                             app.view.set(target);
                         }
                     }
@@ -531,7 +549,7 @@ pub fn App() -> Element {
                     if index_rebuilding() {
                         div { class: "bg-ios-orange/10 border-b border-ios-orange/20 px-4 py-1.5",
                             p { class: "text-xs text-ios-orange text-center",
-                                {crate::services::i18n::t(&(app.current_lang)(), "restore-banner-rebuilding")}
+                                {crate::application::i18n::t(&(app.current_lang)(), "restore-banner-rebuilding")}
                             }
                         }
                     }
@@ -608,38 +626,46 @@ pub fn App() -> Element {
                                 }
                             }
                         }
+                        if matches!(
+                            (app.view)(),
+                            View::Settings | View::SettingsSection(_)
+                        ) || (matches!((app.view)(), View::SyncPairing)
+                            && (app.previous_view)() == Some(View::Settings))
                         {
-                            let view_now = (app.view)();
-                            let pairing_from_settings = matches!(view_now, View::SyncPairing)
-                                && (app.previous_view)() == Some(View::Settings);
-                            let settings_stack = matches!(view_now, View::Settings | View::SettingsSection(_))
-                                || pairing_from_settings;
-                            let in_section = settings_stack && !matches!(view_now, View::Settings);
-                            let sliding_back = (app.sliding_out)();
-                            let instant = cfg!(target_os = "macos");
-                            if settings_stack {
-                                rsx! {
-                                    div {
-                                        class: "absolute inset-0 flex flex-col min-h-0 px-4 safe-py-3 bg-stone-100 overflow-y-auto",
-                                        class: if in_section && !sliding_back { "pointer-events-none" } else { "" },
-                                        style: if instant && in_section {
-                                            "transform: translateX(-30%); opacity: 0.5;"
-                                        } else if instant {
-                                            ""
-                                        } else if sliding_back && !in_section {
-                                            "animation: slideOutRight 0.15s ease-in forwards;"
-                                        } else if in_section && !sliding_back {
-                                            "animation: slideInRight 0.15s ease-out; transform: translateX(-30%); opacity: 0.5; transition: transform 0.15s ease, opacity 0.15s ease;"
-                                        } else {
-                                            "animation: slideInRight 0.15s ease-out; transform: translateX(0); opacity: 1; transition: transform 0.15s ease, opacity 0.15s ease;"
-                                        },
-                                        div { class: "w-full lg:max-w-2xl lg:mx-auto",
-                                            SettingsView {}
-                                        }
+                            div {
+                                class: "absolute inset-0 flex flex-col min-h-0 px-4 safe-py-3 bg-stone-100 overflow-y-auto",
+                                class: if !matches!((app.view)(), View::Settings)
+                                    && !(app.sliding_out)()
+                                {
+                                    "pointer-events-none"
+                                } else {
+                                    ""
+                                },
+                                style: {
+                                    let in_section =
+                                        !matches!((app.view)(), View::Settings);
+                                    let sliding_back = (app.sliding_out)();
+                                    if cfg!(target_os = "macos") {
+                                        // Desktop: opaque, no depth dimming. The dim+shift
+                                        // left a ghost settings panel on transitions.
+                                        String::new()
+                                    } else if sliding_back && !in_section {
+                                        "animation: slideOutRight 0.15s ease-in forwards;".to_string()
+                                    } else if sliding_back && in_section {
+                                        // Going back from a section: un-shift the list to 0 in
+                                        // parallel with the section sliding out, instead of waiting
+                                        // for the view flip (which animated them in sequence). Keep
+                                        // the slideInRight token so it never replays here.
+                                        "animation: slideInRight 0.15s ease-out; transform: translateX(0); opacity: 1; transition: transform 0.15s ease, opacity 0.15s ease;".to_string()
+                                    } else if in_section {
+                                        "animation: slideInRight 0.15s ease-out; transform: translateX(-30%); opacity: 0.5; transition: transform 0.15s ease, opacity 0.15s ease;".to_string()
+                                    } else {
+                                        "animation: slideInRight 0.15s ease-out; transform: translateX(0); opacity: 1; transition: transform 0.15s ease, opacity 0.15s ease;".to_string()
                                     }
+                                },
+                                div { class: "w-full lg:max-w-2xl lg:mx-auto",
+                                    SettingsView {}
                                 }
-                            } else {
-                                rsx! {}
                             }
                         }
                         if matches!((app.view)(), View::SettingsSection(_)) {

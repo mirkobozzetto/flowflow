@@ -1,7 +1,9 @@
-use crate::db::Database;
-use crate::services::i18n::t;
-use crate::services::sync::deeplink;
-use crate::services::sync::peers::{self, PairingHost, PairingStatus};
+use crate::application::i18n::t;
+use crate::infrastructure::persistence::Database;
+use crate::infrastructure::sync::deeplink;
+use crate::infrastructure::sync::peers::{self, PairingHost, PairingStatus};
+use crate::ui::clipboard::copy_text;
+use crate::ui::icons::{IconCheck, IconCopy};
 use crate::ui::AppState;
 use dioxus::prelude::*;
 use std::sync::Arc;
@@ -71,48 +73,74 @@ pub fn SyncPairingView() -> Element {
 
     rsx! {
         div { class: "space-y-6 border-t border-stone-200 pt-4",
-            div {
-                h2 { class: "text-lg font-semibold text-stone-900 mb-1",
-                    {t(&lang, "sync-show-code")}
+
+            // ---- Add a device ----
+            div { class: "space-y-4",
+                h2 { class: "text-lg font-semibold text-stone-900",
+                    {t(&lang, "settings-pair-device")}
                 }
-                p { class: "text-xs text-stone-500 mb-3 leading-relaxed",
+                p { class: "text-xs text-stone-500 leading-relaxed",
                     {t(&lang, "sync-show-code-hint")}
                 }
+
                 if let Some(h) = host() {
-                    div { class: "space-y-3",
-                        div {
-                            class: "bg-white rounded-xl p-3 flex justify-center [&_svg]:max-w-full [&_svg]:h-auto",
-                            dangerous_inner_html: "{h.qr_svg}",
-                        }
-                        p { class: "text-xs text-stone-500 text-center",
-                            "{h.addr}:{h.port}"
-                        }
-                        p {
-                            class: "text-xs text-stone-400 break-all px-2",
-                            style: "user-select: all; -webkit-user-select: all;",
-                            "{h.uri}"
-                        }
-                        match host_status() {
-                            Some(PairingStatus::Paired { device_id }) => rsx! {
-                                p { class: "text-sm text-ios-green text-center font-medium",
-                                    {format!("{} {}", t(&lang, "sync-paired-with"), device_id)}
+                    {
+                        let uri_for_copy = h.uri.clone();
+                        rsx! {
+                            div { class: "bg-white rounded-xl border border-stone-200 p-5 flex flex-col items-center",
+                                div { class: "relative w-[200px] h-[200px] bg-white border border-stone-200 rounded-2xl p-3 mb-4",
+                                    div { class: "absolute top-2 left-2 w-4 h-4 border-t-2 border-l-2 border-ios-orange rounded-tl" }
+                                    div { class: "absolute top-2 right-2 w-4 h-4 border-t-2 border-r-2 border-ios-orange rounded-tr" }
+                                    div { class: "absolute bottom-2 left-2 w-4 h-4 border-b-2 border-l-2 border-ios-orange rounded-bl" }
+                                    div { class: "absolute bottom-2 right-2 w-4 h-4 border-b-2 border-r-2 border-ios-orange rounded-br" }
+                                    div {
+                                        class: "w-full h-full flex items-center justify-center [&_svg]:max-w-full [&_svg]:h-auto",
+                                        dangerous_inner_html: "{h.qr_svg}",
+                                    }
                                 }
-                            },
-                            Some(PairingStatus::Failed(e)) => rsx! {
-                                p { class: "text-sm text-ios-red text-center",
-                                    {format!("{}: {}", t(&lang, "sync-failed"), e)}
+                                span { class: "text-sm font-medium text-stone-900 font-mono bg-stone-100 px-3 py-1 rounded-md",
+                                    "{h.addr}:{h.port}"
                                 }
-                            },
-                            Some(PairingStatus::Cancelled) => rsx! {
-                                p { class: "text-sm text-stone-400 text-center",
-                                    {t(&lang, "sync-cancelled")}
+                                div { class: "mt-3 w-full bg-warm-white rounded-lg pl-3 pr-1 py-1.5 flex items-center justify-between border border-stone-200",
+                                    span {
+                                        class: "text-[11px] text-stone-500 font-mono truncate mr-2",
+                                        style: "user-select: all; -webkit-user-select: all;",
+                                        "{h.uri}"
+                                    }
+                                    button {
+                                        class: "text-ios-orange shrink-0 w-8 h-8 flex items-center justify-center rounded-md active:bg-ios-orange/10 transition-colors",
+                                        onclick: move |_| copy_text(&uri_for_copy),
+                                        IconCopy { size: 14 }
+                                    }
                                 }
-                            },
-                            _ => rsx! {
-                                p { class: "text-sm text-stone-500 text-center animate-pulse",
-                                    {t(&lang, "sync-waiting")}
+                                div { class: "mt-4 flex justify-center w-full",
+                                    match host_status() {
+                                        Some(PairingStatus::Paired { device_id }) => rsx! {
+                                            div { class: "inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-ios-orange/10 text-ios-orange-dark text-xs font-medium border border-ios-orange/20",
+                                                IconCheck { size: 12 }
+                                                {format!("{} {}", t(&lang, "sync-paired-with"), device_id)}
+                                            }
+                                        },
+                                        Some(PairingStatus::Failed(e)) => rsx! {
+                                            div { class: "inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-ios-red/10 text-ios-red text-xs font-medium border border-ios-red/20",
+                                                {format!("{}: {}", t(&lang, "sync-failed"), e)}
+                                            }
+                                        },
+                                        Some(PairingStatus::Cancelled) => rsx! {
+                                            span { class: "text-xs text-stone-400", {t(&lang, "sync-cancelled")} }
+                                        },
+                                        _ => rsx! {
+                                            div { class: "inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-ios-orange/10 text-ios-orange-dark text-xs font-medium border border-ios-orange/20",
+                                                span { class: "relative flex h-2 w-2",
+                                                    span { class: "animate-ping absolute inline-flex h-full w-full rounded-full bg-ios-orange opacity-75" }
+                                                    span { class: "relative inline-flex rounded-full h-2 w-2 bg-ios-orange" }
+                                                }
+                                                {t(&lang, "sync-waiting")}
+                                            }
+                                        },
+                                    }
                                 }
-                            },
+                            }
                         }
                     }
                 } else {
@@ -129,29 +157,31 @@ pub fn SyncPairingView() -> Element {
                                     host.set(Some(h));
                                 }
                                 Err(e) => {
-                                    host_status.set(Some(PairingStatus::Failed(e.to_string())));
+                                    host_status
+                                        .set(Some(PairingStatus::Failed(e.to_string())));
                                     host.set(None);
                                 }
                             }
                         },
                         {t(&lang, "sync-show-code")}
                     }
-                }
-                if host().is_none() {
                     if let Some(PairingStatus::Failed(e)) = host_status() {
                         p { class: "text-sm text-ios-red text-center mt-2",
                             {format!("{}: {}", t(&lang, "sync-failed"), e)}
                         }
                     }
                 }
-            }
 
-            div { class: "border-t border-stone-200 pt-4",
-                h2 { class: "text-lg font-semibold text-stone-900 mb-1",
-                    {t(&lang, "sync-join-title")}
+                div { class: "flex items-center justify-center py-1",
+                    div { class: "h-px bg-stone-200 w-full" }
+                    span { class: "px-4 text-[11px] font-semibold text-stone-400 uppercase tracking-widest",
+                        {t(&lang, "sync-or")}
+                    }
+                    div { class: "h-px bg-stone-200 w-full" }
                 }
+
                 if scanned() {
-                    div { class: "bg-ios-orange/10 border border-ios-orange/40 rounded-xl px-3 py-2.5 mb-3",
+                    div { class: "bg-ios-orange/10 border border-ios-orange/40 rounded-xl px-3 py-2.5",
                         p { class: "text-sm text-stone-900 font-medium",
                             {t(&lang, "sync-scanned-title")}
                         }
@@ -160,21 +190,21 @@ pub fn SyncPairingView() -> Element {
                         }
                     }
                 } else {
-                    p { class: "text-xs text-stone-500 mb-3 leading-relaxed",
+                    p { class: "text-xs text-stone-500 leading-relaxed",
                         {t(&lang, "sync-join-hint")}
                     }
                 }
                 textarea {
-                    class: "w-full border border-stone-200 rounded-xl px-3 py-2.5 text-xs outline-none text-stone-900 bg-warm-white min-h-[72px] focus:border-ios-orange-dark focus:ring-[3px] focus:ring-ios-orange-50 transition-colors duration-150",
+                    class: "w-full border border-stone-200 rounded-xl px-3 py-2.5 text-xs font-mono outline-none text-stone-900 bg-warm-white min-h-[72px] focus:border-ios-orange-dark focus:ring-[3px] focus:ring-ios-orange/20 transition-colors duration-150",
                     placeholder: "flowflow://pair#...",
                     value: "{join_uri}",
                     oninput: move |evt| join_uri.set(evt.value()),
                 }
                 button {
                     class: if joining() {
-                        "w-full py-2.5 rounded-xl text-sm font-medium bg-stone-300 text-white mt-2"
+                        "w-full min-h-[44px] rounded-xl text-sm font-medium bg-stone-300 text-white"
                     } else {
-                        "w-full py-2.5 rounded-xl text-sm font-medium bg-ios-orange text-white mt-2"
+                        "w-full min-h-[44px] rounded-xl text-sm font-medium bg-ios-orange text-white active:bg-ios-orange-dark transition-colors"
                     },
                     disabled: joining(),
                     onclick: move |_| {
@@ -213,12 +243,15 @@ pub fn SyncPairingView() -> Element {
                 }
                 match join_status() {
                     Some(Ok(id)) => rsx! {
-                        p { class: "text-sm text-ios-green text-center mt-2 font-medium",
-                            {format!("{} {}", t(&lang, "sync-paired-with"), id)}
+                        div { class: "flex justify-center mt-1",
+                            div { class: "inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-ios-orange/10 text-ios-orange-dark text-xs font-medium border border-ios-orange/20",
+                                IconCheck { size: 12 }
+                                {format!("{} {}", t(&lang, "sync-paired-with"), id)}
+                            }
                         }
                     },
                     Some(Err(e)) => rsx! {
-                        p { class: "text-sm text-ios-red text-center mt-2",
+                        p { class: "text-sm text-ios-red text-center mt-1",
                             {format!("{}: {}", t(&lang, "sync-failed"), e)}
                         }
                     },
@@ -226,12 +259,13 @@ pub fn SyncPairingView() -> Element {
                 }
             }
 
+            // ---- Paired devices ----
             div { class: "border-t border-stone-200 pt-4",
                 h2 { class: "text-lg font-semibold text-stone-900 mb-3",
                     {t(&lang, "sync-peers-title")}
                 }
                 if peers_list().is_empty() {
-                    p { class: "text-xs text-stone-400 text-center",
+                    p { class: "text-xs text-stone-400 text-center py-2",
                         {t(&lang, "sync-no-peers")}
                     }
                 } else {
@@ -239,17 +273,29 @@ pub fn SyncPairingView() -> Element {
                         for peer in peers_list() {
                             {
                                 let peer_id = peer.device_id.clone();
+                                let initial = peer
+                                    .device_id
+                                    .chars()
+                                    .next()
+                                    .unwrap_or('?')
+                                    .to_uppercase()
+                                    .to_string();
                                 rsx! {
                                     div {
-                                        class: "flex items-center justify-between bg-warm-white border border-stone-200 rounded-xl px-3 py-2.5",
-                                        div { class: "min-w-0",
-                                            p { class: "text-sm text-stone-900 truncate", "{peer.device_id}" }
-                                            if let Some(ref at) = peer.paired_at {
-                                                p { class: "text-xs text-stone-500", "{at}" }
+                                        class: "flex items-center justify-between bg-white border border-stone-200 rounded-xl px-3 py-2.5",
+                                        div { class: "flex items-center gap-3 min-w-0",
+                                            div { class: "w-10 h-10 rounded-full bg-warm-white border border-stone-200 flex items-center justify-center shrink-0 text-ios-orange text-sm font-semibold",
+                                                "{initial}"
+                                            }
+                                            div { class: "min-w-0",
+                                                p { class: "text-sm font-medium text-stone-900 truncate", "{peer.device_id}" }
+                                                if let Some(ref at) = peer.paired_at {
+                                                    p { class: "text-xs text-stone-500 truncate", "{at}" }
+                                                }
                                             }
                                         }
                                         button {
-                                            class: "text-xs text-ios-red font-medium min-h-[44px] px-2 shrink-0",
+                                            class: "text-xs font-medium text-stone-500 px-3 min-h-[44px] rounded-lg active:text-ios-red active:bg-ios-red/10 transition-colors shrink-0",
                                             onclick: move |_| {
                                                 let _ = peers::unpair(&db(), &peer_id);
                                                 peers_version += 1;
