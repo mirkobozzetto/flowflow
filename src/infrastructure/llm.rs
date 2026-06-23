@@ -4,7 +4,7 @@ use crate::application::constants::{
 };
 use crate::application::error::LlmError;
 use crate::application::tools::{
-    CreateNote, SearchNotes, SummarizeFolder, ToolEvent, ToolStatusHook,
+    ContractHook, CreateNote, SearchNotes, SummarizeFolder, ToolEvent,
 };
 use crate::domain::ReminderIntent;
 use chrono::{DateTime, Local};
@@ -246,7 +246,7 @@ impl LlmClient {
                 let agent = builder.build();
                 let request = agent.prompt(user_message).max_turns(4);
                 let result = if let Some(tx) = status_tx {
-                    request.with_hook(ToolStatusHook::new(tx)).await
+                    request.with_hook(ContractHook::new(tx)).await
                 } else {
                     request.await
                 };
@@ -272,7 +272,7 @@ impl LlmClient {
                 let agent = builder.build();
                 let request = agent.prompt(user_message).max_turns(4);
                 let result = if let Some(tx) = status_tx {
-                    request.with_hook(ToolStatusHook::new(tx)).await
+                    request.with_hook(ContractHook::new(tx)).await
                 } else {
                     request.await
                 };

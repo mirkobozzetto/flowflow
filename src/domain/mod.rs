@@ -1,6 +1,7 @@
 pub mod attachment;
 pub mod conversation;
 pub mod folder;
+pub mod governance;
 pub mod note;
 pub mod reminder;
 pub mod thread;
