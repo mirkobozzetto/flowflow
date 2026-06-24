@@ -123,15 +123,17 @@ impl ContractHook {
         }
     }
 
-    // Whether the bound resource has been read in this run, for the FSM-level read_before_write guard.
-    pub fn read_bound(&self) -> bool {
+    // Whether ANY bound resource was read this run, for the coarse FSM-level read_before_write guard. The
+    // gate enforces the precise per-resource rule; this only gates entry into a write state.
+    pub fn read_any(&self) -> bool {
         self.contract
             .as_ref()
             .map(|c| {
-                c.run
+                !c.run
                     .lock()
                     .expect("governance run state poisoned")
-                    .read_bound
+                    .read_resources
+                    .is_empty()
             })
             .unwrap_or(false)
     }

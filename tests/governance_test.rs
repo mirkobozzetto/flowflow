@@ -78,11 +78,8 @@ fn read_only_cannot_write() {
              "bound_resource": { "spreadsheet_id": "SHEET1" } }"#,
     )
     .unwrap();
-    // read_bound set up front to isolate the mode check from read_before_write.
-    let mut run = RunState {
-        read_bound: true,
-        ..Default::default()
-    };
+    // The mode check precedes read_before_write, so a default run still denies on the mode mismatch.
+    let mut run = RunState::default();
     assert_eq!(
         gate(
             &gov,
@@ -104,10 +101,8 @@ fn off_bound_write_denied() {
         "google_sheets_write_to_cell",
         json!({ "spreadsheet_id": "OTHER", "cell": "A1" }),
     );
-    let mut run = RunState {
-        read_bound: true,
-        ..Default::default()
-    };
+    // check_bound precedes read_before_write, so a default run still denies as off-bound.
+    let mut run = RunState::default();
     assert_eq!(
         gate(&governed(), &sheets(), &call, &mut run),
         Decision::Deny(DenyReason::OutOfBoundResource {
@@ -131,7 +126,7 @@ fn write_before_read_denied_then_allowed_after_read() {
     // a read of the bound resource satisfies read_before_write for the run.
     let read = ProposedCall::new("google_sheets_get_spreadsheet", bound_args());
     assert!(gate(&gov, &conn, &read, &mut run).is_allowed());
-    assert!(run.read_bound);
+    assert!(!run.read_resources.is_empty());
     assert!(gate(&gov, &conn, &write, &mut run).is_allowed());
 }
 
@@ -194,4 +189,137 @@ fn deny_reason_serializes_structured() {
     );
     let v = serde_json::to_value(&r).unwrap();
     assert_eq!(v["deny"], "read_before_write");
+}
+
+// ---- RFC 0011: multi-resource binding ----
+
+fn multi() -> Governance {
+    parse_governance(
+        r#"{ "tools": [
+               { "tool": "google_sheets_get_spreadsheet", "mode": "read_only" },
+               { "tool": "google_sheets_write_to_cell",   "mode": "read_write" } ],
+             "bound_resource": { "spreadsheet_id": ["A", "B"] },
+             "read_before_write": true }"#,
+    )
+    .unwrap()
+}
+
+#[test]
+fn array_bound_allows_member_and_denies_non_member() {
+    let (gov, conn) = (multi(), sheets());
+    let mut run = RunState::default();
+    let read_b = ProposedCall::new(
+        "google_sheets_get_spreadsheet",
+        json!({ "spreadsheet_id": "B" }),
+    );
+    assert!(gate(&gov, &conn, &read_b, &mut run).is_allowed());
+    let write_b = ProposedCall::new(
+        "google_sheets_write_to_cell",
+        json!({ "spreadsheet_id": "B", "cell": "A1", "value": "x" }),
+    );
+    assert!(gate(&gov, &conn, &write_b, &mut run).is_allowed());
+
+    let read_c = ProposedCall::new(
+        "google_sheets_get_spreadsheet",
+        json!({ "spreadsheet_id": "C" }),
+    );
+    assert_eq!(
+        gate(&gov, &conn, &read_c, &mut run),
+        Decision::Deny(DenyReason::OutOfBoundResource {
+            tool: "google_sheets_get_spreadsheet".into()
+        })
+    );
+}
+
+#[test]
+fn per_resource_read_does_not_satisfy_a_sibling() {
+    let (gov, conn) = (multi(), sheets());
+    let mut run = RunState::default();
+    let read_a = ProposedCall::new(
+        "google_sheets_get_spreadsheet",
+        json!({ "spreadsheet_id": "A" }),
+    );
+    assert!(gate(&gov, &conn, &read_a, &mut run).is_allowed());
+    // reading A does not unlock a write to its sibling B.
+    let write_b = ProposedCall::new(
+        "google_sheets_write_to_cell",
+        json!({ "spreadsheet_id": "B", "cell": "A1", "value": "x" }),
+    );
+    assert_eq!(
+        gate(&gov, &conn, &write_b, &mut run),
+        Decision::Deny(DenyReason::ReadBeforeWrite {
+            tool: "google_sheets_write_to_cell".into()
+        })
+    );
+    // reading B unlocks the write to B.
+    let read_b = ProposedCall::new(
+        "google_sheets_get_spreadsheet",
+        json!({ "spreadsheet_id": "B" }),
+    );
+    assert!(gate(&gov, &conn, &read_b, &mut run).is_allowed());
+    assert!(gate(&gov, &conn, &write_b, &mut run).is_allowed());
+}
+
+#[test]
+fn resource_key_is_independent_of_arg_key_order() {
+    let gov = parse_governance(
+        r#"{ "tools": [
+               { "tool": "google_sheets_get_spreadsheet", "mode": "read_only" },
+               { "tool": "google_sheets_write_to_cell",   "mode": "read_write" } ],
+             "bound_resource": { "spreadsheet_id": "A", "tab": "t1" },
+             "read_before_write": true }"#,
+    )
+    .unwrap();
+    let conn = sheets();
+    let mut run = RunState::default();
+    let read = ProposedCall::new(
+        "google_sheets_get_spreadsheet",
+        json!({ "spreadsheet_id": "A", "tab": "t1" }),
+    );
+    assert!(gate(&gov, &conn, &read, &mut run).is_allowed());
+    // the write spells the bound fields in a different order: same resource, still satisfied.
+    let write = ProposedCall::new(
+        "google_sheets_write_to_cell",
+        json!({ "tab": "t1", "value": "x", "spreadsheet_id": "A" }),
+    );
+    assert!(gate(&gov, &conn, &write, &mut run).is_allowed());
+}
+
+#[test]
+fn validate_rejects_malformed_bound() {
+    let empty = parse_governance(
+        r#"{ "tools": [ { "tool": "google_sheets_get_spreadsheet", "mode": "read_only" } ],
+             "bound_resource": { "spreadsheet_id": [] } }"#,
+    )
+    .unwrap();
+    assert!(validate_governance(&empty, &sheets())
+        .unwrap_err()
+        .iter()
+        .any(|e| matches!(e, GovernanceError::MalformedBoundResource { .. })));
+
+    let mixed = parse_governance(
+        r#"{ "tools": [ { "tool": "google_sheets_get_spreadsheet", "mode": "read_only" } ],
+             "bound_resource": { "spreadsheet_id": ["A", 1] } }"#,
+    )
+    .unwrap();
+    assert!(validate_governance(&mixed, &sheets())
+        .unwrap_err()
+        .iter()
+        .any(|e| matches!(e, GovernanceError::MalformedBoundResource { .. })));
+}
+
+#[test]
+fn scalar_bound_under_write_grant_is_rejected() {
+    // A non-object bound pins nothing; a write grant under read_before_write must have a real bound.
+    let scalar = parse_governance(
+        r#"{ "tools": [ { "tool": "google_sheets_write_to_cell", "mode": "read_write" } ],
+             "bound_resource": "SHEET1", "read_before_write": true }"#,
+    )
+    .unwrap();
+    let errors = validate_governance(&scalar, &sheets()).unwrap_err();
+    assert!(
+        errors.contains(&GovernanceError::ReadBeforeWriteWithoutBound {
+            tool: "google_sheets_write_to_cell".into()
+        })
+    );
 }

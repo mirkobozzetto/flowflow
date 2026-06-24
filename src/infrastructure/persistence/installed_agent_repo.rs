@@ -63,6 +63,35 @@ impl Database {
         .map_err(|e| format!("set agent active: {e}"))?;
         Ok(())
     }
+
+    /// Pin the per-install bound resource the user armed (e.g. `{"spreadsheet_id": "1Ab.."}`). The
+    /// builder merges it over the manifest's `governance.bound_resource`. Pass None to clear it.
+    pub fn set_agent_binding(
+        &self,
+        id: &str,
+        bound_json: Option<&str>,
+    ) -> Result<(), String> {
+        let conn = self.conn();
+        conn.execute(
+            "UPDATE installed_agents SET bound_json = ?2 WHERE id = ?1",
+            rusqlite::params![id, bound_json],
+        )
+        .map_err(|e| format!("set agent binding: {e}"))?;
+        Ok(())
+    }
+
+    /// The armed bound resource for an agent, parsed. None when unbound or the row is absent.
+    pub fn get_agent_binding(&self, id: &str) -> Option<serde_json::Value> {
+        let conn = self.conn();
+        let raw: Option<String> = conn
+            .query_row(
+                "SELECT bound_json FROM installed_agents WHERE id = ?1",
+                [id],
+                |row| row.get(0),
+            )
+            .ok()?;
+        serde_json::from_str(&raw?).ok()
+    }
 }
 
 fn row_to_installed_agent(

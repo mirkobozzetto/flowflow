@@ -31,7 +31,7 @@ No manual searching. No folders to dig through. Just talk, and find it later.
 - **Backup & restore** - export everything (notes, audio, vectors) as one archive via the share sheet, API keys and pairing secrets never leave the device; import is a validated, crash-safe atomic replace, and sync reconverges without resurrecting deleted notes
 - **RAG chat** - powered by [rig](https://github.com/0xPlaygrounds/rig): ask questions about your notes, get answers with tappable sources; hybrid search (BM25 + vector + RRF + LLM rerank), temporal queries, agent tools, and a per-conversation theme scope that is remembered when you come back
 - **Web search in chat** - flip a toggle and the chat queries the web via [Exa](https://exa.ai) in parallel with your notes; the two ranked lists are fused by Reciprocal Rank Fusion (rank, not score), so fresh web facts and your own notes land in one answer, with web sources in their own section that open in your browser
-- **External connectors** - link a service like Google Sheets and let the assistant act on it; every tool call passes a governed permission gate, enforced on-device *and* re-checked server-side, so the model can only do what the connector's contract allows (account-based, premium)
+- **External connectors** - link a service like Google Sheets and arm the assistant to one or several of your spreadsheets (pick from the list or paste a link); every tool call passes a governed permission gate, enforced on-device *and* re-checked server-side, so the model only acts on the sheets you armed and only as the connector's contract allows (account-based, premium)
 - **Save from chat** - keep any answer or a whole thread as a note: AI-titled, embedded for search, filed in the chat's own folder, with its web sources preserved and openable; saved notes render as clean markdown
 - **Note to chat** - jump from any note straight into the chat, already scoped to that note's theme, then one tap on the back arrow returns you to the exact note; the round trip works on iPhone and Mac
 - **Note threads** - group related notes into one titled, chronological thread you read top to bottom and append to in place; a thread needs at least two notes (a lone one stays a plain note), chat can be scoped to a single thread, and threads sync and back up like everything else
@@ -118,7 +118,7 @@ Everything beyond this page lives in [`docs/INDEX.md`](docs/INDEX.md):
 ## Tests
 
 ```bash
-cargo test                 # 285 tests
+cargo test                 # 364 tests
 cargo test -- --ignored    # API-key-gated integration tests
 ```
 

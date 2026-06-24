@@ -99,6 +99,25 @@ pub fn build_agent(manifest: &AgentManifest) -> Result<BuiltAgent, String> {
     })
 }
 
+/// Merge an arm-time binding over the manifest's `bound_resource`. The per-install value (e.g. the
+/// `spreadsheet_id` the user picked) wins key by key, so a manifest may pin a field the install can't
+/// override (a tab) while the install pins the resource the manifest left as a placeholder. A
+/// non-object on either side replaces wholesale. Called before `build_agent`, so validation and the
+/// gate see the real target, not the placeholder.
+pub fn merge_bound(
+    target: &mut Option<serde_json::Value>,
+    binding: serde_json::Value,
+) {
+    match (target.as_mut().and_then(|t| t.as_object_mut()), binding) {
+        (Some(base), serde_json::Value::Object(over)) => {
+            for (k, v) in over {
+                base.insert(k, v);
+            }
+        }
+        (_, binding) => *target = Some(binding),
+    }
+}
+
 fn preamble_for(manifest: &AgentManifest, conn: &ConnectorManifest) -> String {
     let summary = capability_summary(&manifest.governance, conn);
     if manifest.system_prompt.trim().is_empty() {

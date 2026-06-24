@@ -1,7 +1,9 @@
 // The manifest -> agent builder: it surfaces the model + governed tools + the real bound_resource +
 // the chain, and fails closed on an unarmed connector or governance that does not validate.
 
-use flowflow::application::agent_builder::{build_agent, capability_summary};
+use flowflow::application::agent_builder::{
+    build_agent, capability_summary, merge_bound,
+};
 use flowflow::domain::agent_manifest::parse_manifest;
 use flowflow::domain::governance::ConnectorManifest;
 use serde_json::json;
@@ -95,6 +97,32 @@ fn governance_referencing_unknown_tool_is_rejected() {
     let manifest = parse_manifest(&m).unwrap();
     let err = build_agent(&manifest).expect_err("unknown tool must fail");
     assert!(err.contains("governance invalid"), "got: {err}");
+}
+
+#[test]
+fn merge_bound_overlays_install_binding_over_manifest() {
+    // Arm-time binding wins key by key; a field only the manifest pins (tab) survives.
+    let mut target =
+        Some(json!({ "spreadsheet_id": "bound-at-install", "tab": "Clients" }));
+    merge_bound(&mut target, json!({ "spreadsheet_id": "1AbC" }));
+    assert_eq!(
+        target,
+        Some(json!({ "spreadsheet_id": "1AbC", "tab": "Clients" }))
+    );
+}
+
+#[test]
+fn merge_bound_sets_when_unbound() {
+    let mut target = None;
+    merge_bound(&mut target, json!({ "spreadsheet_id": "1AbC" }));
+    assert_eq!(target, Some(json!({ "spreadsheet_id": "1AbC" })));
+}
+
+#[test]
+fn merge_bound_replaces_non_object_wholesale() {
+    let mut target = Some(json!("placeholder"));
+    merge_bound(&mut target, json!({ "spreadsheet_id": "1AbC" }));
+    assert_eq!(target, Some(json!({ "spreadsheet_id": "1AbC" })));
 }
 
 #[test]

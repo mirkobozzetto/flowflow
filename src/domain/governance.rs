@@ -1,4 +1,4 @@
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, BTreeSet};
 
 use serde::{Deserialize, Serialize};
 
@@ -205,6 +205,8 @@ pub enum GovernanceError {
     UpsertMissingKeyColumns { tool: String },
     #[error("tool `{tool}`: read_before_write is on but no bound_resource pins the target")]
     ReadBeforeWriteWithoutBound { tool: String },
+    #[error("bound_resource field `{field}`: {reason}")]
+    MalformedBoundResource { field: String, reason: String },
 }
 
 pub fn parse_connector_manifest(
@@ -217,6 +219,29 @@ pub fn parse_governance(json: &str) -> serde_json::Result<Governance> {
     serde_json::from_str(json)
 }
 
+// Whether `bound_resource` actually pins a target: a non-empty object. An empty object pins nothing
+// (every call matches), so it does not count as a bound for the read_before_write floor.
+fn bound_pins(bound: Option<&serde_json::Value>) -> bool {
+    bound
+        .and_then(|b| b.as_object())
+        .is_some_and(|m| !m.is_empty())
+}
+
+// A pinned field value is well-formed when it is a string (scalar match) or a non-empty array of
+// strings (membership). Anything else (number, null, bool, object, mixed/empty array) would silently
+// deny calls at gate time, so it is rejected at install instead.
+fn bound_field_ok(v: &serde_json::Value) -> Result<(), &'static str> {
+    match v {
+        serde_json::Value::String(_) => Ok(()),
+        serde_json::Value::Array(arr) if arr.is_empty() => Err("empty array"),
+        serde_json::Value::Array(arr) if arr.iter().all(|e| e.is_string()) => {
+            Ok(())
+        }
+        serde_json::Value::Array(_) => Err("array must contain only strings"),
+        _ => Err("must be a string or a non-empty array of strings"),
+    }
+}
+
 // Validate every governed tool against a connector manifest (run on install, before arming an agent).
 // Collects ALL violations rather than failing at the first. Same call shape as the backend so they cannot
 // drift.
@@ -225,6 +250,34 @@ pub fn validate_governance(
     conn: &ConnectorManifest,
 ) -> Result<(), Vec<GovernanceError>> {
     let mut errors = Vec::new();
+
+    // Structural check of the bound: a present bound must be a non-empty object whose fields are each a
+    // string or a non-empty all-string array. A scalar/empty bound is caught here, not silently at runtime.
+    if let Some(bound) = &gov.bound_resource {
+        match bound.as_object() {
+            None => errors.push(GovernanceError::MalformedBoundResource {
+                field: "<root>".into(),
+                reason: "bound_resource must be an object".into(),
+            }),
+            Some(map) if map.is_empty() => {
+                errors.push(GovernanceError::MalformedBoundResource {
+                    field: "<root>".into(),
+                    reason: "bound_resource must pin at least one field".into(),
+                })
+            }
+            Some(map) => {
+                for (k, v) in map {
+                    if let Err(reason) = bound_field_ok(v) {
+                        errors.push(GovernanceError::MalformedBoundResource {
+                            field: k.clone(),
+                            reason: reason.into(),
+                        });
+                    }
+                }
+            }
+        }
+    }
+
     for tp in &gov.tools {
         let Some(ct) = conn.tool(&tp.tool) else {
             errors.push(GovernanceError::UnknownTool {
@@ -263,7 +316,7 @@ pub fn validate_governance(
         if ct.action.is_write()
             && tp.mode.allows(ct.action)
             && gov.read_before_write
-            && gov.bound_resource.is_none()
+            && !bound_pins(gov.bound_resource.as_ref())
         {
             errors.push(GovernanceError::ReadBeforeWriteWithoutBound {
                 tool: tp.tool.clone(),
@@ -316,7 +369,9 @@ pub struct RunState {
     pub per_tool: BTreeMap<String, u32>,
     pub steps: u32,
     pub elapsed_seconds: u64,
-    pub read_bound: bool,
+    // The resources read this run, keyed by `resource_key`. read_before_write checks the write's own
+    // resource is in here, so a read of one bound sheet never satisfies a write to another.
+    pub read_resources: BTreeSet<String>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -372,9 +427,9 @@ pub enum DenyReason {
     TimeBudget { max_seconds: u64 },
 }
 
-// bound_resource match = the call's args CONTAIN every pinned field with an equal value (args superset of
-// bound). Connector-agnostic: it pins the target without knowing the connector's arg schema. A bound that
-// is not an object pins nothing.
+// bound_resource match = the call's args CONTAIN every pinned field. A pinned scalar must equal the arg;
+// a pinned array means "one of" - the arg must be a member. Connector-agnostic: it pins the target(s)
+// without knowing the connector's arg schema. A bound that is not an object pins nothing.
 fn args_match_bound(
     args: &serde_json::Value,
     bound: &serde_json::Value,
@@ -383,9 +438,37 @@ fn args_match_bound(
         None => true,
         Some(pinned) => match args.as_object() {
             None => false,
-            Some(a) => pinned.iter().all(|(k, v)| a.get(k) == Some(v)),
+            Some(a) => pinned.iter().all(|(k, v)| match (a.get(k), v) {
+                (Some(av), serde_json::Value::Array(allowed)) => {
+                    allowed.contains(av)
+                }
+                (Some(av), scalar) => av == scalar,
+                (None, _) => false,
+            }),
         },
     }
+}
+
+// The canonical identity of the resource a call targets: the bound field NAMES pulled out of the call's
+// args, sorted (BTreeMap), serialized compact. Sorting closes a read-skip via reordered keys. Used to
+// track read_before_write per resource, so reading sheet X never unlocks a write to a sibling sheet Y.
+// A None/non-object bound yields the empty key, collapsing to the global "any read" behavior.
+fn resource_key(
+    args: &serde_json::Value,
+    bound: Option<&serde_json::Value>,
+) -> String {
+    let (Some(args), Some(bound)) =
+        (args.as_object(), bound.and_then(|b| b.as_object()))
+    else {
+        return String::new();
+    };
+    let mut key = BTreeMap::new();
+    for name in bound.keys() {
+        if let Some(val) = args.get(name) {
+            key.insert(name.clone(), val.clone());
+        }
+    }
+    serde_json::to_string(&key).unwrap_or_default()
 }
 
 // ---- per-call structural checks (shared by the gate; mirror the backend so the two seams cannot drift) ----
@@ -499,7 +582,12 @@ pub fn gate(
         return Decision::Deny(reason);
     }
 
-    if ct.action.is_write() && gov.read_before_write && !run.read_bound {
+    if ct.action.is_write()
+        && gov.read_before_write
+        && !run
+            .read_resources
+            .contains(&resource_key(&call.args, gov.bound_resource.as_ref()))
+    {
         return Decision::Deny(DenyReason::ReadBeforeWrite {
             tool: call.tool.clone(),
         });
@@ -540,7 +628,8 @@ pub fn gate(
     run.tool_calls += 1;
     *run.per_tool.entry(call.tool.clone()).or_insert(0) += 1;
     if ct.action == Action::Read {
-        run.read_bound = true;
+        run.read_resources
+            .insert(resource_key(&call.args, gov.bound_resource.as_ref()));
     }
     Decision::Allow
 }

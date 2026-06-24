@@ -74,3 +74,33 @@ fn active_toggles() {
     db.set_agent_active(FIXTURE_AGENT_ID, true).unwrap();
     assert!(db.get_installed_agent(FIXTURE_AGENT_ID).unwrap().active);
 }
+
+#[test]
+fn binding_roundtrips_and_clears() {
+    let (db, _dir) = open_test_db();
+    let verified = verify_package(FIXTURE_PACKAGE, ADMIN_PUBKEY).unwrap();
+    db.install_agent(&verified).unwrap();
+
+    assert!(db.get_agent_binding(FIXTURE_AGENT_ID).is_none());
+    let bound = serde_json::json!({ "spreadsheet_id": "1AbC" });
+    db.set_agent_binding(FIXTURE_AGENT_ID, Some(&bound.to_string()))
+        .unwrap();
+    assert_eq!(db.get_agent_binding(FIXTURE_AGENT_ID), Some(bound));
+
+    db.set_agent_binding(FIXTURE_AGENT_ID, None).unwrap();
+    assert!(db.get_agent_binding(FIXTURE_AGENT_ID).is_none());
+}
+
+#[test]
+fn reinstall_preserves_arm_time_binding() {
+    let (db, _dir) = open_test_db();
+    let verified = verify_package(FIXTURE_PACKAGE, ADMIN_PUBKEY).unwrap();
+    db.install_agent(&verified).unwrap();
+    let bound = serde_json::json!({ "spreadsheet_id": "1AbC" });
+    db.set_agent_binding(FIXTURE_AGENT_ID, Some(&bound.to_string()))
+        .unwrap();
+
+    // An update re-pins the manifest but must not wipe the sheet the user armed.
+    db.install_agent(&verified).unwrap();
+    assert_eq!(db.get_agent_binding(FIXTURE_AGENT_ID), Some(bound));
+}

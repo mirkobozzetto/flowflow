@@ -83,8 +83,10 @@ pub async fn run_chain(
         let state = chain.state(&name).expect("validated reachable state");
         base.set_elapsed(start.elapsed().as_secs());
 
+        // Coarse: blocks entry into a write state until SOME bound resource was read. The gate still
+        // enforces read-before-write per resource, denying a write to a sibling that was not itself read.
         if matches!(state.guard, Some(Guard::ReadBeforeWrite))
-            && !base.read_bound()
+            && !base.read_any()
         {
             trace.push(ChainStep {
                 state: name.clone(),
