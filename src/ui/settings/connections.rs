@@ -103,8 +103,8 @@ pub fn ConnectionsSettings() -> Element {
 
             if let Some(result) = test_result() {
                 div { class: "rounded-xl border border-stone-200 bg-warm-white p-3",
-                    p { class: "text-[11px] font-medium text-stone-500 mb-1", "agent path" }
-                    p { class: "text-xs text-stone-700 whitespace-pre-wrap break-words", "{result}" }
+                    p { class: "text-[11px] font-medium text-stone-500 mb-1", "agent path (long-press to copy)" }
+                    p { class: "selectable text-xs text-stone-700 whitespace-pre-wrap break-words", "{result}" }
                 }
             }
 
