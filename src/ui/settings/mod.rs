@@ -11,6 +11,12 @@ mod transcription;
 use crate::application::backup as backup_service;
 use crate::application::i18n::t;
 use crate::infrastructure::persistence::Database;
+use crate::ui::icons::{
+    IconArrowsClockwise, IconFloppyDisk, IconGlobeSimple, IconHardDrives,
+    IconHeadCircuit, IconKeyboard, IconMicrophone, IconPlugsConnected,
+    IconShieldCheck, IconUserCircle,
+};
+use crate::ui::kit::SECTION_LABEL;
 use crate::ui::{AppState, SettingsSection, View};
 use account::AccountSettings;
 use backup::BackupSettings;
@@ -33,8 +39,24 @@ pub fn SettingsView() -> Element {
         db().get_setting("sync_restored_pending").as_deref() == Some("true");
     let lang = (app.current_lang)();
 
+    let mut premium = use_signal(|| None::<bool>);
+    use_effect(move || {
+        spawn(async move {
+            let database = db();
+            if let Some(client) =
+                crate::infrastructure::backend::BackendClient::from_db(
+                    &database,
+                )
+            {
+                if let Ok(acc) = client.account(&database).await {
+                    premium.set(Some(acc.premium));
+                }
+            }
+        });
+    });
+
     rsx! {
-        div { class: "space-y-4 pb-20",
+        div { class: "space-y-5 pb-20",
             if let Some(ref err) = restore_error() {
                 div { class: "rounded-xl border border-ios-red/40 bg-ios-red/5 p-3",
                     p { class: "text-xs font-medium text-ios-red mb-1",
@@ -58,54 +80,71 @@ pub fn SettingsView() -> Element {
                     }
                 }
             }
-            div { class: "rounded-xl bg-warm-white border border-stone-200 divide-y divide-stone-100 overflow-hidden",
-                SectionRow {
-                    label: t(&lang, "settings-section-general"),
-                    section: SettingsSection::General,
-                }
-                SectionRow {
-                    label: t(&lang, "settings-section-account"),
-                    section: SettingsSection::Account,
-                }
-                SectionRow {
-                    label: t(&lang, "settings-section-intelligence"),
-                    section: SettingsSection::Intelligence,
-                }
-                SectionRow {
-                    label: t(&lang, "settings-section-transcription"),
-                    section: SettingsSection::Transcription,
-                }
+
+            SettingsGroup {
                 button {
-                    class: "w-full min-h-[44px] flex items-center justify-between px-4 py-3 text-left",
+                    class: ROW,
+                    onclick: move |_| {
+                        app.previous_view.set(Some(View::Settings));
+                        app.view.set(View::SettingsSection(SettingsSection::Account));
+                    },
+                    div { class: ICON_TILE, IconUserCircle { size: 17 } }
+                    span { class: "flex-1 text-sm font-medium text-stone-800",
+                        {t(&lang, "settings-section-account")}
+                    }
+                    if let Some(is_premium) = premium() {
+                        span {
+                            class: if is_premium { PREMIUM_PILL } else { FREE_PILL },
+                            {t(&lang, if is_premium { "account-premium" } else { "account-free" })}
+                        }
+                    }
+                    span { class: CHEVRON }
+                }
+                IconRow { label: t(&lang, "settings-section-connections"), section: SettingsSection::Connections,
+                    div { class: ICON_TILE, IconPlugsConnected { size: 17 } }
+                }
+            }
+
+            SettingsGroup { label: Some(t(&lang, "settings-group-intelligence")),
+                IconRow { label: t(&lang, "settings-section-intelligence"), section: SettingsSection::Intelligence,
+                    div { class: ICON_TILE, IconHeadCircuit { size: 17 } }
+                }
+                IconRow { label: t(&lang, "settings-section-transcription"), section: SettingsSection::Transcription,
+                    div { class: ICON_TILE, IconMicrophone { size: 17 } }
+                }
+            }
+
+            SettingsGroup { label: Some(t(&lang, "settings-group-data")),
+                button {
+                    class: ROW,
                     onclick: move |_| {
                         app.previous_view.set(Some(View::Settings));
                         app.view.set(View::SyncPairing);
                     },
-                    span { class: "text-sm font-medium text-stone-800",
+                    div { class: ICON_TILE, IconArrowsClockwise { size: 17 } }
+                    span { class: "flex-1 text-sm font-medium text-stone-800",
                         {t(&lang, "settings-sync-title")}
                     }
-                    span { class: "inline-block w-1.5 h-1.5 border-r-2 border-t-2 border-stone-400 rotate-45" }
+                    span { class: CHEVRON }
                 }
-                SectionRow {
-                    label: t(&lang, "settings-storage-title"),
-                    section: SettingsSection::Storage,
+                IconRow { label: t(&lang, "settings-storage-title"), section: SettingsSection::Storage,
+                    div { class: ICON_TILE, IconHardDrives { size: 17 } }
                 }
-                SectionRow {
-                    label: t(&lang, "settings-backup-title"),
-                    section: SettingsSection::Backup,
+                IconRow { label: t(&lang, "settings-backup-title"), section: SettingsSection::Backup,
+                    div { class: ICON_TILE, IconFloppyDisk { size: 17 } }
                 }
-                SectionRow {
-                    label: t(&lang, "settings-section-connections"),
-                    section: SettingsSection::Connections,
+                IconRow { label: t(&lang, "settings-section-privacy"), section: SettingsSection::Privacy,
+                    div { class: ICON_TILE, IconShieldCheck { size: 17 } }
                 }
-                SectionRow {
-                    label: t(&lang, "settings-section-privacy"),
-                    section: SettingsSection::Privacy,
+            }
+
+            SettingsGroup { label: Some(t(&lang, "settings-group-general")),
+                IconRow { label: t(&lang, "settings-section-general"), section: SettingsSection::General,
+                    div { class: ICON_TILE, IconGlobeSimple { size: 17 } }
                 }
                 if cfg!(target_os = "macos") {
-                    SectionRow {
-                        label: t(&lang, "settings-section-shortcuts"),
-                        section: SettingsSection::Shortcuts,
+                    IconRow { label: t(&lang, "settings-section-shortcuts"), section: SettingsSection::Shortcuts,
+                        div { class: ICON_TILE, IconKeyboard { size: 17 } }
                     }
                 }
             }
@@ -113,18 +152,52 @@ pub fn SettingsView() -> Element {
     }
 }
 
+const ICON_TILE: &str =
+    "w-7 h-7 rounded-lg bg-ios-orange-50 text-ios-orange flex items-center justify-center shrink-0";
+const ROW: &str =
+    "w-full min-h-[44px] flex items-center gap-3 px-4 py-3 text-left active:bg-stone-100 transition-colors";
+const CHEVRON: &str =
+    "inline-block w-1.5 h-1.5 border-r-2 border-t-2 border-stone-400 rotate-45 shrink-0";
+const PREMIUM_PILL: &str =
+    "text-[11px] font-semibold text-ios-orange-dark bg-ios-orange-50 border border-ios-orange-100 px-2 py-0.5 rounded-md mr-2";
+const FREE_PILL: &str =
+    "text-[11px] font-medium text-stone-500 bg-stone-100 px-2 py-0.5 rounded-md mr-2";
+
 #[component]
-fn SectionRow(label: String, section: SettingsSection) -> Element {
+fn SettingsGroup(
+    #[props(default)] label: Option<String>,
+    children: Element,
+) -> Element {
+    rsx! {
+        div {
+            if let Some(label) = label {
+                p { class: format!("{SECTION_LABEL} mb-1.5 ml-3"), "{label}" }
+            }
+            div { class: "rounded-xl bg-warm-white border border-stone-200 divide-y divide-stone-100 overflow-hidden",
+                {children}
+            }
+        }
+    }
+}
+
+// One navigable settings row: the icon tile (passed as children), the label, then a chevron.
+#[component]
+fn IconRow(
+    label: String,
+    section: SettingsSection,
+    children: Element,
+) -> Element {
     let mut app: AppState = use_context();
     rsx! {
         button {
-            class: "w-full min-h-[44px] flex items-center justify-between px-4 py-3 text-left",
+            class: ROW,
             onclick: move |_| {
                 app.previous_view.set(Some(View::Settings));
                 app.view.set(View::SettingsSection(section));
             },
-            span { class: "text-sm font-medium text-stone-800", "{label}" }
-            span { class: "inline-block w-1.5 h-1.5 border-r-2 border-t-2 border-stone-400 rotate-45" }
+            {children}
+            span { class: "flex-1 text-sm font-medium text-stone-800", "{label}" }
+            span { class: CHEVRON }
         }
     }
 }

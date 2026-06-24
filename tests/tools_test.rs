@@ -1,7 +1,7 @@
 use flowflow::application::tools::{
-    CreateNote, CreateNoteArgs, CreateNoteResult, SearchNotesArgs,
-    SearchNotesHit, SummarizeFolderArgs, SummarizeFolderResult, ToolEvent,
-    ToolFailure, ToolStatusHook,
+    ContractHook, CreateNote, CreateNoteArgs, CreateNoteResult,
+    SearchNotesArgs, SearchNotesHit, SummarizeFolderArgs,
+    SummarizeFolderResult, ToolEvent, ToolFailure,
 };
 use rig::tool::Tool;
 use tokio::sync::mpsc;
@@ -219,14 +219,14 @@ fn test_tool_event_is_send_sync() {
 }
 
 #[test]
-fn test_tool_status_hook_is_send_sync() {
+fn test_contract_hook_is_send_sync() {
     fn assert_send_sync<T: Send + Sync>() {}
-    assert_send_sync::<ToolStatusHook>();
+    assert_send_sync::<ContractHook>();
 }
 
 #[test]
-fn test_tool_status_hook_is_clone() {
+fn test_contract_hook_is_clone() {
     let (tx, _rx) = mpsc::unbounded_channel::<ToolEvent>();
-    let hook = ToolStatusHook::new(tx);
+    let hook = ContractHook::new(tx);
     let _cloned = hook.clone();
 }

@@ -5,12 +5,17 @@
 
 use crate::infrastructure::backend::{BackendClient, BackendError};
 use crate::infrastructure::persistence::Database;
+use reqwest::header::{HeaderName, HeaderValue};
 use rmcp::model::{ClientCapabilities, ClientInfo, Implementation, Tool};
 use rmcp::service::{RunningService, ServerSink};
 use rmcp::transport::streamable_http_client::StreamableHttpClientTransportConfig;
 use rmcp::transport::StreamableHttpClientTransport;
 use rmcp::RoleClient;
 use rmcp::ServiceExt;
+use std::collections::HashMap;
+
+// The agent-scoped proxy binds connector access to the entitled agent driving the call.
+const AGENT_ID_HEADER: &str = "x-agent-id";
 
 pub struct McpRegistry {
     tools: Vec<Tool>,
@@ -22,17 +27,55 @@ pub struct McpRegistry {
 }
 
 impl McpRegistry {
-    /// Connect to the backend MCP proxy with the device session bearer, list its tools.
-    /// `auth_header(token)` makes rmcp send `Authorization: Bearer {token}` on every leg
-    /// (POST and the device's own SSE leg), which is the session the proxy validates.
+    /// Connect to the legacy single MCP proxy (`{backend}/v1/mcp`) with the device session
+    /// bearer. The un-scoped route carries no agent context (the chat agent's path).
     pub async fn connect(
         db: &Database,
         backend: &BackendClient,
     ) -> Result<Self, BackendError> {
+        Self::connect_inner(db, backend, backend.mcp_url(), None).await
+    }
+
+    /// Connect to the agent-scoped proxy (`{backend}/v1/connectors/{slug}/mcp`) with the
+    /// device session bearer AND `x-agent-id`, so the backend applies that agent's
+    /// governance gate. `slug` is the connector id (`google`), `agent_id` the entitled agent.
+    pub async fn connect_agent(
+        db: &Database,
+        backend: &BackendClient,
+        slug: &str,
+        agent_id: &str,
+    ) -> Result<Self, BackendError> {
+        Self::connect_inner(
+            db,
+            backend,
+            backend.connector_mcp_url(slug),
+            Some(agent_id),
+        )
+        .await
+    }
+
+    /// `auth_header(token)` makes rmcp send `Authorization: Bearer {token}` on every leg
+    /// (POST and the device's own SSE leg), which is the session the proxy validates. When
+    /// `agent_id` is set, `x-agent-id` rides alongside it so the agent-scoped route resolves.
+    async fn connect_inner(
+        db: &Database,
+        backend: &BackendClient,
+        url: String,
+        agent_id: Option<&str>,
+    ) -> Result<Self, BackendError> {
         let token = backend.session(db).await?;
-        let config =
-            StreamableHttpClientTransportConfig::with_uri(backend.mcp_url())
-                .auth_header(token);
+        let mut config = StreamableHttpClientTransportConfig::with_uri(url)
+            .auth_header(token);
+        if let Some(agent_id) = agent_id {
+            let mut headers = HashMap::new();
+            headers.insert(
+                HeaderName::from_static(AGENT_ID_HEADER),
+                HeaderValue::from_str(agent_id).map_err(|e| {
+                    BackendError::Network(format!("x-agent-id header: {e}"))
+                })?,
+            );
+            config = config.custom_headers(headers);
+        }
         let transport = StreamableHttpClientTransport::from_config(config);
 
         let client_info = ClientInfo::new(

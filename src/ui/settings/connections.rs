@@ -24,6 +24,8 @@ pub fn ConnectionsSettings() -> Element {
     let mut status: Signal<Option<String>> = use_signal(|| None);
     let mut busy = use_signal(|| false);
     let mut reload = use_signal(|| 0u32);
+    // The spreadsheet list returned through the gated agent path.
+    let mut test_result: Signal<Option<String>> = use_signal(|| None);
 
     use_effect(move || {
         let _trigger = reload();
@@ -99,6 +101,13 @@ pub fn ConnectionsSettings() -> Element {
                 }
             }
 
+            if let Some(result) = test_result() {
+                div { class: "rounded-xl border border-stone-200 bg-warm-white p-3",
+                    p { class: "text-[11px] font-medium text-stone-500 mb-1", "agent path" }
+                    p { class: "text-xs text-stone-700 whitespace-pre-wrap break-words", "{result}" }
+                }
+            }
+
             if connectors().is_empty() {
                 p { class: "text-xs text-stone-400", {t(&lang, "connections-empty")} }
             } else {
@@ -106,13 +115,19 @@ pub fn ConnectionsSettings() -> Element {
                     for c in connectors() {
                         div {
                             key: "{c.provider}",
-                            class: "min-h-[64px] px-4 py-3 flex items-center gap-3",
-                            // Catalogue is backend-driven, so the connector identity is derived
-                            // from its name. Swap this tile for per-brand logos once the backend
-                            // catalogue ships icon assets.
-                            div { class: "w-10 h-10 shrink-0 rounded-xl bg-ios-orange-50 flex items-center justify-center",
-                                span { class: "text-ios-orange-dark font-semibold text-base",
-                                    {c.name.chars().next().map(|ch| ch.to_uppercase().to_string()).unwrap_or_default()}
+                            class: "px-4 py-3",
+                            div { class: "min-h-[44px] flex items-center gap-3",
+                            // Real brand logo for known providers, first-letter fallback otherwise.
+                            div { class: "w-10 h-10 shrink-0 rounded-xl bg-white border border-stone-200 flex items-center justify-center overflow-hidden",
+                                {
+                                    match c.provider.as_str() {
+                                        "google" => rsx! { crate::ui::icons::IconGoogleSheets { size: 24 } },
+                                        _ => rsx! {
+                                            span { class: "text-stone-600 font-semibold text-base",
+                                                {c.name.chars().next().map(|ch| ch.to_uppercase().to_string()).unwrap_or_default()}
+                                            }
+                                        },
+                                    }
                                 }
                             }
                             div { class: "flex-1 min-w-0",
@@ -187,6 +202,57 @@ pub fn ConnectionsSettings() -> Element {
                                         }
                                     },
                                     {t(&lang, "connections-connect")}
+                                }
+                            }
+                            }
+                            // Temporary dev triggers for the gated agent path; the activation UI replaces them.
+                            if c.connected && c.provider == "google" {
+                                div { class: "mt-2 flex items-center gap-2 pl-[52px]",
+                                    span { class: "text-[11px] text-stone-400 shrink-0", "Debug" }
+                                    button {
+                                        class: crate::ui::kit::PILL_GHOST,
+                                        disabled: busy(),
+                                        onclick: move |_| {
+                                            if busy() { return; }
+                                            busy.set(true);
+                                            status.set(None);
+                                            test_result.set(Some("Running...".to_string()));
+                                            spawn(async move {
+                                                let database = db();
+                                                match crate::application::connector_module::list_spreadsheets(&database).await {
+                                                    Ok(text) => test_result.set(Some(text)),
+                                                    Err(e) => {
+                                                        test_result.set(None);
+                                                        status.set(Some(e));
+                                                    }
+                                                }
+                                                busy.set(false);
+                                            });
+                                        },
+                                        "Test list"
+                                    }
+                                    button {
+                                        class: crate::ui::kit::PILL_GHOST,
+                                        disabled: busy(),
+                                        onclick: move |_| {
+                                            if busy() { return; }
+                                            busy.set(true);
+                                            status.set(None);
+                                            test_result.set(Some("Running chain...".to_string()));
+                                            spawn(async move {
+                                                let database = db();
+                                                match crate::application::connector_module::run_sync_chain(&database).await {
+                                                    Ok(text) => test_result.set(Some(text)),
+                                                    Err(e) => {
+                                                        test_result.set(None);
+                                                        status.set(Some(e));
+                                                    }
+                                                }
+                                                busy.set(false);
+                                            });
+                                        },
+                                        "Test chain"
+                                    }
                                 }
                             }
                         }
