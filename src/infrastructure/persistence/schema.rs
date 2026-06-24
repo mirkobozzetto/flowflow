@@ -12,7 +12,31 @@ pub const MIGRATIONS: &[(i64, &str)] = &[
     (11, V11_SCHEMA),
     (12, V12_SCHEMA),
     (13, V13_SCHEMA),
+    (14, V14_SCHEMA),
+    (15, V15_SCHEMA),
 ];
+
+// Pinned, signed agents (RFC 0010). `manifest_json` is the canonical-JSON form the pinned
+// `content_digest` was computed over: the row is verified by recomputing that digest, never
+// re-interpreted by an LLM. `active` reflects the account link; an agent can be installed but off.
+const V14_SCHEMA: &str = "
+CREATE TABLE IF NOT EXISTS installed_agents (
+    id TEXT PRIMARY KEY,
+    version TEXT NOT NULL,
+    content_digest TEXT NOT NULL,
+    manifest_json TEXT NOT NULL,
+    installed_at TEXT NOT NULL
+        DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')),
+    active INTEGER NOT NULL DEFAULT 1
+);
+";
+
+// Per-install resource binding chosen at arm time (RFC 0010). NULL = unbound, so the manifest's
+// placeholder bound stands and off-bound writes stay refused. Survives a re-pin: install_agent never
+// touches this column, so updating an agent keeps the sheet the user armed it to.
+const V15_SCHEMA: &str = "
+ALTER TABLE installed_agents ADD COLUMN bound_json TEXT;
+";
 
 const V12_SCHEMA: &str = "
 ALTER TABLE notes ADD COLUMN sources_json TEXT;

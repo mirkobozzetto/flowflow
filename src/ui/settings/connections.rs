@@ -24,6 +24,22 @@ pub fn ConnectionsSettings() -> Element {
     let mut status: Signal<Option<String>> = use_signal(|| None);
     let mut busy = use_signal(|| false);
     let mut reload = use_signal(|| 0u32);
+    // The spreadsheet list returned through the gated agent path.
+    let mut test_result: Signal<Option<String>> = use_signal(|| None);
+    // Arm-time binding: the sheets offered for selection, and the ones the agent is currently armed to.
+    let mut sheets: Signal<
+        Vec<crate::application::connector_module::Spreadsheet>,
+    > = use_signal(Vec::new);
+    let mut bindings = use_signal(|| {
+        crate::application::connector_module::current_bindings(&db())
+    });
+    let mut listing = use_signal(|| false);
+    // Arm by pasting a sheet URL, an alternative to picking from the listed sheets.
+    let mut url_input = use_signal(String::new);
+    // The agent-sheets accordion starts open when nothing is armed yet, to guide the first arming.
+    let mut sheets_open = use_signal(|| {
+        crate::application::connector_module::current_bindings(&db()).is_empty()
+    });
 
     use_effect(move || {
         let _trigger = reload();
@@ -39,6 +55,19 @@ pub fn ConnectionsSettings() -> Element {
                     Err(e) => status.set(Some(e.to_string())),
                 },
             }
+        });
+    });
+
+    // Heal any armed sheet still showing its id (a legacy bind, or a URL bind made before the title was
+    // resolvable) by resolving the real title in the background, once on mount.
+    use_effect(move || {
+        spawn(async move {
+            let updated =
+                crate::application::connector_module::resolve_missing_names(
+                    &db(),
+                )
+                .await;
+            bindings.set(updated);
         });
     });
 
@@ -99,6 +128,13 @@ pub fn ConnectionsSettings() -> Element {
                 }
             }
 
+            if let Some(result) = test_result() {
+                div { class: "rounded-xl border border-stone-200 bg-warm-white p-3",
+                    p { class: "text-[11px] font-medium text-stone-500 mb-1", {t(&lang, "connections-agent-path")} }
+                    p { class: "selectable text-xs text-stone-700 whitespace-pre-wrap break-words", "{result}" }
+                }
+            }
+
             if connectors().is_empty() {
                 p { class: "text-xs text-stone-400", {t(&lang, "connections-empty")} }
             } else {
@@ -106,13 +142,19 @@ pub fn ConnectionsSettings() -> Element {
                     for c in connectors() {
                         div {
                             key: "{c.provider}",
-                            class: "min-h-[64px] px-4 py-3 flex items-center gap-3",
-                            // Catalogue is backend-driven, so the connector identity is derived
-                            // from its name. Swap this tile for per-brand logos once the backend
-                            // catalogue ships icon assets.
-                            div { class: "w-10 h-10 shrink-0 rounded-xl bg-ios-orange-50 flex items-center justify-center",
-                                span { class: "text-ios-orange-dark font-semibold text-base",
-                                    {c.name.chars().next().map(|ch| ch.to_uppercase().to_string()).unwrap_or_default()}
+                            class: "px-4 py-3",
+                            div { class: "min-h-[44px] flex items-center gap-3",
+                            // Real brand logo for known providers, first-letter fallback otherwise.
+                            div { class: "w-10 h-10 shrink-0 rounded-xl bg-white border border-stone-200 flex items-center justify-center overflow-hidden",
+                                {
+                                    match c.provider.as_str() {
+                                        "google" => rsx! { crate::ui::icons::IconGoogleSheets { size: 24 } },
+                                        _ => rsx! {
+                                            span { class: "text-stone-600 font-semibold text-base",
+                                                {c.name.chars().next().map(|ch| ch.to_uppercase().to_string()).unwrap_or_default()}
+                                            }
+                                        },
+                                    }
                                 }
                             }
                             div { class: "flex-1 min-w-0",
@@ -189,11 +231,228 @@ pub fn ConnectionsSettings() -> Element {
                                     {t(&lang, "connections-connect")}
                                 }
                             }
+                            }
+                            // Arm the agent to its spreadsheets (multi-bind), then validate a bound run.
+                            if c.connected && c.provider == "google" {
+                                div { class: "mt-3 pl-[52px]",
+                                    button {
+                                        class: "w-full flex items-center justify-between min-h-[40px] text-left",
+                                        onclick: move |_| sheets_open.set(!sheets_open()),
+                                        div { class: "flex items-center gap-2",
+                                            p { class: "text-[11px] font-medium text-stone-500", {t(&lang, "connections-agent-sheets")} }
+                                            if !bindings().is_empty() {
+                                                span { class: "text-[10px] font-medium text-ios-orange bg-ios-orange-50 rounded-full px-1.5 py-0.5", "{bindings().len()}" }
+                                            }
+                                        }
+                                        span {
+                                            class: "text-stone-400 text-sm leading-none",
+                                            style: if sheets_open() {
+                                                "transform: rotate(90deg); transition: transform 0.18s ease;"
+                                            } else {
+                                                "transition: transform 0.18s ease;"
+                                            },
+                                            "›"
+                                        }
+                                    }
+
+                                    if sheets_open() {
+                                        div { class: "mt-3 space-y-3", style: "animation: fadeInUp 0.18s ease-out;",
+
+                                            if bindings().is_empty() {
+                                                p { class: "text-xs text-stone-400", {t(&lang, "connections-no-sheet")} }
+                                            } else {
+                                                div { class: "rounded-xl bg-warm-white border border-stone-200 divide-y divide-stone-100 overflow-hidden",
+                                                    for (id, name) in bindings() {
+                                                        div { key: "{id}", class: "p-3 space-y-2", style: "animation: fadeInUp 0.18s ease-out;",
+                                                            div { class: "flex items-center gap-2",
+                                                                span { class: "w-1.5 h-1.5 shrink-0 rounded-full bg-ios-green" }
+                                                                p { class: "flex-1 min-w-0 text-sm font-medium text-stone-800 truncate", "{name}" }
+                                                            }
+                                                            code { class: "block text-[10px] font-mono text-stone-400 truncate", "{id}" }
+                                                            div { class: "flex items-center gap-2",
+                                                                button {
+                                                                    class: crate::ui::kit::PILL_GHOST,
+                                                                    onclick: {
+                                                                        let id = id.clone();
+                                                                        move |_| crate::infrastructure::platform::open_url(&sheet_url(&id))
+                                                                    },
+                                                                    {t(&lang, "connections-open")}
+                                                                }
+                                                                button {
+                                                                    class: crate::ui::kit::PILL_GHOST,
+                                                                    onclick: {
+                                                                        let id = id.clone();
+                                                                        move |_| {
+                                                                            match crate::application::connector_module::unbind_spreadsheet(&db(), &id) {
+                                                                                Ok(()) => { bindings.set(crate::application::connector_module::current_bindings(&db())); status.set(None); }
+                                                                                Err(e) => status.set(Some(e)),
+                                                                            }
+                                                                        }
+                                                                    },
+                                                                    {t(&lang, "connections-disarm")}
+                                                                }
+                                                            }
+                                                        }
+                                                    }
+                                                }
+
+                                                button {
+                                                    class: crate::ui::kit::PILL_GHOST,
+                                                    disabled: busy(),
+                                                    onclick: {
+                                                        let lang = lang.clone();
+                                                        move |_| {
+                                                            if busy() { return; }
+                                                            busy.set(true);
+                                                            status.set(None);
+                                                            test_result.set(Some(t(&lang, "connections-running")));
+                                                            spawn(async move {
+                                                                match crate::application::connector_module::run_sync_chain(&db()).await {
+                                                                    Ok(text) => test_result.set(Some(text)),
+                                                                    Err(e) => { test_result.set(None); status.set(Some(e)); }
+                                                                }
+                                                                busy.set(false);
+                                                            });
+                                                        }
+                                                    },
+                                                    {t(&lang, "connections-test-run")}
+                                                }
+                                            }
+
+                                            div { class: "pt-1 border-t border-stone-100 space-y-2",
+                                                button {
+                                                    class: crate::ui::kit::PILL_GHOST,
+                                                    disabled: listing(),
+                                                    onclick: move |_| {
+                                                        if listing() { return; }
+                                                        listing.set(true);
+                                                        status.set(None);
+                                                        spawn(async move {
+                                                            match crate::application::connector_module::arm_list_spreadsheets(&db()).await {
+                                                                Ok(list) => sheets.set(list),
+                                                                Err(e) => status.set(Some(e)),
+                                                            }
+                                                            listing.set(false);
+                                                        });
+                                                    },
+                                                    if listing() {
+                                                        span { class: "inline-block w-3 h-3 mr-2 border-2 border-stone-400 border-t-transparent rounded-full animate-spin" }
+                                                        {t(&lang, "connections-reading")}
+                                                    } else if bindings().is_empty() {
+                                                        {t(&lang, "connections-choose-sheet")}
+                                                    } else {
+                                                        {t(&lang, "connections-add-sheet")}
+                                                    }
+                                                }
+
+                                                if !sheets().is_empty() {
+                                                    div { class: "rounded-xl bg-warm-white border border-stone-200 divide-y divide-stone-100 overflow-hidden",
+                                                        for s in sheets() {
+                                                            div {
+                                                                key: "{s.id}",
+                                                                class: "flex items-stretch",
+                                                                style: "animation: fadeInUp 0.18s ease-out;",
+                                                                button {
+                                                                    class: "flex-1 min-w-0 text-left px-3 py-2 min-h-[44px] flex items-center gap-2 active:bg-stone-50 transition-colors",
+                                                                    onclick: {
+                                                                        let id = s.id.clone();
+                                                                        let name = s.name.clone();
+                                                                        move |_| {
+                                                                            match crate::application::connector_module::bind_spreadsheet(&db(), &id, &name) {
+                                                                                Ok(()) => {
+                                                                                    bindings.set(crate::application::connector_module::current_bindings(&db()));
+                                                                                    status.set(None);
+                                                                                }
+                                                                                Err(e) => status.set(Some(e)),
+                                                                            }
+                                                                        }
+                                                                    },
+                                                                    if bindings().iter().any(|(bid, _)| bid == &s.id) {
+                                                                        span { class: "text-ios-green shrink-0 text-xs", "✓" }
+                                                                    }
+                                                                    div { class: "min-w-0",
+                                                                        p { class: "text-xs text-stone-700 truncate", "{s.name}" }
+                                                                        if !s.modified_at.is_empty() {
+                                                                            p { class: "text-[10px] text-stone-400 truncate", {short_date(&s.modified_at)} }
+                                                                        }
+                                                                    }
+                                                                }
+                                                                button {
+                                                                    class: "shrink-0 px-3 flex items-center text-[11px] text-stone-400 border-l border-stone-100 active:bg-stone-50 transition-colors",
+                                                                    onclick: {
+                                                                        let id = s.id.clone();
+                                                                        move |_| crate::infrastructure::platform::open_url(&sheet_url(&id))
+                                                                    },
+                                                                    {t(&lang, "connections-open")}
+                                                                }
+                                                            }
+                                                        }
+                                                    }
+                                                }
+
+                                                p { class: "text-[11px] text-stone-400 leading-relaxed pt-1",
+                                                    {t(&lang, "connections-sheet-url-hint")}
+                                                }
+                                                button {
+                                                    class: crate::ui::kit::PILL_GHOST,
+                                                    onclick: move |_| crate::infrastructure::platform::open_url(SHEETS_HOME),
+                                                    {t(&lang, "connections-open-sheets")}
+                                                }
+                                                div { class: "flex items-center gap-2",
+                                                    input {
+                                                        class: format!("{} flex-1 min-w-0", crate::ui::kit::INPUT),
+                                                        r#type: "url",
+                                                        placeholder: t(&lang, "connections-sheet-url-placeholder"),
+                                                        value: "{url_input}",
+                                                        oninput: move |evt| url_input.set(evt.value()),
+                                                    }
+                                                    button {
+                                                        class: crate::ui::kit::PILL_PRIMARY,
+                                                        disabled: busy(),
+                                                        onclick: move |_| {
+                                                            let url = url_input().trim().to_string();
+                                                            if url.is_empty() { return; }
+                                                            status.set(None);
+                                                            spawn(async move {
+                                                                match crate::application::connector_module::bind_spreadsheet_from_url(&db(), &url).await {
+                                                                    Ok(()) => {
+                                                                        bindings.set(crate::application::connector_module::current_bindings(&db()));
+                                                                        url_input.set(String::new());
+                                                                    }
+                                                                    Err(e) => status.set(Some(e)),
+                                                                }
+                                                            });
+                                                        },
+                                                        {t(&lang, "connections-bind")}
+                                                    }
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                            }
                         }
                     }
                 }
             }
         }
+    }
+}
+
+fn sheet_url(id: &str) -> String {
+    format!("https://docs.google.com/spreadsheets/d/{id}/edit")
+}
+
+// The Sheets start page lists every spreadsheet the user owns, so they can open it, copy a sheet's
+// URL, and paste it back to bind without the agent round-trip.
+const SHEETS_HOME: &str = "https://docs.google.com/spreadsheets/u/0/";
+
+// ISO 8601 -> "YYYY-MM-DD HH:MM" so two same-named sheets are told apart. ASCII, so byte slicing is safe.
+fn short_date(iso: &str) -> String {
+    if iso.len() >= 16 {
+        format!("{} {}", &iso[..10], &iso[11..16])
+    } else {
+        iso.to_string()
     }
 }
 

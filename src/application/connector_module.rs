@@ -1,0 +1,515 @@
+// Runs one installed, pinned agent end to end: verifies + pins a signed package on first use, builds
+// the agent from its manifest (governance, chain, preamble, the real bound_resource), dials the
+// agent-scoped MCP route with x-agent-id, and enforces the governance gate on-device. The contract is
+// no longer hardcoded here - it comes from the manifest the builder resolves.
+
+use crate::application::agent_builder::{build_agent, merge_bound, BuiltAgent};
+use crate::application::chain::{run_chain, ChainOutcome};
+use crate::domain::agent_manifest::{
+    digest_of_stored, parse_manifest, verify_package, ADMIN_PUBKEY,
+};
+use crate::infrastructure::backend::BackendClient;
+use crate::infrastructure::mcp::McpRegistry;
+use crate::infrastructure::persistence::Database;
+use rmcp::model::CallToolRequestParams;
+
+// The arm-time tool: lists the connector's spreadsheets so the user can pick one. `search` on the
+// resource, so the governance gate never bound-checks it - listing works before anything is armed.
+const LIST_TOOL: &str = "google_sheets_list_spreadsheets";
+
+// `pub` so the contract-lock test verifies the shipped fixture against the pinned key and builds it.
+// Must equal the manifest `id` AND the backend catalog id (seed_catalog: `agent-crm-sync`), since it
+// travels as x-agent-id; an id the backend has not granted is rejected 403 at the proxy.
+pub const FIXTURE_AGENT_ID: &str = "agent-crm-sync";
+const SYNC_CHAIN_NAME: &str = "sync";
+
+// The trigger UI's input for the chain run; the user's goal, not part of the pinned contract.
+const SYNC_GOAL: &str =
+    "List my spreadsheets, open the most relevant one, and report what it contains.";
+
+// A signed agent package shipped with the app to prove the install -> verify -> pin -> build -> run
+// path on device without backend install plumbing. The signature is over the canonical digest of the
+// manifest, made offline with the dev admin key whose public half is pinned in `ADMIN_PUBKEY`.
+// ponytail: `bound_resource.spreadsheet_id` is a placeholder; to bind a real sheet, edit the manifest,
+// rerun `cargo test -p flowflow --test agent_manifest_test gen_fixture -- --ignored --nocapture`, and
+// paste the new content_digest + signature below. Until then off-bound reads/writes are refused, so
+// only the read-only `find` state runs live - exactly the M1.14 safe state.
+pub const FIXTURE_PACKAGE: &str = r#"{
+  "manifest": {
+    "schema_version": "1",
+    "id": "agent-crm-sync",
+    "version": "1.0.0",
+    "name": "CRM Sync",
+    "description": "Use when the user wants to read or update their client/prospect spreadsheet. Do NOT use for general questions or the calendar.",
+    "author": "flowflow-admin",
+    "alias": "synchro-clients",
+    "model": "gpt-4o",
+    "temperature": 0.1,
+    "required_connectors": [
+      { "type": "tabular_store", "capabilities": ["search", "read", "update"] }
+    ],
+    "system_prompt": "You keep the user's client spreadsheet tidy. Read before you write, and act only on the bound sheet.",
+    "governance": {
+      "tools": [
+        { "tool": "google_sheets_list_spreadsheets", "mode": "read_only" },
+        { "tool": "google_sheets_get_spreadsheet",   "mode": "read_only" },
+        { "tool": "google_sheets_write_to_cell",     "mode": "read_write" }
+      ],
+      "bound_resource": { "spreadsheet_id": "bound-at-install" },
+      "read_before_write": true,
+      "deny_destructive": true,
+      "limits": { "max_steps": 6, "max_tool_calls": 30 }
+    },
+    "orchestration": {
+      "chains": {
+        "sync": {
+          "initial": "find",
+          "states": {
+            "find":   { "allowed_tools": ["google_sheets_list_spreadsheets"], "on_done": "read" },
+            "read":   { "allowed_tools": ["google_sheets_get_spreadsheet"], "on_done": "act" },
+            "act":    { "allowed_tools": ["google_sheets_write_to_cell"], "guard": "read_before_write", "on_done": "answer" },
+            "answer": { "terminal": true }
+          }
+        }
+      }
+    }
+  },
+  "content_digest": "sha256:b6a684ce863b9b8cb8c7b941fe55be911fb07198e52d1efac2bf7c45c975fd20",
+  "signature": "ed25519:2TosOZou18cjSkc+jC+7NQA0ewfv1F6JH/HgzYr9XnWYXmslDwASg6jkPq0Gx4d4aUx+6yOSXQ7lMEsgiv+JCA==",
+  "signer_key_id": "dev-admin",
+  "status": "published"
+}"#;
+
+/// Drive the installed agent's pinned `sync` chain through the FSM runtime and return a per-state
+/// trace for the trigger UI.
+pub async fn run_sync_chain(db: &Database) -> Result<String, String> {
+    let built = load_built(db)?;
+    let chain = built
+        .chains
+        .get(SYNC_CHAIN_NAME)
+        .ok_or_else(|| format!("manifest has no `{SYNC_CHAIN_NAME}` chain"))?;
+    let outcome = run_chain(
+        db,
+        chain,
+        built.governance.clone(),
+        built.connector.clone(),
+        &built.slug,
+        &built.agent_id,
+        SYNC_GOAL,
+    )
+    .await
+    .map_err(|e| e.to_string())?;
+    Ok(format_outcome(&outcome))
+}
+
+// One spreadsheet the user can arm the agent to. `modified_at` disambiguates same-named sheets (the
+// app itself can create duplicates), shown as a human date in the arm list.
+#[derive(Debug, Clone, PartialEq)]
+pub struct Spreadsheet {
+    pub id: String,
+    pub name: String,
+    pub modified_at: String,
+}
+
+/// Arm-time: list the user's spreadsheets through the gated agent path so they can pick the one to
+/// bind. Calls the read-only `list` tool directly (no LLM) so the ids are exact, not narrated.
+pub async fn arm_list_spreadsheets(
+    db: &Database,
+) -> Result<Vec<Spreadsheet>, String> {
+    let built = load_built(db)?;
+    let backend = BackendClient::from_db(db)
+        .ok_or("no backend configured".to_string())?;
+    let reg =
+        McpRegistry::connect_agent(db, &backend, &built.slug, &built.agent_id)
+            .await
+            .map_err(|e| format!("mcp connect: {e}"))?;
+    let result = reg
+        .peer()
+        .call_tool(CallToolRequestParams::new(LIST_TOOL))
+        .await
+        .map_err(|e| format!("list spreadsheets: {e}"))?;
+    Ok(parse_spreadsheets(&result_json(&result)))
+}
+
+// The bound field the agent pins: a JSON array of armed spreadsheet ids. The gate matches a call when
+// its spreadsheet_id is a member, so the agent may act on any armed sheet (RFC 0011).
+const BOUND_FIELD: &str = "spreadsheet_id";
+// Display names live OUTSIDE bound_resource (a name key there would make the gate require it in every
+// call's args and deny everything). A JSON map id->name keeps the bound minimal and the UI human.
+const ARMED_NAMES_KEY: &str = "armed_sheet_names";
+
+fn read_names(db: &Database) -> serde_json::Map<String, serde_json::Value> {
+    db.get_setting(ARMED_NAMES_KEY)
+        .and_then(|s| serde_json::from_str(&s).ok())
+        .unwrap_or_default()
+}
+
+fn write_names(
+    db: &Database,
+    names: &serde_json::Map<String, serde_json::Value>,
+) {
+    let _ = db.set_setting(
+        ARMED_NAMES_KEY,
+        &serde_json::Value::Object(names.clone()).to_string(),
+    );
+}
+
+// The armed ids, tolerating both the array form and a legacy single scalar from a device armed before
+// RFC 0011, so an existing binding is not lost on upgrade.
+fn bound_ids(db: &Database) -> Vec<String> {
+    let Some(v) = db.get_agent_binding(FIXTURE_AGENT_ID) else {
+        return Vec::new();
+    };
+    match v.get(BOUND_FIELD) {
+        Some(serde_json::Value::Array(arr)) => arr
+            .iter()
+            .filter_map(|e| e.as_str().map(String::from))
+            .collect(),
+        Some(serde_json::Value::String(s)) => vec![s.clone()],
+        _ => Vec::new(),
+    }
+}
+
+fn write_ids(db: &Database, ids: &[String]) -> Result<(), String> {
+    if ids.is_empty() {
+        // Empty falls back to the manifest placeholder, so off-bound is refused until the user re-arms.
+        db.set_agent_binding(FIXTURE_AGENT_ID, None)?;
+    } else {
+        let bound = serde_json::json!({ BOUND_FIELD: ids });
+        db.set_agent_binding(FIXTURE_AGENT_ID, Some(&bound.to_string()))?;
+    }
+    Ok(())
+}
+
+/// Arm the installed agent to one more spreadsheet: add its id to the bound set and record its display
+/// name. Idempotent on the id. The builder merges the set over the manifest on the next run, so the
+/// agent may read/write any armed sheet and no other.
+pub fn bind_spreadsheet(
+    db: &Database,
+    spreadsheet_id: &str,
+    name: &str,
+) -> Result<(), String> {
+    ensure_fixture_installed(db)?;
+    let mut ids = bound_ids(db);
+    if !ids.iter().any(|i| i == spreadsheet_id) {
+        ids.push(spreadsheet_id.to_string());
+    }
+    write_ids(db, &ids)?;
+    let mut names = read_names(db);
+    names.insert(spreadsheet_id.to_string(), name.into());
+    write_names(db, &names);
+    Ok(())
+}
+
+/// Disarm one spreadsheet by id. When the last one is removed the binding clears to the manifest
+/// placeholder, so off-bound reads/writes are refused again until the user re-arms.
+pub fn unbind_spreadsheet(
+    db: &Database,
+    spreadsheet_id: &str,
+) -> Result<(), String> {
+    let mut ids = bound_ids(db);
+    ids.retain(|i| i != spreadsheet_id);
+    write_ids(db, &ids)?;
+    let mut names = read_names(db);
+    names.remove(spreadsheet_id);
+    write_names(db, &names);
+    Ok(())
+}
+
+/// Extract the spreadsheet id from a pasted Google Sheets URL: the `<id>` in the
+/// `/spreadsheets/d/<id>/` segment (the inverse of the UI's `sheet_url`). None when there is no such
+/// segment, so a stray paste is rejected instead of armed to garbage.
+pub fn spreadsheet_id_from_url(url: &str) -> Option<String> {
+    let after = url.split("/d/").nth(1)?;
+    let id: String = after
+        .chars()
+        .take_while(|c| {
+            !c.is_whitespace() && *c != '/' && *c != '?' && *c != '#'
+        })
+        .collect();
+    (!id.is_empty()).then_some(id)
+}
+
+/// Arm the agent by pasting the sheet's URL instead of picking from the list. Resolves the real title
+/// by id (works whether or not it shows up in the Drive listing); falls back to the id if unresolved.
+pub async fn bind_spreadsheet_from_url(
+    db: &Database,
+    url: &str,
+) -> Result<(), String> {
+    let id = spreadsheet_id_from_url(url)
+        .ok_or("not a Google Sheets URL".to_string())?;
+    let name = fetch_spreadsheet_name(db, &id)
+        .await
+        .unwrap_or_else(|| id.clone());
+    bind_spreadsheet(db, &id, &name)
+}
+
+// Resolve one spreadsheet's title by id via `list_sheets` - the Sheets metadata read
+// (fields=properties/title, NO cell data), so it is small and works for any accessible sheet, owned or
+// shared. `get_spreadsheet` is the wrong tool here: it sets includeGridData and drags every cell just to
+// read a title. The title is the response's top-level `title`. Best-effort: None on any failure.
+const SHEET_META_TOOL: &str = "google_sheets_list_sheets";
+
+pub async fn fetch_spreadsheet_name(db: &Database, id: &str) -> Option<String> {
+    let built = load_built(db).ok()?;
+    let backend = BackendClient::from_db(db)?;
+    let reg =
+        McpRegistry::connect_agent(db, &backend, &built.slug, &built.agent_id)
+            .await
+            .ok()?;
+    let mut args = serde_json::Map::new();
+    args.insert("spreadsheet_id".to_string(), id.into());
+    let result = reg
+        .peer()
+        .call_tool(
+            CallToolRequestParams::new(SHEET_META_TOOL).with_arguments(args),
+        )
+        .await
+        .ok()?;
+    title_from_meta(&result_json(&result))
+}
+
+// The spreadsheet title from a `list_sheets` response: the top-level `title` (the connector returns
+// {spreadsheetId, url, title, sheets:[...]}). `pub` so the parse is tested against the real shape.
+pub fn title_from_meta(v: &serde_json::Value) -> Option<String> {
+    v.get("title")
+        .and_then(|t| t.as_str())
+        .filter(|s| !s.is_empty())
+        .map(String::from)
+}
+
+fn is_named(
+    names: &serde_json::Map<String, serde_json::Value>,
+    id: &str,
+) -> bool {
+    names
+        .get(id)
+        .and_then(|v| v.as_str())
+        .is_some_and(|s| !s.is_empty() && s != id)
+}
+
+/// Heal bindings whose stored name is still their id (a legacy single-bind, or a URL bind made before
+/// the title was resolvable) by reading each title by id now. Returns the refreshed pairs.
+pub async fn resolve_missing_names(db: &Database) -> Vec<(String, String)> {
+    let ids = bound_ids(db);
+    let names_snapshot = read_names(db);
+    let missing: Vec<String> = ids
+        .iter()
+        .filter(|id| !is_named(&names_snapshot, id))
+        .cloned()
+        .collect();
+    if missing.is_empty() {
+        return current_bindings(db);
+    }
+    let mut names = names_snapshot;
+    let mut changed = false;
+    for id in missing {
+        if let Some(name) = fetch_spreadsheet_name(db, &id).await {
+            names.insert(id, name.into());
+            changed = true;
+        }
+    }
+    if changed {
+        write_names(db, &names);
+    }
+    current_bindings(db)
+}
+
+/// The (id, display name) pairs the agent is currently armed to, for the arm screen. A name falls back
+/// to the id when it was not recorded. Empty when unbound.
+pub fn current_bindings(db: &Database) -> Vec<(String, String)> {
+    let names = read_names(db);
+    bound_ids(db)
+        .into_iter()
+        .map(|id| {
+            let name = names
+                .get(&id)
+                .and_then(|v| v.as_str())
+                .filter(|s| !s.is_empty())
+                .map(String::from)
+                .unwrap_or_else(|| id.clone());
+            (id, name)
+        })
+        .collect()
+}
+
+// Flatten a tool result to a single JSON value: prefer the structured payload, else parse the joined
+// text content. The Sheets connector serializes its list with Python `str()`, not `json.dumps`, so
+// the text is a Python dict literal - try strict JSON first, then normalize the Python repr to JSON.
+fn result_json(result: &rmcp::model::CallToolResult) -> serde_json::Value {
+    if let Some(structured) = &result.structured_content {
+        return structured.clone();
+    }
+    let text = result
+        .content
+        .iter()
+        .filter_map(|c| c.as_text().map(|t| t.text.as_str()))
+        .collect::<Vec<_>>()
+        .join("\n");
+    serde_json::from_str(&text)
+        .or_else(|_| serde_json::from_str(&python_literal_to_json(&text)))
+        .unwrap_or(serde_json::Value::Null)
+}
+
+/// Normalize a Python dict-literal string (single quotes, `None`/`True`/`False`) to JSON. Walks the
+/// source tracking string boundaries, so an apostrophe inside a value (`"L'Oreal"`) is preserved
+/// instead of breaking the quotes. Valid JSON passes through unchanged, so it is safe to apply when
+/// the strict parse already failed. `pub` so the normalization is tested without a live backend.
+pub fn python_literal_to_json(src: &str) -> String {
+    let mut out = String::with_capacity(src.len() + 8);
+    let mut chars = src.chars().peekable();
+    while let Some(&c) = chars.peek() {
+        match c {
+            '\'' | '"' => {
+                let delim = c;
+                chars.next();
+                let mut value = String::new();
+                while let Some(ch) = chars.next() {
+                    if ch == '\\' {
+                        // Decode the escape to its actual char; JSON re-encoding happens below.
+                        match chars.next() {
+                            Some('n') => value.push('\n'),
+                            Some('t') => value.push('\t'),
+                            Some('r') => value.push('\r'),
+                            Some(other) => value.push(other),
+                            None => break,
+                        }
+                    } else if ch == delim {
+                        break;
+                    } else {
+                        value.push(ch);
+                    }
+                }
+                out.push_str(
+                    &serde_json::to_string(&value)
+                        .unwrap_or_else(|_| "\"\"".into()),
+                );
+            }
+            'A'..='Z' | 'a'..='z' | '_' => {
+                let mut word = String::new();
+                while let Some(&w) = chars.peek() {
+                    if w.is_ascii_alphanumeric() || w == '_' {
+                        word.push(w);
+                        chars.next();
+                    } else {
+                        break;
+                    }
+                }
+                out.push_str(match word.as_str() {
+                    "None" => "null",
+                    "True" => "true",
+                    "False" => "false",
+                    other => other,
+                });
+            }
+            _ => {
+                out.push(c);
+                chars.next();
+            }
+        }
+    }
+    out
+}
+
+// Pull (id, name) pairs out of whatever shape the connector returns: the first array of objects
+// anywhere in the payload, keyed loosely since connectors differ. An object with no id is skipped.
+// `pub` so the parser is tested against representative payloads without a live backend.
+pub fn parse_spreadsheets(v: &serde_json::Value) -> Vec<Spreadsheet> {
+    let Some(arr) = first_object_array(v) else {
+        return Vec::new();
+    };
+    arr.iter()
+        .filter_map(|o| {
+            let id =
+                pick(o, &["id", "spreadsheet_id", "spreadsheetId", "fileId"])?;
+            let name = pick(o, &["name", "title", "spreadsheet_name"])
+                .unwrap_or_else(|| id.clone());
+            let modified_at =
+                pick(o, &["modifiedAt", "modified_at", "modifiedTime"])
+                    .unwrap_or_default();
+            Some(Spreadsheet {
+                id,
+                name,
+                modified_at,
+            })
+        })
+        .collect()
+}
+
+fn pick(o: &serde_json::Value, keys: &[&str]) -> Option<String> {
+    keys.iter()
+        .find_map(|k| o.get(k).and_then(|v| v.as_str()))
+        .map(str::to_string)
+}
+
+fn first_object_array(
+    v: &serde_json::Value,
+) -> Option<&Vec<serde_json::Value>> {
+    match v {
+        serde_json::Value::Array(arr) if arr.iter().any(|e| e.is_object()) => {
+            Some(arr)
+        }
+        serde_json::Value::Object(map) => {
+            map.values().find_map(first_object_array)
+        }
+        serde_json::Value::Array(arr) => {
+            arr.iter().find_map(first_object_array)
+        }
+        _ => None,
+    }
+}
+
+// Install (verify + pin) the fixture on first use, then load the pinned row, re-check its integrity
+// against the pinned digest, and build the runnable agent from its manifest.
+fn load_built(db: &Database) -> Result<BuiltAgent, String> {
+    ensure_fixture_installed(db)?;
+    let installed = db
+        .get_installed_agent(FIXTURE_AGENT_ID)
+        .ok_or("agent not installed")?;
+
+    let recomputed = digest_of_stored(&installed.manifest_json)
+        .map_err(|e| e.to_string())?;
+    if recomputed != installed.content_digest {
+        return Err(format!(
+            "pinned digest mismatch for `{FIXTURE_AGENT_ID}`: stored manifest no longer hashes to its pin"
+        ));
+    }
+
+    let mut manifest =
+        parse_manifest(&installed.manifest_json).map_err(|e| e.to_string())?;
+    // Overlay the arm-time binding so validation and the gate target the sheet the user picked, not
+    // the manifest placeholder. Unbound -> the placeholder stands and off-bound writes stay refused.
+    if let Some(binding) = db.get_agent_binding(FIXTURE_AGENT_ID) {
+        merge_bound(&mut manifest.governance.bound_resource, binding);
+    }
+    build_agent(&manifest)
+}
+
+fn ensure_fixture_installed(db: &Database) -> Result<(), String> {
+    // Verify the shipped fixture every time (cheap), and repin whenever the device has no row or a row
+    // at a different digest, so a newer shipped manifest replaces the stale pin instead of running it.
+    let verified = verify_package(FIXTURE_PACKAGE, ADMIN_PUBKEY)
+        .map_err(|e| format!("verify fixture agent: {e}"))?;
+    match db.get_installed_agent(FIXTURE_AGENT_ID) {
+        Some(existing)
+            if existing.content_digest == verified.content_digest =>
+        {
+            Ok(())
+        }
+        _ => db.install_agent(&verified),
+    }
+}
+
+// Render the ground-truth tool log first (what each state actually called and got back), then the
+// model's rendered reply. The tool lines are the source of truth; the reply narrates over them.
+fn format_outcome(outcome: &ChainOutcome) -> String {
+    let mut out = String::new();
+    for step in &outcome.trace {
+        out.push_str(&format!("[{}]\n", step.state));
+        for line in &step.tools {
+            out.push_str(&format!("  - {line}\n"));
+        }
+        out.push_str(&format!("  {}\n", step.outcome));
+    }
+    out.trim_end().to_string()
+}

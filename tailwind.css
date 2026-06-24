@@ -140,6 +140,13 @@
         -webkit-user-select: text;
         user-select: text;
     }
+    /* Opt back into text selection + the native long-press Copy menu, which the global
+       reset above disables app-wide. For debug/log blocks the user needs to copy. */
+    .selectable {
+        -webkit-user-select: text;
+        user-select: text;
+        -webkit-touch-callout: default;
+    }
     *::-webkit-scrollbar {
         display: none;
     }

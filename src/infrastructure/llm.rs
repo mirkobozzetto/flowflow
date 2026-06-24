@@ -4,7 +4,7 @@ use crate::application::constants::{
 };
 use crate::application::error::LlmError;
 use crate::application::tools::{
-    CreateNote, SearchNotes, SummarizeFolder, ToolEvent, ToolStatusHook,
+    ContractHook, CreateNote, SearchNotes, SummarizeFolder, ToolEvent,
 };
 use crate::domain::ReminderIntent;
 use chrono::{DateTime, Local};
@@ -246,7 +246,7 @@ impl LlmClient {
                 let agent = builder.build();
                 let request = agent.prompt(user_message).max_turns(4);
                 let result = if let Some(tx) = status_tx {
-                    request.with_hook(ToolStatusHook::new(tx)).await
+                    request.with_hook(ContractHook::new(tx)).await
                 } else {
                     request.await
                 };
@@ -272,11 +272,84 @@ impl LlmClient {
                 let agent = builder.build();
                 let request = agent.prompt(user_message).max_turns(4);
                 let result = if let Some(tx) = status_tx {
-                    request.with_hook(ToolStatusHook::new(tx)).await
+                    request.with_hook(ContractHook::new(tx)).await
                 } else {
                     request.await
                 };
                 result.map_err(|e| LlmError::Completion(e.to_string()))
+            }
+        }
+    }
+
+    /// Run a rig agent over a connector's MCP tools with a governance `hook`, one prompt run.
+    /// Generic primitive: it mounts ONLY the supplied MCP tools (no notes tools), so the caller
+    /// owns the agent's surface and its pinned contract. `reg` must outlive this call - its server
+    /// sink backs the tools - so the caller keeps it owned across the await. The `hook` enforces
+    /// the device-side gate before each tool call. It stays free of any agent/connector specifics.
+    pub async fn run_mcp_agent(
+        &self,
+        preamble: &str,
+        user_message: &str,
+        reg: &crate::infrastructure::mcp::McpRegistry,
+        hook: ContractHook,
+    ) -> Result<String, LlmError> {
+        self.run_agent_over_tools(
+            preamble,
+            user_message,
+            reg.tools(),
+            reg.peer(),
+            hook,
+        )
+        .await
+    }
+
+    /// Run a rig agent over an explicit tool subset (one chain state's surface), one prompt run. The chain
+    /// runtime filters the connector registry to the active state's `allowed_tools` and passes them here, so
+    /// the model is mounted with exactly that state's tools. `peer` is the shared MCP server sink; the caller
+    /// keeps the registry owned across the await so the sink stays valid. The `hook` enforces the device gate.
+    pub async fn run_agent_over_tools(
+        &self,
+        preamble: &str,
+        user_message: &str,
+        tools: Vec<rmcp::model::Tool>,
+        peer: rmcp::service::ServerSink,
+        hook: ContractHook,
+    ) -> Result<String, LlmError> {
+        match self.provider {
+            Provider::OpenAi => {
+                let agent = self
+                    .openai
+                    .agent(CHAT_MODEL)
+                    .preamble(preamble)
+                    .temperature(0.0)
+                    .rmcp_tools(tools, peer)
+                    .build();
+                agent
+                    .prompt(user_message)
+                    .max_turns(4)
+                    .with_hook(hook)
+                    .await
+                    .map_err(|e| LlmError::Completion(e.to_string()))
+            }
+            Provider::Anthropic => {
+                let client = self.anthropic.as_ref().ok_or_else(|| {
+                    LlmError::NotConfigured(
+                        "Anthropic client not initialized".into(),
+                    )
+                })?;
+                let agent = client
+                    .agent(ANTHROPIC_CHAT_MODEL)
+                    .preamble(preamble)
+                    .temperature(0.0)
+                    .max_tokens(ANTHROPIC_MAX_TOKENS)
+                    .rmcp_tools(tools, peer)
+                    .build();
+                agent
+                    .prompt(user_message)
+                    .max_turns(4)
+                    .with_hook(hook)
+                    .await
+                    .map_err(|e| LlmError::Completion(e.to_string()))
             }
         }
     }

@@ -1,7 +1,10 @@
+pub mod agent_manifest;
 pub mod attachment;
 pub mod conversation;
 pub mod folder;
+pub mod governance;
 pub mod note;
+pub mod orchestration;
 pub mod reminder;
 pub mod thread;
 
