@@ -1,6 +1,5 @@
-// M1.13 atomic module (issue #12): locks the device-pinned contract that `ContractHook` enforces
-// for the google_sheets_list_spreadsheets proof. If the hardcoded manifest/governance drift so the
-// gate stops Allowing the one tool, or starts Allowing another, this fails before a device run.
+// Locks the pinned contract: the gate must Allow only google_sheets_list_spreadsheets and Deny
+// anything else. Fails before a device run if the hardcoded manifest/governance drift.
 
 use flowflow::application::connector_module::{
     SHEETS_CONNECTOR_MANIFEST, SHEETS_LIST_ONLY_GOVERNANCE,

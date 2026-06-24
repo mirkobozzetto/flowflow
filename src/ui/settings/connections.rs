@@ -24,7 +24,7 @@ pub fn ConnectionsSettings() -> Element {
     let mut status: Signal<Option<String>> = use_signal(|| None);
     let mut busy = use_signal(|| false);
     let mut reload = use_signal(|| 0u32);
-    // M1.13 atomic module proof (issue #12): the spreadsheet list returned through the gated path.
+    // The spreadsheet list returned through the gated agent path.
     let mut test_result: Signal<Option<String>> = use_signal(|| None);
 
     use_effect(move || {
@@ -116,12 +116,17 @@ pub fn ConnectionsSettings() -> Element {
                         div {
                             key: "{c.provider}",
                             class: "min-h-[64px] px-4 py-3 flex items-center gap-3",
-                            // Catalogue is backend-driven, so the connector identity is derived
-                            // from its name. Swap this tile for per-brand logos once the backend
-                            // catalogue ships icon assets.
-                            div { class: "w-10 h-10 shrink-0 rounded-xl bg-ios-orange-50 flex items-center justify-center",
-                                span { class: "text-ios-orange-dark font-semibold text-base",
-                                    {c.name.chars().next().map(|ch| ch.to_uppercase().to_string()).unwrap_or_default()}
+                            // Real brand logo for known providers, first-letter fallback otherwise.
+                            div { class: "w-10 h-10 shrink-0 rounded-xl bg-white border border-stone-200 flex items-center justify-center overflow-hidden",
+                                {
+                                    match c.provider.as_str() {
+                                        "google" => rsx! { crate::ui::icons::IconGoogleSheets { size: 24 } },
+                                        _ => rsx! {
+                                            span { class: "text-stone-600 font-semibold text-base",
+                                                {c.name.chars().next().map(|ch| ch.to_uppercase().to_string()).unwrap_or_default()}
+                                            }
+                                        },
+                                    }
                                 }
                             }
                             div { class: "flex-1 min-w-0",
@@ -150,8 +155,7 @@ pub fn ConnectionsSettings() -> Element {
                             }
                             if c.connected {
                                 div { class: "flex items-center gap-2 shrink-0",
-                                    // M1.13 atomic module trigger (issue #12): list_spreadsheets through
-                                    // the agent-scoped, gate-enforced path. Debug-only, Google connector.
+                                    // Debug trigger: list_spreadsheets through the gated agent path.
                                     if c.provider == "google" {
                                         button {
                                             class: crate::ui::kit::PILL_GHOST,

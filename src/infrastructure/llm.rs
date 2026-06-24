@@ -285,8 +285,7 @@ impl LlmClient {
     /// Generic primitive: it mounts ONLY the supplied MCP tools (no notes tools), so the caller
     /// owns the agent's surface and its pinned contract. `reg` must outlive this call - its server
     /// sink backs the tools - so the caller keeps it owned across the await. The `hook` enforces
-    /// the device-side gate before each tool call. The M1.13 wiring lives in
-    /// `application::connector_module`; this stays free of any agent/connector specifics.
+    /// the device-side gate before each tool call. It stays free of any agent/connector specifics.
     pub async fn run_mcp_agent(
         &self,
         preamble: &str,

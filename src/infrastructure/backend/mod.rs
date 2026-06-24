@@ -167,9 +167,8 @@ impl BackendClient {
         format!("{}/v1/mcp", self.base_url)
     }
 
-    /// The agent-scoped MCP proxy endpoint for one connector (RFC 0010 M1.6). The caller
-    /// also sends `x-agent-id`; the backend proxy applies that agent's governance gate and
-    /// forwards only governed calls. `slug` is the connector id (e.g. `google`).
+    /// The agent-scoped MCP proxy endpoint for one connector. The caller also sends
+    /// `x-agent-id`; the proxy applies that agent's governance gate. `slug` is the connector id.
     pub fn connector_mcp_url(&self, slug: &str) -> String {
         format!("{}/v1/connectors/{}/mcp", self.base_url, slug)
     }

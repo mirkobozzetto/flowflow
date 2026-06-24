@@ -1,11 +1,6 @@
-// M1.13 atomic module (issue #12): run ONE pinned connector module end to end through the
-// agent-scoped, gate-enforced path. The device builds a minimal agent from a pinned contract,
-// dials `/v1/connectors/{slug}/mcp` with `x-agent-id`, and the governance gate runs on BOTH sides
-// (this device hook before the call leaves, the backend proxy before it reaches the connector).
-//
-// Manifest install/pin (M1.15) is not built yet, so the contract is HARDCODED here: the Sheets
-// connector manifest plus a single-tool read_only governance. When pinning lands, only the source
-// of `gov`/`conn`/`AGENT_ID`/`SLUG` changes; the orchestration below stays.
+// Runs one pinned connector module end to end: builds a minimal agent, dials the agent-scoped
+// MCP route with x-agent-id, and enforces the governance gate on-device. The contract is
+// hardcoded until manifest pinning exists.
 
 use crate::application::error::LlmError;
 use crate::application::tools::ContractHook;
