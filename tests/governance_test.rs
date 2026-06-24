@@ -4,8 +4,9 @@
 // (it owns run state), so read_before_write + budgets are exercised, unlike the stateless proxy seam.
 
 use flowflow::domain::governance::{
-    gate, parse_connector_manifest, parse_governance, ConnectorManifest,
-    Decision, DenyReason, Governance, Mode, ProposedCall, RunState,
+    gate, parse_connector_manifest, parse_governance, validate_governance,
+    ConnectorManifest, Decision, DenyReason, Governance, GovernanceError, Mode,
+    ProposedCall, RunState,
 };
 use serde_json::json;
 
@@ -153,6 +154,32 @@ fn destructive_floor_denies() {
             tool: "syn_wipe".into()
         })
     );
+}
+
+#[test]
+fn write_grant_under_read_before_write_needs_a_bound_resource() {
+    // A real write grant with read_before_write on but no pinned target is rejected at validation: the
+    // global read flag would otherwise mean only "some read happened", not "read what you write".
+    let unbound = parse_governance(
+        r#"{ "tools": [ { "tool": "google_sheets_write_to_cell", "mode": "read_write" } ],
+             "read_before_write": true }"#,
+    )
+    .unwrap();
+    let errors = validate_governance(&unbound, &sheets()).unwrap_err();
+    assert!(
+        errors.contains(&GovernanceError::ReadBeforeWriteWithoutBound {
+            tool: "google_sheets_write_to_cell".into()
+        })
+    );
+
+    // Pinning the target clears it; a read_only grant never trips the rule either.
+    let bound = parse_governance(
+        r#"{ "tools": [ { "tool": "google_sheets_write_to_cell", "mode": "read_write" } ],
+             "bound_resource": { "spreadsheet_id": "SHEET1" }, "read_before_write": true }"#,
+    )
+    .unwrap();
+    validate_governance(&bound, &sheets())
+        .expect("pinned write grant validates");
 }
 
 #[test]

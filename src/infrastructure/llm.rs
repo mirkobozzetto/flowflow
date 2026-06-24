@@ -293,6 +293,28 @@ impl LlmClient {
         reg: &crate::infrastructure::mcp::McpRegistry,
         hook: ContractHook,
     ) -> Result<String, LlmError> {
+        self.run_agent_over_tools(
+            preamble,
+            user_message,
+            reg.tools(),
+            reg.peer(),
+            hook,
+        )
+        .await
+    }
+
+    /// Run a rig agent over an explicit tool subset (one chain state's surface), one prompt run. The chain
+    /// runtime filters the connector registry to the active state's `allowed_tools` and passes them here, so
+    /// the model is mounted with exactly that state's tools. `peer` is the shared MCP server sink; the caller
+    /// keeps the registry owned across the await so the sink stays valid. The `hook` enforces the device gate.
+    pub async fn run_agent_over_tools(
+        &self,
+        preamble: &str,
+        user_message: &str,
+        tools: Vec<rmcp::model::Tool>,
+        peer: rmcp::service::ServerSink,
+        hook: ContractHook,
+    ) -> Result<String, LlmError> {
         match self.provider {
             Provider::OpenAi => {
                 let agent = self
@@ -300,7 +322,7 @@ impl LlmClient {
                     .agent(CHAT_MODEL)
                     .preamble(preamble)
                     .temperature(0.0)
-                    .rmcp_tools(reg.tools(), reg.peer())
+                    .rmcp_tools(tools, peer)
                     .build();
                 agent
                     .prompt(user_message)
@@ -320,7 +342,7 @@ impl LlmClient {
                     .preamble(preamble)
                     .temperature(0.0)
                     .max_tokens(ANTHROPIC_MAX_TOKENS)
-                    .rmcp_tools(reg.tools(), reg.peer())
+                    .rmcp_tools(tools, peer)
                     .build();
                 agent
                     .prompt(user_message)

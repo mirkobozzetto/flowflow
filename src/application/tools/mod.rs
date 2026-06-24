@@ -31,6 +31,20 @@ struct Contract {
     gov: Governance,
     conn: ConnectorManifest,
     run: Mutex<RunState>,
+    // Ground-truth log of what each tool call actually did (proposed args, gate verdict, raw result), so the
+    // chain debug trace shows reality instead of the model's narration. Drained per state by the runtime.
+    events: Mutex<Vec<String>>,
+}
+
+// Single-line, length-capped view of a JSON-ish blob for the debug log.
+fn excerpt(s: &str, max: usize) -> String {
+    let one_line: String = s.split_whitespace().collect::<Vec<_>>().join(" ");
+    if one_line.chars().count() > max {
+        let head: String = one_line.chars().take(max).collect();
+        format!("{head}...")
+    } else {
+        one_line
+    }
 }
 
 // rig `PromptHook` that enforces the agent behavior contract before each tool call (RFC 0010 M1.12, spec
@@ -42,12 +56,21 @@ struct Contract {
 pub struct ContractHook {
     tx: mpsc::UnboundedSender<ToolEvent>,
     contract: Option<Arc<Contract>>,
+    // The Layer 2 chain-state filter: when set, only these tools may be proposed in the active state. None =
+    // no chain scoping (the single-module path). Independent of the Layer 1 gate; both apply.
+    state_allowed: Option<Vec<String>>,
+    state_name: Option<String>,
 }
 
 impl ContractHook {
     // Observe-only: emits status events, gates nothing. Used until a pinned manifest is available.
     pub fn new(tx: mpsc::UnboundedSender<ToolEvent>) -> Self {
-        Self { tx, contract: None }
+        Self {
+            tx,
+            contract: None,
+            state_allowed: None,
+            state_name: None,
+        }
     }
 
     // Enforcing: gate every tool call against `gov` (resolved over `conn`) with fresh per-run accounting.
@@ -62,7 +85,71 @@ impl ContractHook {
                 gov,
                 conn,
                 run: Mutex::new(RunState::default()),
+                events: Mutex::new(Vec::new()),
             })),
+            state_allowed: None,
+            state_name: None,
+        }
+    }
+
+    // Share this contract's run accounting with a hook scoped to one chain state's allowed tools. The chain
+    // runtime builds one base contract, then a scoped hook per state, so budgets and read_before_write carry
+    // across states while each state narrows the visible surface.
+    pub fn scoped_to(&self, allowed: Vec<String>, state: String) -> Self {
+        Self {
+            tx: self.tx.clone(),
+            contract: self.contract.clone(),
+            state_allowed: Some(allowed),
+            state_name: Some(state),
+        }
+    }
+
+    // Count a chain state as one run step (the gate reads `steps` against `limits.max_steps`). No-op without
+    // a contract.
+    pub fn bump_step(&self) {
+        if let Some(c) = &self.contract {
+            c.run.lock().expect("governance run state poisoned").steps += 1;
+        }
+    }
+
+    // Publish elapsed wall-clock so the gate's `limits.max_run_seconds` ceiling has live data. The chain
+    // runtime owns the clock; without it the time bound would never fire. No-op without a contract.
+    pub fn set_elapsed(&self, seconds: u64) {
+        if let Some(c) = &self.contract {
+            c.run
+                .lock()
+                .expect("governance run state poisoned")
+                .elapsed_seconds = seconds;
+        }
+    }
+
+    // Whether the bound resource has been read in this run, for the FSM-level read_before_write guard.
+    pub fn read_bound(&self) -> bool {
+        self.contract
+            .as_ref()
+            .map(|c| {
+                c.run
+                    .lock()
+                    .expect("governance run state poisoned")
+                    .read_bound
+            })
+            .unwrap_or(false)
+    }
+
+    // Take this run's accumulated tool-call log (proposed args, gate verdict, raw result). The chain runtime
+    // drains it after each state to attach ground truth to that state's trace. Empty without a contract.
+    pub fn drain_events(&self) -> Vec<String> {
+        self.contract
+            .as_ref()
+            .map(|c| {
+                std::mem::take(&mut *c.events.lock().expect("events poisoned"))
+            })
+            .unwrap_or_default()
+    }
+
+    fn record(&self, line: String) {
+        if let Some(c) = &self.contract {
+            c.events.lock().expect("events poisoned").push(line);
         }
     }
 }
@@ -76,6 +163,23 @@ impl<M: CompletionModel> PromptHook<M> for ContractHook {
         args: &str,
     ) -> ToolCallHookAction {
         let _ = self.tx.send(ToolEvent::Started(tool_name.to_string()));
+
+        // Layer 2: a tool the active chain state does not list is refused before the Layer 1 gate runs, so
+        // the model self-corrects toward the state's surface.
+        if let Some(allowed) = &self.state_allowed {
+            if !allowed.iter().any(|t| t == tool_name) {
+                self.record(format!(
+                    "blocked {tool_name}: not allowed in this chain state"
+                ));
+                return ToolCallHookAction::Skip {
+                    reason: format!(
+                        "tool `{tool_name}` is not allowed in chain state `{}` (allowed: {})",
+                        self.state_name.as_deref().unwrap_or("?"),
+                        allowed.join(", ")
+                    ),
+                };
+            }
+        }
 
         let Some(contract) = &self.contract else {
             return ToolCallHookAction::Continue;
@@ -92,10 +196,20 @@ impl<M: CompletionModel> PromptHook<M> for ContractHook {
             gate(&contract.gov, &contract.conn, &call, &mut run)
         };
         match decision {
-            Decision::Allow => ToolCallHookAction::Continue,
-            Decision::Deny(reason) => ToolCallHookAction::Skip {
-                reason: reason.to_string(),
-            },
+            Decision::Allow => {
+                self.record(format!(
+                    "called {tool_name} {} -> allowed",
+                    excerpt(args, 160)
+                ));
+                ToolCallHookAction::Continue
+            }
+            Decision::Deny(reason) => {
+                // `reason` already names the tool, so the log line does not repeat it.
+                self.record(format!("blocked: {reason}"));
+                ToolCallHookAction::Skip {
+                    reason: reason.to_string(),
+                }
+            }
         }
     }
 
@@ -105,9 +219,10 @@ impl<M: CompletionModel> PromptHook<M> for ContractHook {
         _tool_call_id: Option<String>,
         _internal_call_id: &str,
         _args: &str,
-        _result: &str,
+        result: &str,
     ) -> HookAction {
         let _ = self.tx.send(ToolEvent::Finished(tool_name.to_string()));
+        self.record(format!("result {tool_name}: {}", excerpt(result, 400)));
         HookAction::cont()
     }
 }

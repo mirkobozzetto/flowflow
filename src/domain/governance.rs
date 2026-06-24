@@ -203,6 +203,8 @@ pub enum GovernanceError {
     DestructiveDenied { tool: String },
     #[error("tool `{tool}`: mode upsert requires non-empty key_columns")]
     UpsertMissingKeyColumns { tool: String },
+    #[error("tool `{tool}`: read_before_write is on but no bound_resource pins the target")]
+    ReadBeforeWriteWithoutBound { tool: String },
 }
 
 pub fn parse_connector_manifest(
@@ -251,6 +253,19 @@ pub fn validate_governance(
             && tp.key_columns.as_ref().is_none_or(|k| k.is_empty())
         {
             errors.push(GovernanceError::UpsertMissingKeyColumns {
+                tool: tp.tool.clone(),
+            });
+        }
+
+        // A genuine write grant under read_before_write needs a pinned target: without one, the
+        // global read flag means only "some read happened", not "the agent read what it writes". Pinning
+        // the resource forces every read to target it, so the floor matches the per-resource intent.
+        if ct.action.is_write()
+            && tp.mode.allows(ct.action)
+            && gov.read_before_write
+            && gov.bound_resource.is_none()
+        {
+            errors.push(GovernanceError::ReadBeforeWriteWithoutBound {
                 tool: tp.tool.clone(),
             });
         }
