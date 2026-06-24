@@ -281,6 +281,58 @@ impl LlmClient {
         }
     }
 
+    /// Run a rig agent over a connector's MCP tools with a governance `hook`, one prompt run.
+    /// Generic primitive: it mounts ONLY the supplied MCP tools (no notes tools), so the caller
+    /// owns the agent's surface and its pinned contract. `reg` must outlive this call - its server
+    /// sink backs the tools - so the caller keeps it owned across the await. The `hook` enforces
+    /// the device-side gate before each tool call. The M1.13 wiring lives in
+    /// `application::connector_module`; this stays free of any agent/connector specifics.
+    pub async fn run_mcp_agent(
+        &self,
+        preamble: &str,
+        user_message: &str,
+        reg: &crate::infrastructure::mcp::McpRegistry,
+        hook: ContractHook,
+    ) -> Result<String, LlmError> {
+        match self.provider {
+            Provider::OpenAi => {
+                let agent = self
+                    .openai
+                    .agent(CHAT_MODEL)
+                    .preamble(preamble)
+                    .temperature(0.0)
+                    .rmcp_tools(reg.tools(), reg.peer())
+                    .build();
+                agent
+                    .prompt(user_message)
+                    .max_turns(4)
+                    .with_hook(hook)
+                    .await
+                    .map_err(|e| LlmError::Completion(e.to_string()))
+            }
+            Provider::Anthropic => {
+                let client = self.anthropic.as_ref().ok_or_else(|| {
+                    LlmError::NotConfigured(
+                        "Anthropic client not initialized".into(),
+                    )
+                })?;
+                let agent = client
+                    .agent(ANTHROPIC_CHAT_MODEL)
+                    .preamble(preamble)
+                    .temperature(0.0)
+                    .max_tokens(ANTHROPIC_MAX_TOKENS)
+                    .rmcp_tools(reg.tools(), reg.peer())
+                    .build();
+                agent
+                    .prompt(user_message)
+                    .max_turns(4)
+                    .with_hook(hook)
+                    .await
+                    .map_err(|e| LlmError::Completion(e.to_string()))
+            }
+        }
+    }
+
     /// Connect to the backend MCP proxy if one is configured. Returns None (notes-only
     /// agent, identical to pre-RFC behavior) when no backend is set or the connect fails.
     async fn connect_mcp(

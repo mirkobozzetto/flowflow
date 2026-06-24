@@ -167,6 +167,13 @@ impl BackendClient {
         format!("{}/v1/mcp", self.base_url)
     }
 
+    /// The agent-scoped MCP proxy endpoint for one connector (RFC 0010 M1.6). The caller
+    /// also sends `x-agent-id`; the backend proxy applies that agent's governance gate and
+    /// forwards only governed calls. `slug` is the connector id (e.g. `google`).
+    pub fn connector_mcp_url(&self, slug: &str) -> String {
+        format!("{}/v1/connectors/{}/mcp", self.base_url, slug)
+    }
+
     /// The device's base64 Ed25519 public key (its backend identity). Generates and
     /// persists the keypair on first call, so it resolves even with no backend URL set -
     /// the user reads it from Settings to be added to the premium allowlist.

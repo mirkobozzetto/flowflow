@@ -1,5 +1,6 @@
 pub mod ai;
 pub mod backup;
+pub mod connector_module;
 pub mod constants;
 pub mod embed;
 pub mod error;

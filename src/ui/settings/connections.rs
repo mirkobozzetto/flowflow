@@ -24,6 +24,8 @@ pub fn ConnectionsSettings() -> Element {
     let mut status: Signal<Option<String>> = use_signal(|| None);
     let mut busy = use_signal(|| false);
     let mut reload = use_signal(|| 0u32);
+    // M1.13 atomic module proof (issue #12): the spreadsheet list returned through the gated path.
+    let mut test_result: Signal<Option<String>> = use_signal(|| None);
 
     use_effect(move || {
         let _trigger = reload();
@@ -99,6 +101,13 @@ pub fn ConnectionsSettings() -> Element {
                 }
             }
 
+            if let Some(result) = test_result() {
+                div { class: "rounded-xl border border-stone-200 bg-warm-white p-3",
+                    p { class: "text-[11px] font-medium text-stone-500 mb-1", "list_spreadsheets" }
+                    p { class: "text-xs text-stone-700 whitespace-pre-wrap break-words", "{result}" }
+                }
+            }
+
             if connectors().is_empty() {
                 p { class: "text-xs text-stone-400", {t(&lang, "connections-empty")} }
             } else {
@@ -140,29 +149,57 @@ pub fn ConnectionsSettings() -> Element {
                                 }
                             }
                             if c.connected {
-                                button {
-                                    class: crate::ui::kit::PILL_GHOST,
-                                    disabled: busy(),
-                                    onclick: {
-                                        let provider = c.provider.clone();
-                                        move |_| {
-                                            if busy() { return; }
-                                            busy.set(true);
-                                            status.set(None);
-                                            let provider = provider.clone();
-                                            spawn(async move {
-                                                let database = db();
-                                                if let Some(client) = BackendClient::from_db(&database) {
-                                                    if let Err(e) = client.disconnect(&database, &provider).await {
-                                                        status.set(Some(e.to_string()));
+                                div { class: "flex items-center gap-2 shrink-0",
+                                    // M1.13 atomic module trigger (issue #12): list_spreadsheets through
+                                    // the agent-scoped, gate-enforced path. Debug-only, Google connector.
+                                    if c.provider == "google" {
+                                        button {
+                                            class: crate::ui::kit::PILL_GHOST,
+                                            disabled: busy(),
+                                            onclick: move |_| {
+                                                if busy() { return; }
+                                                busy.set(true);
+                                                status.set(None);
+                                                test_result.set(Some("Running...".to_string()));
+                                                spawn(async move {
+                                                    let database = db();
+                                                    match crate::application::connector_module::list_spreadsheets(&database).await {
+                                                        Ok(text) => test_result.set(Some(text)),
+                                                        Err(e) => {
+                                                            test_result.set(None);
+                                                            status.set(Some(e));
+                                                        }
                                                     }
-                                                }
-                                                busy.set(false);
-                                                reload.set(reload() + 1);
-                                            });
+                                                    busy.set(false);
+                                                });
+                                            },
+                                            "Test list"
                                         }
-                                    },
-                                    {t(&lang, "connections-disconnect")}
+                                    }
+                                    button {
+                                        class: crate::ui::kit::PILL_GHOST,
+                                        disabled: busy(),
+                                        onclick: {
+                                            let provider = c.provider.clone();
+                                            move |_| {
+                                                if busy() { return; }
+                                                busy.set(true);
+                                                status.set(None);
+                                                let provider = provider.clone();
+                                                spawn(async move {
+                                                    let database = db();
+                                                    if let Some(client) = BackendClient::from_db(&database) {
+                                                        if let Err(e) = client.disconnect(&database, &provider).await {
+                                                            status.set(Some(e.to_string()));
+                                                        }
+                                                    }
+                                                    busy.set(false);
+                                                    reload.set(reload() + 1);
+                                                });
+                                            }
+                                        },
+                                        {t(&lang, "connections-disconnect")}
+                                    }
                                 }
                             } else {
                                 button {
