@@ -3,6 +3,7 @@ pub mod chunk_repo;
 pub mod conflict_repo;
 pub mod conversation_repo;
 pub mod folder_repo;
+pub mod installed_agent_repo;
 pub mod note_reminder_repo;
 pub mod note_repo;
 pub mod peer_repo;

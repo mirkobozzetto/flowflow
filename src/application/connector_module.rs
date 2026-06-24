@@ -1,63 +1,161 @@
-// Runs one pinned connector module end to end: builds a minimal agent, dials the agent-scoped
-// MCP route with x-agent-id, and enforces the governance gate on-device. The contract is
-// hardcoded until manifest pinning exists.
+// Runs one installed, pinned agent end to end: verifies + pins a signed package on first use, builds
+// the agent from its manifest (governance, chain, preamble, the real bound_resource), dials the
+// agent-scoped MCP route with x-agent-id, and enforces the governance gate on-device. The contract is
+// no longer hardcoded here - it comes from the manifest the builder resolves.
 
+use crate::application::agent_builder::{build_agent, BuiltAgent};
 use crate::application::chain::{run_chain, ChainOutcome};
 use crate::application::error::LlmError;
 use crate::application::tools::ContractHook;
-use crate::domain::governance::{parse_connector_manifest, parse_governance};
-use crate::domain::orchestration::parse_chain;
+use crate::domain::agent_manifest::{
+    digest_of_stored, parse_manifest, verify_package, ADMIN_PUBKEY,
+};
 use crate::infrastructure::backend::BackendClient;
 use crate::infrastructure::llm::LlmClient;
 use crate::infrastructure::mcp::McpRegistry;
 use crate::infrastructure::persistence::Database;
 use tokio::sync::mpsc;
 
-// The entitled agent driving the call (sent as `x-agent-id`) and the connector slug (the URL
-// segment). Hardcoded for the atomic proof; sourced from a pinned manifest once M1.15 ships.
-const AGENT_ID: &str = "agent-crm-sync";
-const SLUG: &str = "google";
+// `pub` so the contract-lock test verifies the shipped fixture against the pinned key and builds it.
+// Must equal the manifest `id` AND the backend catalog id (seed_catalog: `agent-crm-sync`), since it
+// travels as x-agent-id; an id the backend has not granted is rejected 403 at the proxy.
+pub const FIXTURE_AGENT_ID: &str = "agent-crm-sync";
+const SYNC_CHAIN_NAME: &str = "sync";
 
-// `pub` so the drift test asserts the gate Allows `list_spreadsheets` and Denies any other tool.
-// The manifest mirrors `marketplace-flowflow/connectors/google-sheets.json` (the connector's full
-// surface); the governance allows exactly one read_only tool.
-pub const SHEETS_CONNECTOR_MANIFEST: &str = r#"{
-  "connector": "google-sheets",
-  "type": "tabular_store",
-  "server": "ghcr.io/klavis-ai/google-sheets-mcp-server",
-  "mcp_prefix": "google_sheets_",
-  "provides": ["search", "read", "create", "update"],
-  "tools": [
-    { "tool": "google_sheets_list_spreadsheets",  "resource": "spreadsheet", "action": "search", "risk": "read_only" },
-    { "tool": "google_sheets_get_spreadsheet",    "resource": "spreadsheet", "action": "read",   "risk": "read_only" },
-    { "tool": "google_sheets_list_sheets",        "resource": "sheet",       "action": "read",   "risk": "read_only" },
-    { "tool": "google_sheets_create_spreadsheet", "resource": "spreadsheet", "action": "create", "risk": "read_write" },
-    { "tool": "google_sheets_create_sheets",      "resource": "sheet",       "action": "create", "risk": "read_write" },
-    { "tool": "google_sheets_write_to_cell",      "resource": "cell",        "action": "update", "risk": "read_write" }
-  ]
+// The trigger UI's input for the chain run; the user's goal, not part of the pinned contract.
+const SYNC_GOAL: &str =
+    "List my spreadsheets, open the most relevant one, and report what it contains.";
+
+// A signed agent package shipped with the app to prove the install -> verify -> pin -> build -> run
+// path on device without backend install plumbing. The signature is over the canonical digest of the
+// manifest, made offline with the dev admin key whose public half is pinned in `ADMIN_PUBKEY`.
+// ponytail: `bound_resource.spreadsheet_id` is a placeholder; to bind a real sheet, edit the manifest,
+// rerun `cargo test -p flowflow --test agent_manifest_test gen_fixture -- --ignored --nocapture`, and
+// paste the new content_digest + signature below. Until then off-bound reads/writes are refused, so
+// only the read-only `find` state runs live - exactly the M1.14 safe state.
+pub const FIXTURE_PACKAGE: &str = r#"{
+  "manifest": {
+    "schema_version": "1",
+    "id": "agent-crm-sync",
+    "version": "1.0.0",
+    "name": "CRM Sync",
+    "description": "Use when the user wants to read or update their client/prospect spreadsheet. Do NOT use for general questions or the calendar.",
+    "author": "flowflow-admin",
+    "alias": "synchro-clients",
+    "model": "gpt-4o",
+    "temperature": 0.1,
+    "required_connectors": [
+      { "type": "tabular_store", "capabilities": ["search", "read", "update"] }
+    ],
+    "system_prompt": "You keep the user's client spreadsheet tidy. Read before you write, and act only on the bound sheet.",
+    "governance": {
+      "tools": [
+        { "tool": "google_sheets_list_spreadsheets", "mode": "read_only" },
+        { "tool": "google_sheets_get_spreadsheet",   "mode": "read_only" },
+        { "tool": "google_sheets_write_to_cell",     "mode": "read_write" }
+      ],
+      "bound_resource": { "spreadsheet_id": "bound-at-install" },
+      "read_before_write": true,
+      "deny_destructive": true,
+      "limits": { "max_steps": 6, "max_tool_calls": 30 }
+    },
+    "orchestration": {
+      "chains": {
+        "sync": {
+          "initial": "find",
+          "states": {
+            "find":   { "allowed_tools": ["google_sheets_list_spreadsheets"], "on_done": "read" },
+            "read":   { "allowed_tools": ["google_sheets_get_spreadsheet"], "on_done": "act" },
+            "act":    { "allowed_tools": ["google_sheets_write_to_cell"], "guard": "read_before_write", "on_done": "answer" },
+            "answer": { "terminal": true }
+          }
+        }
+      }
+    }
+  },
+  "content_digest": "sha256:b6a684ce863b9b8cb8c7b941fe55be911fb07198e52d1efac2bf7c45c975fd20",
+  "signature": "ed25519:2TosOZou18cjSkc+jC+7NQA0ewfv1F6JH/HgzYr9XnWYXmslDwASg6jkPq0Gx4d4aUx+6yOSXQ7lMEsgiv+JCA==",
+  "signer_key_id": "dev-admin",
+  "status": "published"
 }"#;
 
-pub const SHEETS_LIST_ONLY_GOVERNANCE: &str = r#"{"tools":[{"tool":"google_sheets_list_spreadsheets","mode":"read_only"}]}"#;
-
-// A `list_spreadsheets` call is `action=search`, so it bypasses bound_resource and
-// read_before_write: the cleanest end-to-end proof of the gated path.
-const LIST_PREAMBLE: &str = "You are a connector test agent. Call \
-    google_sheets_list_spreadsheets to list the user's spreadsheets, then reply with the \
-    list. Call no other tool.";
-
-/// Fire `google_sheets_list_spreadsheets` through the agent-scoped, gate-enforced path and return
-/// the agent's rendered answer. Errors are surfaced as a display string for the trigger UI.
+/// Fire `google_sheets_list_spreadsheets` through the installed agent's gated path and return the
+/// rendered answer. Errors surface as a display string for the trigger UI.
 pub async fn list_spreadsheets(db: &Database) -> Result<String, String> {
-    run_pinned_module(db, LIST_PREAMBLE, "List my spreadsheets.")
+    let built = load_built(db)?;
+    let preamble = format!(
+        "{}\n\nFor this test, call only google_sheets_list_spreadsheets, then reply with the list. \
+         Call no other tool.",
+        built.preamble
+    );
+    run_module(db, &built, &preamble, "List my spreadsheets.")
         .await
         .map_err(|e| e.to_string())
 }
 
-// Build the minimal agent from the pinned contract, connect the agent-scoped MCP, enforce the
-// device gate via `ContractHook::with_contract`, and run one prompt. `reg` is held in scope for
-// the whole prompt so the tools' server sink stays valid.
-async fn run_pinned_module(
+/// Drive the installed agent's pinned `sync` chain through the FSM runtime and return a per-state
+/// trace for the trigger UI.
+pub async fn run_sync_chain(db: &Database) -> Result<String, String> {
+    let built = load_built(db)?;
+    let chain = built
+        .chains
+        .get(SYNC_CHAIN_NAME)
+        .ok_or_else(|| format!("manifest has no `{SYNC_CHAIN_NAME}` chain"))?;
+    let outcome = run_chain(
+        db,
+        chain,
+        built.governance.clone(),
+        built.connector.clone(),
+        &built.slug,
+        &built.agent_id,
+        SYNC_GOAL,
+    )
+    .await
+    .map_err(|e| e.to_string())?;
+    Ok(format_outcome(&outcome))
+}
+
+// Install (verify + pin) the fixture on first use, then load the pinned row, re-check its integrity
+// against the pinned digest, and build the runnable agent from its manifest.
+fn load_built(db: &Database) -> Result<BuiltAgent, String> {
+    ensure_fixture_installed(db)?;
+    let installed = db
+        .get_installed_agent(FIXTURE_AGENT_ID)
+        .ok_or("agent not installed")?;
+
+    let recomputed = digest_of_stored(&installed.manifest_json)
+        .map_err(|e| e.to_string())?;
+    if recomputed != installed.content_digest {
+        return Err(format!(
+            "pinned digest mismatch for `{FIXTURE_AGENT_ID}`: stored manifest no longer hashes to its pin"
+        ));
+    }
+
+    let manifest =
+        parse_manifest(&installed.manifest_json).map_err(|e| e.to_string())?;
+    build_agent(&manifest)
+}
+
+fn ensure_fixture_installed(db: &Database) -> Result<(), String> {
+    // Verify the shipped fixture every time (cheap), and repin whenever the device has no row or a row
+    // at a different digest, so a newer shipped manifest replaces the stale pin instead of running it.
+    let verified = verify_package(FIXTURE_PACKAGE, ADMIN_PUBKEY)
+        .map_err(|e| format!("verify fixture agent: {e}"))?;
+    match db.get_installed_agent(FIXTURE_AGENT_ID) {
+        Some(existing)
+            if existing.content_digest == verified.content_digest =>
+        {
+            Ok(())
+        }
+        _ => db.install_agent(&verified),
+    }
+}
+
+// Connect the agent-scoped MCP, enforce the device gate via the built contract, and run one prompt.
+// `reg` is held in scope for the whole prompt so the tools' server sink stays valid.
+async fn run_module(
     db: &Database,
+    built: &BuiltAgent,
     preamble: &str,
     user_message: &str,
 ) -> Result<String, LlmError> {
@@ -66,80 +164,27 @@ async fn run_pinned_module(
         LlmError::NotConfigured("no backend configured".into())
     })?;
 
-    let reg = McpRegistry::connect_agent(db, &backend, SLUG, AGENT_ID)
-        .await
-        .map_err(|e| LlmError::Completion(format!("mcp connect: {e}")))?;
+    let reg =
+        McpRegistry::connect_agent(db, &backend, &built.slug, &built.agent_id)
+            .await
+            .map_err(|e| LlmError::Completion(format!("mcp connect: {e}")))?;
     if reg.is_empty() {
         return Err(LlmError::Completion(
             "agent-scoped MCP exposed no tools".into(),
         ));
     }
 
-    let conn =
-        parse_connector_manifest(SHEETS_CONNECTOR_MANIFEST).map_err(|e| {
-            LlmError::Completion(format!("connector manifest: {e}"))
-        })?;
-    let gov = parse_governance(SHEETS_LIST_ONLY_GOVERNANCE)
-        .map_err(|e| LlmError::Completion(format!("governance: {e}")))?;
-
-    // `with_contract` always needs a status channel; this path surfaces no UI tool events, so the
-    // receiver is a discard sink (the hook's status sends are fire-and-forget).
     let (tx, _rx) = mpsc::unbounded_channel();
-    let hook = ContractHook::with_contract(tx, gov, conn);
-
+    let hook = ContractHook::with_contract(
+        tx,
+        built.governance.clone(),
+        built.connector.clone(),
+    );
     llm.run_mcp_agent(preamble, user_message, &reg, hook).await
 }
 
-// The first chain: find -> read -> act -> answer. Each non-terminal state exposes exactly one Sheets tool;
-// `act` carries the read_before_write guard; `answer` is terminal and composes the reply. The schema is the
-// contract whether the FSM is hand-rolled or adopts a library runtime later.
-pub const SHEETS_SYNC_CHAIN: &str = r#"{
-  "initial": "find",
-  "states": {
-    "find":   { "allowed_tools": ["google_sheets_list_spreadsheets"], "on_done": "read" },
-    "read":   { "allowed_tools": ["google_sheets_get_spreadsheet"],   "on_done": "act" },
-    "act":    { "allowed_tools": ["google_sheets_write_to_cell"], "guard": "read_before_write", "on_done": "answer" },
-    "answer": { "terminal": true }
-  }
-}"#;
-
-// Governance for the full chain: search + read run free, the single-cell write is read_write behind the
-// read_before_write floor, destructive tools refused. The write is pinned to a target so the floor means
-// "read the resource you write", not merely "some read happened".
-// ponytail: the bound spreadsheet id is a placeholder until manifest pinning supplies the real one; until
-// then only the read-only `find` runs live (the backend serves no write), and off-bound writes are refused.
-pub const SHEETS_SYNC_GOVERNANCE: &str = r#"{
-  "tools": [
-    { "tool": "google_sheets_list_spreadsheets", "mode": "read_only" },
-    { "tool": "google_sheets_get_spreadsheet",    "mode": "read_only" },
-    { "tool": "google_sheets_write_to_cell",      "mode": "read_write" }
-  ],
-  "bound_resource": { "spreadsheet_id": "bound-at-install" },
-  "read_before_write": true,
-  "deny_destructive": true,
-  "limits": { "max_steps": 6, "max_tool_calls": 30 }
-}"#;
-
-const SYNC_GOAL: &str =
-    "List my spreadsheets, open the most relevant one, and report what it contains.";
-
-/// Drive the pinned Sheets chain through the FSM runtime and return a per-state trace for the trigger UI.
-pub async fn run_sync_chain(db: &Database) -> Result<String, String> {
-    let chain = parse_chain(SHEETS_SYNC_CHAIN)
-        .map_err(|e| format!("chain manifest: {e}"))?;
-    let conn = parse_connector_manifest(SHEETS_CONNECTOR_MANIFEST)
-        .map_err(|e| format!("connector manifest: {e}"))?;
-    let gov = parse_governance(SHEETS_SYNC_GOVERNANCE)
-        .map_err(|e| format!("governance: {e}"))?;
-
-    let outcome = run_chain(db, &chain, gov, conn, SLUG, AGENT_ID, SYNC_GOAL)
-        .await
-        .map_err(|e| e.to_string())?;
-    Ok(format_outcome(&outcome))
-}
-
-// Render the ground-truth tool log first (what each state actually called and got back), then the model's
-// rendered reply. The tool lines are the source of truth; the reply is the model's narration over them.
+// Render the ground-truth tool log first (what each state actually called and got back), then the
+// model's rendered reply. The tool lines are the source of truth; the reply narrates over them.
 fn format_outcome(outcome: &ChainOutcome) -> String {
     let mut out = String::new();
     for step in &outcome.trace {
