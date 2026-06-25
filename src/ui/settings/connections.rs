@@ -99,6 +99,23 @@ pub fn ConnectionsSettings() -> Element {
                 }
             }
 
+            button {
+                class: format!("{} w-full", crate::ui::kit::PILL_GHOST),
+                disabled: busy(),
+                onclick: move |_| {
+                    busy.set(true);
+                    let done = t(&lang, "connections-reinstall-agent-done");
+                    spawn(async move {
+                        match crate::application::connector_module::reinstall_agent(&db()).await {
+                            Ok(()) => status.set(Some(done)),
+                            Err(e) => status.set(Some(e)),
+                        }
+                        busy.set(false);
+                    });
+                },
+                {t(&lang, "connections-reinstall-agent")}
+            }
+
             if BAKED_BACKEND_URL.is_none() {
                 div {
                     label { class: "block text-sm font-medium text-stone-700 mb-1",

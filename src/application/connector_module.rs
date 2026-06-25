@@ -520,6 +520,13 @@ async fn ensure_agent_installed(db: &Database) -> Result<(), String> {
     db.install_agent(&verified)
 }
 
+// Drop the pinned row and re-fetch from the backend, so a device that already pinned an older agent
+// pulls the current signed package without wiping its notes (the install row is the only thing reset).
+pub async fn reinstall_agent(db: &Database) -> Result<(), String> {
+    db.uninstall_agent(FIXTURE_AGENT_ID)?;
+    ensure_agent_installed(db).await
+}
+
 // Sync guard for the list-pick arm path, which always follows `arm_list_spreadsheets` (where the
 // network install already ran). Bind targets the pinned row's `bound_json`, so a missing row would
 // silently drop the binding - refuse it with a clear message instead.
