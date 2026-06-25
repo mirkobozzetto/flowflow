@@ -202,6 +202,9 @@ fn spreadsheet_id_from_url_parses_real_and_bare_urls() {
 fn multi_bind_adds_dedups_and_removes() {
     let dir = tempdir().unwrap();
     let db = Database::open_at(dir.path().join("t.db")).unwrap();
+    // Bind targets the pinned agent row; install it (the runtime install now comes from the backend).
+    db.install_agent(&verify_package(FIXTURE_PACKAGE, ADMIN_PUBKEY).unwrap())
+        .unwrap();
 
     bind_spreadsheet(&db, "A", "Alpha").unwrap();
     bind_spreadsheet(&db, "B", "Beta").unwrap();
