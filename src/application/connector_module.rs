@@ -17,9 +17,9 @@ use rmcp::model::CallToolRequestParams;
 // resource, so the governance gate never bound-checks it - listing works before anything is armed.
 const LIST_TOOL: &str = "google_sheets_list_spreadsheets";
 
-// `pub` so the contract-lock test verifies the shipped fixture against the pinned key and builds it.
-// Must equal the manifest `id` AND the backend catalog id (seed_catalog: `agent-crm-sync`), since it
-// travels as x-agent-id; an id the backend has not granted is rejected 403 at the proxy.
+// The agent the device installs. Must equal the manifest `id` AND the backend catalog id
+// (seed_catalog: `agent-crm-sync`), since it travels as x-agent-id; an id the backend has not granted
+// is rejected 403 at the proxy and at the package fetch.
 pub const FIXTURE_AGENT_ID: &str = "agent-crm-sync";
 const SYNC_CHAIN_NAME: &str = "sync";
 
@@ -27,13 +27,13 @@ const SYNC_CHAIN_NAME: &str = "sync";
 const SYNC_GOAL: &str =
     "List my spreadsheets, open the most relevant one, and report what it contains.";
 
-// A signed agent package shipped with the app to prove the install -> verify -> pin -> build -> run
-// path on device without backend install plumbing. The signature is over the canonical digest of the
-// manifest, made offline with the dev admin key whose public half is pinned in `ADMIN_PUBKEY`.
-// ponytail: `bound_resource.spreadsheet_id` is a placeholder; to bind a real sheet, edit the manifest,
-// rerun `cargo test -p flowflow --test agent_manifest_test gen_fixture -- --ignored --nocapture`, and
-// paste the new content_digest + signature below. Until then off-bound reads/writes are refused, so
-// only the read-only `find` state runs live - exactly the M1.14 safe state.
+// A signed agent package, kept as the test golden vector that exercises verify -> build -> gate without
+// a backend. It is NO LONGER the runtime install source: the device now fetches the package from
+// `GET /v1/agents/{id}/package` and pins that. The signature is over the canonical digest of the
+// manifest, made offline with the dev admin key whose public half is pinned in `ADMIN_PUBKEY`; the
+// backend seeds the same `agent-crm-sync` manifest, so a fixture pin and a fetched pin are identical.
+// `bound_resource.spreadsheet_id` is a placeholder until the user arms a real sheet; off-bound
+// reads/writes are refused until then.
 pub const FIXTURE_PACKAGE: &str = r#"{
   "manifest": {
     "schema_version": "1",
@@ -83,6 +83,7 @@ pub const FIXTURE_PACKAGE: &str = r#"{
 /// Drive the installed agent's pinned `sync` chain through the FSM runtime and return a per-state
 /// trace for the trigger UI.
 pub async fn run_sync_chain(db: &Database) -> Result<String, String> {
+    ensure_agent_installed(db).await?;
     let built = load_built(db)?;
     let chain = built
         .chains
@@ -116,6 +117,7 @@ pub struct Spreadsheet {
 pub async fn arm_list_spreadsheets(
     db: &Database,
 ) -> Result<Vec<Spreadsheet>, String> {
+    ensure_agent_installed(db).await?;
     let built = load_built(db)?;
     let backend = BackendClient::from_db(db)
         .ok_or("no backend configured".to_string())?;
@@ -189,7 +191,7 @@ pub fn bind_spreadsheet(
     spreadsheet_id: &str,
     name: &str,
 ) -> Result<(), String> {
-    ensure_fixture_installed(db)?;
+    require_installed(db)?;
     let mut ids = bound_ids(db);
     if !ids.iter().any(|i| i == spreadsheet_id) {
         ids.push(spreadsheet_id.to_string());
@@ -236,6 +238,7 @@ pub async fn bind_spreadsheet_from_url(
     db: &Database,
     url: &str,
 ) -> Result<(), String> {
+    ensure_agent_installed(db).await?;
     let id = spreadsheet_id_from_url(url)
         .ok_or("not a Google Sheets URL".to_string())?;
     let name = fetch_spreadsheet_name(db, &id)
@@ -459,10 +462,9 @@ fn first_object_array(
     }
 }
 
-// Install (verify + pin) the fixture on first use, then load the pinned row, re-check its integrity
-// against the pinned digest, and build the runnable agent from its manifest.
+// Load the pinned row (placed by `ensure_agent_installed`), re-check its integrity against the pinned
+// digest, and build the runnable agent from its manifest. Sync: the network install happens upstream.
 fn load_built(db: &Database) -> Result<BuiltAgent, String> {
-    ensure_fixture_installed(db)?;
     let installed = db
         .get_installed_agent(FIXTURE_AGENT_ID)
         .ok_or("agent not installed")?;
@@ -485,18 +487,49 @@ fn load_built(db: &Database) -> Result<BuiltAgent, String> {
     build_agent(&manifest)
 }
 
-fn ensure_fixture_installed(db: &Database) -> Result<(), String> {
-    // Verify the shipped fixture every time (cheap), and repin whenever the device has no row or a row
-    // at a different digest, so a newer shipped manifest replaces the stale pin instead of running it.
-    let verified = verify_package(FIXTURE_PACKAGE, ADMIN_PUBKEY)
-        .map_err(|e| format!("verify fixture agent: {e}"))?;
-    match db.get_installed_agent(FIXTURE_AGENT_ID) {
-        Some(existing)
-            if existing.content_digest == verified.content_digest =>
+// Arm-time install: check the kill switch, then pin the agent from the backend if it is not already
+// pinned. The revocation list is consulted on every arm (cheap, the cross-device kill switch); a pinned
+// row whose version was revoked is dropped and the arm refused. Once pinned, the local row is reused -
+// `load_built` re-verifies its integrity against the pinned digest, so no fetch is needed to run.
+async fn ensure_agent_installed(db: &Database) -> Result<(), String> {
+    let backend = BackendClient::from_db(db)
+        .ok_or("no backend configured".to_string())?;
+
+    let revoked = backend
+        .fetch_revocations(db)
+        .await
+        .map_err(|e| format!("revocation check: {e}"))?;
+
+    if let Some(existing) = db.get_installed_agent(FIXTURE_AGENT_ID) {
+        if revoked
+            .iter()
+            .any(|r| r.id == FIXTURE_AGENT_ID && r.version == existing.version)
         {
-            Ok(())
+            db.uninstall_agent(FIXTURE_AGENT_ID)?;
+            return Err(format!("agent `{FIXTURE_AGENT_ID}` was revoked"));
         }
-        _ => db.install_agent(&verified),
+        return Ok(());
+    }
+
+    let package = backend
+        .fetch_agent_package(db, FIXTURE_AGENT_ID)
+        .await
+        .map_err(|e| format!("fetch agent package: {e}"))?;
+    let verified = verify_package(&package, ADMIN_PUBKEY)
+        .map_err(|e| format!("verify agent package: {e}"))?;
+    db.install_agent(&verified)
+}
+
+// Sync guard for the list-pick arm path, which always follows `arm_list_spreadsheets` (where the
+// network install already ran). Bind targets the pinned row's `bound_json`, so a missing row would
+// silently drop the binding - refuse it with a clear message instead.
+fn require_installed(db: &Database) -> Result<(), String> {
+    if db.get_installed_agent(FIXTURE_AGENT_ID).is_some() {
+        Ok(())
+    } else {
+        Err(format!(
+            "agent `{FIXTURE_AGENT_ID}` not installed - open Connections to install it"
+        ))
     }
 }
 

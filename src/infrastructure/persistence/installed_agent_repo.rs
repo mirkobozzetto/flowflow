@@ -25,6 +25,15 @@ impl Database {
         Ok(())
     }
 
+    /// Drop a pinned agent (and its `bound_json`, which lives on the same row). The cross-device kill
+    /// switch calls this when a revoked agent is detected at arm, so a stale pin can never run again.
+    pub fn uninstall_agent(&self, id: &str) -> Result<(), String> {
+        let conn = self.conn();
+        conn.execute("DELETE FROM installed_agents WHERE id = ?1", [id])
+            .map_err(|e| format!("uninstall agent: {e}"))?;
+        Ok(())
+    }
+
     pub fn get_installed_agent(&self, id: &str) -> Option<InstalledAgent> {
         let conn = self.conn();
         conn.query_row(
