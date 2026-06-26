@@ -1,5 +1,6 @@
+use flowflow::application::constants::CHAT_MODEL;
 use flowflow::application::error::LlmError;
-use flowflow::infrastructure::llm::{parse_tags, Provider};
+use flowflow::infrastructure::llm::{parse_tags, resolve_chat_model, Provider};
 use std::str::FromStr;
 
 #[test]
@@ -201,4 +202,25 @@ fn test_provider_debug_format() {
     assert!(dbg.contains("OpenAi"));
     let dbg = format!("{:?}", Provider::Anthropic);
     assert!(dbg.contains("Anthropic"));
+}
+
+// resolve_chat_model: an agent's manifest model wins; blank falls back to the default; the retired
+// gpt-4o family maps to the default so an in-flight signed manifest still runs without a re-sign.
+
+#[test]
+fn test_resolve_chat_model_override() {
+    assert_eq!(resolve_chat_model("gpt-5.4-mini"), "gpt-5.4-mini");
+    assert_eq!(resolve_chat_model("gpt-5.4-nano"), "gpt-5.4-nano");
+}
+
+#[test]
+fn test_resolve_chat_model_blank_defaults() {
+    assert_eq!(resolve_chat_model(""), CHAT_MODEL);
+    assert_eq!(resolve_chat_model("   "), CHAT_MODEL);
+}
+
+#[test]
+fn test_resolve_chat_model_legacy_maps_to_default() {
+    assert_eq!(resolve_chat_model("gpt-4o"), CHAT_MODEL);
+    assert_eq!(resolve_chat_model("gpt-4o-mini"), CHAT_MODEL);
 }

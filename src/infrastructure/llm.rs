@@ -1,6 +1,6 @@
 use crate::application::constants::{
-    ANTHROPIC_CHAT_MODEL, ANTHROPIC_MAX_TOKENS, CHAT_MODEL, EMBEDDING_DIMS,
-    EMBEDDING_MODEL,
+    ANTHROPIC_CHAT_MODEL, ANTHROPIC_MAX_TOKENS, CHAT_MODEL, CHEAP_MODEL,
+    EMBEDDING_DIMS, EMBEDDING_MODEL,
 };
 use crate::application::error::LlmError;
 use crate::application::tools::{
@@ -138,11 +138,22 @@ impl LlmClient {
         system: &str,
         user_message: &str,
     ) -> Result<String, LlmError> {
+        self.chat_with_model(CHAT_MODEL, system, user_message).await
+    }
+
+    // The OpenAI model applies only on the OpenAI path; under Anthropic the configured Anthropic
+    // model stands (an OpenAI id has no meaning there - cross-provider coherence is a publish-time concern).
+    async fn chat_with_model(
+        &self,
+        openai_model: &str,
+        system: &str,
+        user_message: &str,
+    ) -> Result<String, LlmError> {
         match self.provider {
             Provider::OpenAi => {
                 let agent = self
                     .openai
-                    .agent(CHAT_MODEL)
+                    .agent(openai_model)
                     .preamble(system)
                     .temperature(0.3)
                     .build();
@@ -176,7 +187,9 @@ impl LlmClient {
         content: &str,
     ) -> Result<Vec<String>, LlmError> {
         use crate::application::constants::TAGS_SYSTEM_PROMPT;
-        let response = self.chat(TAGS_SYSTEM_PROMPT, content).await?;
+        let response = self
+            .chat_with_model(CHEAP_MODEL, TAGS_SYSTEM_PROMPT, content)
+            .await?;
         parse_tags(&response)
     }
 
@@ -190,7 +203,8 @@ impl LlmClient {
         let system =
             format!("{TITLE_SYSTEM_PROMPT}\n\nRespond ONLY in {lang_name}.");
         let preview: String = content.chars().take(1500).collect();
-        let response = self.chat(&system, &preview).await?;
+        let response =
+            self.chat_with_model(CHEAP_MODEL, &system, &preview).await?;
         let title = response.trim().trim_matches('"').trim().to_string();
         if title.is_empty() {
             return Err(LlmError::Completion("Empty title".into()));
@@ -294,6 +308,7 @@ impl LlmClient {
         hook: ContractHook,
     ) -> Result<String, LlmError> {
         self.run_agent_over_tools(
+            CHAT_MODEL,
             preamble,
             user_message,
             reg.tools(),
@@ -309,6 +324,7 @@ impl LlmClient {
     /// keeps the registry owned across the await so the sink stays valid. The `hook` enforces the device gate.
     pub async fn run_agent_over_tools(
         &self,
+        openai_model: &str,
         preamble: &str,
         user_message: &str,
         tools: Vec<rmcp::model::Tool>,
@@ -319,7 +335,7 @@ impl LlmClient {
             Provider::OpenAi => {
                 let agent = self
                     .openai
-                    .agent(CHAT_MODEL)
+                    .agent(openai_model)
                     .preamble(preamble)
                     .temperature(0.0)
                     .rmcp_tools(tools, peer)
@@ -371,6 +387,16 @@ impl LlmClient {
                 None
             }
         }
+    }
+}
+
+/// The OpenAI chat model an agent runs on: its manifest `model` when set and current, else the
+/// default. The retired `gpt-4o` family maps to the default so an in-flight signed manifest that
+/// still pins it runs on the current model without forcing a re-sign.
+pub fn resolve_chat_model(manifest_model: &str) -> &str {
+    match manifest_model.trim() {
+        "" | "gpt-4o" | "gpt-4o-mini" => CHAT_MODEL,
+        m => m,
     }
 }
 

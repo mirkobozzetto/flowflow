@@ -43,7 +43,7 @@ pub const FIXTURE_PACKAGE: &str = r#"{
     "description": "Use when the user wants to read or update their client/prospect spreadsheet. Do NOT use for general questions or the calendar.",
     "author": "flowflow-admin",
     "alias": "synchro-clients",
-    "model": "gpt-4o",
+    "model": "gpt-5.4-mini",
     "temperature": 0.1,
     "required_connectors": [
       { "type": "tabular_store", "capabilities": ["search", "read", "update"] }
@@ -74,8 +74,8 @@ pub const FIXTURE_PACKAGE: &str = r#"{
       }
     }
   },
-  "content_digest": "sha256:b6a684ce863b9b8cb8c7b941fe55be911fb07198e52d1efac2bf7c45c975fd20",
-  "signature": "ed25519:2TosOZou18cjSkc+jC+7NQA0ewfv1F6JH/HgzYr9XnWYXmslDwASg6jkPq0Gx4d4aUx+6yOSXQ7lMEsgiv+JCA==",
+  "content_digest": "sha256:98cbcbe81a0b5e614944f1c6a1682ee1b75ff425752e46ebfc23c75fcfac3557",
+  "signature": "ed25519:tatFcv1stw3Hrhj3UyWtpF9ZVXU6nm8ipkQ/uU6LIYzP0uy/W3mbdjEboaEOj55t7j51ZRjFGsvVVpQa9MnwAQ==",
   "signer_key_id": "dev-admin",
   "status": "published"
 }"#;
@@ -89,17 +89,9 @@ pub async fn run_sync_chain(db: &Database) -> Result<String, String> {
         .chains
         .get(SYNC_CHAIN_NAME)
         .ok_or_else(|| format!("manifest has no `{SYNC_CHAIN_NAME}` chain"))?;
-    let outcome = run_chain(
-        db,
-        chain,
-        built.governance.clone(),
-        built.connector.clone(),
-        &built.slug,
-        &built.agent_id,
-        SYNC_GOAL,
-    )
-    .await
-    .map_err(|e| e.to_string())?;
+    let outcome = run_chain(db, chain, &built, SYNC_GOAL)
+        .await
+        .map_err(|e| e.to_string())?;
     Ok(format_outcome(&outcome))
 }
 

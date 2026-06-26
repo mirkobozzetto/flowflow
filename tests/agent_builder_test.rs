@@ -13,7 +13,7 @@ const VALID_MANIFEST: &str = r#"{
   "id": "crm-sync",
   "version": "1.0.0",
   "name": "CRM Sync",
-  "model": "gpt-4o",
+  "model": "gpt-5.4-mini",
   "temperature": 0.1,
   "required_connectors": [
     { "type": "tabular_store", "capabilities": ["search", "read", "update"] }
@@ -50,7 +50,7 @@ fn builds_expected_shape_and_real_bound() {
 
     assert_eq!(built.agent_id, "crm-sync");
     assert_eq!(built.slug, "google");
-    assert_eq!(built.model, "gpt-4o");
+    assert_eq!(built.model, "gpt-5.4-mini");
     assert_eq!(built.temperature, Some(0.1));
     // The bound comes from the manifest, not a code constant.
     assert_eq!(
