@@ -640,10 +640,10 @@ pub fn NoteDetail() -> Element {
                     },
                     if note_copied() {
                         IconCheck { size: 12 }
-                        {t(&lang, "chat-copied")}
+                        {t(&lang, "common-copied")}
                     } else {
                         IconCopy { size: 12 }
-                        {t(&lang, "chat-copy")}
+                        {t(&lang, "common-copy")}
                     }
                 }
             }

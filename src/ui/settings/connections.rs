@@ -1,6 +1,7 @@
 use crate::application::i18n::t;
 use crate::infrastructure::backend::{BackendClient, Connector};
 use crate::infrastructure::persistence::Database;
+use crate::ui::icons::{IconCheck, IconCopy};
 use crate::ui::AppState;
 use dioxus::prelude::*;
 use std::sync::Arc;
@@ -23,6 +24,7 @@ pub fn ConnectionsSettings() -> Element {
     let mut connectors = use_signal(Vec::<Connector>::new);
     let mut status: Signal<Option<String>> = use_signal(|| None);
     let mut busy = use_signal(|| false);
+    let mut dev_copied = use_signal(|| false);
     let mut reload = use_signal(|| 0u32);
     // The spreadsheet list returned through the gated agent path.
     let mut test_result: Signal<Option<String>> = use_signal(|| None);
@@ -91,9 +93,28 @@ pub fn ConnectionsSettings() -> Element {
                             "{device_id}"
                         }
                         button {
-                            class: crate::ui::kit::PILL_GHOST,
-                            onclick: move |_| crate::ui::clipboard::copy_text(&device_id()),
-                            {t(&lang, "connections-copy")}
+                            class: if dev_copied() {
+                                "shrink-0 p-1.5 rounded-md text-ios-green transition-colors"
+                            } else {
+                                "shrink-0 p-1.5 rounded-md text-stone-400 hover:bg-stone-100 active:bg-stone-100 transition-colors"
+                            },
+                            onclick: move |_| {
+                                if dev_copied() { return; }
+                                crate::ui::clipboard::copy_text(&device_id());
+                                dev_copied.set(true);
+                                spawn(async move {
+                                    futures_timer::Delay::new(
+                                        Duration::from_millis(1500),
+                                    )
+                                    .await;
+                                    dev_copied.set(false);
+                                });
+                            },
+                            if dev_copied() {
+                                IconCheck { size: 16 }
+                            } else {
+                                IconCopy { size: 16 }
+                            }
                         }
                     }
                 }

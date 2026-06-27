@@ -31,8 +31,8 @@ pub fn BotBubble(
         );
         find_saved_note(&db(), folder.as_deref(), &text_for_lookup)
     });
-    let copy_label = t(&lang, "chat-copy");
-    let copied_label = t(&lang, "chat-copied");
+    let copy_label = t(&lang, "common-copy");
+    let copied_label = t(&lang, "common-copied");
     let save_label = t(&lang, "chat-save-note");
     let saved_label = t(&lang, "chat-saved");
     let text_for_copy = text.clone();
