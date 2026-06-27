@@ -23,12 +23,11 @@ pub mod transcription_manager;
 
 pub use state::{AppState, SettingsSection, SidebarTab, View};
 
-use crate::infrastructure::audio::{AudioRecorder, RecordingState};
+use crate::infrastructure::audio::AudioRecorder;
 use crate::infrastructure::persistence::Database;
 use crate::infrastructure::sync::engine::SyncEngine;
 use crate::infrastructure::sync::reconcile::run_boot_reconcile;
 use dioxus::prelude::*;
-use std::collections::HashMap;
 use std::sync::{Arc, Mutex};
 use transcription_manager::{
     append_transcription_to_note, JobStatus, TranscriptionManager,
@@ -99,40 +98,8 @@ pub fn App() -> Element {
             crate::infrastructure::platform::detect_system_language,
         );
 
-    let app = use_context_provider(|| AppState {
-        view: Signal::new(View::NotesList),
-        sidebar_open: Signal::new(false),
-        selected_folder_id: Signal::new(None),
-        recording_state: Signal::new(RecordingState::Idle),
-        folders_version: Signal::new(0),
-        sliding_out: Signal::new(false),
-        audio_levels: Signal::new(vec![0.0; 12]),
-        notes_version: Signal::new(0),
-        current_note_id: Signal::new(None),
-        previous_view: Signal::new(None),
-        search_query: Signal::new(String::new()),
-        show_note_menu: Signal::new(false),
-        attachments_version: Signal::new(0),
-        attachment_modal: Signal::new(None),
-        show_chat_menu: Signal::new(false),
-        show_thread_menu: Signal::new(false),
-        sidebar_tab: Signal::new(SidebarTab::Notes),
-        show_folder_picker: Signal::new(false),
-        chat_scope: Signal::new(None),
-        detail_folder_id: Signal::new(None),
-        ai_consent: Signal::new(consent_value),
-        current_lang: Signal::new(initial_lang),
-        transcription_jobs: Signal::new(HashMap::new()),
-        transcription_done_badge: Signal::new(0),
-        audio_import_requested: Signal::new(false),
-        sync_data_version: Signal::new(0),
-        view_history: Signal::new(Vec::new()),
-        view_future: Signal::new(Vec::new()),
-        history_nav: Signal::new(false),
-        picker_kb_up: Signal::new(0),
-        picker_kb_down: Signal::new(0),
-        picker_kb_commit: Signal::new(0),
-    });
+    let app =
+        use_context_provider(|| AppState::new(consent_value, initial_lang));
 
     // ponytail: temporary spike trigger for issue #43, delete after device validation
     #[cfg(debug_assertions)]
