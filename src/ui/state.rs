@@ -86,3 +86,42 @@ pub struct AppState {
     pub picker_kb_down: Signal<u32>,
     pub picker_kb_commit: Signal<u32>,
 }
+
+impl AppState {
+    pub fn new(consent: Option<bool>, lang: String) -> Self {
+        Self {
+            view: Signal::new(View::NotesList),
+            sidebar_open: Signal::new(false),
+            selected_folder_id: Signal::new(None),
+            recording_state: Signal::new(RecordingState::Idle),
+            folders_version: Signal::new(0),
+            sliding_out: Signal::new(false),
+            audio_levels: Signal::new(vec![0.0; 12]),
+            notes_version: Signal::new(0),
+            current_note_id: Signal::new(None),
+            previous_view: Signal::new(None),
+            search_query: Signal::new(String::new()),
+            show_note_menu: Signal::new(false),
+            attachments_version: Signal::new(0),
+            attachment_modal: Signal::new(None),
+            show_chat_menu: Signal::new(false),
+            show_thread_menu: Signal::new(false),
+            sidebar_tab: Signal::new(SidebarTab::Notes),
+            show_folder_picker: Signal::new(false),
+            chat_scope: Signal::new(None),
+            detail_folder_id: Signal::new(None),
+            ai_consent: Signal::new(consent),
+            current_lang: Signal::new(lang),
+            transcription_jobs: Signal::new(HashMap::new()),
+            transcription_done_badge: Signal::new(0),
+            audio_import_requested: Signal::new(false),
+            sync_data_version: Signal::new(0),
+            view_history: Signal::new(Vec::new()),
+            view_future: Signal::new(Vec::new()),
+            history_nav: Signal::new(false),
+            picker_kb_up: Signal::new(0),
+            picker_kb_down: Signal::new(0),
+            picker_kb_commit: Signal::new(0),
+        }
+    }
+}
