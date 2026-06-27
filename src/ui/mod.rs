@@ -1,4 +1,5 @@
 mod action_card;
+mod app;
 mod attachment_modal;
 mod chat;
 mod chat_input;
@@ -30,10 +31,12 @@ use crate::infrastructure::sync::engine::SyncEngine;
 use crate::infrastructure::sync::reconcile::run_boot_reconcile;
 use dioxus::prelude::*;
 use std::sync::{Arc, Mutex};
-use transcription_manager::{
-    append_transcription_to_note, JobStatus, TranscriptionManager,
-};
+use transcription_manager::TranscriptionManager;
 
+use app::{
+    use_history_tracker, use_picker_reset_on_view, use_sync_watcher,
+    use_transcription_watcher,
+};
 use attachment_modal::AttachmentModal;
 use chat::ChatView;
 use consent::ConsentScreen;
@@ -68,9 +71,9 @@ pub fn App() -> Element {
         Signal::new(db)
     });
 
-    let mut restore_locked =
+    let restore_locked =
         use_signal(crate::application::backup::restore_lock_active);
-    let mut index_rebuilding = use_signal(|| false);
+    let index_rebuilding = use_signal(|| false);
 
     let _engine: Signal<Arc<SyncEngine>> =
         use_context_provider(|| Signal::new(SyncEngine::start(_db())));
@@ -121,112 +124,10 @@ pub fn App() -> Element {
         }
     });
 
-    use_future(move || {
-        let manager = manager.clone();
-        let db = _db();
-        let mut app = app;
-        async move {
-            loop {
-                let snap = manager.snapshot();
-                if *app.transcription_jobs.peek() != snap {
-                    app.transcription_jobs.set(snap.clone());
-                }
-                let current = (app.current_note_id)();
-                let viewing_note =
-                    matches!((app.view)(), View::NoteDetail { .. });
-                for (note_id, q) in snap.iter() {
-                    let is_done = matches!(
-                        q.front().map(|j| &j.status),
-                        Some(JobStatus::Done(_))
-                    );
-                    let is_open = viewing_note
-                        && current.as_deref() == Some(note_id.as_str());
-                    if is_done && !is_open {
-                        if let Some(text) = manager.take_done(note_id) {
-                            append_transcription_to_note(&db, note_id, &text);
-                            app.notes_version.set((app.notes_version)() + 1);
-                            app.transcription_done_badge
-                                .set((app.transcription_done_badge)() + 1);
-                            _engine.peek().schedule_debounced();
-                        }
-                    }
-                }
-                futures_timer::Delay::new(std::time::Duration::from_millis(
-                    700,
-                ))
-                .await;
-            }
-        }
-    });
-
-    use_future(move || {
-        let mut app = app;
-        async move {
-            let mut last_seen = _engine.peek().data_version();
-            loop {
-                futures_timer::Delay::new(std::time::Duration::from_millis(
-                    400,
-                ))
-                .await;
-                let lock_now =
-                    crate::application::backup::restore_lock_active();
-                if *restore_locked.peek() != lock_now {
-                    restore_locked.set(lock_now);
-                }
-                let rebuilding =
-                    crate::application::backup::restore_recovery_window_active()
-                        && crate::infrastructure::sync::reconcile::reconcile_running(
-                        );
-                if *index_rebuilding.peek() != rebuilding {
-                    index_rebuilding.set(rebuilding);
-                }
-                let current_view = (app.view)();
-                if sync::pending_pairing_uri_exists()
-                    && current_view != View::SyncPairing
-                {
-                    app.previous_view.set(Some(current_view));
-                    app.view.set(View::SyncPairing);
-                }
-                let current = _engine.peek().data_version();
-                if current == last_seen {
-                    continue;
-                }
-                last_seen = current;
-                app.sync_data_version.set(current);
-                app.notes_version.set((app.notes_version)() + 1);
-                app.folders_version.set((app.folders_version)() + 1);
-                app.attachments_version.set((app.attachments_version)() + 1);
-            }
-        }
-    });
-
-    use_effect(move || {
-        let _ = (app.view)();
-        let mut app = app;
-        app.show_folder_picker.set(false);
-    });
-
-    let mut last_view = use_signal(|| app.view.peek().clone());
-    use_effect(move || {
-        let v = (app.view)();
-        let prev = last_view.peek().clone();
-        if v == prev {
-            return;
-        }
-        last_view.set(v);
-        let mut app = app;
-        if *app.history_nav.peek() {
-            app.history_nav.set(false);
-            return;
-        }
-        let mut history = app.view_history.write();
-        history.push(prev);
-        if history.len() > 20 {
-            history.remove(0);
-        }
-        drop(history);
-        app.view_future.write().clear();
-    });
+    use_transcription_watcher(manager.clone(), _db, _engine, app);
+    use_sync_watcher(_engine, app, restore_locked, index_rebuilding);
+    use_picker_reset_on_view(app);
+    use_history_tracker(app);
 
     #[cfg(target_os = "macos")]
     keyboard::use_macos_shortcuts(app);
