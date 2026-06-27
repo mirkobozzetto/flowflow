@@ -115,6 +115,12 @@ struct InviteResp {
     join_token: String,
 }
 
+#[derive(serde::Deserialize)]
+struct LinkBeginResp {
+    link_token: String,
+    expires_at: String,
+}
+
 #[derive(Serialize)]
 struct JoinReq<'a> {
     join_token: &'a str,
@@ -501,6 +507,19 @@ impl BackendClient {
             .await?;
         let parsed: InviteResp = Self::read_json(resp).await?;
         Ok(parsed.join_token)
+    }
+
+    /// Mint a single-use, short-TTL token a web user redeems to bind their identity to this device's
+    /// account. The token is the device's consent; the account is taken from the authenticated session.
+    /// Returns the token to display and its ISO expiry.
+    pub async fn link_begin(
+        &self,
+        db: &Database,
+    ) -> Result<(String, String), BackendError> {
+        let url = format!("{}/v1/account/link/begin", self.base_url);
+        let resp = self.authed(db, |c, t| c.post(&url).bearer_auth(t)).await?;
+        let parsed: LinkBeginResp = Self::read_json(resp).await?;
+        Ok((parsed.link_token, parsed.expires_at))
     }
 
     /// Joiner side: redeem the token on this device's own session to adopt the inviter's account.
