@@ -25,17 +25,12 @@ pub mod transcription_manager;
 
 pub use state::{AppState, SettingsSection, SidebarTab, View};
 
-use crate::infrastructure::audio::AudioRecorder;
-use crate::infrastructure::persistence::Database;
-use crate::infrastructure::sync::engine::SyncEngine;
-use crate::infrastructure::sync::reconcile::run_boot_reconcile;
 use dioxus::prelude::*;
-use std::sync::{Arc, Mutex};
-use transcription_manager::TranscriptionManager;
 
 use app::{
-    use_history_tracker, use_picker_reset_on_view, use_sync_watcher,
-    use_transcription_watcher,
+    load_consent, load_lang, use_app_contexts, use_history_tracker,
+    use_picker_reset_on_view, use_sync_watcher, use_transcription_watcher,
+    AppContexts,
 };
 use attachment_modal::AttachmentModal;
 use chat::ChatView;
@@ -52,63 +47,24 @@ use top_bar::TopBar;
 
 #[component]
 pub fn App() -> Element {
-    let _db = use_context_provider(|| {
-        let db = Arc::new(Database::open().expect("Failed to open database"));
-        if crate::application::backup::restore_recovery_window_active() {
-            eprintln!(
-                "[backup] orphan audio cleanup skipped (recovery window)"
-            );
-        } else {
-            db.cleanup_orphan_audio(&crate::infrastructure::audio::output_dir());
-        }
-        crate::application::backup::finalize_restore_bak();
-        run_boot_reconcile();
-        #[cfg(target_os = "ios")]
-        {
-            crate::infrastructure::platform::ios::sync_ffi::observe_background_checkpoint();
-            crate::infrastructure::platform::ios::sync_ffi::observe_restore_foreground();
-        }
-        Signal::new(db)
+    let AppContexts {
+        db,
+        engine,
+        recorder: _recorder,
+        manager,
+        restore_locked,
+        index_rebuilding,
+    } = use_app_contexts();
+
+    let app = use_context_provider(|| {
+        let d = db();
+        AppState::new(load_consent(&d), load_lang(&d))
     });
-
-    let restore_locked =
-        use_signal(crate::application::backup::restore_lock_active);
-    let index_rebuilding = use_signal(|| false);
-
-    let _engine: Signal<Arc<SyncEngine>> =
-        use_context_provider(|| Signal::new(SyncEngine::start(_db())));
-
-    let _recorder: Signal<Arc<Mutex<AudioRecorder>>> =
-        use_context_provider(|| {
-            Signal::new(Arc::new(Mutex::new(AudioRecorder::new())))
-        });
-
-    let manager = use_context_provider(|| {
-        let m = TranscriptionManager::new(_db());
-        m.resume_pending();
-        m
-    });
-
-    if option_env!("FLOWFLOW_RESET_CONSENT") == Some("1") {
-        let _ = _db().set_setting("ai_consent", "");
-    }
-    let consent_value = _db().get_setting("ai_consent").map(|v| v == "true");
-
-    let initial_lang = _db()
-        .get_setting(
-            crate::infrastructure::persistence::settings_repo::LANGUAGE_KEY,
-        )
-        .unwrap_or_else(
-            crate::infrastructure::platform::detect_system_language,
-        );
-
-    let app =
-        use_context_provider(|| AppState::new(consent_value, initial_lang));
 
     // ponytail: temporary spike trigger for issue #43, delete after device validation
     #[cfg(debug_assertions)]
     use_future(move || {
-        let db = _db();
+        let db = db();
         async move {
             let key = crate::application::web_search::exa_api_key(&db);
             let results = crate::application::web_search::exa_search(
@@ -124,8 +80,8 @@ pub fn App() -> Element {
         }
     });
 
-    use_transcription_watcher(manager.clone(), _db, _engine, app);
-    use_sync_watcher(_engine, app, restore_locked, index_rebuilding);
+    use_transcription_watcher(manager.clone(), db, engine, app);
+    use_sync_watcher(engine, app, restore_locked, index_rebuilding);
     use_picker_reset_on_view(app);
     use_history_tracker(app);
 
