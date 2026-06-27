@@ -51,25 +51,6 @@ pub fn App() -> Element {
         AppState::new(load_consent(&d), load_lang(&d))
     });
 
-    // ponytail: temporary spike trigger for issue #43, delete after device validation
-    #[cfg(debug_assertions)]
-    use_future(move || {
-        let db = db();
-        async move {
-            let key = crate::application::web_search::exa_api_key(&db);
-            let results = crate::application::web_search::exa_search(
-                "latest rust async runtime news",
-                &key,
-            )
-            .await;
-            eprintln!(
-                "[exa spike #43] {} results: {:#?}",
-                results.len(),
-                results
-            );
-        }
-    });
-
     use_transcription_watcher(manager.clone(), db, engine, app);
     use_sync_watcher(engine, app, restore_locked, index_rebuilding);
     use_picker_reset_on_view(app);
