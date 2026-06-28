@@ -9,7 +9,7 @@ use crate::ui::icons::{IconCheck, IconCopy, IconPencil};
 use crate::ui::notes::attachments::AttachmentSection;
 use crate::ui::notes::audio_section::{AudioJobBanner, AudioSection};
 use crate::ui::notes::dates::{format_absolute_short, format_relative_date};
-use crate::ui::notes::menu::{import_audio_file, NoteMenu};
+use crate::ui::notes::menu::NoteMenu;
 use crate::ui::notes::reminders::{ActiveReminders, ReminderSuggestions};
 use crate::ui::notes::tags::TagsSection;
 use crate::ui::recording::RecordingBar;
@@ -17,8 +17,10 @@ use crate::ui::{AppState, View};
 use dioxus::prelude::*;
 use std::sync::Arc;
 
+mod audio_import;
 mod auto_title;
 mod doc_import;
+use audio_import::use_audio_import;
 use auto_title::use_auto_title;
 use doc_import::use_document_import;
 
@@ -303,54 +305,15 @@ pub fn NoteDetail() -> Element {
         import_status,
     );
 
-    let enqueue_manager = manager.clone();
-    use_effect(move || {
-        if !(app.audio_import_requested)() {
-            return;
-        }
-        app.audio_import_requested.set(false);
-        let manager = enqueue_manager.clone();
-        let db = db();
-        let t = title();
-        let c = content();
-        let tg = tags();
-        let folder = (app.detail_folder_id)();
-        spawn(async move {
-            let path = match import_audio_file().await {
-                Some(p) => p,
-                None => return,
-            };
-            let target_id = {
-                let current = local_note_id();
-                if current.is_empty() {
-                    let new = NewTextNote {
-                        title: if t.is_empty() {
-                            None
-                        } else {
-                            Some(t.clone())
-                        },
-                        content: c.clone(),
-                        tags: tg.clone(),
-                    };
-                    match db.create_text_note(&new) {
-                        Ok(created) => {
-                            if let Some(ref fid) = folder {
-                                let _ = db.add_note_to_folder(&created.id, fid);
-                            }
-                            local_note_id.set(created.id.clone());
-                            app.current_note_id.set(Some(created.id.clone()));
-                            app.notes_version.set((app.notes_version)() + 1);
-                            created.id
-                        }
-                        Err(_) => return,
-                    }
-                } else {
-                    current
-                }
-            };
-            manager.enqueue(target_id, path);
-        });
-    });
+    use_audio_import(
+        app,
+        db,
+        manager.clone(),
+        title,
+        content,
+        tags,
+        local_note_id,
+    );
 
     let observe_manager = manager.clone();
     use_effect(move || {
