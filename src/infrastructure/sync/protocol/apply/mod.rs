@@ -17,8 +17,10 @@ use std::collections::BTreeMap;
 
 mod archive;
 mod hlc_guard;
+mod meta;
 use archive::{archived_from_local, archived_from_payload};
 use hlc_guard::hlc_guard;
+use meta::{load_local_meta, meta_hlc, upsert_meta_verbatim, LocalMeta};
 
 const MAX_CHUNKS_PER_ROW: usize = 1024;
 
@@ -39,67 +41,6 @@ pub(super) struct ApplyCtx {
     pub restored_session: bool,
     pub exempt_floor: Option<i64>,
     pub peer_device: String,
-}
-
-struct LocalMeta {
-    version_vector: String,
-    origin_device: String,
-    deleted: i64,
-    updated_hlc: Option<String>,
-}
-
-fn load_local_meta(
-    conn: &Connection,
-    kind: &str,
-    entity_id: &str,
-) -> Result<Option<LocalMeta>, SyncError> {
-    let result = conn.query_row(
-        "SELECT version_vector, origin_device, deleted, updated_hlc
-         FROM sync_row_meta WHERE entity_kind = ?1 AND entity_id = ?2",
-        rusqlite::params![kind, entity_id],
-        |row| {
-            Ok(LocalMeta {
-                version_vector: row.get(0)?,
-                origin_device: row.get(1)?,
-                deleted: row.get(2)?,
-                updated_hlc: row.get(3)?,
-            })
-        },
-    );
-    match result {
-        Ok(m) => Ok(Some(m)),
-        Err(rusqlite::Error::QueryReturnedNoRows) => Ok(None),
-        Err(e) => Err(sql_err("load local meta", e)),
-    }
-}
-
-fn upsert_meta_verbatim(
-    conn: &Connection,
-    row: &SyncRow,
-) -> Result<(), SyncError> {
-    conn.execute(
-        "INSERT INTO sync_row_meta
-            (entity_kind, entity_id, version_vector, origin_device,
-             origin_seq, deleted, updated_hlc)
-         VALUES (?1,?2,?3,?4,?5,?6,?7)
-         ON CONFLICT(entity_kind, entity_id) DO UPDATE SET
-            version_vector = excluded.version_vector,
-            origin_device = excluded.origin_device,
-            origin_seq = excluded.origin_seq,
-            deleted = excluded.deleted,
-            updated_hlc = excluded.updated_hlc",
-        rusqlite::params![
-            row.entity_kind,
-            row.entity_id,
-            row.version_vector,
-            row.origin_device,
-            row.origin_seq,
-            row.deleted,
-            row.updated_hlc,
-        ],
-    )
-    .map_err(|e| sql_err("upsert meta", e))?;
-    Ok(())
 }
 
 fn delete_entity(
@@ -309,23 +250,6 @@ fn dominating_vv(remote_vv: &str, my_device: &str) -> BTreeMap<String, i64> {
     let (mut vv, _) = parse_vv(remote_vv);
     *vv.entry(my_device.to_string()).or_insert(0) += 1;
     vv
-}
-
-fn meta_hlc(
-    conn: &Connection,
-    kind: &str,
-    entity_id: &str,
-) -> Result<Option<String>, SyncError> {
-    conn.query_row(
-        "SELECT updated_hlc FROM sync_row_meta
-         WHERE entity_kind = ?1 AND entity_id = ?2",
-        rusqlite::params![kind, entity_id],
-        |r| r.get(0),
-    )
-    .or_else(|e| match e {
-        rusqlite::Error::QueryReturnedNoRows => Ok(None),
-        e => Err(sql_err("meta hlc", e)),
-    })
 }
 
 // What to do with an incoming ALIVE reminder given the local twin landscape
