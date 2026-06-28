@@ -17,14 +17,10 @@ use crate::ui::{AppState, View};
 use dioxus::prelude::*;
 use std::sync::Arc;
 
-mod audio_import;
-mod auto_title;
-mod doc_import;
-mod peer_sync;
-use audio_import::use_audio_import;
-use auto_title::use_auto_title;
-use doc_import::use_document_import;
-use peer_sync::use_peer_merge;
+mod hooks;
+use hooks::{
+    use_audio_import, use_auto_title, use_document_import, use_peer_merge,
+};
 
 #[component]
 pub fn NoteDetail() -> Element {
