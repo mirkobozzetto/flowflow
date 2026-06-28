@@ -11,6 +11,7 @@ pub mod intent;
 pub mod rag;
 pub mod reminders;
 pub mod tools;
+pub mod transcription_manager;
 pub mod web_search;
 
 pub use embed::{

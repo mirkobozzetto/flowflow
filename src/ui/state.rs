@@ -1,7 +1,7 @@
+use crate::application::transcription_manager::Job;
 use crate::domain::Attachment;
 use crate::domain::ChatScope;
 use crate::infrastructure::audio::RecordingState;
-use crate::ui::transcription_manager::Job;
 use dioxus::prelude::*;
 use std::collections::{HashMap, VecDeque};
 

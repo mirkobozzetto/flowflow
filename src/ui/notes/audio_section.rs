@@ -1,4 +1,7 @@
 use crate::application::i18n::{t, t_args};
+use crate::application::transcription_manager::{
+    JobStatus, TranscriptionManager,
+};
 use crate::domain::NoteAudio;
 use crate::infrastructure::audio;
 use crate::infrastructure::persistence::Database;
@@ -6,7 +9,6 @@ use crate::infrastructure::transcription::TranscriptionClient;
 use crate::ui::icons::IconX;
 use crate::ui::notes::audio_player::AudioPlayer;
 use crate::ui::notes::dates::format_relative_date;
-use crate::ui::transcription_manager::{JobStatus, TranscriptionManager};
 use crate::ui::AppState;
 use dioxus::prelude::*;
 use std::sync::Arc;
