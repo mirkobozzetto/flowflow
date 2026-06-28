@@ -1,13 +1,11 @@
 use crate::application::constants::{
-    ANTHROPIC_CHAT_MODEL, ANTHROPIC_MAX_TOKENS, CHAT_MODEL, CHEAP_MODEL,
-    EMBEDDING_DIMS, EMBEDDING_MODEL,
+    ANTHROPIC_CHAT_MODEL, ANTHROPIC_MAX_TOKENS, CHAT_MODEL, EMBEDDING_DIMS,
+    EMBEDDING_MODEL,
 };
 use crate::application::error::LlmError;
 use crate::application::tools::{
     ContractHook, CreateNote, SearchNotes, SummarizeFolder, ToolEvent,
 };
-use crate::domain::ReminderIntent;
-use chrono::{DateTime, Local};
 use rig::client::{CompletionClient, EmbeddingsClient};
 use rig::completion::Prompt;
 use rig::embeddings::EmbeddingModel;
@@ -143,7 +141,7 @@ impl LlmClient {
 
     // The OpenAI model applies only on the OpenAI path; under Anthropic the configured Anthropic
     // model stands (an OpenAI id has no meaning there - cross-provider coherence is a publish-time concern).
-    async fn chat_with_model(
+    pub(crate) async fn chat_with_model(
         &self,
         openai_model: &str,
         system: &str,
@@ -180,56 +178,6 @@ impl LlmClient {
                     .map_err(|e| LlmError::Completion(e.to_string()))
             }
         }
-    }
-
-    pub async fn generate_tags(
-        &self,
-        content: &str,
-    ) -> Result<Vec<String>, LlmError> {
-        use crate::application::constants::TAGS_SYSTEM_PROMPT;
-        let response = self
-            .chat_with_model(CHEAP_MODEL, TAGS_SYSTEM_PROMPT, content)
-            .await?;
-        parse_tags(&response)
-    }
-
-    pub async fn generate_title(
-        &self,
-        content: &str,
-        lang: &str,
-    ) -> Result<String, LlmError> {
-        use crate::application::constants::TITLE_SYSTEM_PROMPT;
-        let lang_name = if lang == "fr" { "French" } else { "English" };
-        let system =
-            format!("{TITLE_SYSTEM_PROMPT}\n\nRespond ONLY in {lang_name}.");
-        let preview: String = content.chars().take(1500).collect();
-        let response =
-            self.chat_with_model(CHEAP_MODEL, &system, &preview).await?;
-        let title = response.trim().trim_matches('"').trim().to_string();
-        if title.is_empty() {
-            return Err(LlmError::Completion("Empty title".into()));
-        }
-        Ok(title)
-    }
-
-    pub async fn extract_reminders(
-        &self,
-        text: &str,
-        now: DateTime<Local>,
-    ) -> Result<Vec<ReminderIntent>, LlmError> {
-        use crate::application::constants::REMINDER_EXTRACTION_PROMPT;
-        let trimmed = text.trim();
-        if trimmed.is_empty() {
-            return Ok(Vec::new());
-        }
-        let preview: String = trimmed.chars().take(4000).collect();
-        let system = format!(
-            "{REMINDER_EXTRACTION_PROMPT}\n\nCurrent date and time: {}.",
-            now.format("%Y-%m-%d %H:%M (%A)")
-        );
-        let response = self.chat(&system, &preview).await?;
-        let intents = parse_reminder_intents(&response)?;
-        Ok(intents.into_iter().filter(|i| i.has_date()).collect())
     }
 
     pub async fn prompt_with_agent(
@@ -397,115 +345,5 @@ pub fn resolve_chat_model(manifest_model: &str) -> &str {
     match manifest_model.trim() {
         "" | "gpt-4o" | "gpt-4o-mini" => CHAT_MODEL,
         m => m,
-    }
-}
-
-pub fn parse_tags(response: &str) -> Result<Vec<String>, LlmError> {
-    let trimmed = response.trim();
-    serde_json::from_str::<Vec<String>>(trimmed).or_else(|_| {
-        if let Some(start) = trimmed.find('[') {
-            if let Some(end) = trimmed.rfind(']') {
-                return serde_json::from_str(&trimmed[start..=end]).map_err(
-                    |e| LlmError::TagParsing(format!("Parse tags: {e}")),
-                );
-            }
-        }
-        Err(LlmError::TagParsing(format!(
-            "Invalid tags JSON: {trimmed}"
-        )))
-    })
-}
-
-pub fn parse_reminder_intents(
-    response: &str,
-) -> Result<Vec<ReminderIntent>, LlmError> {
-    #[derive(serde::Deserialize)]
-    struct Envelope {
-        #[serde(default)]
-        intents: Vec<ReminderIntent>,
-    }
-    let trimmed = response.trim();
-    let json = extract_json_object(trimmed).unwrap_or(trimmed);
-    serde_json::from_str::<Envelope>(json)
-        .map(|e| e.intents)
-        .map_err(|e| {
-            LlmError::ReminderParsing(format!("Invalid reminders JSON: {e}"))
-        })
-}
-
-fn extract_json_object(s: &str) -> Option<&str> {
-    let start = s.find('{')?;
-    let end = s.rfind('}')?;
-    (end > start).then(|| &s[start..=end])
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-    use crate::domain::DEFAULT_REMINDER_HOUR;
-    use chrono::{NaiveDate, NaiveTime};
-
-    #[test]
-    fn parses_single_intent_with_time() {
-        let raw = r#"{"intents":[{"action":"appeler Paul","date":"2026-06-02","time":"15:00","recurrence":null,"location":null}]}"#;
-        let v = parse_reminder_intents(raw).unwrap();
-        assert_eq!(v.len(), 1);
-        assert_eq!(v[0].action, "appeler Paul");
-        assert_eq!(v[0].resolved_date(), NaiveDate::from_ymd_opt(2026, 6, 2));
-        assert_eq!(
-            v[0].resolved_time(),
-            NaiveTime::from_hms_opt(15, 0, 0).unwrap()
-        );
-        assert!(v[0].has_explicit_time());
-        assert!(v[0].has_date());
-    }
-
-    #[test]
-    fn defaults_missing_time_to_nine() {
-        let raw = r#"{"intents":[{"action":"faire les courses","date":"2026-06-06","time":null}]}"#;
-        let v = parse_reminder_intents(raw).unwrap();
-        assert_eq!(v.len(), 1);
-        assert!(!v[0].has_explicit_time());
-        assert_eq!(
-            v[0].resolved_time(),
-            NaiveTime::from_hms_opt(DEFAULT_REMINDER_HOUR, 0, 0).unwrap()
-        );
-    }
-
-    #[test]
-    fn parses_multiple_intents_with_recurrence() {
-        let raw = r#"{"intents":[
-            {"action":"call the dentist","date":"2026-06-02","time":null},
-            {"action":"pay rent","date":"2026-07-01","time":null,"recurrence":"MONTHLY;BYMONTHDAY=1"}
-        ]}"#;
-        let v = parse_reminder_intents(raw).unwrap();
-        assert_eq!(v.len(), 2);
-        assert_eq!(v[1].recurrence.as_deref(), Some("MONTHLY;BYMONTHDAY=1"));
-    }
-
-    #[test]
-    fn tolerates_markdown_fence() {
-        let raw = "```json\n{\"intents\":[{\"action\":\"x\",\"date\":\"2026-06-02\"}]}\n```";
-        let v = parse_reminder_intents(raw).unwrap();
-        assert_eq!(v.len(), 1);
-    }
-
-    #[test]
-    fn empty_intents_ok() {
-        let v = parse_reminder_intents(r#"{"intents":[]}"#).unwrap();
-        assert!(v.is_empty());
-    }
-
-    #[test]
-    fn no_date_flagged_by_has_date() {
-        let raw = r#"{"intents":[{"action":"vague","date":null}]}"#;
-        let v = parse_reminder_intents(raw).unwrap();
-        assert_eq!(v.len(), 1);
-        assert!(!v[0].has_date());
-    }
-
-    #[test]
-    fn invalid_json_errors() {
-        assert!(parse_reminder_intents("not json at all").is_err());
     }
 }

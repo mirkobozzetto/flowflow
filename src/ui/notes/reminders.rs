@@ -168,7 +168,12 @@ pub fn ReminderSuggestions(
             match crate::infrastructure::llm::LlmClient::from_db(&db()) {
                 Ok(ai) => {
                     if let Ok(intents) =
-                        ai.extract_reminders(&c, Local::now()).await
+                        crate::application::reminders_extract::extract_reminders(
+                            &ai,
+                            &c,
+                            Local::now(),
+                        )
+                        .await
                     {
                         let normalized: Vec<ReminderIntent> = intents
                             .into_iter()
