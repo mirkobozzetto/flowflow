@@ -11,21 +11,31 @@ use flowflow::domain::agent_manifest::{
     canonical_json, digest_of, verify_package, AgentManifestError, ADMIN_PUBKEY,
 };
 
-// Deterministic dev admin seed. Test-only: the private half never ships on device. Its public half is
-// pinned as `ADMIN_PUBKEY` and signs `FIXTURE_PACKAGE`.
-const DEV_ADMIN_SEED: [u8; 32] = [7u8; 32];
-
-fn dev_key() -> SigningKey {
-    SigningKey::from_bytes(&DEV_ADMIN_SEED)
+// The signer behind the shipped fixture. The PRODUCTION signer's public half is pinned as
+// `ADMIN_PUBKEY`; its private seed never lives in the repo. Pass it via the environment when
+// regenerating the fixture; absent, it falls back to the legacy [7u8;32] dev seed.
+fn fixture_signing_key() -> SigningKey {
+    if let Ok(h) = std::env::var("FIXTURE_SIGN_SEED") {
+        let h = h.trim();
+        if h.len() == 64 {
+            let mut seed = [0u8; 32];
+            for i in 0..32 {
+                seed[i] = u8::from_str_radix(&h[i * 2..i * 2 + 2], 16)
+                    .expect("FIXTURE_SIGN_SEED must be 64 hex chars");
+            }
+            return SigningKey::from_bytes(&seed);
+        }
+    }
+    SigningKey::from_bytes(&[7u8; 32])
 }
 
 // Prints the pinned key + the fixture's digest and signature. Run after editing the fixture manifest:
-//   cargo test --test agent_manifest_test gen_fixture -- --ignored --nocapture
+//   FIXTURE_SIGN_SEED=<64-hex prod seed> cargo test --test agent_manifest_test gen_fixture -- --ignored --nocapture
 // then paste ADMIN_PUBKEY into domain/agent_manifest.rs and the digest/signature into the fixture.
 #[test]
 #[ignore]
 fn gen_fixture() {
-    let sk = dev_key();
+    let sk = fixture_signing_key();
     let pubkey = B64.encode(sk.verifying_key().to_bytes());
 
     let pkg: Value = serde_json::from_str(FIXTURE_PACKAGE).unwrap();

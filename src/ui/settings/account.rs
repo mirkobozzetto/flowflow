@@ -1,4 +1,4 @@
-use crate::application::i18n::t;
+use crate::application::i18n::{t, t_args};
 use crate::infrastructure::backend::{Account, BackendClient};
 use crate::infrastructure::persistence::Database;
 use crate::ui::icons::{IconArrowUpRight, IconCheck, IconCopy, IconTrash};
@@ -19,6 +19,9 @@ pub fn AccountSettings() -> Element {
     let mut busy = use_signal(|| false);
     let mut confirm_leave = use_signal(|| false);
     let mut confirm_delete = use_signal(|| false);
+    let mut link_code: Signal<Option<(String, String)>> = use_signal(|| None);
+    let mut id_copied = use_signal(|| false);
+    let mut code_copied = use_signal(|| false);
     let mut reload = use_signal(|| 0u32);
 
     use_effect(move || {
@@ -71,12 +74,31 @@ pub fn AccountSettings() -> Element {
                                     "{acc.account_id}"
                                 }
                                 button {
-                                    class: "shrink-0 p-1.5 rounded-md text-stone-400 hover:bg-stone-100 active:bg-stone-100 transition-colors",
+                                    class: if id_copied() {
+                                        "shrink-0 p-1.5 rounded-md text-ios-green transition-colors"
+                                    } else {
+                                        "shrink-0 p-1.5 rounded-md text-stone-400 hover:bg-stone-100 active:bg-stone-100 transition-colors"
+                                    },
                                     onclick: {
                                         let id = acc.account_id.clone();
-                                        move |_| crate::ui::clipboard::copy_text(&id)
+                                        move |_| {
+                                            if id_copied() { return; }
+                                            crate::ui::clipboard::copy_text(&id);
+                                            id_copied.set(true);
+                                            spawn(async move {
+                                                futures_timer::Delay::new(
+                                                    std::time::Duration::from_millis(1500),
+                                                )
+                                                .await;
+                                                id_copied.set(false);
+                                            });
+                                        }
                                     },
-                                    IconCopy { size: 16 }
+                                    if id_copied() {
+                                        IconCheck { size: 16 }
+                                    } else {
+                                        IconCopy { size: 16 }
+                                    }
                                 }
                             }
                         }
@@ -139,6 +161,89 @@ pub fn AccountSettings() -> Element {
                                             {t(&lang, "account-this-device")}
                                         }
                                     }
+                                }
+                            }
+                        }
+                    }
+                }
+
+                div {
+                    h3 { class: "text-[11px] font-medium text-stone-400 uppercase tracking-wide px-1 mb-2.5",
+                        {t(&lang, "account-link-title")}
+                    }
+                    div { class: "bg-warm-white rounded-xl border border-stone-200 p-5 space-y-3",
+                        if let Some((code, exp)) = link_code() {
+                            div {
+                                label { class: "block text-xs font-medium text-stone-400 mb-1.5",
+                                    {t(&lang, "account-link-code-label")}
+                                }
+                                div { class: "flex items-center gap-2",
+                                    code { class: "flex-1 font-mono text-[13px] text-stone-700 break-all",
+                                        "{code}"
+                                    }
+                                    button {
+                                        class: if code_copied() {
+                                            "shrink-0 p-1.5 rounded-md text-ios-green transition-colors"
+                                        } else {
+                                            "shrink-0 p-1.5 rounded-md text-stone-400 hover:bg-stone-100 active:bg-stone-100 transition-colors"
+                                        },
+                                        onclick: {
+                                            let c = code.clone();
+                                            move |_| {
+                                                if code_copied() { return; }
+                                                crate::ui::clipboard::copy_text(&c);
+                                                code_copied.set(true);
+                                                spawn(async move {
+                                                    futures_timer::Delay::new(
+                                                        std::time::Duration::from_millis(1500),
+                                                    )
+                                                    .await;
+                                                    code_copied.set(false);
+                                                });
+                                            }
+                                        },
+                                        if code_copied() {
+                                            IconCheck { size: 16 }
+                                        } else {
+                                            IconCopy { size: 16 }
+                                        }
+                                    }
+                                }
+                                p { class: "text-xs text-stone-500 mt-2",
+                                    {t_args(&lang, "account-link-expires", &[("time", &link_expiry_label(&exp))])}
+                                }
+                            }
+                        } else {
+                            p { class: "text-xs text-stone-500 leading-relaxed",
+                                {t(&lang, "account-link-hint")}
+                            }
+                        }
+                        button {
+                            class: "w-full min-h-[44px] flex items-center justify-center gap-2 rounded-xl bg-warm-white border border-stone-200 text-stone-800 text-sm font-medium hover:bg-stone-50 active:bg-stone-100 transition-colors disabled:opacity-45",
+                            disabled: busy() || !has_backend,
+                            onclick: move |_| {
+                                if busy() { return; }
+                                busy.set(true);
+                                status.set(None);
+                                spawn(async move {
+                                    let database = db();
+                                    if let Some(client) = BackendClient::from_db(&database) {
+                                        match client.link_begin(&database).await {
+                                            Ok(pair) => link_code.set(Some(pair)),
+                                            Err(e) => status.set(Some(e.to_string())),
+                                        }
+                                    }
+                                    busy.set(false);
+                                });
+                            },
+                            span { class: "text-stone-400", IconArrowUpRight { size: 16 } }
+                            {
+                                if busy() {
+                                    t(&lang, "account-link-generating")
+                                } else if link_code().is_some() {
+                                    t(&lang, "account-link-new")
+                                } else {
+                                    t(&lang, "account-link-button")
                                 }
                             }
                         }
@@ -246,6 +351,14 @@ pub fn AccountSettings() -> Element {
             }
         }
     }
+}
+
+// Render the server's ISO expiry as a local wall-clock time; fall back to the raw string if it
+// ever fails to parse, so the user always sees something.
+fn link_expiry_label(iso: &str) -> String {
+    chrono::DateTime::parse_from_rfc3339(iso)
+        .map(|dt| dt.with_timezone(&chrono::Local).format("%H:%M").to_string())
+        .unwrap_or_else(|_| iso.to_string())
 }
 
 fn short_id(id: &str) -> String {

@@ -1,15 +1,15 @@
 use super::animations::{slide_style, Slide};
-use crate::ui::attachment_modal::AttachmentModal;
+use crate::ui::app::fab::FloatingActionButton;
+use crate::ui::app::top_bar::TopBar;
 use crate::ui::chat::ChatView;
-use crate::ui::fab::FloatingActionButton;
-use crate::ui::folder_picker;
-use crate::ui::note_list::NotesList;
+use crate::ui::notes::attachment_modal::AttachmentModal;
+use crate::ui::notes::folder_picker;
+use crate::ui::notes::note_list::NotesList;
 use crate::ui::notes::NoteDetail;
 use crate::ui::settings::{SettingsSectionView, SettingsView};
 use crate::ui::sidebar::SidebarOverlay;
 use crate::ui::sync::SyncView;
 use crate::ui::thread::ThreadDetail;
-use crate::ui::top_bar::TopBar;
 use crate::ui::{AppState, View};
 use dioxus::prelude::*;
 

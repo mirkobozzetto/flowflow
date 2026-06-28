@@ -115,6 +115,12 @@ struct InviteResp {
     join_token: String,
 }
 
+#[derive(serde::Deserialize)]
+struct LinkBeginResp {
+    link_token: String,
+    expires_at: String,
+}
+
 #[derive(Serialize)]
 struct JoinReq<'a> {
     join_token: &'a str,
@@ -133,6 +139,14 @@ pub struct Account {
     pub premium: bool,
     pub device_cap: i64,
     pub devices: Vec<MemberDevice>,
+}
+
+// One revoked (id, version) from the backend kill switch. The device matches its pinned row against
+// this at arm time and refuses a revoked agent.
+#[derive(Clone, Debug, serde::Deserialize)]
+pub struct Revocation {
+    pub id: String,
+    pub version: String,
 }
 
 impl BackendClient {
@@ -343,6 +357,50 @@ impl BackendClient {
             .await
             .map_err(|e| BackendError::Network(format!("decode: {e}")))
     }
+
+    // The signed agent package is verified by the device from its RAW JSON bytes (the digest is taken
+    // over the manifest as sent), so it is read as text, not decoded into a struct here.
+    async fn read_text(
+        resp: reqwest::Response,
+    ) -> Result<String, BackendError> {
+        let status = resp.status();
+        if status == reqwest::StatusCode::UNAUTHORIZED {
+            return Err(BackendError::Unauthorized);
+        }
+        if !status.is_success() {
+            let body = resp.text().await.unwrap_or_default();
+            return Err(BackendError::Status(status.as_u16(), body));
+        }
+        resp.text()
+            .await
+            .map_err(|e| BackendError::Network(format!("body: {e}")))
+    }
+}
+
+// Agent install: fetch the signed package to verify + pin, and the revocation list (the kill switch).
+impl BackendClient {
+    /// Fetch the signed package for an agent the device is entitled to. Returns the raw JSON the device
+    /// verifies against the pinned admin key. 403 when the agent is unpublished, revoked, or not granted.
+    pub async fn fetch_agent_package(
+        &self,
+        db: &Database,
+        agent_id: &str,
+    ) -> Result<String, BackendError> {
+        let url = format!("{}/v1/agents/{}/package", self.base_url, agent_id);
+        let resp = self.authed(db, |c, t| c.get(&url).bearer_auth(t)).await?;
+        Self::read_text(resp).await
+    }
+
+    /// The global revoked (id, version) list. Not entitlement-filtered: a device must learn that an
+    /// agent it already installed was pulled.
+    pub async fn fetch_revocations(
+        &self,
+        db: &Database,
+    ) -> Result<Vec<Revocation>, BackendError> {
+        let url = format!("{}/v1/agents/revocations", self.base_url);
+        let resp = self.authed(db, |c, t| c.get(&url).bearer_auth(t)).await?;
+        Self::read_json(resp).await
+    }
 }
 
 // Connector management (premium-gated backend routes). Each call attaches the device
@@ -449,6 +507,19 @@ impl BackendClient {
             .await?;
         let parsed: InviteResp = Self::read_json(resp).await?;
         Ok(parsed.join_token)
+    }
+
+    /// Mint a single-use, short-TTL token a web user redeems to bind their identity to this device's
+    /// account. The token is the device's consent; the account is taken from the authenticated session.
+    /// Returns the token to display and its ISO expiry.
+    pub async fn link_begin(
+        &self,
+        db: &Database,
+    ) -> Result<(String, String), BackendError> {
+        let url = format!("{}/v1/account/link/begin", self.base_url);
+        let resp = self.authed(db, |c, t| c.post(&url).bearer_auth(t)).await?;
+        let parsed: LinkBeginResp = Self::read_json(resp).await?;
+        Ok((parsed.link_token, parsed.expires_at))
     }
 
     /// Joiner side: redeem the token on this device's own session to adopt the inviter's account.

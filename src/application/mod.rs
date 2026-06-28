@@ -8,6 +8,7 @@ pub mod embed;
 pub mod error;
 pub mod i18n;
 pub mod intent;
+pub mod note_persistence;
 pub mod rag;
 pub mod reminders;
 pub mod tools;

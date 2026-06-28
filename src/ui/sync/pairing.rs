@@ -22,6 +22,7 @@ pub fn SyncPairingView() -> Element {
     let mut joining = use_signal(|| false);
     let mut peers_version = use_signal(|| 0u32);
     let mut scanned = use_signal(|| false);
+    let mut uri_copied = use_signal(|| false);
 
     let peers_list = use_memo(move || {
         peers_version();
@@ -108,9 +109,28 @@ pub fn SyncPairingView() -> Element {
                                         "{h.uri}"
                                     }
                                     button {
-                                        class: "text-ios-orange shrink-0 w-8 h-8 flex items-center justify-center rounded-md active:bg-ios-orange/10 transition-colors",
-                                        onclick: move |_| copy_text(&uri_for_copy),
-                                        IconCopy { size: 14 }
+                                        class: if uri_copied() {
+                                            "text-ios-green shrink-0 w-8 h-8 flex items-center justify-center rounded-md transition-colors"
+                                        } else {
+                                            "text-ios-orange shrink-0 w-8 h-8 flex items-center justify-center rounded-md active:bg-ios-orange/10 transition-colors"
+                                        },
+                                        onclick: move |_| {
+                                            if uri_copied() { return; }
+                                            copy_text(&uri_for_copy);
+                                            uri_copied.set(true);
+                                            spawn(async move {
+                                                futures_timer::Delay::new(
+                                                    std::time::Duration::from_millis(1500),
+                                                )
+                                                .await;
+                                                uri_copied.set(false);
+                                            });
+                                        },
+                                        if uri_copied() {
+                                            IconCheck { size: 14 }
+                                        } else {
+                                            IconCopy { size: 14 }
+                                        }
                                     }
                                 }
                                 div { class: "mt-4 flex justify-center w-full",

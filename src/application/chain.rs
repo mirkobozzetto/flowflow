@@ -3,12 +3,12 @@
 // transcript forward, enforces the read_before_write guard at the FSM seam, and composes a terminal answer.
 // It reports a per-state trace, including states the backend serves no tool for, so gaps surface honestly.
 
+use crate::application::agent_builder::BuiltAgent;
 use crate::application::error::LlmError;
 use crate::application::tools::ContractHook;
-use crate::domain::governance::{ConnectorManifest, Governance};
 use crate::domain::orchestration::{Chain, Guard};
 use crate::infrastructure::backend::BackendClient;
-use crate::infrastructure::llm::LlmClient;
+use crate::infrastructure::llm::{resolve_chat_model, LlmClient};
 use crate::infrastructure::mcp::McpRegistry;
 use crate::infrastructure::persistence::Database;
 use tokio::sync::mpsc;
@@ -50,10 +50,7 @@ fn state_preamble(state: &str, allowed: &[String], transcript: &str) -> String {
 pub async fn run_chain(
     db: &Database,
     chain: &Chain,
-    gov: Governance,
-    conn: ConnectorManifest,
-    slug: &str,
-    agent_id: &str,
+    agent: &BuiltAgent,
     goal: &str,
 ) -> Result<ChainOutcome, LlmError> {
     chain
@@ -61,16 +58,22 @@ pub async fn run_chain(
         .map_err(|e| LlmError::Completion(format!("chain: {e}")))?;
 
     let llm = LlmClient::from_db(db)?;
+    let model = resolve_chat_model(&agent.model);
     let backend = BackendClient::from_db(db).ok_or_else(|| {
         LlmError::NotConfigured("no backend configured".into())
     })?;
-    let reg = McpRegistry::connect_agent(db, &backend, slug, agent_id)
-        .await
-        .map_err(|e| LlmError::Completion(format!("mcp connect: {e}")))?;
+    let reg =
+        McpRegistry::connect_agent(db, &backend, &agent.slug, &agent.agent_id)
+            .await
+            .map_err(|e| LlmError::Completion(format!("mcp connect: {e}")))?;
 
     // One base contract, shared across states: budgets and read_before_write accumulate over the whole run.
     let (tx, _rx) = mpsc::unbounded_channel();
-    let base = ContractHook::with_contract(tx, gov, conn);
+    let base = ContractHook::with_contract(
+        tx,
+        agent.governance.clone(),
+        agent.connector.clone(),
+    );
 
     let mut trace = Vec::new();
     let mut transcript = String::new();
@@ -132,6 +135,7 @@ pub async fn run_chain(
         let preamble = state_preamble(&name, &state.allowed_tools, &transcript);
         let reply = llm
             .run_agent_over_tools(
+                model,
                 &preamble,
                 &format!("Goal: {goal}"),
                 avail,

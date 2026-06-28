@@ -40,3 +40,7 @@ dist/
 
 # Local-only docs (may contain secrets: admin tokens, device ids). Never committed.
 *.local.md
+
+# Specs kept local-only: on disk for me + Claude Code, not tracked, not on the remote.
+docs/rfcs/
+docs/prd/

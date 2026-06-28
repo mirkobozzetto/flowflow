@@ -8,12 +8,11 @@ use sha2::{Digest, Sha256};
 use crate::domain::governance::Governance;
 use crate::domain::orchestration::Orchestration;
 
-// The on-device trust anchor (RFC 0010 docs/protocol/02). The admin holds the matching Ed25519
-// private key; the device ships only this public key and verifies every package's signature against
-// it before pinning. Swapping the real backend admin key later is a one-line change here.
-// Dev key (deterministic seed [7u8; 32]); never the production signer.
+// The on-device trust anchor: the admin holds the matching Ed25519 private key; the device ships
+// only this public key and verifies every package signature against it before pinning. Production
+// signer; rotating it means rotating the backend's AGENT_SIGNING_KEY in lockstep with this line.
 pub const ADMIN_PUBKEY: &str =
-    "ed25519:6kpsY+KcUgq+9VB7Ey7F+ZVHdq6+vnuSQh7qaRRG0iw=";
+    "ed25519:7xalCAYJE6u/ydk7ruheDUnO+6YAiK8X2Y6If2CCXoE=";
 
 // The agent's behavior contract: model + governance (Layer 1) + orchestration (Layer 2) + advisory
 // prompt. Unknown fields are tolerated so a newer manifest still parses for digest purposes; the
