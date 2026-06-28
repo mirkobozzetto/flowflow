@@ -21,8 +21,8 @@ fn embed_text(title: &str, content: &str) -> String {
 }
 
 // Chunks have no tracking triggers (they travel inside their owner's sync
-// payload, RFC 0004 T17), so after writing fresh BLOBs the owner's sync meta
-// must be bumped for the new vectors to propagate. The alive-check and the
+// payload), so after writing fresh BLOBs the owner's sync meta must be bumped
+// for the new vectors to propagate. The alive-check and the
 // bump run in ONE IMMEDIATE transaction: the write lock is taken before the
 // check, so a delete committing on another connection can never slip between
 // them (an embed finishing after a delete would otherwise resurrect the
