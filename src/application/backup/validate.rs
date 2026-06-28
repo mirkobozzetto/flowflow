@@ -47,7 +47,7 @@ fn extract_archive(archive: &Path, staging: &Path) -> Result<(), String> {
     Ok(())
 }
 
-fn validate_staged_db(
+pub fn validate_staged_db(
     staged_db: &Path,
     manifest: &Manifest,
 ) -> Result<(), String> {
