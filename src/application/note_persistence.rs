@@ -54,3 +54,20 @@ pub fn update_note(
         .map(|n| n.created_at)
         .unwrap_or_default()
 }
+
+pub fn persist_last_transcription(
+    db: &Database,
+    note_id: &str,
+    text: &str,
+) -> bool {
+    let Some(last) =
+        db.list_audios(note_id).ok().and_then(|a| a.last().cloned())
+    else {
+        return false;
+    };
+    if last.transcription.is_some() {
+        return false;
+    }
+    let _ = db.set_audio_transcription(&last.id, text);
+    true
+}

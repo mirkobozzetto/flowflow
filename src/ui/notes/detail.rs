@@ -20,7 +20,7 @@ use std::sync::Arc;
 mod hooks;
 use hooks::{
     use_audio_import, use_auto_title, use_document_import, use_peer_merge,
-    use_save_on_drop,
+    use_save_on_drop, use_transcription_sink,
 };
 
 #[component]
@@ -157,28 +157,14 @@ pub fn NoteDetail() -> Element {
         initial_folder_id.clone(),
     );
 
-    use_effect(move || {
-        if let RecordingState::Transcribed(text) = (app.recording_state)() {
-            let current = content();
-            if current.is_empty() {
-                content.set(text.clone());
-            } else {
-                content.set(format!("{}\n{}", current, text));
-            }
-            let id = local_note_id();
-            if !id.is_empty() {
-                if let Some(last) =
-                    db().list_audios(&id).ok().and_then(|a| a.last().cloned())
-                {
-                    if last.transcription.is_none() {
-                        let _ = db().set_audio_transcription(&last.id, &text);
-                        audios_version.set(audios_version() + 1);
-                    }
-                }
-            }
-            app.recording_state.set(RecordingState::Idle);
-        }
-    });
+    use_transcription_sink(
+        app,
+        db,
+        manager.clone(),
+        content,
+        local_note_id,
+        audios_version,
+    );
 
     use_auto_title(app, db, content, title, generating_title, title_gen_done);
 
@@ -225,28 +211,6 @@ pub fn NoteDetail() -> Element {
         tags,
         local_note_id,
     );
-
-    let observe_manager = manager.clone();
-    use_effect(move || {
-        let _ = (app.transcription_jobs)();
-        let nid = local_note_id();
-        if nid.is_empty() {
-            return;
-        }
-        if let Some(text) = observe_manager.take_done(&nid) {
-            let cur = content.peek().clone();
-            if cur.is_empty() {
-                content.set(text);
-            } else {
-                content.set(format!("{cur}\n{text}"));
-            }
-            app.transcription_jobs.set(observe_manager.snapshot());
-        }
-    });
-
-    use_effect(move || {
-        app.transcription_done_badge.set(0);
-    });
 
     let recording_state = (app.recording_state)();
     let is_transcribing = recording_state == RecordingState::Transcribing;
