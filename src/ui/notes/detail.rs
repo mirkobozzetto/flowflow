@@ -1,7 +1,7 @@
-use crate::application::embed::embed_note;
 use crate::application::i18n::{t, t_args};
+use crate::application::note_persistence::create_note;
 use crate::application::transcription_manager::TranscriptionManager;
-use crate::domain::{generate_auto_title, Attachment, NewTextNote, UpdateNote};
+use crate::domain::{generate_auto_title, Attachment};
 use crate::infrastructure::audio::RecordingState;
 use crate::infrastructure::persistence::Database;
 use crate::ui::chat::md_to_html;
@@ -20,6 +20,7 @@ use std::sync::Arc;
 mod hooks;
 use hooks::{
     use_audio_import, use_auto_title, use_document_import, use_peer_merge,
+    use_save_on_drop,
 };
 
 #[component]
@@ -140,89 +141,21 @@ pub fn NoteDetail() -> Element {
         }
     };
 
-    use_drop({
-        let orig_folder = initial_folder_id.clone();
-        move || {
-            if deleted() {
-                return;
-            }
-            let db = db();
-            let t = title();
-            let c = content();
-            let pa = pending_audio();
-            let nid = local_note_id();
-            if nid.is_empty() && c.is_empty() && pa.is_none() {
-                return;
-            }
-            if !nid.is_empty() && t.is_empty() && c.is_empty() {
-                return;
-            }
-            let title_changed = t != *base_title.peek();
-            let content_changed = c != *base_content.peek();
-            let tags_changed = tags() != *base_tags.peek();
-            let folder_changed = (app.detail_folder_id)() != orig_folder;
-            let has_new_audio = pa.is_some();
-            let changed = title_changed
-                || content_changed
-                || tags_changed
-                || folder_changed
-                || has_new_audio;
-            if !nid.is_empty() && !changed {
-                return;
-            }
-            let (saved_id, saved_created_at) = if nid.is_empty() {
-                let new = NewTextNote {
-                    title: if t.is_empty() { None } else { Some(t.clone()) },
-                    content: c.clone(),
-                    tags: tags(),
-                };
-                match db.create_text_note(&new) {
-                    Ok(created) => {
-                        if let Some(ref fid) = (app.detail_folder_id)() {
-                            let _ = db.add_note_to_folder(&created.id, fid);
-                        }
-                        if let Some((p, d)) = pa {
-                            let _ = db.add_audio(&created.id, &p, d);
-                        }
-                        let ca = created.created_at.clone();
-                        (Some(created.id), ca)
-                    }
-                    Err(_) => (None, String::new()),
-                }
-            } else {
-                let upd = UpdateNote {
-                    title: Some(t.clone()),
-                    content: Some(c.clone()),
-                    tags: Some(tags()),
-                };
-                let _ = db.update_note(&nid, &upd);
-                for old in db.folders_for_note(&nid).unwrap_or_default() {
-                    let _ = db.remove_note_from_folder(&nid, &old.id);
-                }
-                if let Some(ref fid) = (app.detail_folder_id)() {
-                    let _ = db.add_note_to_folder(&nid, fid);
-                }
-                let ca = db
-                    .get_note(&nid)
-                    .ok()
-                    .flatten()
-                    .map(|n| n.created_at)
-                    .unwrap_or_default();
-                (Some(nid.clone()), ca)
-            };
-            app.notes_version.set((app.notes_version)() + 1);
-            if let Some(ref id) = saved_id {
-                embed_note(
-                    id.clone(),
-                    t.clone(),
-                    c.clone(),
-                    tags(),
-                    saved_created_at,
-                );
-                engine.peek().schedule_debounced();
-            }
-        }
-    });
+    use_save_on_drop(
+        app,
+        db,
+        engine,
+        title,
+        content,
+        tags,
+        local_note_id,
+        deleted,
+        pending_audio,
+        base_title,
+        base_content,
+        base_tags,
+        initial_folder_id.clone(),
+    );
 
     use_effect(move || {
         if let RecordingState::Transcribed(text) = (app.recording_state)() {
@@ -253,18 +186,15 @@ pub fn NoteDetail() -> Element {
         if pending_audio().is_some() && local_note_id().is_empty() {
             let t = title();
             let c = content();
-            let new = NewTextNote {
-                title: if t.is_empty() { None } else { Some(t.clone()) },
-                content: c,
-                tags: tags(),
-            };
-            if let Ok(created) = db().create_text_note(&new) {
-                if let Some(ref fid) = (app.detail_folder_id)() {
-                    let _ = db().add_note_to_folder(&created.id, fid);
-                }
-                if let Some((filename, dur)) = pending_audio() {
-                    let _ = db().add_audio(&created.id, &filename, dur);
-                }
+            let folder = (app.detail_folder_id)();
+            if let Some(created) = create_note(
+                &db(),
+                &t,
+                &c,
+                tags(),
+                folder.as_deref(),
+                pending_audio(),
+            ) {
                 local_note_id.set(created.id.clone());
                 app.current_note_id.set(Some(created.id));
                 pending_audio.set(None);
