@@ -1,7 +1,6 @@
 use crate::application::constants::{
-    DEFAULT_RAG_MAX_SOURCES, RAG_AGENT_SYSTEM_PROMPT,
-    RAG_AGENT_WEB_SYSTEM_PROMPT, RAG_FINAL_K, RAG_INITIAL_K, RRF_K,
-    RRF_LOCAL_WEIGHT, RRF_WEB_WEIGHT,
+    RAG_AGENT_SYSTEM_PROMPT, RAG_AGENT_WEB_SYSTEM_PROMPT, RAG_FINAL_K,
+    RAG_INITIAL_K, RRF_K, RRF_LOCAL_WEIGHT, RRF_WEB_WEIGHT,
 };
 use crate::application::tools::{prompt_agent_with_tools, ToolEvent};
 use crate::infrastructure::llm::LlmClient;
@@ -22,6 +21,9 @@ use scoring::{apply_temporal_boost, compute_source_count, filter_and_dedup};
 
 mod rerank;
 use rerank::llm_rerank;
+
+mod config;
+use config::{read_max_sources, web_search_config};
 
 pub use crate::domain::ChatScope;
 
@@ -53,24 +55,6 @@ pub fn build_context(results: &[SearchResult]) -> String {
         ));
     }
     ctx
-}
-
-fn web_search_config() -> (bool, String) {
-    let Ok(db) = Database::open() else {
-        return (false, String::new());
-    };
-    let enabled =
-        db.get_setting("web_search_enabled").as_deref() == Some("true");
-    let key = crate::application::web_search::exa_api_key(&db);
-    (enabled, key)
-}
-
-fn read_max_sources() -> usize {
-    Database::open()
-        .ok()
-        .and_then(|d| d.get_setting("rag_max_sources"))
-        .and_then(|v| v.parse::<usize>().ok())
-        .unwrap_or(DEFAULT_RAG_MAX_SOURCES)
 }
 
 pub async fn query(
