@@ -2,8 +2,7 @@ use crate::application::embed::{embed_attachment, embed_note};
 use crate::application::i18n::{t, t_args};
 use crate::application::transcription_manager::TranscriptionManager;
 use crate::domain::{
-    generate_auto_title, is_auto_title, Attachment, NewAttachment, NewTextNote,
-    UpdateNote,
+    generate_auto_title, Attachment, NewAttachment, NewTextNote, UpdateNote,
 };
 use crate::infrastructure::audio::RecordingState;
 use crate::infrastructure::persistence::Database;
@@ -21,6 +20,9 @@ use crate::ui::recording::RecordingBar;
 use crate::ui::{AppState, View};
 use dioxus::prelude::*;
 use std::sync::Arc;
+
+mod auto_title;
+use auto_title::use_auto_title;
 
 #[component]
 pub fn NoteDetail() -> Element {
@@ -83,8 +85,8 @@ pub fn NoteDetail() -> Element {
     let tag_input = use_signal(String::new);
     let tagging = use_signal(|| false);
     let deleted = use_signal(|| false);
-    let mut generating_title = use_signal(|| false);
-    let mut title_gen_done = use_signal(|| false);
+    let generating_title = use_signal(|| false);
+    let title_gen_done = use_signal(|| false);
     let confirm_delete_att: Signal<Option<String>> = use_signal(|| None);
     let mut local_note_id = use_signal(|| note_id.clone());
     let mut import_requested = use_signal(|| false);
@@ -264,31 +266,7 @@ pub fn NoteDetail() -> Element {
         }
     });
 
-    use_effect(move || {
-        let c = content();
-        let t = title();
-        if title_gen_done() || generating_title() {
-            return;
-        }
-        if c.len() <= 50 || !is_auto_title(&t) {
-            return;
-        }
-        generating_title.set(true);
-        let preview: String = c.chars().take(1500).collect();
-        spawn(async move {
-            let lang = (app.current_lang)();
-            if let Ok(ai) =
-                crate::infrastructure::llm::LlmClient::from_db(&db())
-            {
-                if let Ok(new_title) = ai.generate_title(&preview, &lang).await
-                {
-                    title.set(new_title);
-                }
-            }
-            generating_title.set(false);
-            title_gen_done.set(true);
-        });
-    });
+    use_auto_title(app, db, content, title, generating_title, title_gen_done);
 
     use_effect(move || {
         if pending_audio().is_some() && local_note_id().is_empty() {
