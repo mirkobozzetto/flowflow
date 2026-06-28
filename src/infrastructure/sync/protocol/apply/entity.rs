@@ -1,7 +1,7 @@
 use super::super::catalog::{entity_key_params, KindSpec};
 use super::super::wire::ChunkPayload;
 use super::super::{log, proto_err, sql_err};
-use super::cancel_twin_reminder;
+use super::reminders::cancel_twin_reminder;
 use crate::infrastructure::sync::SyncError;
 use base64::engine::general_purpose::URL_SAFE_NO_PAD;
 use base64::Engine as _;
