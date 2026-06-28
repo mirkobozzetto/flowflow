@@ -5,7 +5,6 @@ use crate::application::constants::{
     TEMPORAL_DETECT_PROMPT,
 };
 use crate::application::tools::{prompt_agent_with_tools, ToolEvent};
-use crate::application::web_search::WebResult;
 use crate::infrastructure::llm::LlmClient;
 use crate::infrastructure::persistence::Database;
 use crate::infrastructure::vectordb::{SearchResult, SourceType, VectorStore};
@@ -13,6 +12,10 @@ use chrono::{Datelike, Local, NaiveDate};
 use std::collections::HashSet;
 use std::sync::Arc;
 use tokio::sync::mpsc;
+
+mod fusion;
+use fusion::dedup_merged;
+pub use fusion::rrf_merge;
 
 pub use crate::domain::ChatScope;
 
@@ -31,42 +34,6 @@ pub struct RagSource {
 pub struct RagResponse {
     pub answer: String,
     pub sources: Vec<RagSource>,
-}
-
-fn web_to_search_result(w: WebResult) -> SearchResult {
-    SearchResult {
-        chunk_text: w.snippet,
-        note_id: String::new(),
-        title: w.title,
-        distance: 0.0,
-        created_at: w.published_date.unwrap_or_default(),
-        source_type: SourceType::Web,
-        url: Some(w.url),
-    }
-}
-
-pub fn rrf_merge(
-    local: Vec<SearchResult>,
-    web: Vec<WebResult>,
-    k: f32,
-    local_weight: f32,
-    web_weight: f32,
-) -> Vec<SearchResult> {
-    let mut scored: Vec<(SearchResult, f32)> =
-        Vec::with_capacity(local.len() + web.len());
-    for (rank, r) in local.into_iter().enumerate() {
-        scored.push((r, local_weight / (k + rank as f32 + 1.0)));
-    }
-    for (rank, w) in web.into_iter().enumerate() {
-        scored.push((
-            web_to_search_result(w),
-            web_weight / (k + rank as f32 + 1.0),
-        ));
-    }
-    scored.sort_by(|a, b| {
-        b.1.partial_cmp(&a.1).unwrap_or(std::cmp::Ordering::Equal)
-    });
-    scored.into_iter().map(|(r, _)| r).collect()
 }
 
 pub fn build_context(results: &[SearchResult]) -> String {
@@ -169,24 +136,6 @@ fn filter_and_dedup(results: Vec<SearchResult>) -> Vec<SearchResult> {
         .into_iter()
         .filter(|r| r.distance <= RAG_DISTANCE_THRESHOLD)
         .filter(|r| seen.insert(r.note_id.clone()))
-        .collect()
-}
-
-fn dedup_merged(results: Vec<SearchResult>) -> Vec<SearchResult> {
-    let mut seen_notes = HashSet::new();
-    let mut seen_web = HashSet::new();
-    results
-        .into_iter()
-        .filter(|r| match r.source_type {
-            SourceType::Local => {
-                r.distance <= RAG_DISTANCE_THRESHOLD
-                    && seen_notes.insert(r.note_id.clone())
-            }
-            SourceType::Web => {
-                let key: String = r.chunk_text.chars().take(200).collect();
-                seen_web.insert(key)
-            }
-        })
         .collect()
 }
 
@@ -562,67 +511,4 @@ pub async fn run_action(
         answer,
         sources: vec![],
     })
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    fn local(title: &str, distance: f32) -> SearchResult {
-        SearchResult {
-            chunk_text: format!("text-{title}"),
-            note_id: format!("id-{title}"),
-            title: title.into(),
-            distance,
-            created_at: "2026-01-01T00:00:00".into(),
-            source_type: SourceType::Local,
-            url: None,
-        }
-    }
-
-    fn web(title: &str) -> WebResult {
-        WebResult {
-            title: title.into(),
-            url: format!("https://{title}"),
-            snippet: format!("snip-{title}"),
-            published_date: None,
-        }
-    }
-
-    fn titles(rs: &[SearchResult]) -> Vec<String> {
-        rs.iter().map(|r| r.title.clone()).collect()
-    }
-
-    #[test]
-    fn empty_web_is_identity() {
-        let l = vec![local("a", 0.1), local("b", 0.2), local("c", 0.3)];
-        let merged = rrf_merge(l, vec![], 60.0, 1.2, 1.0);
-        assert_eq!(titles(&merged), ["a", "b", "c"]);
-        assert_eq!(merged[0].distance, 0.1);
-        assert!(merged.iter().all(|r| r.source_type == SourceType::Local));
-    }
-
-    #[test]
-    fn empty_local_keeps_web_order() {
-        let merged =
-            rrf_merge(vec![], vec![web("w1"), web("w2")], 60.0, 1.2, 1.0);
-        assert_eq!(titles(&merged), ["w1", "w2"]);
-        assert!(merged
-            .iter()
-            .all(|r| r.source_type == SourceType::Web && r.url.is_some()));
-    }
-
-    #[test]
-    fn local_outranks_web_at_same_rank() {
-        let merged =
-            rrf_merge(vec![local("L0", 0.1)], vec![web("W0")], 60.0, 1.2, 1.0);
-        assert_eq!(titles(&merged), ["L0", "W0"]);
-    }
-
-    #[test]
-    fn web_top_interleaves_below_first_local() {
-        let locals = vec![local("L0", 0.1), local("L1", 0.2), local("L2", 0.3)];
-        let merged = rrf_merge(locals, vec![web("W0")], 1.0, 1.2, 1.0);
-        assert_eq!(titles(&merged), ["L0", "W0", "L1", "L2"]);
-    }
 }
