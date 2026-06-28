@@ -1,9 +1,7 @@
-use crate::application::embed::{embed_attachment, embed_note};
+use crate::application::embed::embed_note;
 use crate::application::i18n::{t, t_args};
 use crate::application::transcription_manager::TranscriptionManager;
-use crate::domain::{
-    generate_auto_title, Attachment, NewAttachment, NewTextNote, UpdateNote,
-};
+use crate::domain::{generate_auto_title, Attachment, NewTextNote, UpdateNote};
 use crate::infrastructure::audio::RecordingState;
 use crate::infrastructure::persistence::Database;
 use crate::ui::chat::md_to_html;
@@ -11,9 +9,7 @@ use crate::ui::icons::{IconCheck, IconCopy, IconPencil};
 use crate::ui::notes::attachments::AttachmentSection;
 use crate::ui::notes::audio_section::{AudioJobBanner, AudioSection};
 use crate::ui::notes::dates::{format_absolute_short, format_relative_date};
-use crate::ui::notes::menu::{
-    import_audio_file, import_file_content, NoteMenu,
-};
+use crate::ui::notes::menu::{import_audio_file, NoteMenu};
 use crate::ui::notes::reminders::{ActiveReminders, ReminderSuggestions};
 use crate::ui::notes::tags::TagsSection;
 use crate::ui::recording::RecordingBar;
@@ -22,7 +18,9 @@ use dioxus::prelude::*;
 use std::sync::Arc;
 
 mod auto_title;
+mod doc_import;
 use auto_title::use_auto_title;
+use doc_import::use_document_import;
 
 #[component]
 pub fn NoteDetail() -> Element {
@@ -89,9 +87,9 @@ pub fn NoteDetail() -> Element {
     let title_gen_done = use_signal(|| false);
     let confirm_delete_att: Signal<Option<String>> = use_signal(|| None);
     let mut local_note_id = use_signal(|| note_id.clone());
-    let mut import_requested = use_signal(|| false);
-    let mut import_status: Signal<Option<String>> = use_signal(|| None);
-    let mut import_in_progress = use_signal(|| false);
+    let import_requested = use_signal(|| false);
+    let import_status: Signal<Option<String>> = use_signal(|| None);
+    let import_in_progress = use_signal(|| false);
     let mut note_copied = use_signal(|| false);
     let mut pending_audio: Signal<Option<(String, f64)>> = use_signal(|| None);
     let mut audios_version = use_signal(|| 0u32);
@@ -293,108 +291,17 @@ pub fn NoteDetail() -> Element {
         }
     });
 
-    use_effect(move || {
-        if !import_requested() {
-            return;
-        }
-        import_requested.set(false);
-        let db = db();
-        let t = title();
-        let c = content();
-        let tg = tags();
-        let folder = (app.detail_folder_id)();
-        let lang_eff = (app.current_lang)();
-        spawn(async move {
-            import_in_progress.set(true);
-            import_status.set(Some(t_args(
-                &lang_eff,
-                "note-import-in-progress",
-                &[],
-            )));
-            let file = match import_file_content(&lang_eff).await {
-                Ok(Some(f)) => f,
-                Ok(None) => {
-                    import_in_progress.set(false);
-                    import_status.set(None);
-                    return;
-                }
-                Err(e) => {
-                    import_in_progress.set(false);
-                    import_status.set(Some(e));
-                    spawn(async move {
-                        tokio::time::sleep(tokio::time::Duration::from_secs(4))
-                            .await;
-                        import_status.set(None);
-                    });
-                    return;
-                }
-            };
-            let target_id = {
-                let current = local_note_id();
-                if current.is_empty() {
-                    let new = NewTextNote {
-                        title: if t.is_empty() {
-                            None
-                        } else {
-                            Some(t.clone())
-                        },
-                        content: c.clone(),
-                        tags: tg.clone(),
-                    };
-                    match db.create_text_note(&new) {
-                        Ok(created) => {
-                            if let Some(ref fid) = folder {
-                                let _ = db.add_note_to_folder(&created.id, fid);
-                            }
-                            local_note_id.set(created.id.clone());
-                            app.current_note_id.set(Some(created.id.clone()));
-                            created.id
-                        }
-                        Err(e) => {
-                            import_in_progress.set(false);
-                            let msg = e.to_string();
-                            import_status.set(Some(t_args(
-                                &lang_eff,
-                                "note-import-save-error",
-                                &[("error", &msg)],
-                            )));
-                            return;
-                        }
-                    }
-                } else {
-                    current
-                }
-            };
-            let new_att = NewAttachment {
-                note_id: target_id.clone(),
-                filename: file.filename.clone(),
-                content_text: file.content.clone(),
-            };
-            match db.create_attachment(&new_att) {
-                Ok(att) => {
-                    app.attachments_version
-                        .set((app.attachments_version)() + 1);
-                    embed_attachment(
-                        att.id.clone(),
-                        target_id.clone(),
-                        att.filename.clone(),
-                        att.content_text.clone(),
-                    );
-                    import_in_progress.set(false);
-                    import_status.set(None);
-                }
-                Err(e) => {
-                    import_in_progress.set(false);
-                    let msg = e.to_string();
-                    import_status.set(Some(t_args(
-                        &lang_eff,
-                        "note-import-error",
-                        &[("error", &msg)],
-                    )));
-                }
-            }
-        });
-    });
+    use_document_import(
+        app,
+        db,
+        title,
+        content,
+        tags,
+        local_note_id,
+        import_requested,
+        import_in_progress,
+        import_status,
+    );
 
     let enqueue_manager = manager.clone();
     use_effect(move || {
