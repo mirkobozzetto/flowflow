@@ -20,9 +20,11 @@ use std::sync::Arc;
 mod audio_import;
 mod auto_title;
 mod doc_import;
+mod peer_sync;
 use audio_import::use_audio_import;
 use auto_title::use_auto_title;
 use doc_import::use_document_import;
+use peer_sync::use_peer_merge;
 
 #[component]
 pub fn NoteDetail() -> Element {
@@ -102,36 +104,19 @@ pub fn NoteDetail() -> Element {
         }
     });
 
-    use_effect(move || {
-        let _v = (app.sync_data_version)();
-        let id = local_note_id();
-        if id.is_empty() || deleted() {
-            return;
-        }
-        let Some(fresh) = db().get_note(&id).ok().flatten() else {
-            return;
-        };
-        let fresh_title = fresh.title.clone().unwrap_or_default();
-        let changed = fresh_title != *base_title.peek()
-            || fresh.content != *base_content.peek()
-            || fresh.tags != *base_tags.peek();
-        if !changed {
-            return;
-        }
-        let dirty = title.peek().as_str() != base_title.peek().as_str()
-            || content.peek().as_str() != base_content.peek().as_str()
-            || *tags.peek() != *base_tags.peek();
-        if dirty {
-            updated_from_peer.set(true);
-            return;
-        }
-        title.set(fresh_title.clone());
-        content.set(fresh.content.clone());
-        tags.set(fresh.tags.clone());
-        base_title.set(fresh_title);
-        base_content.set(fresh.content);
-        base_tags.set(fresh.tags);
-    });
+    use_peer_merge(
+        app,
+        db,
+        local_note_id,
+        deleted,
+        title,
+        content,
+        tags,
+        base_title,
+        base_content,
+        base_tags,
+        updated_from_peer,
+    );
 
     use_effect(move || {
         if deleted() {
