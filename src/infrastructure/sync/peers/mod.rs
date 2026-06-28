@@ -1,3 +1,4 @@
+mod account_join;
 mod codec;
 mod lan;
 
@@ -5,6 +6,7 @@ use super::transport;
 use super::SyncError;
 use crate::infrastructure::persistence::sync_meta::DEVICE_ID_KEY;
 use crate::infrastructure::persistence::Database;
+use account_join::{mint_join_token, redeem_join_token};
 use base64::engine::general_purpose::URL_SAFE_NO_PAD;
 use base64::Engine as _;
 use lan::local_lan_ip;
@@ -403,56 +405,6 @@ pub fn join_pairing(db: &Database, uri: &str) -> Result<String, SyncError> {
         redeem_join_token(db, &token);
     }
     Ok(payload.device_id)
-}
-
-// Account join over the established Noise channel (RFC 0009 §6ter.1, Q1.2c). Both sides are
-// best-effort: pairing (RFC 0004 sync) must still succeed when no backend is configured or the call
-// fails, so every error is logged and swallowed - the binding can be retried later from the account
-// screen. Sync code runs off the async runtime (a std::thread host, a spawn_blocking joiner), so each
-// call drives a short-lived runtime, matching the repo idiom (chat/actions.rs, embed.rs).
-fn block_on_backend<F, T>(
-    fut: F,
-) -> Result<T, crate::infrastructure::backend::BackendError>
-where
-    F: std::future::Future<
-        Output = Result<T, crate::infrastructure::backend::BackendError>,
-    >,
-{
-    let rt = tokio::runtime::Runtime::new().map_err(|e| {
-        crate::infrastructure::backend::BackendError::Network(format!(
-            "runtime: {e}"
-        ))
-    })?;
-    rt.block_on(fut)
-}
-
-// Inviter: mint a server-bound join token for the joiner's backend pubkey. None when this device has
-// no backend configured, the joiner advertised no pubkey, or the mint fails.
-fn mint_join_token(
-    db: &Database,
-    joiner_backend_pubkey: Option<&str>,
-) -> Option<String> {
-    let pubkey = joiner_backend_pubkey?;
-    let client = crate::infrastructure::backend::BackendClient::from_db(db)?;
-    match block_on_backend(client.invite(db, pubkey)) {
-        Ok(token) => Some(token),
-        Err(e) => {
-            eprintln!("[account] invite failed: {e}");
-            None
-        }
-    }
-}
-
-// Joiner: redeem the token on this device's own backend session to adopt the inviter's account.
-fn redeem_join_token(db: &Database, join_token: &str) {
-    let Some(client) =
-        crate::infrastructure::backend::BackendClient::from_db(db)
-    else {
-        return;
-    };
-    if let Err(e) = block_on_backend(client.join(db, join_token)) {
-        eprintln!("[account] join failed: {e}");
-    }
 }
 
 pub fn unpair(db: &Database, device_id: &str) -> Result<(), SyncError> {
