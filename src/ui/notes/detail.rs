@@ -1,5 +1,6 @@
 use crate::application::embed::{embed_attachment, embed_note};
 use crate::application::i18n::{t, t_args};
+use crate::application::transcription_manager::TranscriptionManager;
 use crate::domain::{
     generate_auto_title, is_auto_title, Attachment, NewAttachment, NewTextNote,
     UpdateNote,
@@ -17,7 +18,6 @@ use crate::ui::notes::menu::{
 use crate::ui::notes::reminders::{ActiveReminders, ReminderSuggestions};
 use crate::ui::notes::tags::TagsSection;
 use crate::ui::recording::RecordingBar;
-use crate::ui::transcription_manager::TranscriptionManager;
 use crate::ui::{AppState, View};
 use dioxus::prelude::*;
 use std::sync::Arc;

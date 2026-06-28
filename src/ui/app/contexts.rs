@@ -1,8 +1,8 @@
 use super::boot;
+use crate::application::transcription_manager::TranscriptionManager;
 use crate::infrastructure::audio::AudioRecorder;
 use crate::infrastructure::persistence::Database;
 use crate::infrastructure::sync::engine::SyncEngine;
-use crate::ui::transcription_manager::TranscriptionManager;
 use dioxus::prelude::*;
 use std::sync::{Arc, Mutex};
 

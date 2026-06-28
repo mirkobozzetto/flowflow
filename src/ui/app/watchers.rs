@@ -1,8 +1,8 @@
-use crate::infrastructure::persistence::Database;
-use crate::infrastructure::sync::engine::SyncEngine;
-use crate::ui::transcription_manager::{
+use crate::application::transcription_manager::{
     append_transcription_to_note, JobStatus, TranscriptionManager,
 };
+use crate::infrastructure::persistence::Database;
+use crate::infrastructure::sync::engine::SyncEngine;
 use crate::ui::{AppState, View};
 use dioxus::prelude::*;
 use std::sync::Arc;

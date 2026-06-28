@@ -21,7 +21,6 @@ mod state;
 mod sync;
 mod thread;
 mod top_bar;
-pub mod transcription_manager;
 
 pub use state::{AppState, SettingsSection, SidebarTab, View};
 
