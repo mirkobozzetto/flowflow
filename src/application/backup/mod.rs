@@ -20,30 +20,10 @@ pub use manifest::{
     MIN_SCHEMA_VERSION,
 };
 
-pub const SIDECAR_SUFFIXES: &[&str] = &["-wal", "-shm", "-journal"];
+mod fs_util;
 
-fn sidecar_paths(db_file: &Path) -> Vec<PathBuf> {
-    SIDECAR_SUFFIXES
-        .iter()
-        .map(|suffix| {
-            let mut name = db_file.as_os_str().to_os_string();
-            name.push(suffix);
-            PathBuf::from(name)
-        })
-        .collect()
-}
-
-pub fn assert_no_sidecars(db_file: &Path) -> Result<(), String> {
-    for sidecar in sidecar_paths(db_file) {
-        if sidecar.exists() {
-            return Err(format!(
-                "sidecar must not exist: {}",
-                sidecar.display()
-            ));
-        }
-    }
-    Ok(())
-}
+pub use fs_util::{assert_no_sidecars, SIDECAR_SUFFIXES};
+use fs_util::{crc32_of_file, fsync_dir, fsync_file, sidecar_paths};
 
 pub async fn ensure_chunks_backfilled(
     db: &Database,
@@ -347,36 +327,6 @@ pub fn import_staging_dir() -> PathBuf {
 
 pub fn restore_bak_dir() -> PathBuf {
     restore_state_parent().join("restore_bak")
-}
-
-fn fsync_file(path: &Path) -> Result<(), String> {
-    std::fs::File::open(path)
-        .and_then(|f| f.sync_all())
-        .map_err(|e| format!("fsync {}: {e}", path.display()))
-}
-
-fn fsync_dir(path: &Path) -> Result<(), String> {
-    std::fs::File::open(path)
-        .and_then(|f| f.sync_all())
-        .map_err(|e| format!("fsync dir {}: {e}", path.display()))
-}
-
-fn crc32_of_file(path: &Path) -> Result<u32, String> {
-    use std::io::Read;
-    let mut file = std::fs::File::open(path)
-        .map_err(|e| format!("crc open {}: {e}", path.display()))?;
-    let mut hasher = crc32fast::Hasher::new();
-    let mut buf = [0u8; 65536];
-    loop {
-        let n = file
-            .read(&mut buf)
-            .map_err(|e| format!("crc read {}: {e}", path.display()))?;
-        if n == 0 {
-            break;
-        }
-        hasher.update(&buf[..n]);
-    }
-    Ok(hasher.finalize())
 }
 
 pub const RESTORE_STATE_PATH: &str = "restore_state.json";
