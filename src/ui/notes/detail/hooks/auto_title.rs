@@ -28,7 +28,11 @@ pub fn use_auto_title(
             if let Ok(ai) =
                 crate::infrastructure::llm::LlmClient::from_db(&db())
             {
-                if let Ok(new_title) = ai.generate_title(&preview, &lang).await
+                if let Ok(new_title) =
+                    crate::application::titling::generate_title(
+                        &ai, &preview, &lang,
+                    )
+                    .await
                 {
                     title.set(new_title);
                 }

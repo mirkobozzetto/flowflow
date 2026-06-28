@@ -103,7 +103,11 @@ pub fn generate_note_title_bg(note_id: String, content: String, lang: String) {
             else {
                 return;
             };
-            if let Ok(title) = ai.generate_title(&content, &lang).await {
+            if let Ok(title) = crate::application::titling::generate_title(
+                &ai, &content, &lang,
+            )
+            .await
+            {
                 let _ = db.update_note(
                     &note_id,
                     &UpdateNote {

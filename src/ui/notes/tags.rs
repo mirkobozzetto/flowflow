@@ -38,7 +38,10 @@ pub fn TagsSection(
                         spawn(async move {
                             if let Ok(client) = LlmClient::from_db(&db()) {
                                 if let Ok(new_tags) =
-                                    client.generate_tags(&c).await
+                                    crate::application::tagging::generate_tags(
+                                        &client, &c,
+                                    )
+                                    .await
                                 {
                                     let mut current = tags();
                                     for t in new_tags {
