@@ -25,6 +25,9 @@ use rerank::llm_rerank;
 mod config;
 use config::{read_max_sources, web_search_config};
 
+mod context;
+pub use context::build_context;
+
 pub use crate::domain::ChatScope;
 
 #[derive(Clone)]
@@ -42,19 +45,6 @@ pub struct RagSource {
 pub struct RagResponse {
     pub answer: String,
     pub sources: Vec<RagSource>,
-}
-
-pub fn build_context(results: &[SearchResult]) -> String {
-    let mut ctx = String::from("--- User notes ---\n\n");
-    for (i, r) in results.iter().enumerate() {
-        ctx.push_str(&format!(
-            "[Source {}] Note: \"{}\"\n{}\n\n",
-            i + 1,
-            r.title,
-            r.chunk_text
-        ));
-    }
-    ctx
 }
 
 pub async fn query(
