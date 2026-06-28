@@ -1,38 +1,28 @@
-mod action_card;
 mod app;
-mod attachment_modal;
 mod chat;
-mod chat_input;
 mod clipboard;
-mod consent;
-mod fab;
-pub(crate) mod folder_picker;
 pub mod icons;
 mod keyboard;
 pub(crate) mod kit;
-mod note_card;
-mod note_list;
 mod notes;
 mod recording;
-mod restore_lock;
 mod settings;
 mod sidebar;
 mod state;
 mod sync;
 mod thread;
-mod top_bar;
 
 pub use state::{AppState, SettingsSection, SidebarTab, View};
 
 use dioxus::prelude::*;
 
+use app::consent::ConsentScreen;
+use app::restore_lock::RestoreLockScreen;
 use app::{
     load_consent, load_lang, use_app_contexts, use_history_tracker,
     use_picker_reset_on_view, use_sync_watcher, use_transcription_watcher,
     AppContexts, AppRouter,
 };
-use consent::ConsentScreen;
-use restore_lock::RestoreLockScreen;
 
 #[component]
 pub fn App() -> Element {

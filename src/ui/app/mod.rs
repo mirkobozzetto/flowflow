@@ -4,6 +4,11 @@ mod contexts;
 mod router;
 mod watchers;
 
+pub(crate) mod consent;
+pub(crate) mod fab;
+pub(crate) mod restore_lock;
+pub(crate) mod top_bar;
+
 pub use boot::{load_consent, load_lang};
 pub use contexts::{use_app_contexts, AppContexts};
 pub use router::AppRouter;

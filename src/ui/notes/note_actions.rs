@@ -4,7 +4,7 @@ use crate::domain::NewTextNote;
 use crate::infrastructure::backend::BackendClient;
 use crate::infrastructure::llm::LlmClient;
 use crate::infrastructure::persistence::Database;
-use crate::ui::action_card::ActionResultCard;
+use crate::ui::chat::action_card::ActionResultCard;
 use crate::ui::AppState;
 use dioxus::prelude::*;
 use std::sync::Arc;

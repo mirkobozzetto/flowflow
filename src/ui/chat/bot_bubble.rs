@@ -1,6 +1,6 @@
 use crate::application::i18n::t;
 use crate::infrastructure::persistence::Database;
-use crate::ui::action_card::ActionResultCard;
+use crate::ui::chat::action_card::ActionResultCard;
 use crate::ui::chat::actions::{find_saved_note, md_to_html, save_as_note};
 use crate::ui::chat::models::ChatSource;
 use crate::ui::chat::sources_accordion::SourcesAccordion;
