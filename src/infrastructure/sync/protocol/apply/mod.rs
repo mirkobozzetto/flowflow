@@ -1,12 +1,11 @@
 use super::catalog::{entity_key_params, spec_for, KindSpec};
-use super::collect::{load_chunks, load_payload};
-use super::wire::{ChunkPayload, SyncRow, SyncStats};
+use super::collect::load_payload;
+use super::wire::{SyncRow, SyncStats};
 use super::{log, proto_err, sql_err};
 use crate::infrastructure::persistence::sync_meta;
 use crate::infrastructure::persistence::Database;
 use crate::infrastructure::sync::conflict::{
-    archive_conflict, decide, write_merged_meta, ArchivedChunk, MergeOutcome,
-    VersionInfo,
+    archive_conflict, decide, write_merged_meta, MergeOutcome, VersionInfo,
 };
 use crate::infrastructure::sync::vv::{parse_vv, vv_join};
 use crate::infrastructure::sync::SyncError;
@@ -16,7 +15,9 @@ use rusqlite::Connection;
 use serde_json::Value;
 use std::collections::BTreeMap;
 
+mod archive;
 mod hlc_guard;
+use archive::{archived_from_local, archived_from_payload};
 use hlc_guard::hlc_guard;
 
 const MAX_CHUNKS_PER_ROW: usize = 1024;
@@ -99,33 +100,6 @@ fn upsert_meta_verbatim(
     )
     .map_err(|e| sql_err("upsert meta", e))?;
     Ok(())
-}
-
-// The losing version's chunks, ready for the conflict archive. From the
-// pushed payload when the REMOTE version loses; read back from the local
-// chunks table (inside the apply tx, before the winner overwrites them) when
-// the LOCAL version loses.
-fn archived_from_payload(chunks: &[ChunkPayload]) -> Vec<ArchivedChunk> {
-    chunks
-        .iter()
-        .map(|c| ArchivedChunk {
-            chunk_index: c.chunk_index,
-            vector_b64: c.vector_b64.clone(),
-            content_hash: c.content_hash.clone(),
-            chunk_text: c.chunk_text.clone(),
-            title: c.title.clone(),
-            tags: c.tags.clone(),
-            created_at: c.created_at.clone(),
-        })
-        .collect()
-}
-
-fn archived_from_local(
-    conn: &Connection,
-    entity_id: &str,
-    kind: &str,
-) -> Result<Vec<ArchivedChunk>, SyncError> {
-    Ok(archived_from_payload(&load_chunks(conn, entity_id, kind)?))
 }
 
 fn delete_entity(
