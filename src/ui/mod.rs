@@ -1,6 +1,7 @@
 mod app;
 mod chat;
 mod clipboard;
+pub mod hooks;
 pub mod icons;
 mod keyboard;
 pub(crate) mod kit;

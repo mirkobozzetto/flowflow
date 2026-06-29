@@ -6,6 +6,7 @@ pub use folders::*;
 
 use crate::application::i18n::t;
 use crate::infrastructure::persistence::Database;
+use crate::ui::hooks::swipe::{use_swipe_drawer, DrawerSwipe};
 use crate::ui::icons::*;
 use crate::ui::{AppState, SidebarTab, View};
 use dioxus::prelude::*;
@@ -39,13 +40,33 @@ pub fn SidebarOverlay() -> Element {
     let is_open = (app.sidebar_open)();
     let lang = (app.current_lang)();
 
+    use_swipe_drawer(DrawerSwipe {
+        open: app.sidebar_open,
+        panel_id: "sb-panel",
+        backdrop_id: "sb-backdrop",
+        edge: "left",
+        edge_px: 30.0,
+        open_at: 0.15,
+        close_at: 0.4,
+    });
+
     rsx! {
+        if !is_open {
+            div {
+                id: "sb-edge",
+                class: "fixed left-0 top-0 h-full w-8 z-30 lg:hidden",
+                style: "touch-action: none;",
+            }
+        }
         div {
+            id: "sb-backdrop",
             class: "fixed inset-0 bg-black/35 z-40 transition-opacity duration-200 lg:hidden",
             class: if is_open { "opacity-100" } else { "opacity-0 pointer-events-none" },
             onclick: move |_| app.sidebar_open.set(false),
         }
         div {
+            id: "sb-panel",
+            "data-open": if is_open { "1" } else { "0" },
             class: "fixed left-0 top-0 w-[85vw] max-w-[340px] h-full bg-warm-white z-50 flex flex-col border-r border-stone-200 transition-transform duration-200 safe-pt lg:static lg:translate-x-0 lg:w-72 lg:shrink-0 lg:h-screen",
             class: if is_open { "translate-x-0" } else { "-translate-x-full" },
             onclick: move |evt| evt.stop_propagation(),

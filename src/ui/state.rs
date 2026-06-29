@@ -72,6 +72,9 @@ pub struct AppState {
     pub sidebar_tab: Signal<SidebarTab>,
     pub show_folder_picker: Signal<bool>,
     pub chat_scope: Signal<Option<ChatScope>>,
+    // Scope a brand-new chat should adopt (e.g. opened from a folder); consumed
+    // and cleared by the chat view when it creates the conversation.
+    pub pending_chat_scope: Signal<Option<ChatScope>>,
     pub detail_folder_id: Signal<Option<String>>,
     pub ai_consent: Signal<Option<bool>>,
     pub current_lang: Signal<String>,
@@ -109,6 +112,7 @@ impl AppState {
             sidebar_tab: Signal::new(SidebarTab::Notes),
             show_folder_picker: Signal::new(false),
             chat_scope: Signal::new(None),
+            pending_chat_scope: Signal::new(None),
             detail_folder_id: Signal::new(None),
             ai_consent: Signal::new(consent),
             current_lang: Signal::new(lang),

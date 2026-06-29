@@ -8,7 +8,7 @@ pub fn FloatingActionButton() -> Element {
     let mut pressing = use_signal(|| false);
 
     rsx! {
-        div { class: "fixed safe-bottom-6 right-4 z-20 lg:hidden",
+        div { class: "fixed safe-bottom-6 right-4 z-20",
             button {
                 class: "fab-btn",
                 class: if pressing() { "fab-pressing" },

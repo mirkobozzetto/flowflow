@@ -1,4 +1,4 @@
-.PHONY: build format check dev ddev deploy desktop desktop-build desktop-app desktop-toml restore-ios-toml icon all appstore clean check-profiles renew ensure-profiles dmg release
+.PHONY: build format js check dev ddev deploy desktop desktop-build desktop-app desktop-toml restore-ios-toml icon all appstore clean check-profiles renew ensure-profiles dmg release
 
 # Strip the iOS-only widget extension from Dioxus.toml: dx 0.7 compiles every
 # declared [[ios.widget_extensions]] even for desktop, and the Live Activity
@@ -15,11 +15,20 @@ VERSION := $(shell sed -n 's/^version = "\(.*\)"/\1/p' Cargo.toml | head -1)
 
 APPSTORE_VERSION := $(shell echo $(VERSION) | awk -F. '{printf "%d.%d.%d", $$1, $$2, $$3+1}')
 
-build:
+build: js
 	cargo build --features mobile
 
 format:
 	cargo fmt
+
+# Type-check (tsc, no emit) then transpile every webview TS glue file to its
+# sibling .js (embedded via include_str!). Globs src, so new .ts files never need
+# a Makefile change. The .js files are committed, so builds still work without
+# bun. A type error fails the build, so the TS is checked by default.
+js:
+	@command -v bun >/dev/null 2>&1 || { echo ">> bun absent, committed .js left as-is"; exit 0; }
+	bunx tsc --noEmit -p tsconfig.json
+	@find src -name '*.ts' ! -name '*.d.ts' | while read -r f; do bun build "$$f" --outfile "$${f%.ts}.js"; done
 
 check:
 	cargo fmt --check && cargo clippy --features mobile
@@ -47,7 +56,7 @@ deploy:
 restore-ios-toml:
 	@[ ! -f .Dioxus.toml.ios ] || { mv .Dioxus.toml.ios Dioxus.toml; echo ">> restored Dioxus.toml from orphaned desktop backup"; }
 
-all: restore-ios-toml ensure-profiles
+all: js restore-ios-toml ensure-profiles
 	set -a && . ./.env && IPHONEOS_DEPLOYMENT_TARGET=16.0 dx build --platform ios --device true
 	bash scripts/sign-widget.sh debug
 	bash scripts/inject-url-scheme.sh || true
@@ -85,7 +94,7 @@ define patch-desktop-plist
 	/usr/libexec/PlistBuddy -c "Set :NSAppleEventsUsageDescription $(AE_USAGE)" $(1) 2>/dev/null || /usr/libexec/PlistBuddy -c "Add :NSAppleEventsUsageDescription string $(AE_USAGE)" $(1)
 endef
 
-desktop-build: desktop-toml
+desktop-build: js desktop-toml
 	set -a && . ./.env && set +a; \
 	trap 'mv .Dioxus.toml.ios Dioxus.toml' EXIT INT TERM; \
 	dx build --platform desktop
@@ -95,7 +104,7 @@ desktop-build: desktop-toml
 
 # Standalone Mac app: release build installed in /Applications, runs without
 # any dev server. Data lives in ~/Library/Application Support/FlowFlow.
-desktop-app: desktop-toml
+desktop-app: js desktop-toml
 	set -a && . ./.env && set +a; \
 	trap 'mv .Dioxus.toml.ios Dioxus.toml' EXIT INT TERM; \
 	dx build --platform desktop --release
