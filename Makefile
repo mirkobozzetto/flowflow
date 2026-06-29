@@ -1,4 +1,4 @@
-.PHONY: build format check dev ddev deploy desktop desktop-build desktop-app desktop-toml restore-ios-toml icon all appstore clean check-profiles renew ensure-profiles dmg release
+.PHONY: build format gesture check dev ddev deploy desktop desktop-build desktop-app desktop-toml restore-ios-toml icon all appstore clean check-profiles renew ensure-profiles dmg release
 
 # Strip the iOS-only widget extension from Dioxus.toml: dx 0.7 compiles every
 # declared [[ios.widget_extensions]] even for desktop, and the Live Activity
@@ -15,11 +15,21 @@ VERSION := $(shell sed -n 's/^version = "\(.*\)"/\1/p' Cargo.toml | head -1)
 
 APPSTORE_VERSION := $(shell echo $(VERSION) | awk -F. '{printf "%d.%d.%d", $$1, $$2, $$3+1}')
 
-build:
+build: gesture
 	cargo build --features mobile
 
 format:
 	cargo fmt
+
+# Transpile the webview TS glue to JS (embedded via include_str!). A build
+# prerequisite so gesture.js is never stale; gesture.js is also committed so
+# builds still work on a machine without bun.
+gesture:
+	@if command -v bun >/dev/null 2>&1; then \
+		bun build src/ui/sidebar/gesture.ts --outfile src/ui/sidebar/gesture.js; \
+	else \
+		echo ">> bun absent, gesture.js (committed) left as-is"; \
+	fi
 
 check:
 	cargo fmt --check && cargo clippy --features mobile
@@ -47,7 +57,7 @@ deploy:
 restore-ios-toml:
 	@[ ! -f .Dioxus.toml.ios ] || { mv .Dioxus.toml.ios Dioxus.toml; echo ">> restored Dioxus.toml from orphaned desktop backup"; }
 
-all: restore-ios-toml ensure-profiles
+all: gesture restore-ios-toml ensure-profiles
 	set -a && . ./.env && IPHONEOS_DEPLOYMENT_TARGET=16.0 dx build --platform ios --device true
 	bash scripts/sign-widget.sh debug
 	bash scripts/inject-url-scheme.sh || true

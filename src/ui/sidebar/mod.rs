@@ -32,6 +32,8 @@ pub(crate) fn navigate_with_slide(mut app: AppState, target: View) {
     });
 }
 
+const GESTURE_JS: &str = include_str!("gesture.js");
+
 #[component]
 pub fn SidebarOverlay() -> Element {
     let mut app: AppState = use_context();
@@ -39,13 +41,34 @@ pub fn SidebarOverlay() -> Element {
     let is_open = (app.sidebar_open)();
     let lang = (app.current_lang)();
 
+    use_future(move || async move {
+        let mut eval = dioxus::document::eval(GESTURE_JS);
+        while let Ok(msg) = eval.recv::<String>().await {
+            match msg.as_str() {
+                "open" => app.sidebar_open.set(true),
+                "closed" => app.sidebar_open.set(false),
+                _ => {}
+            }
+        }
+    });
+
     rsx! {
+        if !is_open {
+            div {
+                id: "sb-edge",
+                class: "fixed left-0 top-0 h-full w-8 z-30 lg:hidden",
+                style: "touch-action: none;",
+            }
+        }
         div {
+            id: "sb-backdrop",
             class: "fixed inset-0 bg-black/35 z-40 transition-opacity duration-200 lg:hidden",
             class: if is_open { "opacity-100" } else { "opacity-0 pointer-events-none" },
             onclick: move |_| app.sidebar_open.set(false),
         }
         div {
+            id: "sb-panel",
+            "data-open": if is_open { "1" } else { "0" },
             class: "fixed left-0 top-0 w-[85vw] max-w-[340px] h-full bg-warm-white z-50 flex flex-col border-r border-stone-200 transition-transform duration-200 safe-pt lg:static lg:translate-x-0 lg:w-72 lg:shrink-0 lg:h-screen",
             class: if is_open { "translate-x-0" } else { "-translate-x-full" },
             onclick: move |evt| evt.stop_propagation(),

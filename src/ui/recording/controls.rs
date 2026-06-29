@@ -9,7 +9,7 @@ use dioxus::prelude::*;
 use std::path::PathBuf;
 use std::sync::{Arc, Mutex};
 
-pub const NUM_BARS: usize = 28;
+pub const NUM_BARS: usize = 120;
 
 fn now_ms() -> u64 {
     std::time::SystemTime::now()
