@@ -1,13 +1,20 @@
-// src/ui/sidebar/gesture.ts
+// src/ui/hooks/swipe.ts
 (function() {
-  const win = window;
-  if (win.__sbGesture)
-    return;
-  win.__sbGesture = true;
-  const EDGE = 30;
-  const OPEN_AT = 0.15;
-  const CLOSE_AT = 0.4;
+  const CFG = {
+    panelId: "__PANEL__",
+    backdropId: "__BACKDROP__",
+    side: "__EDGE__",
+    edgePx: __EDGE_PX__,
+    openAt: __OPEN_AT__,
+    closeAt: __CLOSE_AT__
+  };
   const FLICK = 0.4;
+  const sign = CFG.side === "left" ? -1 : 1;
+  const w0 = window;
+  const guard = "__swipe_" + CFG.panelId;
+  if (w0[guard])
+    return;
+  w0[guard] = true;
   let panel = null;
   let backdrop = null;
   let w = 0;
@@ -22,8 +29,8 @@
   let cur = 0;
   let raf = 0;
   function els() {
-    panel = document.getElementById("sb-panel");
-    backdrop = document.getElementById("sb-backdrop");
+    panel = document.getElementById(CFG.panelId);
+    backdrop = document.getElementById(CFG.backdropId);
     return !!panel && !!backdrop;
   }
   function apply() {
@@ -33,7 +40,7 @@
     panel.style.transition = "none";
     panel.style.translate = cur + "px";
     if (backdrop) {
-      const p = Math.max(0, Math.min(1, 1 + cur / w));
+      const p = Math.max(0, Math.min(1, 1 - Math.abs(cur) / w));
       backdrop.style.transition = "none";
       backdrop.style.opacity = p.toFixed(3);
     }
@@ -50,7 +57,7 @@
       raf = 0;
     }
     panel.style.transition = "translate .25s cubic-bezier(.32,.72,0,1)";
-    panel.style.translate = (open ? 0 : -w) + "px";
+    panel.style.translate = (open ? 0 : sign * w) + "px";
     if (backdrop) {
       backdrop.style.transition = "opacity .25s ease";
       backdrop.style.opacity = open ? "1" : "0";
@@ -80,12 +87,13 @@
     w = panel.offsetWidth || 300;
     const open = panel.dataset.open === "1";
     if (!open) {
-      if (e.clientX > EDGE)
+      const atEdge = CFG.side === "left" ? e.clientX <= CFG.edgePx : e.clientX >= window.innerWidth - CFG.edgePx;
+      if (!atEdge)
         return;
       active = true;
       opening = true;
       engaged = true;
-      cur = -w;
+      cur = sign * w;
       schedule();
     } else {
       active = true;
@@ -104,7 +112,8 @@
     const dx = e.clientX - startX;
     const dy = e.clientY - startY;
     if (!engaged) {
-      if (dx < -8 && Math.abs(dx) > Math.abs(dy)) {
+      const towardClose = CFG.side === "left" ? dx < -8 : dx > 8;
+      if (towardClose && Math.abs(dx) > Math.abs(dy)) {
         engaged = true;
       } else if (Math.abs(dy) > 8) {
         active = false;
@@ -118,12 +127,14 @@
       vel = (e.clientX - lastX) / dt;
     lastX = e.clientX;
     lastT = e.timeStamp;
-    cur = opening ? Math.max(-w, Math.min(0, -w + dx)) : Math.max(-w, Math.min(0, dx));
+    const lo = Math.min(0, sign * w);
+    const hi = Math.max(0, sign * w);
+    cur = opening ? Math.max(lo, Math.min(hi, sign * w + dx)) : Math.max(lo, Math.min(hi, dx));
     if (e.cancelable)
       e.preventDefault();
     schedule();
   }
-  function onUp(e) {
+  function onUp() {
     if (!active || !panel)
       return;
     const wasEngaged = engaged;
@@ -138,9 +149,10 @@
     };
     document.addEventListener("click", swallow, true);
     setTimeout(() => document.removeEventListener("click", swallow, true), 350);
-    const progress = 1 + cur / w;
-    const thresh = opening ? OPEN_AT : CLOSE_AT;
-    const open = Math.abs(vel) > FLICK ? vel > 0 : progress > thresh;
+    const progress = 1 - Math.abs(cur) / w;
+    const openByVel = CFG.side === "left" ? vel > 0 : vel < 0;
+    const thresh = opening ? CFG.openAt : CFG.closeAt;
+    const open = Math.abs(vel) > FLICK ? openByVel : progress > thresh;
     settle(open);
   }
   document.addEventListener("pointerdown", onDown, true);

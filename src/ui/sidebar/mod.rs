@@ -6,6 +6,7 @@ pub use folders::*;
 
 use crate::application::i18n::t;
 use crate::infrastructure::persistence::Database;
+use crate::ui::hooks::swipe::{use_swipe_drawer, DrawerSwipe};
 use crate::ui::icons::*;
 use crate::ui::{AppState, SidebarTab, View};
 use dioxus::prelude::*;
@@ -32,8 +33,6 @@ pub(crate) fn navigate_with_slide(mut app: AppState, target: View) {
     });
 }
 
-const GESTURE_JS: &str = include_str!("gesture.js");
-
 #[component]
 pub fn SidebarOverlay() -> Element {
     let mut app: AppState = use_context();
@@ -41,15 +40,14 @@ pub fn SidebarOverlay() -> Element {
     let is_open = (app.sidebar_open)();
     let lang = (app.current_lang)();
 
-    use_future(move || async move {
-        let mut eval = dioxus::document::eval(GESTURE_JS);
-        while let Ok(msg) = eval.recv::<String>().await {
-            match msg.as_str() {
-                "open" => app.sidebar_open.set(true),
-                "closed" => app.sidebar_open.set(false),
-                _ => {}
-            }
-        }
+    use_swipe_drawer(DrawerSwipe {
+        open: app.sidebar_open,
+        panel_id: "sb-panel",
+        backdrop_id: "sb-backdrop",
+        edge: "left",
+        edge_px: 30.0,
+        open_at: 0.15,
+        close_at: 0.4,
     });
 
     rsx! {

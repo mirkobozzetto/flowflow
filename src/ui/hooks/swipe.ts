@@ -1,24 +1,41 @@
-// Edge-swipe drawer gesture for the sidebar (vaul-style).
-// Native pointer listeners drive the DOM transform directly (no per-frame
-// round-trip through Dioxus); the final open/closed state is sent back to
-// Rust via dioxus.send on release. Panel/backdrop are #sb-panel / #sb-backdrop;
-// the panel's data-open attribute (kept in sync by Dioxus) is the state source.
+// Reusable edge-swipe drawer controller (webview only; no DOM => no dioxus-native).
 //
-// Source of truth: this .ts file. Compile to gesture.js with `make gesture`
-// (bun build); gesture.js is what Rust embeds via include_str!.
+// Native pointer listeners drive the panel's CSS `translate` directly (no
+// per-frame round-trip through Dioxus), then send the committed open/closed
+// state to Rust via dioxus.send. The CALLER renders three things: a panel
+// (#<panelId>) positioned off-screen via a Tailwind translate class, a backdrop
+// (#<backdropId>), and a thin edge element with `touch-action: none` over the
+// edge zone (so the open swipe is not stolen by native scroll). The panel keeps
+// a `data-open` attribute (0/1) that Dioxus syncs to the open state.
+//
+// Config placeholders are filled by the Rust hook (use_swipe_drawer) before eval.
+// Source of truth: this .ts file; compile to swipe.js with `make js` (bun).
 
 declare const dioxus: { send(msg: string): void };
+// Numeric config placeholders are bare identifiers (declared, never defined) so
+// the bun build cannot constant-fold them (e.g. `+"__EDGE_PX__"` would fold to
+// NaN); the Rust hook replaces each identifier with a number literal pre-eval.
+declare const __EDGE_PX__: number;
+declare const __OPEN_AT__: number;
+declare const __CLOSE_AT__: number;
 
 (function () {
-  const win = window as unknown as { __sbGesture?: boolean };
-  if (win.__sbGesture) return;
-  win.__sbGesture = true;
-
-  const EDGE = 30; // left-edge open zone (px)
-  // Commit thresholds as a fraction of panel width (0 = closed, 1 = open).
-  const OPEN_AT = 0.15; // a short open swipe completes naturally
-  const CLOSE_AT = 0.4; // keep the close feel
+  const CFG = {
+    panelId: "__PANEL__",
+    backdropId: "__BACKDROP__",
+    side: "__EDGE__", // "left" | "right"
+    edgePx: __EDGE_PX__,
+    openAt: __OPEN_AT__,
+    closeAt: __CLOSE_AT__,
+  };
   const FLICK = 0.4; // px/ms velocity that commits a flick
+  // Closed position is sign*w (left: -w, right: +w); open is 0.
+  const sign = CFG.side === "left" ? -1 : 1;
+
+  const w0 = window as unknown as Record<string, boolean>;
+  const guard = "__swipe_" + CFG.panelId;
+  if (w0[guard]) return;
+  w0[guard] = true;
 
   let panel: HTMLElement | null = null;
   let backdrop: HTMLElement | null = null;
@@ -35,30 +52,26 @@ declare const dioxus: { send(msg: string): void };
   let raf = 0;
 
   function els(): boolean {
-    panel = document.getElementById("sb-panel");
-    backdrop = document.getElementById("sb-backdrop");
+    panel = document.getElementById(CFG.panelId);
+    backdrop = document.getElementById(CFG.backdropId);
     return !!panel && !!backdrop;
   }
-
   function apply(): void {
     raf = 0;
     if (!panel) return;
-    // Tailwind v4 positions the panel with the CSS `translate` property
-    // (.-translate-x-full -> translate: -100%), so we must drive the same
-    // property to override it; an inline `transform` would stack, not replace.
+    // Tailwind v4 positions the panel with the CSS `translate` property, so we
+    // must drive the same property to override it (an inline transform stacks).
     panel.style.transition = "none";
     panel.style.translate = cur + "px";
     if (backdrop) {
-      const p = Math.max(0, Math.min(1, 1 + cur / w));
+      const p = Math.max(0, Math.min(1, 1 - Math.abs(cur) / w));
       backdrop.style.transition = "none";
       backdrop.style.opacity = p.toFixed(3);
     }
   }
-
   function schedule(): void {
     if (!raf) raf = requestAnimationFrame(apply);
   }
-
   function settle(open: boolean): void {
     if (!panel) return;
     if (raf) {
@@ -66,16 +79,16 @@ declare const dioxus: { send(msg: string): void };
       raf = 0;
     }
     panel.style.transition = "translate .25s cubic-bezier(.32,.72,0,1)";
-    panel.style.translate = (open ? 0 : -w) + "px";
+    panel.style.translate = (open ? 0 : sign * w) + "px";
     if (backdrop) {
       backdrop.style.transition = "opacity .25s ease";
       backdrop.style.opacity = open ? "1" : "0";
     }
     dioxus.send(open ? "open" : "closed");
     // Hand control back to Dioxus only once it has applied the committed state
-    // (data-open flips). On a busy page (chat) Rust may process the message
-    // after the snap animation ends; clearing the inline style before that
-    // would let the stale class position flash (reopen/close flicker).
+    // (data-open flips). On a busy page Rust may process the message after the
+    // snap animation ends; clearing the inline style before that would let the
+    // stale class position flash (reopen/close flicker).
     const want = open ? "1" : "0";
     let tries = 0;
     const tryClear = () => {
@@ -93,17 +106,20 @@ declare const dioxus: { send(msg: string): void };
     };
     setTimeout(() => requestAnimationFrame(tryClear), 260);
   }
-
   function onDown(e: PointerEvent): void {
     if (e.pointerType === "mouse" || active || !els() || !panel) return;
     w = panel.offsetWidth || 300;
     const open = panel.dataset.open === "1";
     if (!open) {
-      if (e.clientX > EDGE) return;
+      const atEdge =
+        CFG.side === "left"
+          ? e.clientX <= CFG.edgePx
+          : e.clientX >= window.innerWidth - CFG.edgePx;
+      if (!atEdge) return;
       active = true;
       opening = true;
       engaged = true;
-      cur = -w;
+      cur = sign * w;
       schedule();
     } else {
       active = true;
@@ -116,13 +132,13 @@ declare const dioxus: { send(msg: string): void };
     lastT = e.timeStamp;
     vel = 0;
   }
-
   function onMove(e: PointerEvent): void {
     if (!active || !panel) return;
     const dx = e.clientX - startX;
     const dy = e.clientY - startY;
     if (!engaged) {
-      if (dx < -8 && Math.abs(dx) > Math.abs(dy)) {
+      const towardClose = CFG.side === "left" ? dx < -8 : dx > 8;
+      if (towardClose && Math.abs(dx) > Math.abs(dy)) {
         engaged = true;
       } else if (Math.abs(dy) > 8) {
         active = false;
@@ -135,22 +151,22 @@ declare const dioxus: { send(msg: string): void };
     if (dt > 0) vel = (e.clientX - lastX) / dt;
     lastX = e.clientX;
     lastT = e.timeStamp;
+    const lo = Math.min(0, sign * w);
+    const hi = Math.max(0, sign * w);
     cur = opening
-      ? Math.max(-w, Math.min(0, -w + dx))
-      : Math.max(-w, Math.min(0, dx));
+      ? Math.max(lo, Math.min(hi, sign * w + dx))
+      : Math.max(lo, Math.min(hi, dx));
     if (e.cancelable) e.preventDefault();
     schedule();
   }
-
-  function onUp(e: PointerEvent): void {
+  function onUp(): void {
     if (!active || !panel) return;
     const wasEngaged = engaged;
     active = false;
     engaged = false;
     if (!wasEngaged) return;
     // Swallow the click the browser synthesizes on the element the drag ended
-    // over, so a swipe (e.g. to close over a conversation row) does not also
-    // fire that row's onclick and navigate.
+    // over, so a swipe (e.g. over a list row) does not also fire its onclick.
     const swallow = (ev: Event) => {
       ev.stopPropagation();
       ev.preventDefault();
@@ -158,9 +174,10 @@ declare const dioxus: { send(msg: string): void };
     };
     document.addEventListener("click", swallow, true);
     setTimeout(() => document.removeEventListener("click", swallow, true), 350);
-    const progress = 1 + cur / w;
-    const thresh = opening ? OPEN_AT : CLOSE_AT;
-    const open = Math.abs(vel) > FLICK ? vel > 0 : progress > thresh;
+    const progress = 1 - Math.abs(cur) / w;
+    const openByVel = CFG.side === "left" ? vel > 0 : vel < 0;
+    const thresh = opening ? CFG.openAt : CFG.closeAt;
+    const open = Math.abs(vel) > FLICK ? openByVel : progress > thresh;
     settle(open);
   }
 
