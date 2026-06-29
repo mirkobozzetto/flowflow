@@ -15,4 +15,5 @@ pub(crate) mod chat_input;
 
 pub use actions::md_to_html;
 pub use sources_accordion::NoteWebSources;
+pub(crate) use tools_menu::ConnectorsSection;
 pub use view::ChatView;

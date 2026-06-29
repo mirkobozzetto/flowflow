@@ -19,7 +19,7 @@
 - Build and run: see [README - Setup](../README.md#setup) and [README - Commands](../README.md#commands)
 - Physical device setup (one-time pairing, certificates): [CLAUDE.md - Physical Device Setup](../CLAUDE.md)
 - [Desktop release guide](guides/desktop-release.md) - `make dmg` / `make release`, Gatekeeper, Developer ID + notarization
-- Tests: `cargo test` (269 tests), `cargo test -- --ignored` for API-key-gated ones
+- Tests: `cargo test` (364 tests), `cargo test -- --ignored` for API-key-gated ones
 
 ## 04 App Store
 
@@ -28,8 +28,8 @@
 
 ## 05 Specs
 
-- [RFCs](rfcs/) - technical designs: 0001 data backup/export, 0004 multidevice sync
-- [PRDs](prd/) - product specs: multidevice-sync, sync-realtime-ux, data-backup-export
+- [RFCs](rfcs/) - technical designs: 0001 backup/export, 0003 smart reminders, 0004 multidevice sync, 0005 pluggable STT, 0006 note threads, 0012 console agent lifecycle, 0013 shared contract crate, 0014 platform web app (accounts/roles/agents)
+- [PRDs](prd/) - product specs: composer-tools-menu, multidevice-sync, sync-realtime-ux, data-backup-export
 
 ## 06 History
 

@@ -23,6 +23,19 @@ pub fn RecordingBar(pending_audio: Signal<Option<(String, f64)>>) -> Element {
             div { class: "lg:max-w-3xl lg:mx-auto",
             if is_idle {
                 div { class: "flex items-center gap-2",
+                    div { class: "relative shrink-0",
+                        button {
+                            class: "w-12 h-12 flex items-center justify-center rounded-full bg-warm-white border border-stone-200 text-stone-600 active:bg-stone-100 transition-colors duration-150",
+                            "aria-label": t(&lang, "chat-tools-tooltip"),
+                            onclick: move |_| {
+                                app.show_note_tools_menu.set(!(app.show_note_tools_menu)())
+                            },
+                            IconPlus { size: 20 }
+                        }
+                        if (app.show_note_tools_menu)() {
+                            crate::ui::notes::note_tools_menu::NoteToolsMenu {}
+                        }
+                    }
                     button {
                         class: "flex-1 flex items-center justify-center gap-2.5 h-12 rounded-full bg-warm-white border border-ios-orange/25 text-ios-orange-dark text-sm font-medium",
                         onclick: move |_| start_recording(recorder, app),

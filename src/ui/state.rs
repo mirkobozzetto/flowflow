@@ -71,6 +71,7 @@ pub struct AppState {
     pub show_thread_menu: Signal<bool>,
     pub show_tools_menu: Signal<bool>,
     pub show_mention_menu: Signal<bool>,
+    pub show_note_tools_menu: Signal<bool>,
     // Per-chat web-search toggle (mirrors chat_scope: restored on open, persisted
     // per conversation). Default OFF; the composer "+" menu flips it.
     pub chat_web: Signal<bool>,
@@ -116,6 +117,7 @@ impl AppState {
             show_thread_menu: Signal::new(false),
             show_tools_menu: Signal::new(false),
             show_mention_menu: Signal::new(false),
+            show_note_tools_menu: Signal::new(false),
             chat_web: Signal::new(false),
             sidebar_tab: Signal::new(SidebarTab::Notes),
             show_folder_picker: Signal::new(false),

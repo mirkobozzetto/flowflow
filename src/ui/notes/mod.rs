@@ -5,6 +5,7 @@ mod dates;
 mod detail;
 mod menu;
 mod note_actions;
+pub(crate) mod note_tools_menu;
 mod reminders;
 mod tags;
 

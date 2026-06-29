@@ -61,10 +61,13 @@ pub fn MentionMenu(
                 span { class: LEAD_ICON, IconGlobeSimple { size: 22 } }
                 span { class: ROW_TITLE, {t(&lang, "chat-tools-web")} }
             }
+            // Parked until implemented (icon + i18n kept): deep search.
+            /*
             div { class: "w-full flex items-center gap-3 px-3 min-h-[48px] rounded-lg opacity-50",
                 span { class: LEAD_ICON, IconMagnifyingGlass { size: 22 } }
                 span { class: ROW_TITLE, {t(&lang, "chat-tools-deep")} }
             }
+            */
             div { class: SEP }
             div { class: SECTION, {t(&lang, "chat-mention-section-notes")} }
             if notes.is_empty() {
