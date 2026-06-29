@@ -1,4 +1,4 @@
-use flowflow::ui::hooks::swipe::build_script;
+use flowflow::ui::hooks::swipe::{build_script, build_sheet_script};
 
 const PLACEHOLDERS: [&str; 6] = [
     "__PANEL__",
@@ -45,4 +45,25 @@ fn build_script_supports_right_edge() {
     for ph in PLACEHOLDERS {
         assert!(!s.contains(ph));
     }
+}
+
+const SHEET_PLACEHOLDERS: [&str; 4] =
+    ["__SHEET__", "__BACKDROP__", "__GRAB_PX__", "__DISMISS_AT__"];
+
+#[test]
+fn build_sheet_script_fills_every_placeholder() {
+    let s = build_sheet_script("tools-sheet", "tools-backdrop", 48.0, 0.3);
+    for ph in SHEET_PLACEHOLDERS {
+        assert!(!s.contains(ph), "leftover placeholder {ph}");
+    }
+    assert!(s.contains("\"tools-sheet\""));
+    assert!(s.contains("\"tools-backdrop\""));
+}
+
+#[test]
+fn build_sheet_script_numeric_config_is_not_nan() {
+    let s = build_sheet_script("s", "b", 48.0, 0.3);
+    assert!(!s.contains("NaN"), "numeric placeholder folded to NaN");
+    assert!(s.contains("grabPx: 48"));
+    assert!(s.contains("dismissAt: 0.3"));
 }

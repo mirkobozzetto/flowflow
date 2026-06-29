@@ -84,62 +84,56 @@ Mirko Bozzetto — freelance full-stack developer, Brussels.
 | 6 | Chat UI + RAG pipeline (search → context → response) | Done |
 | 7 | Chat history persistence (SQLite, sidebar tabs, CRUD) | Done |
 
-## Architecture (Clean Architecture, SRP — 42 modules)
+## Architecture (Clean Architecture, SRP — 202 modules, 4 layers)
+
+Layered clean architecture. Dependencies point inward only:
+`ui` / `infrastructure` -> `application` -> `domain`. `domain` imports nothing
+outward; a view never orchestrates (it delegates to `application`).
 
 LlmClient dispatches on `Provider` enum: OpenAI (embeddings + chat/agent) or Anthropic (chat/agent only, embeddings always OpenAI). Provider, OpenAI key, and Anthropic key persisted in SQLite via Settings UI.
-
 
 ```
 src/
   main.rs                  entry point (dotenvy + dioxus::launch)
-  lib.rs                   pub mod exports (enables integration tests)
-  models/                  domain entities
-    note.rs                Note, NewTextNote, UpdateNote, NoteType
-    folder.rs              Folder, NewFolder, UpdateFolder
-    conversation.rs        Conversation, ConversationMessage
-    attachment.rs          Attachment, NewAttachment
-  db/                      persistence layer
-    mod.rs                 Database struct, open, open_at, conn, migrate
-    schema.rs              SQL schemas, MIGRATIONS (V1 + V2 + V3)
-    note_repo.rs           CRUD notes
-    folder_repo.rs         CRUD folders
-    settings_repo.rs       get/set settings (key-value store)
-    conversation_repo.rs   CRUD conversations + messages
-    attachment_repo.rs     CRUD attachments (create, get, list_for_note, delete, delete_for_note)
-  services/                business logic
-    constants.rs           AI config (OpenAI + Anthropic models, dims, chunks, RAG_AGENT_SYSTEM_PROMPT, SUMMARIZE_FOLDER_PROMPT, tags prompt)
-    ai.rs                  chunk_text (sliding-window chunker)
-    llm.rs                 LlmClient + Provider enum (OpenAi/Anthropic dispatch: embed, chat, generate_tags, prompt_with_agent, parse_tags)
-    error.rs               LlmError enum (NotConfigured, Embedding, Completion, TagParsing)
-    tools.rs               SearchNotes, CreateNote, SummarizeFolder (rig Tool trait) + prompt_agent_with_tools
-    vectordb.rs            VectorStore (LanceDB: store, search, delete, delete_attachment_chunks)
-    embed.rs               embed_note, embed_attachment, delete_note_embeddings, delete_attachment_embeddings (background)
-    rag.rs                 RAG pipeline (embed query → vector search → context → agent with tools)
+  lib.rs                   pub mod exports (enables integration tests in tests/)
+  prelude.rs               shared re-exports
+
+  domain/                  entities + pure rules (no IO, no outward deps)
+    note.rs, folder.rs, thread.rs, conversation.rs, attachment.rs, reminder.rs
+    agent_manifest.rs, governance.rs, orchestration.rs   agent/marketplace contracts
+
+  application/             use cases + orchestration (composes domain + infra)
+    constants.rs           AI config + prompts (RAG_AGENT_SYSTEM_PROMPT, RAG_AGENT_WEB_SYSTEM_PROMPT, NOTE_ACTION_PROMPT, SUMMARIZE_FOLDER_PROMPT, tags)
+    rag/                   RAG pipeline: mod.rs (query: scope gate -> hybrid search -> context -> agent), fusion (RRF), temporal, scoring, rerank, config, context
+    web_search.rs          Exa web search (exa_search) merged via RRF when web_on
+    tools/                 rig Tool trait (search, create, summarize) + prompt_agent_with_tools
+    embed/                 embed_note/attachment + chunk_store (background)
+    transcription_manager/ STT job orchestration (job, append, processing)
+    backup/                backup/export/restore (archive, snapshot, stage, swap, validate, manifest, paths)
+    tagging.rs, titling.rs, intent.rs, reminders.rs, chain.rs, agent_builder.rs, connector_module.rs, note_persistence.rs, ai.rs, i18n/, error.rs
+
+  infrastructure/          IO: SQLite, LLM, MCP, vector DB, sync, platform
+    llm.rs                 LlmClient + Provider enum (embed, chat, run_mcp_agent generic primitive)
+    vectordb.rs            VectorStore (LanceDB: hybrid_search, store, delete, fts index)
+    persistence/           Database + repos (note, folder, thread, conversation, attachment, settings, peer, chunk, reminder, schema/migrations)
+    mcp/                   MCP client
+    backend/               backend HTTP client (accounts, entitlements, signed agent fetch)
+    transcription/         Soniox cloud + local Whisper (client, provider, whisper, models, hesitations)
+    sync/                  P2P sync: engine, protocol/{collect,apply/,session,wire,catalog}, peers/{lan,codec,account_join,identity,peer_store,host,join}, vv, reconcile, transport, conflict, gc
+    platform/              iOS/macOS FFI (ios/{picker,player,share,reminders,live_activity,sync_ffi}, parsers, pdf)
     audio.rs               AudioRecorder (cpal, WAV capture)
-    transcription/         STT layer (RFC 0005)
-      client.rs            SonioxClient (upload, poll, transcribe) - cloud path, untouched
-      provider.rs          SttProvider enum + TranscriptionClient facade (from_db dispatch Soniox/WhisperLocal)
-      whisper.rs           WhisperLocal (whisper-rs, spawn_blocking, Semaphore(1), WAV→mono 16k) + bench
-      models.rs            ggml model manager (5-model catalog, download .part+sha256+rename, disk guardrail 2x)
-      hesitations.rs       clean_hesitations post-processing
-  platform/                OS-specific
-    ios.rs                 AVAudioSession, documents_dir, open_file_picker (UIDocumentPickerViewController), read_file_as_text (txt/md/csv/pdf/docx)
+
   ui/                      Dioxus components (1 component = 1 file)
-    mod.rs                 App root component + view routing + keyboard handler
-    state.rs               AppState, View enum (NotesList, NoteDetail, Chat, Settings)
-    top_bar.rs             TopBar (navigation, back to previous_view, chat icon)
-    sidebar.rs             SidebarOverlay, tabs (Notes/Chats), ConversationItem, FolderItem
-    fab.rs                 FloatingActionButton (new note)
-    note_list.rs           NotesList
-    note_card.rs           NoteCard (with tag chips)
-    note_detail.rs         NoteDetail (tags UI, auto-tag, attachment cards, import, auto-embed on save)
-    attachment_modal.rs    AttachmentModal (bottom sheet, filename + date + full text)
-    folder_picker.rs       FolderPicker (dropdown)
-    recording_bar.rs       RecordingBar (voice recording in notes)
-    settings.rs            SettingsView (provider picker OpenAI/Anthropic, API keys form, DB persistence)
-    chat.rs                ChatView (persistent conversations, markdown, sources)
-    chat_input.rs          ChatInputBar (mic, textarea, send, transcription)
-    icons.rs               Phosphor SVG icons
+    app/                   root + routing (mod, router, nav, top_bar, fab, boot, consent, watchers, right_nav, restore_lock, animations, contexts)
+    chat/                  ChatView + RAG chat (view, chat_input, actions, action_card, bubbles, sources_accordion, menu, typing_indicator, empty_state, models)
+    notes/                 list + detail (note_list, note_card, detail/ + detail/hooks/, attachments, tags, reminders, folder_picker, audio_player, menu)
+    sidebar/               drawer (mod, folders, conversations) + use_swipe_drawer
+    thread/                folder-scoped thread chat (card, detail, entry_button, header_menu)
+    recording/             recording bar + 60fps waveform (bar, controls, waveform)
+    settings/              tabs (general, intelligence, transcription, connections, account, backup, privacy, storage, shortcuts)
+    sync/                  pairing + conflicts UI (controls, pairing, conflicts)
+    hooks/                 reusable hooks (swipe.rs = use_swipe_drawer / use_swipe_right_nav, +.ts source -> .js via `make js`)
+    keyboard/, state.rs, kit.rs, icons.rs, clipboard.rs
 ```
 
 ## Data Entities
@@ -315,7 +309,7 @@ xcrun devicectl manage pair --device <DEVICE_ID>
 <!-- gitnexus:start -->
 # GitNexus — Code Intelligence
 
-This project is indexed by GitNexus as **flowflow** (4198 symbols, 9786 relationships, 300 execution flows). Use the GitNexus MCP tools to understand code, assess impact, and navigate safely.
+This project is indexed by GitNexus as **flowflow** (4302 symbols, 9968 relationships, 300 execution flows). Use the GitNexus MCP tools to understand code, assess impact, and navigate safely.
 
 > Index stale? Run `node .gitnexus/run.cjs analyze` from the project root — it auto-selects an available runner. No `.gitnexus/run.cjs` yet? `npx gitnexus analyze` (npm 11 crash → `npm i -g gitnexus`; #1939).
 

@@ -15,8 +15,7 @@ sources-one = 1 source
 sources-many = { $count } sources
 settings-search-title = Search
 settings-max-sources = Max sources
-settings-web-search-label = Web search
-settings-web-search-hint = Searches the web (via Exa) alongside your notes. Requires an Exa key.
+settings-web-search-moved = Web search is now controlled per chat: open the + menu in a conversation. An Exa key is still required.
 settings-save = Save
 settings-saved = Saved ✓
 settings-storage-title = Storage
@@ -231,6 +230,24 @@ chat-tool-web = Searching the web...
 chat-tool-working = Agent working...
 chat-error = Error
 chat-connector-error = A connected service failed - open Connections in Settings and reconnect if needed
+
+chat-tools-section-tools = Tools
+chat-tools-section-connectors = Connectors
+chat-tools-web = Web search
+chat-tools-web-desc = Find real-time information
+chat-tools-web-needs-key = Add an Exa key in Settings to enable it
+chat-tools-deep = Deep search
+chat-tools-deep-desc = Deeper multi-source analysis
+chat-tools-connected = Connected
+chat-tools-connect = Connect
+chat-tools-soon = Soon
+chat-tools-gmail-desc = Read and triage emails
+chat-tools-calendar-desc = Create and read events
+chat-conn-calendar = Google Calendar
+chat-tools-mention-hint = Type @ to mention a tool or a note
+chat-tools-tooltip = Add tools and connectors
+chat-mention-section-notes = Notes
+chat-mention-no-notes = No matching note
 
 recording-dictate = Dictate
 

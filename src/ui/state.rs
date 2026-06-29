@@ -69,6 +69,11 @@ pub struct AppState {
     pub attachment_modal: Signal<Option<Attachment>>,
     pub show_chat_menu: Signal<bool>,
     pub show_thread_menu: Signal<bool>,
+    pub show_tools_menu: Signal<bool>,
+    pub show_mention_menu: Signal<bool>,
+    // Per-chat web-search toggle (mirrors chat_scope: restored on open, persisted
+    // per conversation). Default OFF; the composer "+" menu flips it.
+    pub chat_web: Signal<bool>,
     pub sidebar_tab: Signal<SidebarTab>,
     pub show_folder_picker: Signal<bool>,
     pub chat_scope: Signal<Option<ChatScope>>,
@@ -109,6 +114,9 @@ impl AppState {
             attachment_modal: Signal::new(None),
             show_chat_menu: Signal::new(false),
             show_thread_menu: Signal::new(false),
+            show_tools_menu: Signal::new(false),
+            show_mention_menu: Signal::new(false),
+            chat_web: Signal::new(false),
             sidebar_tab: Signal::new(SidebarTab::Notes),
             show_folder_picker: Signal::new(false),
             chat_scope: Signal::new(None),

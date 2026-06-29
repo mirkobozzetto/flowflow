@@ -7,3 +7,5 @@ declare const __EDGE_PX__: number;
 declare const __OPEN_AT__: number;
 declare const __CLOSE_AT__: number;
 declare const __THRESHOLD__: number;
+declare const __GRAB_PX__: number;
+declare const __DISMISS_AT__: number;

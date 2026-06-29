@@ -6,6 +6,10 @@ fn chat_scope_key(conversation_id: &str) -> String {
     format!("chat_scope:{conversation_id}")
 }
 
+fn chat_web_key(conversation_id: &str) -> String {
+    format!("chat_web:{conversation_id}")
+}
+
 fn parse_scope(raw: &str) -> ChatScope {
     if let Some(id) = raw.strip_prefix("thread:") {
         ChatScope::Thread(id.to_string())
@@ -37,6 +41,24 @@ impl Database {
         scope: Option<&ChatScope>,
     ) -> Result<(), String> {
         self.set_setting(&chat_scope_key(conversation_id), &scope_value(scope))
+    }
+
+    // Per-chat web-search preference, stored like chat_scope (settings KV keyed
+    // by conversation, no schema change). Default OFF: a chat stays off the web
+    // until its own "+" toggle turns it on.
+    pub fn chat_web(&self, conversation_id: &str) -> bool {
+        self.get_setting(&chat_web_key(conversation_id)).as_deref() == Some("1")
+    }
+
+    pub fn set_chat_web(
+        &self,
+        conversation_id: &str,
+        on: bool,
+    ) -> Result<(), String> {
+        self.set_setting(
+            &chat_web_key(conversation_id),
+            if on { "1" } else { "0" },
+        )
     }
 
     pub fn create_conversation(
@@ -104,6 +126,8 @@ impl Database {
             .map_err(|e| format!("Delete conversation: {e}"))?;
         tx.execute("DELETE FROM settings WHERE key = ?1", [chat_scope_key(id)])
             .map_err(|e| format!("Delete conversation scope: {e}"))?;
+        tx.execute("DELETE FROM settings WHERE key = ?1", [chat_web_key(id)])
+            .map_err(|e| format!("Delete conversation web flag: {e}"))?;
         tx.commit()
             .map_err(|e| format!("Delete conversation commit: {e}"))?;
         Ok(())

@@ -58,6 +58,22 @@
     transform-origin: top right;
 }
 
+/* Composer "+" menu: bottom-sheet springs up on mobile, popover pops above the
+   button on desktop, backdrop and tooltip fade. */
+.sheet-pop {
+    animation: slideInUp 0.24s cubic-bezier(0.2, 0.9, 0.25, 1.12);
+}
+.popover-pop {
+    animation: popUp 0.16s ease-out;
+    transform-origin: bottom left;
+}
+.backdrop-fade {
+    animation: fadeIn 0.2s ease-out;
+}
+.tooltip-fade {
+    animation: fadeIn 0.15s ease-out;
+}
+
 .fab-btn {
     position: relative;
     width: 96px;
@@ -244,6 +260,24 @@
         to {
             opacity: 1;
             transform: scale(1) translateY(0);
+        }
+    }
+    @keyframes popUp {
+        from {
+            opacity: 0;
+            transform: scale(0.96) translateY(8px);
+        }
+        to {
+            opacity: 1;
+            transform: scale(1) translateY(0);
+        }
+    }
+    @keyframes fadeIn {
+        from {
+            opacity: 0;
+        }
+        to {
+            opacity: 1;
         }
     }
     @keyframes fadeInUp {

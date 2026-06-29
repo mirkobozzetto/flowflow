@@ -5,6 +5,7 @@ use crate::ui::chat::actions::{load_messages_from_db, send_question};
 use crate::ui::chat::bot_bubble::BotBubble;
 use crate::ui::chat::chat_input::ChatInputBar;
 use crate::ui::chat::empty_state::ChatEmptyState;
+use crate::ui::chat::mention_menu::MentionedNote;
 use crate::ui::chat::menu::ChatMenu;
 use crate::ui::chat::models::ChatMsg;
 use crate::ui::chat::typing_indicator::TypingIndicator;
@@ -34,6 +35,11 @@ pub fn ChatView() -> Element {
                 .chat_scope(cid)
                 .filter(|s| scope_alive(&db.peek(), s));
             app.chat_scope.set(restored);
+            app.chat_web.set(db.peek().chat_web(cid));
+        } else {
+            // Fresh mount with no conversation (new chat from a non-chat view):
+            // start OFF so a prior chat's web toggle never leaks in.
+            app.chat_web.set(false);
         }
         true
     });
@@ -47,6 +53,7 @@ pub fn ChatView() -> Element {
 
     let mut messages: Signal<Vec<ChatMsg>> = use_signal(|| initial_msgs);
     let mut input = use_signal(String::new);
+    let mut mentions: Signal<Vec<MentionedNote>> = use_signal(Vec::new);
     let mut loading = use_signal(|| false);
     let mut tool_status: Signal<Option<String>> = use_signal(|| None);
     let renaming = use_signal(|| false);
@@ -127,17 +134,30 @@ pub fn ChatView() -> Element {
                 pending.filter(|s| scope_alive(&db.peek(), s))
             }
         };
+        let web = match &view_cid {
+            Some(cid) => db.peek().chat_web(cid),
+            None => false,
+        };
         conversation_id.set(view_cid);
         messages.set(msgs);
         input.set(String::new());
         tool_status.set(None);
+        mentions.set(Vec::new());
         app.chat_scope.set(restored);
+        app.chat_web.set(web);
     });
 
     use_effect(move || {
         let scope = (app.chat_scope)();
         if let Some(cid) = conversation_id.peek().clone() {
             let _ = db.peek().set_chat_scope(&cid, scope.as_ref());
+        }
+    });
+
+    use_effect(move || {
+        let web = (app.chat_web)();
+        if let Some(cid) = conversation_id.peek().clone() {
+            let _ = db.peek().set_chat_web(&cid, web);
         }
     });
 
@@ -188,6 +208,7 @@ pub fn ChatView() -> Element {
         }
         ChatInputBar {
             input: input,
+            mentions: mentions,
             disabled: loading(),
             on_send: move |q: String| {
                 if conversation_id().is_none() {
@@ -198,6 +219,7 @@ pub fn ChatView() -> Element {
                             &cid,
                             (app.chat_scope)().as_ref(),
                         );
+                        let _ = db().set_chat_web(&cid, (app.chat_web)());
                         conversation_id.set(Some(cid.clone()));
                         app.view.set(View::Chat {
                             conversation_id: Some(cid),
@@ -209,8 +231,12 @@ pub fn ChatView() -> Element {
                     }
                 }
                 let scope = (app.chat_scope)();
+                let web = (app.chat_web)();
+                let mention_ids: Vec<String> =
+                    mentions().iter().map(|m| m.note_id.clone()).collect();
                 let lang = (app.current_lang)();
-                send_question(q, &mut messages, &mut loading, &mut tool_status, conversation_id, db, scope, lang);
+                send_question(q, &mut messages, &mut loading, &mut tool_status, conversation_id, db, scope, web, mention_ids, lang);
+                mentions.set(Vec::new());
             },
         }
     }
