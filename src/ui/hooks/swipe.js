@@ -92,9 +92,7 @@
         return;
       active = true;
       opening = true;
-      engaged = true;
-      cur = sign * w;
-      schedule();
+      engaged = false;
     } else {
       active = true;
       opening = false;
@@ -112,8 +110,12 @@
     const dx = e.clientX - startX;
     const dy = e.clientY - startY;
     if (!engaged) {
-      const towardClose = CFG.side === "left" ? dx < -8 : dx > 8;
-      if (towardClose && Math.abs(dx) > Math.abs(dy)) {
+      let toward;
+      if (opening)
+        toward = CFG.side === "left" ? dx > 8 : dx < -8;
+      else
+        toward = CFG.side === "left" ? dx < -8 : dx > 8;
+      if (toward && Math.abs(dx) > Math.abs(dy)) {
         engaged = true;
       } else if (Math.abs(dy) > 8) {
         active = false;

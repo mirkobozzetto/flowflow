@@ -109,13 +109,12 @@
           ? e.clientX <= CFG.edgePx
           : e.clientX >= window.innerWidth - CFG.edgePx;
       if (!atEdge) return;
-      // Engage immediately so a gentle edge drag follows the finger from the
-      // first pixel (the edge strip's touch-action: none stops scroll-steal).
+      // Mark intent only; engage after a real drag (onMove). A pure tap landing
+      // in the edge zone (the burger overlaps it) stays unengaged, so its click
+      // is not swallowed and the burger opens normally.
       active = true;
       opening = true;
-      engaged = true;
-      cur = sign * w;
-      schedule();
+      engaged = false;
     } else {
       active = true;
       opening = false;
@@ -132,9 +131,12 @@
     const dx = e.clientX - startX;
     const dy = e.clientY - startY;
     if (!engaged) {
-      // Only the close drag engages here (open engaged immediately on down).
-      const towardClose = CFG.side === "left" ? dx < -8 : dx > 8;
-      if (towardClose && Math.abs(dx) > Math.abs(dy)) {
+      // Engage on the first real horizontal drag, in the direction matching the
+      // intent set on pointerdown (open: toward center; close: toward edge).
+      let toward: boolean;
+      if (opening) toward = CFG.side === "left" ? dx > 8 : dx < -8;
+      else toward = CFG.side === "left" ? dx < -8 : dx > 8;
+      if (toward && Math.abs(dx) > Math.abs(dy)) {
         engaged = true;
       } else if (Math.abs(dy) > 8) {
         active = false;
