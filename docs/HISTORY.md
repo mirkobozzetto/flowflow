@@ -65,3 +65,23 @@ A round-trip path between a note and the chat. A round chat-bubble button sits n
 ## 2026-06 - Note threads (RFC 0006, #54)
 
 A thread is a first-class, titled, chronological stream of related notes you read top to bottom and append to in place. New `threads` table plus a nullable `notes.thread_id` (SQLite V13); a note belongs to at most one thread, ordered by `created_at`. A thread only counts as a thread at two or more members - a lone member renders as a plain note and a thread that drops below two collapses back (on leaving it and at boot), so entering one by mistake never strands you. The notes list mixes flat notes and stacked thread cards (a thread reuses the note card with its members' aggregated audio/web/reminder icons, just layered); the thread detail is a vertical timeline. Chat can be scoped to a thread, reusing #42's `allowed_note_ids` allow-list through a single `ChatScope` enum (Folder or Thread) that replaced the previous folder-only signal, with an explicit empty-scope answer instead of a silent zero-source reply. Threads register as one new sync kind and `thread_id` travels in the note payload (version vectors, tombstones, RFC 0004); thread delete re-stamps each member so a peer converges its members back to flat even though apply runs FK-off with triggers silenced. Backup counts threads; the V13 trigger installs on upgrade. Entry point is a stacked-cards button in the note bottom bar (start a thread or add to an existing one); the Mac notes list also switched from CSS multi-column to a row-major equal-height grid so notes read left to right like a comic strip. Adversarial 3-reviewer design pass on the RFC caught three sync blockers, all fixed before code. See [rfcs/0006-note-threads/](rfcs/0006-note-threads/).
+
+## 2026-06 - Local Whisper transcription (RFC 0005, Track H)
+
+Pluggable STT: a second provider runs Whisper fully on-device (whisper-rs, Metal). Download a ggml model (tiny to large-v3-turbo) in Settings with a size confirm, sha256 verification, and `.part`+rename; transcription then works in airplane mode (WAV -> mono 16 kHz -> whisper.cpp -> filler cleanup), audio never leaving the device. Provider and model id persist in Settings and travel in backup; model files stay device-local.
+
+## 2026-06 - Platform & agents groundwork (RFC 0012, 0014)
+
+The base for a vetted agent marketplace. A 100% Rust backend with accounts, passkey/WebAuthn auth, roles, and entitlements; a device fetches a signed agent manifest and verifies it against a pinned key before activation; every connector tool call passes a governance gate enforced on-device and re-checked server-side. Accounts cluster up to three paired devices; premium is admin-granted (B2B, no IAP). Consumer-facing marketplace UX is still ahead. See [rfcs/0012-console-agent-lifecycle/](rfcs/0012-console-agent-lifecycle/) and [rfcs/0014-platform-web-app-accounts-roles-agent-management/](rfcs/0014-platform-web-app-accounts-roles-agent-management/).
+
+## 2026-06 - SRP module split sprint (PRs #78-#81)
+
+Behavior-preserving decomposition of the remaining god-files into one-responsibility modules: RAG (`rag/` -> fusion, temporal, scoring, rerank, config, context), sync apply + peers (`apply/`, `peers/` -> ~13 modules: lan, codec, account_join, identity, peer_store, host, join, ...), backup (export, snapshot, stage, validate, swap), embed, and the LLM use-cases (tagging/titling/reminders) moved out of infrastructure into application. Clean-arch boundaries enforced (ui/infra -> application -> domain); tests kept green throughout.
+
+## 2026-06 - Gesture UX (PRs #80-#82)
+
+Finger-following gestures from a small native pointer controller (rAF + CSS translate, committed back to Dioxus on release): an edge-swipe drawer for the sidebar and a right-edge swipe to open a folder-scoped chat, both extracted into a reusable `use_swipe_drawer` hook. Plus a 60fps waveform (GPU `scaleY`), a desktop FAB, and a burger tap that reliably opens the sidebar.
+
+## 2026-06 - Composer tools menu, per-chat web, @ mentions
+
+Web search moves from a single global Settings toggle to a per-chat control inside a composer **+** menu (a tools + connectors hub) - a drag-to-dismiss bottom-sheet on iPhone, a popover with a hover tooltip on Mac, the switch in the brand orange and off by default, persisted per conversation (settings-KV, like the chat scope). Typing **@** opens a mention menu that scopes a message's RAG to a chosen note. The same **+** hub appears on notes. RAG `query()` now takes the per-chat web flag and mention note ids; a scoped chat answers from its notes unless web is explicitly on. See [prd/composer-tools-menu/](prd/composer-tools-menu/).

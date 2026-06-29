@@ -23,7 +23,8 @@ mod rerank;
 use rerank::llm_rerank;
 
 mod config;
-use config::{read_max_sources, web_search_config};
+use config::{exa_key, read_max_sources};
+pub use config::{resolve_allowed_ids, resolve_web_on};
 
 mod context;
 pub use context::build_context;
@@ -51,12 +52,14 @@ pub async fn query(
     question: &str,
     status_tx: Option<mpsc::UnboundedSender<ToolEvent>>,
     scope: Option<ChatScope>,
+    web: bool,
+    mention_note_ids: Vec<String>,
     lang: &str,
 ) -> Result<RagResponse, String> {
     let ai = Arc::new(LlmClient::from_env()?);
     let store = VectorStore::open().await?;
 
-    let allowed_note_ids: Option<Vec<String>> = match scope {
+    let scope_ids: Option<Vec<String>> = match scope {
         Some(ChatScope::Thread(tid)) => Database::open().ok().map(|db| {
             db.list_thread_notes(&tid)
                 .unwrap_or_default()
@@ -73,8 +76,14 @@ pub async fn query(
         }),
         None => None,
     };
+    let allowed_note_ids = resolve_allowed_ids(scope_ids, mention_note_ids);
 
-    if matches!(allowed_note_ids, Some(ref ids) if ids.is_empty()) {
+    let exa = exa_key();
+    let web_on = resolve_web_on(web, &exa);
+
+    // An empty scope only dead-ends when there is no web to fall back on; with web
+    // on, the chat still answers from the web even if the scoped note set is empty.
+    if !web_on && matches!(allowed_note_ids, Some(ref ids) if ids.is_empty()) {
         return Ok(RagResponse {
             answer: crate::application::i18n::t(lang, "chat-empty-scope"),
             sources: vec![],
@@ -103,8 +112,6 @@ pub async fn query(
     } else {
         RAG_INITIAL_K
     };
-    let (web_enabled, exa_key) = web_search_config();
-    let web_on = web_enabled && !exa_key.trim().is_empty();
 
     let results: Vec<SearchResult> = if web_on {
         if let Some(ref tx) = status_tx {
@@ -117,7 +124,7 @@ pub async fn query(
                 fetch_k,
                 allowed_note_ids.as_deref(),
             ),
-            crate::application::web_search::exa_search(question, &exa_key),
+            crate::application::web_search::exa_search(question, &exa),
         );
         if let Some(ref tx) = status_tx {
             let _ = tx.send(ToolEvent::Finished("web_search".into()));

@@ -30,8 +30,9 @@ No manual searching. No folders to dig through. Just talk, and find it later.
 - **Multi-device sync** - encrypted LAN P2P between iPhone and Mac (Noise protocol, no server, no cloud), QR pairing, real-time UI refresh, zero data loss by design
 - **Backup & restore** - export everything (notes, audio, vectors) as one archive via the share sheet, API keys and pairing secrets never leave the device; import is a validated, crash-safe atomic replace, and sync reconverges without resurrecting deleted notes
 - **RAG chat** - powered by [rig](https://github.com/0xPlaygrounds/rig): ask questions about your notes, get answers with tappable sources; hybrid search (BM25 + vector + RRF + LLM rerank), temporal queries, agent tools, and a per-conversation theme scope that is remembered when you come back
-- **Web search in chat** - flip a toggle and the chat queries the web via [Exa](https://exa.ai) in parallel with your notes; the two ranked lists are fused by Reciprocal Rank Fusion (rank, not score), so fresh web facts and your own notes land in one answer, with web sources in their own section that open in your browser
-- **External connectors** - link a service like Google Sheets and arm the assistant to one or several of your spreadsheets (pick from the list or paste a link); every tool call passes a governed permission gate, enforced on-device *and* re-checked server-side, so the model only acts on the sheets you armed and only as the connector's contract allows (account-based, premium)
+- **Web search in chat** - open the composer's **+** menu and turn web search on for that chat (per conversation, off by default); it queries the web via [Exa](https://exa.ai) in parallel with your notes, the two ranked lists fused by Reciprocal Rank Fusion (rank, not score), so fresh web facts and your own notes land in one answer, with web sources in their own section that open in your browser
+- **Composer tools (+ and @)** - a **+** menu gathers tools and connectors per chat (and on notes): a bottom-sheet you drag down to dismiss on iPhone, a popover with a hover tooltip on Mac; type **@** to scope a question to a specific note
+- **External connectors** - link a service like Google Sheets and arm the assistant to one or several of your spreadsheets (pick from the list or paste a link); every tool call passes a governed permission gate, enforced on-device *and* re-checked server-side, so the model only acts on the sheets you armed and only as the connector's contract allows (account-based, premium). This is the groundwork for an agent marketplace - signed agents, account roles, and server-governed tools - in progress
 - **Save from chat** - keep any answer or a whole thread as a note: AI-titled, embedded for search, filed in the chat's own folder, with its web sources preserved and openable; saved notes render as clean markdown
 - **Note to chat** - jump from any note straight into the chat, already scoped to that note's theme, then one tap on the back arrow returns you to the exact note; the round trip works on iPhone and Mac
 - **Note threads** - group related notes into one titled, chronological thread you read top to bottom and append to in place; a thread needs at least two notes (a lone one stays a plain note), chat can be scoped to a single thread, and threads sync and back up like everything else
@@ -40,7 +41,7 @@ No manual searching. No folders to dig through. Just talk, and find it later.
 - **Document import** - PDF (native OCR for scans), DOCX, TXT, MD, CSV via the native pickers on iOS and macOS, auto-embedded for chat
 - **Audio playback** - play, pause, delete recordings from any note, on both platforms; filler words (euh, um) auto-stripped from transcripts
 - **A real Mac app** - keyboard-first: ⌘N new note, ⇧⌘Enter new chat, ⌘F search, ⌘⌘ switch Notes/Chats, ⌃⌃ theme picker with arrow-key navigation, ⌘←/→ view history, double-Esc home; instant page switches, hover states, native file dialogs (full list in Settings > Keyboard shortcuts)
-- **Polished by design** - one design system: anchored context menus, confirm-before-delete everywhere, inline rename with Enter/Esc, copy any note or chat answer in one tap, incremental list rendering that stays smooth past hundreds of notes
+- **Polished by design** - one design system: edge-swipe drawers and drag-to-dismiss sheets, a 60fps waveform, anchored context menus, confirm-before-delete everywhere, inline rename with Enter/Esc, copy any note or chat answer in one tap, incremental list rendering that stays smooth past hundreds of notes
 - **Bilingual** - English + French UI, auto-detected, switchable in Settings; even error messages are localized
 - **Local-first** - SQLite for metadata, LanceDB for vectors, your data stays on your devices
 
@@ -54,7 +55,7 @@ No manual searching. No folders to dig through. Just talk, and find it later.
 | Styling       | [Tailwind CSS V4](https://tailwindcss.com)                                                     |
 | LLM           | [rig-core 0.36](https://github.com/0xPlaygrounds/rig) (OpenAI, Anthropic)                      |
 | Embeddings    | OpenAI text-embedding-3-small (1536 dims)                                                      |
-| Web search    | [Exa](https://exa.ai) REST API (optional, toggle in Settings)                                  |
+| Web search    | [Exa](https://exa.ai) REST API (optional, per-chat via the + menu)                             |
 | Vector DB     | [LanceDB 0.27.2](https://lancedb.com) (local, cosine)                                          |
 | Database      | SQLite ([rusqlite](https://github.com/rusqlite/rusqlite) 0.34, bundled, WAL mode)              |
 | Sync          | LAN P2P, [snow](https://github.com/mcginty/snow) (Noise XXpsk3), version vectors, tombstones   |

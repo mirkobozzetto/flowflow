@@ -172,6 +172,8 @@ pub fn send_question(
     conversation_id: Signal<Option<String>>,
     db: Signal<Arc<Database>>,
     scope: Option<rag::ChatScope>,
+    web: bool,
+    mention_ids: Vec<String>,
     lang: String,
 ) {
     messages.write().push(ChatMsg::User(question.clone()));
@@ -213,7 +215,15 @@ pub fn send_question(
         {
             rag::run_action(&question, Some(tx)).await
         } else {
-            rag::query(&question, Some(tx), scope, &lang_for_query).await
+            rag::query(
+                &question,
+                Some(tx),
+                scope,
+                web,
+                mention_ids,
+                &lang_for_query,
+            )
+            .await
         };
         match result {
             Ok(r) => {

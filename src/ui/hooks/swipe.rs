@@ -66,6 +66,51 @@ pub fn use_swipe_drawer(cfg: DrawerSwipe) {
     });
 }
 
+const SWIPE_SHEET_JS: &str = include_str!("swipe_sheet.js");
+
+pub fn build_sheet_script(
+    sheet_id: &str,
+    backdrop_id: &str,
+    grab_px: f64,
+    dismiss_at: f64,
+) -> String {
+    SWIPE_SHEET_JS
+        .replace("__SHEET__", sheet_id)
+        .replace("__BACKDROP__", backdrop_id)
+        .replace("__GRAB_PX__", &grab_px.to_string())
+        .replace("__DISMISS_AT__", &dismiss_at.to_string())
+}
+
+// Bottom-sheet drag-to-dismiss: a downward drag from the grabber strip follows
+// the finger and, past the threshold (or on a flick), animates out and runs
+// `on_close` so the caller unmounts the sheet. The sheet remounts each open, so
+// the controller tears down its prior listeners on re-eval.
+pub fn use_sheet_dismiss(
+    sheet_id: &'static str,
+    backdrop_id: &'static str,
+    grab_px: f64,
+    dismiss_at: f64,
+    on_close: impl FnMut() + 'static,
+) {
+    let mut on_close = Some(on_close);
+    use_future(move || {
+        let taken = on_close.take();
+        async move {
+            let Some(mut on_close) = taken else {
+                return;
+            };
+            let script =
+                build_sheet_script(sheet_id, backdrop_id, grab_px, dismiss_at);
+            let mut eval = dioxus::document::eval(&script);
+            while let Ok(msg) = eval.recv::<String>().await {
+                if msg == "closed" {
+                    on_close();
+                }
+            }
+        }
+    });
+}
+
 const SWIPE_RIGHT_NAV_JS: &str = include_str!("swipe_right_nav.js");
 
 pub fn build_right_nav_script(edge_px: f64, threshold: f64) -> String {
