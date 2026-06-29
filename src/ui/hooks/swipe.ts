@@ -11,19 +11,12 @@
 // Config placeholders are filled by the Rust hook (use_swipe_drawer) before eval.
 // Source of truth: this .ts file; compile to swipe.js with `make js` (bun).
 
-declare const dioxus: { send(msg: string): void };
-// Numeric config placeholders are bare identifiers (declared, never defined) so
-// the bun build cannot constant-fold them (e.g. `+"__EDGE_PX__"` would fold to
-// NaN); the Rust hook replaces each identifier with a number literal pre-eval.
-declare const __EDGE_PX__: number;
-declare const __OPEN_AT__: number;
-declare const __CLOSE_AT__: number;
-
+// Ambient globals (dioxus, __EDGE_PX__, ...) live in globals.d.ts.
 (function () {
   const CFG = {
     panelId: "__PANEL__",
     backdropId: "__BACKDROP__",
-    side: "__EDGE__", // "left" | "right"
+    side: "__EDGE__" as string, // "left" | "right" (cast: filled by Rust pre-eval)
     edgePx: __EDGE_PX__,
     openAt: __OPEN_AT__,
     closeAt: __CLOSE_AT__,
@@ -116,6 +109,8 @@ declare const __CLOSE_AT__: number;
           ? e.clientX <= CFG.edgePx
           : e.clientX >= window.innerWidth - CFG.edgePx;
       if (!atEdge) return;
+      // Engage immediately so a gentle edge drag follows the finger from the
+      // first pixel (the edge strip's touch-action: none stops scroll-steal).
       active = true;
       opening = true;
       engaged = true;
@@ -137,6 +132,7 @@ declare const __CLOSE_AT__: number;
     const dx = e.clientX - startX;
     const dy = e.clientY - startY;
     if (!engaged) {
+      // Only the close drag engages here (open engaged immediately on down).
       const towardClose = CFG.side === "left" ? dx < -8 : dx > 8;
       if (towardClose && Math.abs(dx) > Math.abs(dy)) {
         engaged = true;

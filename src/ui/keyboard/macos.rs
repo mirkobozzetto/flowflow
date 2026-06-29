@@ -127,24 +127,7 @@ pub fn use_macos_shortcuts(app: AppState) {
                         app.sidebar_tab.set(SidebarTab::Chats);
                         app.sidebar_open.set(true);
                     }
-                    "nav-back" => {
-                        let target = app.view_history.write().pop();
-                        if let Some(target) = target {
-                            app.view_future
-                                .write()
-                                .push(app.view.peek().clone());
-                            app.history_nav.set(true);
-                            // Reset transient nav/overlay state so the previous and next
-                            // views never render layered on top of each other.
-                            app.sliding_out.set(false);
-                            app.previous_view.set(None);
-                            app.show_folder_picker.set(false);
-                            app.show_note_menu.set(false);
-                            app.show_chat_menu.set(false);
-                            app.show_thread_menu.set(false);
-                            app.view.set(target);
-                        }
-                    }
+                    "nav-back" => crate::ui::app::nav::nav_back(app),
                     "nav-forward" => {
                         let target = app.view_future.write().pop();
                         if let Some(target) = target {

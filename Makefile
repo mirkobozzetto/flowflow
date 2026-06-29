@@ -21,12 +21,14 @@ build: js
 format:
 	cargo fmt
 
-# Transpile every webview TS glue file to its sibling .js (embedded via
-# include_str!). Globs src, so new .ts files never need a Makefile change. The
-# .js files are committed, so builds still work on a machine without bun.
+# Type-check (tsc, no emit) then transpile every webview TS glue file to its
+# sibling .js (embedded via include_str!). Globs src, so new .ts files never need
+# a Makefile change. The .js files are committed, so builds still work without
+# bun. A type error fails the build, so the TS is checked by default.
 js:
 	@command -v bun >/dev/null 2>&1 || { echo ">> bun absent, committed .js left as-is"; exit 0; }
-	@find src -name '*.ts' | while read -r f; do bun build "$$f" --outfile "$${f%.ts}.js"; done
+	bunx tsc --noEmit -p tsconfig.json
+	@find src -name '*.ts' ! -name '*.d.ts' | while read -r f; do bun build "$$f" --outfile "$${f%.ts}.js"; done
 
 check:
 	cargo fmt --check && cargo clippy --features mobile

@@ -104,17 +104,29 @@ pub fn ChatView() -> Element {
             } => cid,
             _ => return,
         };
-        if view_cid == *conversation_id.peek() || *loading.peek() {
+        if (view_cid == *conversation_id.peek()
+            && app.pending_chat_scope.peek().is_none())
+            || *loading.peek()
+        {
             return;
         }
         let msgs = match &view_cid {
             Some(cid) => load_messages_from_db(&db(), cid),
             None => vec![],
         };
-        let restored = view_cid
-            .as_deref()
-            .and_then(|cid| db.peek().chat_scope(cid))
-            .filter(|s| scope_alive(&db.peek(), s));
+        let restored = match &view_cid {
+            Some(cid) => db
+                .peek()
+                .chat_scope(cid)
+                .filter(|s| scope_alive(&db.peek(), s)),
+            None => {
+                // A new chat inherits a pending scope (e.g. opened from a
+                // folder), which is then consumed.
+                let pending = app.pending_chat_scope.peek().clone();
+                app.pending_chat_scope.set(None);
+                pending.filter(|s| scope_alive(&db.peek(), s))
+            }
+        };
         conversation_id.set(view_cid);
         messages.set(msgs);
         input.set(String::new());

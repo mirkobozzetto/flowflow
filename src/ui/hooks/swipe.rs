@@ -65,3 +65,38 @@ pub fn use_swipe_drawer(cfg: DrawerSwipe) {
         }
     });
 }
+
+const SWIPE_RIGHT_NAV_JS: &str = include_str!("swipe_right_nav.js");
+
+pub fn build_right_nav_script(edge_px: f64, threshold: f64) -> String {
+    SWIPE_RIGHT_NAV_JS
+        .replace("__EDGE_PX__", &edge_px.to_string())
+        .replace("__THRESHOLD__", &threshold.to_string())
+}
+
+// Right-edge swipe: a leftward swipe from the right edge runs `on_chat`. No
+// rendered element; the controller lives entirely in document listeners.
+pub fn use_swipe_right_nav(
+    edge_px: f64,
+    threshold: f64,
+    on_chat: impl FnMut() + 'static,
+) {
+    // use_future wants an FnMut factory; take the callback out once so it is not
+    // moved on a (never-happening) second call.
+    let mut on_chat = Some(on_chat);
+    use_future(move || {
+        let taken = on_chat.take();
+        async move {
+            let Some(mut on_chat) = taken else {
+                return;
+            };
+            let script = build_right_nav_script(edge_px, threshold);
+            let mut eval = dioxus::document::eval(&script);
+            while let Ok(msg) = eval.recv::<String>().await {
+                if msg == "chat" {
+                    on_chat();
+                }
+            }
+        }
+    });
+}
