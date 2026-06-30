@@ -7,6 +7,7 @@ use crate::application::tools::{prompt_agent_with_tools, ToolEvent};
 use crate::infrastructure::llm::LlmClient;
 use crate::infrastructure::persistence::Database;
 use crate::infrastructure::vectordb::{SearchResult, SourceType, VectorStore};
+use std::collections::HashSet;
 use std::sync::Arc;
 use tokio::sync::mpsc;
 
@@ -18,7 +19,7 @@ mod temporal;
 use temporal::{apply_date_filter, detect_temporal_llm, detect_temporal_regex};
 
 mod scoring;
-use scoring::{apply_temporal_boost, compute_source_count, filter_and_dedup};
+use scoring::{apply_temporal_boost, compute_source_count, dedup_sources};
 pub use scoring::{floor_filter, passes_floor};
 
 /// Outcome of the grounded-abstain gate for the notes-only (web-off) path.
@@ -45,7 +46,32 @@ pub fn abstain_decision(
 }
 
 mod rerank;
-use rerank::llm_rerank;
+use rerank::llm_relevance_filter;
+
+/// Keep only the candidates the LLM judged genuinely relevant to the question. The model reads
+/// the question and the note contents, so it understands "the note about Jean" means the note that
+/// discusses Jean - not every note that happens to contain the common word "note". Returns the
+/// relevant subset; empty means nothing is relevant (drives the abstain decision).
+async fn select_relevant(
+    ai: &LlmClient,
+    question: &str,
+    candidates: Vec<SearchResult>,
+) -> Vec<SearchResult> {
+    if candidates.is_empty() {
+        return candidates;
+    }
+    let judged: HashSet<usize> =
+        llm_relevance_filter(ai, question, &candidates, RAG_FINAL_K)
+            .await
+            .into_iter()
+            .collect();
+    candidates
+        .into_iter()
+        .enumerate()
+        .filter(|(i, _)| judged.contains(i))
+        .map(|(_, r)| r)
+        .collect()
+}
 
 mod config;
 use config::{exa_key, read_max_sources};
@@ -181,8 +207,10 @@ pub async fn query(
         }
         let merged =
             rrf_merge(local, web_res, RRF_K, RRF_LOCAL_WEIGHT, RRF_WEB_WEIGHT);
-        let reranked = llm_rerank(&ai, question, merged, RAG_FINAL_K).await;
-        let filtered = dedup_merged(reranked);
+        // Cite only the genuinely relevant rows (notes AND web results), judged by the LLM, not
+        // the top-N by rank.
+        let selected = select_relevant(&ai, question, merged).await;
+        let filtered = dedup_merged(selected);
         let count = read_max_sources().min(RAG_FINAL_K).min(filtered.len());
         filtered.into_iter().take(count).collect()
     } else {
@@ -201,44 +229,32 @@ pub async fn query(
             candidates
         };
 
-        // Absolute floor on the RAW candidate set, BEFORE the LLM rerank can truncate it.
-        // The decision is deterministic (pure cosine, no model call) and the rerank never
-        // discards a relevant hit out of the floor's reach.
-        let floored = floor_filter(&candidates, RAG_RELEVANCE_FLOOR);
-        let max_relevance = candidates
-            .iter()
-            .map(|r| r.relevance)
-            .fold(0.0_f32, f32::max);
-        eprintln!(
-            "[rag] floor {RAG_RELEVANCE_FLOOR}: kept {} of {} (max relevance {max_relevance:.3})",
-            floored.len(),
-            candidates.len()
-        );
+        // The LLM judge decides WHICH notes genuinely answer the question - it reads the content,
+        // so it judges what a note is ABOUT, not mere word overlap. An `@mention` is an explicit
+        // pointer: answer from the named notes without judging.
+        let mut selected = if has_mention {
+            candidates
+        } else {
+            select_relevant(&ai, question, candidates).await
+        };
+        apply_temporal_boost(&mut selected);
+        let kept = dedup_sources(selected);
+        eprintln!("[rag] cited {} notes", kept.len());
 
-        if abstain_decision(
-            floored.is_empty(),
-            web_on,
-            has_mention,
-            is_actionable,
-        ) == AbstainDecision::Abstain
+        // Nothing relevant, web off, no explicit intent -> say so and cite no sources.
+        if abstain_decision(kept.is_empty(), web_on, has_mention, is_actionable)
+            == AbstainDecision::Abstain
         {
-            eprintln!("[rag] abstain: nothing cleared the floor (web off)");
+            eprintln!("[rag] abstain: nothing relevant (web off)");
             return Ok(RagResponse {
                 answer: crate::application::i18n::t(lang, "chat-no-relevant"),
                 sources: vec![],
             });
         }
 
-        // An `@mention` answers from the named notes even below the floor; otherwise feed only
-        // the floored set (empty is fine for an action request - the agent's tools still fire).
-        let chosen = if has_mention { candidates } else { floored };
-        let mut reranked = llm_rerank(&ai, question, chosen, RAG_FINAL_K).await;
-        apply_temporal_boost(&mut reranked);
-        let filtered = filter_and_dedup(reranked);
-
         let user_max = read_max_sources();
-        let source_count = compute_source_count(&filtered, user_max);
-        filtered.into_iter().take(source_count).collect()
+        let source_count = compute_source_count(&kept, user_max);
+        kept.into_iter().take(source_count).collect()
     };
 
     let context = if results.is_empty() {

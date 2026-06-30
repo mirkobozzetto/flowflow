@@ -113,6 +113,21 @@ fn floor_filter_all_below_is_empty() {
 }
 
 #[test]
+fn floor_prunes_a_top_ranked_low_cosine_keyword_hit() {
+    // Regression guard: a rare-proper-noun match (e.g. "Jean") is the top hybrid hit -
+    // best RRF rank (distance ~0.0) - but its cosine is weak. floor_filter drops it on cosine
+    // alone, blind to the BM25 signal in `distance`. This is WHY the floor must only drive the
+    // abstain decision and must NOT prune the candidate set fed to the reranker.
+    let mut top_keyword_hit = local(0.18); // cosine below the 0.25 floor
+    top_keyword_hit.distance = 0.0; // yet the best RRF/BM25 rank
+    let kept = floor_filter(&[top_keyword_hit], 0.25);
+    assert!(
+        kept.is_empty(),
+        "the cosine-only floor drops the top-ranked keyword hit"
+    );
+}
+
+#[test]
 fn default_floor_is_the_documented_constant() {
     assert_eq!(RAG_RELEVANCE_FLOOR, 0.25);
 }

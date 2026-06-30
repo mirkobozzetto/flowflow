@@ -97,7 +97,7 @@ You are a personal assistant working over the user's notes. Initial relevant exc
 - Connected-service tools (optional): if the user has connected external apps, extra tools may appear (for example, adding a row to a spreadsheet). They show up only when connected; use one only when the user clearly asks to act on that external service.\n\
 \n\
 ## Rules\n\
-1. Base your answer only on the provided context and on results returned by your tools. Do not use outside knowledge. If neither the context nor your tools yield anything relevant to the question, say you have no relevant note on this rather than guessing.\n\
+1. The notes in the context below were already selected as relevant to the question - treat them as relevant and answer from them and from your tools' results. Do not invent facts that are not in the context or your tools' results.\n\
 2. Only call `create_note` when the user clearly asks to record something.\n\
 3. Answer in the SAME language as the user's question, whatever language that is. The notes and these instructions may be written in a different language; ignore their language entirely and mirror only the language of the question.\n\
 4. Be concise and direct. No filler, no preamble.\n\
@@ -120,12 +120,13 @@ You are a personal assistant working over the user's notes AND fresh web search 
 5. Be concise and direct. No filler, no preamble.\n\
 6. NEVER write bracket citations like [Source 1] — the app displays sources separately.";
 
-pub const RERANK_PROMPT: &str = "\
-You are a relevance judge. Given a question and numbered passages from a user's notes, \
-rank them by relevance to the question.\n\
-Return ONLY the passage numbers separated by commas, most relevant first.\n\
-No explanation, no text, just numbers.\n\
-Example: 3,7,1,12,5,9,2,8";
+pub const RELEVANCE_FILTER_PROMPT: &str = "\
+You are a STRICT relevance judge. Given a question and numbered passages from the user's notes, \
+return the numbers of ONLY the passages that genuinely concern the question's topic.\n\
+A passage that merely shares common words but is about a different subject is NOT relevant - omit it.\n\
+List the relevant numbers, most relevant first, separated by commas. If NONE are relevant, return exactly: none\n\
+No explanation, output only the numbers or the word none.\n\
+Example: 3, 1";
 
 pub const TEMPORAL_DETECT_PROMPT: &str = "\
 Analyze the user's question and extract any temporal intent.\n\

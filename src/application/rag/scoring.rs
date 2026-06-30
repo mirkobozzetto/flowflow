@@ -42,9 +42,10 @@ pub(super) fn apply_temporal_boost(results: &mut [SearchResult]) {
     });
 }
 
-pub(super) fn filter_and_dedup(
-    results: Vec<SearchResult>,
-) -> Vec<SearchResult> {
+/// Collapse the relevant chunks into one card per NOTE: dedup by note_id (a note can yield several
+/// chunks), keeping the relative `distance` belt. Relevance is decided upstream (the LLM judge +
+/// keyword union), so this no longer filters on relevance - it only shapes the cited set.
+pub(super) fn dedup_sources(results: Vec<SearchResult>) -> Vec<SearchResult> {
     let mut seen = HashSet::new();
     results
         .into_iter()
