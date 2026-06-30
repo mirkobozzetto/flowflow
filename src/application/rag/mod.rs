@@ -1,11 +1,13 @@
 use crate::application::constants::{
     RAG_AGENT_SYSTEM_PROMPT, RAG_AGENT_WEB_SYSTEM_PROMPT, RAG_FINAL_K,
-    RAG_INITIAL_K, RRF_K, RRF_LOCAL_WEIGHT, RRF_WEB_WEIGHT,
+    RAG_INITIAL_K, RAG_RELEVANCE_FLOOR, RRF_K, RRF_LOCAL_WEIGHT,
+    RRF_WEB_WEIGHT,
 };
 use crate::application::tools::{prompt_agent_with_tools, ToolEvent};
 use crate::infrastructure::llm::LlmClient;
 use crate::infrastructure::persistence::Database;
 use crate::infrastructure::vectordb::{SearchResult, SourceType, VectorStore};
+use std::collections::HashSet;
 use std::sync::Arc;
 use tokio::sync::mpsc;
 
@@ -17,10 +19,59 @@ mod temporal;
 use temporal::{apply_date_filter, detect_temporal_llm, detect_temporal_regex};
 
 mod scoring;
-use scoring::{apply_temporal_boost, compute_source_count, filter_and_dedup};
+use scoring::{apply_temporal_boost, compute_source_count, dedup_sources};
+pub use scoring::{floor_filter, passes_floor};
+
+/// Outcome of the grounded-abstain gate for the notes-only (web-off) path.
+#[derive(Debug, PartialEq, Eq)]
+pub enum AbstainDecision {
+    Abstain,
+    Proceed,
+}
+
+/// Decide whether to abstain instead of answering. Abstain ONLY when retrieval cleared nothing,
+/// web is off, and the user expressed no explicit intent (no `@mention`, not an action request) -
+/// otherwise proceed. Pure and total over the matrix, so it is unit-tested without an embed call.
+pub fn abstain_decision(
+    kept_empty: bool,
+    web_on: bool,
+    has_mention: bool,
+    is_actionable: bool,
+) -> AbstainDecision {
+    if kept_empty && !web_on && !has_mention && !is_actionable {
+        AbstainDecision::Abstain
+    } else {
+        AbstainDecision::Proceed
+    }
+}
 
 mod rerank;
-use rerank::llm_rerank;
+use rerank::llm_relevance_filter;
+
+/// Keep only the candidates the LLM judged genuinely relevant to the question. The model reads
+/// the question and the note contents, so it understands "the note about Jean" means the note that
+/// discusses Jean - not every note that happens to contain the common word "note". Returns the
+/// relevant subset; empty means nothing is relevant (drives the abstain decision).
+async fn select_relevant(
+    ai: &LlmClient,
+    question: &str,
+    candidates: Vec<SearchResult>,
+) -> Vec<SearchResult> {
+    if candidates.is_empty() {
+        return candidates;
+    }
+    let judged: HashSet<usize> =
+        llm_relevance_filter(ai, question, &candidates, RAG_FINAL_K)
+            .await
+            .into_iter()
+            .collect();
+    candidates
+        .into_iter()
+        .enumerate()
+        .filter(|(i, _)| judged.contains(i))
+        .map(|(_, r)| r)
+        .collect()
+}
 
 mod config;
 use config::{exa_key, read_max_sources};
@@ -76,6 +127,10 @@ pub async fn query(
         }),
         None => None,
     };
+    // Explicit user intent bypasses the relevance floor: an `@mention` points at named notes,
+    // an action request must reach the tools (create/summarize) even with no retrieval hit.
+    let has_mention = !mention_note_ids.is_empty();
+    let is_actionable = crate::application::intent::is_actionable(question);
     let allowed_note_ids = resolve_allowed_ids(scope_ids, mention_note_ids);
 
     let exa = exa_key();
@@ -136,10 +191,26 @@ pub async fn query(
             local
         };
         eprintln!("[rag] web on: {} local, {} web", local.len(), web_res.len());
+        // Both legs empty (no local chunk clears the floor AND the web returned nothing) ->
+        // say so instead of fabricating from "(no relevant excerpts)" under the web prompt.
+        // Explicit intent (mention/action) still proceeds.
+        if web_res.is_empty()
+            && floor_filter(&local, RAG_RELEVANCE_FLOOR).is_empty()
+            && !has_mention
+            && !is_actionable
+        {
+            eprintln!("[rag] abstain: web on, both legs empty");
+            return Ok(RagResponse {
+                answer: crate::application::i18n::t(lang, "chat-web-empty"),
+                sources: vec![],
+            });
+        }
         let merged =
             rrf_merge(local, web_res, RRF_K, RRF_LOCAL_WEIGHT, RRF_WEB_WEIGHT);
-        let reranked = llm_rerank(&ai, question, merged, RAG_FINAL_K).await;
-        let filtered = dedup_merged(reranked);
+        // Cite only the genuinely relevant rows (notes AND web results), judged by the LLM, not
+        // the top-N by rank.
+        let selected = select_relevant(&ai, question, merged).await;
+        let filtered = dedup_merged(selected);
         let count = read_max_sources().min(RAG_FINAL_K).min(filtered.len());
         filtered.into_iter().take(count).collect()
     } else {
@@ -158,14 +229,32 @@ pub async fn query(
             candidates
         };
 
-        let mut reranked =
-            llm_rerank(&ai, question, candidates, RAG_FINAL_K).await;
-        apply_temporal_boost(&mut reranked);
-        let filtered = filter_and_dedup(reranked);
+        // The LLM judge decides WHICH notes genuinely answer the question - it reads the content,
+        // so it judges what a note is ABOUT, not mere word overlap. An `@mention` is an explicit
+        // pointer: answer from the named notes without judging.
+        let mut selected = if has_mention {
+            candidates
+        } else {
+            select_relevant(&ai, question, candidates).await
+        };
+        apply_temporal_boost(&mut selected);
+        let kept = dedup_sources(selected);
+        eprintln!("[rag] cited {} notes", kept.len());
+
+        // Nothing relevant, web off, no explicit intent -> say so and cite no sources.
+        if abstain_decision(kept.is_empty(), web_on, has_mention, is_actionable)
+            == AbstainDecision::Abstain
+        {
+            eprintln!("[rag] abstain: nothing relevant (web off)");
+            return Ok(RagResponse {
+                answer: crate::application::i18n::t(lang, "chat-no-relevant"),
+                sources: vec![],
+            });
+        }
 
         let user_max = read_max_sources();
-        let source_count = compute_source_count(&filtered, user_max);
-        filtered.into_iter().take(source_count).collect()
+        let source_count = compute_source_count(&kept, user_max);
+        kept.into_iter().take(source_count).collect()
     };
 
     let context = if results.is_empty() {

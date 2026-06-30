@@ -76,6 +76,9 @@ impl Tool for SearchNotes {
         let store = VectorStore::open()
             .await
             .map_err(|e| ToolFailure(format!("vectordb open: {e}")))?;
+        // Return the hybrid hits as-is: a fixed cosine floor here wrongly drops keyword/proper-noun
+        // matches (a search for "Jean" returned nothing, so the agent declared "no relevant note"
+        // while the note was in its initial context). The agent judges relevance from the content.
         let results = store
             .hybrid_search(&args.query, vector, top_k, None)
             .await

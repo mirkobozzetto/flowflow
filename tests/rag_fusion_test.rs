@@ -8,6 +8,7 @@ fn local(title: &str, distance: f32) -> SearchResult {
         note_id: format!("id-{title}"),
         title: title.into(),
         distance,
+        relevance: (1.0 - distance).clamp(0.0, 1.0),
         created_at: "2026-01-01T00:00:00".into(),
         source_type: SourceType::Local,
         url: None,

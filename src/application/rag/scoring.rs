@@ -1,6 +1,23 @@
 use crate::application::constants::RAG_DISTANCE_THRESHOLD;
-use crate::infrastructure::vectordb::SearchResult;
+use crate::infrastructure::vectordb::{SearchResult, SourceType};
 use std::collections::HashSet;
+
+/// A candidate clears the absolute relevance floor. Web rows are EXEMPT (the floor only gates
+/// Local notes); a Local row passes only when its cosine `relevance` reaches the floor.
+pub fn passes_floor(r: &SearchResult, floor: f32) -> bool {
+    r.source_type != SourceType::Local || r.relevance >= floor
+}
+
+/// Keep only candidates that clear the floor (web exempt). Applied to RAW candidates BEFORE the
+/// LLM rerank, so the abstain decision is deterministic and the rerank never truncates a relevant
+/// hit out of reach.
+pub fn floor_filter(results: &[SearchResult], floor: f32) -> Vec<SearchResult> {
+    results
+        .iter()
+        .filter(|r| passes_floor(r, floor))
+        .cloned()
+        .collect()
+}
 
 pub(super) fn apply_temporal_boost(results: &mut [SearchResult]) {
     let now = chrono::Utc::now();
@@ -25,9 +42,10 @@ pub(super) fn apply_temporal_boost(results: &mut [SearchResult]) {
     });
 }
 
-pub(super) fn filter_and_dedup(
-    results: Vec<SearchResult>,
-) -> Vec<SearchResult> {
+/// Collapse the relevant chunks into one card per NOTE: dedup by note_id (a note can yield several
+/// chunks), keeping the relative `distance` belt. Relevance is decided upstream (the LLM judge +
+/// keyword union), so this no longer filters on relevance - it only shapes the cited set.
+pub(super) fn dedup_sources(results: Vec<SearchResult>) -> Vec<SearchResult> {
     let mut seen = HashSet::new();
     results
         .into_iter()

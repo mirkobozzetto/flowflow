@@ -29,6 +29,7 @@ fn make_result(
         title: title.to_string(),
         chunk_text: text.to_string(),
         distance,
+        relevance: (1.0 - distance).clamp(0.0, 1.0),
         created_at: String::new(),
         source_type: SourceType::Local,
         url: None,
