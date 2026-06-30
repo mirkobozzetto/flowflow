@@ -34,10 +34,62 @@ pub struct SearchResult {
     pub chunk_text: String,
     pub note_id: String,
     pub title: String,
+    // Ranking score: RRF-derived in the hybrid path, cosine `_distance` in the pure-vector path.
+    // Relative to the candidate set; lower is better. Drives ordering, NOT the floor.
     pub distance: f32,
+    // Absolute cosine similarity in [0,1] vs the query vector; query-independent. Gated by
+    // RAG_RELEVANCE_FLOOR. Web rows are exempt and set this to 1.0.
+    pub relevance: f32,
     pub created_at: String,
     pub source_type: SourceType,
     pub url: Option<String>,
+}
+
+/// Absolute cosine similarity of two equal-length vectors, clamped to [0,1].
+/// Zero-norm (or length mismatch) yields 0.0; negative cosine clamps to 0.0.
+pub fn cosine(a: &[f32], b: &[f32]) -> f32 {
+    if a.len() != b.len() {
+        return 0.0;
+    }
+    let mut dot = 0.0f32;
+    let mut na = 0.0f32;
+    let mut nb = 0.0f32;
+    for i in 0..a.len() {
+        dot += a[i] * b[i];
+        na += a[i] * a[i];
+        nb += b[i] * b[i];
+    }
+    if na == 0.0 || nb == 0.0 {
+        return 0.0;
+    }
+    (dot / (na.sqrt() * nb.sqrt())).clamp(0.0, 1.0)
+}
+
+/// Build an escaped `note_id IN ('a','b',...)` predicate for scope pushdown. Each id is
+/// single-quote-escaped exactly like `delete_ids`/`fetch_note_rows`.
+pub fn note_id_in_filter(ids: &[String]) -> String {
+    let list = ids
+        .iter()
+        .map(|id| format!("'{}'", id.replace('\'', "''")))
+        .collect::<Vec<_>>()
+        .join(",");
+    format!("note_id IN ({list})")
+}
+
+#[derive(Debug, PartialEq, Eq)]
+pub enum TableState {
+    Missing,
+    Present,
+}
+
+/// Distinguish a never-created table (legitimate empty, e.g. a zero-note install) from a
+/// present table. A present-but-unreadable table is surfaced as an `Err` by the caller.
+pub fn table_state(names: &[String], table: &str) -> TableState {
+    if names.iter().any(|n| n == table) {
+        TableState::Present
+    } else {
+        TableState::Missing
+    }
 }
 
 pub fn vectordb_path() -> String {
@@ -202,16 +254,34 @@ impl VectorStore {
         top_k: usize,
         allowed_note_ids: Option<&[String]>,
     ) -> Result<Vec<SearchResult>, String> {
-        let table = match self.db.open_table(VECTOR_TABLE_NAME).execute().await
-        {
-            Ok(t) => t,
-            Err(_) => return Ok(vec![]),
-        };
+        let names = self
+            .db
+            .table_names()
+            .execute()
+            .await
+            .map_err(|e| format!("VectorDB table list: {e}"))?;
+        if table_state(&names, VECTOR_TABLE_NAME) == TableState::Missing {
+            return Ok(vec![]);
+        }
+        let table = self
+            .db
+            .open_table(VECTOR_TABLE_NAME)
+            .execute()
+            .await
+            .map_err(|e| format!("VectorDB table unreadable: {e}"))?;
 
-        let batches: Vec<RecordBatch> = table
+        let mut query = table
             .vector_search(query_vector)
             .map_err(|e| format!("VectorDB search init: {e}"))?
-            .distance_type(lancedb::DistanceType::Cosine)
+            .distance_type(lancedb::DistanceType::Cosine);
+        // Scope filter pushed into the query BEFORE .limit, so in-scope hits beyond the
+        // global top-k are not dropped by the cap.
+        if let Some(ids) = allowed_note_ids {
+            if !ids.is_empty() {
+                query = query.only_if(note_id_in_filter(ids));
+            }
+        }
+        let batches: Vec<RecordBatch> = query
             .limit(top_k)
             .execute()
             .await
@@ -245,11 +315,13 @@ impl VectorStore {
                 };
 
             for i in 0..batch.num_rows() {
+                let dist = dist_col.value(i);
                 results.push(SearchResult {
                     chunk_text: text_col.value(i).to_string(),
                     note_id: note_col.value(i).to_string(),
                     title: title_col.value(i).to_string(),
-                    distance: dist_col.value(i),
+                    distance: dist,
+                    relevance: (1.0 - dist).clamp(0.0, 1.0),
                     created_at: date_col
                         .map(|c| c.value(i).to_string())
                         .unwrap_or_default(),
@@ -259,6 +331,8 @@ impl VectorStore {
             }
         }
 
+        // Belt-and-suspenders: the pushdown above already scoped the query; this guards
+        // the case where the prefilter does not fully apply.
         if let Some(ids) = allowed_note_ids {
             results.retain(|r| ids.contains(&r.note_id));
         }
@@ -297,19 +371,37 @@ impl VectorStore {
         top_k: usize,
         allowed_note_ids: Option<&[String]>,
     ) -> Result<Vec<SearchResult>, String> {
-        let table = match self.db.open_table(VECTOR_TABLE_NAME).execute().await
-        {
-            Ok(t) => t,
-            Err(_) => return Ok(vec![]),
-        };
+        let names = self
+            .db
+            .table_names()
+            .execute()
+            .await
+            .map_err(|e| format!("VectorDB table list: {e}"))?;
+        if table_state(&names, VECTOR_TABLE_NAME) == TableState::Missing {
+            return Ok(vec![]);
+        }
+        let table = self
+            .db
+            .open_table(VECTOR_TABLE_NAME)
+            .execute()
+            .await
+            .map_err(|e| format!("VectorDB table unreadable: {e}"))?;
 
         let fts_query = FullTextSearchQuery::new(query_text.to_string());
 
-        let stream = match table
+        let mut builder = table
             .query()
             .nearest_to(query_vector.clone())
             .map_err(|e| format!("hybrid init: {e}"))?
-            .full_text_search(fts_query)
+            .full_text_search(fts_query);
+        // Scope filter pushed into the query BEFORE .limit, so a folder/thread/@-scoped chat
+        // does not lose in-scope hits to the global top-k cap.
+        if let Some(ids) = allowed_note_ids {
+            if !ids.is_empty() {
+                builder = builder.only_if(note_id_in_filter(ids));
+            }
+        }
+        let stream = match builder
             .limit(top_k)
             .execute_hybrid(QueryExecutionOptions::default())
             .await
@@ -350,6 +442,9 @@ impl VectorStore {
             let date_col = batch
                 .column_by_name("created_at")
                 .and_then(|c| c.as_any().downcast_ref::<StringArray>());
+            let vec_col = batch
+                .column_by_name("vector")
+                .and_then(|c| c.as_any().downcast_ref::<FixedSizeListArray>());
 
             let (text_col, note_col, title_col, score_col) =
                 match (text_col, note_col, title_col, score_col) {
@@ -359,11 +454,29 @@ impl VectorStore {
 
             for i in 0..batch.num_rows() {
                 let score = score_col.value(i);
+                // Absolute cosine from the stored vector column - the floor reads THIS, not the
+                // RRF `_relevance_score`. Missing vector column -> 1.0 (floor becomes a no-op).
+                let relevance = match vec_col {
+                    Some(vc) => {
+                        let list = vc.value(i);
+                        match list.as_any().downcast_ref::<Float32Array>() {
+                            Some(prim) => {
+                                let row: Vec<f32> = (0..prim.len())
+                                    .map(|j| prim.value(j))
+                                    .collect();
+                                cosine(&query_vector, &row)
+                            }
+                            None => 1.0,
+                        }
+                    }
+                    None => 1.0,
+                };
                 results.push(SearchResult {
                     chunk_text: text_col.value(i).to_string(),
                     note_id: note_col.value(i).to_string(),
                     title: title_col.value(i).to_string(),
                     distance: score,
+                    relevance,
                     created_at: date_col
                         .map(|c| c.value(i).to_string())
                         .unwrap_or_default(),
@@ -381,6 +494,8 @@ impl VectorStore {
             }
         }
 
+        // Belt-and-suspenders alongside the pushdown above (covers the FTS leg if the
+        // prefilter does not fully reach it - OQ3).
         if let Some(ids) = allowed_note_ids {
             results.retain(|r| ids.contains(&r.note_id));
         }

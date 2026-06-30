@@ -1,6 +1,7 @@
 use crate::application::constants::{
     RAG_AGENT_SYSTEM_PROMPT, RAG_AGENT_WEB_SYSTEM_PROMPT, RAG_FINAL_K,
-    RAG_INITIAL_K, RRF_K, RRF_LOCAL_WEIGHT, RRF_WEB_WEIGHT,
+    RAG_INITIAL_K, RAG_RELEVANCE_FLOOR, RRF_K, RRF_LOCAL_WEIGHT,
+    RRF_WEB_WEIGHT,
 };
 use crate::application::tools::{prompt_agent_with_tools, ToolEvent};
 use crate::infrastructure::llm::LlmClient;
@@ -18,6 +19,30 @@ use temporal::{apply_date_filter, detect_temporal_llm, detect_temporal_regex};
 
 mod scoring;
 use scoring::{apply_temporal_boost, compute_source_count, filter_and_dedup};
+pub use scoring::{floor_filter, passes_floor};
+
+/// Outcome of the grounded-abstain gate for the notes-only (web-off) path.
+#[derive(Debug, PartialEq, Eq)]
+pub enum AbstainDecision {
+    Abstain,
+    Proceed,
+}
+
+/// Decide whether to abstain instead of answering. Abstain ONLY when retrieval cleared nothing,
+/// web is off, and the user expressed no explicit intent (no `@mention`, not an action request) -
+/// otherwise proceed. Pure and total over the matrix, so it is unit-tested without an embed call.
+pub fn abstain_decision(
+    kept_empty: bool,
+    web_on: bool,
+    has_mention: bool,
+    is_actionable: bool,
+) -> AbstainDecision {
+    if kept_empty && !web_on && !has_mention && !is_actionable {
+        AbstainDecision::Abstain
+    } else {
+        AbstainDecision::Proceed
+    }
+}
 
 mod rerank;
 use rerank::llm_rerank;
@@ -76,6 +101,10 @@ pub async fn query(
         }),
         None => None,
     };
+    // Explicit user intent bypasses the relevance floor: an `@mention` points at named notes,
+    // an action request must reach the tools (create/summarize) even with no retrieval hit.
+    let has_mention = !mention_note_ids.is_empty();
+    let is_actionable = crate::application::intent::is_actionable(question);
     let allowed_note_ids = resolve_allowed_ids(scope_ids, mention_note_ids);
 
     let exa = exa_key();
@@ -136,6 +165,20 @@ pub async fn query(
             local
         };
         eprintln!("[rag] web on: {} local, {} web", local.len(), web_res.len());
+        // Both legs empty (no local chunk clears the floor AND the web returned nothing) ->
+        // say so instead of fabricating from "(no relevant excerpts)" under the web prompt.
+        // Explicit intent (mention/action) still proceeds.
+        if web_res.is_empty()
+            && floor_filter(&local, RAG_RELEVANCE_FLOOR).is_empty()
+            && !has_mention
+            && !is_actionable
+        {
+            eprintln!("[rag] abstain: web on, both legs empty");
+            return Ok(RagResponse {
+                answer: crate::application::i18n::t(lang, "chat-web-empty"),
+                sources: vec![],
+            });
+        }
         let merged =
             rrf_merge(local, web_res, RRF_K, RRF_LOCAL_WEIGHT, RRF_WEB_WEIGHT);
         let reranked = llm_rerank(&ai, question, merged, RAG_FINAL_K).await;
@@ -158,8 +201,38 @@ pub async fn query(
             candidates
         };
 
-        let mut reranked =
-            llm_rerank(&ai, question, candidates, RAG_FINAL_K).await;
+        // Absolute floor on the RAW candidate set, BEFORE the LLM rerank can truncate it.
+        // The decision is deterministic (pure cosine, no model call) and the rerank never
+        // discards a relevant hit out of the floor's reach.
+        let floored = floor_filter(&candidates, RAG_RELEVANCE_FLOOR);
+        let max_relevance = candidates
+            .iter()
+            .map(|r| r.relevance)
+            .fold(0.0_f32, f32::max);
+        eprintln!(
+            "[rag] floor {RAG_RELEVANCE_FLOOR}: kept {} of {} (max relevance {max_relevance:.3})",
+            floored.len(),
+            candidates.len()
+        );
+
+        if abstain_decision(
+            floored.is_empty(),
+            web_on,
+            has_mention,
+            is_actionable,
+        ) == AbstainDecision::Abstain
+        {
+            eprintln!("[rag] abstain: nothing cleared the floor (web off)");
+            return Ok(RagResponse {
+                answer: crate::application::i18n::t(lang, "chat-no-relevant"),
+                sources: vec![],
+            });
+        }
+
+        // An `@mention` answers from the named notes even below the floor; otherwise feed only
+        // the floored set (empty is fine for an action request - the agent's tools still fire).
+        let chosen = if has_mention { candidates } else { floored };
+        let mut reranked = llm_rerank(&ai, question, chosen, RAG_FINAL_K).await;
         apply_temporal_boost(&mut reranked);
         let filtered = filter_and_dedup(reranked);
 

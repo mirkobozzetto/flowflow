@@ -371,4 +371,6 @@ thread-menu-delete-warning = Les notes du fil seront conservées et remises en v
 thread-menu-cancel = Annuler
 thread-menu-delete = Supprimer
 chat-empty-scope = Aucune note dans ce contexte pour répondre.
+chat-no-relevant = Aucune note pertinente trouvée. Active la recherche web pour aller au-delà des notes.
+chat-web-empty = Rien trouvé dans les notes ni sur le web pour cette question.
 thread-open = Ouvrir le fil

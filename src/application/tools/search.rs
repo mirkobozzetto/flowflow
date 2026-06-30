@@ -1,4 +1,5 @@
-use crate::application::constants::RAG_TOP_K;
+use crate::application::constants::{RAG_RELEVANCE_FLOOR, RAG_TOP_K};
+use crate::application::rag::floor_filter;
 use crate::application::tools::ToolFailure;
 use crate::infrastructure::llm::LlmClient;
 use crate::infrastructure::vectordb::VectorStore;
@@ -80,6 +81,9 @@ impl Tool for SearchNotes {
             .hybrid_search(&args.query, vector, top_k, None)
             .await
             .map_err(|e| ToolFailure(format!("vectordb search: {e}")))?;
+        // Same absolute floor as the main RAG path so a self-retrieving agent cannot
+        // re-inject un-floored, irrelevant chunks and route around the grounding gate.
+        let results = floor_filter(&results, RAG_RELEVANCE_FLOOR);
         Ok(results
             .into_iter()
             .map(|r| SearchNotesHit {

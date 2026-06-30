@@ -67,7 +67,14 @@ pub const RAG_TOP_K: usize = 5;
 pub const RAG_INITIAL_K: usize = 15;
 pub const RAG_FINAL_K: usize = 8;
 pub const DEFAULT_RAG_MAX_SOURCES: usize = 8;
+// Relative ranking gate on `distance` (RRF-derived/normalized): lower is better, set high.
 pub const RAG_DISTANCE_THRESHOLD: f32 = 0.6;
+// Absolute similarity floor on `relevance` (raw cosine in [0,1]): query-independent gate,
+// higher is better. A DIFFERENT scale from RAG_DISTANCE_THRESHOLD - the two must not be
+// conflated. For text-embedding-3-small, relevant chunks sit ~0.30-0.45, unrelated ~0.10-0.25;
+// 0.25 conservatively drops clearly-unrelated chunks while minimizing false abstains. Tune on
+// device by logging max relevance per query. Set to 0.0 to neutralize the floor (no-op).
+pub const RAG_RELEVANCE_FLOOR: f32 = 0.25;
 pub const RRF_K: f32 = 60.0;
 pub const RRF_LOCAL_WEIGHT: f32 = 1.2;
 pub const RRF_WEB_WEIGHT: f32 = 1.0;
@@ -80,23 +87,6 @@ Return ONLY a JSON array of strings, nothing else.\n\
 Example: [\"budget\", \"planning\", \"deadline\"]\n\
 Tags must be in the same language as the text.";
 
-pub const RAG_SYSTEM_PROMPT: &str = "\
-You are a personal assistant that answers questions based on the user's notes provided below as context.\n\
-\n\
-## Rules\n\
-1. Use ONLY information from the provided context. Never invent or use external knowledge.\n\
-2. If multiple notes are relevant, synthesize them naturally.\n\
-3. Always respond in the same language as the user's question.\n\
-4. Be concise and direct. No filler, no preamble.\n\
-5. For broad questions (\"what's in my notes?\", \"summarize\"), give an overview of ALL the provided notes.\n\
-6. For specific questions, focus on the most relevant notes.\n\
-\n\
-## Response format\n\
-- Answer the question directly in flowing prose.\n\
-- NEVER write citations like [Source 1], [Note title], or any bracketed references.\n\
-- NEVER list sources at the end — the app displays them separately.\n\
-- Just answer naturally without any source markup.";
-
 pub const RAG_AGENT_SYSTEM_PROMPT: &str = "\
 You are a personal assistant working over the user's notes. Initial relevant excerpts are provided in the context below.\n\
 \n\
@@ -107,7 +97,7 @@ You are a personal assistant working over the user's notes. Initial relevant exc
 - Connected-service tools (optional): if the user has connected external apps, extra tools may appear (for example, adding a row to a spreadsheet). They show up only when connected; use one only when the user clearly asks to act on that external service.\n\
 \n\
 ## Rules\n\
-1. Prefer the provided context first; only call `search_notes` if the question clearly needs more notes.\n\
+1. Base your answer only on the provided context and on results returned by your tools. Do not use outside knowledge. If neither the context nor your tools yield anything relevant to the question, say you have no relevant note on this rather than guessing.\n\
 2. Only call `create_note` when the user clearly asks to record something.\n\
 3. Answer in the SAME language as the user's question, whatever language that is. The notes and these instructions may be written in a different language; ignore their language entirely and mirror only the language of the question.\n\
 4. Be concise and direct. No filler, no preamble.\n\

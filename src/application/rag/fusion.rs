@@ -9,6 +9,8 @@ fn web_to_search_result(w: WebResult) -> SearchResult {
         note_id: String::new(),
         title: w.title,
         distance: 0.0,
+        // Web rows are EXEMPT from the relevance floor (it only gates Local). 1.0 = always passes.
+        relevance: 1.0,
         created_at: w.published_date.unwrap_or_default(),
         source_type: SourceType::Web,
         url: Some(w.url),

@@ -371,4 +371,6 @@ thread-menu-delete-warning = The thread's notes are kept and returned to your no
 thread-menu-cancel = Cancel
 thread-menu-delete = Delete
 chat-empty-scope = No notes in this scope to answer from.
+chat-no-relevant = No relevant note found. Turn on web search to look beyond your notes.
+chat-web-empty = Nothing found in your notes or on the web for this.
 thread-open = Open thread
