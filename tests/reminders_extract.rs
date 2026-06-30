@@ -1,5 +1,7 @@
 use chrono::{NaiveDate, NaiveTime};
-use flowflow::application::reminders_extract::parse_reminder_intents;
+use flowflow::application::reminders_extract::{
+    group_same_slot, parse_reminder_intents,
+};
 use flowflow::domain::DEFAULT_REMINDER_HOUR;
 
 #[test]
@@ -64,4 +66,73 @@ fn no_date_flagged_by_has_date() {
 #[test]
 fn invalid_json_errors() {
     assert!(parse_reminder_intents("not json at all").is_err());
+}
+
+#[test]
+fn groups_sub_items_into_one_intent_with_notes_body() {
+    let raw = r#"{"intents":[{"action":"rendez-vous","items":["acheter X","appeler Y","préparer Z"],"date":"2026-06-02","time":"14:00"}]}"#;
+    let v = parse_reminder_intents(raw).unwrap();
+    assert_eq!(v.len(), 1);
+    assert_eq!(v[0].items, vec!["acheter X", "appeler Y", "préparer Z"]);
+    assert_eq!(
+        v[0].notes_body().as_deref(),
+        Some("- acheter X\n- appeler Y\n- préparer Z")
+    );
+}
+
+#[test]
+fn single_action_has_no_items_and_no_notes() {
+    let raw = r#"{"intents":[{"action":"appeler Paul","date":"2026-06-02","time":"15:00"}]}"#;
+    let v = parse_reminder_intents(raw).unwrap();
+    assert!(v[0].items.is_empty());
+    assert!(v[0].notes_body().is_none());
+}
+
+#[test]
+fn notes_body_drops_blank_items() {
+    let raw = r#"{"intents":[{"action":"x","items":["a","  ",""],"date":"2026-06-02"}]}"#;
+    let v = parse_reminder_intents(raw).unwrap();
+    assert_eq!(v[0].notes_body().as_deref(), Some("- a"));
+}
+
+#[test]
+fn merges_same_slot_fanout_into_one_event() {
+    let raw = r#"{"intents":[
+        {"action":"acheter X","date":"2026-06-02","time":"14:00"},
+        {"action":"appeler Y","date":"2026-06-02","time":"14:00"},
+        {"action":"préparer Z","date":"2026-06-02","time":"14:00"}
+    ]}"#;
+    let grouped = group_same_slot(parse_reminder_intents(raw).unwrap());
+    assert_eq!(grouped.len(), 1);
+    assert_eq!(grouped[0].action, "acheter X");
+    assert_eq!(grouped[0].items, vec!["appeler Y", "préparer Z"]);
+    assert_eq!(
+        grouped[0].notes_body().as_deref(),
+        Some("- appeler Y\n- préparer Z")
+    );
+}
+
+#[test]
+fn keeps_distinct_slots_separate() {
+    let raw = r#"{"intents":[
+        {"action":"call dentist","date":"2026-06-02","time":null},
+        {"action":"pay rent","date":"2026-07-01","time":null}
+    ]}"#;
+    let grouped = group_same_slot(parse_reminder_intents(raw).unwrap());
+    assert_eq!(grouped.len(), 2);
+}
+
+#[test]
+fn folds_a_model_grouped_intent_and_a_stray_at_the_same_slot() {
+    let raw = r#"{"intents":[
+        {"action":"rendez-vous","items":["acheter X","appeler Y"],"date":"2026-06-02","time":"14:00"},
+        {"action":"préparer Z","date":"2026-06-02","time":"14:00"}
+    ]}"#;
+    let grouped = group_same_slot(parse_reminder_intents(raw).unwrap());
+    assert_eq!(grouped.len(), 1);
+    assert_eq!(grouped[0].action, "rendez-vous");
+    assert_eq!(
+        grouped[0].items,
+        vec!["acheter X", "appeler Y", "préparer Z"]
+    );
 }

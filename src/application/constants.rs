@@ -181,24 +181,24 @@ pub const REMINDER_EXTRACTION_PROMPT: &str = "\
 You extract timed reminder intents from a personal note. The note may be in French or English.\n\
 \n\
 Return ONLY a JSON object of this exact shape, nothing else:\n\
-{\"intents\": [ {\"action\": \"...\", \"date\": \"YYYY-MM-DD|null\", \"time\": \"HH:mm|null\", \"time_end\": \"HH:mm|null\", \"recurrence\": \"RRULE|null\", \"location\": \"string|null\"} ]}\n\
+{\"intents\": [ {\"action\": \"...\", \"items\": [\"...\"], \"date\": \"YYYY-MM-DD|null\", \"time\": \"HH:mm|null\", \"time_end\": \"HH:mm|null\", \"recurrence\": \"RRULE|null\", \"location\": \"string|null\"} ]}\n\
 \n\
 ## Rules\n\
 1. The current date and time are given below. Resolve every relative date (\"demain\", \"tomorrow\", \"samedi\", \"Saturday\", \"dans 2 jours\", \"in 2 days\", \"le 1er\", \"next Monday\") to an ABSOLUTE date in YYYY-MM-DD.\n\
 2. Emit an intent ONLY when a concrete calendar date can be resolved. Vague phrases with no concrete date (\"bientôt\", \"soon\", \"un de ces jours\", \"someday\", \"plus tard\") must NOT produce an intent.\n\
-3. `action` = a short imperative of what to do, in the note's language, without the date words (\"appeler Paul\", \"call Paul\", \"faire les courses\").\n\
-4. `time` = 24h \"HH:mm\" when an explicit hour is present, else null (the app applies a default hour).\n\
-4b. `time_end` = the END of an explicit time RANGE (\"entre 14h et 16h\", \"de 9h à 10h30\", \"from 2 to 4pm\") as 24h \"HH:mm\", with `time` = the START of that range. Set it ONLY for a true range with two clock times. For a single deadline (\"avant 14h\", \"before 2pm\", \"à 15h\", \"vers midi\") keep `time` = that hour and `time_end` = null.\n\
-5. `recurrence` = an RRULE-like string only for clearly repeated intents, else null. Allowed values: \"DAILY\", \"WEEKLY;BYDAY=MO\" (a single weekday), \"WEEKLY;BYDAY=MO,TU,WE,TH,FR\" (weekdays / jours ouvrés), \"MONTHLY;BYMONTHDAY=1\". For a recurring intent, set `date` to the NEXT occurrence.\n\
-6. `location` = a place only when explicitly mentioned, else null.\n\
-7. If the note has no timed intent at all, return {\"intents\": []}.\n\
-8. A note may hold several intents — return them all.\n\
+3. `action` = a short headline for the appointment, in the note's language, without the date words (\"appeler Paul\", \"réunion budget\", \"rendez-vous notaire\").\n\
+4. `items` = sub-tasks of ONE appointment when the note gives a heading then a list (\"rendez-vous: acheter X, appeler Y\") - `action` = the heading, `items` = [\"acheter X\", \"appeler Y\"]. Otherwise `items: []`; do not invent sub-tasks. (Tasks emitted separately that share one date and time are merged by the app, so you never need to force-group them.)\n\
+5. `time` = 24h \"HH:mm\" when an explicit hour is present, else null (the app applies a default hour).\n\
+5b. `time_end` = the END of an explicit time RANGE (\"entre 14h et 16h\", \"de 9h à 10h30\", \"from 2 to 4pm\") as 24h \"HH:mm\", with `time` = the START of that range. Set it ONLY for a true range with two clock times. For a single deadline (\"avant 14h\", \"before 2pm\", \"à 15h\", \"vers midi\") keep `time` = that hour and `time_end` = null.\n\
+6. `recurrence` = an RRULE-like string only for clearly repeated intents, else null. Allowed values: \"DAILY\", \"WEEKLY;BYDAY=MO\" (a single weekday), \"WEEKLY;BYDAY=MO,TU,WE,TH,FR\" (weekdays / jours ouvrés), \"MONTHLY;BYMONTHDAY=1\". For a recurring intent, set `date` to the NEXT occurrence.\n\
+7. `location` = a place only when explicitly mentioned, else null.\n\
+8. If the note has no timed intent at all, return {\"intents\": []}.\n\
 \n\
 ## Examples (assume current date = 2026-06-01, Monday)\n\
-- \"rappelle-moi d'appeler Paul demain 15h\" -> {\"intents\":[{\"action\":\"appeler Paul\",\"date\":\"2026-06-02\",\"time\":\"15:00\",\"time_end\":null,\"recurrence\":null,\"location\":null}]}\n\
-- \"faire les courses samedi\" -> {\"intents\":[{\"action\":\"faire les courses\",\"date\":\"2026-06-06\",\"time\":null,\"time_end\":null,\"recurrence\":null,\"location\":null}]}\n\
-- \"réunion budget demain entre 14h et 16h\" -> {\"intents\":[{\"action\":\"réunion budget\",\"date\":\"2026-06-02\",\"time\":\"14:00\",\"time_end\":\"16:00\",\"recurrence\":null,\"location\":null}]}\n\
-- \"call the dentist tomorrow and pay rent on the 1st\" -> {\"intents\":[{\"action\":\"call the dentist\",\"date\":\"2026-06-02\",\"time\":null,\"time_end\":null,\"recurrence\":null,\"location\":null},{\"action\":\"pay rent\",\"date\":\"2026-07-01\",\"time\":null,\"time_end\":null,\"recurrence\":\"MONTHLY;BYMONTHDAY=1\",\"location\":null}]}\n\
-- \"tous les lundis à 9h: standup\" -> {\"intents\":[{\"action\":\"standup\",\"date\":\"2026-06-08\",\"time\":\"09:00\",\"time_end\":null,\"recurrence\":\"WEEKLY;BYDAY=MO\",\"location\":null}]}\n\
+- \"rappelle-moi d'appeler Paul demain 15h\" -> {\"intents\":[{\"action\":\"appeler Paul\",\"items\":[],\"date\":\"2026-06-02\",\"time\":\"15:00\",\"time_end\":null,\"recurrence\":null,\"location\":null}]}\n\
+- \"mardi 14h rendez-vous: acheter du pain, appeler le client, préparer le dossier\" -> {\"intents\":[{\"action\":\"rendez-vous\",\"items\":[\"acheter du pain\",\"appeler le client\",\"préparer le dossier\"],\"date\":\"2026-06-02\",\"time\":\"14:00\",\"time_end\":null,\"recurrence\":null,\"location\":null}]}\n\
+- \"réunion budget demain entre 14h et 16h\" -> {\"intents\":[{\"action\":\"réunion budget\",\"items\":[],\"date\":\"2026-06-02\",\"time\":\"14:00\",\"time_end\":\"16:00\",\"recurrence\":null,\"location\":null}]}\n\
+- \"call the dentist tomorrow and pay rent on the 1st\" -> {\"intents\":[{\"action\":\"call the dentist\",\"items\":[],\"date\":\"2026-06-02\",\"time\":null,\"time_end\":null,\"recurrence\":null,\"location\":null},{\"action\":\"pay rent\",\"items\":[],\"date\":\"2026-07-01\",\"time\":null,\"time_end\":null,\"recurrence\":\"MONTHLY;BYMONTHDAY=1\",\"location\":null}]}\n\
+- \"tous les lundis à 9h: standup\" -> {\"intents\":[{\"action\":\"standup\",\"items\":[],\"date\":\"2026-06-08\",\"time\":\"09:00\",\"time_end\":null,\"recurrence\":\"WEEKLY;BYDAY=MO\",\"location\":null}]}\n\
 - \"je verrai ça bientôt\" -> {\"intents\":[]}\n\
 - \"meeting notes about the budget\" -> {\"intents\":[]}";

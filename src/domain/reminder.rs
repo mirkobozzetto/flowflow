@@ -6,6 +6,10 @@ pub const DEFAULT_REMINDER_HOUR: u32 = 9;
 #[derive(Debug, Clone, PartialEq, Eq, Deserialize)]
 pub struct ReminderIntent {
     pub action: String,
+    /// Sub-tasks of ONE appointment that share this intent's date and time. They land in the
+    /// calendar event's notes body; an empty list means a plain single-action reminder.
+    #[serde(default)]
+    pub items: Vec<String>,
     #[serde(default)]
     pub date: Option<String>,
     #[serde(default)]
@@ -54,6 +58,19 @@ impl ReminderIntent {
 
     pub fn has_date(&self) -> bool {
         self.resolved_date().is_some()
+    }
+
+    /// Render the grouped sub-tasks as the calendar event's notes body (one "- item" per line),
+    /// or None when the reminder is a plain single action with no enumeration.
+    pub fn notes_body(&self) -> Option<String> {
+        let lines: Vec<String> = self
+            .items
+            .iter()
+            .map(|i| i.trim())
+            .filter(|i| !i.is_empty())
+            .map(|i| format!("- {i}"))
+            .collect();
+        (!lines.is_empty()).then(|| lines.join("\n"))
     }
 
     pub fn intent_hash(&self) -> String {

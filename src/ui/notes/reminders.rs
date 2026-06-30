@@ -247,6 +247,7 @@ pub fn ReminderSuggestions(
                         {
                             let intent = detected[idx].clone();
                             let action = intent.action.clone();
+                            let items = intent.items.clone();
                             let date_val = intent.date.clone().unwrap_or_default();
                             let time_val = intent.time.clone().unwrap_or_default();
                             let end_val = intent.time_end.clone().unwrap_or_default();
@@ -267,6 +268,16 @@ pub fn ReminderSuggestions(
                             rsx! {
                                 div { class: "bg-white/40 rounded-lg p-2.5",
                                     p { class: "text-sm text-stone-800 mb-1.5", "{action}" }
+                                    if !items.is_empty() {
+                                        ul { class: "mb-1.5 ml-1 space-y-0.5",
+                                            for it in items.iter() {
+                                                li { class: "text-xs text-stone-600 flex gap-1.5",
+                                                    span { class: "text-stone-400", "·" }
+                                                    span { "{it}" }
+                                                }
+                                            }
+                                        }
+                                    }
                                     div { class: "flex items-center gap-2 flex-wrap",
                                         input {
                                             r#type: "date",

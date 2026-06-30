@@ -21,6 +21,7 @@ use std::time::Duration;
 #[derive(Debug, Clone)]
 pub struct EventRequest {
     pub title: String,
+    pub notes: String,
     pub year: i32,
     pub month: i32,
     pub day: i32,
@@ -99,6 +100,9 @@ pub async fn create_event(req: EventRequest) -> ReminderOutcome {
 
         let event = EKEvent::eventWithEventStore(&store);
         event.setTitle(Some(&NSString::from_str(&req.title)));
+        if !req.notes.trim().is_empty() {
+            event.setNotes(Some(&NSString::from_str(&req.notes)));
+        }
         event.setCalendar(Some(&calendar));
 
         let alarm_date = if req.all_day {
