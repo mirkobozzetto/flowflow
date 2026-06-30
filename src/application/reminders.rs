@@ -58,6 +58,7 @@ pub async fn schedule(
         };
         let outcome = create_event(EventRequest {
             title: intent.action.clone(),
+            notes: intent.notes_body().unwrap_or_default(),
             year: date.year(),
             month: date.month() as i32,
             day: date.day() as i32,
