@@ -1,5 +1,5 @@
 use crate::application::i18n::t;
-use crate::domain::{ChatScope, Folder};
+use crate::domain::{flatten_tree, ChatScope, Folder};
 use crate::infrastructure::persistence::Database;
 use crate::ui::AppState;
 use dioxus::prelude::*;
@@ -32,9 +32,11 @@ pub fn FolderPicker(
     let mut picked: Signal<Option<Option<String>>> = use_signal(|| None);
     let mut closing = use_signal(|| false);
 
-    let all_folders: Memo<Vec<Folder>> = use_memo(move || {
+    // Hierarchical order with depth: subfolders render indented under their
+    // parent instead of mixed alphabetically with the roots.
+    let all_folders: Memo<Vec<(Folder, u32)>> = use_memo(move || {
         let _v = (app.folders_version)();
-        db().list_all_folders().unwrap_or_default()
+        flatten_tree(&db().list_all_folders().unwrap_or_default())
     });
     let lang = (app.current_lang)();
 
@@ -101,7 +103,7 @@ pub fn FolderPicker(
             None
         } else {
             match all_folders.peek().get(i - 1) {
-                Some(f) => Some(f.id.clone()),
+                Some((f, _)) => Some(f.id.clone()),
                 None => return,
             }
         };
@@ -135,12 +137,13 @@ pub fn FolderPicker(
                     }
                 }
             }
-            for (idx, folder) in all_folders().into_iter().enumerate() {
+            for (idx, (folder, depth)) in all_folders().into_iter().enumerate() {
                 {
                     let fid = folder.id.clone();
                     let fname = folder.name.clone();
                     let is_current = selected() == Some(fid.clone());
                     let is_picked = picked() == Some(Some(fid.clone()));
+                    let indent = format!("padding-left: {}px", 12 + depth * 16);
                     rsx! {
                         button {
                             class: "w-full text-left px-3 py-2.5 text-sm transition-colors duration-150",
@@ -151,6 +154,7 @@ pub fn FolderPicker(
                             } else {
                                 "text-stone-900 active:bg-stone-50 hover:bg-stone-50"
                             },
+                            style: "{indent}",
                             onclick: move |_| choose(Some(fid.clone())),
                             "{fname}"
                         }

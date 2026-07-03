@@ -177,6 +177,57 @@ impl Database {
         Ok(notes)
     }
 
+    /// Notes of the folder AND its whole subtree. Chat scope must match the
+    /// hierarchy the sidebar shows: scoping "Travail" includes "Travail/Clients".
+    pub fn list_notes_in_folder_tree(
+        &self,
+        folder_id: &str,
+    ) -> Result<Vec<Note>, String> {
+        let conn = self.conn();
+        let mut stmt = conn
+            .prepare(
+                "WITH RECURSIVE tree(id) AS (
+                     SELECT ?1
+                     UNION ALL
+                     SELECT f.id FROM folders f JOIN tree ON f.parent_id = tree.id
+                 )
+                 SELECT DISTINCT n.* FROM notes n
+                 JOIN notes_folders nf ON nf.note_id = n.id
+                 WHERE nf.folder_id IN (SELECT id FROM tree)
+                 ORDER BY n.created_at DESC",
+            )
+            .map_err(|e| format!("Prepare: {e}"))?;
+        let rows = stmt
+            .query_map([folder_id], row_to_note)
+            .map_err(|e| format!("Query: {e}"))?;
+        let mut notes = Vec::new();
+        for row in rows {
+            notes.push(row.map_err(|e| format!("Row: {e}"))?);
+        }
+        Ok(notes)
+    }
+
+    /// Distinct note count over the folder's subtree, for the sidebar badges.
+    pub fn count_notes_in_folder_tree(
+        &self,
+        folder_id: &str,
+    ) -> Result<usize, String> {
+        let conn = self.conn();
+        conn.query_row(
+            "WITH RECURSIVE tree(id) AS (
+                 SELECT ?1
+                 UNION ALL
+                 SELECT f.id FROM folders f JOIN tree ON f.parent_id = tree.id
+             )
+             SELECT COUNT(DISTINCT nf.note_id) FROM notes_folders nf
+             WHERE nf.folder_id IN (SELECT id FROM tree)",
+            [folder_id],
+            |row| row.get::<_, i64>(0),
+        )
+        .map(|n| n as usize)
+        .map_err(|e| format!("Count folder tree: {e}"))
+    }
+
     pub fn list_root_notes_in_folder(
         &self,
         folder_id: &str,

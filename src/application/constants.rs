@@ -75,6 +75,9 @@ pub const RAG_DISTANCE_THRESHOLD: f32 = 0.6;
 // 0.25 conservatively drops clearly-unrelated chunks while minimizing false abstains. Tune on
 // device by logging max relevance per query. Set to 0.0 to neutralize the floor (no-op).
 pub const RAG_RELEVANCE_FLOOR: f32 = 0.25;
+// Conversation turns fed to query rewriting and the final agent prompt. Enough to resolve
+// a pronoun or "développe" without dragging the whole conversation into every call.
+pub const CHAT_HISTORY_TURNS: usize = 6;
 pub const RRF_K: f32 = 60.0;
 pub const RRF_LOCAL_WEIGHT: f32 = 1.2;
 pub const RRF_WEB_WEIGHT: f32 = 1.0;
@@ -127,6 +130,20 @@ A passage that merely shares common words but is about a different subject is NO
 List the relevant numbers, most relevant first, separated by commas. If NONE are relevant, return exactly: none\n\
 No explanation, output only the numbers or the word none.\n\
 Example: 3, 1";
+
+pub const QUERY_REWRITE_PROMPT: &str = "\
+You rewrite the user's LAST question into a single standalone search query, using the \
+conversation for context.\n\
+The question may rely on the conversation (pronouns like \"lui\", \"elle\", \"it\", or requests \
+like \"développe\", \"tell me more\"). Resolve every such reference into explicit words: name the \
+person, topic, or thing the question actually refers to.\n\
+If the question is already self-contained, return it unchanged.\n\
+Keep the SAME language as the question. Return ONLY the rewritten query - no quotes, no \
+explanation, one line.\n\
+Examples:\n\
+- Conversation about a note on Jean, question \"et lui ?\" → \"Qui est Jean, que disent mes notes sur Jean ?\"\n\
+- Conversation about React performance, question \"développe\" → \"Détails sur la performance React (mémoïsation, rendu)\"\n\
+- Question \"quelles notes parlent de budget ?\" → \"quelles notes parlent de budget ?\"";
 
 pub const TEMPORAL_DETECT_PROMPT: &str = "\
 Analyze the user's question and extract any temporal intent.\n\
@@ -181,7 +198,7 @@ pub const REMINDER_EXTRACTION_PROMPT: &str = "\
 You extract timed reminder intents from a personal note. The note may be in French or English.\n\
 \n\
 Return ONLY a JSON object of this exact shape, nothing else:\n\
-{\"intents\": [ {\"action\": \"...\", \"items\": [\"...\"], \"date\": \"YYYY-MM-DD|null\", \"time\": \"HH:mm|null\", \"time_end\": \"HH:mm|null\", \"recurrence\": \"RRULE|null\", \"location\": \"string|null\"} ]}\n\
+{\"intents\": [ {\"action\": \"...\", \"items\": [\"...\"], \"date\": \"YYYY-MM-DD|null\", \"time\": \"HH:mm|null\", \"time_end\": \"HH:mm|null\", \"recurrence\": \"RRULE|null\", \"until\": \"YYYY-MM-DD|null\", \"location\": \"string|null\"} ]}\n\
 \n\
 ## Rules\n\
 1. The current date and time are given below. Resolve every relative date (\"demain\", \"tomorrow\", \"samedi\", \"Saturday\", \"dans 2 jours\", \"in 2 days\", \"le 1er\", \"next Monday\") to an ABSOLUTE date in YYYY-MM-DD.\n\
@@ -191,14 +208,16 @@ Return ONLY a JSON object of this exact shape, nothing else:\n\
 5. `time` = 24h \"HH:mm\" when an explicit hour is present, else null (the app applies a default hour).\n\
 5b. `time_end` = the END of an explicit time RANGE (\"entre 14h et 16h\", \"de 9h à 10h30\", \"from 2 to 4pm\") as 24h \"HH:mm\", with `time` = the START of that range. Set it ONLY for a true range with two clock times. For a single deadline (\"avant 14h\", \"before 2pm\", \"à 15h\", \"vers midi\") keep `time` = that hour and `time_end` = null.\n\
 6. `recurrence` = an RRULE-like string only for clearly repeated intents, else null. Allowed values: \"DAILY\", \"WEEKLY;BYDAY=MO\" (a single weekday), \"WEEKLY;BYDAY=MO,TU,WE,TH,FR\" (weekdays / jours ouvrés), \"MONTHLY;BYMONTHDAY=1\". For a recurring intent, set `date` to the NEXT occurrence.\n\
+6b. `until` = the explicit END date of a recurring intent (\"jusqu'au 30 juin\", \"jusqu'à mars 2027\", \"until June 30\", \"pendant 3 mois\" / \"for 3 months\" -> resolve to the end date) as YYYY-MM-DD, else null. Only meaningful together with a recurrence.\n\
 7. `location` = a place only when explicitly mentioned, else null.\n\
 8. If the note has no timed intent at all, return {\"intents\": []}.\n\
 \n\
 ## Examples (assume current date = 2026-06-01, Monday)\n\
-- \"rappelle-moi d'appeler Paul demain 15h\" -> {\"intents\":[{\"action\":\"appeler Paul\",\"items\":[],\"date\":\"2026-06-02\",\"time\":\"15:00\",\"time_end\":null,\"recurrence\":null,\"location\":null}]}\n\
-- \"mardi 14h rendez-vous: acheter du pain, appeler le client, préparer le dossier\" -> {\"intents\":[{\"action\":\"rendez-vous\",\"items\":[\"acheter du pain\",\"appeler le client\",\"préparer le dossier\"],\"date\":\"2026-06-02\",\"time\":\"14:00\",\"time_end\":null,\"recurrence\":null,\"location\":null}]}\n\
-- \"réunion budget demain entre 14h et 16h\" -> {\"intents\":[{\"action\":\"réunion budget\",\"items\":[],\"date\":\"2026-06-02\",\"time\":\"14:00\",\"time_end\":\"16:00\",\"recurrence\":null,\"location\":null}]}\n\
-- \"call the dentist tomorrow and pay rent on the 1st\" -> {\"intents\":[{\"action\":\"call the dentist\",\"items\":[],\"date\":\"2026-06-02\",\"time\":null,\"time_end\":null,\"recurrence\":null,\"location\":null},{\"action\":\"pay rent\",\"items\":[],\"date\":\"2026-07-01\",\"time\":null,\"time_end\":null,\"recurrence\":\"MONTHLY;BYMONTHDAY=1\",\"location\":null}]}\n\
-- \"tous les lundis à 9h: standup\" -> {\"intents\":[{\"action\":\"standup\",\"items\":[],\"date\":\"2026-06-08\",\"time\":\"09:00\",\"time_end\":null,\"recurrence\":\"WEEKLY;BYDAY=MO\",\"location\":null}]}\n\
+- \"rappelle-moi d'appeler Paul demain 15h\" -> {\"intents\":[{\"action\":\"appeler Paul\",\"items\":[],\"date\":\"2026-06-02\",\"time\":\"15:00\",\"time_end\":null,\"recurrence\":null,\"until\":null,\"location\":null}]}\n\
+- \"mardi 14h rendez-vous: acheter du pain, appeler le client, préparer le dossier\" -> {\"intents\":[{\"action\":\"rendez-vous\",\"items\":[\"acheter du pain\",\"appeler le client\",\"préparer le dossier\"],\"date\":\"2026-06-02\",\"time\":\"14:00\",\"time_end\":null,\"recurrence\":null,\"until\":null,\"location\":null}]}\n\
+- \"réunion budget demain entre 14h et 16h\" -> {\"intents\":[{\"action\":\"réunion budget\",\"items\":[],\"date\":\"2026-06-02\",\"time\":\"14:00\",\"time_end\":\"16:00\",\"recurrence\":null,\"until\":null,\"location\":null}]}\n\
+- \"call the dentist tomorrow and pay rent on the 1st\" -> {\"intents\":[{\"action\":\"call the dentist\",\"items\":[],\"date\":\"2026-06-02\",\"time\":null,\"time_end\":null,\"recurrence\":null,\"until\":null,\"location\":null},{\"action\":\"pay rent\",\"items\":[],\"date\":\"2026-07-01\",\"time\":null,\"time_end\":null,\"recurrence\":\"MONTHLY;BYMONTHDAY=1\",\"until\":null,\"location\":null}]}\n\
+- \"tous les lundis à 9h: standup\" -> {\"intents\":[{\"action\":\"standup\",\"items\":[],\"date\":\"2026-06-08\",\"time\":\"09:00\",\"time_end\":null,\"recurrence\":\"WEEKLY;BYDAY=MO\",\"until\":null,\"location\":null}]}\n\
+- \"tous les mercredis à 9h jusqu'au 30 juin: point équipe\" -> {\"intents\":[{\"action\":\"point équipe\",\"items\":[],\"date\":\"2026-06-03\",\"time\":\"09:00\",\"time_end\":null,\"recurrence\":\"WEEKLY;BYDAY=WE\",\"until\":\"2026-06-30\",\"location\":null}]}\n\
 - \"je verrai ça bientôt\" -> {\"intents\":[]}\n\
 - \"meeting notes about the budget\" -> {\"intents\":[]}";

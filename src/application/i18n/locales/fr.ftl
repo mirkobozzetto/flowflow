@@ -194,6 +194,8 @@ sidebar-no-folders = Aucun thème
 sidebar-subfolder-placeholder = Sous-thème
 folder-menu-rename = Renommer
 folder-menu-subtheme = Nouveau sous-thème
+folder-menu-move = Déplacer vers…
+folder-menu-move-root = Racine
 folder-menu-delete = Supprimer
 
 note-list-search-placeholder = Chercher mes notes...
@@ -248,6 +250,9 @@ chat-tools-mention-hint = Tapez @ pour mentionner un outil ou une note
 chat-tools-tooltip = Ajouter des outils et connecteurs
 chat-mention-section-notes = Notes
 chat-mention-no-notes = Aucune note correspondante
+chat-mention-recent = Récentes
+chat-mention-in-folder = Dans ce dossier
+chat-mention-others = Autres notes
 
 recording-dictate = Dicter
 
