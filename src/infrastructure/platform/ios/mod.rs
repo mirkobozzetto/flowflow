@@ -83,6 +83,58 @@ pub fn observe_interruptions() {
     });
 }
 
+static LAUNCH_URL_INIT: Once = Once::new();
+
+/// Cold-start deep links: tao's `didFinishLaunching` ignores launchOptions,
+/// so a URL that LAUNCHES the app never reaches Event::Opened. iOS rebroadcasts
+/// those options in UIApplicationDidFinishLaunchingNotification - observe it
+/// (registered before UIApplicationMain runs) and push the URL ourselves.
+pub fn observe_launch_url() {
+    LAUNCH_URL_INIT.call_once(|| unsafe {
+        let name = objc2_foundation::NSString::from_str(
+            "UIApplicationDidFinishLaunchingNotification",
+        );
+        let block = block2::RcBlock::new(
+            |notification: std::ptr::NonNull<
+                objc2_foundation::NSNotification,
+            >| {
+                let n = notification.as_ptr();
+                let url_key = objc2_foundation::NSString::from_str(
+                    "UIApplicationLaunchOptionsURLKey",
+                );
+                let user_info: *const objc2::runtime::AnyObject =
+                    objc2::msg_send![&*n, userInfo];
+                if user_info.is_null() {
+                    return;
+                }
+                let url_obj: *const objc2::runtime::AnyObject =
+                    objc2::msg_send![&*user_info, objectForKey: &*url_key];
+                if url_obj.is_null() {
+                    return;
+                }
+                let abs: *const objc2_foundation::NSString =
+                    objc2::msg_send![&*url_obj, absoluteString];
+                if abs.is_null() {
+                    return;
+                }
+                let uri = (*abs).to_string();
+                eprintln!("[ios] launch url: {uri}");
+                if uri.starts_with("flowflow://") {
+                    crate::infrastructure::sync::deeplink::push(uri);
+                }
+            },
+        );
+        let center = objc2_foundation::NSNotificationCenter::defaultCenter();
+        center.addObserverForName_object_queue_usingBlock(
+            Some(&name),
+            None,
+            None,
+            &block,
+        );
+        eprintln!("[ios] launch-url observer registered");
+    });
+}
+
 pub use crate::infrastructure::platform::parsers::read_file_as_text;
 pub use crate::infrastructure::platform::pdf::extract as read_pdf_text;
 pub use picker::{open_audio_picker, open_file_picker};

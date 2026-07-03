@@ -88,6 +88,9 @@ if [ -f "$ICON_SRC" ]; then
     cp "$ICON_SRC" "${APPEX_DIR}/flowflow-icon.png"
 fi
 
+# App Intents metadata must land in the appex BEFORE the seal is applied.
+bash scripts/gen-appintents-metadata.sh "$MODE"
+
 codesign --force --entitlements "$ENTITLEMENTS" --sign "$SIGNING_ID" "$APPEX_DIR"
 echo "[sign-widget] Signed $APPEX_DIR"
 

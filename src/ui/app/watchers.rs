@@ -100,6 +100,47 @@ pub fn use_sync_watcher(
     });
 }
 
+/// One-gesture capture: the Control Center / Lock Screen / Action Button
+/// control opens the app on flowflow://record; this watcher drains that
+/// deep link and starts a new voice recording as if the mic button was
+/// tapped. Only from a quiet state - never steals an ongoing recording.
+pub fn use_record_deeplink_watcher(
+    app: AppState,
+    recorder: Signal<
+        Arc<std::sync::Mutex<crate::infrastructure::audio::AudioRecorder>>,
+    >,
+) {
+    use crate::infrastructure::audio::RecordingState;
+    use_future(move || {
+        let mut app = app;
+        async move {
+            loop {
+                if crate::infrastructure::sync::deeplink::take_matching(
+                    "flowflow://record",
+                )
+                .is_some()
+                {
+                    let state = (app.recording_state)();
+                    let quiet = state == RecordingState::Idle
+                        || matches!(state, RecordingState::Error(_))
+                        || matches!(state, RecordingState::Transcribed(_));
+                    if quiet
+                        && !crate::application::backup::restore_lock_active()
+                    {
+                        app.current_note_id.set(None);
+                        app.view.set(View::NotesList);
+                        crate::ui::recording::start_recording(recorder, app);
+                    }
+                }
+                futures_timer::Delay::new(std::time::Duration::from_millis(
+                    300,
+                ))
+                .await;
+            }
+        }
+    });
+}
+
 pub fn use_picker_reset_on_view(app: AppState) {
     use_effect(move || {
         let _ = (app.view)();
