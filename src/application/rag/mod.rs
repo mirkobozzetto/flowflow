@@ -48,6 +48,13 @@ pub fn abstain_decision(
 mod rerank;
 use rerank::llm_relevance_filter;
 
+mod rewrite;
+use rewrite::rewrite_query;
+pub use rewrite::{
+    build_rewrite_input, format_history, recent_turns, sanitize_rewrite,
+    ChatTurn,
+};
+
 /// Keep only the candidates the LLM judged genuinely relevant to the question. The model reads
 /// the question and the note contents, so it understands "the note about Jean" means the note that
 /// discusses Jean - not every note that happens to contain the common word "note". Returns the
@@ -105,6 +112,7 @@ pub async fn query(
     scope: Option<ChatScope>,
     web: bool,
     mention_note_ids: Vec<String>,
+    history: Vec<ChatTurn>,
     lang: &str,
 ) -> Result<RagResponse, String> {
     let ai = Arc::new(LlmClient::from_env()?);
@@ -119,7 +127,7 @@ pub async fn query(
                 .collect()
         }),
         Some(ChatScope::Folder(fid)) => Database::open().ok().map(|db| {
-            db.list_notes_in_folder(&fid)
+            db.list_notes_in_folder_tree(&fid)
                 .unwrap_or_default()
                 .into_iter()
                 .map(|n| n.id)
@@ -145,14 +153,22 @@ pub async fn query(
         });
     }
 
-    let date_range = detect_temporal_regex(question);
+    // Follow-ups lean on the conversation ("et lui ?", "développe"): retrieval runs on a
+    // standalone rewrite of the question, while the final agent still sees the user's words.
+    let retrieval_q = rewrite_query(&ai, &history, question).await;
+    if retrieval_q != question {
+        eprintln!("[rag] rewrite: {retrieval_q}");
+    }
+    let retrieval_q = retrieval_q.as_str();
+
+    let date_range = detect_temporal_regex(retrieval_q);
     let date_range = match date_range {
         Some(r) => {
             eprintln!("[rag] temporal regex: {} to {}", r.from, r.to);
             Some(r)
         }
         None => {
-            let r = detect_temporal_llm(&ai, question).await;
+            let r = detect_temporal_llm(&ai, retrieval_q).await;
             if let Some(ref r) = r {
                 eprintln!("[rag] temporal LLM: {} to {}", r.from, r.to);
             }
@@ -161,7 +177,7 @@ pub async fn query(
     };
 
     let _ = store.ensure_fts_index().await;
-    let query_vector = ai.embed(question).await?;
+    let query_vector = ai.embed(retrieval_q).await?;
     let fetch_k = if date_range.is_some() {
         RAG_INITIAL_K * 3
     } else {
@@ -174,12 +190,12 @@ pub async fn query(
         }
         let (local_res, web_res) = tokio::join!(
             store.hybrid_search(
-                question,
+                retrieval_q,
                 query_vector,
                 fetch_k,
                 allowed_note_ids.as_deref(),
             ),
-            crate::application::web_search::exa_search(question, &exa),
+            crate::application::web_search::exa_search(retrieval_q, &exa),
         );
         if let Some(ref tx) = status_tx {
             let _ = tx.send(ToolEvent::Finished("web_search".into()));
@@ -209,14 +225,14 @@ pub async fn query(
             rrf_merge(local, web_res, RRF_K, RRF_LOCAL_WEIGHT, RRF_WEB_WEIGHT);
         // Cite only the genuinely relevant rows (notes AND web results), judged by the LLM, not
         // the top-N by rank.
-        let selected = select_relevant(&ai, question, merged).await;
+        let selected = select_relevant(&ai, retrieval_q, merged).await;
         let filtered = dedup_merged(selected);
         let count = read_max_sources().min(RAG_FINAL_K).min(filtered.len());
         filtered.into_iter().take(count).collect()
     } else {
         let candidates = store
             .hybrid_search(
-                question,
+                retrieval_q,
                 query_vector,
                 fetch_k,
                 allowed_note_ids.as_deref(),
@@ -235,7 +251,7 @@ pub async fn query(
         let mut selected = if has_mention {
             candidates
         } else {
-            select_relevant(&ai, question, candidates).await
+            select_relevant(&ai, retrieval_q, candidates).await
         };
         apply_temporal_boost(&mut selected);
         let kept = dedup_sources(selected);
@@ -296,7 +312,16 @@ pub async fn query(
         }
         ctx
     };
-    let user_msg = format!("{context}\n--- Question ---\n{question}");
+    // The agent gets the recent turns verbatim so "développe" stays answerable even
+    // when retrieval adds nothing new; the raw question keeps the user's exact words.
+    let user_msg = if history.is_empty() {
+        format!("{context}\n--- Question ---\n{question}")
+    } else {
+        format!(
+            "{context}\n--- Conversation so far ---\n{}\n\n--- Question ---\n{question}",
+            format_history(recent_turns(&history))
+        )
+    };
 
     let system_prompt = if web_on {
         RAG_AGENT_WEB_SYSTEM_PROMPT

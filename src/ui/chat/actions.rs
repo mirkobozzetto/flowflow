@@ -176,6 +176,28 @@ pub fn send_question(
     mention_ids: Vec<String>,
     lang: String,
 ) {
+    // Snapshot the recent turns BEFORE pushing the new question: this is the conversation
+    // context rag::query rewrites follow-ups against ("et lui ?" -> the referent's name).
+    let history: Vec<rag::ChatTurn> = {
+        let msgs = messages.read();
+        let skip = msgs
+            .len()
+            .saturating_sub(crate::application::constants::CHAT_HISTORY_TURNS);
+        msgs.iter()
+            .skip(skip)
+            .map(|m| match m {
+                ChatMsg::User(t) => rag::ChatTurn {
+                    role: "user".into(),
+                    content: t.clone(),
+                },
+                ChatMsg::Bot { text, .. } => rag::ChatTurn {
+                    role: "bot".into(),
+                    content: text.clone(),
+                },
+            })
+            .collect()
+    };
+
     messages.write().push(ChatMsg::User(question.clone()));
     loading.set(true);
     tool_status.set(None);
@@ -221,6 +243,7 @@ pub fn send_question(
                 scope,
                 web,
                 mention_ids,
+                history,
                 &lang_for_query,
             )
             .await
