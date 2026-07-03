@@ -13,10 +13,13 @@ static SEAM: Once = Once::new();
 
 // On macOS the global store now resolves to ~/Library/Application Support
 // (desktop fix #20). Point these tests at a scratch dir so a `cargo test` run
-// never creates or mutates the real user database / vector index.
+// never creates or mutates the real user database / vector index. The dir is
+// unique per run: a fixed path let a half-migrated DB from a crashed run
+// poison every later run (migration v5 failing on a v7-shape notes table).
 fn isolate_store() {
     SEAM.call_once(|| {
-        let dir = std::env::temp_dir().join("flowflow-test-tools");
+        let dir = std::env::temp_dir()
+            .join(format!("flowflow-test-tools-{}", std::process::id()));
         std::env::set_var("FLOWFLOW_DATA_DIR", &dir);
         std::env::set_var("FLOWFLOW_VECTORDB_PATH", dir.join("vectordb"));
     });
