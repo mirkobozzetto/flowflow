@@ -79,14 +79,34 @@ pub const RAG_RELEVANCE_FLOOR: f32 = 0.25;
 // a pronoun or "développe" without dragging the whole conversation into every call.
 pub const CHAT_HISTORY_TURNS: usize = 6;
 // Related-notes section on NoteDetail. Fetch wide (own chunks + attachment rows of the
-// same note come back first), then keep 3 distinct notes. The distance gate only cuts
-// clearly-unrelated hits so an isolated note shows nothing instead of noise.
-pub const RELATED_K: usize = 3;
+// same note come back first), then keep distinct notes. Every stored chunk vector of
+// the note queries (capped), so a long multi-topic note links on all its topics; a
+// keyword leg (title+tags) catches shared proper nouns the embeddings miss.
+pub const RELATED_K: usize = 5;
 pub const RELATED_FETCH_K: usize = 12;
+// Hard ceiling: beyond this cosine distance a candidate is never linked, so an
+// isolated note yields an empty section instead of noise.
 pub const RELATED_MAX_DISTANCE: f32 = 0.75;
+// Candidates at or under this distance are always kept; the gap cutoff only
+// arbitrates the grey zone between floor and ceiling.
+pub const RELATED_GAP_FLOOR: f32 = 0.5;
+// A distance jump must be at least this wide to count as "the" gap; smaller
+// jumps mean one continuous cluster and everything under the ceiling stays.
+pub const RELATED_MIN_GAP: f32 = 0.07;
+pub const RELATED_QUERY_CHUNKS: usize = 8;
+pub const RELATED_KEYWORD_K: usize = 5;
+// Links persisted per note in note_links: store a bit wider than displayed so
+// pin/dismiss re-ranking has material to work with.
+pub const RELATED_STORE_K: usize = 8;
 pub const RRF_K: f32 = 60.0;
 pub const RRF_LOCAL_WEIGHT: f32 = 1.2;
 pub const RRF_WEB_WEIGHT: f32 = 1.0;
+
+pub const NOTE_LINK_LABEL_PROMPT: &str = "\
+Two personal notes are linked. State WHY in ONE short phrase (max 8 words).\n\
+Examples: \"also about Jean\", \"follow-up of the March plan\".\n\
+Write the phrase in the same language as the notes.\n\
+Return ONLY the phrase - no quotes, no punctuation at the end, no preamble.";
 
 pub const TAGS_SYSTEM_PROMPT: &str = "\
 Extract exactly 3 single-word keyword tags from the text below.\n\

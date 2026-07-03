@@ -254,6 +254,9 @@ chat-mention-recent = Récentes
 chat-mention-in-folder = Dans ce dossier
 chat-mention-others = Autres notes
 note-related-title = Notes liées
+note-related-pin = Épingler
+note-related-unpin = Désépingler
+note-related-dismiss = Masquer
 
 recording-dictate = Dicter
 

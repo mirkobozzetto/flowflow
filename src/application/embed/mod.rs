@@ -84,6 +84,12 @@ pub(crate) async fn embed_note_core(
         .store_chunks(entries)
         .await
         .map_err(|e| format!("embed store: {e}"))?;
+    if let Ok(db) = crate::infrastructure::persistence::Database::open() {
+        crate::application::related::compute_note_links(
+            store, ai, &db, note_id,
+        )
+        .await;
+    }
     Ok(n)
 }
 
@@ -104,6 +110,12 @@ pub fn embed_note(
             if too_short_to_embed(&content) {
                 log("embed skip: too short");
                 purge_owner_chunks(&note_id, "note").await;
+                // Stale active links would point at content that no longer exists.
+                if let Ok(db) =
+                    crate::infrastructure::persistence::Database::open()
+                {
+                    let _ = db.replace_note_links(&note_id, &[]);
+                }
                 return;
             }
             if !ai_consent_granted() {

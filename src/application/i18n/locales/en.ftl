@@ -254,6 +254,9 @@ chat-mention-recent = Recent
 chat-mention-in-folder = In this folder
 chat-mention-others = Other notes
 note-related-title = Related notes
+note-related-pin = Pin
+note-related-unpin = Unpin
+note-related-dismiss = Dismiss
 
 recording-dictate = Dictate
 

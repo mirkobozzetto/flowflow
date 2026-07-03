@@ -14,7 +14,30 @@ pub const MIGRATIONS: &[(i64, &str)] = &[
     (13, V13_SCHEMA),
     (14, V14_SCHEMA),
     (15, V15_SCHEMA),
+    (16, V16_SCHEMA),
 ];
+
+// Persistent note-links graph (issue #90). LOCAL and never synced: links are
+// derivable from chunks, so each device computes its own (no version vectors,
+// no tombstones, no wire changes). 'dismissed' rows survive recomputes so a
+// rejected link never comes back; 'pinned' rows always rank first.
+const V16_SCHEMA: &str = "
+CREATE TABLE IF NOT EXISTS note_links (
+    src_note_id TEXT NOT NULL
+        REFERENCES notes(id) ON DELETE CASCADE,
+    dst_note_id TEXT NOT NULL
+        REFERENCES notes(id) ON DELETE CASCADE,
+    score REAL NOT NULL DEFAULT 0,
+    label TEXT,
+    state TEXT NOT NULL DEFAULT 'active'
+        CHECK (state IN ('active', 'dismissed', 'pinned')),
+    created_at TEXT NOT NULL
+        DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')),
+    PRIMARY KEY (src_note_id, dst_note_id)
+);
+CREATE INDEX IF NOT EXISTS idx_note_links_dst
+    ON note_links(dst_note_id);
+";
 
 // Pinned, signed agents (RFC 0010). `manifest_json` is the canonical-JSON form the pinned
 // `content_digest` was computed over: the row is verified by recomputing that digest, never
