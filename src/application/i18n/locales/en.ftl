@@ -253,6 +253,7 @@ chat-mention-no-notes = No matching note
 chat-mention-recent = Recent
 chat-mention-in-folder = In this folder
 chat-mention-others = Other notes
+note-related-title = Related notes
 
 recording-dictate = Dictate
 

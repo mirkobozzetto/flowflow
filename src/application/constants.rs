@@ -78,6 +78,12 @@ pub const RAG_RELEVANCE_FLOOR: f32 = 0.25;
 // Conversation turns fed to query rewriting and the final agent prompt. Enough to resolve
 // a pronoun or "développe" without dragging the whole conversation into every call.
 pub const CHAT_HISTORY_TURNS: usize = 6;
+// Related-notes section on NoteDetail. Fetch wide (own chunks + attachment rows of the
+// same note come back first), then keep 3 distinct notes. The distance gate only cuts
+// clearly-unrelated hits so an isolated note shows nothing instead of noise.
+pub const RELATED_K: usize = 3;
+pub const RELATED_FETCH_K: usize = 12;
+pub const RELATED_MAX_DISTANCE: f32 = 0.75;
 pub const RRF_K: f32 = 60.0;
 pub const RRF_LOCAL_WEIGHT: f32 = 1.2;
 pub const RRF_WEB_WEIGHT: f32 = 1.0;

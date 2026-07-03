@@ -11,6 +11,7 @@ pub mod intent;
 pub mod mention;
 pub mod note_persistence;
 pub mod rag;
+pub mod related;
 pub mod reminders;
 pub mod reminders_extract;
 pub mod tagging;

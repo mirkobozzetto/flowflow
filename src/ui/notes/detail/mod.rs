@@ -388,6 +388,7 @@ pub fn NoteDetail() -> Element {
             }
             AudioSection { local_note_id, audios_version }
             AttachmentSection { attachments, confirm_delete_att }
+            crate::ui::notes::related::RelatedSection { local_note_id }
             if let Some(ref status) = import_status() {
                 div { class: if is_importing {
                         "flex items-center gap-2 px-3 py-2 mt-2 bg-ios-orange/10 rounded-lg"
