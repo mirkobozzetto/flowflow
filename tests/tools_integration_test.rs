@@ -11,6 +11,19 @@ use uuid::Uuid;
 static DB_LOCK: Mutex<()> = Mutex::const_new(());
 static SEAM: Once = Once::new();
 
+// create_note kicks off a background embed thread holding its own connection;
+// a cleanup delete can hit SQLITE_BUSY while that writer finishes. Retry
+// briefly instead of failing the test on a transient lock.
+async fn cleanup_note(db: &Database, id: &str) {
+    for _ in 0..20 {
+        if db.delete_note(id).is_ok() {
+            return;
+        }
+        tokio::time::sleep(std::time::Duration::from_millis(100)).await;
+    }
+    panic!("cleanup note {id} still locked after retries");
+}
+
 // On macOS the global store now resolves to ~/Library/Application Support
 // (desktop fix #20). Point these tests at a scratch dir so a `cargo test` run
 // never creates or mutates the real user database / vector index. The dir is
@@ -51,7 +64,7 @@ async fn test_create_note_persists_in_db() {
     assert!(note.tags.contains(&"test".to_string()));
     assert!(note.tags.contains(&"integration".to_string()));
 
-    db.delete_note(&result.note_id).expect("cleanup note");
+    cleanup_note(&db, &result.note_id).await;
 }
 
 #[tokio::test]
@@ -74,7 +87,7 @@ async fn test_create_note_returns_valid_uuid() {
     );
 
     let db = Database::open().expect("open db");
-    db.delete_note(&result.note_id).expect("cleanup");
+    cleanup_note(&db, &result.note_id).await;
 }
 
 #[tokio::test]
@@ -100,7 +113,7 @@ async fn test_create_note_minimal_no_title_no_tags() {
     assert!(note.title.is_none());
     assert!(note.tags.is_empty());
 
-    db.delete_note(&result.note_id).expect("cleanup");
+    cleanup_note(&db, &result.note_id).await;
 }
 
 #[tokio::test]
@@ -230,7 +243,7 @@ async fn test_summarize_folder_real() {
     assert_eq!(result.note_count, 1);
     assert!(!result.summary.is_empty());
 
-    db.delete_note(&note.id).expect("cleanup note");
+    cleanup_note(&db, &note.id).await;
     db.delete_folder(&folder.id).expect("cleanup folder");
 }
 

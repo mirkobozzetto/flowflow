@@ -173,7 +173,7 @@ fn FolderItem(folder: Folder, depth: u32) -> Element {
     let is_selected =
         (app.selected_folder_id)().as_deref() == Some(folder_id_nav.as_str());
 
-    let margin = format!("margin-left: {}px", depth * 16);
+    let margin = format!("margin-left: {}px", depth * 12);
 
     rsx! {
         div { style: "{margin}",
@@ -234,7 +234,7 @@ fn FolderItem(folder: Folder, depth: u32) -> Element {
                 div { class: "flex items-center group relative",
                     if has_children {
                         button {
-                            class: "min-w-[32px] min-h-[44px] flex items-center justify-center hover:opacity-70 transition-opacity duration-150",
+                            class: "min-w-[28px] min-h-[44px] flex items-center justify-center hover:opacity-70 transition-opacity duration-150",
                             onclick: move |_| toggle_expanded(),
                             div {
                                 class: "w-1.5 h-1.5 border-r-2 border-b-2 border-stone-400 chevron-pivot",
@@ -242,7 +242,7 @@ fn FolderItem(folder: Folder, depth: u32) -> Element {
                             }
                         }
                     } else {
-                        div { class: "w-8 min-w-[32px]" }
+                        div { class: "w-7 min-w-[28px]" }
                     }
                     button {
                         class: "flex-1 flex items-center gap-2 text-left px-2 py-2.5 text-sm text-stone-900 rounded-lg min-h-[44px] hover:bg-stone-100 transition-colors duration-150",
@@ -259,7 +259,7 @@ fn FolderItem(folder: Folder, depth: u32) -> Element {
                         }
                     }
                     button {
-                        class: "w-11 h-11 flex items-center justify-center text-stone-400 hover:text-stone-600 transition-all duration-150",
+                        class: "w-9 h-11 flex items-center justify-center text-stone-400 hover:text-stone-600 transition-all duration-150",
                         class: if show_actions() {
                             "text-stone-600"
                         } else {
@@ -395,7 +395,7 @@ fn FolderItem(folder: Folder, depth: u32) -> Element {
             }
             if creating_sub() {
                 div {
-                    class: "flex items-center gap-1 bg-stone-100 rounded-xl pl-3 pr-1 py-1 ml-8 my-1",
+                    class: "flex items-center gap-1 bg-stone-100 rounded-xl pl-3 pr-1 py-1 ml-7 my-1",
                     style: "animation: popIn 0.16s ease-out;",
                     input {
                         class: "flex-1 min-w-0 bg-transparent text-sm outline-none py-1.5 text-stone-900 placeholder-stone-400",

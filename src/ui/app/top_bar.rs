@@ -79,6 +79,19 @@ pub fn TopBar() -> Element {
                         app.show_folder_picker.set(false);
                         let target = (app.previous_view)()
                             .unwrap_or(View::NotesList);
+                        // Note -> note back needs the NotesList bounce, else the
+                        // mounted NoteDetail keeps the previous note's state.
+                        if matches!((app.view)(), View::NoteDetail { .. })
+                            && matches!(target, View::NoteDetail { .. })
+                        {
+                            app.previous_view.set(None);
+                            app.view.set(View::NotesList);
+                            spawn(async move {
+                                futures_timer::Delay::new(std::time::Duration::from_millis(30)).await;
+                                app.view.set(target);
+                            });
+                            return;
+                        }
                         if cfg!(target_os = "macos")
                             || matches!(
                                 target,

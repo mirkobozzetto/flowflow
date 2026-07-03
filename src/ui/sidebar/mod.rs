@@ -105,7 +105,7 @@ pub fn SidebarOverlay() -> Element {
             div { class: "flex-1 overflow-y-auto p-4",
                 match (app.sidebar_tab)() {
                     SidebarTab::Notes => rsx! {
-                        div { class: "py-2 pb-4",
+                        div { class: "py-2 pb-3",
                             button {
                                 class: "flex items-center gap-2.5 w-full px-2 py-3 text-sm font-medium text-ios-orange-dark rounded-lg min-h-[44px] hover:bg-ios-orange-50 transition-colors duration-150",
                                 onclick: move |_| {
@@ -134,11 +134,11 @@ pub fn SidebarOverlay() -> Element {
                                     app.sidebar_open.set(false);
                                     navigate_with_slide(app, View::NotesList);
                                 },
-                                IconNotebook { size: 20 }
+                                IconFiles { size: 20 }
                                 {t(&lang, "sidebar-all-notes")}
                             }
                         }
-                        div { class: "h-px bg-stone-200 mb-2" }
+                        div { class: "h-px bg-stone-200 mb-3" }
                         FolderSection {}
                     },
                     SidebarTab::Chats => rsx! {
