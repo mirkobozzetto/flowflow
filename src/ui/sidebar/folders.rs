@@ -1,5 +1,7 @@
 use crate::application::i18n::t;
-use crate::domain::{Folder, NewFolder, UpdateFolder};
+use crate::domain::{
+    flatten_tree, subtree_ids, Folder, NewFolder, UpdateFolder,
+};
 use crate::infrastructure::persistence::Database;
 use crate::ui::icons::*;
 use crate::ui::kit;
@@ -112,13 +114,13 @@ pub fn FolderSection() -> Element {
 fn FolderItem(folder: Folder, depth: u32) -> Element {
     let mut app: AppState = use_context();
     let db: Signal<Arc<Database>> = use_context();
-    let mut expanded = use_signal(|| false);
     let mut creating_sub = use_signal(|| false);
     let mut sub_name = use_signal(String::new);
     let mut editing = use_signal(|| false);
     let mut edit_name = use_signal(|| folder.name.clone());
     let mut confirm_delete = use_signal(|| false);
     let mut show_actions = use_signal(|| false);
+    let mut moving = use_signal(|| false);
     let lang = (app.current_lang)();
 
     let folder_id = folder.id.clone();
@@ -127,12 +129,45 @@ fn FolderItem(folder: Folder, depth: u32) -> Element {
     let folder_id_for_sub2 = folder.id.clone();
     let folder_id_for_rename = folder.id.clone();
     let folder_id_for_rename2 = folder.id.clone();
+    let folder_id_for_toggle = folder.id.clone();
+    let folder_id_for_count = folder.id.clone();
+    let folder_id_for_move = folder.id.clone();
+    let folder_id_move_root = folder.id.clone();
+    let folder_id_move_self = folder.id.clone();
 
     let children = use_memo(move || {
         let _v = (app.folders_version)();
         db().list_subfolders(&folder_id).unwrap_or_default()
     });
     let has_children = !children().is_empty();
+
+    // Expansion lives in AppState so the tree survives drawer close/reopen.
+    let is_expanded = (app.expanded_folders)().contains(&folder.id);
+    let mut toggle_expanded = move || {
+        let mut set = (app.expanded_folders)();
+        if !set.remove(&folder_id_for_toggle) {
+            set.insert(folder_id_for_toggle.clone());
+        }
+        app.expanded_folders.set(set);
+    };
+
+    let note_count = use_memo(move || {
+        let _f = (app.folders_version)();
+        let _n = (app.notes_version)();
+        db().count_notes_in_folder_tree(&folder_id_for_count)
+            .unwrap_or(0)
+    });
+
+    // Move targets: every folder except this one and its own subtree (cycle guard).
+    let move_targets = use_memo(move || {
+        let _v = (app.folders_version)();
+        let all = db().list_all_folders().unwrap_or_default();
+        let forbidden = subtree_ids(&all, &folder_id_for_move);
+        flatten_tree(&all)
+            .into_iter()
+            .filter(|(f, _)| !forbidden.contains(&f.id))
+            .collect::<Vec<(Folder, u32)>>()
+    });
 
     let folder_id_nav = folder.id.clone();
     let is_selected =
@@ -200,10 +235,10 @@ fn FolderItem(folder: Folder, depth: u32) -> Element {
                     if has_children {
                         button {
                             class: "min-w-[32px] min-h-[44px] flex items-center justify-center hover:opacity-70 transition-opacity duration-150",
-                            onclick: move |_| expanded.set(!expanded()),
+                            onclick: move |_| toggle_expanded(),
                             div {
                                 class: "w-1.5 h-1.5 border-r-2 border-b-2 border-stone-400 chevron-pivot",
-                                class: if expanded() { "rotate-45" } else { "-rotate-45" },
+                                class: if is_expanded { "rotate-45" } else { "-rotate-45" },
                             }
                         }
                     } else {
@@ -218,7 +253,10 @@ fn FolderItem(folder: Folder, depth: u32) -> Element {
                             crate::ui::sidebar::navigate_with_slide(app, View::NotesList);
                         },
                         IconFolder { size: 16 }
-                        "{folder.name}"
+                        span { class: "flex-1 min-w-0 truncate", "{folder.name}" }
+                        if note_count() > 0 {
+                            span { class: "shrink-0 text-xs text-stone-400", "{note_count}" }
+                        }
                     }
                     button {
                         class: "w-11 h-11 flex items-center justify-center text-stone-400 hover:text-stone-600 transition-all duration-150",
@@ -236,10 +274,57 @@ fn FolderItem(folder: Folder, depth: u32) -> Element {
                             onclick: move |_| {
                                 show_actions.set(false);
                                 confirm_delete.set(false);
+                                moving.set(false);
                             },
                         }
-                        div { class: "absolute right-2 top-full {kit::MENU_PANEL}",
-                            if confirm_delete() {
+                        div { class: "absolute right-2 top-full max-h-64 overflow-y-auto {kit::MENU_PANEL}",
+                            if moving() {
+                                if folder.parent_id.is_some() {
+                                    button {
+                                        class: kit::MENU_ITEM,
+                                        onclick: move |_| {
+                                            let upd = UpdateFolder {
+                                                name: None,
+                                                description: None,
+                                                parent_id: Some(None),
+                                            };
+                                            let _ = db().update_folder(&folder_id_move_root, &upd);
+                                            moving.set(false);
+                                            show_actions.set(false);
+                                            app.folders_version.set((app.folders_version)() + 1);
+                                        },
+                                        IconFolder { size: 16 }
+                                        {t(&lang, "folder-menu-move-root")}
+                                    }
+                                }
+                                for (target, target_depth) in move_targets() {
+                                    {
+                                        let tid = target.id.clone();
+                                        let fid = folder_id_move_self.clone();
+                                        let indent = format!("padding-left: {}px", 12 + target_depth * 14);
+                                        rsx! {
+                                            button {
+                                                key: "{target.id}",
+                                                class: kit::MENU_ITEM,
+                                                style: "{indent}",
+                                                onclick: move |_| {
+                                                    let upd = UpdateFolder {
+                                                        name: None,
+                                                        description: None,
+                                                        parent_id: Some(Some(tid.clone())),
+                                                    };
+                                                    let _ = db().update_folder(&fid, &upd);
+                                                    moving.set(false);
+                                                    show_actions.set(false);
+                                                    app.folders_version.set((app.folders_version)() + 1);
+                                                },
+                                                IconFolder { size: 16 }
+                                                span { class: "truncate", "{target.name}" }
+                                            }
+                                        }
+                                    }
+                                }
+                            } else if confirm_delete() {
                                 div { class: "px-3 py-2.5",
                                     p { class: "text-sm font-semibold text-stone-900 mb-0.5",
                                         {t(&lang, "folder-menu-delete-title")}
@@ -290,6 +375,12 @@ fn FolderItem(folder: Folder, depth: u32) -> Element {
                                     IconFolderPlus { size: 16 }
                                     {t(&lang, "folder-menu-subtheme")}
                                 }
+                                button {
+                                    class: kit::MENU_ITEM,
+                                    onclick: move |_| moving.set(true),
+                                    IconArrowUpRight { size: 16 }
+                                    {t(&lang, "folder-menu-move")}
+                                }
                                 div { class: kit::MENU_SEP }
                                 button {
                                     class: kit::MENU_ITEM_DANGER,
@@ -326,7 +417,9 @@ fn FolderItem(folder: Folder, depth: u32) -> Element {
                                 let _ = db().create_folder(&folder);
                                 sub_name.set(String::new());
                                 creating_sub.set(false);
-                                expanded.set(true);
+                                let mut set = (app.expanded_folders)();
+                                set.insert(folder_id_for_sub.clone());
+                                app.expanded_folders.set(set);
                                 app.folders_version.set((app.folders_version)() + 1);
                             }
                         },
@@ -348,7 +441,9 @@ fn FolderItem(folder: Folder, depth: u32) -> Element {
                                 let _ = db().create_folder(&folder);
                                 sub_name.set(String::new());
                                 creating_sub.set(false);
-                                expanded.set(true);
+                                let mut set = (app.expanded_folders)();
+                                set.insert(folder_id_for_sub2.clone());
+                                app.expanded_folders.set(set);
                                 app.folders_version.set((app.folders_version)() + 1);
                             }
                         },
@@ -356,11 +451,9 @@ fn FolderItem(folder: Folder, depth: u32) -> Element {
                     }
                 }
             }
-            if expanded() || has_children {
-                if expanded() {
-                    for child in children() {
-                        FolderItem { folder: child, depth: depth + 1 }
-                    }
+            if is_expanded {
+                for child in children() {
+                    FolderItem { folder: child, depth: depth + 1 }
                 }
             }
         }
