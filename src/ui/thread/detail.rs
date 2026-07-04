@@ -1,11 +1,12 @@
 use crate::application::i18n::t;
 use crate::domain::{generate_auto_title, ChatScope, NewTextNote, Note};
+use crate::infrastructure::audio::{AudioRecorder, RecordingState};
 use crate::infrastructure::persistence::Database;
-use crate::ui::icons::{IconChatAi, IconPlus};
+use crate::ui::icons::{IconChatAi, IconMic, IconPlus};
 use crate::ui::thread::header_menu::ThreadHeaderMenu;
 use crate::ui::{AppState, SidebarTab, View};
 use dioxus::prelude::*;
-use std::sync::Arc;
+use std::sync::{Arc, Mutex};
 
 #[component]
 pub fn ThreadDetail() -> Element {
@@ -30,22 +31,14 @@ pub fn ThreadDetail() -> Element {
         }
     });
 
+    let recorder: Signal<Arc<Mutex<AudioRecorder>>> = use_context();
+
     let tid_notes = thread_id.clone();
     let notes = use_memo(move || {
         let _ = (app.notes_version)();
         let _ = (app.sync_data_version)();
         db().list_thread_notes(&tid_notes).unwrap_or_default()
     });
-
-    let theme = {
-        let _ = (app.folders_version)();
-        db().get_thread(&thread_id)
-            .ok()
-            .flatten()
-            .and_then(|t| t.folder_id)
-            .and_then(|fid| db().get_folder(&fid).ok().flatten())
-            .map(|f| f.name)
-    };
 
     let tid_add = thread_id.clone();
     let lang_add = lang.clone();
@@ -63,6 +56,38 @@ pub fn ThreadDetail() -> Element {
             app.notes_version.set((app.notes_version)() + 1);
             app.previous_view.set(Some(View::ThreadDetail {
                 thread_id: tid_add.clone(),
+            }));
+            app.view.set(View::NoteDetail { note_id: note.id });
+        }
+    };
+
+    // Voice node: create the member note first, start recording on it, land
+    // on the note with the mic already live. Never steals an active take.
+    let tid_rec = thread_id.clone();
+    let lang_rec = lang.clone();
+    let record_note = move |_: Event<MouseData>| {
+        app.show_thread_menu.set(false);
+        let state = (app.recording_state)();
+        let quiet = state == RecordingState::Idle
+            || matches!(state, RecordingState::Error(_))
+            || matches!(state, RecordingState::Transcribed(_));
+        if !quiet {
+            return;
+        }
+        if let Ok(note) = db().create_text_note_in_thread(
+            &NewTextNote {
+                title: Some(generate_auto_title(&lang_rec)),
+                content: String::new(),
+                tags: vec![],
+            },
+            &tid_rec,
+        ) {
+            let _ = db().touch_thread(&tid_rec);
+            app.notes_version.set((app.notes_version)() + 1);
+            app.current_note_id.set(Some(note.id.clone()));
+            crate::ui::recording::start_recording(recorder, app);
+            app.previous_view.set(Some(View::ThreadDetail {
+                thread_id: tid_rec.clone(),
             }));
             app.view.set(View::NoteDetail { note_id: note.id });
         }
@@ -87,13 +112,6 @@ pub fn ThreadDetail() -> Element {
             ThreadHeaderMenu { thread_id: thread_id.clone() }
         }
         div { class: "flex-1 overflow-y-auto px-4 pt-4 safe-pb-32 lg:px-[max(1rem,calc((100%-48rem)/2))]",
-            if let Some(ref tname) = theme {
-                div { class: "mb-4",
-                    span { class: "px-2.5 py-1 rounded-full bg-warm-white border border-ios-orange/25 text-ios-orange-dark text-xs font-medium",
-                        "{tname}"
-                    }
-                }
-            }
             if notes().is_empty() {
                 div { class: "flex flex-col items-center justify-center gap-2 h-[40vh]",
                     p { class: "text-stone-400 text-sm", {t(&lang, "thread-empty")} }
@@ -114,6 +132,12 @@ pub fn ThreadDetail() -> Element {
                         onclick: add_note,
                         IconPlus { size: 22 }
                         span { {t(&lang, "thread-add")} }
+                    }
+                    button {
+                        class: "shrink-0 w-12 h-12 flex items-center justify-center rounded-full bg-warm-white border border-ios-orange/25 text-ios-orange-dark active:opacity-70",
+                        "aria-label": t(&lang, "recording-dictate"),
+                        onclick: record_note,
+                        IconMic { size: 24 }
                     }
                     button {
                         class: "shrink-0 w-12 h-12 flex items-center justify-center rounded-full bg-warm-white border border-ios-orange/25 text-ios-orange-dark active:opacity-70",

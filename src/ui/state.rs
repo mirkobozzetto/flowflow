@@ -72,6 +72,8 @@ pub struct AppState {
     pub attachment_modal: Signal<Option<Attachment>>,
     pub show_chat_menu: Signal<bool>,
     pub show_thread_menu: Signal<bool>,
+    // Opens the thread menu directly on its theme chooser (top-bar theme tap).
+    pub show_thread_theme: Signal<bool>,
     pub show_tools_menu: Signal<bool>,
     pub show_mention_menu: Signal<bool>,
     pub show_note_tools_menu: Signal<bool>,
@@ -119,6 +121,7 @@ impl AppState {
             attachment_modal: Signal::new(None),
             show_chat_menu: Signal::new(false),
             show_thread_menu: Signal::new(false),
+            show_thread_theme: Signal::new(false),
             show_tools_menu: Signal::new(false),
             show_mention_menu: Signal::new(false),
             show_note_tools_menu: Signal::new(false),
