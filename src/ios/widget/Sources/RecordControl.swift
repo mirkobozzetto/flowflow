@@ -2,24 +2,44 @@ import AppIntents
 import SwiftUI
 import WidgetKit
 
-// One-gesture capture entry points. Both funnel into flowflow://record,
-// handled by the Rust app (deeplink watcher starts a new voice note).
+// One-gesture capture entry points. The lock-screen widget travels through
+// flowflow://record (widgetURL supports custom schemes); the control cannot:
+// iOS 26 ERRORS on openAppWhenRun in an extension and refuses custom-scheme
+// openURL from there. OpenIntent lets the SYSTEM launch the app, and the
+// "start recording" order rides the app group instead of a URL.
 
 @available(iOS 18.0, *)
-struct StartRecordingIntent: AppIntent {
+struct StartRecordingIntent: OpenIntent {
     static var title: LocalizedStringResource = "Dicter une note"
     static var description = IntentDescription(
         "Ouvre FlowFlow et démarre l'enregistrement d'une note vocale."
     )
-    static var openAppWhenRun: Bool = true
 
-    // OpenURLIntent rejects custom schemes (universal links only), so the
-    // deep link goes through EnvironmentValues().openURL instead.
+    @Parameter(title: "Cible")
+    var target: RecordTarget
+
     @MainActor
     func perform() async throws -> some IntentResult {
-        EnvironmentValues().openURL(URL(string: "flowflow://record")!)
+        UserDefaults(suiteName: "group.com.mirkobozzetto.flowflow")?.set(
+            Date().timeIntervalSince1970,
+            forKey: "pending_record"
+        )
         return .result()
     }
+}
+
+// Exactly ONE case: a second one triggers Siri disambiguation and the
+// intent silently never runs.
+@available(iOS 18.0, *)
+enum RecordTarget: String, AppEnum {
+    case record
+
+    static var typeDisplayRepresentation =
+        TypeDisplayRepresentation(name: "FlowFlow")
+    static var caseDisplayRepresentations:
+        [RecordTarget: DisplayRepresentation] = [
+            .record: DisplayRepresentation(title: "Dicter une note")
+        ]
 }
 
 // Control Center button; assignable to the Action Button and the Lock
@@ -27,8 +47,10 @@ struct StartRecordingIntent: AppIntent {
 @available(iOS 18.0, *)
 struct RecordControl: ControlWidget {
     var body: some ControlWidgetConfiguration {
+        // Kind bumped once: chronod pins a placed control to its kind and
+        // kept serving the old broken intent binding after reinstalls.
         StaticControlConfiguration(
-            kind: "com.mirkobozzetto.flowflow.record"
+            kind: "com.mirkobozzetto.flowflow.record2"
         ) {
             ControlWidgetButton(action: StartRecordingIntent()) {
                 Label("Dicter une note", systemImage: "mic.fill")

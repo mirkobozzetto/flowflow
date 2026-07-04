@@ -115,10 +115,15 @@ pub fn use_record_deeplink_watcher(
         let mut app = app;
         async move {
             loop {
-                if crate::infrastructure::sync::deeplink::take_matching(
-                    "flowflow://record",
-                )
-                .is_some()
+                #[cfg(target_os = "ios")]
+                let group_flag = crate::infrastructure::platform::ios::take_pending_record();
+                #[cfg(not(target_os = "ios"))]
+                let group_flag = false;
+                if group_flag
+                    || crate::infrastructure::sync::deeplink::take_matching(
+                        "flowflow://record",
+                    )
+                    .is_some()
                 {
                     let state = (app.recording_state)();
                     let quiet = state == RecordingState::Idle
@@ -128,8 +133,20 @@ pub fn use_record_deeplink_watcher(
                         && !crate::application::backup::restore_lock_active()
                     {
                         app.current_note_id.set(None);
-                        app.view.set(View::NotesList);
                         crate::ui::recording::start_recording(recorder, app);
+                        // Empty-id NoteDetail = the new-note composer: the
+                        // send button turns the take into a note and the
+                        // user STAYS on it (not dumped on the list). Bounce
+                        // through NotesList first: a NoteDetail already on
+                        // screen would otherwise keep its mounted state.
+                        app.view.set(View::NotesList);
+                        futures_timer::Delay::new(
+                            std::time::Duration::from_millis(30),
+                        )
+                        .await;
+                        app.view.set(View::NoteDetail {
+                            note_id: String::new(),
+                        });
                     }
                 }
                 futures_timer::Delay::new(std::time::Duration::from_millis(

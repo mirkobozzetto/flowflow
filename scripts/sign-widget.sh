@@ -67,7 +67,8 @@ echo "[sign-widget] Using profile: $WIDGET_PROFILE"
 
 cp "$WIDGET_PROFILE" "${APPEX_DIR}/embedded.mobileprovision"
 
-ENTITLEMENTS=$(mktemp /tmp/widget-entitlements.XXXXX.plist)
+ENTITLEMENTS="target/widget-entitlements.plist"
+rm -f "$ENTITLEMENTS"
 cat > "$ENTITLEMENTS" <<PLIST
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
@@ -79,6 +80,10 @@ cat > "$ENTITLEMENTS" <<PLIST
     <${GET_TASK_ALLOW}/>
     <key>com.apple.developer.team-identifier</key>
     <string>${TEAM_ID}</string>
+    <key>com.apple.security.application-groups</key>
+    <array>
+        <string>group.com.mirkobozzetto.flowflow</string>
+    </array>
 </dict>
 </plist>
 PLIST

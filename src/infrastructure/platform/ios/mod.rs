@@ -135,6 +135,40 @@ pub fn observe_launch_url() {
     });
 }
 
+/// One-shot read of the app-group flag the Control Center intent writes
+/// (custom-scheme URLs are refused from extensions on iOS 26, so the "start
+/// recording" order rides UserDefaults(suiteName:) instead). Freshness-gated:
+/// a flag older than 30s is a leftover, not an order.
+pub fn take_pending_record() -> bool {
+    unsafe {
+        let suite = objc2_foundation::NSString::from_str(
+            "group.com.mirkobozzetto.flowflow",
+        );
+        let defaults: *mut objc2::runtime::AnyObject =
+            objc2::msg_send![objc2::class!(NSUserDefaults), alloc];
+        let defaults: *mut objc2::runtime::AnyObject =
+            objc2::msg_send![defaults, initWithSuiteName: &*suite];
+        if defaults.is_null() {
+            return false;
+        }
+        let key = objc2_foundation::NSString::from_str("pending_record");
+        let ts: f64 = objc2::msg_send![&*defaults, doubleForKey: &*key];
+        let fresh = if ts > 0.0 {
+            let _: () =
+                objc2::msg_send![&*defaults, removeObjectForKey: &*key];
+            let now = std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .unwrap_or_default()
+                .as_secs_f64();
+            now - ts < 30.0
+        } else {
+            false
+        };
+        let _: () = objc2::msg_send![defaults, release];
+        fresh
+    }
+}
+
 pub use crate::infrastructure::platform::parsers::read_file_as_text;
 pub use crate::infrastructure::platform::pdf::extract as read_pdf_text;
 pub use picker::{open_audio_picker, open_file_picker};
