@@ -7,6 +7,7 @@ PROFILES_DIR="$HOME/Library/Developer/Xcode/UserData/Provisioning Profiles"
 TEAM_ID="${TEAM_ID:-R477R8NK27}"
 APP_BUNDLE_ID="${APP_BUNDLE_ID:-com.mirkobozzetto.flowflow}"
 WIDGET_BUNDLE_ID="${WIDGET_BUNDLE_ID:-com.mirkobozzetto.flowflow.recording-widget}"
+SHARE_BUNDLE_ID="${SHARE_BUNDLE_ID:-com.mirkobozzetto.flowflow.share-ext}"
 
 if [ ! -d "$TEMPLATE_DIR" ]; then
     echo "[renew] ERROR: template missing at $TEMPLATE_DIR"
@@ -50,6 +51,7 @@ mkdir -p "$PROFILES_DIR"
 
 renew_one "$APP_BUNDLE_ID"    "app"
 renew_one "$WIDGET_BUNDLE_ID" "widget"
+renew_one "$SHARE_BUNDLE_ID"  "share-ext"
 
 echo ""
 echo "[renew] Verifying:"

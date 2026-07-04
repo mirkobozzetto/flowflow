@@ -116,7 +116,8 @@ pub fn use_record_deeplink_watcher(
         async move {
             loop {
                 #[cfg(target_os = "ios")]
-                let group_flag = crate::infrastructure::platform::ios::take_pending_record();
+                let group_flag =
+                    crate::infrastructure::platform::ios::take_pending_record();
                 #[cfg(not(target_os = "ios"))]
                 let group_flag = false;
                 if group_flag
@@ -151,6 +152,54 @@ pub fn use_record_deeplink_watcher(
                 }
                 futures_timer::Delay::new(std::time::Duration::from_millis(
                     300,
+                ))
+                .await;
+            }
+        }
+    });
+}
+
+/// Drain the share-extension inbox (app group): shared text/URLs become
+/// notes, shared documents ride the attachment pipeline. Cheap poll - the
+/// directory is empty or absent almost always.
+#[allow(unused_variables)]
+pub fn use_share_inbox_watcher(app: AppState, db: Signal<Arc<Database>>) {
+    #[cfg(target_os = "ios")]
+    use_future(move || {
+        let mut app = app;
+        async move {
+            loop {
+                let inbox =
+                    crate::infrastructure::platform::ios::app_group_inbox_dir();
+                if let Some(inbox) = inbox {
+                    let pending = std::fs::read_dir(&inbox)
+                        .map(|mut d| {
+                            d.any(|e| {
+                                e.ok()
+                                    .map(|e| {
+                                        e.path()
+                                            .extension()
+                                            .and_then(|x| x.to_str())
+                                            == Some("json")
+                                    })
+                                    .unwrap_or(false)
+                            })
+                        })
+                        .unwrap_or(false);
+                    if pending {
+                        let db = db();
+                        let n =
+                            crate::application::share_inbox::drain(&db, &inbox)
+                                .await;
+                        if n > 0 {
+                            app.notes_version.set((app.notes_version)() + 1);
+                            app.attachments_version
+                                .set((app.attachments_version)() + 1);
+                        }
+                    }
+                }
+                futures_timer::Delay::new(std::time::Duration::from_millis(
+                    2000,
                 ))
                 .await;
             }

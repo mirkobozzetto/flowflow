@@ -14,6 +14,7 @@ pub mod rag;
 pub mod related;
 pub mod reminders;
 pub mod reminders_extract;
+pub mod share_inbox;
 pub mod tagging;
 pub mod titling;
 pub mod tools;

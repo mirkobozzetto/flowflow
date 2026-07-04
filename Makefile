@@ -41,6 +41,7 @@ ddev:
 
 ddev-build:
 	set -a && . ./.env && IPHONEOS_DEPLOYMENT_TARGET=16.0 dx build --platform ios --device true
+	bash scripts/build-share-ext.sh debug
 	bash scripts/sign-widget.sh debug
 	bash scripts/inject-url-scheme.sh || true
 	bash scripts/inject-icon.sh || true
@@ -58,6 +59,7 @@ restore-ios-toml:
 
 all: js restore-ios-toml ensure-profiles
 	set -a && . ./.env && IPHONEOS_DEPLOYMENT_TARGET=16.0 dx build --platform ios --device true
+	bash scripts/build-share-ext.sh debug
 	bash scripts/sign-widget.sh debug
 	bash scripts/inject-url-scheme.sh || true
 	bash scripts/inject-icon.sh || true
@@ -246,6 +248,8 @@ appstore:
 	fi; \
 	echo "Using main profile: $$MAIN_PROFILE"; \
 	cp "$$MAIN_PROFILE" target/dx/flowflow/release/ios/Flowflow.app/embedded.mobileprovision
+	@echo ">> Building share extension for release..."
+	bash scripts/build-share-ext.sh release
 	@echo ">> Signing widget for release..."
 	bash scripts/sign-widget.sh release
 	@echo ">> Injecting PrivacyInfo.xcprivacy..."

@@ -101,5 +101,58 @@ echo "[sign-widget] Signed $APPEX_DIR"
 
 rm -f "$ENTITLEMENTS"
 
+# Share extension appex (built by build-share-ext.sh), same signing dance.
+SHARE_BUNDLE_ID="com.mirkobozzetto.flowflow.share-ext"
+SHARE_APPEX="${APP_DIR}/PlugIns/ShareExt.appex"
+if [ -d "$SHARE_APPEX" ]; then
+    SHARE_PROFILE=""
+    for f in ~/Library/Developer/Xcode/UserData/Provisioning\ Profiles/*.mobileprovision; do
+        PROFILE_PLIST=$(security cms -D -i "$f" 2>/dev/null || true)
+        if echo "$PROFILE_PLIST" | grep -q "$SHARE_BUNDLE_ID"; then
+            if [ "$MODE" = "release" ]; then
+                if echo "$PROFILE_PLIST" | grep -q "ProvisionedDevices"; then
+                    continue
+                fi
+                SHARE_PROFILE="$f"
+                break
+            else
+                if echo "$PROFILE_PLIST" | grep -q "ProvisionedDevices"; then
+                    SHARE_PROFILE="$f"
+                    break
+                fi
+            fi
+        fi
+    done
+    if [ -z "$SHARE_PROFILE" ]; then
+        echo "[sign-widget] ERROR: no $PROFILE_PATTERN profile for $SHARE_BUNDLE_ID (run make renew)"
+        exit 1
+    fi
+    echo "[sign-widget] Using share profile: $SHARE_PROFILE"
+    cp "$SHARE_PROFILE" "${SHARE_APPEX}/embedded.mobileprovision"
+    SHARE_ENTITLEMENTS="target/share-entitlements.plist"
+    rm -f "$SHARE_ENTITLEMENTS"
+    cat > "$SHARE_ENTITLEMENTS" <<PLIST
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>application-identifier</key>
+    <string>${TEAM_ID}.${SHARE_BUNDLE_ID}</string>
+    <key>get-task-allow</key>
+    <${GET_TASK_ALLOW}/>
+    <key>com.apple.developer.team-identifier</key>
+    <string>${TEAM_ID}</string>
+    <key>com.apple.security.application-groups</key>
+    <array>
+        <string>group.com.mirkobozzetto.flowflow</string>
+    </array>
+</dict>
+</plist>
+PLIST
+    codesign --force --entitlements "$SHARE_ENTITLEMENTS" --sign "$SIGNING_ID" "$SHARE_APPEX"
+    rm -f "$SHARE_ENTITLEMENTS"
+    echo "[sign-widget] Signed $SHARE_APPEX"
+fi
+
 codesign --force --sign "$SIGNING_ID" --preserve-metadata=entitlements "$APP_DIR"
 echo "[sign-widget] Re-signed main app"

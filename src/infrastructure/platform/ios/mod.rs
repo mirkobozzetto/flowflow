@@ -154,8 +154,7 @@ pub fn take_pending_record() -> bool {
         let key = objc2_foundation::NSString::from_str("pending_record");
         let ts: f64 = objc2::msg_send![&*defaults, doubleForKey: &*key];
         let fresh = if ts > 0.0 {
-            let _: () =
-                objc2::msg_send![&*defaults, removeObjectForKey: &*key];
+            let _: () = objc2::msg_send![&*defaults, removeObjectForKey: &*key];
             let now = std::time::SystemTime::now()
                 .duration_since(std::time::UNIX_EPOCH)
                 .unwrap_or_default()
@@ -166,6 +165,32 @@ pub fn take_pending_record() -> bool {
         };
         let _: () = objc2::msg_send![defaults, release];
         fresh
+    }
+}
+
+/// Shared-inbox directory inside the app-group container (where the Share
+/// extension enqueues content). None when the container is unavailable
+/// (entitlement missing - dev profile not renewed).
+pub fn app_group_inbox_dir() -> Option<PathBuf> {
+    unsafe {
+        let group = objc2_foundation::NSString::from_str(
+            "group.com.mirkobozzetto.flowflow",
+        );
+        let fm: *mut objc2::runtime::AnyObject =
+            objc2::msg_send![objc2::class!(NSFileManager), defaultManager];
+        let url: *mut objc2::runtime::AnyObject = objc2::msg_send![
+            &*fm,
+            containerURLForSecurityApplicationGroupIdentifier: &*group
+        ];
+        if url.is_null() {
+            return None;
+        }
+        let path: *const objc2_foundation::NSString =
+            objc2::msg_send![&*url, path];
+        if path.is_null() {
+            return None;
+        }
+        Some(PathBuf::from((*path).to_string()).join("shared-inbox"))
     }
 }
 

@@ -21,8 +21,9 @@ use app::consent::ConsentScreen;
 use app::restore_lock::RestoreLockScreen;
 use app::{
     load_consent, load_lang, use_app_contexts, use_history_tracker,
-    use_picker_reset_on_view, use_record_deeplink_watcher, use_sync_watcher,
-    use_transcription_watcher, AppContexts, AppRouter,
+    use_picker_reset_on_view, use_record_deeplink_watcher,
+    use_share_inbox_watcher, use_sync_watcher, use_transcription_watcher,
+    AppContexts, AppRouter,
 };
 
 #[component]
@@ -46,6 +47,7 @@ pub fn App() -> Element {
     use_picker_reset_on_view(app);
     use_history_tracker(app);
     use_record_deeplink_watcher(app, recorder);
+    use_share_inbox_watcher(app, db);
 
     #[cfg(target_os = "macos")]
     keyboard::use_macos_shortcuts(app);
