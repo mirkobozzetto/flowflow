@@ -22,6 +22,9 @@ pub fn ConnectionsSettings() -> Element {
     let mut base_url =
         use_signal(|| db().get_setting("backend_base_url").unwrap_or_default());
     let mut connectors = use_signal(Vec::<Connector>::new);
+    // The agent directory: every published agent this account is entitled to.
+    let mut agents =
+        use_signal(Vec::<crate::application::agent_directory::AgentEntry>::new);
     let mut status: Signal<Option<String>> = use_signal(|| None);
     let mut busy = use_signal(|| false);
     let mut dev_copied = use_signal(|| false);
@@ -56,6 +59,14 @@ pub fn ConnectionsSettings() -> Element {
                     }
                     Err(e) => status.set(Some(e.to_string())),
                 },
+            }
+        });
+        spawn(async move {
+            // Best-effort: no backend or an offline start just leaves the list empty.
+            if let Ok(list) =
+                crate::application::agent_directory::list_agents(&db()).await
+            {
+                agents.set(list);
             }
         });
     });
@@ -135,6 +146,76 @@ pub fn ConnectionsSettings() -> Element {
                     });
                 },
                 {t(&lang, "connections-reinstall-agent")}
+            }
+
+            if !agents().is_empty() {
+                div {
+                    label { class: "block text-sm font-medium text-stone-700 mb-1",
+                        {t(&lang, "connections-agents-label")}
+                    }
+                    p { class: "text-[11px] text-stone-400 mb-2 leading-relaxed",
+                        {t(&lang, "connections-agents-hint")}
+                    }
+                    div { class: "rounded-xl bg-warm-white border border-stone-200 divide-y divide-stone-100 overflow-hidden",
+                        for a in agents() {
+                            div { key: "{a.id}", class: "px-4 py-3 min-h-[44px] flex items-center gap-3",
+                                span {
+                                    class: if a.installed {
+                                        "w-1.5 h-1.5 shrink-0 rounded-full bg-ios-green"
+                                    } else {
+                                        "w-1.5 h-1.5 shrink-0 rounded-full bg-stone-300"
+                                    },
+                                }
+                                div { class: "flex-1 min-w-0",
+                                    p { class: "text-sm font-medium text-stone-800 truncate", "{a.name}" }
+                                    if !a.alias.is_empty() {
+                                        p { class: "text-[11px] text-stone-400 truncate", "{a.alias}" }
+                                    }
+                                }
+                                if a.installed {
+                                    button {
+                                        class: crate::ui::kit::PILL_GHOST,
+                                        disabled: busy(),
+                                        onclick: {
+                                            let id = a.id.clone();
+                                            move |_| {
+                                                if busy() { return; }
+                                                status.set(None);
+                                                match crate::application::agent_directory::uninstall(&db(), &id) {
+                                                    Ok(()) => reload.set(reload() + 1),
+                                                    Err(e) => status.set(Some(e)),
+                                                }
+                                            }
+                                        },
+                                        {t(&lang, "connections-agent-remove")}
+                                    }
+                                } else {
+                                    button {
+                                        class: crate::ui::kit::PILL_PRIMARY,
+                                        disabled: busy(),
+                                        onclick: {
+                                            let id = a.id.clone();
+                                            move |_| {
+                                                if busy() { return; }
+                                                busy.set(true);
+                                                status.set(None);
+                                                let id = id.clone();
+                                                spawn(async move {
+                                                    match crate::application::agent_directory::ensure_installed(&db(), &id).await {
+                                                        Ok(()) => reload.set(reload() + 1),
+                                                        Err(e) => status.set(Some(e)),
+                                                    }
+                                                    busy.set(false);
+                                                });
+                                            }
+                                        },
+                                        {t(&lang, "connections-agent-install")}
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
             }
 
             if BAKED_BACKEND_URL.is_none() {

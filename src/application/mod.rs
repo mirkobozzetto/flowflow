@@ -1,4 +1,5 @@
 pub mod agent_builder;
+pub mod agent_directory;
 pub mod ai;
 pub mod backup;
 pub mod chain;

@@ -149,6 +149,17 @@ pub struct Revocation {
     pub version: String,
 }
 
+// One published agent this device's account is entitled to (GET /v1/agents). The backend
+// sends more fields (tools, model, system_prompt_ref); the device only needs what the
+// directory list displays, unknown fields are ignored.
+#[derive(Clone, Debug, PartialEq, serde::Deserialize)]
+pub struct AgentSummary {
+    pub id: String,
+    pub display_name: String,
+    #[serde(default)]
+    pub alias: String,
+}
+
 impl BackendClient {
     /// Build the client if a backend is configured, else None (feature stays dark).
     /// Fallback chain mirrors the API-key loading in `llm.rs`: DB -> env -> compile-time.
@@ -398,6 +409,17 @@ impl BackendClient {
         db: &Database,
     ) -> Result<Vec<Revocation>, BackendError> {
         let url = format!("{}/v1/agents/revocations", self.base_url);
+        let resp = self.authed(db, |c, t| c.get(&url).bearer_auth(t)).await?;
+        Self::read_json(resp).await
+    }
+
+    /// The published agents this device's account is entitled to (already filtered
+    /// server-side by plan + grants). The device directory renders this list.
+    pub async fn list_agents(
+        &self,
+        db: &Database,
+    ) -> Result<Vec<AgentSummary>, BackendError> {
+        let url = format!("{}/v1/agents", self.base_url);
         let resp = self.authed(db, |c, t| c.get(&url).bearer_auth(t)).await?;
         Self::read_json(resp).await
     }

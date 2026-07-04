@@ -5,9 +5,7 @@
 
 use crate::application::agent_builder::{build_agent, merge_bound, BuiltAgent};
 use crate::application::chain::{run_chain, ChainOutcome};
-use crate::domain::agent_manifest::{
-    digest_of_stored, parse_manifest, verify_package, ADMIN_PUBKEY,
-};
+use crate::domain::agent_manifest::{digest_of_stored, parse_manifest};
 use crate::infrastructure::backend::BackendClient;
 use crate::infrastructure::mcp::McpRegistry;
 use crate::infrastructure::persistence::Database;
@@ -479,37 +477,11 @@ fn load_built(db: &Database) -> Result<BuiltAgent, String> {
     build_agent(&manifest)
 }
 
-// Arm-time install: check the kill switch, then pin the agent from the backend if it is not already
-// pinned. The revocation list is consulted on every arm (cheap, the cross-device kill switch); a pinned
-// row whose version was revoked is dropped and the arm refused. Once pinned, the local row is reused -
-// `load_built` re-verifies its integrity against the pinned digest, so no fetch is needed to run.
+// Arm-time install of the CRM module's agent. The generic install lives in
+// `agent_directory::ensure_installed`; this keeps the sync/arm paths pinned to their agent.
 async fn ensure_agent_installed(db: &Database) -> Result<(), String> {
-    let backend = BackendClient::from_db(db)
-        .ok_or("no backend configured".to_string())?;
-
-    let revoked = backend
-        .fetch_revocations(db)
+    crate::application::agent_directory::ensure_installed(db, FIXTURE_AGENT_ID)
         .await
-        .map_err(|e| format!("revocation check: {e}"))?;
-
-    if let Some(existing) = db.get_installed_agent(FIXTURE_AGENT_ID) {
-        if revoked
-            .iter()
-            .any(|r| r.id == FIXTURE_AGENT_ID && r.version == existing.version)
-        {
-            db.uninstall_agent(FIXTURE_AGENT_ID)?;
-            return Err(format!("agent `{FIXTURE_AGENT_ID}` was revoked"));
-        }
-        return Ok(());
-    }
-
-    let package = backend
-        .fetch_agent_package(db, FIXTURE_AGENT_ID)
-        .await
-        .map_err(|e| format!("fetch agent package: {e}"))?;
-    let verified = verify_package(&package, ADMIN_PUBKEY)
-        .map_err(|e| format!("verify agent package: {e}"))?;
-    db.install_agent(&verified)
 }
 
 // Drop the pinned row and re-fetch from the backend, so a device that already pinned an older agent
