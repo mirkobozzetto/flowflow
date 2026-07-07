@@ -149,10 +149,12 @@ fn test_cascade_delete_note_removes_reminders() {
 fn test_new_note_reminder_from_intent() {
     let intent = ReminderIntent {
         action: "appeler Paul".into(),
+        items: Vec::new(),
         date: Some("2026-06-03".into()),
         time: Some("15:30".into()),
         time_end: None,
         recurrence: None,
+        until: None,
         location: None,
     };
     let n = NewNoteReminder::from_intent(
@@ -173,10 +175,12 @@ fn test_new_note_reminder_from_intent() {
 
     let ranged = ReminderIntent {
         action: "réunion".into(),
+        items: Vec::new(),
         date: Some("2026-06-03".into()),
         time: Some("14:00".into()),
         time_end: Some("16:00".into()),
         recurrence: None,
+        until: None,
         location: None,
     };
     assert!(ranged.is_event());

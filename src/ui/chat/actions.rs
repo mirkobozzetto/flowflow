@@ -231,10 +231,20 @@ pub fn send_question(
 
     let lang_for_query = lang.clone();
     spawn(async move {
-        // "lance xxx" runs the note-action path (clean confirmation + link card); anything else
-        // is a normal RAG question. Narrow trigger so real questions are never hijacked.
-        let result = if crate::application::intent::is_action_trigger(&question)
-        {
+        // Resolution order (08-activation): an installed agent's alias or trigger words fire
+        // that agent's chain; else "lance xxx" runs the generic note-action path; anything
+        // else is a normal RAG question. No match never guesses an agent.
+        let activation =
+            crate::application::agent_activation::resolve(&db(), &question)
+                .await;
+        let result = if let Some(act) = activation {
+            crate::application::agent_activation::run(&db(), &act, &question)
+                .await
+                .map(|answer| rag::RagResponse {
+                    answer,
+                    sources: vec![],
+                })
+        } else if crate::application::intent::is_action_trigger(&question) {
             rag::run_action(&question, Some(tx)).await
         } else {
             rag::query(

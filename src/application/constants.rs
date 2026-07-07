@@ -220,6 +220,15 @@ created or updated.\n\
 explain your steps, do NOT list the columns or fields, do NOT add preamble or recap.\n\
 4. If the note is not an actionable request, reply in one short line saying there is nothing to run.";
 
+pub const AGENT_TRIGGER_JUDGE_PROMPT: &str = "\
+A keyword prefilter matched the user's message to this agent:\n\
+Agent: {name}\n\
+Purpose: {description}\n\
+\n\
+Decide whether the message is genuinely asking to run THIS agent now (confidence at least 0.7), \
+not merely mentioning a related word in passing or asking a general question.\n\
+Reply with exactly one word: YES or NO.";
+
 pub const REMINDER_EXTRACTION_PROMPT: &str = "\
 You extract timed reminder intents from a personal note. The note may be in French or English.\n\
 \n\

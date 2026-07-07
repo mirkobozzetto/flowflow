@@ -81,13 +81,24 @@ pub const FIXTURE_PACKAGE: &str = r#"{
 /// Drive the installed agent's pinned `sync` chain through the FSM runtime and return a per-state
 /// trace for the trigger UI.
 pub async fn run_sync_chain(db: &Database) -> Result<String, String> {
-    ensure_agent_installed(db).await?;
-    let built = load_built(db)?;
+    run_agent_chain(db, FIXTURE_AGENT_ID, SYNC_CHAIN_NAME, SYNC_GOAL).await
+}
+
+/// Run one named chain of any installed agent through the FSM runtime (activation by alias,
+/// trigger words, or the + palette). Kill switch checked on every run via ensure_installed.
+pub async fn run_agent_chain(
+    db: &Database,
+    agent_id: &str,
+    chain_name: &str,
+    goal: &str,
+) -> Result<String, String> {
+    crate::application::agent_directory::ensure_installed(db, agent_id).await?;
+    let built = load_built(db, agent_id)?;
     let chain = built
         .chains
-        .get(SYNC_CHAIN_NAME)
-        .ok_or_else(|| format!("manifest has no `{SYNC_CHAIN_NAME}` chain"))?;
-    let outcome = run_chain(db, chain, &built, SYNC_GOAL)
+        .get(chain_name)
+        .ok_or_else(|| format!("manifest has no `{chain_name}` chain"))?;
+    let outcome = run_chain(db, chain, &built, goal)
         .await
         .map_err(|e| e.to_string())?;
     Ok(format_outcome(&outcome))
@@ -108,7 +119,7 @@ pub async fn arm_list_spreadsheets(
     db: &Database,
 ) -> Result<Vec<Spreadsheet>, String> {
     ensure_agent_installed(db).await?;
-    let built = load_built(db)?;
+    let built = load_built(db, FIXTURE_AGENT_ID)?;
     let backend = BackendClient::from_db(db)
         .ok_or("no backend configured".to_string())?;
     let reg =
@@ -244,7 +255,7 @@ pub async fn bind_spreadsheet_from_url(
 const SHEET_META_TOOL: &str = "google_sheets_list_sheets";
 
 pub async fn fetch_spreadsheet_name(db: &Database, id: &str) -> Option<String> {
-    let built = load_built(db).ok()?;
+    let built = load_built(db, FIXTURE_AGENT_ID).ok()?;
     let backend = BackendClient::from_db(db)?;
     let reg =
         McpRegistry::connect_agent(db, &backend, &built.slug, &built.agent_id)
@@ -452,18 +463,18 @@ fn first_object_array(
     }
 }
 
-// Load the pinned row (placed by `ensure_agent_installed`), re-check its integrity against the pinned
+// Load the pinned row (placed by `ensure_installed`), re-check its integrity against the pinned
 // digest, and build the runnable agent from its manifest. Sync: the network install happens upstream.
-fn load_built(db: &Database) -> Result<BuiltAgent, String> {
+fn load_built(db: &Database, agent_id: &str) -> Result<BuiltAgent, String> {
     let installed = db
-        .get_installed_agent(FIXTURE_AGENT_ID)
+        .get_installed_agent(agent_id)
         .ok_or("agent not installed")?;
 
     let recomputed = digest_of_stored(&installed.manifest_json)
         .map_err(|e| e.to_string())?;
     if recomputed != installed.content_digest {
         return Err(format!(
-            "pinned digest mismatch for `{FIXTURE_AGENT_ID}`: stored manifest no longer hashes to its pin"
+            "pinned digest mismatch for `{agent_id}`: stored manifest no longer hashes to its pin"
         ));
     }
 
@@ -471,7 +482,7 @@ fn load_built(db: &Database) -> Result<BuiltAgent, String> {
         parse_manifest(&installed.manifest_json).map_err(|e| e.to_string())?;
     // Overlay the arm-time binding so validation and the gate target the sheet the user picked, not
     // the manifest placeholder. Unbound -> the placeholder stands and off-bound writes stay refused.
-    if let Some(binding) = db.get_agent_binding(FIXTURE_AGENT_ID) {
+    if let Some(binding) = db.get_agent_binding(agent_id) {
         merge_bound(&mut manifest.governance.bound_resource, binding);
     }
     build_agent(&manifest)

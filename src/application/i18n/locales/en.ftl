@@ -237,6 +237,7 @@ chat-tool-working = Agent working...
 chat-error = Error
 chat-connector-error = A connected service failed - open Connections in Settings and reconnect if needed
 
+chat-tools-section-agents = Agents
 chat-tools-section-tools = Tools
 chat-tools-section-connectors = Connectors
 chat-tools-web = Web search

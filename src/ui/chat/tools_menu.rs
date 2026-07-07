@@ -70,7 +70,34 @@ fn ToolsMenuBody() -> Element {
         .map(|k| !k.trim().is_empty())
         .unwrap_or(false);
 
+    // The + palette: installed+active agents, a tap sends their launch command through
+    // the normal chat path (same resolution as a typed "lance <alias>").
+    let agents = crate::application::agent_activation::palette_entries(&db());
+
     rsx! {
+        if !agents.is_empty() {
+            div { class: SECTION, {t(&lang, "chat-tools-section-agents")} }
+            for (name, command) in agents {
+                button {
+                    class: ROW,
+                    key: "{command}",
+                    onclick: {
+                        let command = command.clone();
+                        move |_| {
+                            app.show_tools_menu.set(false);
+                            app.pending_chat_input.set(Some(command.clone()));
+                        }
+                    },
+                    span { class: LEAD_ICON, IconChatAi { size: 22 } }
+                    span { class: "flex-1 flex flex-col gap-0.5 min-w-0",
+                        span { class: ROW_TITLE, "{name}" }
+                        span { class: ROW_SUB, "{command}" }
+                    }
+                }
+            }
+            div { class: SEP }
+        }
+
         div { class: SECTION, {t(&lang, "chat-tools-section-tools")} }
 
         button {

@@ -74,6 +74,9 @@ pub struct AppState {
     pub show_thread_menu: Signal<bool>,
     // Opens the thread menu directly on its theme chooser (top-bar theme tap).
     pub show_thread_theme: Signal<bool>,
+    // A command the + palette wants sent as the next chat message ("lance <alias>");
+    // consumed and cleared by the chat input.
+    pub pending_chat_input: Signal<Option<String>>,
     pub show_tools_menu: Signal<bool>,
     pub show_mention_menu: Signal<bool>,
     pub show_note_tools_menu: Signal<bool>,
@@ -122,6 +125,7 @@ impl AppState {
             show_chat_menu: Signal::new(false),
             show_thread_menu: Signal::new(false),
             show_thread_theme: Signal::new(false),
+            pending_chat_input: Signal::new(None),
             show_tools_menu: Signal::new(false),
             show_mention_menu: Signal::new(false),
             show_note_tools_menu: Signal::new(false),

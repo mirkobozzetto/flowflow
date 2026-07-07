@@ -123,6 +123,30 @@ fn keeps_distinct_slots_separate() {
 }
 
 #[test]
+fn recurrence_without_until_is_not_effective() {
+    let raw = r#"{"intents":[{"action":"standup","date":"2026-06-08","time":"09:00","recurrence":"WEEKLY;BYDAY=MO"}]}"#;
+    let v = parse_reminder_intents(raw).unwrap();
+    assert!(v[0].recurrence.is_some());
+    assert!(v[0].effective_recurrence().is_none());
+}
+
+#[test]
+fn recurrence_with_until_is_effective() {
+    let raw = r#"{"intents":[{"action":"point","date":"2026-06-03","time":"09:00","recurrence":"WEEKLY;BYDAY=WE","until":"2026-06-30"}]}"#;
+    let v = parse_reminder_intents(raw).unwrap();
+    assert_eq!(v[0].effective_recurrence(), Some("WEEKLY;BYDAY=WE"));
+    assert_eq!(v[0].resolved_until(), NaiveDate::from_ymd_opt(2026, 6, 30));
+}
+
+#[test]
+fn until_without_recurrence_is_harmless() {
+    let raw = r#"{"intents":[{"action":"x","date":"2026-06-03","until":"2026-06-30"}]}"#;
+    let v = parse_reminder_intents(raw).unwrap();
+    assert!(v[0].effective_recurrence().is_none());
+    assert!(v[0].resolved_until().is_some());
+}
+
+#[test]
 fn folds_a_model_grouped_intent_and_a_stray_at_the_same_slot() {
     let raw = r#"{"intents":[
         {"action":"rendez-vous","items":["acheter X","appeler Y"],"date":"2026-06-02","time":"14:00"},

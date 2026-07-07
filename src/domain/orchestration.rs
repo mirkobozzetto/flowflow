@@ -42,10 +42,39 @@ pub struct Chain {
     pub states: BTreeMap<String, ChainState>,
 }
 
-// The full orchestration object. `triggers` ride in the schema but are a later layer, so only `chains` is
-// modeled today; an unknown trigger block parses and is ignored.
+// A trigger maps a signal to a chain. v1 fires only inside an explicitly activated run
+// (scope in_run): a deterministic case-insensitive keyword prefilter is the hard gate, then an
+// LLM judges the phrasing above `confidence`. Tolerant parsing: an unknown kind or scope simply
+// never fires, so a newer manifest still installs.
+#[derive(Debug, Clone, Deserialize, Serialize)]
+pub struct Trigger {
+    #[serde(default)]
+    pub kind: String,
+    #[serde(default)]
+    pub words: Vec<String>,
+    #[serde(default = "default_scope")]
+    pub scope: String,
+    #[serde(default = "default_confidence")]
+    pub confidence: f32,
+    #[serde(default)]
+    pub cooldown_s: u64,
+    #[serde(default)]
+    pub then: String,
+}
+
+fn default_scope() -> String {
+    "in_run".to_string()
+}
+
+fn default_confidence() -> f32 {
+    0.7
+}
+
+// The full orchestration object: chains (the FSMs) + the triggers that fire them.
 #[derive(Debug, Clone, Default, Deserialize, Serialize)]
 pub struct Orchestration {
+    #[serde(default)]
+    pub triggers: Vec<Trigger>,
     #[serde(default)]
     pub chains: BTreeMap<String, Chain>,
 }

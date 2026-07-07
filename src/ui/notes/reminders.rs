@@ -260,7 +260,7 @@ pub fn ReminderSuggestions(
                                     .map(|tm| format!("{:02}:{:02}", tm.hour(), tm.minute()))
                                     .unwrap_or_else(|| "10:00".to_string())
                             };
-                            let is_rec = intent.recurrence.is_some();
+                            let is_rec = intent.effective_recurrence().is_some();
                             let lang_cb = lang_badge.clone();
                             let confirm = confirm_label.clone();
                             let range_add = range_add_label.clone();

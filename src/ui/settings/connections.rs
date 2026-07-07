@@ -171,6 +171,8 @@ pub fn ConnectionsSettings() -> Element {
                                     if !a.alias.is_empty() {
                                         p { class: "text-[11px] text-stone-400 truncate", "{a.alias}" }
                                     }
+                                    // The id disambiguates same-named agents (display names are not unique).
+                                    code { class: "block text-[10px] font-mono text-stone-400 truncate", "{a.id}" }
                                 }
                                 if a.installed {
                                     button {

@@ -1,4 +1,4 @@
-use chrono::{Datelike, NaiveDate, NaiveTime, Timelike};
+use chrono::{Datelike, NaiveDate, NaiveTime, Timelike, Weekday};
 use serde::Deserialize;
 
 pub const DEFAULT_REMINDER_HOUR: u32 = 9;
@@ -18,6 +18,10 @@ pub struct ReminderIntent {
     pub time_end: Option<String>,
     #[serde(default)]
     pub recurrence: Option<String>,
+    /// Explicit end date for a recurring intent (YYYY-MM-DD). Recurrence is honored ONLY when
+    /// this is set; an open-ended "tous les mercredis" must not create a runaway series.
+    #[serde(default)]
+    pub until: Option<String>,
     #[serde(default)]
     pub location: Option<String>,
 }
@@ -60,6 +64,24 @@ impl ReminderIntent {
         self.resolved_date().is_some()
     }
 
+    pub fn resolved_until(&self) -> Option<NaiveDate> {
+        let raw = self.until.as_deref()?.trim();
+        if raw.is_empty() || raw.eq_ignore_ascii_case("null") {
+            return None;
+        }
+        NaiveDate::parse_from_str(raw, "%Y-%m-%d").ok()
+    }
+
+    /// Recurrence honored only when an explicit end date was given. An open-ended recurring
+    /// phrase degrades to a single reminder rather than an unbounded series.
+    pub fn effective_recurrence(&self) -> Option<&str> {
+        let rec = self.recurrence.as_deref()?.trim();
+        if rec.is_empty() || rec.eq_ignore_ascii_case("null") {
+            return None;
+        }
+        self.resolved_until().is_some().then_some(rec)
+    }
+
     /// Render the grouped sub-tasks as the calendar event's notes body (one "- item" per line),
     /// or None when the reminder is a plain single action with no enumeration.
     pub fn notes_body(&self) -> Option<String> {
@@ -97,14 +119,99 @@ impl ReminderIntent {
             .unwrap_or("")
             .trim()
             .to_uppercase();
+        let until = self
+            .resolved_until()
+            .map(|d| d.to_string())
+            .unwrap_or_default();
         format!(
-            "{}|{}|{}|{}",
+            "{}|{}|{}|{}|{}",
             self.action.trim().to_lowercase(),
             date,
             time_seg,
-            rec
+            rec,
+            until
         )
     }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum RecurrenceFreq {
+    Daily,
+    Weekly,
+    Monthly,
+}
+
+/// Parsed view of the RRULE-like string the extractor emits. Covers exactly the subset the
+/// prompt produces (DAILY, WEEKLY;BYDAY=.., MONTHLY;BYMONTHDAY=..); other iCalendar parts are
+/// ignored. Pure, so the iOS layer only has to map it onto EventKit objects.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct RecurrenceSpec {
+    pub freq: RecurrenceFreq,
+    pub weekdays: Vec<Weekday>,
+    pub month_days: Vec<u8>,
+}
+
+impl RecurrenceSpec {
+    pub fn parse(rrule: &str) -> Option<RecurrenceSpec> {
+        let s = rrule.trim().to_uppercase();
+        if s.is_empty() {
+            return None;
+        }
+        let mut parts = s.split(';').map(str::trim);
+        let freq = match parts.next()? {
+            "DAILY" => RecurrenceFreq::Daily,
+            "WEEKLY" => RecurrenceFreq::Weekly,
+            "MONTHLY" => RecurrenceFreq::Monthly,
+            _ => return None,
+        };
+        let mut weekdays: Vec<Weekday> = Vec::new();
+        let mut month_days: Vec<u8> = Vec::new();
+        for part in parts {
+            let Some((key, value)) = part.split_once('=') else {
+                continue;
+            };
+            match key.trim() {
+                "BYDAY" => {
+                    for code in value.split(',') {
+                        if let Some(w) = parse_byday(code.trim()) {
+                            if !weekdays.contains(&w) {
+                                weekdays.push(w);
+                            }
+                        }
+                    }
+                }
+                "BYMONTHDAY" => {
+                    for raw in value.split(',') {
+                        if let Ok(n) = raw.trim().parse::<u8>() {
+                            if (1..=31).contains(&n) && !month_days.contains(&n)
+                            {
+                                month_days.push(n);
+                            }
+                        }
+                    }
+                }
+                _ => {}
+            }
+        }
+        Some(RecurrenceSpec {
+            freq,
+            weekdays,
+            month_days,
+        })
+    }
+}
+
+fn parse_byday(code: &str) -> Option<Weekday> {
+    Some(match code {
+        "MO" => Weekday::Mon,
+        "TU" => Weekday::Tue,
+        "WE" => Weekday::Wed,
+        "TH" => Weekday::Thu,
+        "FR" => Weekday::Fri,
+        "SA" => Weekday::Sat,
+        "SU" => Weekday::Sun,
+        _ => return None,
+    })
 }
 
 pub fn default_time() -> NaiveTime {

@@ -50,6 +50,18 @@ pub fn ChatInputBar(
     let show_mention = (app.show_mention_menu)();
     let is_desktop = !cfg!(target_os = "ios");
 
+    // The + palette drops a ready-to-run command here ("lance <alias>"): send it as if
+    // the user typed it, so activation rides the exact same path.
+    use_effect(move || {
+        if let Some(cmd) = (app.pending_chat_input)() {
+            let mut app = app;
+            app.pending_chat_input.set(None);
+            if !disabled && !cmd.trim().is_empty() {
+                on_send.call(cmd);
+            }
+        }
+    });
+
     let mut do_send = move || {
         let q = input().trim().to_string();
         if !q.is_empty() && !disabled {
