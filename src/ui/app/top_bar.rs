@@ -122,7 +122,9 @@ pub fn TopBar() -> Element {
                             return;
                         }
                         app.sliding_out.set(true);
-                        spawn(async move {
+                        // spawn_forever: a scope-bound task cancelled by an unmount
+                        // mid-delay would leave sliding_out stuck true (global freeze).
+                        dioxus::core::spawn_forever(async move {
                             futures_timer::Delay::new(std::time::Duration::from_millis(150)).await;
                             app.sliding_out.set(false);
                             app.previous_view.set(None);

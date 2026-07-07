@@ -101,7 +101,62 @@ pub async fn run_agent_chain(
     let outcome = run_chain(db, chain, &built, goal)
         .await
         .map_err(|e| e.to_string())?;
-    Ok(format_outcome(&outcome))
+    Ok(repair_sheet_links(
+        &format_outcome(&outcome),
+        &bound_ids(db),
+    ))
+}
+
+/// The answer step is LLM-composed markdown; models garble long spreadsheet ids when writing
+/// links, producing "file does not exist" URLs. The gate only lets the agent touch ARMED sheets,
+/// so any sheets link whose id is not armed is provably wrong: point it at the single armed sheet
+/// when unambiguous, else drop the link and keep its label.
+pub fn repair_sheet_links(text: &str, valid_ids: &[String]) -> String {
+    const PREFIX: &str = "https://docs.google.com/spreadsheets/d/";
+    let mut out = String::with_capacity(text.len());
+    let mut rest = text;
+    while let Some(pos) = rest.find(PREFIX) {
+        out.push_str(&rest[..pos]);
+        let after = &rest[pos + PREFIX.len()..];
+        let id_len = after
+            .find(|c: char| {
+                !(c.is_ascii_alphanumeric() || c == '-' || c == '_')
+            })
+            .unwrap_or(after.len());
+        let (id, tail) = after.split_at(id_len);
+        if valid_ids.iter().any(|v| v == id) {
+            out.push_str(PREFIX);
+            out.push_str(id);
+        } else if valid_ids.len() == 1 {
+            out.push_str(PREFIX);
+            out.push_str(&valid_ids[0]);
+        } else if let Some(stripped) = strip_link_around(&mut out, tail) {
+            rest = stripped;
+            continue;
+        } else {
+            out.push_str(PREFIX);
+            out.push_str(id);
+        }
+        rest = tail;
+    }
+    out.push_str(rest);
+    out
+}
+
+// `out` ends with "[label](" and `tail` starts at the URL remainder: rewind the markdown link,
+// keep the label, swallow up to the closing paren. Returns the new remainder, or None when the
+// surrounding text is not a markdown link (bare URL with no armed sheet to point at - left as-is).
+fn strip_link_around<'a>(out: &mut String, tail: &'a str) -> Option<&'a str> {
+    let open = out.rfind("](")?;
+    let label_start = out[..open].rfind('[')?;
+    if out[label_start..open].contains(']') {
+        return None;
+    }
+    let label = out[label_start + 1..open].to_string();
+    let close = tail.find(')')?;
+    out.truncate(label_start);
+    out.push_str(&label);
+    Some(&tail[close + 1..])
 }
 
 // One spreadsheet the user can arm the agent to. `modified_at` disambiguates same-named sheets (the
@@ -503,13 +558,6 @@ async fn ensure_agent_installed(db: &Database) -> Result<(), String> {
         .await
 }
 
-// Drop the pinned row and re-fetch from the backend, so a device that already pinned an older agent
-// pulls the current signed package without wiping its notes (the install row is the only thing reset).
-pub async fn reinstall_agent(db: &Database) -> Result<(), String> {
-    db.uninstall_agent(FIXTURE_AGENT_ID)?;
-    ensure_agent_installed(db).await
-}
-
 // Sync guard for the list-pick arm path, which always follows `arm_list_spreadsheets` (where the
 // network install already ran). Bind targets the pinned row's `bound_json`, so a missing row would
 // silently drop the binding - refuse it with a clear message instead.
@@ -523,16 +571,63 @@ fn require_installed(db: &Database) -> Result<(), String> {
     }
 }
 
-// Render the ground-truth tool log first (what each state actually called and got back), then the
-// model's rendered reply. The tool lines are the source of truth; the reply narrates over them.
-fn format_outcome(outcome: &ChainOutcome) -> String {
-    let mut out = String::new();
+// The chat bubble is the ANSWER, not the log: final_text first, then one discreet footer line
+// naming the tools that ran (deduped, no args, no payloads). A blocked run (empty final text)
+// surfaces the last step's outcome - the human-readable block reason - instead. The full
+// ground-truth trace goes to the device log only, where a debugging eye can find it.
+pub fn format_outcome(outcome: &ChainOutcome) -> String {
     for step in &outcome.trace {
-        out.push_str(&format!("[{}]\n", step.state));
+        eprintln!("[chain:{}] {}", step.state, step.outcome);
         for line in &step.tools {
-            out.push_str(&format!("  - {line}\n"));
+            eprintln!("[chain:{}]   - {line}", step.state);
         }
-        out.push_str(&format!("  {}\n", step.outcome));
     }
-    out.trim_end().to_string()
+
+    // A run that broke early (guard block, no servable tool) never reached the terminal
+    // synthesis: its final_text is the raw accumulated transcript. Surface the last step's
+    // human-readable reason instead of that noise.
+    let broke_early = outcome
+        .trace
+        .last()
+        .map(|s| {
+            s.outcome.starts_with("blocked")
+                || s.outcome.starts_with("unavailable")
+        })
+        .unwrap_or(false);
+    let answer = outcome.final_text.trim();
+    let body = if broke_early || answer.is_empty() {
+        outcome
+            .trace
+            .last()
+            .map(|s| s.outcome.trim().to_string())
+            .unwrap_or_default()
+    } else {
+        answer.to_string()
+    };
+
+    let tools = called_tools(outcome);
+    if tools.is_empty() {
+        body
+    } else {
+        format!("{body}\n\n---\n_🛠 {}_", tools.join(" · "))
+    }
+}
+
+// Tool names in call order, deduped, extracted from the ground-truth log lines
+// ("called <tool> <args> -> <decision>"). Language-free by design: names only.
+fn called_tools(outcome: &ChainOutcome) -> Vec<String> {
+    let mut seen = Vec::new();
+    for step in &outcome.trace {
+        for line in &step.tools {
+            let mut words = line.split_whitespace();
+            if words.next() == Some("called") {
+                if let Some(name) = words.next() {
+                    if !seen.iter().any(|s| s == name) {
+                        seen.push(name.to_string());
+                    }
+                }
+            }
+        }
+    }
+    seen
 }

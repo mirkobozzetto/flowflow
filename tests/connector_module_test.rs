@@ -3,8 +3,9 @@
 // the manifest, governance, or chain drift.
 
 use flowflow::application::agent_builder::{build_agent, BuiltAgent};
+use flowflow::application::chain::{ChainOutcome, ChainStep};
 use flowflow::application::connector_module::{
-    bind_spreadsheet, current_bindings, parse_spreadsheets,
+    bind_spreadsheet, current_bindings, format_outcome, parse_spreadsheets,
     python_literal_to_json, spreadsheet_id_from_url, title_from_meta,
     unbind_spreadsheet, FIXTURE_AGENT_ID, FIXTURE_PACKAGE,
 };
@@ -282,4 +283,108 @@ fn state_filter_is_independent_of_the_gate() {
         .state("read")
         .unwrap()
         .permits("google_sheets_get_spreadsheet"));
+}
+
+fn step(state: &str, outcome: &str, tools: &[&str]) -> ChainStep {
+    ChainStep {
+        state: state.into(),
+        outcome: outcome.into(),
+        tools: tools.iter().map(|s| s.to_string()).collect(),
+    }
+}
+
+#[test]
+fn format_outcome_renders_answer_plus_tool_footer_never_json() {
+    let outcome = ChainOutcome {
+        final_text: "Ta feuille contient 3 prospects.".into(),
+        trace: vec![
+            step("find", "narrated {'spreadsheets': [huge json]}", &[
+                "called google_sheets_list_spreadsheets {} -> allowed",
+                "result google_sheets_list_spreadsheets: {'spreadsheets': [huge json]}",
+            ]),
+            step("read", "narration", &[
+                "called google_sheets_get_spreadsheet {\"id\":\"x\"} -> allowed",
+                "result google_sheets_get_spreadsheet: {rows}",
+            ]),
+            step("answer", "Ta feuille contient 3 prospects.", &[]),
+        ],
+    };
+    let out = format_outcome(&outcome);
+    assert!(out.starts_with("Ta feuille contient 3 prospects."));
+    assert!(out.contains("google_sheets_list_spreadsheets"));
+    assert!(out.contains("google_sheets_get_spreadsheet"));
+    assert!(
+        !out.contains("huge json"),
+        "payloads never reach the bubble"
+    );
+    assert!(
+        !out.contains("result "),
+        "raw log lines never reach the bubble"
+    );
+    assert!(
+        !out.contains("[find]"),
+        "state markers never reach the bubble"
+    );
+}
+
+#[test]
+fn format_outcome_surfaces_block_reason_on_early_break() {
+    let outcome = ChainOutcome {
+        // an early break never reached the terminal synthesis: final_text = raw transcript
+        final_text: "[find] narrated stuff".into(),
+        trace: vec![
+            step("find", "narrated stuff", &["called google_sheets_list_spreadsheets {} -> allowed"]),
+            step("act", "blocked: entered a write state before the bound resource was read", &[]),
+        ],
+    };
+    let out = format_outcome(&outcome);
+    assert!(out.starts_with("blocked: entered a write state"));
+    assert!(!out.contains("[find]"));
+}
+
+#[test]
+fn format_outcome_without_tools_is_just_the_answer() {
+    let outcome = ChainOutcome {
+        final_text: "Rien à faire.".into(),
+        trace: vec![step("answer", "Rien à faire.", &[])],
+    };
+    assert_eq!(format_outcome(&outcome), "Rien à faire.");
+}
+
+#[test]
+fn repair_sheet_links_fixes_garbled_id_when_one_sheet_armed() {
+    use flowflow::application::connector_module::repair_sheet_links;
+    let armed = vec!["1RealIdAbc_def-123".to_string()];
+    let text = "Voici [clients à appeler](https://docs.google.com/spreadsheets/d/1Garbled99/edit).";
+    let out = repair_sheet_links(text, &armed);
+    assert!(out.contains(
+        "https://docs.google.com/spreadsheets/d/1RealIdAbc_def-123/edit"
+    ));
+    assert!(!out.contains("1Garbled99"));
+}
+
+#[test]
+fn repair_sheet_links_keeps_a_valid_armed_id() {
+    use flowflow::application::connector_module::repair_sheet_links;
+    let armed = vec!["1RealIdAbc".to_string(), "1OtherId".to_string()];
+    let text = "Ouvre [la feuille](https://docs.google.com/spreadsheets/d/1RealIdAbc/edit#gid=0).";
+    assert_eq!(repair_sheet_links(text, &armed), text);
+}
+
+#[test]
+fn repair_sheet_links_drops_link_on_ambiguous_garble() {
+    use flowflow::application::connector_module::repair_sheet_links;
+    let armed = vec!["1RealIdAbc".to_string(), "1OtherId".to_string()];
+    let text = "Vois [client à appeler](https://docs.google.com/spreadsheets/d/1Wrong/edit) vite.";
+    let out = repair_sheet_links(text, &armed);
+    assert_eq!(out, "Vois client à appeler vite.");
+}
+
+#[test]
+fn repair_sheet_links_leaves_non_sheet_text_alone() {
+    use flowflow::application::connector_module::repair_sheet_links;
+    let armed = vec!["1RealIdAbc".to_string()];
+    let text =
+        "Pas de lien ici, juste du texte et [une note](flowflow://note/42).";
+    assert_eq!(repair_sheet_links(text, &armed), text);
 }

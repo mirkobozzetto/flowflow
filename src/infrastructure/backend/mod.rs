@@ -156,9 +156,9 @@ pub struct ConnectorRevocation {
     pub slug: String,
 }
 
-// One published agent this device's account is entitled to (GET /v1/agents). The backend
-// sends more fields (tools, model, system_prompt_ref); the device only needs what the
-// directory list displays, unknown fields are ignored.
+// One published agent this device's account is entitled to (GET /v1/agents). The backend sends
+// exactly {id, display_name, alias} - the directory list displays these; any unknown field stays
+// ignored so a later backend addition can't break the parse.
 #[derive(Clone, Debug, PartialEq, serde::Deserialize)]
 pub struct AgentSummary {
     pub id: String,

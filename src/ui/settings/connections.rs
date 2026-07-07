@@ -29,8 +29,6 @@ pub fn ConnectionsSettings() -> Element {
     let mut busy = use_signal(|| false);
     let mut dev_copied = use_signal(|| false);
     let mut reload = use_signal(|| 0u32);
-    // The spreadsheet list returned through the gated agent path.
-    let mut test_result: Signal<Option<String>> = use_signal(|| None);
     // Arm-time binding: the sheets offered for selection, and the ones the agent is currently armed to.
     let mut sheets: Signal<
         Vec<crate::application::connector_module::Spreadsheet>,
@@ -39,8 +37,6 @@ pub fn ConnectionsSettings() -> Element {
         crate::application::connector_module::current_bindings(&db())
     });
     let mut listing = use_signal(|| false);
-    // Arm by pasting a sheet URL, an alternative to picking from the listed sheets.
-    let mut url_input = use_signal(String::new);
     // The agent-sheets accordion starts open when nothing is armed yet, to guide the first arming.
     let mut sheets_open = use_signal(|| {
         crate::application::connector_module::current_bindings(&db()).is_empty()
@@ -131,23 +127,6 @@ pub fn ConnectionsSettings() -> Element {
                 }
             }
 
-            button {
-                class: format!("{} w-full", crate::ui::kit::PILL_GHOST),
-                disabled: busy(),
-                onclick: move |_| {
-                    busy.set(true);
-                    let done = t(&lang, "connections-reinstall-agent-done");
-                    spawn(async move {
-                        match crate::application::connector_module::reinstall_agent(&db()).await {
-                            Ok(()) => status.set(Some(done)),
-                            Err(e) => status.set(Some(e)),
-                        }
-                        busy.set(false);
-                    });
-                },
-                {t(&lang, "connections-reinstall-agent")}
-            }
-
             if !agents().is_empty() {
                 div {
                     label { class: "block text-sm font-medium text-stone-700 mb-1",
@@ -167,7 +146,14 @@ pub fn ConnectionsSettings() -> Element {
                                     },
                                 }
                                 div { class: "flex-1 min-w-0",
-                                    p { class: "text-sm font-medium text-stone-800 truncate", "{a.name}" }
+                                    div { class: "flex items-center gap-1.5 min-w-0",
+                                        p { class: "text-sm font-medium text-stone-800 truncate", "{a.name}" }
+                                        if a.stale {
+                                            span { class: "shrink-0 text-[10px] font-medium text-stone-500 bg-stone-100 rounded-full px-1.5 py-0.5",
+                                                {t(&lang, "connections-agent-stale")}
+                                            }
+                                        }
+                                    }
                                     if !a.alias.is_empty() {
                                         p { class: "text-[11px] text-stone-400 truncate", "{a.alias}" }
                                     }
@@ -246,13 +232,6 @@ pub fn ConnectionsSettings() -> Element {
             if let Some(err) = status() {
                 div { class: "rounded-xl border border-ios-red/40 bg-ios-red/5 p-3",
                     p { class: "text-xs text-stone-600 break-words", "{err}" }
-                }
-            }
-
-            if let Some(result) = test_result() {
-                div { class: "rounded-xl border border-stone-200 bg-warm-white p-3",
-                    p { class: "text-[11px] font-medium text-stone-500 mb-1", {t(&lang, "connections-agent-path")} }
-                    p { class: "selectable text-xs text-stone-700 whitespace-pre-wrap break-words", "{result}" }
                 }
             }
 
@@ -358,7 +337,14 @@ pub fn ConnectionsSettings() -> Element {
                                 div { class: "mt-3 pl-[52px]",
                                     button {
                                         class: "w-full flex items-center justify-between min-h-[40px] text-left",
-                                        onclick: move |_| sheets_open.set(!sheets_open()),
+                                        onclick: move |_| {
+                                            let closing = sheets_open();
+                                            sheets_open.set(!closing);
+                                            // Closing also clears the loaded pick list, so reopening starts clean.
+                                            if closing {
+                                                sheets.set(Vec::new());
+                                            }
+                                        },
                                         div { class: "flex items-center gap-2",
                                             p { class: "text-[11px] font-medium text-stone-500", {t(&lang, "connections-agent-sheets")} }
                                             if !bindings().is_empty() {
@@ -417,27 +403,6 @@ pub fn ConnectionsSettings() -> Element {
                                                     }
                                                 }
 
-                                                button {
-                                                    class: crate::ui::kit::PILL_GHOST,
-                                                    disabled: busy(),
-                                                    onclick: {
-                                                        let lang = lang.clone();
-                                                        move |_| {
-                                                            if busy() { return; }
-                                                            busy.set(true);
-                                                            status.set(None);
-                                                            test_result.set(Some(t(&lang, "connections-running")));
-                                                            spawn(async move {
-                                                                match crate::application::connector_module::run_sync_chain(&db()).await {
-                                                                    Ok(text) => test_result.set(Some(text)),
-                                                                    Err(e) => { test_result.set(None); status.set(Some(e)); }
-                                                                }
-                                                                busy.set(false);
-                                                            });
-                                                        }
-                                                    },
-                                                    {t(&lang, "connections-test-run")}
-                                                }
                                             }
 
                                             div { class: "pt-1 border-t border-stone-100 space-y-2",
@@ -511,42 +476,6 @@ pub fn ConnectionsSettings() -> Element {
                                                     }
                                                 }
 
-                                                p { class: "text-[11px] text-stone-400 leading-relaxed pt-1",
-                                                    {t(&lang, "connections-sheet-url-hint")}
-                                                }
-                                                button {
-                                                    class: crate::ui::kit::PILL_GHOST,
-                                                    onclick: move |_| crate::infrastructure::platform::open_url(SHEETS_HOME),
-                                                    {t(&lang, "connections-open-sheets")}
-                                                }
-                                                div { class: "flex items-center gap-2",
-                                                    input {
-                                                        class: format!("{} flex-1 min-w-0", crate::ui::kit::INPUT),
-                                                        r#type: "url",
-                                                        placeholder: t(&lang, "connections-sheet-url-placeholder"),
-                                                        value: "{url_input}",
-                                                        oninput: move |evt| url_input.set(evt.value()),
-                                                    }
-                                                    button {
-                                                        class: crate::ui::kit::PILL_PRIMARY,
-                                                        disabled: busy(),
-                                                        onclick: move |_| {
-                                                            let url = url_input().trim().to_string();
-                                                            if url.is_empty() { return; }
-                                                            status.set(None);
-                                                            spawn(async move {
-                                                                match crate::application::connector_module::bind_spreadsheet_from_url(&db(), &url).await {
-                                                                    Ok(()) => {
-                                                                        bindings.set(crate::application::connector_module::current_bindings(&db()));
-                                                                        url_input.set(String::new());
-                                                                    }
-                                                                    Err(e) => status.set(Some(e)),
-                                                                }
-                                                            });
-                                                        },
-                                                        {t(&lang, "connections-bind")}
-                                                    }
-                                                }
                                             }
                                         }
                                     }
@@ -563,10 +492,6 @@ pub fn ConnectionsSettings() -> Element {
 fn sheet_url(id: &str) -> String {
     format!("https://docs.google.com/spreadsheets/d/{id}/edit")
 }
-
-// The Sheets start page lists every spreadsheet the user owns, so they can open it, copy a sheet's
-// URL, and paste it back to bind without the agent round-trip.
-const SHEETS_HOME: &str = "https://docs.google.com/spreadsheets/u/0/";
 
 // ISO 8601 -> "YYYY-MM-DD HH:MM" so two same-named sheets are told apart. ASCII, so byte slicing is safe.
 fn short_date(iso: &str) -> String {

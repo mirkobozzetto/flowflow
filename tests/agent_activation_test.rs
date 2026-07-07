@@ -86,10 +86,31 @@ fn alias_and_id_fire_direct_case_insensitive() {
             "message: {msg}"
         );
     }
-    // Near-misses never fire: extra words are not the exact form.
+    // A goal appended to the launch form still fires: the rest of the message is the goal.
+    for msg in [
+        "lance synchro-clients maintenant",
+        "lance agent-crm quelle est ma liste de clients à appeler ?",
+        "run synchro-clients, update dupont",
+    ] {
+        assert_eq!(
+            resolve_deterministic(msg, std::slice::from_ref(&m)),
+            expected,
+            "message: {msg}"
+        );
+    }
+    // The boundary protects sibling ids: `agent-crm` must not hijack `agent-crm-v2`,
+    // and a glued word is not a match.
+    for msg in ["lance agent-crm-v2 fais un truc", "lance agent-crmx"] {
+        assert_eq!(
+            resolve_deterministic(msg, std::slice::from_ref(&m)),
+            Resolution::None,
+            "message: {msg}"
+        );
+    }
+    // A bare alias with trailing words stays exact-only (no launch verb, no fire).
     assert_eq!(
         resolve_deterministic(
-            "lance synchro-clients maintenant",
+            "synchro-clients maintenant",
             std::slice::from_ref(&m)
         ),
         Resolution::None

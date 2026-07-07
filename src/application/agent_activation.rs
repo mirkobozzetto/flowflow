@@ -56,7 +56,10 @@ fn activation_for(
     })
 }
 
-// Exact form: the bare alias/id, or "<launch verb> <alias|id>" ("lance synchro-clients").
+// The bare alias/id, "<launch verb> <alias|id>", or that same launch form followed by a free
+// goal ("lance synchro-clients quelle est ma liste ?"): the user naturally appends the question
+// to the activation, and an exact-only match would silently fall through to the generic
+// assistant. The boundary check keeps `agent-x` from hijacking `agent-x-v2`.
 fn alias_match(msg: &str, m: &AgentManifest) -> bool {
     let targets: Vec<String> = [m.alias.as_str(), m.id.as_str()]
         .iter()
@@ -64,7 +67,19 @@ fn alias_match(msg: &str, m: &AgentManifest) -> bool {
         .map(|t| t.to_lowercase())
         .collect();
     targets.iter().any(|t| {
-        msg == t || TRIGGER_VERBS.iter().any(|v| msg == format!("{v} {t}"))
+        msg == t
+            || TRIGGER_VERBS.iter().any(|v| {
+                let head = format!("{v} {t}");
+                msg == head
+                    || msg.strip_prefix(&head).is_some_and(|rest| {
+                        rest.starts_with(|c: char| {
+                            c.is_whitespace()
+                                || (c.is_ascii_punctuation()
+                                    && c != '-'
+                                    && c != '_')
+                        })
+                    })
+            })
     })
 }
 

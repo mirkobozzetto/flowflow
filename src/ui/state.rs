@@ -40,6 +40,16 @@ impl SettingsSection {
     }
 }
 
+// Which sidebar row's context menu is open. ONE global slot instead of a per-row
+// boolean: the outside-click backdrop can then live OUTSIDE the translated drawer
+// panel and outside the row subtree, so deleting the row can never orphan a
+// full-screen tap-eater in the DOM (the "everything frozen after delete" bug).
+#[derive(Clone, Debug, PartialEq)]
+pub enum RowMenu {
+    Conversation(String),
+    Folder(String),
+}
+
 #[derive(Clone, Debug, PartialEq)]
 pub enum View {
     NotesList,
@@ -96,6 +106,7 @@ pub struct AppState {
     pub transcription_done_badge: Signal<usize>,
     pub audio_import_requested: Signal<bool>,
     pub sync_data_version: Signal<u64>,
+    pub row_menu: Signal<Option<RowMenu>>,
     pub view_history: Signal<Vec<View>>,
     pub view_future: Signal<Vec<View>>,
     pub history_nav: Signal<bool>,
@@ -105,6 +116,13 @@ pub struct AppState {
 }
 
 impl AppState {
+    /// Single invalidation point for DB-backed lists that stay mounted (the drawer
+    /// panel never unmounts on mobile): every conversation mutation calls this
+    /// instead of bumping ad-hoc version signals.
+    pub fn invalidate_data(&mut self) {
+        self.sync_data_version.set((self.sync_data_version)() + 1);
+    }
+
     pub fn new(consent: Option<bool>, lang: String) -> Self {
         Self {
             view: Signal::new(View::NotesList),
@@ -141,6 +159,7 @@ impl AppState {
             transcription_done_badge: Signal::new(0),
             audio_import_requested: Signal::new(false),
             sync_data_version: Signal::new(0),
+            row_menu: Signal::new(None),
             view_history: Signal::new(Vec::new()),
             view_future: Signal::new(Vec::new()),
             history_nav: Signal::new(false),

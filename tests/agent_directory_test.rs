@@ -55,12 +55,14 @@ fn mark_installed_joins_backend_list_with_pinned_ids() {
                 name: "A".into(),
                 alias: "run-a".into(),
                 installed: false,
+                stale: false,
             },
             AgentEntry {
                 id: "b".into(),
                 name: "B".into(),
                 alias: String::new(),
                 installed: true,
+                stale: false,
             },
         ]
     );
@@ -93,4 +95,62 @@ fn uninstall_drops_only_the_pinned_row() {
     assert!(db.get_installed_agent(&id).is_none());
     // Idempotent: removing an absent row is not an error.
     uninstall(&db, &id).unwrap();
+}
+
+#[test]
+fn arm_binding_survives_uninstall_and_reinstall() {
+    let dir = tempdir().unwrap();
+    let db = open_db(&dir);
+    let verified = verify_package(FIXTURE_PACKAGE, ADMIN_PUBKEY).unwrap();
+    let id = verified.manifest.id.clone();
+    db.install_agent(&verified).unwrap();
+    let bound = r#"{"spreadsheet_id":["1AbCd"]}"#;
+    db.set_agent_binding(&id, Some(bound)).unwrap();
+
+    // Remove from the directory card: the pinned row goes, the binding is stashed.
+    uninstall(&db, &id).unwrap();
+    assert!(db.get_installed_agent(&id).is_none());
+    assert!(db.get_agent_binding(&id).is_none());
+
+    // Reinstall (the repo half of ensure_installed): the stash restores the armed sheets.
+    db.install_agent(&verified).unwrap();
+    flowflow::application::agent_directory::restore_binding_for_test(&db, &id);
+    let restored = db.get_agent_binding(&id).unwrap();
+    assert_eq!(restored["spreadsheet_id"][0], "1AbCd");
+
+    // The stash is consumed: a later fresh install does not resurrect an old binding.
+    db.set_agent_binding(&id, None).unwrap();
+    flowflow::application::agent_directory::restore_binding_for_test(&db, &id);
+    assert!(db.get_agent_binding(&id).is_none());
+}
+
+#[test]
+fn served_entries_are_never_stale_and_ghosts_are_never_auto_removed() {
+    let dir = tempdir().expect("tempdir");
+    let db = open_db(&dir);
+    // pin the fixture agent, then plant a ghost row under a stale id
+    let verified = verify_package(FIXTURE_PACKAGE, ADMIN_PUBKEY)
+        .expect("fixture verifies");
+    db.install_agent(&verified).unwrap();
+    let mut ghost = verify_package(FIXTURE_PACKAGE, ADMIN_PUBKEY).unwrap();
+    ghost.manifest.id = "crm-sync".into();
+    db.install_agent(&ghost).unwrap();
+
+    // the served join never flags stale rows...
+    let served = mark_installed(
+        vec![AgentSummary {
+            id: "agent-crm-sync".into(),
+            display_name: "CRM Sync".into(),
+            alias: "synchro-clients".into(),
+        }],
+        &["agent-crm-sync".into(), "crm-sync".into()],
+    );
+    assert!(served.iter().all(|e| !e.stale));
+
+    // ...and nothing removes the ghost behind the user's back: the row (and any arm-time
+    // binding it carries) survives until an explicit uninstall from the stale card.
+    assert_eq!(db.list_installed_agents().len(), 2);
+    uninstall(&db, "crm-sync").unwrap();
+    assert_eq!(db.list_installed_agents().len(), 1);
+    assert_eq!(db.list_installed_agents()[0].id, "agent-crm-sync");
 }

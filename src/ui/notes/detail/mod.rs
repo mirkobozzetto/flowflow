@@ -118,7 +118,9 @@ pub fn NoteDetail() -> Element {
     use_effect(move || {
         if deleted() {
             app.sliding_out.set(true);
-            spawn(async move {
+            // spawn_forever: NoteDetail can unmount mid-delay (e.g. a sync-driven
+            // rerender); a cancelled scope task would leave sliding_out stuck true.
+            dioxus::core::spawn_forever(async move {
                 futures_timer::Delay::new(std::time::Duration::from_millis(
                     150,
                 ))

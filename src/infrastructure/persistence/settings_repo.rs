@@ -67,4 +67,11 @@ impl Database {
         .map_err(|e| format!("Set setting: {e}"))?;
         Ok(())
     }
+
+    pub fn delete_setting(&self, key: &str) -> Result<(), String> {
+        let conn = self.conn();
+        conn.execute("DELETE FROM settings WHERE key = ?1", [key])
+            .map_err(|e| format!("Delete setting: {e}"))?;
+        Ok(())
+    }
 }
