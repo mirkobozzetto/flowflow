@@ -5,6 +5,7 @@ pub mod ai;
 pub mod backup;
 pub mod chain;
 pub mod connector_module;
+pub mod connector_pins;
 pub mod constants;
 pub mod embed;
 pub mod error;

@@ -4,6 +4,7 @@ pub mod conflict_repo;
 pub mod conversation_repo;
 pub mod folder_repo;
 pub mod installed_agent_repo;
+pub mod installed_connector_repo;
 pub mod note_link_repo;
 pub mod note_reminder_repo;
 pub mod note_repo;
@@ -269,6 +270,9 @@ impl Database {
                 }
                 if version == 13 {
                     sync_meta::install_sync_triggers(&conn)?;
+                }
+                if version == 17 {
+                    installed_connector_repo::backfill_sheets_pin(&conn)?;
                 }
                 conn.execute(
                     "INSERT OR IGNORE INTO _migrations (version) VALUES (?1)",

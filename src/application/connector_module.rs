@@ -485,7 +485,15 @@ fn load_built(db: &Database, agent_id: &str) -> Result<BuiltAgent, String> {
     if let Some(binding) = db.get_agent_binding(agent_id) {
         merge_bound(&mut manifest.governance.bound_resource, binding);
     }
-    build_agent(&manifest)
+    // Data-driven connector resolution (RFC 0016): the pinned manifest, lowest slug of the type.
+    // No pin (never fetched, or revoked) -> the agent is disarmed with a clear message.
+    let ctype =
+        crate::application::agent_builder::required_connector_type(&manifest)?;
+    let (slug, conn_json) = crate::application::connector_pins::resolve_for_type(db, ctype)
+        .ok_or_else(|| {
+            format!("no connector pinned for type `{ctype}` (revoked or not yet installed)")
+        })?;
+    build_agent(&manifest, &slug, &conn_json)
 }
 
 // Arm-time install of the CRM module's agent. The generic install lives in

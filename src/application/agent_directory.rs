@@ -80,7 +80,23 @@ pub async fn ensure_installed(
         .map_err(|e| format!("fetch agent package: {e}"))?;
     let verified = verify_package(&package, ADMIN_PUBKEY)
         .map_err(|e| format!("verify agent package: {e}"))?;
-    db.install_agent(&verified)
+    db.install_agent(&verified)?;
+
+    // Connector pins ride the same install moment (RFC 0016): revocations first (a revoked slug
+    // must not survive), then fetch + verify + pin what this agent requires. Best-effort: a pin
+    // failure surfaces at arm ("no connector pinned"), never blocks the agent install itself.
+    if let Err(e) =
+        crate::application::connector_pins::apply_revocations(db, &backend)
+            .await
+    {
+        eprintln!("[connectors] revocation sweep failed: {e}");
+    }
+    if let Err(e) =
+        crate::application::connector_pins::refresh_pins(db, &backend).await
+    {
+        eprintln!("[connectors] pin refresh failed: {e}");
+    }
+    Ok(())
 }
 
 /// Drop the pinned row. Bindings and notes are untouched; reinstalling re-fetches the

@@ -12,6 +12,7 @@ use flowflow::domain::agent_manifest::{verify_package, ADMIN_PUBKEY};
 use flowflow::domain::governance::{
     gate, validate_governance, Decision, DenyReason, ProposedCall, RunState,
 };
+use flowflow::infrastructure::persistence::installed_connector_repo::SHEETS_BACKFILL_MANIFEST_JSON;
 use flowflow::infrastructure::persistence::Database;
 use serde_json::json;
 use tempfile::tempdir;
@@ -19,7 +20,8 @@ use tempfile::tempdir;
 fn built() -> BuiltAgent {
     let verified = verify_package(FIXTURE_PACKAGE, ADMIN_PUBKEY)
         .expect("fixture verifies");
-    build_agent(&verified.manifest).expect("fixture builds")
+    build_agent(&verified.manifest, "google", SHEETS_BACKFILL_MANIFEST_JSON)
+        .expect("fixture builds")
 }
 
 #[test]

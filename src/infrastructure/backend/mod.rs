@@ -149,6 +149,13 @@ pub struct Revocation {
     pub version: String,
 }
 
+// A revoked connector slug (RFC 0016): forces the local pin out even while an installed agent still
+// requires it - the agent then surfaces as disarmed instead of dialing into silent 403s.
+#[derive(Clone, Debug, serde::Deserialize)]
+pub struct ConnectorRevocation {
+    pub slug: String,
+}
+
 // One published agent this device's account is entitled to (GET /v1/agents). The backend
 // sends more fields (tools, model, system_prompt_ref); the device only needs what the
 // directory list displays, unknown fields are ignored.
@@ -409,6 +416,27 @@ impl BackendClient {
         db: &Database,
     ) -> Result<Vec<Revocation>, BackendError> {
         let url = format!("{}/v1/agents/revocations", self.base_url);
+        let resp = self.authed(db, |c, t| c.get(&url).bearer_auth(t)).await?;
+        Self::read_json(resp).await
+    }
+
+    /// Every entitled connector's signed manifest envelope (RFC 0016). One call covers install and
+    /// refresh; each envelope is verified against the pinned admin key before pinning.
+    pub async fn fetch_connector_manifests(
+        &self,
+        db: &Database,
+    ) -> Result<Vec<serde_json::Value>, BackendError> {
+        let url = format!("{}/v1/connectors/manifests", self.base_url);
+        let resp = self.authed(db, |c, t| c.get(&url).bearer_auth(t)).await?;
+        Self::read_json(resp).await
+    }
+
+    /// The revoked connector slugs. Unfiltered, mirror of the agents kill switch.
+    pub async fn fetch_connector_revocations(
+        &self,
+        db: &Database,
+    ) -> Result<Vec<ConnectorRevocation>, BackendError> {
+        let url = format!("{}/v1/connectors/revocations", self.base_url);
         let resp = self.authed(db, |c, t| c.get(&url).bearer_auth(t)).await?;
         Self::read_json(resp).await
     }

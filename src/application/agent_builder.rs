@@ -14,36 +14,6 @@ use crate::domain::governance::{
 };
 use crate::domain::orchestration::Chain;
 
-// The connector data manifest (the connector's full MCP surface mapped onto resource/action/risk).
-// Mirrors marketplace-flowflow/connectors/google-sheets.json. `pub` so the builder test asserts the
-// gate Allows the governed read-only tool and Denies anything ungoverned.
-pub const SHEETS_CONNECTOR_MANIFEST_JSON: &str = r#"{
-  "connector": "google-sheets",
-  "type": "tabular_store",
-  "server": "ghcr.io/klavis-ai/google-sheets-mcp-server",
-  "mcp_prefix": "google_sheets_",
-  "provides": ["search", "read", "create", "update"],
-  "tools": [
-    { "tool": "google_sheets_list_spreadsheets",  "resource": "spreadsheet", "action": "search", "risk": "read_only" },
-    { "tool": "google_sheets_get_spreadsheet",    "resource": "spreadsheet", "action": "read",   "risk": "read_only" },
-    { "tool": "google_sheets_list_sheets",        "resource": "sheet",       "action": "read",   "risk": "read_only" },
-    { "tool": "google_sheets_create_spreadsheet", "resource": "spreadsheet", "action": "create", "risk": "read_write" },
-    { "tool": "google_sheets_create_sheets",      "resource": "sheet",       "action": "create", "risk": "read_write" },
-    { "tool": "google_sheets_write_to_cell",      "resource": "cell",        "action": "update", "risk": "read_write" }
-  ]
-}"#;
-
-// Capability-type -> (armed connector slug, its data manifest). One connector today; a real registry
-// or a backend fetch replaces this match when a second connector ships.
-pub fn connector_for_type(
-    connector_type: &str,
-) -> Option<(&'static str, &'static str)> {
-    match connector_type {
-        "tabular_store" => Some(("google", SHEETS_CONNECTOR_MANIFEST_JSON)),
-        _ => None,
-    }
-}
-
 // The resolved, runnable contract handed to the chain runtime / module path. `model` is surfaced for
 // when per-agent model selection lands; the run still uses the provider-configured LlmClient today.
 #[derive(Debug)]
@@ -58,17 +28,26 @@ pub struct BuiltAgent {
     pub chains: BTreeMap<String, Chain>,
 }
 
-/// Resolve + validate a manifest into a runnable agent. Fails closed: an unarmed connector type,
-/// governance that does not validate against the connector, or an unsound chain all stop the build.
-pub fn build_agent(manifest: &AgentManifest) -> Result<BuiltAgent, String> {
-    let req = manifest
+/// The connector TYPE this manifest requires (its first `required_connectors` entry). The caller
+/// resolves it to a pinned (slug, manifest) via `connector_pins` - data, not a compiled match
+/// (RFC 0016) - and hands the resolution in, so the build stays pure.
+pub fn required_connector_type(
+    manifest: &AgentManifest,
+) -> Result<&str, String> {
+    manifest
         .required_connectors
         .first()
-        .ok_or("manifest declares no required_connectors")?;
-    let (slug, conn_json) = connector_for_type(&req.connector_type)
-        .ok_or_else(|| {
-            format!("no connector armed for type `{}`", req.connector_type)
-        })?;
+        .map(|r| r.connector_type.as_str())
+        .ok_or_else(|| "manifest declares no required_connectors".to_string())
+}
+
+/// Validate a manifest against its RESOLVED connector into a runnable agent. Fails closed:
+/// governance that does not validate against the connector, or an unsound chain, stop the build.
+pub fn build_agent(
+    manifest: &AgentManifest,
+    slug: &str,
+    conn_json: &str,
+) -> Result<BuiltAgent, String> {
     let connector = parse_connector_manifest(conn_json)
         .map_err(|e| format!("connector manifest: {e}"))?;
 

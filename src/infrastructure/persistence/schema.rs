@@ -15,7 +15,27 @@ pub const MIGRATIONS: &[(i64, &str)] = &[
     (14, V14_SCHEMA),
     (15, V15_SCHEMA),
     (16, V16_SCHEMA),
+    (17, V17_SCHEMA),
 ];
+
+// Pinned, signed connector manifests (RFC 0016): the (resource, action, risk) classification the
+// gate applies, verified against the pinned admin key before pinning - same trust regime as
+// installed_agents. `version` backs the anti-rollback check; type resolution takes the lowest slug
+// among pins of a type (the shared deterministic order). Backfilled with the compiled Sheets
+// fixture by the v17 migrate hook so existing installs keep working offline.
+const V17_SCHEMA: &str = "
+CREATE TABLE IF NOT EXISTS installed_connectors (
+    slug TEXT PRIMARY KEY,
+    connector_type TEXT NOT NULL,
+    version INTEGER NOT NULL,
+    content_digest TEXT NOT NULL,
+    manifest_json TEXT NOT NULL,
+    pinned_at TEXT NOT NULL
+        DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now'))
+);
+CREATE INDEX IF NOT EXISTS idx_installed_connectors_type
+    ON installed_connectors(connector_type, slug);
+";
 
 // Persistent note-links graph (issue #90). LOCAL and never synced: links are
 // derivable from chunks, so each device computes its own (no version vectors,
