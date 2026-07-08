@@ -53,11 +53,14 @@ fn state_preamble(state: &str, allowed: &[String], transcript: &str) -> String {
 }
 
 /// Run a validated chain to its terminal state through the agent-scoped, gate-enforced path.
+/// `events` feeds the chat status UI (tool start/finish, and the approval proposals): the
+/// caller owns the receiving end, so a chain run is observable end to end.
 pub async fn run_chain(
     db: &Database,
     chain: &Chain,
     agent: &BuiltAgent,
     goal: &str,
+    events: mpsc::UnboundedSender<crate::application::tools::ToolEvent>,
 ) -> Result<ChainOutcome, LlmError> {
     chain
         .validate()
@@ -74,12 +77,13 @@ pub async fn run_chain(
             .map_err(|e| LlmError::Completion(format!("mcp connect: {e}")))?;
 
     // One base contract, shared across states: budgets and read_before_write accumulate over the whole run.
-    let (tx, _rx) = mpsc::unbounded_channel();
+    // The peer lets the hook execute a user-EDITED payload deterministically.
     let base = ContractHook::with_contract(
-        tx,
+        events,
         agent.governance.clone(),
         agent.connector.clone(),
-    );
+    )
+    .with_peer(reg.peer());
 
     let mut trace = Vec::new();
     let mut transcript = String::new();
@@ -90,7 +94,14 @@ pub async fn run_chain(
     // (validation already rejects cycles, this is belt-and-suspenders).
     for _ in 0..=chain.states.len() {
         let state = chain.state(&name).expect("validated reachable state");
-        base.set_elapsed(start.elapsed().as_secs());
+        // The run clock excludes time spent suspended on approval cards: `max_run_seconds`
+        // bounds compute time, never the user's think-time.
+        base.set_elapsed(
+            start
+                .elapsed()
+                .as_secs()
+                .saturating_sub(base.held_seconds()),
+        );
 
         // Coarse: blocks entry into a write state until SOME bound resource was read. The gate still
         // enforces read-before-write per resource, denying a write to a sibling that was not itself read.
@@ -163,6 +174,18 @@ pub async fn run_chain(
             outcome: reply,
             tools,
         });
+
+        // A rejected/expired approval card ends the run's remaining write intents: jump
+        // straight to the terminal answer so downstream write states never run.
+        if base.aborted() {
+            name = chain
+                .states
+                .iter()
+                .find(|(_, s)| s.terminal)
+                .map(|(n, _)| n.clone())
+                .expect("validated chain reaches a terminal");
+            continue;
+        }
 
         name = state
             .on_done

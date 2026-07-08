@@ -11,6 +11,7 @@ mod user_bubble;
 mod view;
 
 pub(crate) mod action_card;
+pub(crate) mod approval_card;
 pub(crate) mod chat_input;
 
 pub use actions::md_to_html;

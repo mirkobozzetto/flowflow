@@ -362,7 +362,7 @@ impl ProposedCall {
 
 // Mutable per-run accounting. The gate VERIFIES against it and, only on Allow, COMMITS to it (advances
 // budgets, records the read). `steps`/`elapsed_seconds` are owned by the caller (the chain runtime) and
-// updated there; the gate only reads them against `limits`.
+// updated there; the gate only reads them against `limits`. A Hold commits nothing.
 #[derive(Debug, Clone, Default)]
 pub struct RunState {
     pub tool_calls: u32,
@@ -372,11 +372,17 @@ pub struct RunState {
     // The resources read this run, keyed by `resource_key`. read_before_write checks the write's own
     // resource is in here, so a read of one bound sheet never satisfies a write to another.
     pub read_resources: BTreeSet<String>,
+    // One-shot approval grants by call fingerprint: inserted when the user approves a held
+    // proposal, CONSUMED by the gate pass that executes it. One approval = one execution.
+    pub approvals: BTreeSet<String>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Decision {
     Allow,
+    // A legal require_approval write, suspended until the user decides. Only a call every
+    // other check would Allow can be held: a card never shows a call the gate refuses.
+    Hold(Proposal),
     Deny(DenyReason),
 }
 
@@ -384,6 +390,26 @@ impl Decision {
     pub fn is_allowed(&self) -> bool {
         matches!(self, Decision::Allow)
     }
+}
+
+// The domain-pure description of a suspended call. `fingerprint` is its approval identity:
+// canonical(tool + args), so an edited payload is a NEW proposal and a stale approval can
+// never authorize different bytes.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct Proposal {
+    pub tool: String,
+    pub action: Action,
+    pub args: serde_json::Value,
+    pub fingerprint: String,
+}
+
+/// The approval identity of a call: tool + canonically-serialized args (sorted keys, compact),
+/// so key order or whitespace can never mint a second identity for the same payload.
+pub fn call_fingerprint(tool: &str, args: &serde_json::Value) -> String {
+    format!(
+        "{tool}:{}",
+        crate::domain::agent_manifest::canonical_json(args)
+    )
 }
 
 // The single structured reason a call was denied: surfaced to the model (as the Skip reason) so it
@@ -622,6 +648,21 @@ pub fn gate(
                     max_seconds: max as u64,
                 });
             }
+        }
+    }
+
+    // Approval floor, last: only a call every check above allows can be held, so the card
+    // never shows a call the gate refuses. The grant is one-shot: consumed by THIS pass, so
+    // one approval executes exactly one call and edited args (a new fingerprint) re-hold.
+    if tp.approval == Approval::RequireApproval && ct.action.is_write() {
+        let fp = call_fingerprint(&call.tool, &call.args);
+        if !run.approvals.remove(&fp) {
+            return Decision::Hold(Proposal {
+                tool: call.tool.clone(),
+                action: ct.action,
+                args: call.args.clone(),
+                fingerprint: fp,
+            });
         }
     }
 

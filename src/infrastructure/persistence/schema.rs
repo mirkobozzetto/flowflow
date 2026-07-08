@@ -16,7 +16,33 @@ pub const MIGRATIONS: &[(i64, &str)] = &[
     (15, V15_SCHEMA),
     (16, V16_SCHEMA),
     (17, V17_SCHEMA),
+    (18, V18_SCHEMA),
 ];
+
+// Approval cards (RFC 0019) persist as messages with role "proposal", but the original
+// conversation_messages CHECK only admits 'user'/'bot'. SQLite cannot alter a CHECK in place,
+// so rebuild the table with the widened constraint and copy the rows. The sync triggers bound
+// to the old table are dropped with it and reinstalled by the v18 migrate hook.
+const V18_SCHEMA: &str = "
+CREATE TABLE conversation_messages_new (
+    id TEXT PRIMARY KEY,
+    conversation_id TEXT NOT NULL
+        REFERENCES conversations(id) ON DELETE CASCADE,
+    role TEXT NOT NULL CHECK (role IN ('user', 'bot', 'proposal')),
+    content TEXT NOT NULL,
+    sources_json TEXT,
+    created_at TEXT NOT NULL
+        DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now'))
+);
+INSERT INTO conversation_messages_new
+    (id, conversation_id, role, content, sources_json, created_at)
+    SELECT id, conversation_id, role, content, sources_json, created_at
+    FROM conversation_messages;
+DROP TABLE conversation_messages;
+ALTER TABLE conversation_messages_new RENAME TO conversation_messages;
+CREATE INDEX IF NOT EXISTS idx_cm_conversation
+    ON conversation_messages(conversation_id);
+";
 
 // Pinned, signed connector manifests (RFC 0016): the (resource, action, risk) classification the
 // gate applies, verified against the pinned admin key before pinning - same trust regime as

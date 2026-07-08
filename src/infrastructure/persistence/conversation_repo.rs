@@ -184,6 +184,22 @@ impl Database {
         })
     }
 
+    // Rewrite a message's content in place. Used to update a persisted proposal card from its
+    // Pending propose-time shape to its final decided status, without a new row or migration.
+    pub fn update_message_content(
+        &self,
+        message_id: &str,
+        content: &str,
+    ) -> Result<(), String> {
+        let conn = self.conn();
+        conn.execute(
+            "UPDATE conversation_messages SET content = ?1 WHERE id = ?2",
+            rusqlite::params![content, message_id],
+        )
+        .map_err(|e| format!("Update message content: {e}"))?;
+        Ok(())
+    }
+
     pub fn list_messages(
         &self,
         conversation_id: &str,

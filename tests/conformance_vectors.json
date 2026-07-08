@@ -5,12 +5,37 @@
     "type": "tabular_store",
     "server": "ghcr.io/klavis-ai/google-sheets-mcp-server",
     "mcp_prefix": "google_sheets_",
-    "provides": ["search", "read", "create", "update"],
+    "provides": [
+      "search",
+      "read",
+      "create",
+      "update"
+    ],
     "tools": [
-      { "tool": "google_sheets_list_spreadsheets", "resource": "spreadsheet", "action": "search", "risk": "read_only" },
-      { "tool": "google_sheets_get_spreadsheet", "resource": "spreadsheet", "action": "read", "risk": "read_only" },
-      { "tool": "google_sheets_write_to_cell", "resource": "cell", "action": "update", "risk": "read_write" },
-      { "tool": "google_sheets_wipe", "resource": "cell", "action": "update", "risk": "destructive" }
+      {
+        "tool": "google_sheets_list_spreadsheets",
+        "resource": "spreadsheet",
+        "action": "search",
+        "risk": "read_only"
+      },
+      {
+        "tool": "google_sheets_get_spreadsheet",
+        "resource": "spreadsheet",
+        "action": "read",
+        "risk": "read_only"
+      },
+      {
+        "tool": "google_sheets_write_to_cell",
+        "resource": "cell",
+        "action": "update",
+        "risk": "read_write"
+      },
+      {
+        "tool": "google_sheets_wipe",
+        "resource": "cell",
+        "action": "update",
+        "risk": "destructive"
+      }
     ]
   },
   "gate_vectors": [
@@ -18,201 +43,567 @@
       "name": "read_then_write_same_resource_allowed",
       "governance": {
         "tools": [
-          { "tool": "google_sheets_get_spreadsheet", "mode": "read_only" },
-          { "tool": "google_sheets_write_to_cell", "mode": "read_write" }
+          {
+            "tool": "google_sheets_get_spreadsheet",
+            "mode": "read_only"
+          },
+          {
+            "tool": "google_sheets_write_to_cell",
+            "mode": "read_write"
+          }
         ],
-        "bound_resource": { "spreadsheet_id": ["SHEET_A", "SHEET_B"] },
+        "bound_resource": {
+          "spreadsheet_id": [
+            "SHEET_A",
+            "SHEET_B"
+          ]
+        },
         "read_before_write": true,
         "deny_destructive": true
       },
       "calls": [
-        { "tool": "google_sheets_get_spreadsheet", "args": { "spreadsheet_id": "SHEET_A" }, "expect": "allow" },
-        { "tool": "google_sheets_write_to_cell", "args": { "spreadsheet_id": "SHEET_A", "cell": "B2", "value": "x" }, "expect": "allow" }
+        {
+          "tool": "google_sheets_get_spreadsheet",
+          "args": {
+            "spreadsheet_id": "SHEET_A"
+          },
+          "expect": "allow"
+        },
+        {
+          "tool": "google_sheets_write_to_cell",
+          "args": {
+            "spreadsheet_id": "SHEET_A",
+            "cell": "B2",
+            "value": "x"
+          },
+          "expect": "allow"
+        }
       ]
     },
     {
       "name": "read_sibling_then_write_other_denied_per_resource",
       "governance": {
         "tools": [
-          { "tool": "google_sheets_get_spreadsheet", "mode": "read_only" },
-          { "tool": "google_sheets_write_to_cell", "mode": "read_write" }
+          {
+            "tool": "google_sheets_get_spreadsheet",
+            "mode": "read_only"
+          },
+          {
+            "tool": "google_sheets_write_to_cell",
+            "mode": "read_write"
+          }
         ],
-        "bound_resource": { "spreadsheet_id": ["SHEET_A", "SHEET_B"] },
+        "bound_resource": {
+          "spreadsheet_id": [
+            "SHEET_A",
+            "SHEET_B"
+          ]
+        },
         "read_before_write": true,
         "deny_destructive": true
       },
       "calls": [
-        { "tool": "google_sheets_get_spreadsheet", "args": { "spreadsheet_id": "SHEET_A" }, "expect": "allow" },
-        { "tool": "google_sheets_write_to_cell", "args": { "spreadsheet_id": "SHEET_B", "cell": "B2", "value": "x" }, "expect": "read_before_write" }
+        {
+          "tool": "google_sheets_get_spreadsheet",
+          "args": {
+            "spreadsheet_id": "SHEET_A"
+          },
+          "expect": "allow"
+        },
+        {
+          "tool": "google_sheets_write_to_cell",
+          "args": {
+            "spreadsheet_id": "SHEET_B",
+            "cell": "B2",
+            "value": "x"
+          },
+          "expect": "read_before_write"
+        }
       ]
     },
     {
       "name": "write_before_any_read_denied",
       "governance": {
         "tools": [
-          { "tool": "google_sheets_get_spreadsheet", "mode": "read_only" },
-          { "tool": "google_sheets_write_to_cell", "mode": "read_write" }
+          {
+            "tool": "google_sheets_get_spreadsheet",
+            "mode": "read_only"
+          },
+          {
+            "tool": "google_sheets_write_to_cell",
+            "mode": "read_write"
+          }
         ],
-        "bound_resource": { "spreadsheet_id": "SHEET_A" },
+        "bound_resource": {
+          "spreadsheet_id": "SHEET_A"
+        },
         "read_before_write": true,
         "deny_destructive": true
       },
       "calls": [
-        { "tool": "google_sheets_write_to_cell", "args": { "spreadsheet_id": "SHEET_A", "cell": "B2" }, "expect": "read_before_write" }
+        {
+          "tool": "google_sheets_write_to_cell",
+          "args": {
+            "spreadsheet_id": "SHEET_A",
+            "cell": "B2"
+          },
+          "expect": "read_before_write"
+        }
       ]
     },
     {
       "name": "tool_not_in_governed_denied",
       "governance": {
-        "tools": [ { "tool": "google_sheets_list_spreadsheets", "mode": "read_only" } ],
+        "tools": [
+          {
+            "tool": "google_sheets_list_spreadsheets",
+            "mode": "read_only"
+          }
+        ],
         "read_before_write": false,
         "deny_destructive": true
       },
       "calls": [
-        { "tool": "google_sheets_write_to_cell", "args": { "spreadsheet_id": "SHEET_A" }, "expect": "not_allowed" }
+        {
+          "tool": "google_sheets_write_to_cell",
+          "args": {
+            "spreadsheet_id": "SHEET_A"
+          },
+          "expect": "not_allowed"
+        }
       ]
     },
     {
       "name": "tool_governed_but_absent_from_connector_is_unknown",
       "governance": {
-        "tools": [ { "tool": "ghost_tool", "mode": "read_only" } ],
+        "tools": [
+          {
+            "tool": "ghost_tool",
+            "mode": "read_only"
+          }
+        ],
         "read_before_write": false,
         "deny_destructive": true
       },
       "calls": [
-        { "tool": "ghost_tool", "args": {}, "expect": "unknown_tool" }
+        {
+          "tool": "ghost_tool",
+          "args": {},
+          "expect": "unknown_tool"
+        }
       ]
     },
     {
       "name": "mode_forbids_action_mismatch",
       "governance": {
-        "tools": [ { "tool": "google_sheets_write_to_cell", "mode": "read_only" } ],
+        "tools": [
+          {
+            "tool": "google_sheets_write_to_cell",
+            "mode": "read_only"
+          }
+        ],
         "read_before_write": false,
         "deny_destructive": true
       },
       "calls": [
-        { "tool": "google_sheets_write_to_cell", "args": { "spreadsheet_id": "SHEET_A", "cell": "B2" }, "expect": "mode_action_mismatch" }
+        {
+          "tool": "google_sheets_write_to_cell",
+          "args": {
+            "spreadsheet_id": "SHEET_A",
+            "cell": "B2"
+          },
+          "expect": "mode_action_mismatch"
+        }
       ]
     },
     {
       "name": "destructive_risk_floor_denies",
       "governance": {
-        "tools": [ { "tool": "google_sheets_wipe", "mode": "read_write" } ],
+        "tools": [
+          {
+            "tool": "google_sheets_wipe",
+            "mode": "read_write"
+          }
+        ],
         "read_before_write": false,
         "deny_destructive": true
       },
       "calls": [
-        { "tool": "google_sheets_wipe", "args": { "spreadsheet_id": "SHEET_A", "cell": "B2" }, "expect": "destructive" }
+        {
+          "tool": "google_sheets_wipe",
+          "args": {
+            "spreadsheet_id": "SHEET_A",
+            "cell": "B2"
+          },
+          "expect": "destructive"
+        }
       ]
     },
     {
       "name": "out_of_bound_write_denied_after_read",
       "governance": {
         "tools": [
-          { "tool": "google_sheets_get_spreadsheet", "mode": "read_only" },
-          { "tool": "google_sheets_write_to_cell", "mode": "read_write" }
+          {
+            "tool": "google_sheets_get_spreadsheet",
+            "mode": "read_only"
+          },
+          {
+            "tool": "google_sheets_write_to_cell",
+            "mode": "read_write"
+          }
         ],
-        "bound_resource": { "spreadsheet_id": "SHEET_A" },
+        "bound_resource": {
+          "spreadsheet_id": "SHEET_A"
+        },
         "read_before_write": true,
         "deny_destructive": true
       },
       "calls": [
-        { "tool": "google_sheets_get_spreadsheet", "args": { "spreadsheet_id": "SHEET_A" }, "expect": "allow" },
-        { "tool": "google_sheets_write_to_cell", "args": { "spreadsheet_id": "OTHER", "cell": "B2" }, "expect": "out_of_bound_resource" }
+        {
+          "tool": "google_sheets_get_spreadsheet",
+          "args": {
+            "spreadsheet_id": "SHEET_A"
+          },
+          "expect": "allow"
+        },
+        {
+          "tool": "google_sheets_write_to_cell",
+          "args": {
+            "spreadsheet_id": "OTHER",
+            "cell": "B2"
+          },
+          "expect": "out_of_bound_resource"
+        }
       ]
     },
     {
       "name": "write_to_read_only_column_denied",
       "governance": {
-        "tools": [ { "tool": "google_sheets_write_to_cell", "mode": "read_write" } ],
-        "bound_resource": { "spreadsheet_id": "SHEET_A" },
-        "column_roles": { "Statut": "writable", "Nom": "read_only" },
+        "tools": [
+          {
+            "tool": "google_sheets_write_to_cell",
+            "mode": "read_write"
+          }
+        ],
+        "bound_resource": {
+          "spreadsheet_id": "SHEET_A"
+        },
+        "column_roles": {
+          "Statut": "writable",
+          "Nom": "read_only"
+        },
         "read_before_write": false,
         "deny_destructive": true
       },
       "calls": [
-        { "tool": "google_sheets_write_to_cell", "args": { "spreadsheet_id": "SHEET_A", "cell": "B2" }, "columns": ["Nom"], "expect": "column_not_writable" }
+        {
+          "tool": "google_sheets_write_to_cell",
+          "args": {
+            "spreadsheet_id": "SHEET_A",
+            "cell": "B2"
+          },
+          "columns": [
+            "Nom"
+          ],
+          "expect": "column_not_writable"
+        }
       ]
     },
     {
       "name": "write_to_ungoverned_column_denied",
       "governance": {
-        "tools": [ { "tool": "google_sheets_write_to_cell", "mode": "read_write" } ],
-        "bound_resource": { "spreadsheet_id": "SHEET_A" },
-        "column_roles": { "Statut": "writable" },
+        "tools": [
+          {
+            "tool": "google_sheets_write_to_cell",
+            "mode": "read_write"
+          }
+        ],
+        "bound_resource": {
+          "spreadsheet_id": "SHEET_A"
+        },
+        "column_roles": {
+          "Statut": "writable"
+        },
         "read_before_write": false,
         "deny_destructive": true
       },
       "calls": [
-        { "tool": "google_sheets_write_to_cell", "args": { "spreadsheet_id": "SHEET_A", "cell": "B2" }, "columns": ["Telephone"], "expect": "ungoverned_column" }
+        {
+          "tool": "google_sheets_write_to_cell",
+          "args": {
+            "spreadsheet_id": "SHEET_A",
+            "cell": "B2"
+          },
+          "columns": [
+            "Telephone"
+          ],
+          "expect": "ungoverned_column"
+        }
       ]
     },
     {
       "name": "search_exempt_from_bound_and_read",
       "governance": {
-        "tools": [ { "tool": "google_sheets_list_spreadsheets", "mode": "read_only" } ],
-        "bound_resource": { "spreadsheet_id": "SHEET_A" },
+        "tools": [
+          {
+            "tool": "google_sheets_list_spreadsheets",
+            "mode": "read_only"
+          }
+        ],
+        "bound_resource": {
+          "spreadsheet_id": "SHEET_A"
+        },
         "read_before_write": true,
         "deny_destructive": true
       },
       "calls": [
-        { "tool": "google_sheets_list_spreadsheets", "args": {}, "expect": "allow" }
+        {
+          "tool": "google_sheets_list_spreadsheets",
+          "args": {},
+          "expect": "allow"
+        }
       ]
     },
     {
       "name": "per_tool_budget_enforced",
       "governance": {
         "tools": [
-          { "tool": "google_sheets_get_spreadsheet", "mode": "read_only" },
-          { "tool": "google_sheets_write_to_cell", "mode": "read_write", "max_calls_per_run": 1 }
+          {
+            "tool": "google_sheets_get_spreadsheet",
+            "mode": "read_only"
+          },
+          {
+            "tool": "google_sheets_write_to_cell",
+            "mode": "read_write",
+            "max_calls_per_run": 1
+          }
         ],
-        "bound_resource": { "spreadsheet_id": "SHEET_A" },
+        "bound_resource": {
+          "spreadsheet_id": "SHEET_A"
+        },
         "read_before_write": true,
         "deny_destructive": true
       },
       "calls": [
-        { "tool": "google_sheets_get_spreadsheet", "args": { "spreadsheet_id": "SHEET_A" }, "expect": "allow" },
-        { "tool": "google_sheets_write_to_cell", "args": { "spreadsheet_id": "SHEET_A", "cell": "B2" }, "expect": "allow" },
-        { "tool": "google_sheets_write_to_cell", "args": { "spreadsheet_id": "SHEET_A", "cell": "B3" }, "expect": "per_tool_budget" }
+        {
+          "tool": "google_sheets_get_spreadsheet",
+          "args": {
+            "spreadsheet_id": "SHEET_A"
+          },
+          "expect": "allow"
+        },
+        {
+          "tool": "google_sheets_write_to_cell",
+          "args": {
+            "spreadsheet_id": "SHEET_A",
+            "cell": "B2"
+          },
+          "expect": "allow"
+        },
+        {
+          "tool": "google_sheets_write_to_cell",
+          "args": {
+            "spreadsheet_id": "SHEET_A",
+            "cell": "B3"
+          },
+          "expect": "per_tool_budget"
+        }
       ]
     },
     {
       "name": "run_tool_call_budget_enforced",
       "governance": {
-        "tools": [ { "tool": "google_sheets_list_spreadsheets", "mode": "read_only" } ],
+        "tools": [
+          {
+            "tool": "google_sheets_list_spreadsheets",
+            "mode": "read_only"
+          }
+        ],
         "read_before_write": false,
         "deny_destructive": true,
-        "limits": { "max_tool_calls": 1 }
+        "limits": {
+          "max_tool_calls": 1
+        }
       },
       "calls": [
-        { "tool": "google_sheets_list_spreadsheets", "args": {}, "expect": "allow" },
-        { "tool": "google_sheets_list_spreadsheets", "args": {}, "expect": "tool_call_budget" }
+        {
+          "tool": "google_sheets_list_spreadsheets",
+          "args": {},
+          "expect": "allow"
+        },
+        {
+          "tool": "google_sheets_list_spreadsheets",
+          "args": {},
+          "expect": "tool_call_budget"
+        }
       ]
     },
     {
       "name": "step_budget_enforced",
       "governance": {
-        "tools": [ { "tool": "google_sheets_list_spreadsheets", "mode": "read_only" } ],
+        "tools": [
+          {
+            "tool": "google_sheets_list_spreadsheets",
+            "mode": "read_only"
+          }
+        ],
         "read_before_write": false,
         "deny_destructive": true,
-        "limits": { "max_steps": 6 }
+        "limits": {
+          "max_steps": 6
+        }
       },
-      "run_seed": { "steps": 6 },
+      "run_seed": {
+        "steps": 6
+      },
       "calls": [
-        { "tool": "google_sheets_list_spreadsheets", "args": {}, "expect": "step_budget" }
+        {
+          "tool": "google_sheets_list_spreadsheets",
+          "args": {},
+          "expect": "step_budget"
+        }
       ]
     },
     {
       "name": "time_budget_enforced",
       "governance": {
-        "tools": [ { "tool": "google_sheets_list_spreadsheets", "mode": "read_only" } ],
+        "tools": [
+          {
+            "tool": "google_sheets_list_spreadsheets",
+            "mode": "read_only"
+          }
+        ],
         "read_before_write": false,
         "deny_destructive": true,
-        "limits": { "max_run_seconds": 120 }
+        "limits": {
+          "max_run_seconds": 120
+        }
       },
-      "run_seed": { "elapsed_seconds": 120 },
+      "run_seed": {
+        "elapsed_seconds": 120
+      },
       "calls": [
-        { "tool": "google_sheets_list_spreadsheets", "args": {}, "expect": "time_budget" }
+        {
+          "tool": "google_sheets_list_spreadsheets",
+          "args": {},
+          "expect": "time_budget"
+        }
+      ]
+    },
+    {
+      "name": "require_approval_write_holds_after_read",
+      "governance": {
+        "tools": [
+          {
+            "tool": "google_sheets_get_spreadsheet",
+            "mode": "read_only"
+          },
+          {
+            "tool": "google_sheets_write_to_cell",
+            "mode": "read_write",
+            "approval": "require_approval"
+          }
+        ],
+        "bound_resource": {
+          "spreadsheet_id": [
+            "SHEET_A"
+          ]
+        },
+        "read_before_write": true,
+        "deny_destructive": true
+      },
+      "calls": [
+        {
+          "tool": "google_sheets_get_spreadsheet",
+          "args": {
+            "spreadsheet_id": "SHEET_A"
+          },
+          "expect": "allow"
+        },
+        {
+          "tool": "google_sheets_write_to_cell",
+          "args": {
+            "spreadsheet_id": "SHEET_A",
+            "cell": "B2",
+            "value": "x"
+          },
+          "expect": "hold"
+        },
+        {
+          "tool": "google_sheets_write_to_cell",
+          "args": {
+            "spreadsheet_id": "SHEET_A",
+            "cell": "B2",
+            "value": "x"
+          },
+          "expect": "hold"
+        }
+      ]
+    },
+    {
+      "name": "require_approval_read_stays_direct",
+      "governance": {
+        "tools": [
+          {
+            "tool": "google_sheets_get_spreadsheet",
+            "mode": "read_only"
+          },
+          {
+            "tool": "google_sheets_write_to_cell",
+            "mode": "read_write",
+            "approval": "require_approval"
+          }
+        ],
+        "bound_resource": {
+          "spreadsheet_id": [
+            "SHEET_A"
+          ]
+        },
+        "read_before_write": true,
+        "deny_destructive": true
+      },
+      "calls": [
+        {
+          "tool": "google_sheets_get_spreadsheet",
+          "args": {
+            "spreadsheet_id": "SHEET_A"
+          },
+          "expect": "allow"
+        }
+      ]
+    },
+    {
+      "name": "require_approval_illegal_write_denies_not_holds",
+      "governance": {
+        "tools": [
+          {
+            "tool": "google_sheets_get_spreadsheet",
+            "mode": "read_only"
+          },
+          {
+            "tool": "google_sheets_write_to_cell",
+            "mode": "read_write",
+            "approval": "require_approval"
+          }
+        ],
+        "bound_resource": {
+          "spreadsheet_id": [
+            "SHEET_A"
+          ]
+        },
+        "read_before_write": true,
+        "deny_destructive": true
+      },
+      "calls": [
+        {
+          "tool": "google_sheets_write_to_cell",
+          "args": {
+            "spreadsheet_id": "SHEET_A",
+            "cell": "B2",
+            "value": "x"
+          },
+          "expect": "read_before_write"
+        }
       ]
     }
   ],
@@ -222,10 +613,28 @@
       "chain": {
         "initial": "find",
         "states": {
-          "find": { "allowed_tools": ["google_sheets_list_spreadsheets"], "on_done": "read" },
-          "read": { "allowed_tools": ["google_sheets_get_spreadsheet"], "on_done": "act" },
-          "act": { "allowed_tools": ["google_sheets_write_to_cell"], "guard": "read_before_write", "on_done": "answer" },
-          "answer": { "terminal": true }
+          "find": {
+            "allowed_tools": [
+              "google_sheets_list_spreadsheets"
+            ],
+            "on_done": "read"
+          },
+          "read": {
+            "allowed_tools": [
+              "google_sheets_get_spreadsheet"
+            ],
+            "on_done": "act"
+          },
+          "act": {
+            "allowed_tools": [
+              "google_sheets_write_to_cell"
+            ],
+            "guard": "read_before_write",
+            "on_done": "answer"
+          },
+          "answer": {
+            "terminal": true
+          }
         }
       },
       "expect": "ok"
@@ -235,9 +644,21 @@
       "chain": {
         "initial": "find",
         "states": {
-          "find": { "allowed_tools": ["google_sheets_list_spreadsheets"], "on_done": "answer" },
-          "answer": { "terminal": true },
-          "orphan": { "allowed_tools": ["google_sheets_get_spreadsheet"], "on_done": "answer" }
+          "find": {
+            "allowed_tools": [
+              "google_sheets_list_spreadsheets"
+            ],
+            "on_done": "answer"
+          },
+          "answer": {
+            "terminal": true
+          },
+          "orphan": {
+            "allowed_tools": [
+              "google_sheets_get_spreadsheet"
+            ],
+            "on_done": "answer"
+          }
         }
       },
       "expect": "err"
@@ -247,8 +668,16 @@
       "chain": {
         "initial": "find",
         "states": {
-          "find": { "allowed_tools": ["google_sheets_list_spreadsheets"], "on_done": "answer" },
-          "answer": { "terminal": true, "on_done": "find" }
+          "find": {
+            "allowed_tools": [
+              "google_sheets_list_spreadsheets"
+            ],
+            "on_done": "answer"
+          },
+          "answer": {
+            "terminal": true,
+            "on_done": "find"
+          }
         }
       },
       "expect": "err"
@@ -258,8 +687,15 @@
       "chain": {
         "initial": "ghost",
         "states": {
-          "find": { "allowed_tools": ["google_sheets_list_spreadsheets"], "on_done": "answer" },
-          "answer": { "terminal": true }
+          "find": {
+            "allowed_tools": [
+              "google_sheets_list_spreadsheets"
+            ],
+            "on_done": "answer"
+          },
+          "answer": {
+            "terminal": true
+          }
         }
       },
       "expect": "err"
@@ -269,7 +705,11 @@
       "chain": {
         "initial": "find",
         "states": {
-          "find": { "allowed_tools": ["google_sheets_list_spreadsheets"] }
+          "find": {
+            "allowed_tools": [
+              "google_sheets_list_spreadsheets"
+            ]
+          }
         }
       },
       "expect": "err"
@@ -279,8 +719,15 @@
       "chain": {
         "initial": "find",
         "states": {
-          "find": { "allowed_tools": ["google_sheets_list_spreadsheets"], "on_done": "nowhere" },
-          "answer": { "terminal": true }
+          "find": {
+            "allowed_tools": [
+              "google_sheets_list_spreadsheets"
+            ],
+            "on_done": "nowhere"
+          },
+          "answer": {
+            "terminal": true
+          }
         }
       },
       "expect": "err"
@@ -290,8 +737,13 @@
       "chain": {
         "initial": "find",
         "states": {
-          "find": { "allowed_tools": [], "on_done": "answer" },
-          "answer": { "terminal": true }
+          "find": {
+            "allowed_tools": [],
+            "on_done": "answer"
+          },
+          "answer": {
+            "terminal": true
+          }
         }
       },
       "expect": "err"

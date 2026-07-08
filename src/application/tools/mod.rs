@@ -8,19 +8,44 @@ pub use summarize::{
     SummarizeFolder, SummarizeFolderArgs, SummarizeFolderResult,
 };
 
+use crate::application::approvals::{
+    self, Outcome, ProposalView, APPROVAL_TIMEOUT,
+};
 use crate::domain::governance::{
-    gate, ConnectorManifest, Decision, Governance, ProposedCall, RunState,
+    call_fingerprint, gate, ConnectorManifest, Decision, Governance,
+    ProposedCall, RunState,
 };
 use crate::infrastructure::llm::LlmClient;
 use rig::agent::{HookAction, PromptHook, ToolCallHookAction};
 use rig::completion::CompletionModel;
+use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 use std::sync::{Arc, Mutex};
 use tokio::sync::mpsc;
+
+#[derive(Clone, Debug, PartialEq)]
+pub enum ProposalStatus {
+    Approved,
+    Edited,
+    Rejected,
+    Expired,
+}
 
 #[derive(Clone, Debug)]
 pub enum ToolEvent {
     Started(String),
     Finished(String),
+    /// A write is suspended pending the user's decision: render the card.
+    Proposal(ProposalView),
+    /// The suspended write was decided (or expired): freeze the card.
+    ProposalResolved {
+        id: String,
+        status: ProposalStatus,
+    },
+    /// The user's edit failed re-validation: show the reason, the card stays pending.
+    EditRejected {
+        id: String,
+        reason: String,
+    },
 }
 
 // The agent's pinned governance + the connector manifest it was validated against, plus the live run
@@ -34,6 +59,12 @@ struct Contract {
     // Ground-truth log of what each tool call actually did (proposed args, gate verdict, raw result), so the
     // chain debug trace shows reality instead of the model's narration. Drained per state by the runtime.
     events: Mutex<Vec<String>>,
+    // Seconds spent suspended on approval cards: the chain runtime subtracts this from wall
+    // clock, so `max_run_seconds` bounds compute time, never user think-time.
+    held_secs: AtomicU64,
+    // A rejected/expired card ends the run's remaining write intents: the chain runtime jumps
+    // to the terminal answer instead of `on_done`.
+    abort: AtomicBool,
 }
 
 // Single-line, length-capped view of a JSON-ish blob for the debug log.
@@ -60,6 +91,11 @@ pub struct ContractHook {
     // no chain scoping (the single-module path). Independent of the Layer 1 gate; both apply.
     state_allowed: Option<Vec<String>>,
     state_name: Option<String>,
+    // MCP sink for executing an approved EDITED payload directly; None = edits fall back to
+    // reject (no deterministic way to run the user's bytes).
+    peer: Option<rmcp::service::ServerSink>,
+    // Card deadline; APPROVAL_TIMEOUT in production, shrunk by tests.
+    approval_timeout: std::time::Duration,
 }
 
 impl ContractHook {
@@ -70,6 +106,8 @@ impl ContractHook {
             contract: None,
             state_allowed: None,
             state_name: None,
+            peer: None,
+            approval_timeout: APPROVAL_TIMEOUT,
         }
     }
 
@@ -86,10 +124,37 @@ impl ContractHook {
                 conn,
                 run: Mutex::new(RunState::default()),
                 events: Mutex::new(Vec::new()),
+                held_secs: AtomicU64::new(0),
+                abort: AtomicBool::new(false),
             })),
             state_allowed: None,
             state_name: None,
+            peer: None,
+            approval_timeout: APPROVAL_TIMEOUT,
         }
+    }
+
+    // Attach the MCP server sink so an approved EDITED payload executes deterministically
+    // (the hook dials it; rig's Continue can only run the model's original args).
+    pub fn with_peer(mut self, peer: rmcp::service::ServerSink) -> Self {
+        self.peer = Some(peer);
+        self
+    }
+
+    /// Seconds spent suspended on approval cards this run.
+    pub fn held_seconds(&self) -> u64 {
+        self.contract
+            .as_ref()
+            .map(|c| c.held_secs.load(Ordering::Relaxed))
+            .unwrap_or(0)
+    }
+
+    /// Whether a rejected/expired card asked the run to conclude instead of advancing.
+    pub fn aborted(&self) -> bool {
+        self.contract
+            .as_ref()
+            .map(|c| c.abort.load(Ordering::Relaxed))
+            .unwrap_or(false)
     }
 
     // Share this contract's run accounting with a hook scoped to one chain state's allowed tools. The chain
@@ -101,7 +166,18 @@ impl ContractHook {
             contract: self.contract.clone(),
             state_allowed: Some(allowed),
             state_name: Some(state),
+            peer: self.peer.clone(),
+            approval_timeout: self.approval_timeout,
         }
+    }
+
+    /// Shrink the card deadline (tests only; production keeps APPROVAL_TIMEOUT).
+    pub fn with_approval_timeout(
+        mut self,
+        timeout: std::time::Duration,
+    ) -> Self {
+        self.approval_timeout = timeout;
+        self
     }
 
     // Count a chain state as one run step (the gate reads `steps` against `limits.max_steps`). No-op without
@@ -154,6 +230,209 @@ impl ContractHook {
             c.events.lock().expect("events poisoned").push(line);
         }
     }
+
+    fn resolve_card(&self, id: uuid::Uuid, status: ProposalStatus) {
+        let _ = self.tx.send(ToolEvent::ProposalResolved {
+            id: id.to_string(),
+            status,
+        });
+    }
+
+    // Execute the user's corrected payload deterministically against the MCP sink: rig's
+    // Continue can only run the model's ORIGINAL args, so the hook dials the edit itself.
+    async fn execute_direct(
+        &self,
+        tool: &str,
+        args: &serde_json::Value,
+    ) -> Result<String, String> {
+        let peer = self.peer.as_ref().ok_or("no MCP peer attached")?;
+        let mut params =
+            rmcp::model::CallToolRequestParams::new(tool.to_string());
+        if let Some(obj) = args.as_object() {
+            params = params.with_arguments(obj.clone());
+        }
+        let result = peer.call_tool(params).await.map_err(|e| e.to_string())?;
+        Ok(excerpt(
+            &serde_json::to_string(&result).unwrap_or_default(),
+            400,
+        ))
+    }
+
+    // The suspended-write flow: card out, await the user, act on the verdict. The gate lock
+    // is NEVER held across an await; the registry entry dies with this future (Drop guard).
+    async fn approval_flow(
+        &self,
+        contract: &Arc<Contract>,
+        proposal: crate::domain::governance::Proposal,
+    ) -> ToolCallHookAction {
+        let mut registered = approvals::register(self.approval_timeout);
+        let card_id = registered.id();
+        let _ = self.tx.send(ToolEvent::Proposal(approvals::view_for(
+            card_id,
+            &proposal,
+            &contract.conn,
+        )));
+
+        let hold_start = std::time::Instant::now();
+        let action = loop {
+            match approvals::await_decision(registered).await {
+                Outcome::Approved => {
+                    let decision = {
+                        let mut run = contract
+                            .run
+                            .lock()
+                            .expect("governance run state poisoned");
+                        run.approvals.insert(proposal.fingerprint.clone());
+                        let call = ProposedCall::new(
+                            proposal.tool.clone(),
+                            proposal.args.clone(),
+                        );
+                        gate(&contract.gov, &contract.conn, &call, &mut run)
+                    };
+                    match decision {
+                        Decision::Allow => {
+                            self.record(format!(
+                                "approved {} -> executing",
+                                proposal.tool
+                            ));
+                            self.resolve_card(
+                                card_id,
+                                ProposalStatus::Approved,
+                            );
+                            break ToolCallHookAction::Continue;
+                        }
+                        // A budget/limit raced the approval: fail closed, never execute.
+                        other => {
+                            let reason = match other {
+                                Decision::Deny(r) => r.to_string(),
+                                _ => "approval re-check did not allow the call"
+                                    .into(),
+                            };
+                            self.record(format!(
+                                "approved {} but re-gate refused: {reason}",
+                                proposal.tool
+                            ));
+                            self.resolve_card(
+                                card_id,
+                                ProposalStatus::Rejected,
+                            );
+                            break ToolCallHookAction::Skip { reason };
+                        }
+                    }
+                }
+                Outcome::Edited(new_args) => {
+                    let fp = call_fingerprint(&proposal.tool, &new_args);
+                    let decision = {
+                        let mut run = contract
+                            .run
+                            .lock()
+                            .expect("governance run state poisoned");
+                        run.approvals.insert(fp.clone());
+                        let call = ProposedCall::new(
+                            proposal.tool.clone(),
+                            new_args.clone(),
+                        );
+                        gate(&contract.gov, &contract.conn, &call, &mut run)
+                    };
+                    match decision {
+                        Decision::Allow => {
+                            let outcome = self
+                                .execute_direct(&proposal.tool, &new_args)
+                                .await;
+                            match outcome {
+                                Ok(result) => {
+                                    self.record(format!(
+                                        "edited {} {} -> executed",
+                                        proposal.tool,
+                                        excerpt(&new_args.to_string(), 160)
+                                    ));
+                                    self.resolve_card(
+                                        card_id,
+                                        ProposalStatus::Edited,
+                                    );
+                                    break ToolCallHookAction::Skip {
+                                        reason: format!(
+                                            "the user corrected the payload; `{}` was already executed with {} and returned: {result}. Do not call it again for this step.",
+                                            proposal.tool, new_args
+                                        ),
+                                    };
+                                }
+                                Err(e) => {
+                                    self.record(format!(
+                                        "edited {} -> execution failed: {e}",
+                                        proposal.tool
+                                    ));
+                                    self.resolve_card(
+                                        card_id,
+                                        ProposalStatus::Rejected,
+                                    );
+                                    break ToolCallHookAction::Skip {
+                                        reason: format!(
+                                            "the user-corrected call failed: {e}; report it, do not retry"
+                                        ),
+                                    };
+                                }
+                            }
+                        }
+                        Decision::Deny(reason) => {
+                            // The gate consumes the grant only on Allow: clean it up, tell
+                            // the card, and keep waiting on the SAME card identity.
+                            contract
+                                .run
+                                .lock()
+                                .expect("governance run state poisoned")
+                                .approvals
+                                .remove(&fp);
+                            let _ = self.tx.send(ToolEvent::EditRejected {
+                                id: card_id.to_string(),
+                                reason: reason.to_string(),
+                            });
+                            registered = approvals::register_with_id(
+                                card_id,
+                                self.approval_timeout,
+                            );
+                            continue;
+                        }
+                        Decision::Hold(_) => {
+                            // Unreachable: the grant was just inserted. Fail closed.
+                            self.resolve_card(
+                                card_id,
+                                ProposalStatus::Rejected,
+                            );
+                            break ToolCallHookAction::Skip {
+                                reason: "approval re-check held the call again; aborting".into(),
+                            };
+                        }
+                    }
+                }
+                Outcome::Rejected => {
+                    contract.abort.store(true, Ordering::Relaxed);
+                    self.record(format!("rejected {}", proposal.tool));
+                    self.resolve_card(card_id, ProposalStatus::Rejected);
+                    break ToolCallHookAction::Skip {
+                        reason: "the user rejected this write; do not retry it"
+                            .into(),
+                    };
+                }
+                Outcome::Expired => {
+                    contract.abort.store(true, Ordering::Relaxed);
+                    self.record(format!(
+                        "expired {} (no user decision)",
+                        proposal.tool
+                    ));
+                    self.resolve_card(card_id, ProposalStatus::Expired);
+                    break ToolCallHookAction::Skip {
+                        reason: "the approval request expired; do not retry"
+                            .into(),
+                    };
+                }
+            }
+        };
+        contract
+            .held_secs
+            .fetch_add(hold_start.elapsed().as_secs(), Ordering::Relaxed);
+        action
+    }
 }
 
 impl<M: CompletionModel> PromptHook<M> for ContractHook {
@@ -204,6 +483,13 @@ impl<M: CompletionModel> PromptHook<M> for ContractHook {
                     excerpt(args, 160)
                 ));
                 ToolCallHookAction::Continue
+            }
+            Decision::Hold(proposal) => {
+                self.record(format!(
+                    "held {tool_name} {} -> awaiting user approval",
+                    excerpt(args, 160)
+                ));
+                self.approval_flow(contract, proposal).await
             }
             Decision::Deny(reason) => {
                 // `reason` already names the tool, so the log line does not repeat it.

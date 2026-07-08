@@ -190,17 +190,21 @@ pub async fn resolve(db: &Database, message: &str) -> Option<Activation> {
 }
 
 /// Run the resolved activation with the user's message as the goal. The per-state trace
-/// renders as the chat answer.
+/// renders as the chat answer; `events` carries tool status + approval proposals to the UI.
 pub async fn run(
     db: &Database,
     activation: &Activation,
     goal: &str,
+    events: tokio::sync::mpsc::UnboundedSender<
+        crate::application::tools::ToolEvent,
+    >,
 ) -> Result<String, String> {
     crate::application::connector_module::run_agent_chain(
         db,
         &activation.agent_id,
         &activation.chain,
         goal,
+        events,
     )
     .await
 }

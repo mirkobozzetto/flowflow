@@ -81,16 +81,21 @@ pub const FIXTURE_PACKAGE: &str = r#"{
 /// Drive the installed agent's pinned `sync` chain through the FSM runtime and return a per-state
 /// trace for the trigger UI.
 pub async fn run_sync_chain(db: &Database) -> Result<String, String> {
-    run_agent_chain(db, FIXTURE_AGENT_ID, SYNC_CHAIN_NAME, SYNC_GOAL).await
+    let (tx, _rx) = tokio::sync::mpsc::unbounded_channel();
+    run_agent_chain(db, FIXTURE_AGENT_ID, SYNC_CHAIN_NAME, SYNC_GOAL, tx).await
 }
 
 /// Run one named chain of any installed agent through the FSM runtime (activation by alias,
 /// trigger words, or the + palette). Kill switch checked on every run via ensure_installed.
+/// `events` reaches the chat status UI: tool start/finish and approval proposals.
 pub async fn run_agent_chain(
     db: &Database,
     agent_id: &str,
     chain_name: &str,
     goal: &str,
+    events: tokio::sync::mpsc::UnboundedSender<
+        crate::application::tools::ToolEvent,
+    >,
 ) -> Result<String, String> {
     crate::application::agent_directory::ensure_installed(db, agent_id).await?;
     let built = load_built(db, agent_id)?;
@@ -98,7 +103,7 @@ pub async fn run_agent_chain(
         .chains
         .get(chain_name)
         .ok_or_else(|| format!("manifest has no `{chain_name}` chain"))?;
-    let outcome = run_chain(db, chain, &built, goal)
+    let outcome = run_chain(db, chain, &built, goal, events)
         .await
         .map_err(|e| e.to_string())?;
     Ok(repair_sheet_links(

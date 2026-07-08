@@ -1,9 +1,68 @@
+use crate::application::approvals::{
+    is_renderable_role, reload_proposal, PersistedProposal, ProposalView,
+};
 use crate::application::rag;
+use crate::application::tools::ToolEvent;
 use crate::domain::{generate_auto_title, ChatScope, NewTextNote, UpdateNote};
 use crate::infrastructure::persistence::Database;
-use crate::ui::chat::models::{tool_label, ChatMsg, ChatSource};
+use crate::ui::chat::models::{
+    tool_label, ChatMsg, ChatSource, ProposalStatus,
+};
 use dioxus::prelude::*;
 use std::sync::Arc;
+
+fn persist_status(status: &ProposalStatus) -> &'static str {
+    match status {
+        ProposalStatus::Pending => "pending",
+        ProposalStatus::Approved => "approved",
+        ProposalStatus::Edited => "edited",
+        ProposalStatus::Rejected => "rejected",
+        ProposalStatus::Expired => "expired",
+    }
+}
+
+// Set an approval card's status by its view id (both the resolved event and a locally-detected
+// expiry route through here); clears any stale edit error on the way.
+pub fn update_proposal_status(
+    messages: &mut Signal<Vec<ChatMsg>>,
+    id: &str,
+    status: ProposalStatus,
+) {
+    let mut w = messages.write();
+    for m in w.iter_mut() {
+        if let ChatMsg::Proposal {
+            view,
+            status: s,
+            edit_error,
+        } = m
+        {
+            if view.id == id {
+                *s = status;
+                *edit_error = None;
+                return;
+            }
+        }
+    }
+}
+
+fn set_proposal_edit_error(
+    messages: &mut Signal<Vec<ChatMsg>>,
+    id: &str,
+    reason: String,
+) {
+    let mut w = messages.write();
+    for m in w.iter_mut() {
+        if let ChatMsg::Proposal {
+            view, edit_error, ..
+        } = m
+        {
+            if view.id == id {
+                *edit_error = Some(reason);
+                return;
+            }
+        }
+    }
+}
 
 pub fn serialize_sources(sources: &[ChatSource]) -> Option<String> {
     if sources.is_empty() {
@@ -185,15 +244,17 @@ pub fn send_question(
             .saturating_sub(crate::application::constants::CHAT_HISTORY_TURNS);
         msgs.iter()
             .skip(skip)
-            .map(|m| match m {
-                ChatMsg::User(t) => rag::ChatTurn {
+            .filter_map(|m| match m {
+                ChatMsg::User(t) => Some(rag::ChatTurn {
                     role: "user".into(),
                     content: t.clone(),
-                },
-                ChatMsg::Bot { text, .. } => rag::ChatTurn {
+                }),
+                ChatMsg::Bot { text, .. } => Some(rag::ChatTurn {
                     role: "bot".into(),
                     content: text.clone(),
-                },
+                }),
+                // A proposal turn is not conversational context; it never rewrites a follow-up.
+                ChatMsg::Proposal { .. } => None,
             })
             .collect()
     };
@@ -216,14 +277,67 @@ pub fn send_question(
     let (tx, mut rx) = tokio::sync::mpsc::unbounded_channel();
 
     let lang_for_tools = lang.clone();
+    let mut msgs_ev = *messages;
+    let db_ev = db;
+    let conv_ev = conversation_id;
     spawn(async move {
+        // View id -> (persisted message id, its view), so a resolution can rewrite the exact
+        // row this run wrote at propose time.
+        let mut rows: std::collections::HashMap<
+            String,
+            (String, ProposalView),
+        > = std::collections::HashMap::new();
         while let Some(event) = rx.recv().await {
             match event {
-                crate::application::tools::ToolEvent::Started(name) => {
+                ToolEvent::Started(name) => {
                     ts.set(Some(tool_label(&lang_for_tools, &name)));
                 }
-                crate::application::tools::ToolEvent::Finished(_) => {
+                ToolEvent::Finished(_) => {
                     ts.set(None);
+                }
+                ToolEvent::Proposal(view) => {
+                    let id = view.id.clone();
+                    // Persist the card at propose time so a run that dies mid-hold leaves an
+                    // Expired-on-reload row instead of nothing.
+                    if let Some(cid) = conv_ev() {
+                        let content =
+                            serde_json::to_string(&PersistedProposal {
+                                view: view.clone(),
+                                status: "pending".to_string(),
+                            })
+                            .unwrap_or_default();
+                        if let Ok(msg) = db_ev()
+                            .add_message(&cid, "proposal", &content, None)
+                        {
+                            rows.insert(id.clone(), (msg.id, view.clone()));
+                        }
+                    }
+                    msgs_ev.write().push(ChatMsg::Proposal {
+                        view,
+                        status: ProposalStatus::Pending,
+                        edit_error: None,
+                    });
+                }
+                ToolEvent::ProposalResolved { id, status } => {
+                    let ui_status = ProposalStatus::from(status);
+                    update_proposal_status(
+                        &mut msgs_ev,
+                        &id,
+                        ui_status.clone(),
+                    );
+                    if let Some((msg_id, view)) = rows.get(&id) {
+                        let content =
+                            serde_json::to_string(&PersistedProposal {
+                                view: view.clone(),
+                                status: persist_status(&ui_status).to_string(),
+                            })
+                            .unwrap_or_default();
+                        let _ =
+                            db_ev().update_message_content(msg_id, &content);
+                    }
+                }
+                ToolEvent::EditRejected { id, reason } => {
+                    set_proposal_edit_error(&mut msgs_ev, &id, reason);
                 }
             }
         }
@@ -238,12 +352,17 @@ pub fn send_question(
             crate::application::agent_activation::resolve(&db(), &question)
                 .await;
         let result = if let Some(act) = activation {
-            crate::application::agent_activation::run(&db(), &act, &question)
-                .await
-                .map(|answer| rag::RagResponse {
-                    answer,
-                    sources: vec![],
-                })
+            crate::application::agent_activation::run(
+                &db(),
+                &act,
+                &question,
+                tx,
+            )
+            .await
+            .map(|answer| rag::RagResponse {
+                answer,
+                sources: vec![],
+            })
         } else if crate::application::intent::is_action_trigger(&question) {
             rag::run_action(&question, Some(tx)).await
         } else {
@@ -329,19 +448,32 @@ pub fn load_messages_from_db(
     let db_msgs = db.list_messages(conversation_id).unwrap_or_default();
     db_msgs
         .into_iter()
-        .map(|m| {
-            if m.role == "user" {
-                ChatMsg::User(m.content)
-            } else {
-                let sources = m
-                    .sources_json
-                    .as_deref()
-                    .map(parse_sources)
-                    .unwrap_or_default();
-                ChatMsg::Bot {
-                    text: m.content,
-                    sources,
+        .filter_map(|m| {
+            if !is_renderable_role(&m.role) {
+                return None;
+            }
+            match m.role.as_str() {
+                "user" => Some(ChatMsg::User(m.content)),
+                "bot" => {
+                    let sources = m
+                        .sources_json
+                        .as_deref()
+                        .map(parse_sources)
+                        .unwrap_or_default();
+                    Some(ChatMsg::Bot {
+                        text: m.content,
+                        sources,
+                    })
                 }
+                // Only "proposal" remains; a run never survives the app, so a persisted
+                // Pending reloads as Expired (handled by reload_proposal).
+                _ => reload_proposal(&m.content).map(|(view, status)| {
+                    ChatMsg::Proposal {
+                        view,
+                        status: status.into(),
+                        edit_error: None,
+                    }
+                }),
             }
         })
         .collect()

@@ -229,6 +229,21 @@ chat-tool-working = L'agent travaille...
 chat-error = Erreur
 chat-connector-error = Un service connecté a échoué - ouvrez Connexions dans les Réglages et reconnectez si besoin
 
+approval-required = Validation requise
+approval-caveat = Valeurs lues au moment de la proposition
+approval-approve = Approuver
+approval-edit = Modifier
+approval-reject = Refuser
+approval-confirm = Valider
+approval-cancel = Annuler
+approval-row-spreadsheet = Feuille
+approval-row-cell = Cellule
+approval-row-value = Nouvelle valeur
+approval-status-approved = Approuvée
+approval-status-edited = Modifiée
+approval-status-rejected = Refusée
+approval-status-expired = Expirée
+
 chat-tools-section-agents = Agents
 chat-tools-section-tools = Outils
 chat-tools-section-connectors = Connecteurs
