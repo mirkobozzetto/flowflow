@@ -1,4 +1,4 @@
-use crate::application::constants::RELEVANCE_FILTER_PROMPT;
+use crate::application::constants::{CHEAP_MODEL, RELEVANCE_FILTER_PROMPT};
 use crate::infrastructure::llm::LlmClient;
 use crate::infrastructure::vectordb::SearchResult;
 use std::collections::HashSet;
@@ -47,7 +47,12 @@ pub(super) async fn llm_relevance_filter(
 
     let user_msg = format!("Question: {question}\n\nPassages:\n{passages}");
 
-    let response = match llm.chat(RELEVANCE_FILTER_PROMPT, &user_msg).await {
+    // The judge reads short previews and returns indices: the cheap tier handles that,
+    // and this call sits on the serial path of every question.
+    let response = match llm
+        .chat_with_model(CHEAP_MODEL, RELEVANCE_FILTER_PROMPT, &user_msg)
+        .await
+    {
         Ok(r) => r,
         Err(e) => {
             eprintln!(

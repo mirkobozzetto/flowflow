@@ -53,10 +53,10 @@ use trace::StepTimer;
 pub use trace::{estimate_tokens, RagTrace, StepOutcome, TraceStep};
 
 mod rewrite;
-use rewrite::rewrite_query;
+use rewrite::prep_query;
 pub use rewrite::{
-    build_rewrite_input, format_history, recent_turns, sanitize_rewrite,
-    ChatTurn,
+    build_rewrite_input, format_history, parse_prep, recent_turns,
+    sanitize_rewrite, ChatTurn,
 };
 
 /// Keep only the candidates the LLM judged genuinely relevant to the question. The model reads
@@ -83,7 +83,7 @@ async fn select_relevant(
             .iter()
             .map(|c| estimate_tokens(&c.chunk_text))
             .sum::<u32>();
-    let timer = StepTimer::start("judge", Some(ai.chat_model_name()));
+    let timer = StepTimer::start("judge", Some(CHEAP_MODEL));
     let judged: HashSet<usize> =
         llm_relevance_filter(ai, question, &candidates, RAG_FINAL_K)
             .await
@@ -177,68 +177,99 @@ pub async fn query(
         });
     }
 
-    // Follow-ups lean on the conversation ("et lui ?", "développe"): retrieval runs on a
-    // standalone rewrite of the question, while the final agent still sees the user's words.
-    let rewrite_timer = StepTimer::start("rewrite", Some(CHEAP_MODEL));
-    let retrieval_q = rewrite_query(&ai, &history, question).await;
-    let rewrite_in = estimate_tokens(question)
-        + history
-            .iter()
-            .map(|t| estimate_tokens(&t.content))
-            .sum::<u32>();
-    rewrite_timer.finish(
-        &mut rag_trace,
-        Some(rewrite_in),
-        Some(estimate_tokens(&retrieval_q)),
-        if history.is_empty() {
-            StepOutcome::Skipped
-        } else {
-            StepOutcome::Ok
-        },
-    );
+    // Follow-ups lean on the conversation ("et lui ?", "développe"): ONE cheap prep call
+    // yields both the standalone retrieval query and the temporal intent, while the final
+    // agent still sees the user's words. First messages skip it entirely.
+    let (retrieval_q, mut date_range) = if history.is_empty() {
+        StepTimer::start("prep", None).finish(
+            &mut rag_trace,
+            None,
+            None,
+            StepOutcome::Skipped,
+        );
+        (question.to_string(), None)
+    } else {
+        let prep_in = estimate_tokens(question)
+            + history
+                .iter()
+                .map(|t| estimate_tokens(&t.content))
+                .sum::<u32>();
+        let timer = StepTimer::start("prep", Some(CHEAP_MODEL));
+        let (q, range) = prep_query(&ai, &history, question).await;
+        timer.finish(
+            &mut rag_trace,
+            Some(prep_in),
+            Some(estimate_tokens(&q)),
+            StepOutcome::Ok,
+        );
+        (q, range)
+    };
     if retrieval_q != question {
         eprintln!("[rag] rewrite: {retrieval_q}");
     }
     let retrieval_q = retrieval_q.as_str();
 
-    let date_range = detect_temporal_regex(retrieval_q);
-    let date_range = match date_range {
-        Some(r) => {
+    if date_range.is_none() {
+        date_range = detect_temporal_regex(retrieval_q);
+        if let Some(ref r) = date_range {
             eprintln!("[rag] temporal regex: {} to {}", r.from, r.to);
-            StepTimer::start("temporal", None).finish(
-                &mut rag_trace,
-                None,
-                None,
-                StepOutcome::Skipped,
-            );
-            Some(r)
         }
-        None => {
-            let timer =
-                StepTimer::start("temporal", Some(ai.chat_model_name()));
-            let r = detect_temporal_llm(&ai, retrieval_q).await;
-            timer.finish(
-                &mut rag_trace,
-                Some(estimate_tokens(retrieval_q)),
-                None,
-                StepOutcome::Ok,
-            );
-            if let Some(ref r) = r {
-                eprintln!("[rag] temporal LLM: {} to {}", r.from, r.to);
-            }
-            r
-        }
-    };
+    }
 
     let _ = store.ensure_fts_index().await;
-    let embed_timer = StepTimer::start("embed", Some(EMBEDDING_MODEL));
-    let query_vector = ai.embed(retrieval_q).await?;
-    embed_timer.finish(
-        &mut rag_trace,
-        Some(estimate_tokens(retrieval_q)),
-        None,
-        StepOutcome::Ok,
-    );
+
+    // The LLM date fallback only fires on a first message with no regex hit (a follow-up's
+    // prep call already judged dates). It used to serialize ~2.5s before embed; now the two
+    // run concurrently and the wall clock pays only the slower of them. The date filter
+    // applies after search and fetch_k is decided after this join, so nothing downstream
+    // needs the range earlier.
+    let needs_temporal_llm = date_range.is_none() && history.is_empty();
+    let temporal_fut = async {
+        if !needs_temporal_llm {
+            return (None, 0u64);
+        }
+        let started = std::time::Instant::now();
+        let r = detect_temporal_llm(&ai, retrieval_q).await;
+        (r, started.elapsed().as_millis() as u64)
+    };
+    let embed_fut = async {
+        let started = std::time::Instant::now();
+        let r = ai.embed(retrieval_q).await;
+        (r, started.elapsed().as_millis() as u64)
+    };
+    let ((llm_range, temporal_ms), (embed_res, embed_ms)) =
+        tokio::join!(temporal_fut, embed_fut);
+    rag_trace.push(TraceStep {
+        step: "temporal".to_string(),
+        model: needs_temporal_llm.then(|| CHEAP_MODEL.to_string()),
+        tokens_in: needs_temporal_llm.then(|| estimate_tokens(retrieval_q)),
+        tokens_out: None,
+        approx: true,
+        latency_ms: temporal_ms,
+        retries: 0,
+        outcome: if needs_temporal_llm {
+            StepOutcome::Ok
+        } else {
+            StepOutcome::Skipped
+        },
+    });
+    rag_trace.push(TraceStep {
+        step: "embed".to_string(),
+        model: Some(EMBEDDING_MODEL.to_string()),
+        tokens_in: Some(estimate_tokens(retrieval_q)),
+        tokens_out: None,
+        approx: true,
+        latency_ms: embed_ms,
+        retries: 0,
+        outcome: StepOutcome::Ok,
+    });
+    let query_vector = embed_res?;
+    if date_range.is_none() {
+        date_range = llm_range;
+        if let Some(ref r) = date_range {
+            eprintln!("[rag] temporal LLM: {} to {}", r.from, r.to);
+        }
+    }
     let fetch_k = if date_range.is_some() {
         RAG_INITIAL_K * 3
     } else {
