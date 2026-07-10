@@ -157,19 +157,20 @@ List the relevant numbers, most relevant first, separated by commas. If NONE are
 No explanation, output only the numbers or the word none.\n\
 Example: 3, 1";
 
-pub const QUERY_REWRITE_PROMPT: &str = "\
-You rewrite the user's LAST question into a single standalone search query, using the \
-conversation for context.\n\
-The question may rely on the conversation (pronouns like \"lui\", \"elle\", \"it\", or requests \
-like \"développe\", \"tell me more\"). Resolve every such reference into explicit words: name the \
-person, topic, or thing the question actually refers to.\n\
-If the question is already self-contained, return it unchanged.\n\
-Keep the SAME language as the question. Return ONLY the rewritten query - no quotes, no \
-explanation, one line.\n\
+pub const QUERY_PREP_PROMPT: &str = "\
+You prepare the user's LAST question for retrieval, using the conversation for context. \
+Do TWO things in ONE pass:\n\
+1. Rewrite the question into a single standalone search query. The question may rely on the \
+conversation (pronouns like \"lui\", \"elle\", \"it\", or requests like \"développe\", \"tell me \
+more\"): resolve every such reference into explicit words. If already self-contained, keep it \
+unchanged. Same language as the question.\n\
+2. Extract temporal intent. Today's date is provided; use it to resolve relative dates.\n\
+Return ONLY a JSON object, nothing else:\n\
+{\"query\": \"...\", \"from\": \"YYYY-MM-DD\" or null, \"to\": \"YYYY-MM-DD\" or null}\n\
 Examples:\n\
-- Conversation about a note on Jean, question \"et lui ?\" → \"Qui est Jean, que disent mes notes sur Jean ?\"\n\
-- Conversation about React performance, question \"développe\" → \"Détails sur la performance React (mémoïsation, rendu)\"\n\
-- Question \"quelles notes parlent de budget ?\" → \"quelles notes parlent de budget ?\"";
+- Conversation about a note on Jean, question \"et lui ?\" → {\"query\":\"Qui est Jean, que disent mes notes sur Jean ?\",\"from\":null,\"to\":null}\n\
+- Question \"mes notes budget de la semaine dernière\" with today=2026-05-17 → {\"query\":\"notes budget\",\"from\":\"2026-05-05\",\"to\":\"2026-05-11\"}\n\
+- Question \"quelles notes parlent de budget ?\" → {\"query\":\"quelles notes parlent de budget ?\",\"from\":null,\"to\":null}";
 
 pub const TEMPORAL_DETECT_PROMPT: &str = "\
 Analyze the user's question and extract any temporal intent.\n\

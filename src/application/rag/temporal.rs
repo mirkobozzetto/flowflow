@@ -1,4 +1,4 @@
-use crate::application::constants::TEMPORAL_DETECT_PROMPT;
+use crate::application::constants::{CHEAP_MODEL, TEMPORAL_DETECT_PROMPT};
 use crate::infrastructure::llm::LlmClient;
 use crate::infrastructure::vectordb::SearchResult;
 use chrono::{Datelike, Local, NaiveDate};
@@ -99,13 +99,23 @@ pub(super) fn detect_temporal_regex(question: &str) -> Option<DateRange> {
     None
 }
 
+/// Build a range from "YYYY-MM-DD" strings; shared with the query-prep parser.
+pub(super) fn range_from_strs(from: &str, to: &str) -> Option<DateRange> {
+    let from = NaiveDate::parse_from_str(from, "%Y-%m-%d").ok()?;
+    let to = NaiveDate::parse_from_str(to, "%Y-%m-%d").ok()?;
+    Some(DateRange { from, to })
+}
+
 pub(super) async fn detect_temporal_llm(
     llm: &LlmClient,
     question: &str,
 ) -> Option<DateRange> {
     let today = Local::now().date_naive();
     let user_msg = format!("Today: {today}\nQuestion: {question}");
-    let response = match llm.chat(TEMPORAL_DETECT_PROMPT, &user_msg).await {
+    let response = match llm
+        .chat_with_model(CHEAP_MODEL, TEMPORAL_DETECT_PROMPT, &user_msg)
+        .await
+    {
         Ok(r) => r,
         Err(_) => return None,
     };
@@ -116,9 +126,7 @@ pub(super) async fn detect_temporal_llm(
     let parsed: serde_json::Value = serde_json::from_str(trimmed).ok()?;
     let from_str = parsed.get("from")?.as_str()?;
     let to_str = parsed.get("to")?.as_str()?;
-    let from = NaiveDate::parse_from_str(from_str, "%Y-%m-%d").ok()?;
-    let to = NaiveDate::parse_from_str(to_str, "%Y-%m-%d").ok()?;
-    Some(DateRange { from, to })
+    range_from_strs(from_str, to_str)
 }
 
 pub(super) fn apply_date_filter(

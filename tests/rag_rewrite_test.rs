@@ -93,3 +93,68 @@ fn sanitize_trims_quotes_and_whitespace() {
         "notes sur Jean"
     );
 }
+
+// --- parse_prep: the merged rewrite+temporal call's JSON parser ---
+
+use flowflow::application::rag::parse_prep;
+
+#[test]
+fn parse_prep_reads_query_and_dates() {
+    let raw =
+        r#"{"query":"notes budget","from":"2026-05-05","to":"2026-05-11"}"#;
+    let (q, dates) = parse_prep(raw, "fallback");
+    assert_eq!(q, "notes budget");
+    assert_eq!(
+        dates,
+        Some(("2026-05-05".to_string(), "2026-05-11".to_string()))
+    );
+}
+
+#[test]
+fn parse_prep_null_dates_mean_no_range() {
+    let raw = r#"{"query":"qui est Jean ?","from":null,"to":null}"#;
+    let (q, dates) = parse_prep(raw, "et lui ?");
+    assert_eq!(q, "qui est Jean ?");
+    assert_eq!(dates, None);
+}
+
+#[test]
+fn parse_prep_tolerates_code_fences() {
+    let raw = "```json\n{\"query\":\"notes sur Jean\",\"from\":null,\"to\":null}\n```";
+    let (q, dates) = parse_prep(raw, "et lui ?");
+    assert_eq!(q, "notes sur Jean");
+    assert_eq!(dates, None);
+}
+
+#[test]
+fn parse_prep_plain_text_degrades_to_bare_rewrite() {
+    let (q, dates) = parse_prep("notes sur Jean", "et lui ?");
+    assert_eq!(q, "notes sur Jean");
+    assert_eq!(dates, None);
+}
+
+#[test]
+fn parse_prep_garbage_falls_back_to_question() {
+    let (q, dates) = parse_prep("", "et lui ?");
+    assert_eq!(q, "et lui ?");
+    assert_eq!(dates, None);
+
+    let (q, dates) = parse_prep(r#"{"nope":1}"#, "et lui ?");
+    assert_eq!(q, "et lui ?");
+    assert_eq!(dates, None);
+}
+
+#[test]
+fn parse_prep_partial_dates_are_ignored() {
+    let raw = r#"{"query":"notes budget","from":"2026-05-05","to":null}"#;
+    let (q, dates) = parse_prep(raw, "fallback");
+    assert_eq!(q, "notes budget");
+    assert_eq!(dates, None, "a half range is no range");
+}
+
+#[test]
+fn parse_prep_empty_query_field_falls_back() {
+    let raw = r#"{"query":"","from":null,"to":null}"#;
+    let (q, _) = parse_prep(raw, "et lui ?");
+    assert_eq!(q, "et lui ?");
+}
