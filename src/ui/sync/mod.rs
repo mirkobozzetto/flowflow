@@ -11,7 +11,8 @@ use dioxus::prelude::*;
 use pairing::SyncPairingView;
 
 pub fn pending_pairing_uri_exists() -> bool {
-    crate::infrastructure::sync::deeplink::peek().is_some()
+    crate::infrastructure::sync::deeplink::peek_matching("flowflow://pair")
+        .is_some()
 }
 
 #[component]

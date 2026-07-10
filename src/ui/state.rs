@@ -40,6 +40,16 @@ impl SettingsSection {
     }
 }
 
+// Which sidebar row's context menu is open. ONE global slot instead of a per-row
+// boolean: the outside-click backdrop can then live OUTSIDE the translated drawer
+// panel and outside the row subtree, so deleting the row can never orphan a
+// full-screen tap-eater in the DOM (the "everything frozen after delete" bug).
+#[derive(Clone, Debug, PartialEq)]
+pub enum RowMenu {
+    Conversation(String),
+    Folder(String),
+}
+
 #[derive(Clone, Debug, PartialEq)]
 pub enum View {
     NotesList,
@@ -72,6 +82,11 @@ pub struct AppState {
     pub attachment_modal: Signal<Option<Attachment>>,
     pub show_chat_menu: Signal<bool>,
     pub show_thread_menu: Signal<bool>,
+    // Opens the thread menu directly on its theme chooser (top-bar theme tap).
+    pub show_thread_theme: Signal<bool>,
+    // A command the + palette wants sent as the next chat message ("lance <alias>");
+    // consumed and cleared by the chat input.
+    pub pending_chat_input: Signal<Option<String>>,
     pub show_tools_menu: Signal<bool>,
     pub show_mention_menu: Signal<bool>,
     pub show_note_tools_menu: Signal<bool>,
@@ -91,6 +106,7 @@ pub struct AppState {
     pub transcription_done_badge: Signal<usize>,
     pub audio_import_requested: Signal<bool>,
     pub sync_data_version: Signal<u64>,
+    pub row_menu: Signal<Option<RowMenu>>,
     pub view_history: Signal<Vec<View>>,
     pub view_future: Signal<Vec<View>>,
     pub history_nav: Signal<bool>,
@@ -100,6 +116,13 @@ pub struct AppState {
 }
 
 impl AppState {
+    /// Single invalidation point for DB-backed lists that stay mounted (the drawer
+    /// panel never unmounts on mobile): every conversation mutation calls this
+    /// instead of bumping ad-hoc version signals.
+    pub fn invalidate_data(&mut self) {
+        self.sync_data_version.set((self.sync_data_version)() + 1);
+    }
+
     pub fn new(consent: Option<bool>, lang: String) -> Self {
         Self {
             view: Signal::new(View::NotesList),
@@ -119,6 +142,8 @@ impl AppState {
             attachment_modal: Signal::new(None),
             show_chat_menu: Signal::new(false),
             show_thread_menu: Signal::new(false),
+            show_thread_theme: Signal::new(false),
+            pending_chat_input: Signal::new(None),
             show_tools_menu: Signal::new(false),
             show_mention_menu: Signal::new(false),
             show_note_tools_menu: Signal::new(false),
@@ -134,6 +159,7 @@ impl AppState {
             transcription_done_badge: Signal::new(0),
             audio_import_requested: Signal::new(false),
             sync_data_version: Signal::new(0),
+            row_menu: Signal::new(None),
             view_history: Signal::new(Vec::new()),
             view_future: Signal::new(Vec::new()),
             history_nav: Signal::new(false),

@@ -5,9 +5,7 @@
 
 use crate::application::agent_builder::{build_agent, merge_bound, BuiltAgent};
 use crate::application::chain::{run_chain, ChainOutcome};
-use crate::domain::agent_manifest::{
-    digest_of_stored, parse_manifest, verify_package, ADMIN_PUBKEY,
-};
+use crate::domain::agent_manifest::{digest_of_stored, parse_manifest};
 use crate::infrastructure::backend::BackendClient;
 use crate::infrastructure::mcp::McpRegistry;
 use crate::infrastructure::persistence::Database;
@@ -83,16 +81,87 @@ pub const FIXTURE_PACKAGE: &str = r#"{
 /// Drive the installed agent's pinned `sync` chain through the FSM runtime and return a per-state
 /// trace for the trigger UI.
 pub async fn run_sync_chain(db: &Database) -> Result<String, String> {
-    ensure_agent_installed(db).await?;
-    let built = load_built(db)?;
+    let (tx, _rx) = tokio::sync::mpsc::unbounded_channel();
+    run_agent_chain(db, FIXTURE_AGENT_ID, SYNC_CHAIN_NAME, SYNC_GOAL, tx).await
+}
+
+/// Run one named chain of any installed agent through the FSM runtime (activation by alias,
+/// trigger words, or the + palette). Kill switch checked on every run via ensure_installed.
+/// `events` reaches the chat status UI: tool start/finish and approval proposals.
+pub async fn run_agent_chain(
+    db: &Database,
+    agent_id: &str,
+    chain_name: &str,
+    goal: &str,
+    events: tokio::sync::mpsc::UnboundedSender<
+        crate::application::tools::ToolEvent,
+    >,
+) -> Result<String, String> {
+    crate::application::agent_directory::ensure_installed(db, agent_id).await?;
+    let built = load_built(db, agent_id)?;
     let chain = built
         .chains
-        .get(SYNC_CHAIN_NAME)
-        .ok_or_else(|| format!("manifest has no `{SYNC_CHAIN_NAME}` chain"))?;
-    let outcome = run_chain(db, chain, &built, SYNC_GOAL)
+        .get(chain_name)
+        .ok_or_else(|| format!("manifest has no `{chain_name}` chain"))?;
+    let outcome = run_chain(db, chain, &built, goal, events)
         .await
         .map_err(|e| e.to_string())?;
-    Ok(format_outcome(&outcome))
+    Ok(repair_sheet_links(
+        &format_outcome(&outcome),
+        &bound_ids(db),
+    ))
+}
+
+/// The answer step is LLM-composed markdown; models garble long spreadsheet ids when writing
+/// links, producing "file does not exist" URLs. The gate only lets the agent touch ARMED sheets,
+/// so any sheets link whose id is not armed is provably wrong: point it at the single armed sheet
+/// when unambiguous, else drop the link and keep its label.
+pub fn repair_sheet_links(text: &str, valid_ids: &[String]) -> String {
+    const PREFIX: &str = "https://docs.google.com/spreadsheets/d/";
+    let mut out = String::with_capacity(text.len());
+    let mut rest = text;
+    while let Some(pos) = rest.find(PREFIX) {
+        out.push_str(&rest[..pos]);
+        let after = &rest[pos + PREFIX.len()..];
+        let id_len = after
+            .find(|c: char| {
+                !(c.is_ascii_alphanumeric() || c == '-' || c == '_')
+            })
+            .unwrap_or(after.len());
+        let (id, tail) = after.split_at(id_len);
+        if valid_ids.iter().any(|v| v == id) {
+            out.push_str(PREFIX);
+            out.push_str(id);
+        } else if valid_ids.len() == 1 {
+            out.push_str(PREFIX);
+            out.push_str(&valid_ids[0]);
+        } else if let Some(stripped) = strip_link_around(&mut out, tail) {
+            rest = stripped;
+            continue;
+        } else {
+            out.push_str(PREFIX);
+            out.push_str(id);
+        }
+        rest = tail;
+    }
+    out.push_str(rest);
+    out
+}
+
+// `out` ends with "[label](" and `tail` starts at the URL remainder: rewind the markdown link,
+// keep the label, swallow up to the closing paren. Returns the new remainder, or None when the
+// surrounding text is not a markdown link (bare URL with no armed sheet to point at - left as-is).
+fn strip_link_around<'a>(out: &mut String, tail: &'a str) -> Option<&'a str> {
+    let open = out.rfind("](")?;
+    let label_start = out[..open].rfind('[')?;
+    if out[label_start..open].contains(']') {
+        return None;
+    }
+    let label = out[label_start + 1..open].to_string();
+    let close = tail.find(')')?;
+    out.truncate(label_start);
+    out.push_str(&label);
+    Some(&tail[close + 1..])
 }
 
 // One spreadsheet the user can arm the agent to. `modified_at` disambiguates same-named sheets (the
@@ -110,7 +179,7 @@ pub async fn arm_list_spreadsheets(
     db: &Database,
 ) -> Result<Vec<Spreadsheet>, String> {
     ensure_agent_installed(db).await?;
-    let built = load_built(db)?;
+    let built = load_built(db, FIXTURE_AGENT_ID)?;
     let backend = BackendClient::from_db(db)
         .ok_or("no backend configured".to_string())?;
     let reg =
@@ -246,7 +315,7 @@ pub async fn bind_spreadsheet_from_url(
 const SHEET_META_TOOL: &str = "google_sheets_list_sheets";
 
 pub async fn fetch_spreadsheet_name(db: &Database, id: &str) -> Option<String> {
-    let built = load_built(db).ok()?;
+    let built = load_built(db, FIXTURE_AGENT_ID).ok()?;
     let backend = BackendClient::from_db(db)?;
     let reg =
         McpRegistry::connect_agent(db, &backend, &built.slug, &built.agent_id)
@@ -454,18 +523,18 @@ fn first_object_array(
     }
 }
 
-// Load the pinned row (placed by `ensure_agent_installed`), re-check its integrity against the pinned
+// Load the pinned row (placed by `ensure_installed`), re-check its integrity against the pinned
 // digest, and build the runnable agent from its manifest. Sync: the network install happens upstream.
-fn load_built(db: &Database) -> Result<BuiltAgent, String> {
+fn load_built(db: &Database, agent_id: &str) -> Result<BuiltAgent, String> {
     let installed = db
-        .get_installed_agent(FIXTURE_AGENT_ID)
+        .get_installed_agent(agent_id)
         .ok_or("agent not installed")?;
 
     let recomputed = digest_of_stored(&installed.manifest_json)
         .map_err(|e| e.to_string())?;
     if recomputed != installed.content_digest {
         return Err(format!(
-            "pinned digest mismatch for `{FIXTURE_AGENT_ID}`: stored manifest no longer hashes to its pin"
+            "pinned digest mismatch for `{agent_id}`: stored manifest no longer hashes to its pin"
         ));
     }
 
@@ -473,50 +542,25 @@ fn load_built(db: &Database) -> Result<BuiltAgent, String> {
         parse_manifest(&installed.manifest_json).map_err(|e| e.to_string())?;
     // Overlay the arm-time binding so validation and the gate target the sheet the user picked, not
     // the manifest placeholder. Unbound -> the placeholder stands and off-bound writes stay refused.
-    if let Some(binding) = db.get_agent_binding(FIXTURE_AGENT_ID) {
+    if let Some(binding) = db.get_agent_binding(agent_id) {
         merge_bound(&mut manifest.governance.bound_resource, binding);
     }
-    build_agent(&manifest)
+    // Data-driven connector resolution (RFC 0016): the pinned manifest, lowest slug of the type.
+    // No pin (never fetched, or revoked) -> the agent is disarmed with a clear message.
+    let ctype =
+        crate::application::agent_builder::required_connector_type(&manifest)?;
+    let (slug, conn_json) = crate::application::connector_pins::resolve_for_type(db, ctype)
+        .ok_or_else(|| {
+            format!("no connector pinned for type `{ctype}` (revoked or not yet installed)")
+        })?;
+    build_agent(&manifest, &slug, &conn_json)
 }
 
-// Arm-time install: check the kill switch, then pin the agent from the backend if it is not already
-// pinned. The revocation list is consulted on every arm (cheap, the cross-device kill switch); a pinned
-// row whose version was revoked is dropped and the arm refused. Once pinned, the local row is reused -
-// `load_built` re-verifies its integrity against the pinned digest, so no fetch is needed to run.
+// Arm-time install of the CRM module's agent. The generic install lives in
+// `agent_directory::ensure_installed`; this keeps the sync/arm paths pinned to their agent.
 async fn ensure_agent_installed(db: &Database) -> Result<(), String> {
-    let backend = BackendClient::from_db(db)
-        .ok_or("no backend configured".to_string())?;
-
-    let revoked = backend
-        .fetch_revocations(db)
+    crate::application::agent_directory::ensure_installed(db, FIXTURE_AGENT_ID)
         .await
-        .map_err(|e| format!("revocation check: {e}"))?;
-
-    if let Some(existing) = db.get_installed_agent(FIXTURE_AGENT_ID) {
-        if revoked
-            .iter()
-            .any(|r| r.id == FIXTURE_AGENT_ID && r.version == existing.version)
-        {
-            db.uninstall_agent(FIXTURE_AGENT_ID)?;
-            return Err(format!("agent `{FIXTURE_AGENT_ID}` was revoked"));
-        }
-        return Ok(());
-    }
-
-    let package = backend
-        .fetch_agent_package(db, FIXTURE_AGENT_ID)
-        .await
-        .map_err(|e| format!("fetch agent package: {e}"))?;
-    let verified = verify_package(&package, ADMIN_PUBKEY)
-        .map_err(|e| format!("verify agent package: {e}"))?;
-    db.install_agent(&verified)
-}
-
-// Drop the pinned row and re-fetch from the backend, so a device that already pinned an older agent
-// pulls the current signed package without wiping its notes (the install row is the only thing reset).
-pub async fn reinstall_agent(db: &Database) -> Result<(), String> {
-    db.uninstall_agent(FIXTURE_AGENT_ID)?;
-    ensure_agent_installed(db).await
 }
 
 // Sync guard for the list-pick arm path, which always follows `arm_list_spreadsheets` (where the
@@ -532,16 +576,63 @@ fn require_installed(db: &Database) -> Result<(), String> {
     }
 }
 
-// Render the ground-truth tool log first (what each state actually called and got back), then the
-// model's rendered reply. The tool lines are the source of truth; the reply narrates over them.
-fn format_outcome(outcome: &ChainOutcome) -> String {
-    let mut out = String::new();
+// The chat bubble is the ANSWER, not the log: final_text first, then one discreet footer line
+// naming the tools that ran (deduped, no args, no payloads). A blocked run (empty final text)
+// surfaces the last step's outcome - the human-readable block reason - instead. The full
+// ground-truth trace goes to the device log only, where a debugging eye can find it.
+pub fn format_outcome(outcome: &ChainOutcome) -> String {
     for step in &outcome.trace {
-        out.push_str(&format!("[{}]\n", step.state));
+        eprintln!("[chain:{}] {}", step.state, step.outcome);
         for line in &step.tools {
-            out.push_str(&format!("  - {line}\n"));
+            eprintln!("[chain:{}]   - {line}", step.state);
         }
-        out.push_str(&format!("  {}\n", step.outcome));
     }
-    out.trim_end().to_string()
+
+    // A run that broke early (guard block, no servable tool) never reached the terminal
+    // synthesis: its final_text is the raw accumulated transcript. Surface the last step's
+    // human-readable reason instead of that noise.
+    let broke_early = outcome
+        .trace
+        .last()
+        .map(|s| {
+            s.outcome.starts_with("blocked")
+                || s.outcome.starts_with("unavailable")
+        })
+        .unwrap_or(false);
+    let answer = outcome.final_text.trim();
+    let body = if broke_early || answer.is_empty() {
+        outcome
+            .trace
+            .last()
+            .map(|s| s.outcome.trim().to_string())
+            .unwrap_or_default()
+    } else {
+        answer.to_string()
+    };
+
+    let tools = called_tools(outcome);
+    if tools.is_empty() {
+        body
+    } else {
+        format!("{body}\n\n---\n_🛠 {}_", tools.join(" · "))
+    }
+}
+
+// Tool names in call order, deduped, extracted from the ground-truth log lines
+// ("called <tool> <args> -> <decision>"). Language-free by design: names only.
+fn called_tools(outcome: &ChainOutcome) -> Vec<String> {
+    let mut seen = Vec::new();
+    for step in &outcome.trace {
+        for line in &step.tools {
+            let mut words = line.split_whitespace();
+            if words.next() == Some("called") {
+                if let Some(name) = words.next() {
+                    if !seen.iter().any(|s| s == name) {
+                        seen.push(name.to_string());
+                    }
+                }
+            }
+        }
+    }
+    seen
 }

@@ -4,6 +4,8 @@ pub mod conflict_repo;
 pub mod conversation_repo;
 pub mod folder_repo;
 pub mod installed_agent_repo;
+pub mod installed_connector_repo;
+pub mod note_link_repo;
 pub mod note_reminder_repo;
 pub mod note_repo;
 pub mod peer_repo;
@@ -267,6 +269,13 @@ impl Database {
                     sync_meta::install_sync_triggers(&conn)?;
                 }
                 if version == 13 {
+                    sync_meta::install_sync_triggers(&conn)?;
+                }
+                if version == 17 {
+                    installed_connector_repo::backfill_sheets_pin(&conn)?;
+                }
+                // The table rebuild dropped conversation_messages' sync triggers.
+                if version == 18 {
                     sync_meta::install_sync_triggers(&conn)?;
                 }
                 conn.execute(

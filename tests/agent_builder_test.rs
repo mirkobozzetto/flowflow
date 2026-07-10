@@ -2,10 +2,11 @@
 // the chain, and fails closed on an unarmed connector or governance that does not validate.
 
 use flowflow::application::agent_builder::{
-    build_agent, capability_summary, merge_bound,
+    build_agent, capability_summary, merge_bound, required_connector_type,
 };
 use flowflow::domain::agent_manifest::parse_manifest;
 use flowflow::domain::governance::ConnectorManifest;
+use flowflow::infrastructure::persistence::installed_connector_repo::SHEETS_BACKFILL_MANIFEST_JSON;
 use serde_json::json;
 
 const VALID_MANIFEST: &str = r#"{
@@ -46,7 +47,8 @@ const VALID_MANIFEST: &str = r#"{
 #[test]
 fn builds_expected_shape_and_real_bound() {
     let manifest = parse_manifest(VALID_MANIFEST).unwrap();
-    let built = build_agent(&manifest).expect("valid manifest builds");
+    let built = build_agent(&manifest, "google", SHEETS_BACKFILL_MANIFEST_JSON)
+        .expect("valid manifest builds");
 
     assert_eq!(built.agent_id, "crm-sync");
     assert_eq!(built.slug, "google");
@@ -64,7 +66,8 @@ fn builds_expected_shape_and_real_bound() {
 #[test]
 fn preamble_carries_system_prompt_and_capability_summary() {
     let manifest = parse_manifest(VALID_MANIFEST).unwrap();
-    let built = build_agent(&manifest).unwrap();
+    let built = build_agent(&manifest, "google", SHEETS_BACKFILL_MANIFEST_JSON)
+        .unwrap();
     assert!(built.preamble.contains("Keep the sheet tidy."));
     assert!(built.preamble.contains("google_sheets_list_spreadsheets"));
     assert!(built.preamble.contains("sheet-123"));
@@ -76,7 +79,8 @@ fn preamble_carries_system_prompt_and_capability_summary() {
 #[test]
 fn capability_summary_lists_only_governed_tools() {
     let manifest = parse_manifest(VALID_MANIFEST).unwrap();
-    let built = build_agent(&manifest).unwrap();
+    let built = build_agent(&manifest, "google", SHEETS_BACKFILL_MANIFEST_JSON)
+        .unwrap();
     let summary = capability_summary(&built.governance, &built.connector);
     assert!(summary.contains("google_sheets_get_spreadsheet"));
     // A connector tool the governance does not grant is absent from the summary.
@@ -84,10 +88,20 @@ fn capability_summary_lists_only_governed_tools() {
 }
 
 #[test]
-fn unarmed_connector_type_fails_closed() {
-    let m = VALID_MANIFEST.replace("tabular_store", "no_such_kind");
+fn required_connector_type_surfaces_the_type_to_resolve() {
+    // Resolution is data-driven now (connector_pins): the builder only SURFACES the required
+    // type; an unpinned type fails closed at load_built with "no connector pinned".
+    let manifest = parse_manifest(VALID_MANIFEST).unwrap();
+    assert_eq!(required_connector_type(&manifest).unwrap(), "tabular_store");
+
+    let m = VALID_MANIFEST.replace(
+        r#""required_connectors": [
+    { "type": "tabular_store", "capabilities": ["search", "read", "update"] }
+  ],"#,
+        r#""required_connectors": [],"#,
+    );
     let manifest = parse_manifest(&m).unwrap();
-    assert!(build_agent(&manifest).is_err());
+    assert!(required_connector_type(&manifest).is_err());
 }
 
 #[test]
@@ -95,7 +109,8 @@ fn governance_referencing_unknown_tool_is_rejected() {
     let m = VALID_MANIFEST
         .replace("google_sheets_list_spreadsheets", "google_sheets_nope");
     let manifest = parse_manifest(&m).unwrap();
-    let err = build_agent(&manifest).expect_err("unknown tool must fail");
+    let err = build_agent(&manifest, "google", SHEETS_BACKFILL_MANIFEST_JSON)
+        .expect_err("unknown tool must fail");
     assert!(err.contains("governance invalid"), "got: {err}");
 }
 
@@ -129,7 +144,8 @@ fn merge_bound_replaces_non_object_wholesale() {
 fn connector_manifest_resolves_for_tabular_store() {
     // The embedded catalog is reachable through a successful build.
     let manifest = parse_manifest(VALID_MANIFEST).unwrap();
-    let built = build_agent(&manifest).unwrap();
+    let built = build_agent(&manifest, "google", SHEETS_BACKFILL_MANIFEST_JSON)
+        .unwrap();
     let conn: &ConnectorManifest = &built.connector;
     assert_eq!(conn.connector, "google-sheets");
 }

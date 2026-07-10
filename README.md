@@ -20,7 +20,7 @@ No manual searching. No folders to dig through. Just talk, and find it later.
 ## Download
 
 - **macOS (Apple Silicon)** - grab the DMG from the [latest release](https://github.com/mirkobozzetto/flowflow/releases/latest), drag FlowFlow to Applications. First launch: right-click > Open (the build is not notarized yet).
-- **iOS** - on the App Store (v1.0, selected regions while EU rollout completes).
+- **iOS** - on the App Store (v2.0), available worldwide.
 - **From source** - see [Setup](#setup) below; one `make` installs on your own iPhone or Mac.
 
 ## What it does

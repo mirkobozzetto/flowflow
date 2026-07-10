@@ -160,6 +160,7 @@
 		A1B2C3D40000000000000090 /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				CODE_SIGN_ENTITLEMENTS = Sources/Renew.entitlements;
 				CODE_SIGN_STYLE = Automatic;
 				DEVELOPMENT_TEAM = __TEAM_ID__;
 				INFOPLIST_FILE = Sources/Info.plist;
@@ -179,6 +180,7 @@
 		A1B2C3D40000000000000091 /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				CODE_SIGN_ENTITLEMENTS = Sources/Renew.entitlements;
 				CODE_SIGN_STYLE = Automatic;
 				DEVELOPMENT_TEAM = __TEAM_ID__;
 				INFOPLIST_FILE = Sources/Info.plist;

@@ -154,25 +154,22 @@ fn parse_signature(b64: &str) -> Result<Signature, AgentManifestError> {
     Ok(Signature::from_bytes(&bytes))
 }
 
-/// Verify an `AgentPackage` JSON: the manifest hashes to the claimed `content_digest`, and the admin
-/// signed that digest. Both checks must pass before a package is pinned (02, 09). The digest is
-/// recomputed from the package's own manifest bytes, so a tampered manifest fails even if its
-/// signature is left intact.
-pub fn verify_package(
-    package_json: &str,
+/// Verify any signed-manifest envelope ({manifest, content_digest, signature, ...}): the manifest
+/// hashes to the claimed digest, and the admin signed that digest string. The shared primitive under
+/// agent packages AND connector manifests (RFC 0016) - one verifier, one trust regime. Returns the
+/// manifest value + its recomputed digest; interpretation stays with the caller.
+pub fn verify_envelope(
+    envelope: &Value,
     admin_pubkey_b64: &str,
-) -> Result<VerifiedAgent, AgentManifestError> {
-    let pkg: Value = serde_json::from_str(package_json)
-        .map_err(|e| AgentManifestError::Parse(e.to_string()))?;
-
-    let manifest_value = pkg
+) -> Result<(Value, String), AgentManifestError> {
+    let manifest_value = envelope
         .get("manifest")
         .ok_or(AgentManifestError::MissingField("manifest"))?;
-    let claimed_digest = pkg
+    let claimed_digest = envelope
         .get("content_digest")
         .and_then(Value::as_str)
         .ok_or(AgentManifestError::MissingField("content_digest"))?;
-    let signature = pkg
+    let signature = envelope
         .get("signature")
         .and_then(Value::as_str)
         .ok_or(AgentManifestError::MissingField("signature"))?;
@@ -191,14 +188,30 @@ pub fn verify_package(
         .verify_strict(claimed_digest.as_bytes(), &sig)
         .map_err(|_| AgentManifestError::BadSignature)?;
 
-    let manifest: AgentManifest =
-        serde_json::from_value(manifest_value.clone())
-            .map_err(|e| AgentManifestError::Parse(e.to_string()))?;
+    Ok((manifest_value.clone(), computed))
+}
+
+/// Verify an `AgentPackage` JSON: the manifest hashes to the claimed `content_digest`, and the admin
+/// signed that digest. Both checks must pass before a package is pinned (02, 09). The digest is
+/// recomputed from the package's own manifest bytes, so a tampered manifest fails even if its
+/// signature is left intact.
+pub fn verify_package(
+    package_json: &str,
+    admin_pubkey_b64: &str,
+) -> Result<VerifiedAgent, AgentManifestError> {
+    let pkg: Value = serde_json::from_str(package_json)
+        .map_err(|e| AgentManifestError::Parse(e.to_string()))?;
+
+    let (manifest_value, computed) = verify_envelope(&pkg, admin_pubkey_b64)?;
+
+    let manifest_json = canonical_json(&manifest_value);
+    let manifest: AgentManifest = serde_json::from_value(manifest_value)
+        .map_err(|e| AgentManifestError::Parse(e.to_string()))?;
 
     Ok(VerifiedAgent {
         manifest,
         content_digest: computed,
-        manifest_json: canonical_json(manifest_value),
+        manifest_json,
     })
 }
 

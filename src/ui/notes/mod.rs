@@ -6,6 +6,7 @@ mod detail;
 mod menu;
 mod note_actions;
 pub(crate) mod note_tools_menu;
+mod related;
 mod reminders;
 mod tags;
 

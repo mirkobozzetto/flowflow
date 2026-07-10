@@ -16,8 +16,8 @@ pub use note::{
     UpdateNote,
 };
 pub use reminder::{
-    NewNoteReminder, NoteReminder, ReminderIntent, BACKEND_EVENTKIT,
-    BACKEND_USER_NOTIFICATIONS, DEFAULT_REMINDER_HOUR, REMINDER_STATE_ACTIVE,
-    REMINDER_STATE_TOMBSTONE,
+    NewNoteReminder, NoteReminder, RecurrenceFreq, RecurrenceSpec,
+    ReminderIntent, BACKEND_EVENTKIT, BACKEND_USER_NOTIFICATIONS,
+    DEFAULT_REMINDER_HOUR, REMINDER_STATE_ACTIVE, REMINDER_STATE_TOMBSTONE,
 };
 pub use thread::{NewThread, Thread, UpdateThread};

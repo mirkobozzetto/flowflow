@@ -149,6 +149,24 @@ pub struct Revocation {
     pub version: String,
 }
 
+// A revoked connector slug (RFC 0016): forces the local pin out even while an installed agent still
+// requires it - the agent then surfaces as disarmed instead of dialing into silent 403s.
+#[derive(Clone, Debug, serde::Deserialize)]
+pub struct ConnectorRevocation {
+    pub slug: String,
+}
+
+// One published agent this device's account is entitled to (GET /v1/agents). The backend sends
+// exactly {id, display_name, alias} - the directory list displays these; any unknown field stays
+// ignored so a later backend addition can't break the parse.
+#[derive(Clone, Debug, PartialEq, serde::Deserialize)]
+pub struct AgentSummary {
+    pub id: String,
+    pub display_name: String,
+    #[serde(default)]
+    pub alias: String,
+}
+
 impl BackendClient {
     /// Build the client if a backend is configured, else None (feature stays dark).
     /// Fallback chain mirrors the API-key loading in `llm.rs`: DB -> env -> compile-time.
@@ -398,6 +416,38 @@ impl BackendClient {
         db: &Database,
     ) -> Result<Vec<Revocation>, BackendError> {
         let url = format!("{}/v1/agents/revocations", self.base_url);
+        let resp = self.authed(db, |c, t| c.get(&url).bearer_auth(t)).await?;
+        Self::read_json(resp).await
+    }
+
+    /// Every entitled connector's signed manifest envelope (RFC 0016). One call covers install and
+    /// refresh; each envelope is verified against the pinned admin key before pinning.
+    pub async fn fetch_connector_manifests(
+        &self,
+        db: &Database,
+    ) -> Result<Vec<serde_json::Value>, BackendError> {
+        let url = format!("{}/v1/connectors/manifests", self.base_url);
+        let resp = self.authed(db, |c, t| c.get(&url).bearer_auth(t)).await?;
+        Self::read_json(resp).await
+    }
+
+    /// The revoked connector slugs. Unfiltered, mirror of the agents kill switch.
+    pub async fn fetch_connector_revocations(
+        &self,
+        db: &Database,
+    ) -> Result<Vec<ConnectorRevocation>, BackendError> {
+        let url = format!("{}/v1/connectors/revocations", self.base_url);
+        let resp = self.authed(db, |c, t| c.get(&url).bearer_auth(t)).await?;
+        Self::read_json(resp).await
+    }
+
+    /// The published agents this device's account is entitled to (already filtered
+    /// server-side by plan + grants). The device directory renders this list.
+    pub async fn list_agents(
+        &self,
+        db: &Database,
+    ) -> Result<Vec<AgentSummary>, BackendError> {
+        let url = format!("{}/v1/agents", self.base_url);
         let resp = self.authed(db, |c, t| c.get(&url).bearer_auth(t)).await?;
         Self::read_json(resp).await
     }

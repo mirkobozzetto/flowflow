@@ -83,6 +83,117 @@ pub fn observe_interruptions() {
     });
 }
 
+static LAUNCH_URL_INIT: Once = Once::new();
+
+/// Cold-start deep links: tao's `didFinishLaunching` ignores launchOptions,
+/// so a URL that LAUNCHES the app never reaches Event::Opened. iOS rebroadcasts
+/// those options in UIApplicationDidFinishLaunchingNotification - observe it
+/// (registered before UIApplicationMain runs) and push the URL ourselves.
+pub fn observe_launch_url() {
+    LAUNCH_URL_INIT.call_once(|| unsafe {
+        let name = objc2_foundation::NSString::from_str(
+            "UIApplicationDidFinishLaunchingNotification",
+        );
+        let block = block2::RcBlock::new(
+            |notification: std::ptr::NonNull<
+                objc2_foundation::NSNotification,
+            >| {
+                let n = notification.as_ptr();
+                let url_key = objc2_foundation::NSString::from_str(
+                    "UIApplicationLaunchOptionsURLKey",
+                );
+                let user_info: *const objc2::runtime::AnyObject =
+                    objc2::msg_send![&*n, userInfo];
+                if user_info.is_null() {
+                    return;
+                }
+                let url_obj: *const objc2::runtime::AnyObject =
+                    objc2::msg_send![&*user_info, objectForKey: &*url_key];
+                if url_obj.is_null() {
+                    return;
+                }
+                let abs: *const objc2_foundation::NSString =
+                    objc2::msg_send![&*url_obj, absoluteString];
+                if abs.is_null() {
+                    return;
+                }
+                let uri = (*abs).to_string();
+                eprintln!("[ios] launch url: {uri}");
+                if uri.starts_with("flowflow://") {
+                    crate::infrastructure::sync::deeplink::push(uri);
+                }
+            },
+        );
+        let center = objc2_foundation::NSNotificationCenter::defaultCenter();
+        center.addObserverForName_object_queue_usingBlock(
+            Some(&name),
+            None,
+            None,
+            &block,
+        );
+        eprintln!("[ios] launch-url observer registered");
+    });
+}
+
+/// One-shot read of the app-group flag the Control Center intent writes
+/// (custom-scheme URLs are refused from extensions on iOS 26, so the "start
+/// recording" order rides UserDefaults(suiteName:) instead). Freshness-gated:
+/// a flag older than 30s is a leftover, not an order.
+pub fn take_pending_record() -> bool {
+    unsafe {
+        let suite = objc2_foundation::NSString::from_str(
+            "group.com.mirkobozzetto.flowflow",
+        );
+        let defaults: *mut objc2::runtime::AnyObject =
+            objc2::msg_send![objc2::class!(NSUserDefaults), alloc];
+        let defaults: *mut objc2::runtime::AnyObject =
+            objc2::msg_send![defaults, initWithSuiteName: &*suite];
+        if defaults.is_null() {
+            return false;
+        }
+        let key = objc2_foundation::NSString::from_str("pending_record");
+        let ts: f64 = objc2::msg_send![&*defaults, doubleForKey: &*key];
+        let fresh = if ts > 0.0 {
+            let _: () = objc2::msg_send![&*defaults, removeObjectForKey: &*key];
+            let now = std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .unwrap_or_default()
+                .as_secs_f64();
+            now - ts < 30.0
+        } else {
+            false
+        };
+        let _: () = objc2::msg_send![defaults, release];
+        fresh
+    }
+}
+
+/// Shared-inbox directory inside the app-group container (where the Share
+/// extension enqueues content). None when the container is unavailable
+/// (entitlement missing - dev profile not renewed).
+pub fn app_group_inbox_dir() -> Option<PathBuf> {
+    unsafe {
+        let group = objc2_foundation::NSString::from_str(
+            "group.com.mirkobozzetto.flowflow",
+        );
+        let fm: *mut objc2::runtime::AnyObject =
+            objc2::msg_send![objc2::class!(NSFileManager), defaultManager];
+        let url: *mut objc2::runtime::AnyObject = objc2::msg_send![
+            &*fm,
+            containerURLForSecurityApplicationGroupIdentifier: &*group
+        ];
+        if url.is_null() {
+            return None;
+        }
+        let path: *const objc2_foundation::NSString =
+            objc2::msg_send![&*url, path];
+        if path.is_null() {
+            return None;
+        }
+        Some(PathBuf::from((*path).to_string()).join("shared-inbox"))
+    }
+}
+
 pub use crate::infrastructure::platform::parsers::read_file_as_text;
 pub use crate::infrastructure::platform::pdf::extract as read_pdf_text;
 pub use picker::{open_audio_picker, open_file_picker};

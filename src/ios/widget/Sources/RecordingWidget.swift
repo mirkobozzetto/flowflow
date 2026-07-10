@@ -91,6 +91,15 @@ struct RecordingLiveActivity: Widget {
 @main
 struct RecordingWidgetBundle: WidgetBundle {
     var body: some Widget {
+        widgets()
+    }
+
+    @WidgetBundleBuilder
+    private func widgets() -> some Widget {
         RecordingLiveActivity()
+        LockRecordWidget()
+        if #available(iOS 18.0, *) {
+            RecordControl()
+        }
     }
 }

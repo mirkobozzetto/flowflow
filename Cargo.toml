@@ -1,6 +1,6 @@
 [package]
 name = "flowflow"
-version = "1.0.1"
+version = "2.0.0"
 edition = "2021"
 
 [dependencies]
@@ -42,6 +42,7 @@ sha2 = "0.10"
 whisper-rs = "0.16"
 fs4 = "0.13"
 libc = "0.2"
+dom_smoothie = "0.18.0"
 
 [target.'cfg(any(target_os = "macos", target_os = "ios"))'.dependencies]
 whisper-rs = { version = "0.16", features = ["metal"] }

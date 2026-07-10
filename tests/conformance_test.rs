@@ -15,6 +15,7 @@ const CORPUS: &str = include_str!("conformance_vectors.json");
 fn decision_tag(d: &Decision) -> String {
     match d {
         Decision::Allow => "allow".to_string(),
+        Decision::Hold(_) => "hold".to_string(),
         Decision::Deny(reason) => serde_json::to_value(reason).unwrap()["deny"]
             .as_str()
             .unwrap()

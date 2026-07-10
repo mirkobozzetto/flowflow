@@ -100,6 +100,113 @@ pub fn use_sync_watcher(
     });
 }
 
+/// One-gesture capture: the Control Center / Lock Screen / Action Button
+/// control opens the app on flowflow://record; this watcher drains that
+/// deep link and starts a new voice recording as if the mic button was
+/// tapped. Only from a quiet state - never steals an ongoing recording.
+pub fn use_record_deeplink_watcher(
+    app: AppState,
+    recorder: Signal<
+        Arc<std::sync::Mutex<crate::infrastructure::audio::AudioRecorder>>,
+    >,
+) {
+    use crate::infrastructure::audio::RecordingState;
+    use_future(move || {
+        let mut app = app;
+        async move {
+            loop {
+                #[cfg(target_os = "ios")]
+                let group_flag =
+                    crate::infrastructure::platform::ios::take_pending_record();
+                #[cfg(not(target_os = "ios"))]
+                let group_flag = false;
+                if group_flag
+                    || crate::infrastructure::sync::deeplink::take_matching(
+                        "flowflow://record",
+                    )
+                    .is_some()
+                {
+                    let state = (app.recording_state)();
+                    let quiet = state == RecordingState::Idle
+                        || matches!(state, RecordingState::Error(_))
+                        || matches!(state, RecordingState::Transcribed(_));
+                    if quiet
+                        && !crate::application::backup::restore_lock_active()
+                    {
+                        app.current_note_id.set(None);
+                        crate::ui::recording::start_recording(recorder, app);
+                        // Empty-id NoteDetail = the new-note composer: the
+                        // send button turns the take into a note and the
+                        // user STAYS on it (not dumped on the list). Bounce
+                        // through NotesList first: a NoteDetail already on
+                        // screen would otherwise keep its mounted state.
+                        app.view.set(View::NotesList);
+                        futures_timer::Delay::new(
+                            std::time::Duration::from_millis(30),
+                        )
+                        .await;
+                        app.view.set(View::NoteDetail {
+                            note_id: String::new(),
+                        });
+                    }
+                }
+                futures_timer::Delay::new(std::time::Duration::from_millis(
+                    300,
+                ))
+                .await;
+            }
+        }
+    });
+}
+
+/// Drain the share-extension inbox (app group): shared text/URLs become
+/// notes, shared documents ride the attachment pipeline. Cheap poll - the
+/// directory is empty or absent almost always.
+#[allow(unused_variables)]
+pub fn use_share_inbox_watcher(app: AppState, db: Signal<Arc<Database>>) {
+    #[cfg(target_os = "ios")]
+    use_future(move || {
+        let mut app = app;
+        async move {
+            loop {
+                let inbox =
+                    crate::infrastructure::platform::ios::app_group_inbox_dir();
+                if let Some(inbox) = inbox {
+                    let pending = std::fs::read_dir(&inbox)
+                        .map(|mut d| {
+                            d.any(|e| {
+                                e.ok()
+                                    .map(|e| {
+                                        e.path()
+                                            .extension()
+                                            .and_then(|x| x.to_str())
+                                            == Some("json")
+                                    })
+                                    .unwrap_or(false)
+                            })
+                        })
+                        .unwrap_or(false);
+                    if pending {
+                        let db = db();
+                        let n =
+                            crate::application::share_inbox::drain(&db, &inbox)
+                                .await;
+                        if n > 0 {
+                            app.notes_version.set((app.notes_version)() + 1);
+                            app.attachments_version
+                                .set((app.attachments_version)() + 1);
+                        }
+                    }
+                }
+                futures_timer::Delay::new(std::time::Duration::from_millis(
+                    2000,
+                ))
+                .await;
+            }
+        }
+    });
+}
+
 pub fn use_picker_reset_on_view(app: AppState) {
     use_effect(move || {
         let _ = (app.view)();

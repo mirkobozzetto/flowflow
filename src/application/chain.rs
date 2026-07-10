@@ -14,8 +14,12 @@ use crate::infrastructure::persistence::Database;
 use tokio::sync::mpsc;
 
 const ANSWER_PREAMBLE: &str =
-    "You are the final step of a tool chain. Compose a concise answer for the user from the \
-     chain context below. Do not call any tool.";
+    "You are the final step of a tool chain. ANSWER THE USER'S GOAL first, using the data the \
+     tools actually returned in the chain context. A failed or skipped step is only worth \
+     mentioning if it prevents answering the goal - never lead with it. Do not call any tool. \
+     Any id or URL you mention MUST be copied character-for-character from the context; if you \
+     are not certain of a URL, name the resource without linking it. Reply in the user's \
+     language.";
 
 pub struct ChainStep {
     pub state: String,
@@ -33,9 +37,11 @@ pub struct ChainOutcome {
 fn state_preamble(state: &str, allowed: &[String], transcript: &str) -> String {
     format!(
         "You are executing step `{state}` of a deterministic chain. Allowed tool this step: {}. \
-         Call it once with appropriate arguments, then report ONLY what the tool actually returned. \
-         Never invent ids, URLs, or contents, and never answer from memory. If the tool returns an error \
-         or is refused, say so plainly. Call no other tool.\n\n\
+         If the user's goal needs this step, call the tool once with appropriate arguments and \
+         report ONLY what it actually returned. If the goal does NOT need this step (e.g. a \
+         read-only question reaching a write step), call nothing and reply exactly \
+         `nothing to do this step`. Never invent ids, URLs, or contents, and never answer from \
+         memory. If the tool returns an error or is refused, say so plainly. Call no other tool.\n\n\
          Context so far:\n{}",
         allowed.join(", "),
         if transcript.is_empty() {
@@ -47,11 +53,14 @@ fn state_preamble(state: &str, allowed: &[String], transcript: &str) -> String {
 }
 
 /// Run a validated chain to its terminal state through the agent-scoped, gate-enforced path.
+/// `events` feeds the chat status UI (tool start/finish, and the approval proposals): the
+/// caller owns the receiving end, so a chain run is observable end to end.
 pub async fn run_chain(
     db: &Database,
     chain: &Chain,
     agent: &BuiltAgent,
     goal: &str,
+    events: mpsc::UnboundedSender<crate::application::tools::ToolEvent>,
 ) -> Result<ChainOutcome, LlmError> {
     chain
         .validate()
@@ -68,12 +77,13 @@ pub async fn run_chain(
             .map_err(|e| LlmError::Completion(format!("mcp connect: {e}")))?;
 
     // One base contract, shared across states: budgets and read_before_write accumulate over the whole run.
-    let (tx, _rx) = mpsc::unbounded_channel();
+    // The peer lets the hook execute a user-EDITED payload deterministically.
     let base = ContractHook::with_contract(
-        tx,
+        events,
         agent.governance.clone(),
         agent.connector.clone(),
-    );
+    )
+    .with_peer(reg.peer());
 
     let mut trace = Vec::new();
     let mut transcript = String::new();
@@ -84,7 +94,14 @@ pub async fn run_chain(
     // (validation already rejects cycles, this is belt-and-suspenders).
     for _ in 0..=chain.states.len() {
         let state = chain.state(&name).expect("validated reachable state");
-        base.set_elapsed(start.elapsed().as_secs());
+        // The run clock excludes time spent suspended on approval cards: `max_run_seconds`
+        // bounds compute time, never the user's think-time.
+        base.set_elapsed(
+            start
+                .elapsed()
+                .as_secs()
+                .saturating_sub(base.held_seconds()),
+        );
 
         // Coarse: blocks entry into a write state until SOME bound resource was read. The gate still
         // enforces read-before-write per resource, denying a write to a sibling that was not itself read.
@@ -101,8 +118,12 @@ pub async fn run_chain(
         }
 
         if state.terminal {
+            // The goal rides along: without it the synthesis can only summarize the transcript
+            // and tends to lead with incidental failures instead of answering the question.
+            let answer_input =
+                format!("User goal: {goal}\n\nChain context:\n{transcript}");
             let answer = llm
-                .chat(ANSWER_PREAMBLE, &transcript)
+                .chat(ANSWER_PREAMBLE, &answer_input)
                 .await
                 .unwrap_or_else(|_| transcript.clone());
             trace.push(ChainStep {
@@ -153,6 +174,18 @@ pub async fn run_chain(
             outcome: reply,
             tools,
         });
+
+        // A rejected/expired approval card ends the run's remaining write intents: jump
+        // straight to the terminal answer so downstream write states never run.
+        if base.aborted() {
+            name = chain
+                .states
+                .iter()
+                .find(|(_, s)| s.terminal)
+                .map(|(n, _)| n.clone())
+                .expect("validated chain reaches a terminal");
+            continue;
+        }
 
         name = state
             .on_done

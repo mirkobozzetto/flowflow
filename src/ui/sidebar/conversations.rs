@@ -2,7 +2,7 @@ use crate::application::i18n::t;
 use crate::infrastructure::persistence::Database;
 use crate::ui::icons::*;
 use crate::ui::kit;
-use crate::ui::{AppState, View};
+use crate::ui::{AppState, RowMenu, View};
 use dioxus::prelude::*;
 use std::sync::Arc;
 
@@ -10,12 +10,10 @@ use std::sync::Arc;
 pub fn ConversationSection() -> Element {
     let mut app: AppState = use_context();
     let db: Signal<Arc<Database>> = use_context();
-    let version = use_signal(|| 0u32);
     let mut chat_query = use_signal(String::new);
     let lang = (app.current_lang)();
 
     let conversations = use_memo(move || {
-        let _v = version();
         let _sv = (app.sync_data_version)();
         let all = db().list_conversations().unwrap_or_default();
         let q = chat_query().to_lowercase();
@@ -71,7 +69,7 @@ pub fn ConversationSection() -> Element {
             }
         }
         for conv in conversations() {
-            ConversationItem { conv: conv, version: version }
+            ConversationItem { key: "{conv.id}", conv: conv }
         }
     }
 }
@@ -79,17 +77,21 @@ pub fn ConversationSection() -> Element {
 #[component]
 fn ConversationItem(
     conv: crate::domain::conversation::Conversation,
-    version: Signal<u32>,
 ) -> Element {
     let mut app: AppState = use_context();
     let db: Signal<Arc<Database>> = use_context();
-    let mut show_actions = use_signal(|| false);
     let mut confirm_delete = use_signal(|| false);
     let mut editing = use_signal(|| false);
     let mut edit_name = use_signal(|| conv.title.clone());
     let lang = (app.current_lang)();
 
+    // Menu open state is the ONE global slot (see RowMenu): the outside-click
+    // backdrop lives outside this row's subtree, so it can never be orphaned here.
+    let menu_open =
+        (app.row_menu)() == Some(RowMenu::Conversation(conv.id.clone()));
+
     let conv_id_nav = conv.id.clone();
+    let conv_id_menu = conv.id.clone();
     let conv_id_rename = conv.id.clone();
     let conv_id_rename2 = conv.id.clone();
     let conv_id_del = conv.id.clone();
@@ -122,7 +124,7 @@ fn ConversationItem(
                         if evt.key() == Key::Enter && !edit_name().trim().is_empty() {
                             let _ = db().update_conversation_title(&conv_id_rename, edit_name().trim());
                             editing.set(false);
-                            version.set(version() + 1);
+                            app.invalidate_data();
                         }
                     },
                 }
@@ -137,7 +139,7 @@ fn ConversationItem(
                         if !edit_name().trim().is_empty() {
                             let _ = db().update_conversation_title(&conv_id_rename2, edit_name().trim());
                             editing.set(false);
-                            version.set(version() + 1);
+                            app.invalidate_data();
                         }
                     },
                     IconCheck { size: 16 }
@@ -153,6 +155,7 @@ fn ConversationItem(
                 button {
                     class: "flex-1 text-left px-2 py-2.5 rounded-lg min-h-[44px] hover:bg-stone-100 transition-colors duration-150",
                     onclick: move |_| {
+                        app.row_menu.set(None);
                         app.sidebar_open.set(false);
                         crate::ui::sidebar::navigate_with_slide(
                             app,
@@ -164,22 +167,22 @@ fn ConversationItem(
                 }
                 button {
                     class: "w-11 h-11 flex items-center justify-center text-stone-400 hover:text-stone-600 transition-all duration-150",
-                    class: if show_actions() {
+                    class: if menu_open {
                         "text-stone-600"
                     } else {
                         "lg:opacity-0 lg:group-hover:opacity-100"
                     },
-                    onclick: move |_| show_actions.set(!show_actions()),
+                    onclick: move |_| {
+                        confirm_delete.set(false);
+                        app.row_menu.set(if menu_open {
+                            None
+                        } else {
+                            Some(RowMenu::Conversation(conv_id_menu.clone()))
+                        });
+                    },
                     IconDotsThree { size: 20 }
                 }
-                if show_actions() {
-                    div {
-                        class: "fixed inset-0 z-40",
-                        onclick: move |_| {
-                            show_actions.set(false);
-                            confirm_delete.set(false);
-                        },
-                    }
+                if menu_open {
                     div { class: "absolute right-2 top-full {kit::MENU_PANEL}",
                         if confirm_delete() {
                             div { class: "px-3 py-2.5",
@@ -194,17 +197,23 @@ fn ConversationItem(
                                         class: kit::CONFIRM_BTN_GHOST,
                                         onclick: move |_| {
                                             confirm_delete.set(false);
-                                            show_actions.set(false);
+                                            app.row_menu.set(None);
                                         },
                                         {t(&lang, "chat-menu-cancel")}
                                     }
                                     button {
                                         class: kit::CONFIRM_BTN_DANGER,
                                         onclick: move |_| {
-                                            let _ = db().delete_conversation(&conv_id_del);
-                                            version.set(version() + 1);
+                                            // Close the menu THIS render pass, delete on the next
+                                            // task: the row must never be torn down in the same
+                                            // patch as its own open menu (orphaned-node freeze).
                                             confirm_delete.set(false);
-                                            show_actions.set(false);
+                                            app.row_menu.set(None);
+                                            let cid = conv_id_del.clone();
+                                            spawn(async move {
+                                                let _ = db().delete_conversation(&cid);
+                                                app.invalidate_data();
+                                            });
                                         },
                                         {t(&lang, "chat-menu-delete")}
                                     }
@@ -214,7 +223,7 @@ fn ConversationItem(
                             button {
                                 class: kit::MENU_ITEM,
                                 onclick: move |_| {
-                                    show_actions.set(false);
+                                    app.row_menu.set(None);
                                     editing.set(true);
                                 },
                                 IconPencil { size: 16 }

@@ -60,6 +60,7 @@ pub fn ChatMenu(props: ChatMenuProps) -> Element {
                                     if !v.is_empty() {
                                         if let Some(ref cid) = conversation_id() {
                                             let _ = db().update_conversation_title(cid, &v);
+                                            app.invalidate_data();
                                         }
                                     }
                                     renaming.set(false);
@@ -79,6 +80,7 @@ pub fn ChatMenu(props: ChatMenuProps) -> Element {
                                 if !v.is_empty() {
                                     if let Some(ref cid) = conversation_id() {
                                         let _ = db().update_conversation_title(cid, &v);
+                                        app.invalidate_data();
                                     }
                                 }
                                 renaming.set(false);
@@ -115,10 +117,18 @@ pub fn ChatMenu(props: ChatMenuProps) -> Element {
                                 if let Some(ref cid) = conversation_id() {
                                     let _ = db().delete_conversation(cid);
                                 }
+                                // The drawer's conversation list stays mounted on mobile (the swipe
+                                // panel never unmounts) and only re-reads on this version: without
+                                // the bump the deleted chat ghosts in the list.
+                                app.invalidate_data();
                                 confirm_delete.set(false);
                                 app.show_chat_menu.set(false);
                                 app.sliding_out.set(true);
-                                spawn(async move {
+                                // spawn_forever, NOT spawn: show_chat_menu=false unmounts THIS menu in
+                                // the same click, which cancels a scope-bound task mid-delay - leaving
+                                // sliding_out stuck true (whole screen pointer-events-none) and the
+                                // view never set. The freeze-after-delete bug.
+                                dioxus::core::spawn_forever(async move {
                                     futures_timer::Delay::new(std::time::Duration::from_millis(150)).await;
                                     app.sliding_out.set(false);
                                     app.view.set(View::NotesList);

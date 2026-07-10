@@ -4,7 +4,8 @@
 // "nothing to run" when the note is not an actual instruction.
 
 // Verbs that, leading a note or chat message, signal an explicit "launch this now" intent.
-const TRIGGER_VERBS: &[&str] = &[
+// pub: agent_activation reuses them for the "lance <alias>" exact form.
+pub const TRIGGER_VERBS: &[&str] = &[
     "lance",
     "lancer",
     "execute",

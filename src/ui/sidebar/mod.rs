@@ -25,7 +25,10 @@ pub(crate) fn navigate_with_slide(mut app: AppState, target: View) {
         return;
     }
     app.sliding_out.set(true);
-    spawn(async move {
+    // spawn_forever, NOT spawn: the caller is a sidebar row that can unmount within
+    // the 150ms (deleted, list refresh); a scope-bound task would be cancelled
+    // mid-delay, leaving sliding_out stuck true and the view never set.
+    dioxus::core::spawn_forever(async move {
         futures_timer::Delay::new(std::time::Duration::from_millis(150)).await;
         app.sliding_out.set(false);
         app.previous_view.set(None);
@@ -63,6 +66,17 @@ pub fn SidebarOverlay() -> Element {
             class: "fixed inset-0 bg-black/35 z-40 transition-opacity duration-200 lg:hidden",
             class: if is_open { "opacity-100" } else { "opacity-0 pointer-events-none" },
             onclick: move |_| app.sidebar_open.set(false),
+        }
+        // Outside-click catcher for row context menus. It MUST live here - outside the
+        // translated sb-panel (a `translate` ancestor contains `fixed` descendants) and
+        // outside any row subtree - so deleting a row can never orphan it in the DOM.
+        // Below the panel (z-40 < z-50): taps on other rows still land, and those
+        // handlers close the menu themselves.
+        if (app.row_menu)().is_some() {
+            div {
+                class: "fixed inset-0 z-40",
+                onclick: move |_| app.row_menu.set(None),
+            }
         }
         div {
             id: "sb-panel",
@@ -105,7 +119,7 @@ pub fn SidebarOverlay() -> Element {
             div { class: "flex-1 overflow-y-auto p-4",
                 match (app.sidebar_tab)() {
                     SidebarTab::Notes => rsx! {
-                        div { class: "py-2 pb-4",
+                        div { class: "py-2 pb-3",
                             button {
                                 class: "flex items-center gap-2.5 w-full px-2 py-3 text-sm font-medium text-ios-orange-dark rounded-lg min-h-[44px] hover:bg-ios-orange-50 transition-colors duration-150",
                                 onclick: move |_| {
@@ -134,11 +148,11 @@ pub fn SidebarOverlay() -> Element {
                                     app.sidebar_open.set(false);
                                     navigate_with_slide(app, View::NotesList);
                                 },
-                                IconNotebook { size: 20 }
+                                IconFiles { size: 20 }
                                 {t(&lang, "sidebar-all-notes")}
                             }
                         }
-                        div { class: "h-px bg-stone-200 mb-2" }
+                        div { class: "h-px bg-stone-200 mb-3" }
                         FolderSection {}
                     },
                     SidebarTab::Chats => rsx! {

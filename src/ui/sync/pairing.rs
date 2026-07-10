@@ -31,7 +31,7 @@ pub fn SyncPairingView() -> Element {
 
     use_future(move || async move {
         loop {
-            if let Some(uri) = deeplink::take() {
+            if let Some(uri) = deeplink::take_matching("flowflow://pair") {
                 join_uri.set(uri);
                 scanned.set(true);
                 join_status.set(None);

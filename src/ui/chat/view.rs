@@ -2,6 +2,7 @@ use crate::domain::ChatScope;
 use crate::infrastructure::audio::RecordingState;
 use crate::infrastructure::persistence::Database;
 use crate::ui::chat::actions::{load_messages_from_db, send_question};
+use crate::ui::chat::approval_card::ApprovalCard;
 use crate::ui::chat::bot_bubble::BotBubble;
 use crate::ui::chat::chat_input::ChatInputBar;
 use crate::ui::chat::empty_state::ChatEmptyState;
@@ -197,6 +198,17 @@ pub fn ChatView() -> Element {
                                         }
                                     }
                                 },
+                                ChatMsg::Proposal { view, status, edit_error } => rsx! {
+                                    div { key: "{i}",
+                                        ApprovalCard {
+                                            view: view.clone(),
+                                            status: status.clone(),
+                                            edit_error: edit_error.clone(),
+                                            messages: messages,
+                                            lang: (app.current_lang)(),
+                                        }
+                                    }
+                                },
                             }
                         })}
                         if loading() {
@@ -226,8 +238,7 @@ pub fn ChatView() -> Element {
                         });
                         // Refresh the sidebar Chats list: it slides via CSS (stays mounted),
                         // so a new conversation only shows if a watched signal changes.
-                        app.sync_data_version
-                            .set((app.sync_data_version)() + 1);
+                        app.invalidate_data();
                     }
                 }
                 let scope = (app.chat_scope)();

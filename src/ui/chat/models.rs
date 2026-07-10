@@ -8,6 +8,9 @@ pub struct ChatSource {
     pub url: Option<String>,
 }
 
+use crate::application::approvals::{ProposalView, ReloadStatus};
+use crate::application::tools::ProposalStatus as ResolvedStatus;
+
 #[derive(Clone, PartialEq)]
 pub enum ChatMsg {
     User(String),
@@ -15,6 +18,48 @@ pub enum ChatMsg {
         text: String,
         sources: Vec<ChatSource>,
     },
+    /// A suspended connector write awaiting the user's decision, rendered as the approval card.
+    /// `status` drives the card (buttons while `Pending`, a frozen pill after); `edit_error`
+    /// carries the gate's reason when a submitted edit fails re-validation.
+    Proposal {
+        view: ProposalView,
+        status: ProposalStatus,
+        edit_error: Option<String>,
+    },
+}
+
+/// The card's lifecycle as the chat renders it. `Pending` is the live state; the rest are
+/// frozen outcomes. Mirrors `tools::ProposalStatus`, plus the pre-decision `Pending` that the
+/// resolved event never carries.
+#[derive(Clone, PartialEq)]
+pub enum ProposalStatus {
+    Pending,
+    Approved,
+    Edited,
+    Rejected,
+    Expired,
+}
+
+impl From<ResolvedStatus> for ProposalStatus {
+    fn from(s: ResolvedStatus) -> Self {
+        match s {
+            ResolvedStatus::Approved => Self::Approved,
+            ResolvedStatus::Edited => Self::Edited,
+            ResolvedStatus::Rejected => Self::Rejected,
+            ResolvedStatus::Expired => Self::Expired,
+        }
+    }
+}
+
+impl From<ReloadStatus> for ProposalStatus {
+    fn from(s: ReloadStatus) -> Self {
+        match s {
+            ReloadStatus::Approved => Self::Approved,
+            ReloadStatus::Edited => Self::Edited,
+            ReloadStatus::Rejected => Self::Rejected,
+            ReloadStatus::Expired => Self::Expired,
+        }
+    }
 }
 
 use crate::application::i18n::t;

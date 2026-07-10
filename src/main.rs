@@ -41,6 +41,12 @@ fn main() {
     flowflow::infrastructure::platform::ios::configure_audio_session();
     #[cfg(target_os = "ios")]
     flowflow::infrastructure::platform::ios::hide_keyboard_accessory();
+    #[cfg(target_os = "ios")]
+    flowflow::infrastructure::platform::ios::observe_launch_url();
+    #[cfg(target_os = "ios")]
+    flowflow::infrastructure::platform::ios::live_activity::cleanup_orphans();
+    #[cfg(target_os = "ios")]
+    flowflow::infrastructure::platform::ios::live_activity::register_record_intent();
     dioxus::LaunchBuilder::new()
         .with_cfg(dioxus::prelude::client! {
             DesktopConfig::new()

@@ -14,7 +14,76 @@ pub const MIGRATIONS: &[(i64, &str)] = &[
     (13, V13_SCHEMA),
     (14, V14_SCHEMA),
     (15, V15_SCHEMA),
+    (16, V16_SCHEMA),
+    (17, V17_SCHEMA),
+    (18, V18_SCHEMA),
 ];
+
+// Approval cards (RFC 0019) persist as messages with role "proposal", but the original
+// conversation_messages CHECK only admits 'user'/'bot'. SQLite cannot alter a CHECK in place,
+// so rebuild the table with the widened constraint and copy the rows. The sync triggers bound
+// to the old table are dropped with it and reinstalled by the v18 migrate hook.
+const V18_SCHEMA: &str = "
+CREATE TABLE conversation_messages_new (
+    id TEXT PRIMARY KEY,
+    conversation_id TEXT NOT NULL
+        REFERENCES conversations(id) ON DELETE CASCADE,
+    role TEXT NOT NULL CHECK (role IN ('user', 'bot', 'proposal')),
+    content TEXT NOT NULL,
+    sources_json TEXT,
+    created_at TEXT NOT NULL
+        DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now'))
+);
+INSERT INTO conversation_messages_new
+    (id, conversation_id, role, content, sources_json, created_at)
+    SELECT id, conversation_id, role, content, sources_json, created_at
+    FROM conversation_messages;
+DROP TABLE conversation_messages;
+ALTER TABLE conversation_messages_new RENAME TO conversation_messages;
+CREATE INDEX IF NOT EXISTS idx_cm_conversation
+    ON conversation_messages(conversation_id);
+";
+
+// Pinned, signed connector manifests (RFC 0016): the (resource, action, risk) classification the
+// gate applies, verified against the pinned admin key before pinning - same trust regime as
+// installed_agents. `version` backs the anti-rollback check; type resolution takes the lowest slug
+// among pins of a type (the shared deterministic order). Backfilled with the compiled Sheets
+// fixture by the v17 migrate hook so existing installs keep working offline.
+const V17_SCHEMA: &str = "
+CREATE TABLE IF NOT EXISTS installed_connectors (
+    slug TEXT PRIMARY KEY,
+    connector_type TEXT NOT NULL,
+    version INTEGER NOT NULL,
+    content_digest TEXT NOT NULL,
+    manifest_json TEXT NOT NULL,
+    pinned_at TEXT NOT NULL
+        DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now'))
+);
+CREATE INDEX IF NOT EXISTS idx_installed_connectors_type
+    ON installed_connectors(connector_type, slug);
+";
+
+// Persistent note-links graph (issue #90). LOCAL and never synced: links are
+// derivable from chunks, so each device computes its own (no version vectors,
+// no tombstones, no wire changes). 'dismissed' rows survive recomputes so a
+// rejected link never comes back; 'pinned' rows always rank first.
+const V16_SCHEMA: &str = "
+CREATE TABLE IF NOT EXISTS note_links (
+    src_note_id TEXT NOT NULL
+        REFERENCES notes(id) ON DELETE CASCADE,
+    dst_note_id TEXT NOT NULL
+        REFERENCES notes(id) ON DELETE CASCADE,
+    score REAL NOT NULL DEFAULT 0,
+    label TEXT,
+    state TEXT NOT NULL DEFAULT 'active'
+        CHECK (state IN ('active', 'dismissed', 'pinned')),
+    created_at TEXT NOT NULL
+        DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')),
+    PRIMARY KEY (src_note_id, dst_note_id)
+);
+CREATE INDEX IF NOT EXISTS idx_note_links_dst
+    ON note_links(dst_note_id);
+";
 
 // Pinned, signed agents (RFC 0010). `manifest_json` is the canonical-JSON form the pinned
 // `content_digest` was computed over: the row is verified by recomputing that digest, never

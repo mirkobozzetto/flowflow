@@ -5,7 +5,7 @@ use crate::domain::{
 use crate::infrastructure::persistence::Database;
 use crate::ui::icons::*;
 use crate::ui::kit;
-use crate::ui::{AppState, View};
+use crate::ui::{AppState, RowMenu, View};
 use dioxus::prelude::*;
 use std::sync::Arc;
 
@@ -105,7 +105,7 @@ pub fn FolderSection() -> Element {
             p { class: "text-xs text-stone-400 px-2 py-3", {t(&lang, "sidebar-no-folders")} }
         }
         for folder in folders() {
-            FolderItem { folder: folder, depth: 0 }
+            FolderItem { key: "{folder.id}", folder: folder, depth: 0 }
         }
     }
 }
@@ -119,11 +119,16 @@ fn FolderItem(folder: Folder, depth: u32) -> Element {
     let mut editing = use_signal(|| false);
     let mut edit_name = use_signal(|| folder.name.clone());
     let mut confirm_delete = use_signal(|| false);
-    let mut show_actions = use_signal(|| false);
     let mut moving = use_signal(|| false);
     let lang = (app.current_lang)();
 
+    // One global menu slot (see RowMenu): the outside-click backdrop lives outside
+    // this row's subtree, so deleting the row can never orphan it.
+    let menu_open =
+        (app.row_menu)() == Some(RowMenu::Folder(folder.id.clone()));
+
     let folder_id = folder.id.clone();
+    let folder_id_menu = folder.id.clone();
     let folder_id_for_delete = folder.id.clone();
     let folder_id_for_sub = folder.id.clone();
     let folder_id_for_sub2 = folder.id.clone();
@@ -173,7 +178,7 @@ fn FolderItem(folder: Folder, depth: u32) -> Element {
     let is_selected =
         (app.selected_folder_id)().as_deref() == Some(folder_id_nav.as_str());
 
-    let margin = format!("margin-left: {}px", depth * 16);
+    let margin = format!("margin-left: {}px", depth * 12);
 
     rsx! {
         div { style: "{margin}",
@@ -234,7 +239,7 @@ fn FolderItem(folder: Folder, depth: u32) -> Element {
                 div { class: "flex items-center group relative",
                     if has_children {
                         button {
-                            class: "min-w-[32px] min-h-[44px] flex items-center justify-center hover:opacity-70 transition-opacity duration-150",
+                            class: "min-w-[28px] min-h-[44px] flex items-center justify-center hover:opacity-70 transition-opacity duration-150",
                             onclick: move |_| toggle_expanded(),
                             div {
                                 class: "w-1.5 h-1.5 border-r-2 border-b-2 border-stone-400 chevron-pivot",
@@ -242,7 +247,7 @@ fn FolderItem(folder: Folder, depth: u32) -> Element {
                             }
                         }
                     } else {
-                        div { class: "w-8 min-w-[32px]" }
+                        div { class: "w-7 min-w-[28px]" }
                     }
                     button {
                         class: "flex-1 flex items-center gap-2 text-left px-2 py-2.5 text-sm text-stone-900 rounded-lg min-h-[44px] hover:bg-stone-100 transition-colors duration-150",
@@ -259,24 +264,24 @@ fn FolderItem(folder: Folder, depth: u32) -> Element {
                         }
                     }
                     button {
-                        class: "w-11 h-11 flex items-center justify-center text-stone-400 hover:text-stone-600 transition-all duration-150",
-                        class: if show_actions() {
+                        class: "w-9 h-11 flex items-center justify-center text-stone-400 hover:text-stone-600 transition-all duration-150",
+                        class: if menu_open {
                             "text-stone-600"
                         } else {
                             "lg:opacity-0 lg:group-hover:opacity-100"
                         },
-                        onclick: move |_| show_actions.set(!show_actions()),
+                        onclick: move |_| {
+                            confirm_delete.set(false);
+                            moving.set(false);
+                            app.row_menu.set(if menu_open {
+                                None
+                            } else {
+                                Some(RowMenu::Folder(folder_id_menu.clone()))
+                            });
+                        },
                         IconDotsThree { size: 20 }
                     }
-                    if show_actions() {
-                        div {
-                            class: "fixed inset-0 z-40",
-                            onclick: move |_| {
-                                show_actions.set(false);
-                                confirm_delete.set(false);
-                                moving.set(false);
-                            },
-                        }
+                    if menu_open {
                         div { class: "absolute right-2 top-full max-h-64 overflow-y-auto {kit::MENU_PANEL}",
                             if moving() {
                                 if folder.parent_id.is_some() {
@@ -290,7 +295,7 @@ fn FolderItem(folder: Folder, depth: u32) -> Element {
                                             };
                                             let _ = db().update_folder(&folder_id_move_root, &upd);
                                             moving.set(false);
-                                            show_actions.set(false);
+                                            app.row_menu.set(None);
                                             app.folders_version.set((app.folders_version)() + 1);
                                         },
                                         IconFolder { size: 16 }
@@ -315,7 +320,7 @@ fn FolderItem(folder: Folder, depth: u32) -> Element {
                                                     };
                                                     let _ = db().update_folder(&fid, &upd);
                                                     moving.set(false);
-                                                    show_actions.set(false);
+                                                    app.row_menu.set(None);
                                                     app.folders_version.set((app.folders_version)() + 1);
                                                 },
                                                 IconFolder { size: 16 }
@@ -337,20 +342,26 @@ fn FolderItem(folder: Folder, depth: u32) -> Element {
                                             class: kit::CONFIRM_BTN_GHOST,
                                             onclick: move |_| {
                                                 confirm_delete.set(false);
-                                                show_actions.set(false);
+                                                app.row_menu.set(None);
                                             },
                                             {t(&lang, "chat-menu-cancel")}
                                         }
                                         button {
                                             class: kit::CONFIRM_BTN_DANGER,
                                             onclick: move |_| {
-                                                let _ = db().delete_folder(&folder_id_for_delete);
-                                                if (app.selected_folder_id)().as_deref() == Some(folder_id_for_delete.as_str()) {
-                                                    app.selected_folder_id.set(None);
-                                                }
-                                                app.folders_version.set((app.folders_version)() + 1);
+                                                // Close the menu THIS render pass, delete on the next
+                                                // task: the row must never be torn down in the same
+                                                // patch as its own open menu (orphaned-node freeze).
                                                 confirm_delete.set(false);
-                                                show_actions.set(false);
+                                                app.row_menu.set(None);
+                                                let fid = folder_id_for_delete.clone();
+                                                spawn(async move {
+                                                    let _ = db().delete_folder(&fid);
+                                                    if (app.selected_folder_id)().as_deref() == Some(fid.as_str()) {
+                                                        app.selected_folder_id.set(None);
+                                                    }
+                                                    app.folders_version.set((app.folders_version)() + 1);
+                                                });
                                             },
                                             {t(&lang, "chat-menu-delete")}
                                         }
@@ -360,7 +371,7 @@ fn FolderItem(folder: Folder, depth: u32) -> Element {
                                 button {
                                     class: kit::MENU_ITEM,
                                     onclick: move |_| {
-                                        show_actions.set(false);
+                                        app.row_menu.set(None);
                                         editing.set(true);
                                     },
                                     IconPencil { size: 16 }
@@ -369,7 +380,7 @@ fn FolderItem(folder: Folder, depth: u32) -> Element {
                                 button {
                                     class: kit::MENU_ITEM,
                                     onclick: move |_| {
-                                        show_actions.set(false);
+                                        app.row_menu.set(None);
                                         creating_sub.set(true);
                                     },
                                     IconFolderPlus { size: 16 }
@@ -395,7 +406,7 @@ fn FolderItem(folder: Folder, depth: u32) -> Element {
             }
             if creating_sub() {
                 div {
-                    class: "flex items-center gap-1 bg-stone-100 rounded-xl pl-3 pr-1 py-1 ml-8 my-1",
+                    class: "flex items-center gap-1 bg-stone-100 rounded-xl pl-3 pr-1 py-1 ml-7 my-1",
                     style: "animation: popIn 0.16s ease-out;",
                     input {
                         class: "flex-1 min-w-0 bg-transparent text-sm outline-none py-1.5 text-stone-900 placeholder-stone-400",
@@ -453,7 +464,7 @@ fn FolderItem(folder: Folder, depth: u32) -> Element {
             }
             if is_expanded {
                 for child in children() {
-                    FolderItem { folder: child, depth: depth + 1 }
+                    FolderItem { key: "{child.id}", folder: child, depth: depth + 1 }
                 }
             }
         }

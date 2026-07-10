@@ -1,14 +1,21 @@
+use crate::domain::{RecurrenceFreq, RecurrenceSpec};
 use block2::RcBlock;
+use chrono::Weekday;
 use objc2::rc::Retained;
 use objc2::runtime::{AnyObject, Bool, ProtocolObject};
-use objc2::{define_class, msg_send, sel, DefinedClass, MainThreadOnly};
-use objc2_event_kit::{EKAlarm, EKEvent, EKEventStore, EKSpan};
+use objc2::{
+    define_class, msg_send, sel, AnyThread, DefinedClass, MainThreadOnly,
+};
+use objc2_event_kit::{
+    EKAlarm, EKEvent, EKEventStore, EKRecurrenceDayOfWeek, EKRecurrenceEnd,
+    EKRecurrenceFrequency, EKRecurrenceRule, EKSpan, EKWeekday,
+};
 use objc2_event_kit_ui::{
     EKEventViewAction, EKEventViewController, EKEventViewDelegate,
 };
 use objc2_foundation::{
-    MainThreadMarker, NSCalendar, NSDate, NSDateComponents, NSError, NSObject,
-    NSObjectProtocol, NSString,
+    MainThreadMarker, NSArray, NSCalendar, NSDate, NSDateComponents, NSError,
+    NSNumber, NSObject, NSObjectProtocol, NSString,
 };
 use objc2_ui_kit::{
     UIApplication, UIBarButtonItem, UIBarButtonSystemItem,
@@ -22,6 +29,8 @@ use std::time::Duration;
 pub struct EventRequest {
     pub title: String,
     pub notes: String,
+    pub recurrence: Option<String>,
+    pub recurrence_until: Option<(i32, i32, i32)>,
     pub year: i32,
     pub month: i32,
     pub day: i32,
@@ -156,6 +165,21 @@ pub async fn create_event(req: EventRequest) -> ReminderOutcome {
             event.addAlarm(&alarm);
         }
 
+        if let Some(spec) =
+            req.recurrence.as_deref().and_then(RecurrenceSpec::parse)
+        {
+            // Recurrence is only set when the user gave an explicit end date, so the series is
+            // always bounded; 23:59 keeps the last day's occurrence inside the range.
+            let rec_end = req
+                .recurrence_until
+                .and_then(|(y, m, d)| day_date(&cal, y, m, d, 23, 59))
+                .map(|date| EKRecurrenceEnd::recurrenceEndWithEndDate(&date));
+            event.addRecurrenceRule(&build_recurrence_rule(
+                &spec,
+                rec_end.as_deref(),
+            ));
+        }
+
         match store.saveEvent_span_commit_error(&event, EKSpan::ThisEvent, true)
         {
             Ok(()) => ReminderOutcome::Created(
@@ -166,6 +190,57 @@ pub async fn create_event(req: EventRequest) -> ReminderOutcome {
             }
         }
     }
+}
+
+fn ek_weekday(w: Weekday) -> EKWeekday {
+    match w {
+        Weekday::Sun => EKWeekday::Sunday,
+        Weekday::Mon => EKWeekday::Monday,
+        Weekday::Tue => EKWeekday::Tuesday,
+        Weekday::Wed => EKWeekday::Wednesday,
+        Weekday::Thu => EKWeekday::Thursday,
+        Weekday::Fri => EKWeekday::Friday,
+        Weekday::Sat => EKWeekday::Saturday,
+    }
+}
+
+unsafe fn build_recurrence_rule(
+    spec: &RecurrenceSpec,
+    end: Option<&EKRecurrenceEnd>,
+) -> Retained<EKRecurrenceRule> {
+    let freq = match spec.freq {
+        RecurrenceFreq::Daily => EKRecurrenceFrequency::Daily,
+        RecurrenceFreq::Weekly => EKRecurrenceFrequency::Weekly,
+        RecurrenceFreq::Monthly => EKRecurrenceFrequency::Monthly,
+    };
+    let days_of_week = (!spec.weekdays.is_empty()).then(|| {
+        let items: Vec<Retained<EKRecurrenceDayOfWeek>> = spec
+            .weekdays
+            .iter()
+            .map(|w| EKRecurrenceDayOfWeek::dayOfWeek(ek_weekday(*w)))
+            .collect();
+        NSArray::from_retained_slice(&items)
+    });
+    let days_of_month = (!spec.month_days.is_empty()).then(|| {
+        let items: Vec<Retained<NSNumber>> = spec
+            .month_days
+            .iter()
+            .map(|d| NSNumber::new_isize(*d as isize))
+            .collect();
+        NSArray::from_retained_slice(&items)
+    });
+    EKRecurrenceRule::initRecurrenceWithFrequency_interval_daysOfTheWeek_daysOfTheMonth_monthsOfTheYear_weeksOfTheYear_daysOfTheYear_setPositions_end(
+        EKRecurrenceRule::alloc(),
+        freq,
+        1,
+        days_of_week.as_deref(),
+        days_of_month.as_deref(),
+        None,
+        None,
+        None,
+        None,
+        end,
+    )
 }
 
 struct DoneDelegateIvars {

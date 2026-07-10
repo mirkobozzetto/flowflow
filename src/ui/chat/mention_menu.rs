@@ -171,7 +171,7 @@ fn MentionRow(
                 mentions.set(next);
                 app.show_mention_menu.set(false);
             },
-            span { class: LEAD_ICON, IconNotebook { size: 22 } }
+            span { class: LEAD_ICON, IconNote { size: 22 } }
             div { class: "flex-1 min-w-0 text-left",
                 div {
                     class: "truncate {ROW_TITLE}",

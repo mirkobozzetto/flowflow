@@ -13,7 +13,7 @@ mod state;
 mod sync;
 mod thread;
 
-pub use state::{AppState, SettingsSection, SidebarTab, View};
+pub use state::{AppState, RowMenu, SettingsSection, SidebarTab, View};
 
 use dioxus::prelude::*;
 
@@ -21,7 +21,8 @@ use app::consent::ConsentScreen;
 use app::restore_lock::RestoreLockScreen;
 use app::{
     load_consent, load_lang, use_app_contexts, use_history_tracker,
-    use_picker_reset_on_view, use_sync_watcher, use_transcription_watcher,
+    use_picker_reset_on_view, use_record_deeplink_watcher,
+    use_share_inbox_watcher, use_sync_watcher, use_transcription_watcher,
     AppContexts, AppRouter,
 };
 
@@ -30,7 +31,7 @@ pub fn App() -> Element {
     let AppContexts {
         db,
         engine,
-        recorder: _recorder,
+        recorder,
         manager,
         restore_locked,
         index_rebuilding,
@@ -45,6 +46,8 @@ pub fn App() -> Element {
     use_sync_watcher(engine, app, restore_locked, index_rebuilding);
     use_picker_reset_on_view(app);
     use_history_tracker(app);
+    use_record_deeplink_watcher(app, recorder);
+    use_share_inbox_watcher(app, db);
 
     #[cfg(target_os = "macos")]
     keyboard::use_macos_shortcuts(app);

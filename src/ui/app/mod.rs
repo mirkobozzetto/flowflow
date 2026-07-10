@@ -17,6 +17,6 @@ pub use boot::{load_consent, load_lang};
 pub use contexts::{use_app_contexts, AppContexts};
 pub use router::AppRouter;
 pub use watchers::{
-    use_history_tracker, use_picker_reset_on_view, use_sync_watcher,
-    use_transcription_watcher,
+    use_history_tracker, use_picker_reset_on_view, use_record_deeplink_watcher,
+    use_share_inbox_watcher, use_sync_watcher, use_transcription_watcher,
 };

@@ -118,7 +118,9 @@ pub fn NoteDetail() -> Element {
     use_effect(move || {
         if deleted() {
             app.sliding_out.set(true);
-            spawn(async move {
+            // spawn_forever: NoteDetail can unmount mid-delay (e.g. a sync-driven
+            // rerender); a cancelled scope task would leave sliding_out stuck true.
+            dioxus::core::spawn_forever(async move {
                 futures_timer::Delay::new(std::time::Duration::from_millis(
                     150,
                 ))
@@ -388,6 +390,7 @@ pub fn NoteDetail() -> Element {
             }
             AudioSection { local_note_id, audios_version }
             AttachmentSection { attachments, confirm_delete_att }
+            crate::ui::notes::related::RelatedSection { local_note_id }
             if let Some(ref status) = import_status() {
                 div { class: if is_importing {
                         "flex items-center gap-2 px-3 py-2 mt-2 bg-ios-orange/10 rounded-lg"

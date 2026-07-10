@@ -78,9 +78,35 @@ pub const RAG_RELEVANCE_FLOOR: f32 = 0.25;
 // Conversation turns fed to query rewriting and the final agent prompt. Enough to resolve
 // a pronoun or "développe" without dragging the whole conversation into every call.
 pub const CHAT_HISTORY_TURNS: usize = 6;
+// Related-notes section on NoteDetail. Fetch wide (own chunks + attachment rows of the
+// same note come back first), then keep distinct notes. Every stored chunk vector of
+// the note queries (capped), so a long multi-topic note links on all its topics; a
+// keyword leg (title+tags) catches shared proper nouns the embeddings miss.
+pub const RELATED_K: usize = 5;
+pub const RELATED_FETCH_K: usize = 12;
+// Hard ceiling: beyond this cosine distance a candidate is never linked, so an
+// isolated note yields an empty section instead of noise.
+pub const RELATED_MAX_DISTANCE: f32 = 0.75;
+// Candidates at or under this distance are always kept; the gap cutoff only
+// arbitrates the grey zone between floor and ceiling.
+pub const RELATED_GAP_FLOOR: f32 = 0.5;
+// A distance jump must be at least this wide to count as "the" gap; smaller
+// jumps mean one continuous cluster and everything under the ceiling stays.
+pub const RELATED_MIN_GAP: f32 = 0.07;
+pub const RELATED_QUERY_CHUNKS: usize = 8;
+pub const RELATED_KEYWORD_K: usize = 5;
+// Links persisted per note in note_links: store a bit wider than displayed so
+// pin/dismiss re-ranking has material to work with.
+pub const RELATED_STORE_K: usize = 8;
 pub const RRF_K: f32 = 60.0;
 pub const RRF_LOCAL_WEIGHT: f32 = 1.2;
 pub const RRF_WEB_WEIGHT: f32 = 1.0;
+
+pub const NOTE_LINK_LABEL_PROMPT: &str = "\
+Two personal notes are linked. State WHY in ONE short phrase (max 8 words).\n\
+Examples: \"also about Jean\", \"follow-up of the March plan\".\n\
+Write the phrase in the same language as the notes.\n\
+Return ONLY the phrase - no quotes, no punctuation at the end, no preamble.";
 
 pub const TAGS_SYSTEM_PROMPT: &str = "\
 Extract exactly 3 single-word keyword tags from the text below.\n\
@@ -193,6 +219,15 @@ created or updated.\n\
 3. Reply in the SAME language as the note, in ONE short line plus the link. In the REPLY do NOT \
 explain your steps, do NOT list the columns or fields, do NOT add preamble or recap.\n\
 4. If the note is not an actionable request, reply in one short line saying there is nothing to run.";
+
+pub const AGENT_TRIGGER_JUDGE_PROMPT: &str = "\
+A keyword prefilter matched the user's message to this agent:\n\
+Agent: {name}\n\
+Purpose: {description}\n\
+\n\
+Decide whether the message is genuinely asking to run THIS agent now (confidence at least 0.7), \
+not merely mentioning a related word in passing or asking a general question.\n\
+Reply with exactly one word: YES or NO.";
 
 pub const REMINDER_EXTRACTION_PROMPT: &str = "\
 You extract timed reminder intents from a personal note. The note may be in French or English.\n\

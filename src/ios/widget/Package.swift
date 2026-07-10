@@ -3,7 +3,7 @@ import PackageDescription
 
 let package = Package(
     name: "RecordingWidget",
-    platforms: [.iOS(.v16)],
+    platforms: [.iOS("16.2")],
     products: [
         .library(name: "RecordingWidget", targets: ["RecordingWidget"])
     ],

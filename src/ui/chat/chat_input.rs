@@ -50,6 +50,19 @@ pub fn ChatInputBar(
     let show_mention = (app.show_mention_menu)();
     let is_desktop = !cfg!(target_os = "ios");
 
+    // The + palette drops a ready-to-run command here ("lance <alias>"): PREFILL the input
+    // so the user can complete it (add the goal, correct the target) and send deliberately -
+    // a tap must never fire an agent run on its own.
+    use_effect(move || {
+        if let Some(cmd) = (app.pending_chat_input)() {
+            let mut app = app;
+            app.pending_chat_input.set(None);
+            if !cmd.trim().is_empty() {
+                input.set(format!("{cmd} "));
+            }
+        }
+    });
+
     let mut do_send = move || {
         let q = input().trim().to_string();
         if !q.is_empty() && !disabled {

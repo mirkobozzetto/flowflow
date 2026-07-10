@@ -35,6 +35,23 @@ pub fn TopBar() -> Element {
             .unwrap_or_else(|| t(&lang, "thread-untitled"))
     };
 
+    // Theme (folder) of the open thread, live: re-reads on theme change
+    // (menu bumps notes_version) and on folder renames.
+    let thread_theme = {
+        let _ = (app.notes_version)();
+        let _ = (app.folders_version)();
+        match (app.view)() {
+            View::ThreadDetail { ref thread_id } => db()
+                .get_thread(thread_id)
+                .ok()
+                .flatten()
+                .and_then(|th| th.folder_id)
+                .and_then(|fid| db().get_folder(&fid).ok().flatten())
+                .map(|f| f.name),
+            _ => None,
+        }
+    };
+
     let title = match (app.view)() {
         View::NotesList => match (app.selected_folder_id)() {
             Some(ref fid) => db()
@@ -79,6 +96,19 @@ pub fn TopBar() -> Element {
                         app.show_folder_picker.set(false);
                         let target = (app.previous_view)()
                             .unwrap_or(View::NotesList);
+                        // Note -> note back needs the NotesList bounce, else the
+                        // mounted NoteDetail keeps the previous note's state.
+                        if matches!((app.view)(), View::NoteDetail { .. })
+                            && matches!(target, View::NoteDetail { .. })
+                        {
+                            app.previous_view.set(None);
+                            app.view.set(View::NotesList);
+                            spawn(async move {
+                                futures_timer::Delay::new(std::time::Duration::from_millis(30)).await;
+                                app.view.set(target);
+                            });
+                            return;
+                        }
                         if cfg!(target_os = "macos")
                             || matches!(
                                 target,
@@ -92,7 +122,9 @@ pub fn TopBar() -> Element {
                             return;
                         }
                         app.sliding_out.set(true);
-                        spawn(async move {
+                        // spawn_forever: a scope-bound task cancelled by an unmount
+                        // mid-delay would leave sliding_out stuck true (global freeze).
+                        dioxus::core::spawn_forever(async move {
                             futures_timer::Delay::new(std::time::Duration::from_millis(150)).await;
                             app.sliding_out.set(false);
                             app.previous_view.set(None);
@@ -130,6 +162,21 @@ pub fn TopBar() -> Element {
                     span {
                         class: "inline-block w-1.5 h-1.5 border-r-2 border-b-2 border-stone-400 chevron-pivot",
                         class: if (app.show_folder_picker)() { "-rotate-[135deg]" } else { "rotate-45" },
+                    }
+                }
+            } else if is_thread {
+                button {
+                    class: "flex-1 min-w-0 text-left flex flex-col justify-center active:opacity-70 hover:opacity-70 transition-opacity duration-150",
+                    onclick: move |_| {
+                        app.show_folder_picker.set(false);
+                        app.show_thread_theme.set(true);
+                        app.show_thread_menu.set(true);
+                    },
+                    span { class: "text-lg font-semibold text-stone-900 leading-tight truncate", "{title}" }
+                    span {
+                        class: "text-xs leading-tight truncate",
+                        class: if thread_theme.is_some() { "text-ios-orange-dark" } else { "text-stone-400" },
+                        {thread_theme.clone().unwrap_or_else(|| t(&lang, "thread-theme-none"))}
                     }
                 }
             } else {

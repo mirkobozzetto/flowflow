@@ -14,8 +14,13 @@ pub fn ThreadHeaderMenu(thread_id: String) -> Element {
     let lang = (app.current_lang)();
 
     let mut renaming = use_signal(|| false);
-    let mut choosing_theme = use_signal(|| false);
+    // The top-bar theme tap opens this menu straight on the theme chooser.
+    let mut choosing_theme = use_signal(|| *app.show_thread_theme.peek());
     let mut confirm_delete = use_signal(|| false);
+    use_drop(move || {
+        let mut app = app;
+        app.show_thread_theme.set(false);
+    });
     let current_title = db()
         .get_thread(&thread_id)
         .ok()

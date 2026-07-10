@@ -3,7 +3,7 @@ import PackageDescription
 
 let package = Package(
     name: "RecordingPlugin",
-    platforms: [.iOS(.v16)],
+    platforms: [.iOS("16.2")],
     products: [
         .library(name: "RecordingPlugin", type: .static, targets: ["RecordingPlugin"])
     ],
@@ -13,6 +13,7 @@ let package = Package(
             path: "Sources",
             linkerSettings: [
                 .linkedFramework("ActivityKit"),
+                .linkedFramework("AppIntents"),
                 .linkedFramework("Foundation"),
             ]
         )
