@@ -18,6 +18,8 @@ pub fn IntelligenceSettings() -> Element {
             .unwrap_or(8)
     });
     let mut saved = use_signal(|| false);
+    let mut debug_trace =
+        use_signal(|| db().get_setting("debug_trace").as_deref() == Some("1"));
     let lang = (app.current_lang)();
 
     rsx! {
@@ -79,6 +81,34 @@ pub fn IntelligenceSettings() -> Element {
                 div { class: "flex justify-between text-xs text-stone-400",
                     span { "3" }
                     span { "15" }
+                }
+            }
+
+            h2 { class: "text-lg font-semibold text-stone-900 pt-2", {t(&lang, "settings-debug-title")} }
+            button {
+                class: "w-full flex items-center justify-between gap-3 text-left",
+                onclick: move |_| {
+                    let on = !debug_trace();
+                    debug_trace.set(on);
+                    let _ = db().set_setting("debug_trace", if on { "1" } else { "0" });
+                },
+                div {
+                    p { class: "text-sm font-medium text-stone-700", {t(&lang, "settings-debug-trace")} }
+                    p { class: "text-xs text-stone-400", {t(&lang, "settings-debug-trace-desc")} }
+                }
+                span {
+                    class: if debug_trace() {
+                        "relative w-11 h-6 shrink-0 rounded-full bg-ios-orange transition-colors duration-200"
+                    } else {
+                        "relative w-11 h-6 shrink-0 rounded-full bg-stone-300 transition-colors duration-200"
+                    },
+                    span {
+                        class: if debug_trace() {
+                            "absolute top-0.5 left-0.5 w-5 h-5 rounded-full bg-white shadow transition-transform duration-200 translate-x-5"
+                        } else {
+                            "absolute top-0.5 left-0.5 w-5 h-5 rounded-full bg-white shadow transition-transform duration-200 translate-x-0"
+                        },
+                    }
                 }
             }
 

@@ -4,6 +4,7 @@ use crate::ui::chat::action_card::ActionResultCard;
 use crate::ui::chat::actions::{find_saved_note, md_to_html, save_as_note};
 use crate::ui::chat::models::ChatSource;
 use crate::ui::chat::sources_accordion::SourcesAccordion;
+use crate::ui::chat::trace_accordion::TraceAccordion;
 use crate::ui::clipboard::copy_text;
 use crate::ui::icons::{IconCheck, IconCopy, IconFloppyDisk};
 use crate::ui::state::View;
@@ -16,6 +17,7 @@ pub fn BotBubble(
     text: String,
     sources: Vec<ChatSource>,
     conversation_id: Option<String>,
+    #[props(default)] trace: Option<crate::application::rag::RagTrace>,
 ) -> Element {
     let mut app: AppState = use_context();
     let db: Signal<Arc<Database>> = use_context();
@@ -150,6 +152,11 @@ pub fn BotBubble(
                         sources: sources.clone(),
                         conversation_id: conversation_id,
                     }
+                }
+                if let Some(tr) = trace.filter(|_| {
+                    db().get_setting("debug_trace").as_deref() == Some("1")
+                }) {
+                    TraceAccordion { trace: tr }
                 }
             }
         }

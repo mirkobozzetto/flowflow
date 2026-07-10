@@ -17,6 +17,8 @@ pub enum ChatMsg {
     Bot {
         text: String,
         sources: Vec<ChatSource>,
+        /// RAG execution trace, shown only under the Settings debug toggle.
+        trace: Option<crate::application::rag::RagTrace>,
     },
     /// A suspended connector write awaiting the user's decision, rendered as the approval card.
     /// `status` drives the card (buttons while `Pending`, a frozen pill after); `edit_error`

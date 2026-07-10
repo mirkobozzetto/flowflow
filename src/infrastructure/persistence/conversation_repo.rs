@@ -184,6 +184,34 @@ impl Database {
         })
     }
 
+    // The execution trace lives in its own column with its own accessors: the
+    // ConversationMessage struct feeds the sync wire, so it must not grow a
+    // device-local field.
+    pub fn set_message_trace(
+        &self,
+        message_id: &str,
+        trace_json: &str,
+    ) -> Result<(), String> {
+        let conn = self.conn();
+        conn.execute(
+            "UPDATE conversation_messages SET trace_json = ?1 WHERE id = ?2",
+            rusqlite::params![trace_json, message_id],
+        )
+        .map_err(|e| format!("Set message trace: {e}"))?;
+        Ok(())
+    }
+
+    pub fn message_trace(&self, message_id: &str) -> Option<String> {
+        let conn = self.conn();
+        conn.query_row(
+            "SELECT trace_json FROM conversation_messages WHERE id = ?1",
+            [message_id],
+            |row| row.get(0),
+        )
+        .ok()
+        .flatten()
+    }
+
     // Rewrite a message's content in place. Used to update a persisted proposal card from its
     // Pending propose-time shape to its final decided status, without a new row or migration.
     pub fn update_message_content(

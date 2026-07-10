@@ -180,6 +180,14 @@ impl LlmClient {
         }
     }
 
+    /// Model id the chat/agent path actually uses under the configured provider.
+    pub fn chat_model_name(&self) -> &'static str {
+        match self.provider {
+            Provider::OpenAi => CHAT_MODEL,
+            Provider::Anthropic => ANTHROPIC_CHAT_MODEL,
+        }
+    }
+
     pub async fn prompt_with_agent(
         self: &Arc<Self>,
         preamble: &str,

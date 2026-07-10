@@ -1,7 +1,7 @@
 use crate::application::constants::{
-    RAG_AGENT_SYSTEM_PROMPT, RAG_AGENT_WEB_SYSTEM_PROMPT, RAG_FINAL_K,
-    RAG_INITIAL_K, RAG_RELEVANCE_FLOOR, RRF_K, RRF_LOCAL_WEIGHT,
-    RRF_WEB_WEIGHT,
+    CHEAP_MODEL, EMBEDDING_MODEL, RAG_AGENT_SYSTEM_PROMPT,
+    RAG_AGENT_WEB_SYSTEM_PROMPT, RAG_FINAL_K, RAG_INITIAL_K,
+    RAG_RELEVANCE_FLOOR, RRF_K, RRF_LOCAL_WEIGHT, RRF_WEB_WEIGHT,
 };
 use crate::application::tools::{prompt_agent_with_tools, ToolEvent};
 use crate::infrastructure::llm::LlmClient;
@@ -48,6 +48,10 @@ pub fn abstain_decision(
 mod rerank;
 use rerank::llm_relevance_filter;
 
+mod trace;
+use trace::StepTimer;
+pub use trace::{estimate_tokens, RagTrace, StepOutcome, TraceStep};
+
 mod rewrite;
 use rewrite::rewrite_query;
 pub use rewrite::{
@@ -63,15 +67,29 @@ async fn select_relevant(
     ai: &LlmClient,
     question: &str,
     candidates: Vec<SearchResult>,
+    rag_trace: &mut RagTrace,
 ) -> Vec<SearchResult> {
     if candidates.is_empty() {
+        StepTimer::start("judge", None).finish(
+            rag_trace,
+            None,
+            None,
+            StepOutcome::Skipped,
+        );
         return candidates;
     }
+    let judge_in = estimate_tokens(question)
+        + candidates
+            .iter()
+            .map(|c| estimate_tokens(&c.chunk_text))
+            .sum::<u32>();
+    let timer = StepTimer::start("judge", Some(ai.chat_model_name()));
     let judged: HashSet<usize> =
         llm_relevance_filter(ai, question, &candidates, RAG_FINAL_K)
             .await
             .into_iter()
             .collect();
+    timer.finish(rag_trace, Some(judge_in), None, StepOutcome::Ok);
     candidates
         .into_iter()
         .enumerate()
@@ -104,6 +122,8 @@ pub struct RagSource {
 pub struct RagResponse {
     pub answer: String,
     pub sources: Vec<RagSource>,
+    /// Per-step execution trace (observation only); None on non-RAG paths.
+    pub trace: Option<RagTrace>,
 }
 
 pub async fn query(
@@ -115,6 +135,8 @@ pub async fn query(
     history: Vec<ChatTurn>,
     lang: &str,
 ) -> Result<RagResponse, String> {
+    let run_started = std::time::Instant::now();
+    let mut rag_trace = RagTrace::default();
     let ai = Arc::new(LlmClient::from_env()?);
     let store = VectorStore::open().await?;
 
@@ -147,15 +169,33 @@ pub async fn query(
     // An empty scope only dead-ends when there is no web to fall back on; with web
     // on, the chat still answers from the web even if the scoped note set is empty.
     if !web_on && matches!(allowed_note_ids, Some(ref ids) if ids.is_empty()) {
+        rag_trace.total_ms = run_started.elapsed().as_millis() as u64;
         return Ok(RagResponse {
             answer: crate::application::i18n::t(lang, "chat-empty-scope"),
             sources: vec![],
+            trace: Some(rag_trace),
         });
     }
 
     // Follow-ups lean on the conversation ("et lui ?", "développe"): retrieval runs on a
     // standalone rewrite of the question, while the final agent still sees the user's words.
+    let rewrite_timer = StepTimer::start("rewrite", Some(CHEAP_MODEL));
     let retrieval_q = rewrite_query(&ai, &history, question).await;
+    let rewrite_in = estimate_tokens(question)
+        + history
+            .iter()
+            .map(|t| estimate_tokens(&t.content))
+            .sum::<u32>();
+    rewrite_timer.finish(
+        &mut rag_trace,
+        Some(rewrite_in),
+        Some(estimate_tokens(&retrieval_q)),
+        if history.is_empty() {
+            StepOutcome::Skipped
+        } else {
+            StepOutcome::Ok
+        },
+    );
     if retrieval_q != question {
         eprintln!("[rag] rewrite: {retrieval_q}");
     }
@@ -165,10 +205,24 @@ pub async fn query(
     let date_range = match date_range {
         Some(r) => {
             eprintln!("[rag] temporal regex: {} to {}", r.from, r.to);
+            StepTimer::start("temporal", None).finish(
+                &mut rag_trace,
+                None,
+                None,
+                StepOutcome::Skipped,
+            );
             Some(r)
         }
         None => {
+            let timer =
+                StepTimer::start("temporal", Some(ai.chat_model_name()));
             let r = detect_temporal_llm(&ai, retrieval_q).await;
+            timer.finish(
+                &mut rag_trace,
+                Some(estimate_tokens(retrieval_q)),
+                None,
+                StepOutcome::Ok,
+            );
             if let Some(ref r) = r {
                 eprintln!("[rag] temporal LLM: {} to {}", r.from, r.to);
             }
@@ -177,7 +231,14 @@ pub async fn query(
     };
 
     let _ = store.ensure_fts_index().await;
+    let embed_timer = StepTimer::start("embed", Some(EMBEDDING_MODEL));
     let query_vector = ai.embed(retrieval_q).await?;
+    embed_timer.finish(
+        &mut rag_trace,
+        Some(estimate_tokens(retrieval_q)),
+        None,
+        StepOutcome::Ok,
+    );
     let fetch_k = if date_range.is_some() {
         RAG_INITIAL_K * 3
     } else {
@@ -188,6 +249,7 @@ pub async fn query(
         if let Some(ref tx) = status_tx {
             let _ = tx.send(ToolEvent::Started("web_search".into()));
         }
+        let search_timer = StepTimer::start("search", None);
         let (local_res, web_res) = tokio::join!(
             store.hybrid_search(
                 retrieval_q,
@@ -197,6 +259,7 @@ pub async fn query(
             ),
             crate::application::web_search::exa_search(retrieval_q, &exa),
         );
+        search_timer.finish(&mut rag_trace, None, None, StepOutcome::Ok);
         if let Some(ref tx) = status_tx {
             let _ = tx.send(ToolEvent::Finished("web_search".into()));
         }
@@ -216,20 +279,24 @@ pub async fn query(
             && !is_actionable
         {
             eprintln!("[rag] abstain: web on, both legs empty");
+            rag_trace.total_ms = run_started.elapsed().as_millis() as u64;
             return Ok(RagResponse {
                 answer: crate::application::i18n::t(lang, "chat-web-empty"),
                 sources: vec![],
+                trace: Some(rag_trace),
             });
         }
         let merged =
             rrf_merge(local, web_res, RRF_K, RRF_LOCAL_WEIGHT, RRF_WEB_WEIGHT);
         // Cite only the genuinely relevant rows (notes AND web results), judged by the LLM, not
         // the top-N by rank.
-        let selected = select_relevant(&ai, retrieval_q, merged).await;
+        let selected =
+            select_relevant(&ai, retrieval_q, merged, &mut rag_trace).await;
         let filtered = dedup_merged(selected);
         let count = read_max_sources().min(RAG_FINAL_K).min(filtered.len());
         filtered.into_iter().take(count).collect()
     } else {
+        let search_timer = StepTimer::start("search", None);
         let candidates = store
             .hybrid_search(
                 retrieval_q,
@@ -238,6 +305,7 @@ pub async fn query(
                 allowed_note_ids.as_deref(),
             )
             .await?;
+        search_timer.finish(&mut rag_trace, None, None, StepOutcome::Ok);
 
         let candidates = if let Some(ref range) = date_range {
             apply_date_filter(candidates, range)
@@ -249,9 +317,15 @@ pub async fn query(
         // so it judges what a note is ABOUT, not mere word overlap. An `@mention` is an explicit
         // pointer: answer from the named notes without judging.
         let mut selected = if has_mention {
+            StepTimer::start("judge", None).finish(
+                &mut rag_trace,
+                None,
+                None,
+                StepOutcome::Skipped,
+            );
             candidates
         } else {
-            select_relevant(&ai, retrieval_q, candidates).await
+            select_relevant(&ai, retrieval_q, candidates, &mut rag_trace).await
         };
         apply_temporal_boost(&mut selected);
         let kept = dedup_sources(selected);
@@ -262,9 +336,11 @@ pub async fn query(
             == AbstainDecision::Abstain
         {
             eprintln!("[rag] abstain: nothing relevant (web off)");
+            rag_trace.total_ms = run_started.elapsed().as_millis() as u64;
             return Ok(RagResponse {
                 answer: crate::application::i18n::t(lang, "chat-no-relevant"),
                 sources: vec![],
+                trace: Some(rag_trace),
             });
         }
 
@@ -328,9 +404,16 @@ pub async fn query(
     } else {
         RAG_AGENT_SYSTEM_PROMPT
     };
+    let agent_timer = StepTimer::start("agent", Some(ai.chat_model_name()));
     let answer =
         prompt_agent_with_tools(ai, system_prompt, &user_msg, status_tx)
             .await?;
+    agent_timer.finish(
+        &mut rag_trace,
+        Some(estimate_tokens(&user_msg)),
+        Some(estimate_tokens(&answer)),
+        StepOutcome::Ok,
+    );
 
     let sources = results
         .into_iter()
@@ -345,7 +428,12 @@ pub async fn query(
         })
         .collect();
 
-    Ok(RagResponse { answer, sources })
+    rag_trace.total_ms = run_started.elapsed().as_millis() as u64;
+    Ok(RagResponse {
+        answer,
+        sources,
+        trace: Some(rag_trace),
+    })
 }
 
 /// Run an explicit "lance xxx" message straight through the note-action agent path
@@ -368,5 +456,6 @@ pub async fn run_action(
     Ok(RagResponse {
         answer,
         sources: vec![],
+        trace: None,
     })
 }

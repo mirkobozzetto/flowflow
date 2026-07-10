@@ -597,7 +597,7 @@ fn restore_conflict_drops_dangling_thread_keeps_folder() {
     let (db_b, _db) = open_db();
     let (id_a, _) = pair(&db_a, &db_b);
 
-    let (folder, thread, note) =
+    let (_folder, thread, note) =
         seed_foldered_threaded_conflict(&db_a, &db_b, &id_a);
     let (db_with, conflict) = losing_side(&db_a, &db_b);
 
