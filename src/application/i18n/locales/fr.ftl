@@ -395,3 +395,10 @@ chat-empty-scope = Aucune note dans ce contexte pour répondre.
 chat-no-relevant = Aucune note pertinente trouvée. Active la recherche web pour aller au-delà des notes.
 chat-web-empty = Rien trouvé dans les notes ni sur le web pour cette question.
 thread-open = Ouvrir le fil
+
+# RAG execution trace - debug only
+settings-debug-title = Diagnostics
+settings-debug-trace = Trace d’exécution du chat
+settings-debug-trace-desc = Affiche les étapes de chaque réponse (modèle, latence). Debug uniquement.
+chat-trace-summary = { $steps } étapes - { $secs } s
+chat-trace-title = Trace d’exécution

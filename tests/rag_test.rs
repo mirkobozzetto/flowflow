@@ -60,6 +60,7 @@ fn test_rag_response_empty_sources() {
     let resp = RagResponse {
         answer: "Aucune note trouvée".to_string(),
         sources: vec![],
+        trace: None,
     };
     assert_eq!(resp.answer, "Aucune note trouvée");
     assert!(resp.sources.is_empty());
@@ -73,6 +74,7 @@ fn test_rag_response_with_sources() {
             make_source("n1", "T1", "C1", 0.1),
             make_source("n2", "T2", "C2", 0.2),
         ],
+        trace: None,
     };
     assert_eq!(resp.sources.len(), 2);
     assert_eq!(resp.sources[0].note_id, "n1");
@@ -84,6 +86,7 @@ fn test_rag_response_clone() {
     let resp = RagResponse {
         answer: "Réponse".to_string(),
         sources: vec![make_source("n1", "T1", "C1", 0.5)],
+        trace: None,
     };
     let copy = resp.clone();
     assert_eq!(resp.answer, copy.answer);

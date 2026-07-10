@@ -17,7 +17,15 @@ pub const MIGRATIONS: &[(i64, &str)] = &[
     (16, V16_SCHEMA),
     (17, V17_SCHEMA),
     (18, V18_SCHEMA),
+    (19, V19_SCHEMA),
 ];
+
+// Per-question RAG execution trace, persisted with the bot message. Nullable and
+// device-local: the sync wire never carries it, so a plain additive column suffices
+// (triggers survive ALTER TABLE ADD COLUMN).
+const V19_SCHEMA: &str = "
+ALTER TABLE conversation_messages ADD COLUMN trace_json TEXT;
+";
 
 // Approval cards (RFC 0019) persist as messages with role "proposal", but the original
 // conversation_messages CHECK only admits 'user'/'bot'. SQLite cannot alter a CHECK in place,

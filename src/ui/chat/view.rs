@@ -189,12 +189,13 @@ pub fn ChatView() -> Element {
                                         UserBubble { text: text.clone() }
                                     }
                                 },
-                                ChatMsg::Bot { text, sources } => rsx! {
+                                ChatMsg::Bot { text, sources, trace } => rsx! {
                                     div { key: "{i}",
                                         BotBubble {
                                             text: text.clone(),
                                             sources: sources.clone(),
                                             conversation_id: conversation_id(),
+                                            trace: trace.clone(),
                                         }
                                     }
                                 },

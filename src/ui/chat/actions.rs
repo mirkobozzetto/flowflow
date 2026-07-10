@@ -362,6 +362,7 @@ pub fn send_question(
             .map(|answer| rag::RagResponse {
                 answer,
                 sources: vec![],
+                trace: None,
             })
         } else if crate::application::intent::is_action_trigger(&question) {
             rag::run_action(&question, Some(tx)).await
@@ -395,17 +396,23 @@ pub fn send_question(
                 let sources_json = serialize_sources(&sources);
 
                 if let Some(ref cid) = conv_signal() {
-                    let _ = db().add_message(
+                    if let Ok(msg) = db().add_message(
                         cid,
                         "bot",
                         &r.answer,
                         sources_json.as_deref(),
-                    );
+                    ) {
+                        if let Some(ref trace) = r.trace {
+                            let _ = db()
+                                .set_message_trace(&msg.id, &trace.to_json());
+                        }
+                    }
                 }
 
                 msgs.write().push(ChatMsg::Bot {
                     text: r.answer,
                     sources,
+                    trace: r.trace,
                 });
             }
             Err(e) => {
@@ -416,6 +423,7 @@ pub fn send_question(
                 msgs.write().push(ChatMsg::Bot {
                     text: err_msg,
                     sources: vec![],
+                    trace: None,
                 });
             }
         }
@@ -460,9 +468,14 @@ pub fn load_messages_from_db(
                         .as_deref()
                         .map(parse_sources)
                         .unwrap_or_default();
+                    let trace = db
+                        .message_trace(&m.id)
+                        .as_deref()
+                        .and_then(crate::application::rag::RagTrace::from_json);
                     Some(ChatMsg::Bot {
                         text: m.content,
                         sources,
+                        trace,
                     })
                 }
                 // Only "proposal" remains; a run never survives the app, so a persisted

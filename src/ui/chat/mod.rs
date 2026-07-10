@@ -6,6 +6,7 @@ mod menu;
 mod models;
 mod sources_accordion;
 mod tools_menu;
+mod trace_accordion;
 mod typing_indicator;
 mod user_bubble;
 mod view;
