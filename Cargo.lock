@@ -3632,7 +3632,7 @@ dependencies = [
 
 [[package]]
 name = "flowflow"
-version = "1.0.1"
+version = "2.0.0"
 dependencies = [
  "arrow-array",
  "arrow-schema",
