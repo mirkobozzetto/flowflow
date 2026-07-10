@@ -77,11 +77,12 @@ pub async fn run_chain(
             .map_err(|e| LlmError::Completion(format!("mcp connect: {e}")))?;
 
     // One base contract, shared across states: budgets and read_before_write accumulate over the whole run.
-    // The peer lets the hook execute a user-EDITED payload deterministically.
+    // The peer lets the hook execute a user-EDITED payload deterministically and re-sync sheet headers.
     let base = ContractHook::with_contract(
         events,
         agent.governance.clone(),
         agent.connector.clone(),
+        crate::application::connector_module::armed_schema_map(db),
     )
     .with_peer(reg.peer());
 
@@ -191,6 +192,12 @@ pub async fn run_chain(
             .on_done
             .clone()
             .expect("non-terminal validated to carry on_done");
+    }
+
+    // The hook re-syncs sheet headers against its own snapshot (it holds no Database);
+    // persist whatever it refreshed so the next run starts from the live schema.
+    if let Some(schema) = base.schema_snapshot() {
+        crate::application::connector_module::store_schema_map(db, &schema);
     }
 
     Ok(ChainOutcome {

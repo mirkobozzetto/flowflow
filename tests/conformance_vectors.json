@@ -748,5 +748,337 @@
       },
       "expect": "err"
     }
+  ],
+  "row_validation_vectors": [
+    {
+      "name": "append_matching_schema_ok",
+      "governance": {
+        "tools": [
+          {
+            "tool": "google_sheets_append_rows",
+            "mode": "append_only"
+          }
+        ],
+        "read_before_write": false,
+        "deny_destructive": true
+      },
+      "tool": "google_sheets_append_rows",
+      "args": {
+        "spreadsheet_id": "S",
+        "sheet": "F",
+        "rows": [
+          {
+            "Date": "d",
+            "URL": "u"
+          }
+        ]
+      },
+      "headers": [
+        "Date",
+        "URL",
+        "Titre"
+      ],
+      "expect": "ok"
+    },
+    {
+      "name": "append_unknown_column_schema_mismatch",
+      "governance": {
+        "tools": [
+          {
+            "tool": "google_sheets_append_rows",
+            "mode": "append_only"
+          }
+        ],
+        "read_before_write": false,
+        "deny_destructive": true
+      },
+      "tool": "google_sheets_append_rows",
+      "args": {
+        "spreadsheet_id": "S",
+        "sheet": "F",
+        "rows": [
+          {
+            "Bogus": "x"
+          }
+        ]
+      },
+      "headers": [
+        "Date",
+        "URL"
+      ],
+      "expect": "schema_mismatch"
+    },
+    {
+      "name": "append_headerless_tab_refused",
+      "governance": {
+        "tools": [
+          {
+            "tool": "google_sheets_append_rows",
+            "mode": "append_only"
+          }
+        ],
+        "read_before_write": false,
+        "deny_destructive": true
+      },
+      "tool": "google_sheets_append_rows",
+      "args": {
+        "spreadsheet_id": "S",
+        "sheet": "F",
+        "rows": [
+          {
+            "Date": "d"
+          }
+        ]
+      },
+      "headers": [],
+      "expect": "no_header_row"
+    },
+    {
+      "name": "append_without_schema_skips_header_check",
+      "governance": {
+        "tools": [
+          {
+            "tool": "google_sheets_append_rows",
+            "mode": "append_only"
+          }
+        ],
+        "read_before_write": false,
+        "deny_destructive": true
+      },
+      "tool": "google_sheets_append_rows",
+      "args": {
+        "spreadsheet_id": "S",
+        "sheet": "F",
+        "rows": [
+          {
+            "Anything": "x"
+          }
+        ]
+      },
+      "headers": null,
+      "expect": "ok"
+    },
+    {
+      "name": "upsert_missing_key_columns_refused",
+      "governance": {
+        "tools": [
+          {
+            "tool": "google_sheets_upsert_rows",
+            "mode": "upsert",
+            "key_columns": [
+              "URL"
+            ]
+          }
+        ],
+        "read_before_write": false,
+        "deny_destructive": true
+      },
+      "tool": "google_sheets_upsert_rows",
+      "args": {
+        "spreadsheet_id": "S",
+        "sheet": "F",
+        "rows": [
+          {
+            "URL": "u"
+          }
+        ]
+      },
+      "headers": null,
+      "expect": "key_columns_mismatch"
+    },
+    {
+      "name": "upsert_empty_key_columns_refused",
+      "governance": {
+        "tools": [
+          {
+            "tool": "google_sheets_upsert_rows",
+            "mode": "upsert",
+            "key_columns": [
+              "URL"
+            ]
+          }
+        ],
+        "read_before_write": false,
+        "deny_destructive": true
+      },
+      "tool": "google_sheets_upsert_rows",
+      "args": {
+        "spreadsheet_id": "S",
+        "sheet": "F",
+        "key_columns": [],
+        "rows": [
+          {
+            "URL": "u"
+          }
+        ]
+      },
+      "headers": null,
+      "expect": "key_columns_mismatch"
+    },
+    {
+      "name": "upsert_unauthorized_key_columns_refused",
+      "governance": {
+        "tools": [
+          {
+            "tool": "google_sheets_upsert_rows",
+            "mode": "upsert",
+            "key_columns": [
+              "URL"
+            ]
+          }
+        ],
+        "read_before_write": false,
+        "deny_destructive": true
+      },
+      "tool": "google_sheets_upsert_rows",
+      "args": {
+        "spreadsheet_id": "S",
+        "sheet": "F",
+        "key_columns": [
+          "Email"
+        ],
+        "rows": [
+          {
+            "Email": "e"
+          }
+        ]
+      },
+      "headers": null,
+      "expect": "key_columns_mismatch"
+    },
+    {
+      "name": "upsert_key_column_outside_headers_schema_mismatch",
+      "governance": {
+        "tools": [
+          {
+            "tool": "google_sheets_upsert_rows",
+            "mode": "upsert",
+            "key_columns": [
+              "URL"
+            ]
+          }
+        ],
+        "read_before_write": false,
+        "deny_destructive": true
+      },
+      "tool": "google_sheets_upsert_rows",
+      "args": {
+        "spreadsheet_id": "S",
+        "sheet": "F",
+        "key_columns": [
+          "URL"
+        ],
+        "rows": [
+          {
+            "URL": "u"
+          }
+        ]
+      },
+      "headers": [
+        "Date",
+        "Titre",
+        "URL2"
+      ],
+      "expect": "schema_mismatch"
+    },
+    {
+      "name": "upsert_intra_batch_duplicate_refused",
+      "governance": {
+        "tools": [
+          {
+            "tool": "google_sheets_upsert_rows",
+            "mode": "upsert",
+            "key_columns": [
+              "URL"
+            ]
+          }
+        ],
+        "read_before_write": false,
+        "deny_destructive": true
+      },
+      "tool": "google_sheets_upsert_rows",
+      "args": {
+        "spreadsheet_id": "S",
+        "sheet": "F",
+        "key_columns": [
+          "URL"
+        ],
+        "rows": [
+          {
+            "URL": "https://a",
+            "Titre": "one"
+          },
+          {
+            "URL": "https://a",
+            "Titre": "two"
+          }
+        ]
+      },
+      "headers": [
+        "URL",
+        "Titre"
+      ],
+      "expect": "duplicate_key_in_batch"
+    },
+    {
+      "name": "upsert_happy_path_ok",
+      "governance": {
+        "tools": [
+          {
+            "tool": "google_sheets_upsert_rows",
+            "mode": "upsert",
+            "key_columns": [
+              "URL"
+            ]
+          }
+        ],
+        "read_before_write": false,
+        "deny_destructive": true
+      },
+      "tool": "google_sheets_upsert_rows",
+      "args": {
+        "spreadsheet_id": "S",
+        "sheet": "F",
+        "key_columns": [
+          "URL"
+        ],
+        "rows": [
+          {
+            "URL": "https://a"
+          },
+          {
+            "URL": "https://b"
+          }
+        ]
+      },
+      "headers": [
+        "URL",
+        "Titre"
+      ],
+      "expect": "ok"
+    },
+    {
+      "name": "non_row_tool_is_ignored",
+      "governance": {
+        "tools": [
+          {
+            "tool": "google_sheets_write_to_cell",
+            "mode": "read_write"
+          }
+        ],
+        "read_before_write": false,
+        "deny_destructive": true
+      },
+      "tool": "google_sheets_write_to_cell",
+      "args": {
+        "spreadsheet_id": "S",
+        "cell": "A1",
+        "value": "v"
+      },
+      "headers": [
+        "Date"
+      ],
+      "expect": "ok"
+    }
   ]
 }

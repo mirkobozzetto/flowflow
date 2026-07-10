@@ -51,8 +51,13 @@ fn hook_with_events(
     timeout: Duration,
 ) -> (ContractHook, UnboundedReceiver<ToolEvent>) {
     let (tx, rx) = tokio::sync::mpsc::unbounded_channel();
-    let hook = ContractHook::with_contract(tx, governed(), sheets())
-        .with_approval_timeout(timeout);
+    let hook = ContractHook::with_contract(
+        tx,
+        governed(),
+        sheets(),
+        Default::default(),
+    )
+    .with_approval_timeout(timeout);
     (hook, rx)
 }
 
@@ -268,4 +273,116 @@ async fn legal_edit_without_peer_fails_closed_with_report() {
         }
     };
     assert_eq!(resolved, ProposalStatus::Rejected);
+}
+
+// --- header-keyed row writes: schema validation at the hook seam (no peer = no re-sync) ---
+
+fn row_manifest() -> ConnectorManifest {
+    parse_connector_manifest(
+        r#"{
+          "connector": "google-sheets", "type": "tabular_store",
+          "server": "s", "mcp_prefix": "google_sheets_",
+          "provides": ["read", "append"],
+          "tools": [
+            { "tool": "google_sheets_get_spreadsheet", "resource": "spreadsheet", "action": "read",   "risk": "read_only" },
+            { "tool": "google_sheets_append_rows",     "resource": "row",         "action": "append", "risk": "read_write" }
+          ]
+        }"#,
+    )
+    .unwrap()
+}
+
+fn row_governed() -> Governance {
+    parse_governance(
+        r#"{
+          "tools": [
+            { "tool": "google_sheets_get_spreadsheet", "mode": "read_only" },
+            { "tool": "google_sheets_append_rows",     "mode": "append_only" }
+          ],
+          "bound_resource": { "spreadsheet_id": "SHEET_A" },
+          "read_before_write": false,
+          "deny_destructive": true
+        }"#,
+    )
+    .unwrap()
+}
+
+fn schema_snapshot(
+    headers: &[&str],
+) -> serde_json::Map<String, serde_json::Value> {
+    let mut m = serde_json::Map::new();
+    m.insert(
+        "SHEET_A".into(),
+        json!({ "Feuille 1": { "headers": headers, "captured_at": "t" } }),
+    );
+    m
+}
+
+fn row_hook(
+    schema: serde_json::Map<String, serde_json::Value>,
+) -> ContractHook {
+    let (tx, _rx) = tokio::sync::mpsc::unbounded_channel();
+    ContractHook::with_contract(tx, row_governed(), row_manifest(), schema)
+}
+
+async fn propose_append(
+    hook: &ContractHook,
+    rows: serde_json::Value,
+) -> ToolCallHookAction {
+    PromptHook::<Model>::on_tool_call(
+        hook,
+        "google_sheets_append_rows",
+        None,
+        "",
+        &json!({ "spreadsheet_id": "SHEET_A", "sheet": "Feuille 1", "rows": rows }).to_string(),
+    )
+    .await
+}
+
+#[tokio::test]
+async fn append_matching_the_captured_schema_passes() {
+    let hook = row_hook(schema_snapshot(&["Date", "URL", "Titre"]));
+    let action =
+        propose_append(&hook, json!([{ "Date": "d", "URL": "u" }])).await;
+    assert!(matches!(action, ToolCallHookAction::Continue));
+}
+
+#[tokio::test]
+async fn append_with_unknown_column_is_refused_naming_the_real_headers() {
+    let hook = row_hook(schema_snapshot(&["Date", "URL"]));
+    let action = propose_append(&hook, json!([{ "Bogus": "x" }])).await;
+    match action {
+        ToolCallHookAction::Skip { reason } => {
+            assert!(reason.contains("Bogus"), "names the offender: {reason}");
+            assert!(
+                reason.contains("Date"),
+                "names the real headers: {reason}"
+            );
+        }
+        other => panic!("expected Skip, got {other:?}"),
+    }
+}
+
+#[tokio::test]
+async fn append_on_a_headerless_tab_is_refused() {
+    let hook = row_hook(schema_snapshot(&[]));
+    let action = propose_append(&hook, json!([{ "Date": "d" }])).await;
+    match action {
+        ToolCallHookAction::Skip { reason } => {
+            assert!(reason.contains("no header row"), "{reason}");
+        }
+        other => panic!("expected Skip, got {other:?}"),
+    }
+}
+
+#[tokio::test]
+async fn append_without_captured_schema_and_no_peer_refuses_blind_write() {
+    let hook = row_hook(serde_json::Map::new());
+    let action = propose_append(&hook, json!([{ "Date": "d" }])).await;
+    match action {
+        ToolCallHookAction::Skip { reason } => {
+            assert!(reason.contains("not captured"), "{reason}");
+        }
+        other => panic!("expected Skip, got {other:?}"),
+    }
 }

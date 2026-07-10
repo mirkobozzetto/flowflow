@@ -119,7 +119,7 @@ Everything beyond this page lives in [`docs/INDEX.md`](docs/INDEX.md):
 ## Tests
 
 ```bash
-cargo test                 # 364 tests
+cargo test
 cargo test -- --ignored    # API-key-gated integration tests
 ```
 

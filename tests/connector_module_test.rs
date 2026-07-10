@@ -5,9 +5,10 @@
 use flowflow::application::agent_builder::{build_agent, BuiltAgent};
 use flowflow::application::chain::{ChainOutcome, ChainStep};
 use flowflow::application::connector_module::{
-    bind_spreadsheet, current_bindings, format_outcome, parse_spreadsheets,
-    python_literal_to_json, spreadsheet_id_from_url, title_from_meta,
-    unbind_spreadsheet, FIXTURE_AGENT_ID, FIXTURE_PACKAGE,
+    armed_schema_for, bind_spreadsheet, current_bindings, format_outcome,
+    parse_spreadsheets, python_literal_to_json, sheet_titles_from_meta,
+    spreadsheet_id_from_url, title_from_meta, unbind_spreadsheet,
+    validate_headers, FIXTURE_AGENT_ID, FIXTURE_PACKAGE,
 };
 use flowflow::domain::agent_manifest::{verify_package, ADMIN_PUBKEY};
 use flowflow::domain::governance::{
@@ -201,17 +202,18 @@ fn spreadsheet_id_from_url_parses_real_and_bare_urls() {
 
 // Multi-bind app layer: adding is additive and id-deduped (name refreshes), removing drops one id, and
 // removing the last clears the binding to the manifest placeholder (None).
-#[test]
-fn multi_bind_adds_dedups_and_removes() {
+#[tokio::test]
+async fn multi_bind_adds_dedups_and_removes() {
     let dir = tempdir().unwrap();
     let db = Database::open_at(dir.path().join("t.db")).unwrap();
     // Bind targets the pinned agent row; install it (the runtime install now comes from the backend).
     db.install_agent(&verify_package(FIXTURE_PACKAGE, ADMIN_PUBKEY).unwrap())
         .unwrap();
 
-    bind_spreadsheet(&db, "A", "Alpha").unwrap();
-    bind_spreadsheet(&db, "B", "Beta").unwrap();
-    bind_spreadsheet(&db, "A", "Alpha again").unwrap();
+    // No backend configured: schema capture is unavailable and arming still succeeds.
+    bind_spreadsheet(&db, "A", "Alpha").await.unwrap();
+    bind_spreadsheet(&db, "B", "Beta").await.unwrap();
+    bind_spreadsheet(&db, "A", "Alpha again").await.unwrap();
     let mut got = current_bindings(&db);
     got.sort();
     assert_eq!(
@@ -387,4 +389,80 @@ fn repair_sheet_links_leaves_non_sheet_text_alone() {
     let text =
         "Pas de lien ici, juste du texte et [une note](flowflow://note/42).";
     assert_eq!(repair_sheet_links(text, &armed), text);
+}
+
+// --- armed sheet schema (header capture at arm time) ---
+
+#[test]
+fn validate_headers_accepts_unique_names_and_trims() {
+    let raw =
+        vec!["Date".to_string(), " URL ".to_string(), "Titre".to_string()];
+    assert_eq!(
+        validate_headers(&raw).unwrap(),
+        vec!["Date".to_string(), "URL".to_string(), "Titre".to_string()]
+    );
+}
+
+#[test]
+fn validate_headers_tolerates_an_empty_row() {
+    assert_eq!(validate_headers(&[]).unwrap(), Vec::<String>::new());
+}
+
+#[test]
+fn validate_headers_refuses_an_empty_cell() {
+    let raw = vec!["Date".to_string(), "".to_string(), "Titre".to_string()];
+    let err = validate_headers(&raw).unwrap_err();
+    assert!(err.contains("empty"), "unexpected message: {err}");
+}
+
+#[test]
+fn validate_headers_refuses_duplicates() {
+    let raw = vec!["Date".to_string(), "Date".to_string()];
+    let err = validate_headers(&raw).unwrap_err();
+    assert!(err.contains("Date"), "unexpected message: {err}");
+}
+
+// The real klavis list_sheets shape: tab titles live in sheets[].title.
+#[test]
+fn sheet_titles_parsed_from_real_meta_shape() {
+    let wire = r#"{'spreadsheetId': '1tJDSM5ki0', 'title': 'CRM', 'sheets': [{'sheetId': 0, 'title': 'Feuille 1', 'index': 0}, {'sheetId': 1, 'title': 'Archive', 'index': 1}]}"#;
+    let v: serde_json::Value =
+        serde_json::from_str(&python_literal_to_json(wire)).unwrap();
+    assert_eq!(
+        sheet_titles_from_meta(&v),
+        vec!["Feuille 1".to_string(), "Archive".to_string()]
+    );
+}
+
+#[test]
+fn sheet_titles_empty_when_meta_has_no_sheets() {
+    assert!(sheet_titles_from_meta(&json!({"title": "x"})).is_empty());
+}
+
+#[tokio::test]
+async fn schema_absent_until_captured_and_cleared_on_unbind() {
+    let dir = tempdir().unwrap();
+    let db = Database::open_at(dir.path().join("t.db")).unwrap();
+    db.install_agent(&verify_package(FIXTURE_PACKAGE, ADMIN_PUBKEY).unwrap())
+        .unwrap();
+
+    // Arm without a reachable backend: no schema captured, binding still lands.
+    bind_spreadsheet(&db, "S1", "Sheet One").await.unwrap();
+    assert_eq!(armed_schema_for(&db, "S1", "Feuille 1"), None);
+
+    // A captured schema round-trips through the settings key and is readable per tab.
+    db.set_setting(
+        "armed_sheet_schema",
+        r#"{"S1": {"Feuille 1": {"headers": ["Date", "URL"], "captured_at": "t"}}}"#,
+    )
+    .unwrap();
+    assert_eq!(
+        armed_schema_for(&db, "S1", "Feuille 1"),
+        Some(vec!["Date".to_string(), "URL".to_string()])
+    );
+    assert_eq!(armed_schema_for(&db, "S1", "Autre"), None);
+
+    // Disarming drops the schema with the binding.
+    unbind_spreadsheet(&db, "S1").unwrap();
+    assert_eq!(armed_schema_for(&db, "S1", "Feuille 1"), None);
 }

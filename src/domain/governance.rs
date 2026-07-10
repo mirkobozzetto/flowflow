@@ -106,12 +106,13 @@ pub enum ColumnRole {
     AppendOnly,
 }
 
-// What the gate does when an upsert key matches more than one row. Only `review` (suspend for a human) is
-// specified today; more strategies get added when a connector needs one.
+// What upsert_rows does when a key_columns value matches more than one row in the live sheet.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Deserialize, Serialize)]
 #[serde(rename_all = "snake_case")]
 pub enum OnMultipleMatch {
-    Review,
+    First,
+    Last,
+    Error,
 }
 
 #[derive(Debug, Clone, Default, Deserialize, Serialize)]
@@ -451,6 +452,22 @@ pub enum DenyReason {
     StepBudget { max: u32 },
     #[error("run time budget reached (max {max_seconds}s)")]
     TimeBudget { max_seconds: u64 },
+    #[error(
+        "tool `{tool}`: column `{column}` is not in the sheet's header row (headers: {headers:?})"
+    )]
+    SchemaMismatch {
+        tool: String,
+        column: String,
+        headers: Vec<String>,
+    },
+    #[error("tool `{tool}`: the target tab has no header row yet; add column names to row 1 first")]
+    NoHeaderRow { tool: String },
+    #[error("tool `{tool}`: the armed sheet's schema is not captured; re-arm the sheet")]
+    SchemaUnknown { tool: String },
+    #[error("tool `{tool}`: key_columns do not match the agent's authorized key_columns")]
+    KeyColumnsMismatch { tool: String },
+    #[error("tool `{tool}`: duplicate key within the batch ({key})")]
+    DuplicateKeyInBatch { tool: String, key: String },
 }
 
 // bound_resource match = the call's args CONTAIN every pinned field. A pinned scalar must equal the arg;
@@ -673,4 +690,122 @@ pub fn gate(
             .insert(resource_key(&call.args, gov.bound_resource.as_ref()));
     }
     Decision::Allow
+}
+
+// ---- header-keyed row tools: shared column/key validation ----
+//
+// This block is byte-identical in the device and backend copies of this module, and pinned by the
+// shared conformance vectors: it is gate logic, drift here means the two seams disagree on what a
+// row write may touch.
+
+// The two header-keyed write tools the Sheets proxy answers synthetically. Their `rows` arg is a
+// list of {header: value} dicts, so the touched columns are extractable connector-agnostically.
+pub fn is_row_tool(tool: &str) -> bool {
+    tool == "google_sheets_append_rows" || tool == "google_sheets_upsert_rows"
+}
+
+// The semantic columns a row-tool call touches: the union of every row dict's keys, sorted and
+// deduplicated. Empty for a non-row tool or a malformed payload (the shape checks deny elsewhere).
+pub fn row_tool_touched_columns(args: &serde_json::Value) -> Vec<String> {
+    let mut cols: BTreeSet<String> = BTreeSet::new();
+    if let Some(rows) = args.get("rows").and_then(|r| r.as_array()) {
+        for row in rows {
+            if let Some(obj) = row.as_object() {
+                cols.extend(obj.keys().cloned());
+            }
+        }
+    }
+    cols.into_iter().collect()
+}
+
+// The requested upsert key columns, if present and well-formed.
+fn row_tool_key_columns(args: &serde_json::Value) -> Option<Vec<String>> {
+    args.get("key_columns")?.as_array().map(|a| {
+        a.iter()
+            .filter_map(|v| v.as_str().map(String::from))
+            .collect()
+    })
+}
+
+// Validate a row-tool call against the captured header schema and the agent's key policy.
+// `headers`: Some(list) = the captured header row for the targeted tab; Some(empty) = captured
+// and the tab has no header row; None = no schema available at this seam (the device re-syncs
+// then denies; the backend has no schema store and its executor re-reads live headers anyway,
+// so header membership is skipped there and only the key/batch rules run).
+pub fn validate_row_batch(
+    gov: &Governance,
+    tool: &str,
+    args: &serde_json::Value,
+    headers: Option<&[String]>,
+) -> Option<DenyReason> {
+    if !is_row_tool(tool) {
+        return None;
+    }
+    if let Some(h) = headers {
+        if h.is_empty() {
+            return Some(DenyReason::NoHeaderRow { tool: tool.into() });
+        }
+        for col in row_tool_touched_columns(args) {
+            if !h.iter().any(|x| x == &col) {
+                return Some(DenyReason::SchemaMismatch {
+                    tool: tool.into(),
+                    column: col,
+                    headers: h.to_vec(),
+                });
+            }
+        }
+    }
+    if tool == "google_sheets_upsert_rows" {
+        let Some(requested) = row_tool_key_columns(args) else {
+            return Some(DenyReason::KeyColumnsMismatch { tool: tool.into() });
+        };
+        if requested.is_empty() {
+            return Some(DenyReason::KeyColumnsMismatch { tool: tool.into() });
+        }
+        let authorized = gov
+            .tools
+            .iter()
+            .find(|tp| tp.tool == tool)
+            .and_then(|tp| tp.key_columns.as_ref());
+        if authorized != Some(&requested) {
+            return Some(DenyReason::KeyColumnsMismatch { tool: tool.into() });
+        }
+        if let Some(h) = headers {
+            for kc in &requested {
+                if !h.iter().any(|x| x == kc) {
+                    return Some(DenyReason::SchemaMismatch {
+                        tool: tool.into(),
+                        column: kc.clone(),
+                        headers: h.to_vec(),
+                    });
+                }
+            }
+        }
+        // Intra-batch duplicate: two rows carrying the same key value(s) make the batch's own
+        // outcome order-dependent, so it is refused deterministically before anything runs.
+        let mut seen: BTreeSet<String> = BTreeSet::new();
+        if let Some(rows) = args.get("rows").and_then(|r| r.as_array()) {
+            for row in rows {
+                let key: Vec<String> = requested
+                    .iter()
+                    .map(|kc| {
+                        row.get(kc)
+                            .map(|v| match v {
+                                serde_json::Value::String(s) => s.clone(),
+                                other => other.to_string(),
+                            })
+                            .unwrap_or_default()
+                    })
+                    .collect();
+                let key = key.join("\u{1f}");
+                if !seen.insert(key.clone()) {
+                    return Some(DenyReason::DuplicateKeyInBatch {
+                        tool: tool.into(),
+                        key: key.replace('\u{1f}', ", "),
+                    });
+                }
+            }
+        }
+    }
+    None
 }

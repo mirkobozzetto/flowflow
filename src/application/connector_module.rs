@@ -246,13 +246,21 @@ fn write_ids(db: &Database, ids: &[String]) -> Result<(), String> {
 
 /// Arm the installed agent to one more spreadsheet: add its id to the bound set and record its display
 /// name. Idempotent on the id. The builder merges the set over the manifest on the next run, so the
-/// agent may read/write any armed sheet and no other.
-pub fn bind_spreadsheet(
+/// agent may read/write any armed sheet and no other. Captures the sheet's header schema per tab as
+/// part of arming: headers the gate can later validate header-keyed writes against. A schema that is
+/// structurally unusable (duplicate or empty header cells) refuses the arm with the exact problem; a
+/// capture that merely could not run (offline, backend down, tool not reachable yet) arms anyway -
+/// the schema stays absent and a later re-sync heals it.
+pub async fn bind_spreadsheet(
     db: &Database,
     spreadsheet_id: &str,
     name: &str,
 ) -> Result<(), String> {
     require_installed(db)?;
+    match capture_sheet_schema(db, spreadsheet_id).await {
+        Ok(()) | Err(CaptureError::Unavailable(_)) => {}
+        Err(CaptureError::Invalid(msg)) => return Err(msg),
+    }
     let mut ids = bound_ids(db);
     if !ids.iter().any(|i| i == spreadsheet_id) {
         ids.push(spreadsheet_id.to_string());
@@ -276,7 +284,214 @@ pub fn unbind_spreadsheet(
     let mut names = read_names(db);
     names.remove(spreadsheet_id);
     write_names(db, &names);
+    let mut schema = read_schema(db);
+    if schema.remove(spreadsheet_id).is_some() {
+        write_schema(db, &schema);
+    }
     Ok(())
+}
+
+// --- armed sheet schema: the per-tab header rows captured when a spreadsheet is armed ---
+
+// JSON map in settings: {spreadsheet_id: {sheet_name: {"headers": [...], "captured_at": iso}}}.
+// Device-local by design - the schema belongs to the armed sheet, not to the signed manifest.
+const ARMED_SCHEMA_KEY: &str = "armed_sheet_schema";
+// Synthetic proxy tool: row 1 of a tab as clean JSON. The klavis read tools serialize cell data
+// as a Python repr string, unusable as a schema source.
+const GET_HEADERS_TOOL: &str = "google_sheets_get_headers";
+
+enum CaptureError {
+    // The sheet itself cannot serve header-keyed writes (duplicate/empty header cells).
+    Invalid(String),
+    // The capture could not run (no backend, MCP unreachable, tool denied). Not the sheet's fault.
+    Unavailable(String),
+}
+
+fn read_schema(db: &Database) -> serde_json::Map<String, serde_json::Value> {
+    db.get_setting(ARMED_SCHEMA_KEY)
+        .and_then(|s| serde_json::from_str(&s).ok())
+        .unwrap_or_default()
+}
+
+fn write_schema(
+    db: &Database,
+    schema: &serde_json::Map<String, serde_json::Value>,
+) {
+    let _ = db.set_setting(
+        ARMED_SCHEMA_KEY,
+        &serde_json::Value::Object(schema.clone()).to_string(),
+    );
+}
+
+/// The whole armed schema map, for a run's contract snapshot (the hook validates and re-syncs
+/// against its own copy - it has no Database handle).
+pub fn armed_schema_map(
+    db: &Database,
+) -> serde_json::Map<String, serde_json::Value> {
+    read_schema(db)
+}
+
+/// Persist a schema map a run refreshed (the hook's re-syncs write back through here at run end).
+pub fn store_schema_map(
+    db: &Database,
+    schema: &serde_json::Map<String, serde_json::Value>,
+) {
+    write_schema(db, schema);
+}
+
+/// The captured headers for one (spreadsheet, tab), if a capture has run. None = never captured
+/// (schema unknown); Some(empty) = captured and the tab has no header row yet.
+pub fn armed_schema_for(
+    db: &Database,
+    spreadsheet_id: &str,
+    sheet: &str,
+) -> Option<Vec<String>> {
+    read_schema(db)
+        .get(spreadsheet_id)?
+        .get(sheet)?
+        .get("headers")?
+        .as_array()
+        .map(|a| {
+            a.iter()
+                .filter_map(|v| v.as_str().map(String::from))
+                .collect()
+        })
+}
+
+/// Header row validation: every cell must be non-empty and unique, else the tab cannot address
+/// columns by name. An empty row is fine (sheet not set up yet - writes stay refused until it is).
+pub fn validate_headers(raw: &[String]) -> Result<Vec<String>, String> {
+    let mut seen: Vec<&str> = Vec::with_capacity(raw.len());
+    for h in raw {
+        let h = h.trim();
+        if h.is_empty() {
+            return Err(
+                "header row has an empty cell; every column needs a name"
+                    .into(),
+            );
+        }
+        if seen.contains(&h) {
+            return Err(format!(
+                "duplicate header \"{h}\"; column names must be unique"
+            ));
+        }
+        seen.push(h);
+    }
+    Ok(raw.iter().map(|h| h.trim().to_string()).collect())
+}
+
+// Tab titles from a `list_sheets` response: the `sheets` array, elements either plain strings or
+// objects carrying a `title`. `pub` so the parse is tested against the real connector shape.
+pub fn sheet_titles_from_meta(v: &serde_json::Value) -> Vec<String> {
+    v.get("sheets")
+        .and_then(|s| s.as_array())
+        .map(|arr| {
+            arr.iter()
+                .filter_map(|e| {
+                    e.as_str().map(String::from).or_else(|| {
+                        e.get("title")
+                            .and_then(|t| t.as_str())
+                            .map(String::from)
+                    })
+                })
+                .collect()
+        })
+        .unwrap_or_default()
+}
+
+// Read and store the header schema for every tab of one spreadsheet. Validation failure on any
+// tab refuses the whole capture (Invalid); a transport/tool failure is Unavailable.
+async fn capture_sheet_schema(
+    db: &Database,
+    spreadsheet_id: &str,
+) -> Result<(), CaptureError> {
+    let unavailable = |m: String| CaptureError::Unavailable(m);
+    let built = load_built(db, FIXTURE_AGENT_ID).map_err(unavailable)?;
+    let backend = BackendClient::from_db(db)
+        .ok_or_else(|| unavailable("no backend configured".into()))?;
+    let reg =
+        McpRegistry::connect_agent(db, &backend, &built.slug, &built.agent_id)
+            .await
+            .map_err(|e| unavailable(format!("mcp connect: {e}")))?;
+
+    let mut meta_args = serde_json::Map::new();
+    meta_args.insert("spreadsheet_id".to_string(), spreadsheet_id.into());
+    let meta = reg
+        .peer()
+        .call_tool(
+            CallToolRequestParams::new(SHEET_META_TOOL)
+                .with_arguments(meta_args),
+        )
+        .await
+        .map_err(|e| unavailable(format!("list sheets: {e}")))?;
+    let titles = sheet_titles_from_meta(&result_json(&meta));
+    if titles.is_empty() {
+        return Err(unavailable("no tabs found in sheet metadata".into()));
+    }
+
+    let mut tabs = serde_json::Map::new();
+    for title in titles {
+        let raw = fetch_tab_headers(&reg.peer(), spreadsheet_id, &title)
+            .await
+            .map_err(unavailable)?;
+        let headers = validate_headers(&raw).map_err(|e| {
+            CaptureError::Invalid(format!("tab \"{title}\": {e}"))
+        })?;
+        tabs.insert(title, tab_schema_entry(&headers));
+    }
+
+    let mut schema = read_schema(db);
+    schema.insert(spreadsheet_id.to_string(), serde_json::Value::Object(tabs));
+    write_schema(db, &schema);
+    Ok(())
+}
+
+/// One tab's schema entry as stored in the armed schema map.
+pub fn tab_schema_entry(headers: &[String]) -> serde_json::Value {
+    serde_json::json!({
+        "headers": headers,
+        "captured_at": chrono::Utc::now().to_rfc3339(),
+    })
+}
+
+/// Row-1 headers of one tab through an already-connected MCP peer. Used by arm-time capture and
+/// by the gate's re-sync (the hook holds a peer, never a Database).
+pub async fn fetch_tab_headers(
+    peer: &rmcp::service::ServerSink,
+    spreadsheet_id: &str,
+    sheet: &str,
+) -> Result<Vec<String>, String> {
+    let mut args = serde_json::Map::new();
+    args.insert("spreadsheet_id".to_string(), spreadsheet_id.into());
+    args.insert("sheet".to_string(), sheet.into());
+    let result = peer
+        .call_tool(
+            CallToolRequestParams::new(GET_HEADERS_TOOL).with_arguments(args),
+        )
+        .await
+        .map_err(|e| format!("get headers ({sheet}): {e}"))?;
+    result_json(&result)
+        .get("headers")
+        .and_then(|h| h.as_array())
+        .map(|a| {
+            a.iter()
+                .filter_map(|v| v.as_str().map(String::from))
+                .collect()
+        })
+        .ok_or_else(|| format!("get headers ({sheet}): unexpected shape"))
+}
+
+/// Re-capture the schema of one armed spreadsheet on demand (the gate's mismatch path, or a manual
+/// refresh). Unlike arm-time capture, every failure surfaces: a requested re-sync must be honest.
+pub async fn resync_sheet_schema(
+    db: &Database,
+    spreadsheet_id: &str,
+) -> Result<(), String> {
+    capture_sheet_schema(db, spreadsheet_id)
+        .await
+        .map_err(|e| match e {
+            CaptureError::Invalid(m) | CaptureError::Unavailable(m) => m,
+        })
 }
 
 /// Extract the spreadsheet id from a pasted Google Sheets URL: the `<id>` in the
@@ -305,7 +520,7 @@ pub async fn bind_spreadsheet_from_url(
     let name = fetch_spreadsheet_name(db, &id)
         .await
         .unwrap_or_else(|| id.clone());
-    bind_spreadsheet(db, &id, &name)
+    bind_spreadsheet(db, &id, &name).await
 }
 
 // Resolve one spreadsheet's title by id via `list_sheets` - the Sheets metadata read

@@ -12,12 +12,14 @@ use crate::application::approvals::{
     self, Outcome, ProposalView, APPROVAL_TIMEOUT,
 };
 use crate::domain::governance::{
-    call_fingerprint, gate, ConnectorManifest, Decision, Governance,
+    call_fingerprint, gate, is_row_tool, row_tool_touched_columns,
+    validate_row_batch, ConnectorManifest, Decision, DenyReason, Governance,
     ProposedCall, RunState,
 };
 use crate::infrastructure::llm::LlmClient;
 use rig::agent::{HookAction, PromptHook, ToolCallHookAction};
 use rig::completion::CompletionModel;
+use std::collections::BTreeSet;
 use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 use std::sync::{Arc, Mutex};
 use tokio::sync::mpsc;
@@ -65,6 +67,13 @@ struct Contract {
     // A rejected/expired card ends the run's remaining write intents: the chain runtime jumps
     // to the terminal answer instead of `on_done`.
     abort: AtomicBool,
+    // The run's snapshot of the armed sheet schema ({spreadsheet_id: {tab: {headers, captured_at}}}).
+    // The hook validates row writes against it and may refresh a (sheet, tab) entry through the MCP
+    // peer ONCE per run - an edit -> re-gate never re-syncs. The hook holds no Database, so refreshed
+    // entries persist at run end via schema_snapshot() -> store_schema_map (the chain runtime owns the db).
+    schema: Mutex<serde_json::Map<String, serde_json::Value>>,
+    resynced: Mutex<BTreeSet<String>>,
+    schema_dirty: AtomicBool,
 }
 
 // Single-line, length-capped view of a JSON-ish blob for the debug log.
@@ -112,10 +121,12 @@ impl ContractHook {
     }
 
     // Enforcing: gate every tool call against `gov` (resolved over `conn`) with fresh per-run accounting.
+    // `schema` is the armed sheet schema snapshot header-keyed row writes validate against.
     pub fn with_contract(
         tx: mpsc::UnboundedSender<ToolEvent>,
         gov: Governance,
         conn: ConnectorManifest,
+        schema: serde_json::Map<String, serde_json::Value>,
     ) -> Self {
         Self {
             tx,
@@ -126,12 +137,140 @@ impl ContractHook {
                 events: Mutex::new(Vec::new()),
                 held_secs: AtomicU64::new(0),
                 abort: AtomicBool::new(false),
+                schema: Mutex::new(schema),
+                resynced: Mutex::new(BTreeSet::new()),
+                schema_dirty: AtomicBool::new(false),
             })),
             state_allowed: None,
             state_name: None,
             peer: None,
             approval_timeout: APPROVAL_TIMEOUT,
         }
+    }
+
+    /// The schema map as refreshed by this run's re-syncs, or None when nothing changed.
+    /// The chain runtime persists it (the hook never holds the Database).
+    pub fn schema_snapshot(
+        &self,
+    ) -> Option<serde_json::Map<String, serde_json::Value>> {
+        let contract = self.contract.as_ref()?;
+        if !contract.schema_dirty.load(Ordering::Relaxed) {
+            return None;
+        }
+        Some(contract.schema.lock().expect("schema poisoned").clone())
+    }
+
+    // Validate a header-keyed row write against the armed sheet schema. On a schema-shaped refusal
+    // (unknown column, no captured schema) the targeted tab's headers are re-read through the MCP
+    // peer AT MOST once per run - the sheet may have been legitimately restructured - then the
+    // batch re-validates. Still failing = the returned DenyReason (it names the REAL headers, so
+    // the model self-corrects). A schema that stays unknown refuses the write rather than writing blind.
+    async fn validate_row_write(
+        &self,
+        contract: &Arc<Contract>,
+        call: &ProposedCall,
+    ) -> Option<DenyReason> {
+        let sid = call.args.get("spreadsheet_id").and_then(|v| v.as_str());
+        let sheet = call.args.get("sheet").and_then(|v| v.as_str());
+        let (Some(sid), Some(sheet)) = (sid, sheet) else {
+            // No addressable target: run the key/batch rules; the gate's bound check (and the
+            // executor's own arg validation) owns the missing-target refusal.
+            return validate_row_batch(
+                &contract.gov,
+                &call.tool,
+                &call.args,
+                None,
+            );
+        };
+
+        let lookup = |contract: &Contract| -> Option<Vec<String>> {
+            contract
+                .schema
+                .lock()
+                .expect("schema poisoned")
+                .get(sid)?
+                .get(sheet)?
+                .get("headers")?
+                .as_array()
+                .map(|a| {
+                    a.iter()
+                        .filter_map(|v| v.as_str().map(String::from))
+                        .collect()
+                })
+        };
+
+        let mut headers = lookup(contract);
+        let mut reason = validate_row_batch(
+            &contract.gov,
+            &call.tool,
+            &call.args,
+            headers.as_deref(),
+        );
+
+        let schema_shaped = headers.is_none()
+            || matches!(
+                reason,
+                Some(DenyReason::SchemaMismatch { .. })
+                    | Some(DenyReason::NoHeaderRow { .. })
+            );
+        let first_resync = schema_shaped
+            && contract
+                .resynced
+                .lock()
+                .expect("resync set poisoned")
+                .insert(format!("{sid}\u{1f}{sheet}"));
+        if let (true, Some(peer)) = (first_resync, &self.peer) {
+            match crate::application::connector_module::fetch_tab_headers(
+                peer, sid, sheet,
+            )
+            .await
+            {
+                Ok(raw) => {
+                    match crate::application::connector_module::validate_headers(
+                        &raw,
+                    ) {
+                        Ok(fresh) => {
+                            let mut schema = contract
+                                .schema
+                                .lock()
+                                .expect("schema poisoned");
+                            let entry = schema
+                                .entry(sid.to_string())
+                                .or_insert_with(|| serde_json::json!({}));
+                            if let Some(tabs) = entry.as_object_mut() {
+                                tabs.insert(
+                                    sheet.to_string(),
+                                    crate::application::connector_module::tab_schema_entry(&fresh),
+                                );
+                            }
+                            contract
+                                .schema_dirty
+                                .store(true, Ordering::Relaxed);
+                            headers = Some(fresh);
+                        }
+                        // The live header row itself is unusable (duplicate/empty cells): keep the
+                        // stored schema, log why - the refusal below carries the actionable message.
+                        Err(msg) => self.record(format!(
+                            "re-sync refused for {sheet}: {msg}"
+                        )),
+                    }
+                }
+                Err(e) => self.record(format!("re-sync failed: {e}")),
+            }
+            reason = validate_row_batch(
+                &contract.gov,
+                &call.tool,
+                &call.args,
+                headers.as_deref(),
+            );
+        }
+
+        if reason.is_none() && headers.is_none() {
+            reason = Some(DenyReason::SchemaUnknown {
+                tool: call.tool.clone(),
+            });
+        }
+        reason
     }
 
     // Attach the MCP server sink so an approved EDITED payload executes deterministically
@@ -322,15 +461,27 @@ impl ContractHook {
                 }
                 Outcome::Edited(new_args) => {
                     let fp = call_fingerprint(&proposal.tool, &new_args);
-                    let decision = {
+                    // An edited row write re-validates against the schema too - but never
+                    // re-syncs (this run already spent its one re-sync for that tab).
+                    let edited_call = ProposedCall::new(
+                        proposal.tool.clone(),
+                        new_args.clone(),
+                    );
+                    let row_refusal = if is_row_tool(&proposal.tool) {
+                        self.validate_row_write(contract, &edited_call).await
+                    } else {
+                        None
+                    };
+                    let decision = if let Some(reason) = row_refusal {
+                        Decision::Deny(reason)
+                    } else {
                         let mut run = contract
                             .run
                             .lock()
                             .expect("governance run state poisoned");
                         run.approvals.insert(fp.clone());
-                        let call = ProposedCall::new(
-                            proposal.tool.clone(),
-                            new_args.clone(),
+                        let call = edited_call.clone().with_columns(
+                            row_tool_touched_columns(&edited_call.args),
                         );
                         gate(&contract.gov, &contract.conn, &call, &mut run)
                     };
@@ -467,10 +618,26 @@ impl<M: CompletionModel> PromptHook<M> for ContractHook {
         };
 
         // The model passes tool args as a JSON string; a non-object payload pins nothing (bound checks
-        // treat it as a miss). Column extraction is connector-specific and deferred, so no touched_columns.
+        // treat it as a miss).
         let parsed =
             serde_json::from_str(args).unwrap_or(serde_json::Value::Null);
-        let call = ProposedCall::new(tool_name, parsed);
+
+        // Header-keyed row writes: validate the batch against the armed sheet schema BEFORE the
+        // gate, re-syncing the tab's headers once per run on a schema-shaped refusal. The touched
+        // columns become real here, so the gate's column_roles check applies to row writes too.
+        let mut call = ProposedCall::new(tool_name, parsed);
+        if is_row_tool(tool_name) {
+            if let Some(reason) = self.validate_row_write(contract, &call).await
+            {
+                self.record(format!("blocked: {reason}"));
+                return ToolCallHookAction::Skip {
+                    reason: reason.to_string(),
+                };
+            }
+            call = call
+                .clone()
+                .with_columns(row_tool_touched_columns(&call.args));
+        }
         let decision = {
             let mut run =
                 contract.run.lock().expect("governance run state poisoned");

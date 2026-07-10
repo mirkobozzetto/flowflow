@@ -444,13 +444,17 @@ pub fn ConnectionsSettings() -> Element {
                                                                         let id = s.id.clone();
                                                                         let name = s.name.clone();
                                                                         move |_| {
-                                                                            match crate::application::connector_module::bind_spreadsheet(&db(), &id, &name) {
-                                                                                Ok(()) => {
-                                                                                    bindings.set(crate::application::connector_module::current_bindings(&db()));
-                                                                                    status.set(None);
+                                                                            let id = id.clone();
+                                                                            let name = name.clone();
+                                                                            spawn(async move {
+                                                                                match crate::application::connector_module::bind_spreadsheet(&db(), &id, &name).await {
+                                                                                    Ok(()) => {
+                                                                                        bindings.set(crate::application::connector_module::current_bindings(&db()));
+                                                                                        status.set(None);
+                                                                                    }
+                                                                                    Err(e) => status.set(Some(e)),
                                                                                 }
-                                                                                Err(e) => status.set(Some(e)),
-                                                                            }
+                                                                            });
                                                                         }
                                                                     },
                                                                     if bindings().iter().any(|(bid, _)| bid == &s.id) {

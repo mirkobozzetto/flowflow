@@ -82,3 +82,35 @@ fn chain_vectors_validate_identically() {
         );
     }
 }
+
+#[test]
+fn row_validation_vectors_replay_identically() {
+    use flowflow::domain::governance::validate_row_batch;
+    let corpus: Value = serde_json::from_str(CORPUS).unwrap();
+    for vec in corpus["row_validation_vectors"].as_array().unwrap() {
+        let name = vec["name"].as_str().unwrap();
+        let gov: Governance =
+            serde_json::from_value(vec["governance"].clone()).unwrap();
+        let headers: Option<Vec<String>> = match &vec["headers"] {
+            Value::Null => None,
+            v => serde_json::from_value(v.clone()).unwrap(),
+        };
+        let got = match validate_row_batch(
+            &gov,
+            vec["tool"].as_str().unwrap(),
+            &vec["args"],
+            headers.as_deref(),
+        ) {
+            None => "ok".to_string(),
+            Some(reason) => serde_json::to_value(&reason).unwrap()["deny"]
+                .as_str()
+                .unwrap()
+                .to_string(),
+        };
+        assert_eq!(
+            got,
+            vec["expect"].as_str().unwrap(),
+            "vector `{name}`: row validation verdict mismatch"
+        );
+    }
+}
