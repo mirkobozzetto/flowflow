@@ -386,3 +386,152 @@ async fn append_without_captured_schema_and_no_peer_refuses_blind_write() {
         other => panic!("expected Skip, got {other:?}"),
     }
 }
+
+// --- Multi-contract resolution (the chat surface's hook shape) ---
+
+fn exa() -> ConnectorManifest {
+    parse_connector_manifest(
+        r#"{
+          "connector": "exa", "type": "web_search",
+          "server": "s", "mcp_prefix": "exa_",
+          "provides": ["search"],
+          "tools": [
+            { "tool": "exa_search", "resource": "web", "action": "search", "risk": "read_only" }
+          ]
+        }"#,
+    )
+    .unwrap()
+}
+
+fn exa_gov() -> Governance {
+    parse_governance(
+        r#"{
+          "tools": [
+            { "tool": "exa_search", "mode": "read_only", "approval": "require_approval" }
+          ],
+          "read_before_write": false,
+          "deny_destructive": true
+        }"#,
+    )
+    .unwrap()
+}
+
+fn chat_sheets_gov() -> Governance {
+    parse_governance(
+        r#"{
+          "tools": [
+            { "tool": "google_sheets_get_spreadsheet", "mode": "read_only",  "approval": "require_approval" },
+            { "tool": "google_sheets_write_to_cell",   "mode": "read_write", "approval": "require_approval" }
+          ],
+          "read_before_write": false,
+          "deny_destructive": true
+        }"#,
+    )
+    .unwrap()
+}
+
+fn multi_hook(
+    timeout: Duration,
+) -> (ContractHook, UnboundedReceiver<ToolEvent>) {
+    let (tx, rx) = tokio::sync::mpsc::unbounded_channel();
+    let hook = ContractHook::with_contracts(
+        tx,
+        vec![
+            ("google_sheets_".to_string(), chat_sheets_gov(), sheets()),
+            ("exa_".to_string(), exa_gov(), exa()),
+        ],
+    )
+    .with_approval_timeout(timeout);
+    (hook, rx)
+}
+
+async fn call(hook: &ContractHook, tool: &str) -> ToolCallHookAction {
+    PromptHook::<Model>::on_tool_call(hook, tool, None, "", "{}").await
+}
+
+#[tokio::test]
+async fn multi_contract_reads_resolve_per_connector_and_pass() {
+    let (hook, _rx) = multi_hook(Duration::from_millis(200));
+    // Each read resolves to ITS connector's contract: RequireApproval holds only writes.
+    assert!(matches!(
+        call(&hook, "google_sheets_get_spreadsheet").await,
+        ToolCallHookAction::Continue
+    ));
+    assert!(matches!(
+        call(&hook, "exa_search").await,
+        ToolCallHookAction::Continue
+    ));
+}
+
+#[tokio::test]
+async fn multi_contract_write_holds_and_reject_aborts_the_run() {
+    let (hook, mut rx) = multi_hook(Duration::from_secs(5));
+    assert!(!hook.aborted());
+    let pending = tokio::spawn({
+        let hook = hook.clone();
+        async move { call(&hook, "google_sheets_write_to_cell").await }
+    });
+    let id = next_proposal_id(&mut rx).await;
+    decide(id, UserDecision::Rejected).unwrap();
+    let action = pending.await.unwrap();
+    assert!(matches!(action, ToolCallHookAction::Skip { .. }));
+    assert!(
+        hook.aborted(),
+        "reject flags the run as aborted (any contract)"
+    );
+}
+
+#[tokio::test]
+async fn multi_contract_unmatched_mcp_tool_is_refused() {
+    let (hook, _rx) = multi_hook(Duration::from_millis(200));
+    match call(&hook, "stripe_create_charge").await {
+        ToolCallHookAction::Skip { reason } => {
+            assert!(reason.contains("not governed"), "{reason}");
+        }
+        other => panic!("expected Skip, got {other:?}"),
+    }
+}
+
+#[tokio::test]
+async fn multi_contract_notes_tools_pass_untouched() {
+    let (hook, _rx) = multi_hook(Duration::from_millis(200));
+    for tool in ["search_notes", "create_note", "summarize_folder"] {
+        assert!(matches!(
+            call(&hook, tool).await,
+            ToolCallHookAction::Continue
+        ));
+    }
+}
+
+#[tokio::test]
+async fn after_reject_every_later_call_is_refused_without_a_new_card() {
+    let (hook, mut rx) = multi_hook(Duration::from_secs(5));
+    let pending = tokio::spawn({
+        let hook = hook.clone();
+        async move { call(&hook, "google_sheets_write_to_cell").await }
+    });
+    let id = next_proposal_id(&mut rx).await;
+    decide(id, UserDecision::Rejected).unwrap();
+    let _ = pending.await.unwrap();
+
+    // The model retrying the write - or reaching for ANY tool - gets refused outright:
+    // no second proposal event, the run concludes on what it already has.
+    match call(&hook, "google_sheets_write_to_cell").await {
+        ToolCallHookAction::Skip { reason } => {
+            assert!(reason.contains("ended this run"), "{reason}");
+        }
+        other => panic!("expected Skip, got {other:?}"),
+    }
+    match call(&hook, "google_sheets_get_spreadsheet").await {
+        ToolCallHookAction::Skip { .. } => {}
+        other => panic!("expected Skip, got {other:?}"),
+    }
+    let mut proposals = 0;
+    while let Ok(ev) = rx.try_recv() {
+        if matches!(ev, ToolEvent::Proposal(_)) {
+            proposals += 1;
+        }
+    }
+    // The original card was already consumed by next_proposal_id above.
+    assert_eq!(proposals, 0, "no second card after the reject");
+}

@@ -652,8 +652,8 @@ mod tests {
         assert_eq!(decoded, sk.verifying_key().to_bytes());
     }
 
-    // Finding 32: with no backend configured the client is None, so prompt_with_agent
-    // skips rmcp_tools and the agent keeps exactly the three notes tools (pre-RFC path).
+    // With no backend configured the client is None, so the chat surface mounts no
+    // connector tools and the agent keeps exactly the three notes tools.
     #[test]
     fn from_db_is_none_when_no_backend_configured() {
         if std::env::var("FLOWFLOW_BACKEND_URL").is_ok() {

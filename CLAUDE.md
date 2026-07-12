@@ -106,7 +106,8 @@ src/
     constants.rs           AI config + prompts (RAG_AGENT_SYSTEM_PROMPT, RAG_AGENT_WEB_SYSTEM_PROMPT, NOTE_ACTION_PROMPT, SUMMARIZE_FOLDER_PROMPT, tags)
     rag/                   RAG pipeline: mod.rs (query: scope gate -> hybrid search -> context -> agent), fusion (RRF), temporal, scoring, rerank, config, context
     web_search.rs          Exa web search (exa_search) merged via RRF when web_on
-    tools/                 rig Tool trait (search, create, summarize) + prompt_agent_with_tools
+    chat_surface.rs        chat/generic-action tool surface: which connector tools an open agent run mounts, under which contract (reads pass, writes hold for approval); the ONLY open-ended mount point
+    tools/                 rig Tool trait (search, create, summarize) + multi-contract ContractHook (prefix-resolved, fail-closed)
     embed/                 embed_note/attachment + chunk_store (background)
     transcription_manager/ STT job orchestration (job, append, processing)
     backup/                backup/export/restore (archive, snapshot, stage, swap, validate, manifest, paths)
@@ -309,7 +310,7 @@ xcrun devicectl manage pair --device <DEVICE_ID>
 <!-- gitnexus:start -->
 # GitNexus — Code Intelligence
 
-This project is indexed by GitNexus as **flowflow** (4653 symbols, 11569 relationships, 300 execution flows). Use the GitNexus MCP tools to understand code, assess impact, and navigate safely.
+This project is indexed by GitNexus as **flowflow** (4691 symbols, 11697 relationships, 300 execution flows). Use the GitNexus MCP tools to understand code, assess impact, and navigate safely.
 
 > Index stale? Run `node .gitnexus/run.cjs analyze` from the project root — it auto-selects an available runner. No `.gitnexus/run.cjs` yet? `npx gitnexus analyze` (npm 11 crash → `npm i -g gitnexus`; #1939).
 

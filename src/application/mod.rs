@@ -5,6 +5,7 @@ pub mod ai;
 pub mod approvals;
 pub mod backup;
 pub mod chain;
+pub mod chat_surface;
 pub mod connector_module;
 pub mod connector_pins;
 pub mod constants;

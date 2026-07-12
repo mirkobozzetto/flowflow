@@ -335,13 +335,42 @@ fn format_outcome_surfaces_block_reason_on_early_break() {
         // an early break never reached the terminal synthesis: final_text = raw transcript
         final_text: "[find] narrated stuff".into(),
         trace: vec![
-            step("find", "narrated stuff", &["called google_sheets_list_spreadsheets {} -> allowed"]),
-            step("act", "blocked: entered a write state before the bound resource was read", &[]),
+            step(
+                "find",
+                "narrated stuff",
+                &["called google_sheets_list_spreadsheets {} -> allowed"],
+            ),
+            step("act", "blocked: no servable tool", &[]),
         ],
     };
     let out = format_outcome(&outcome);
-    assert!(out.starts_with("blocked: entered a write state"));
+    assert!(out.starts_with("blocked: no servable tool"));
     assert!(!out.contains("[find]"));
+}
+
+#[test]
+fn format_outcome_skipped_write_state_still_answers() {
+    // A read-only question through a linear chain: the guarded write state is skipped
+    // (no write possible), the terminal answer still reaches the bubble.
+    let outcome = ChainOutcome {
+        final_text: "Ta feuille contient 3 prospects.".into(),
+        trace: vec![
+            step("find", "narration", &["called google_sheets_list_spreadsheets {} -> allowed"]),
+            step("read", "nothing to do this step", &[]),
+            step(
+                "act",
+                "skipped: write state reached before the bound resource was read; no write performed",
+                &[],
+            ),
+            step("answer", "Ta feuille contient 3 prospects.", &[]),
+        ],
+    };
+    let out = format_outcome(&outcome);
+    assert!(out.starts_with("Ta feuille contient 3 prospects."));
+    assert!(
+        !out.contains("skipped:"),
+        "the skip is trace-only, not the answer"
+    );
 }
 
 #[test]
