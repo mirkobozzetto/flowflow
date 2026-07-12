@@ -99,12 +99,19 @@ pub fn NoteActions(
                                     cur
                                 }
                             };
+                            // No event channel here = no approval card can render, so this
+                            // path gets the notes-only surface (connector writes need chat).
                             let outcome = match LlmClient::from_db(&database) {
                                 Ok(ai) => {
                                     let ai = Arc::new(ai);
-                                    ai.prompt_with_agent(NOTE_ACTION_PROMPT, &c, None)
-                                        .await
-                                        .map_err(|e| e.to_string())
+                                    crate::application::chat_surface::prompt_chat_agent(
+                                        ai,
+                                        NOTE_ACTION_PROMPT,
+                                        &c,
+                                        None,
+                                    )
+                                    .await
+                                    .map_err(|e| e.to_string())
                                 }
                                 Err(e) => Err(e.to_string()),
                             };

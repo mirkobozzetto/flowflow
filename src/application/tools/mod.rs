@@ -50,10 +50,10 @@ pub enum ToolEvent {
     },
 }
 
-// The agent's pinned governance + the connector manifest it was validated against, plus the live run
+// One connector's governance + the manifest it was validated against, plus the live run
 // accounting. The hook borrows `&self`, so the run state sits behind a Mutex (the gate is sync and never
-// held across an await). Supplied by the manifest pipeline (M1.15/M1.5); until then the hook runs without
-// one and only observes.
+// held across an await). Chains pin one from the installed agent; the chat surface derives one per
+// connected connector.
 struct Contract {
     gov: Governance,
     conn: ConnectorManifest,
@@ -87,15 +87,23 @@ fn excerpt(s: &str, max: usize) -> String {
     }
 }
 
-// rig `PromptHook` that enforces the agent behavior contract before each tool call (RFC 0010 M1.12, spec
-// 07/09): the device-side seam. It replaces the old observe-only `ToolStatusHook` - it still emits
-// `ToolEvent`s for the chat status UI, and, when a `Contract` is attached, applies the governance gate and
-// returns `Skip{reason}` on a violation so the model self-corrects. With no contract it is a pure observer,
-// which is the current state until an agent manifest is installed and pinned on device.
+// rig `PromptHook` that enforces the behavior contract before each tool call: the device-side seam.
+// It emits `ToolEvent`s for the chat status UI and, when contracts are attached, applies the
+// governance gate and returns `Skip{reason}` on a violation so the model self-corrects. With no
+// contract it is a pure observer (notes-only surfaces).
+// Local notes tools pass the gate untouched: they are constructed in-process, never MCP.
+// The chat surface asserts no connector tool collides with these names at build time.
+pub const NOTES_TOOL_NAMES: [&str; 3] =
+    ["search_notes", "create_note", "summarize_folder"];
+
 #[derive(Clone)]
 pub struct ContractHook {
     tx: mpsc::UnboundedSender<ToolEvent>,
-    contract: Option<Arc<Contract>>,
+    // (mcp_prefix, contract) pairs. Empty = observe-only (gates nothing). The chain path
+    // is one catch-all pair with prefix "" (matches every tool, single-contract semantics
+    // unchanged). The chat surface holds one pair per connected connector, resolved per
+    // call by longest prefix match; an MCP tool matching NO pair is refused (fail closed).
+    contracts: Vec<(String, Arc<Contract>)>,
     // The Layer 2 chain-state filter: when set, only these tools may be proposed in the active state. None =
     // no chain scoping (the single-module path). Independent of the Layer 1 gate; both apply.
     state_allowed: Option<Vec<String>>,
@@ -108,11 +116,12 @@ pub struct ContractHook {
 }
 
 impl ContractHook {
-    // Observe-only: emits status events, gates nothing. Used until a pinned manifest is available.
+    // Observe-only: emits status events, gates nothing. Used by paths that mount no
+    // connector tools (notes-only surfaces).
     pub fn new(tx: mpsc::UnboundedSender<ToolEvent>) -> Self {
         Self {
             tx,
-            contract: None,
+            contracts: Vec::new(),
             state_allowed: None,
             state_name: None,
             peer: None,
@@ -120,8 +129,28 @@ impl ContractHook {
         }
     }
 
-    // Enforcing: gate every tool call against `gov` (resolved over `conn`) with fresh per-run accounting.
-    // `schema` is the armed sheet schema snapshot header-keyed row writes validate against.
+    fn make_contract(
+        gov: Governance,
+        conn: ConnectorManifest,
+        schema: serde_json::Map<String, serde_json::Value>,
+    ) -> Arc<Contract> {
+        Arc::new(Contract {
+            gov,
+            conn,
+            run: Mutex::new(RunState::default()),
+            events: Mutex::new(Vec::new()),
+            held_secs: AtomicU64::new(0),
+            abort: AtomicBool::new(false),
+            schema: Mutex::new(schema),
+            resynced: Mutex::new(BTreeSet::new()),
+            schema_dirty: AtomicBool::new(false),
+        })
+    }
+
+    // Enforcing, single contract: gate every tool call against `gov` (resolved over `conn`)
+    // with fresh per-run accounting. The catch-all "" prefix keeps the chain path's
+    // one-contract semantics. `schema` is the armed sheet schema snapshot header-keyed row
+    // writes validate against.
     pub fn with_contract(
         tx: mpsc::UnboundedSender<ToolEvent>,
         gov: Governance,
@@ -130,17 +159,10 @@ impl ContractHook {
     ) -> Self {
         Self {
             tx,
-            contract: Some(Arc::new(Contract {
-                gov,
-                conn,
-                run: Mutex::new(RunState::default()),
-                events: Mutex::new(Vec::new()),
-                held_secs: AtomicU64::new(0),
-                abort: AtomicBool::new(false),
-                schema: Mutex::new(schema),
-                resynced: Mutex::new(BTreeSet::new()),
-                schema_dirty: AtomicBool::new(false),
-            })),
+            contracts: vec![(
+                String::new(),
+                Self::make_contract(gov, conn, schema),
+            )],
             state_allowed: None,
             state_name: None,
             peer: None,
@@ -148,12 +170,54 @@ impl ContractHook {
         }
     }
 
+    // Enforcing, one contract per connector (the chat surface). Each entry is
+    // (mcp_prefix, governance, manifest); a call resolves to its connector by longest
+    // prefix match, and a tool no entry claims is refused. No armed schema: row tools
+    // are excluded from the chat surface upstream.
+    pub fn with_contracts(
+        tx: mpsc::UnboundedSender<ToolEvent>,
+        entries: Vec<(String, Governance, ConnectorManifest)>,
+    ) -> Self {
+        Self {
+            tx,
+            contracts: entries
+                .into_iter()
+                .map(|(prefix, gov, conn)| {
+                    (
+                        prefix,
+                        Self::make_contract(gov, conn, serde_json::Map::new()),
+                    )
+                })
+                .collect(),
+            state_allowed: None,
+            state_name: None,
+            peer: None,
+            approval_timeout: APPROVAL_TIMEOUT,
+        }
+    }
+
+    // Longest-prefix resolution of a tool call to its connector's contract.
+    fn resolve(&self, tool_name: &str) -> Option<&Arc<Contract>> {
+        self.contracts
+            .iter()
+            .filter(|(prefix, _)| tool_name.starts_with(prefix.as_str()))
+            .max_by_key(|(prefix, _)| prefix.len())
+            .map(|(_, c)| c)
+    }
+
+    // The chain path's single contract. Run-accounting accessors keep single-contract
+    // (chain) semantics through this; on the multi-contract chat surface only
+    // `aborted()` is consulted.
+    fn first(&self) -> Option<&Arc<Contract>> {
+        self.contracts.first().map(|(_, c)| c)
+    }
+
     /// The schema map as refreshed by this run's re-syncs, or None when nothing changed.
     /// The chain runtime persists it (the hook never holds the Database).
     pub fn schema_snapshot(
         &self,
     ) -> Option<serde_json::Map<String, serde_json::Value>> {
-        let contract = self.contract.as_ref()?;
+        let contract = self.first()?;
         if !contract.schema_dirty.load(Ordering::Relaxed) {
             return None;
         }
@@ -280,20 +344,20 @@ impl ContractHook {
         self
     }
 
-    /// Seconds spent suspended on approval cards this run.
+    /// Seconds spent suspended on approval cards this run (summed across contracts).
     pub fn held_seconds(&self) -> u64 {
-        self.contract
-            .as_ref()
-            .map(|c| c.held_secs.load(Ordering::Relaxed))
-            .unwrap_or(0)
+        self.contracts
+            .iter()
+            .map(|(_, c)| c.held_secs.load(Ordering::Relaxed))
+            .sum()
     }
 
-    /// Whether a rejected/expired card asked the run to conclude instead of advancing.
+    /// Whether a rejected/expired card asked the run to conclude instead of advancing
+    /// (any contract).
     pub fn aborted(&self) -> bool {
-        self.contract
-            .as_ref()
-            .map(|c| c.abort.load(Ordering::Relaxed))
-            .unwrap_or(false)
+        self.contracts
+            .iter()
+            .any(|(_, c)| c.abort.load(Ordering::Relaxed))
     }
 
     // Share this contract's run accounting with a hook scoped to one chain state's allowed tools. The chain
@@ -302,7 +366,7 @@ impl ContractHook {
     pub fn scoped_to(&self, allowed: Vec<String>, state: String) -> Self {
         Self {
             tx: self.tx.clone(),
-            contract: self.contract.clone(),
+            contracts: self.contracts.clone(),
             state_allowed: Some(allowed),
             state_name: Some(state),
             peer: self.peer.clone(),
@@ -322,7 +386,7 @@ impl ContractHook {
     // Count a chain state as one run step (the gate reads `steps` against `limits.max_steps`). No-op without
     // a contract.
     pub fn bump_step(&self) {
-        if let Some(c) = &self.contract {
+        if let Some(c) = self.first() {
             c.run.lock().expect("governance run state poisoned").steps += 1;
         }
     }
@@ -330,7 +394,7 @@ impl ContractHook {
     // Publish elapsed wall-clock so the gate's `limits.max_run_seconds` ceiling has live data. The chain
     // runtime owns the clock; without it the time bound would never fire. No-op without a contract.
     pub fn set_elapsed(&self, seconds: u64) {
-        if let Some(c) = &self.contract {
+        if let Some(c) = self.first() {
             c.run
                 .lock()
                 .expect("governance run state poisoned")
@@ -341,31 +405,28 @@ impl ContractHook {
     // Whether ANY bound resource was read this run, for the coarse FSM-level read_before_write guard. The
     // gate enforces the precise per-resource rule; this only gates entry into a write state.
     pub fn read_any(&self) -> bool {
-        self.contract
-            .as_ref()
-            .map(|c| {
-                !c.run
-                    .lock()
-                    .expect("governance run state poisoned")
-                    .read_resources
-                    .is_empty()
-            })
-            .unwrap_or(false)
+        self.contracts.iter().any(|(_, c)| {
+            !c.run
+                .lock()
+                .expect("governance run state poisoned")
+                .read_resources
+                .is_empty()
+        })
     }
 
     // Take this run's accumulated tool-call log (proposed args, gate verdict, raw result). The chain runtime
     // drains it after each state to attach ground truth to that state's trace. Empty without a contract.
     pub fn drain_events(&self) -> Vec<String> {
-        self.contract
-            .as_ref()
-            .map(|c| {
+        self.contracts
+            .iter()
+            .flat_map(|(_, c)| {
                 std::mem::take(&mut *c.events.lock().expect("events poisoned"))
             })
-            .unwrap_or_default()
+            .collect()
     }
 
     fn record(&self, line: String) {
-        if let Some(c) = &self.contract {
+        if let Some(c) = self.first() {
             c.events.lock().expect("events poisoned").push(line);
         }
     }
@@ -613,9 +674,37 @@ impl<M: CompletionModel> PromptHook<M> for ContractHook {
             }
         }
 
-        let Some(contract) = &self.contract else {
+        // A rejected/expired card ended this run's tool phase: every later call is
+        // refused so the model answers with what it has instead of re-proposing.
+        if self.aborted() {
+            return ToolCallHookAction::Skip {
+                reason:
+                    "the user ended this run's actions; answer with what you already have"
+                        .into(),
+            };
+        }
+
+        // No contracts = observe-only surface (notes tools only). With contracts, local
+        // notes tools pass untouched, and an MCP tool NO contract claims is refused:
+        // fail closed at call time, defense in depth behind the surface-build filter.
+        if self.contracts.is_empty() {
             return ToolCallHookAction::Continue;
+        }
+        if NOTES_TOOL_NAMES.contains(&tool_name) {
+            return ToolCallHookAction::Continue;
+        }
+        let Some(contract) = self.resolve(tool_name) else {
+            self.record(format!(
+                "blocked {tool_name}: no connector contract claims it"
+            ));
+            return ToolCallHookAction::Skip {
+                reason: format!(
+                    "tool `{tool_name}` is not governed by any connected connector; do not call it"
+                ),
+            };
         };
+        let contract = contract.clone();
+        let contract = &contract;
 
         // The model passes tool args as a JSON string; a non-object payload pins nothing (bound checks
         // treat it as a miss).
@@ -699,6 +788,11 @@ pub async fn prompt_agent_with_tools(
     user_message: &str,
     status_tx: Option<mpsc::UnboundedSender<ToolEvent>>,
 ) -> Result<String, crate::application::error::LlmError> {
-    llm.prompt_with_agent(preamble, user_message, status_tx)
-        .await
+    crate::application::chat_surface::prompt_chat_agent(
+        llm,
+        preamble,
+        user_message,
+        status_tx,
+    )
+    .await
 }

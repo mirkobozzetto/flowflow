@@ -66,7 +66,7 @@ pub async fn run_chain(
         .validate()
         .map_err(|e| LlmError::Completion(format!("chain: {e}")))?;
 
-    let llm = LlmClient::from_db(db)?;
+    let llm = std::sync::Arc::new(LlmClient::from_db(db)?);
     let model = resolve_chat_model(&agent.model);
     let backend = BackendClient::from_db(db).ok_or_else(|| {
         LlmError::NotConfigured("no backend configured".into())
@@ -104,18 +104,27 @@ pub async fn run_chain(
                 .saturating_sub(base.held_seconds()),
         );
 
-        // Coarse: blocks entry into a write state until SOME bound resource was read. The gate still
-        // enforces read-before-write per resource, denying a write to a sibling that was not itself read.
+        // Coarse: a write state reached before ANY bound resource was read is SKIPPED, never
+        // entered - its tools are never mounted, so no write can happen (the gate still
+        // enforces the precise per-resource rule). Skipping instead of killing the run lets a
+        // read-only question flow through a linear chain to its answer.
         if matches!(state.guard, Some(Guard::ReadBeforeWrite))
             && !base.read_any()
         {
             trace.push(ChainStep {
                 state: name.clone(),
-                outcome: "blocked: entered a write state before the bound resource was read"
-                    .into(),
+                outcome:
+                    "skipped: write state reached before the bound resource was read; no write performed"
+                        .into(),
                 tools: Vec::new(),
             });
-            break;
+            match state.on_done.clone() {
+                Some(next) => {
+                    name = next;
+                    continue;
+                }
+                None => break,
+            }
         }
 
         if state.terminal {
@@ -156,13 +165,15 @@ pub async fn run_chain(
         let hook = base.scoped_to(state.allowed_tools.clone(), name.clone());
         let preamble = state_preamble(&name, &state.allowed_tools, &transcript);
         let reply = llm
-            .run_agent_over_tools(
+            .run_agent(
                 model,
                 &preamble,
                 &format!("Goal: {goal}"),
-                avail,
-                reg.peer(),
+                false,
+                Some((avail, reg.peer())),
                 hook,
+                0.0,
+                4,
             )
             .await?;
         // One completed state = one run step. Counting after the turn keeps `limits.max_steps` an inclusive

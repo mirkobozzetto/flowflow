@@ -4,7 +4,7 @@ use crate::application::constants::{
 };
 use crate::application::error::LlmError;
 use crate::application::tools::{
-    ContractHook, CreateNote, SearchNotes, SummarizeFolder, ToolEvent,
+    ContractHook, CreateNote, SearchNotes, SummarizeFolder,
 };
 use rig::client::{CompletionClient, EmbeddingsClient};
 use rig::completion::Prompt;
@@ -12,7 +12,6 @@ use rig::embeddings::EmbeddingModel;
 use rig::providers::{anthropic, openai};
 use std::str::FromStr;
 use std::sync::Arc;
-use tokio::sync::mpsc;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
 pub enum Provider {
@@ -188,120 +187,58 @@ impl LlmClient {
         }
     }
 
-    pub async fn prompt_with_agent(
+    /// The single agent primitive: one prompt run over an explicit tool surface.
+    /// `notes_tools` mounts the three local notes tools; `mcp` mounts a connector tool
+    /// subset over its server sink - the caller keeps the registry alive across the await
+    /// so the sink stays valid. The `hook` always applies: enforcing when the caller
+    /// attached a contract, observe-only otherwise. Nothing else in the app mounts tools.
+    #[allow(clippy::too_many_arguments)]
+    pub async fn run_agent(
         self: &Arc<Self>,
-        preamble: &str,
-        user_message: &str,
-        status_tx: Option<mpsc::UnboundedSender<ToolEvent>>,
-    ) -> Result<String, LlmError> {
-        // Connector tools are dark unless a backend is configured AND reachable. The
-        // registry is held in scope for the whole prompt so the tools' server sink stays
-        // valid; an empty/failed registry leaves exactly the three notes tools (finding 32).
-        let mcp = self.connect_mcp().await;
-        let mcp = mcp.as_ref().filter(|r| !r.is_empty());
-
-        match self.provider {
-            Provider::OpenAi => {
-                let mut builder = self
-                    .openai
-                    .agent(CHAT_MODEL)
-                    .preamble(preamble)
-                    .temperature(0.3)
-                    .tool(SearchNotes::new(self.clone()))
-                    .tool(CreateNote::new())
-                    .tool(SummarizeFolder::new(self.clone()));
-                if let Some(reg) = mcp {
-                    builder = builder.rmcp_tools(reg.tools(), reg.peer());
-                }
-                let agent = builder.build();
-                let request = agent.prompt(user_message).max_turns(4);
-                let result = if let Some(tx) = status_tx {
-                    request.with_hook(ContractHook::new(tx)).await
-                } else {
-                    request.await
-                };
-                result.map_err(|e| LlmError::Completion(e.to_string()))
-            }
-            Provider::Anthropic => {
-                let client = self.anthropic.as_ref().ok_or_else(|| {
-                    LlmError::NotConfigured(
-                        "Anthropic client not initialized".into(),
-                    )
-                })?;
-                let mut builder = client
-                    .agent(ANTHROPIC_CHAT_MODEL)
-                    .preamble(preamble)
-                    .temperature(0.3)
-                    .max_tokens(ANTHROPIC_MAX_TOKENS)
-                    .tool(SearchNotes::new(self.clone()))
-                    .tool(CreateNote::new())
-                    .tool(SummarizeFolder::new(self.clone()));
-                if let Some(reg) = mcp {
-                    builder = builder.rmcp_tools(reg.tools(), reg.peer());
-                }
-                let agent = builder.build();
-                let request = agent.prompt(user_message).max_turns(4);
-                let result = if let Some(tx) = status_tx {
-                    request.with_hook(ContractHook::new(tx)).await
-                } else {
-                    request.await
-                };
-                result.map_err(|e| LlmError::Completion(e.to_string()))
-            }
-        }
-    }
-
-    /// Run a rig agent over a connector's MCP tools with a governance `hook`, one prompt run.
-    /// Generic primitive: it mounts ONLY the supplied MCP tools (no notes tools), so the caller
-    /// owns the agent's surface and its pinned contract. `reg` must outlive this call - its server
-    /// sink backs the tools - so the caller keeps it owned across the await. The `hook` enforces
-    /// the device-side gate before each tool call. It stays free of any agent/connector specifics.
-    pub async fn run_mcp_agent(
-        &self,
-        preamble: &str,
-        user_message: &str,
-        reg: &crate::infrastructure::mcp::McpRegistry,
-        hook: ContractHook,
-    ) -> Result<String, LlmError> {
-        self.run_agent_over_tools(
-            CHAT_MODEL,
-            preamble,
-            user_message,
-            reg.tools(),
-            reg.peer(),
-            hook,
-        )
-        .await
-    }
-
-    /// Run a rig agent over an explicit tool subset (one chain state's surface), one prompt run. The chain
-    /// runtime filters the connector registry to the active state's `allowed_tools` and passes them here, so
-    /// the model is mounted with exactly that state's tools. `peer` is the shared MCP server sink; the caller
-    /// keeps the registry owned across the await so the sink stays valid. The `hook` enforces the device gate.
-    pub async fn run_agent_over_tools(
-        &self,
         openai_model: &str,
         preamble: &str,
         user_message: &str,
-        tools: Vec<rmcp::model::Tool>,
-        peer: rmcp::service::ServerSink,
+        notes_tools: bool,
+        mcp: Option<(Vec<rmcp::model::Tool>, rmcp::service::ServerSink)>,
         hook: ContractHook,
+        temperature: f64,
+        max_turns: usize,
     ) -> Result<String, LlmError> {
-        match self.provider {
-            Provider::OpenAi => {
-                let agent = self
-                    .openai
-                    .agent(openai_model)
-                    .preamble(preamble)
-                    .temperature(0.0)
-                    .rmcp_tools(tools, peer)
-                    .build();
-                agent
+        // rig's AgentBuilder is a typestate: the first `.tool()`/`.rmcp_tools()` changes its
+        // type, so the surface combinations are spelled out as match arms instead of
+        // conditional reassignment.
+        macro_rules! run {
+            ($b:expr) => {
+                $b.build()
                     .prompt(user_message)
-                    .max_turns(4)
+                    .max_turns(max_turns)
                     .with_hook(hook)
                     .await
                     .map_err(|e| LlmError::Completion(e.to_string()))
+            };
+        }
+        match self.provider {
+            Provider::OpenAi => {
+                let base = self
+                    .openai
+                    .agent(openai_model)
+                    .preamble(preamble)
+                    .temperature(temperature);
+                match (notes_tools, mcp) {
+                    (true, Some((tools, peer))) => run!(base
+                        .tool(SearchNotes::new(self.clone()))
+                        .tool(CreateNote::new())
+                        .tool(SummarizeFolder::new(self.clone()))
+                        .rmcp_tools(tools, peer)),
+                    (true, None) => run!(base
+                        .tool(SearchNotes::new(self.clone()))
+                        .tool(CreateNote::new())
+                        .tool(SummarizeFolder::new(self.clone()))),
+                    (false, Some((tools, peer))) => {
+                        run!(base.rmcp_tools(tools, peer))
+                    }
+                    (false, None) => run!(base),
+                }
             }
             Provider::Anthropic => {
                 let client = self.anthropic.as_ref().ok_or_else(|| {
@@ -309,38 +246,26 @@ impl LlmClient {
                         "Anthropic client not initialized".into(),
                     )
                 })?;
-                let agent = client
+                let base = client
                     .agent(ANTHROPIC_CHAT_MODEL)
                     .preamble(preamble)
-                    .temperature(0.0)
-                    .max_tokens(ANTHROPIC_MAX_TOKENS)
-                    .rmcp_tools(tools, peer)
-                    .build();
-                agent
-                    .prompt(user_message)
-                    .max_turns(4)
-                    .with_hook(hook)
-                    .await
-                    .map_err(|e| LlmError::Completion(e.to_string()))
-            }
-        }
-    }
-
-    /// Connect to the backend MCP proxy if one is configured. Returns None (notes-only
-    /// agent, identical to pre-RFC behavior) when no backend is set or the connect fails.
-    async fn connect_mcp(
-        &self,
-    ) -> Option<crate::infrastructure::mcp::McpRegistry> {
-        let db = crate::infrastructure::persistence::Database::open().ok()?;
-        let backend =
-            crate::infrastructure::backend::BackendClient::from_db(&db)?;
-        match crate::infrastructure::mcp::McpRegistry::connect(&db, &backend)
-            .await
-        {
-            Ok(reg) => Some(reg),
-            Err(e) => {
-                eprintln!("MCP connect failed, notes tools only: {e}");
-                None
+                    .temperature(temperature)
+                    .max_tokens(ANTHROPIC_MAX_TOKENS);
+                match (notes_tools, mcp) {
+                    (true, Some((tools, peer))) => run!(base
+                        .tool(SearchNotes::new(self.clone()))
+                        .tool(CreateNote::new())
+                        .tool(SummarizeFolder::new(self.clone()))
+                        .rmcp_tools(tools, peer)),
+                    (true, None) => run!(base
+                        .tool(SearchNotes::new(self.clone()))
+                        .tool(CreateNote::new())
+                        .tool(SummarizeFolder::new(self.clone()))),
+                    (false, Some((tools, peer))) => {
+                        run!(base.rmcp_tools(tools, peer))
+                    }
+                    (false, None) => run!(base),
+                }
             }
         }
     }
