@@ -63,6 +63,7 @@ all: js restore-ios-toml ensure-profiles
 	bash scripts/sign-widget.sh debug
 	bash scripts/inject-url-scheme.sh || true
 	bash scripts/inject-icon.sh || true
+	rm -rf target/debug
 
 check-profiles:
 	@bash scripts/check-profiles.sh
