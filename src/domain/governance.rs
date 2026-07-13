@@ -172,6 +172,47 @@ pub struct ConnectorManifest {
     pub mcp_prefix: String,
     pub provides: Vec<Action>,
     pub tools: Vec<ConnectorTool>,
+    // How this connector's responses are scoped to armed resources. Absent = the hook
+    // cannot filter, so every Search tool is refused once a bound exists (fail closed).
+    // A malformed block fails the whole manifest parse, which drops the connector.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub scoping: Option<Scoping>,
+}
+
+// Declares which tools return lists the hook must filter to the armed ids, and where the
+// ids live in their responses. `id_field` names the bound/args field carrying the resource id.
+#[derive(Debug, Clone, Deserialize, Serialize)]
+pub struct Scoping {
+    pub id_field: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub list: Option<ListScoping>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub tabs: Option<TabsScoping>,
+}
+
+// The listing tool: `items_path` locates the response array, `id_key` the resource id per item.
+#[derive(Debug, Clone, Deserialize, Serialize)]
+pub struct ListScoping {
+    pub tool: String,
+    pub items_path: String,
+    pub id_key: String,
+}
+
+// The per-resource read whose response enumerates tabs: `name_key` is a dotted path to each
+// item's tab name, matched against the armed entries' pinned `sheet`.
+#[derive(Debug, Clone, Deserialize, Serialize)]
+pub struct TabsScoping {
+    pub tool: String,
+    pub items_path: String,
+    pub name_key: String,
+}
+
+impl Scoping {
+    /// Whether `tool` is declared as a scoped (hook-filtered) tool.
+    pub fn declares(&self, tool: &str) -> bool {
+        self.list.as_ref().is_some_and(|l| l.tool == tool)
+            || self.tabs.as_ref().is_some_and(|t| t.tool == tool)
+    }
 }
 
 impl ConnectorManifest {
@@ -220,12 +261,111 @@ pub fn parse_governance(json: &str) -> serde_json::Result<Governance> {
     serde_json::from_str(json)
 }
 
-// Whether `bound_resource` actually pins a target: a non-empty object. An empty object pins nothing
-// (every call matches), so it does not count as a bound for the read_before_write floor.
-fn bound_pins(bound: Option<&serde_json::Value>) -> bool {
-    bound
-        .and_then(|b| b.as_object())
-        .is_some_and(|m| !m.is_empty())
+// The binding v2 field that pins one tab of a resource. A read that does not address a tab
+// still passes on the other pins (the hook filters tabs out of the response); a write MUST
+// address it, via a dedicated arg or an A1 "Tab!A1" prefix.
+const TAB_PIN_FIELD: &str = "sheet";
+
+// The bound as OR-of-AND entries: object = one v1 entry (array values = one-of membership),
+// array = v2 entries. None = a shape that pins nothing parseable (fail closed downstream).
+fn bound_entries(
+    bound: &serde_json::Value,
+) -> Option<Vec<&serde_json::Map<String, serde_json::Value>>> {
+    match bound {
+        serde_json::Value::Object(o) => Some(vec![o]),
+        serde_json::Value::Array(arr) => {
+            let entries: Vec<_> =
+                arr.iter().filter_map(|e| e.as_object()).collect();
+            (entries.len() == arr.len()).then_some(entries)
+        }
+        _ => None,
+    }
+}
+
+/// Whether `bound_resource` actually pins a target: a non-empty object, or a v2 array with at
+/// least one non-empty entry. An empty object pins nothing (every call matches), so it does not
+/// count as a bound for the read_before_write floor. An UNPARSEABLE bound counts as pinning:
+/// treating it as open would silently widen the scope on a corrupt binding.
+pub fn bound_pins(bound: Option<&serde_json::Value>) -> bool {
+    let Some(b) = bound else { return false };
+    match bound_entries(b) {
+        Some(entries) => entries.iter().any(|e| !e.is_empty()),
+        None => true,
+    }
+}
+
+// The tab a call addresses: the dedicated arg, else the A1 prefix of a `range`/`cell` value
+// ("Clients!B2", "'My Tab'!A1:C3"). None = the call does not address a tab.
+fn call_sheet(
+    args: &serde_json::Map<String, serde_json::Value>,
+) -> Option<serde_json::Value> {
+    if let Some(v) = args.get(TAB_PIN_FIELD) {
+        return Some(v.clone());
+    }
+    for key in ["range", "cell"] {
+        if let Some(s) = args.get(key).and_then(|v| v.as_str()) {
+            if let Some(name) = a1_sheet_prefix(s) {
+                return Some(serde_json::Value::String(name));
+            }
+        }
+    }
+    None
+}
+
+// The sheet name before '!' in an A1 reference, unquoting `'My Sheet'` and the `''` escape.
+fn a1_sheet_prefix(a1: &str) -> Option<String> {
+    if let Some(rest) = a1.strip_prefix('\'') {
+        // Quoted form: the name runs to the closing quote ('' escapes a literal quote).
+        let mut name = String::new();
+        let mut chars = rest.chars().peekable();
+        while let Some(c) = chars.next() {
+            if c == '\'' {
+                if chars.peek() == Some(&'\'') {
+                    chars.next();
+                    name.push('\'');
+                } else {
+                    return chars
+                        .next()
+                        .is_some_and(|n| n == '!')
+                        .then_some(name);
+                }
+            } else {
+                name.push(c);
+            }
+        }
+        None
+    } else {
+        let bang = a1.find('!')?;
+        (bang > 0).then(|| a1[..bang].to_string())
+    }
+}
+
+// One entry matches when every pinned field agrees with the call's args. A pinned field the
+// call does not carry is fatal for a WRITE (a write must address every pin - the A1 prefix
+// counts as the tab arg) but tolerated on a read/search for the TAB pin only: the read is
+// gated on the ids it carries and the hook filters tabs out of the response.
+fn entry_matches(
+    entry: &serde_json::Map<String, serde_json::Value>,
+    args: &serde_json::Value,
+    is_write: bool,
+) -> bool {
+    let Some(a) = args.as_object() else {
+        return entry.is_empty();
+    };
+    entry.iter().all(|(k, pinned)| {
+        let arg = if k == TAB_PIN_FIELD {
+            call_sheet(a)
+        } else {
+            a.get(k).cloned()
+        };
+        match (arg, pinned) {
+            (Some(av), serde_json::Value::Array(allowed)) => {
+                allowed.contains(&av)
+            }
+            (Some(av), scalar) => &av == scalar,
+            (None, _) => !is_write && k == TAB_PIN_FIELD,
+        }
+    })
 }
 
 // A pinned field value is well-formed when it is a string (scalar match) or a non-empty array of
@@ -252,21 +392,20 @@ pub fn validate_governance(
 ) -> Result<(), Vec<GovernanceError>> {
     let mut errors = Vec::new();
 
-    // Structural check of the bound: a present bound must be a non-empty object whose fields are each a
-    // string or a non-empty all-string array. A scalar/empty bound is caught here, not silently at runtime.
+    // Structural check of the bound: a present bound must be a non-empty object (v1) or a
+    // non-empty array of non-empty objects (v2), each field a string or a non-empty all-string
+    // array. A scalar/empty bound is caught here, not silently at runtime.
     if let Some(bound) = &gov.bound_resource {
-        match bound.as_object() {
-            None => errors.push(GovernanceError::MalformedBoundResource {
-                field: "<root>".into(),
-                reason: "bound_resource must be an object".into(),
-            }),
-            Some(map) if map.is_empty() => {
-                errors.push(GovernanceError::MalformedBoundResource {
-                    field: "<root>".into(),
-                    reason: "bound_resource must pin at least one field".into(),
-                })
-            }
-            Some(map) => {
+        let check_entry =
+            |map: &serde_json::Map<String, serde_json::Value>,
+             errors: &mut Vec<GovernanceError>| {
+                if map.is_empty() {
+                    errors.push(GovernanceError::MalformedBoundResource {
+                        field: "<root>".into(),
+                        reason: "bound entry must pin at least one field"
+                            .into(),
+                    });
+                }
                 for (k, v) in map {
                     if let Err(reason) = bound_field_ok(v) {
                         errors.push(GovernanceError::MalformedBoundResource {
@@ -275,7 +414,34 @@ pub fn validate_governance(
                         });
                     }
                 }
+            };
+        match bound {
+            serde_json::Value::Object(map) => check_entry(map, &mut errors),
+            serde_json::Value::Array(arr) if arr.is_empty() => {
+                errors.push(GovernanceError::MalformedBoundResource {
+                    field: "<root>".into(),
+                    reason: "bound_resource must pin at least one entry".into(),
+                })
             }
+            serde_json::Value::Array(arr) => {
+                for e in arr {
+                    match e.as_object() {
+                        Some(map) => check_entry(map, &mut errors),
+                        None => errors.push(
+                            GovernanceError::MalformedBoundResource {
+                                field: "<root>".into(),
+                                reason: "bound entry must be an object".into(),
+                            },
+                        ),
+                    }
+                }
+            }
+            _ => errors.push(GovernanceError::MalformedBoundResource {
+                field: "<root>".into(),
+                reason:
+                    "bound_resource must be an object or an array of objects"
+                        .into(),
+            }),
         }
     }
 
@@ -440,6 +606,8 @@ pub enum DenyReason {
     UngovernedColumn { tool: String, column: String },
     #[error("tool `{tool}`: call does not target the bound resource")]
     OutOfBoundResource { tool: String },
+    #[error("tool `{tool}`: listing is scoped to armed resources and this tool's response cannot be filtered")]
+    UnscopedSearch { tool: String },
     #[error("tool `{tool}`: write attempted before reading the bound resource this run")]
     ReadBeforeWrite { tool: String },
     #[error("tool `{tool}` is destructive and deny_destructive is on")]
@@ -470,48 +638,122 @@ pub enum DenyReason {
     DuplicateKeyInBatch { tool: String, key: String },
 }
 
-// bound_resource match = the call's args CONTAIN every pinned field. A pinned scalar must equal the arg;
-// a pinned array means "one of" - the arg must be a member. Connector-agnostic: it pins the target(s)
-// without knowing the connector's arg schema. A bound that is not an object pins nothing.
+// bound_resource match = at least ONE entry agrees with the call (OR of AND). Connector-agnostic:
+// it pins the target(s) without knowing the connector's arg schema. An unparseable bound matches
+// nothing (fail closed: a corrupt binding must never widen the scope).
 fn args_match_bound(
     args: &serde_json::Value,
     bound: &serde_json::Value,
+    is_write: bool,
 ) -> bool {
-    match bound.as_object() {
-        None => true,
-        Some(pinned) => match args.as_object() {
-            None => false,
-            Some(a) => pinned.iter().all(|(k, v)| match (a.get(k), v) {
-                (Some(av), serde_json::Value::Array(allowed)) => {
-                    allowed.contains(av)
-                }
-                (Some(av), scalar) => av == scalar,
-                (None, _) => false,
-            }),
-        },
+    match bound_entries(bound) {
+        Some(entries) => entries
+            .iter()
+            .any(|entry| entry_matches(entry, args, is_write)),
+        None => false,
     }
 }
 
-// The canonical identity of the resource a call targets: the bound field NAMES pulled out of the call's
-// args, sorted (BTreeMap), serialized compact. Sorting closes a read-skip via reordered keys. Used to
-// track read_before_write per resource, so reading sheet X never unlocks a write to a sibling sheet Y.
-// A None/non-object bound yields the empty key, collapsing to the global "any read" behavior.
-fn resource_key(
+// The canonical identity of one matched entry for a call: the entry's pinned field NAMES with the
+// call's values where the call carries them, the entry's own pin otherwise; sorted (BTreeMap),
+// serialized compact. Sorting closes a read-skip via reordered keys.
+fn entry_key(
+    entry: &serde_json::Map<String, serde_json::Value>,
     args: &serde_json::Value,
-    bound: Option<&serde_json::Value>,
 ) -> String {
-    let (Some(args), Some(bound)) =
-        (args.as_object(), bound.and_then(|b| b.as_object()))
-    else {
-        return String::new();
-    };
+    let a = args.as_object();
     let mut key = BTreeMap::new();
-    for name in bound.keys() {
-        if let Some(val) = args.get(name) {
-            key.insert(name.clone(), val.clone());
-        }
+    for (name, pinned) in entry {
+        let val = a
+            .and_then(|m| {
+                if name == TAB_PIN_FIELD {
+                    call_sheet(m)
+                } else {
+                    m.get(name).cloned()
+                }
+            })
+            .unwrap_or_else(|| pinned.clone());
+        key.insert(name.clone(), val);
     }
     serde_json::to_string(&key).unwrap_or_default()
+}
+
+/// The armed values of one bound field across every entry, for the hook's response filter
+/// (e.g. the armed spreadsheet ids). Membership arrays contribute each member.
+pub fn bound_values(
+    bound: &serde_json::Value,
+    field: &str,
+) -> BTreeSet<String> {
+    let mut out = BTreeSet::new();
+    for entry in bound_entries(bound).unwrap_or_default() {
+        match entry.get(field) {
+            Some(serde_json::Value::String(s)) => {
+                out.insert(s.clone());
+            }
+            Some(serde_json::Value::Array(arr)) => out.extend(
+                arr.iter().filter_map(|v| v.as_str().map(String::from)),
+            ),
+            _ => {}
+        }
+    }
+    out
+}
+
+/// The pinned tabs for one armed resource id: Some(tabs) when EVERY entry matching the id pins
+/// a tab (the response filter masks the others), None when any matching entry arms the whole
+/// resource - or when the id is not armed at all (the gate already refused that call).
+pub fn bound_tabs_for(
+    bound: &serde_json::Value,
+    id_field: &str,
+    id: &str,
+) -> Option<BTreeSet<String>> {
+    let mut tabs = BTreeSet::new();
+    let mut matched = false;
+    for entry in bound_entries(bound).unwrap_or_default() {
+        let id_matches = match entry.get(id_field) {
+            Some(serde_json::Value::String(s)) => s == id,
+            Some(serde_json::Value::Array(arr)) => {
+                arr.iter().any(|v| v.as_str() == Some(id))
+            }
+            _ => false,
+        };
+        if !id_matches {
+            continue;
+        }
+        matched = true;
+        match entry.get(TAB_PIN_FIELD).and_then(|v| v.as_str()) {
+            Some(tab) => {
+                tabs.insert(tab.to_string());
+            }
+            None => return None,
+        }
+    }
+    matched.then_some(tabs)
+}
+
+// The resource identities a call targets: one key per matched entry. read_before_write tracks
+// these, so reading armed tab X never unlocks a write to armed tab Y (a whole-spreadsheet read
+// matches - and unlocks - every entry it covers). A None/unparseable bound yields the single
+// empty key, collapsing to the global "any read" behavior (writes were already denied upstream
+// for the unparseable case).
+fn resource_keys(
+    args: &serde_json::Value,
+    bound: Option<&serde_json::Value>,
+    is_write: bool,
+) -> Vec<String> {
+    let Some(entries) = bound.and_then(bound_entries) else {
+        return vec![String::new()];
+    };
+    let keys: Vec<String> = entries
+        .iter()
+        .filter(|e| entry_matches(e, args, is_write))
+        .map(|e| entry_key(e, args))
+        .collect();
+    if keys.is_empty() {
+        vec![String::new()]
+    } else {
+        keys
+    }
 }
 
 // ---- per-call structural checks (shared by the gate; mirror the backend so the two seams cannot drift) ----
@@ -579,16 +821,29 @@ fn check_column_roles(
 
 fn check_bound(
     gov: &Governance,
+    conn: &ConnectorManifest,
     ct: &ConnectorTool,
     call: &ProposedCall,
 ) -> Option<DenyReason> {
-    (ct.action != Action::Search
-        && gov
-            .bound_resource
-            .as_ref()
-            .is_some_and(|bound| !args_match_bound(&call.args, bound)))
-    .then(|| DenyReason::OutOfBoundResource {
-        tool: call.tool.clone(),
+    let bound = gov.bound_resource.as_ref()?;
+    if ct.action == Action::Search {
+        // Search takes no resource id, so it cannot be arg-gated. Unpinned bound = free
+        // discovery (arm-time listing). Pinned: only a Search the manifest's `scoping`
+        // declares stays callable - the hook executes it and filters the response to the
+        // armed ids. Undeclared = the response cannot be scoped = refused (fail closed).
+        let exempt = !bound_pins(gov.bound_resource.as_ref())
+            || conn
+                .scoping
+                .as_ref()
+                .is_some_and(|s| s.declares(&call.tool));
+        return (!exempt).then(|| DenyReason::UnscopedSearch {
+            tool: call.tool.clone(),
+        });
+    }
+    (!args_match_bound(&call.args, bound, ct.action.is_write())).then(|| {
+        DenyReason::OutOfBoundResource {
+            tool: call.tool.clone(),
+        }
     })
 }
 
@@ -621,15 +876,17 @@ pub fn gate(
     if let Some(reason) = check_column_roles(gov, ct, call) {
         return Decision::Deny(reason);
     }
-    if let Some(reason) = check_bound(gov, ct, call) {
+    if let Some(reason) = check_bound(gov, conn, ct, call) {
         return Decision::Deny(reason);
     }
 
+    // The write's own resource(s) must have been read this run: ANY matched entry's key
+    // suffices (a covering read inserted every entry it matched).
     if ct.action.is_write()
         && gov.read_before_write
-        && !run
-            .read_resources
-            .contains(&resource_key(&call.args, gov.bound_resource.as_ref()))
+        && !resource_keys(&call.args, gov.bound_resource.as_ref(), true)
+            .iter()
+            .any(|k| run.read_resources.contains(k))
     {
         return Decision::Deny(DenyReason::ReadBeforeWrite {
             tool: call.tool.clone(),
@@ -686,8 +943,12 @@ pub fn gate(
     run.tool_calls += 1;
     *run.per_tool.entry(call.tool.clone()).or_insert(0) += 1;
     if ct.action == Action::Read {
-        run.read_resources
-            .insert(resource_key(&call.args, gov.bound_resource.as_ref()));
+        // A read unlocks EVERY entry it matched: a whole-spreadsheet read covers each of
+        // its armed tabs, while a tab-addressed read unlocks that tab alone.
+        for key in resource_keys(&call.args, gov.bound_resource.as_ref(), false)
+        {
+            run.read_resources.insert(key);
+        }
     }
     Decision::Allow
 }

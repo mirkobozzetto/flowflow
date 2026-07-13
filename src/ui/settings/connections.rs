@@ -1,3 +1,4 @@
+use super::tab_pins::{load_tab_picker, pinned_tabs, TabPicker, TabPinEditor};
 use crate::application::i18n::t;
 use crate::infrastructure::backend::{BackendClient, Connector};
 use crate::infrastructure::persistence::Database;
@@ -37,6 +38,10 @@ pub fn ConnectionsSettings() -> Element {
         crate::application::connector_module::current_bindings(&db())
     });
     let mut listing = use_signal(|| false);
+    // Per-tab pin editor: (spreadsheet_id, every tab, checked set). None = closed.
+    let mut tab_picker: Signal<Option<TabPicker>> = use_signal(|| None);
+    // The spreadsheet whose tabs are being fetched (disables its button meanwhile).
+    let mut tabs_loading: Signal<Option<String>> = use_signal(|| None);
     // The agent-sheets accordion starts open when nothing is armed yet, to guide the first arming.
     let mut sheets_open = use_signal(|| {
         crate::application::connector_module::current_bindings(&db()).is_empty()
@@ -387,16 +392,61 @@ pub fn ConnectionsSettings() -> Element {
                                                                 }
                                                                 button {
                                                                     class: crate::ui::kit::PILL_GHOST,
+                                                                    disabled: tabs_loading().is_some(),
+                                                                    onclick: {
+                                                                        let id = id.clone();
+                                                                        move |_| {
+                                                                            if tabs_loading().is_some() { return; }
+                                                                            let id = id.clone();
+                                                                            tabs_loading.set(Some(id.clone()));
+                                                                            status.set(None);
+                                                                            spawn(async move {
+                                                                                match load_tab_picker(&db(), &id).await {
+                                                                                    Ok(picker) => tab_picker.set(Some(picker)),
+                                                                                    Err(e) => status.set(Some(e)),
+                                                                                }
+                                                                                tabs_loading.set(None);
+                                                                            });
+                                                                        }
+                                                                    },
+                                                                    if tabs_loading().as_deref() == Some(id.as_str()) {
+                                                                        {t(&lang, "connections-tabs-reading")}
+                                                                    } else {
+                                                                        {t(&lang, "connections-tabs")}
+                                                                    }
+                                                                }
+                                                                button {
+                                                                    class: crate::ui::kit::PILL_GHOST,
                                                                     onclick: {
                                                                         let id = id.clone();
                                                                         move |_| {
                                                                             match crate::application::connector_module::unbind_spreadsheet(&db(), &id) {
-                                                                                Ok(()) => { bindings.set(crate::application::connector_module::current_bindings(&db())); status.set(None); }
+                                                                                Ok(()) => {
+                                                                                    bindings.set(crate::application::connector_module::current_bindings(&db()));
+                                                                                    if tab_picker().is_some_and(|(pid, _, _)| pid == id) {
+                                                                                        tab_picker.set(None);
+                                                                                    }
+                                                                                    status.set(None);
+                                                                                }
                                                                                 Err(e) => status.set(Some(e)),
                                                                             }
                                                                         }
                                                                     },
                                                                     {t(&lang, "connections-disarm")}
+                                                                }
+                                                            }
+                                                            // The armed scope: every tab, or the pinned subset.
+                                                            p { class: "text-[10px] text-stone-400 truncate",
+                                                                {
+                                                                    let pins = pinned_tabs(&db(), &id);
+                                                                    if pins.is_empty() { t(&lang, "connections-tabs-all") } else { pins.join(" · ") }
+                                                                }
+                                                            }
+                                                            if tab_picker().is_some_and(|(pid, _, _)| pid == id) {
+                                                                TabPinEditor {
+                                                                    picker: tab_picker,
+                                                                    bindings,
+                                                                    status,
                                                                 }
                                                             }
                                                         }
@@ -451,6 +501,11 @@ pub fn ConnectionsSettings() -> Element {
                                                                                     Ok(()) => {
                                                                                         bindings.set(crate::application::connector_module::current_bindings(&db()));
                                                                                         status.set(None);
+                                                                                        // Arming proposes the tabs (default: all checked).
+                                                                                        // Unreachable metadata keeps the whole workbook armed.
+                                                                                        if let Ok(picker) = load_tab_picker(&db(), &id).await {
+                                                                                            tab_picker.set(Some(picker));
+                                                                                        }
                                                                                     }
                                                                                     Err(e) => status.set(Some(e)),
                                                                                 }

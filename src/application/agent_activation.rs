@@ -189,8 +189,9 @@ pub async fn resolve(db: &Database, message: &str) -> Option<Activation> {
     }
 }
 
-/// Run the resolved activation with the user's message as the goal. The per-state trace
-/// renders as the chat answer; `events` carries tool status + approval proposals to the UI.
+/// Run the resolved activation with the user's message as the goal. Returns the answer plus
+/// the run's ground-truth trace (states + tool verdicts) for the debug accordion; `events`
+/// carries tool status + approval proposals to the UI.
 pub async fn run(
     db: &Database,
     activation: &Activation,
@@ -198,15 +199,50 @@ pub async fn run(
     events: tokio::sync::mpsc::UnboundedSender<
         crate::application::tools::ToolEvent,
     >,
-) -> Result<String, String> {
-    crate::application::connector_module::run_agent_chain(
+) -> Result<(String, crate::application::rag::RagTrace), String> {
+    let outcome = crate::application::connector_module::run_agent_chain(
         db,
         &activation.agent_id,
         &activation.chain,
         goal,
         events,
     )
-    .await
+    .await?;
+    let trace = chain_trace(&outcome);
+    Ok((outcome.final_text, trace))
+}
+
+// The chain's tool log reshaped into the RAG trace the debug toggle already renders: one
+// step per chain state, one per tool verdict line ("held ...", "blocked: ...").
+fn chain_trace(
+    outcome: &crate::application::chain::ChainOutcome,
+) -> crate::application::rag::RagTrace {
+    use crate::application::rag::{RagTrace, StepOutcome, TraceStep};
+    let mut trace = RagTrace::default();
+    let mut push = |label: String, outcome: StepOutcome| {
+        trace.push(TraceStep {
+            step: label,
+            model: None,
+            tokens_in: None,
+            tokens_out: None,
+            approx: false,
+            latency_ms: 0,
+            retries: 0,
+            outcome,
+        });
+    };
+    for step in &outcome.trace {
+        push(format!("state `{}`", step.state), StepOutcome::Ok);
+        for line in &step.tools {
+            let verdict = if line.starts_with("blocked") {
+                StepOutcome::Skipped
+            } else {
+                StepOutcome::Ok
+            };
+            push(line.clone(), verdict);
+        }
+    }
+    trace
 }
 
 /// The installed+active agents the + palette offers, with the exact command a tap sends.

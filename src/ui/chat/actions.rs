@@ -359,10 +359,10 @@ pub fn send_question(
                 tx,
             )
             .await
-            .map(|answer| rag::RagResponse {
+            .map(|(answer, trace)| rag::RagResponse {
                 answer,
                 sources: vec![],
-                trace: None,
+                trace: Some(trace),
             })
         } else if crate::application::intent::is_action_trigger(&question) {
             rag::run_action(&question, Some(tx)).await

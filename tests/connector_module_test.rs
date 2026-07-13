@@ -26,10 +26,20 @@ fn built() -> BuiltAgent {
         .expect("fixture builds")
 }
 
+// The golden fixture keeps its historical id; the arm path now targets FIXTURE_AGENT_ID,
+// so tests that exercise binding re-key the pinned row to it after install.
+fn install_arm_agent(db: &Database) {
+    db.install_agent(&verify_package(FIXTURE_PACKAGE, ADMIN_PUBKEY).unwrap())
+        .unwrap();
+    db.conn()
+        .execute("UPDATE installed_agents SET id = ?1", [FIXTURE_AGENT_ID])
+        .unwrap();
+}
+
 #[test]
 fn fixture_verifies_and_identifies() {
     let verified = verify_package(FIXTURE_PACKAGE, ADMIN_PUBKEY).unwrap();
-    assert_eq!(verified.manifest.id, FIXTURE_AGENT_ID);
+    assert_eq!(verified.manifest.id, "agent-crm-sync");
     assert!(verified.content_digest.starts_with("sha256:"));
 }
 
@@ -41,12 +51,18 @@ fn built_governance_is_install_valid() {
 }
 
 #[test]
-fn gate_allows_list_and_bounded_read_write() {
+fn gate_scopes_unfilterable_list_and_bounds_read_write() {
     let b = built();
     let mut run = RunState::default();
 
+    // The backfill manifest declares no `scoping`, so with a pinned bound (even the
+    // install placeholder) an unfilterable listing is refused: its response would leak
+    // every resource. The manifest's scoping block re-enables it, hook-filtered.
     let list = ProposedCall::new("google_sheets_list_spreadsheets", json!({}));
-    assert!(gate(&b.governance, &b.connector, &list, &mut run).is_allowed());
+    assert!(matches!(
+        gate(&b.governance, &b.connector, &list, &mut run),
+        Decision::Deny(DenyReason::UnscopedSearch { .. })
+    ));
 
     // read then write, both on the bound resource: the read satisfies read_before_write.
     let read = ProposedCall::new(
@@ -207,8 +223,7 @@ async fn multi_bind_adds_dedups_and_removes() {
     let dir = tempdir().unwrap();
     let db = Database::open_at(dir.path().join("t.db")).unwrap();
     // Bind targets the pinned agent row; install it (the runtime install now comes from the backend).
-    db.install_agent(&verify_package(FIXTURE_PACKAGE, ADMIN_PUBKEY).unwrap())
-        .unwrap();
+    install_arm_agent(&db);
 
     // No backend configured: schema capture is unavailable and arming still succeeds.
     bind_spreadsheet(&db, "A", "Alpha").await.unwrap();
@@ -233,6 +248,156 @@ async fn multi_bind_adds_dedups_and_removes() {
     unbind_spreadsheet(&db, "B").unwrap();
     assert!(current_bindings(&db).is_empty());
     assert!(db.get_agent_binding(FIXTURE_AGENT_ID).is_none());
+}
+
+// ---- RFC 0023: the single binding reader (scalar / v1 object / v2 array) + v2-only-if-pin writer ----
+
+#[test]
+fn parse_binding_reads_all_three_formats() {
+    use flowflow::application::connector_module::{
+        parse_binding, BindingEntry,
+    };
+
+    // Legacy scalar (pre-RFC 0011 single bind).
+    assert_eq!(
+        parse_binding(&json!("1Ab")),
+        vec![BindingEntry {
+            spreadsheet_id: "1Ab".into(),
+            sheet: None
+        }]
+    );
+    // v1 object, both the array form and the single-id form.
+    assert_eq!(
+        parse_binding(&json!({ "spreadsheet_id": ["A", "B"] })),
+        vec![
+            BindingEntry {
+                spreadsheet_id: "A".into(),
+                sheet: None
+            },
+            BindingEntry {
+                spreadsheet_id: "B".into(),
+                sheet: None
+            }
+        ]
+    );
+    assert_eq!(
+        parse_binding(&json!({ "spreadsheet_id": "A" })),
+        vec![BindingEntry {
+            spreadsheet_id: "A".into(),
+            sheet: None
+        }]
+    );
+    // v2 array with and without a tab pin.
+    assert_eq!(
+        parse_binding(
+            &json!([{ "spreadsheet_id": "A", "sheet": "Clients" }, { "spreadsheet_id": "B" }])
+        ),
+        vec![
+            BindingEntry {
+                spreadsheet_id: "A".into(),
+                sheet: Some("Clients".into())
+            },
+            BindingEntry {
+                spreadsheet_id: "B".into(),
+                sheet: None
+            }
+        ]
+    );
+    // Garbage reads as unarmed (the gate fails closed on its own copy).
+    assert!(parse_binding(&json!(42)).is_empty());
+    assert!(parse_binding(&json!([{ "sheet": "NoId" }])).is_empty());
+}
+
+#[tokio::test]
+async fn binding_written_v1_without_pin_and_v2_with_pin() {
+    use flowflow::application::connector_module::{
+        binding_entries, write_binding, BindingEntry,
+    };
+    let dir = tempdir().unwrap();
+    let db = Database::open_at(dir.path().join("t.db")).unwrap();
+    install_arm_agent(&db);
+
+    // No tab pinned: the stored shape stays v1 (survives downgrade/old-code restore).
+    write_binding(
+        &db,
+        &[
+            BindingEntry {
+                spreadsheet_id: "A".into(),
+                sheet: None,
+            },
+            BindingEntry {
+                spreadsheet_id: "B".into(),
+                sheet: None,
+            },
+        ],
+    )
+    .unwrap();
+    assert_eq!(
+        db.get_agent_binding(FIXTURE_AGENT_ID).unwrap(),
+        json!({ "spreadsheet_id": ["A", "B"] })
+    );
+
+    // One pin: the whole binding moves to v2.
+    write_binding(
+        &db,
+        &[
+            BindingEntry {
+                spreadsheet_id: "A".into(),
+                sheet: Some("Clients".into()),
+            },
+            BindingEntry {
+                spreadsheet_id: "B".into(),
+                sheet: None,
+            },
+        ],
+    )
+    .unwrap();
+    assert_eq!(
+        db.get_agent_binding(FIXTURE_AGENT_ID).unwrap(),
+        json!([
+            { "spreadsheet_id": "A", "sheet": "Clients" },
+            { "spreadsheet_id": "B" }
+        ])
+    );
+    // The reader round-trips it.
+    assert_eq!(binding_entries(&db).len(), 2);
+
+    // Arming another spreadsheet PRESERVES the existing tab pin.
+    bind_spreadsheet(&db, "C", "Gamma").await.unwrap();
+    let entries = binding_entries(&db);
+    assert!(entries
+        .iter()
+        .any(|e| e.spreadsheet_id == "A"
+            && e.sheet.as_deref() == Some("Clients")));
+    assert!(entries
+        .iter()
+        .any(|e| e.spreadsheet_id == "C" && e.sheet.is_none()));
+
+    // Disarming a pinned spreadsheet clears its pin with it.
+    unbind_spreadsheet(&db, "A").unwrap();
+    assert!(binding_entries(&db).iter().all(|e| e.sheet.is_none()));
+}
+
+#[test]
+fn device_binding_wins_over_the_manifest_placeholder() {
+    use flowflow::application::agent_builder::merge_bound;
+
+    // v1 object binding: per-key override (existing behavior).
+    let mut target = Some(json!({ "spreadsheet_id": "bound-at-install" }));
+    merge_bound(&mut target, json!({ "spreadsheet_id": ["A", "B"] }));
+    assert_eq!(target.unwrap(), json!({ "spreadsheet_id": ["A", "B"] }));
+
+    // v2 array binding: each entry inherits manifest fields, its own fields win.
+    let mut target =
+        Some(json!({ "spreadsheet_id": "bound-at-install", "locked": "yes" }));
+    merge_bound(
+        &mut target,
+        json!([{ "spreadsheet_id": "A", "sheet": "Clients" }]),
+    );
+    assert_eq!(
+        target.unwrap(),
+        json!([{ "spreadsheet_id": "A", "sheet": "Clients", "locked": "yes" }])
+    );
 }
 
 // list_sheets returns the spreadsheet title at the top level, as a Python dict repr (Klavis str()).
@@ -472,8 +637,7 @@ fn sheet_titles_empty_when_meta_has_no_sheets() {
 async fn schema_absent_until_captured_and_cleared_on_unbind() {
     let dir = tempdir().unwrap();
     let db = Database::open_at(dir.path().join("t.db")).unwrap();
-    db.install_agent(&verify_package(FIXTURE_PACKAGE, ADMIN_PUBKEY).unwrap())
-        .unwrap();
+    install_arm_agent(&db);
 
     // Arm without a reachable backend: no schema captured, binding still lands.
     bind_spreadsheet(&db, "S1", "Sheet One").await.unwrap();
@@ -494,4 +658,43 @@ async fn schema_absent_until_captured_and_cleared_on_unbind() {
     // Disarming drops the schema with the binding.
     unbind_spreadsheet(&db, "S1").unwrap();
     assert_eq!(armed_schema_for(&db, "S1", "Feuille 1"), None);
+}
+
+#[tokio::test]
+async fn set_sheet_pins_replaces_only_that_spreadsheet() {
+    use flowflow::application::connector_module::{
+        binding_entries, set_sheet_pins,
+    };
+    let dir = tempdir().unwrap();
+    let db = Database::open_at(dir.path().join("t.db")).unwrap();
+    install_arm_agent(&db);
+    bind_spreadsheet(&db, "A", "Alpha").await.unwrap();
+    bind_spreadsheet(&db, "B", "Beta").await.unwrap();
+
+    set_sheet_pins(&db, "A", &["X".into(), "Y".into()]).unwrap();
+    let entries = binding_entries(&db);
+    assert_eq!(
+        entries
+            .iter()
+            .filter(|e| e.spreadsheet_id == "A")
+            .filter_map(|e| e.sheet.clone())
+            .collect::<Vec<_>>(),
+        vec!["X".to_string(), "Y".to_string()]
+    );
+    assert!(entries
+        .iter()
+        .any(|e| e.spreadsheet_id == "B" && e.sheet.is_none()));
+
+    // Empty = back to the whole workbook; with no pin left the wire returns to v1.
+    set_sheet_pins(&db, "A", &[]).unwrap();
+    assert!(binding_entries(&db).iter().all(|e| e.sheet.is_none()));
+    let stored = db.get_agent_binding(FIXTURE_AGENT_ID).unwrap();
+    let mut ids: Vec<String> = stored["spreadsheet_id"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .filter_map(|v| v.as_str().map(String::from))
+        .collect();
+    ids.sort();
+    assert_eq!(ids, vec!["A".to_string(), "B".to_string()]);
 }

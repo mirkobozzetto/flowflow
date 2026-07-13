@@ -13,7 +13,7 @@ use crate::domain::governance::{
 };
 use crate::infrastructure::llm::LlmClient;
 use crate::infrastructure::persistence::installed_connector_repo::PinnedConnector;
-use std::collections::BTreeSet;
+use std::collections::{BTreeMap, BTreeSet};
 use std::sync::Arc;
 use tokio::sync::mpsc;
 
@@ -39,8 +39,12 @@ fn mode_for(action: Action) -> Option<Mode> {
 // fails the surface build and mounts nothing (fail closed): unparseable manifest, empty
 // prefix (would catch-all foreign tools), a notes-tool name collision, or an incoherent
 // classification (a write-classified action marked risk read_only cannot be trusted).
+// `armed` is the connector's device binding in gate format (v1 object / v2 array): when
+// present it becomes the contract's bound_resource, so chat reads are bounded exactly
+// like the chain path - one source of truth, one gate.
 fn connector_entry(
     pin: &PinnedConnector,
+    armed: Option<&serde_json::Value>,
 ) -> Option<(String, Governance, ConnectorManifest)> {
     let conn = match parse_connector_manifest(&pin.manifest_json) {
         Ok(c) => c,
@@ -88,7 +92,7 @@ fn connector_entry(
     }
     let gov = Governance {
         tools,
-        bound_resource: None,
+        bound_resource: armed.cloned(),
         column_roles: None,
         read_before_write: false,
         deny_destructive: true,
@@ -98,10 +102,18 @@ fn connector_entry(
     Some((conn.mcp_prefix.clone(), gov, conn))
 }
 
-/// The mountable chat surface across every pinned connector. Pure over its inputs, so the
-/// policy is unit-testable without a registry or a network.
-pub fn build_chat_surface(pins: &[PinnedConnector]) -> ChatSurface {
-    let contracts: Vec<_> = pins.iter().filter_map(connector_entry).collect();
+/// The mountable chat surface across every pinned connector. `armed` maps a connector SLUG
+/// to its device binding in gate format; a connector with no entry mounts unbounded (the
+/// current free-discovery behavior). Pure over its inputs, so the policy is unit-testable
+/// without a registry or a network.
+pub fn build_chat_surface(
+    pins: &[PinnedConnector],
+    armed: &BTreeMap<String, serde_json::Value>,
+) -> ChatSurface {
+    let contracts: Vec<_> = pins
+        .iter()
+        .filter_map(|pin| connector_entry(pin, armed.get(&pin.slug)))
+        .collect();
     let tool_names = contracts
         .iter()
         .flat_map(|(_, gov, _)| gov.tools.iter().map(|tp| tp.tool.clone()))
@@ -143,7 +155,8 @@ pub async fn prompt_chat_agent(
     let reg = connect_registry().await;
     let surface = reg.as_ref().and_then(|reg| {
         let db = crate::infrastructure::persistence::Database::open().ok()?;
-        let surface = build_chat_surface(&db.list_pinned_connectors());
+        let armed = crate::application::connector_module::armed_bounds(&db);
+        let surface = build_chat_surface(&db.list_pinned_connectors(), &armed);
         let (mounted, dropped): (Vec<_>, Vec<_>) = reg
             .tools()
             .into_iter()
