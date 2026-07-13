@@ -15,21 +15,15 @@ use rmcp::model::CallToolRequestParams;
 // resource, so the governance gate never bound-checks it - listing works before anything is armed.
 const LIST_TOOL: &str = "google_sheets_list_spreadsheets";
 
-// The agent the device installs. Must equal the manifest `id` AND the backend catalog id
-// (seed_catalog: `agent-crm-sync`), since it travels as x-agent-id; an id the backend has not granted
-// is rejected 403 at the proxy and at the package fetch.
-pub const FIXTURE_AGENT_ID: &str = "agent-crm-sync";
-const SYNC_CHAIN_NAME: &str = "sync";
-
-// The trigger UI's input for the chain run; the user's goal, not part of the pinned contract.
-const SYNC_GOAL: &str =
-    "List my spreadsheets, open the most relevant one, and report what it contains.";
+// The agent the arm/bind path installs. Must equal the manifest `id` AND the backend catalog id,
+// since it travels as x-agent-id; an id the backend has not granted is rejected 403 at the proxy
+// and at the package fetch.
+pub const FIXTURE_AGENT_ID: &str = "agent-crm";
 
 // A signed agent package, kept as the test golden vector that exercises verify -> build -> gate without
 // a backend. It is NO LONGER the runtime install source: the device now fetches the package from
 // `GET /v1/agents/{id}/package` and pins that. The signature is over the canonical digest of the
-// manifest, made offline with the dev admin key whose public half is pinned in `ADMIN_PUBKEY`; the
-// backend seeds the same `agent-crm-sync` manifest, so a fixture pin and a fetched pin are identical.
+// manifest, made offline with the dev admin key whose public half is pinned in `ADMIN_PUBKEY`.
 // `bound_resource.spreadsheet_id` is a placeholder until the user arms a real sheet; off-bound
 // reads/writes are refused until then.
 pub const FIXTURE_PACKAGE: &str = r#"{
@@ -78,13 +72,6 @@ pub const FIXTURE_PACKAGE: &str = r#"{
   "status": "published"
 }"#;
 
-/// Drive the installed agent's pinned `sync` chain through the FSM runtime and return a per-state
-/// trace for the trigger UI.
-pub async fn run_sync_chain(db: &Database) -> Result<String, String> {
-    let (tx, _rx) = tokio::sync::mpsc::unbounded_channel();
-    run_agent_chain(db, FIXTURE_AGENT_ID, SYNC_CHAIN_NAME, SYNC_GOAL, tx).await
-}
-
 /// Run one named chain of any installed agent through the FSM runtime (activation by alias,
 /// trigger words, or the + palette). Kill switch checked on every run via ensure_installed.
 /// `events` reaches the chat status UI: tool start/finish and approval proposals.
@@ -96,20 +83,19 @@ pub async fn run_agent_chain(
     events: tokio::sync::mpsc::UnboundedSender<
         crate::application::tools::ToolEvent,
     >,
-) -> Result<String, String> {
+) -> Result<ChainOutcome, String> {
     crate::application::agent_directory::ensure_installed(db, agent_id).await?;
     let built = load_built(db, agent_id)?;
     let chain = built
         .chains
         .get(chain_name)
         .ok_or_else(|| format!("manifest has no `{chain_name}` chain"))?;
-    let outcome = run_chain(db, chain, &built, goal, events)
+    let mut outcome = run_chain(db, chain, &built, goal, events)
         .await
         .map_err(|e| e.to_string())?;
-    Ok(repair_sheet_links(
-        &format_outcome(&outcome),
-        &bound_ids(db),
-    ))
+    outcome.final_text =
+        repair_sheet_links(&format_outcome(&outcome), &bound_ids(db));
+    Ok(outcome)
 }
 
 /// The answer step is LLM-composed markdown; models garble long spreadsheet ids when writing
@@ -197,6 +183,8 @@ pub async fn arm_list_spreadsheets(
 // The bound field the agent pins: a JSON array of armed spreadsheet ids. The gate matches a call when
 // its spreadsheet_id is a member, so the agent may act on any armed sheet (RFC 0011).
 const BOUND_FIELD: &str = "spreadsheet_id";
+// The binding v2 tab pin, matched by the gate on writes and filtered from responses on reads.
+const SHEET_FIELD: &str = "sheet";
 // Display names live OUTSIDE bound_resource (a name key there would make the gate require it in every
 // call's args and deny everything). A JSON map id->name keeps the bound minimal and the UI human.
 const ARMED_NAMES_KEY: &str = "armed_sheet_names";
@@ -217,31 +205,132 @@ fn write_names(
     );
 }
 
-// The armed ids, tolerating both the array form and a legacy single scalar from a device armed before
-// RFC 0011, so an existing binding is not lost on upgrade.
-fn bound_ids(db: &Database) -> Vec<String> {
-    let Some(v) = db.get_agent_binding(FIXTURE_AGENT_ID) else {
-        return Vec::new();
-    };
-    match v.get(BOUND_FIELD) {
-        Some(serde_json::Value::Array(arr)) => arr
+// One armed binding entry: a spreadsheet, optionally pinned to one tab. Several entries may
+// share a spreadsheet (one per pinned tab).
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct BindingEntry {
+    pub spreadsheet_id: String,
+    pub sheet: Option<String>,
+}
+
+impl BindingEntry {
+    fn whole(id: &str) -> Self {
+        Self {
+            spreadsheet_id: id.to_string(),
+            sheet: None,
+        }
+    }
+}
+
+/// THE single reader for every binding shape ever written: v2 array of entries, v1 object
+/// (`{"spreadsheet_id": [ids]}` or a single id), bare legacy scalar. Anything else reads as
+/// unarmed - the gate independently fails closed on an unparseable bound.
+pub fn parse_binding(v: &serde_json::Value) -> Vec<BindingEntry> {
+    match v {
+        serde_json::Value::Array(arr) => arr
             .iter()
-            .filter_map(|e| e.as_str().map(String::from))
+            .filter_map(|e| {
+                let id = e.get(BOUND_FIELD)?.as_str()?;
+                Some(BindingEntry {
+                    spreadsheet_id: id.to_string(),
+                    sheet: e
+                        .get(SHEET_FIELD)
+                        .and_then(|s| s.as_str())
+                        .map(String::from),
+                })
+            })
             .collect(),
-        Some(serde_json::Value::String(s)) => vec![s.clone()],
+        serde_json::Value::Object(_) => match v.get(BOUND_FIELD) {
+            Some(serde_json::Value::Array(arr)) => arr
+                .iter()
+                .filter_map(|e| e.as_str())
+                .map(BindingEntry::whole)
+                .collect(),
+            Some(serde_json::Value::String(s)) => vec![BindingEntry::whole(s)],
+            _ => Vec::new(),
+        },
+        serde_json::Value::String(s) => vec![BindingEntry::whole(s)],
         _ => Vec::new(),
     }
 }
 
-fn write_ids(db: &Database, ids: &[String]) -> Result<(), String> {
-    if ids.is_empty() {
-        // Empty falls back to the manifest placeholder, so off-bound is refused until the user re-arms.
-        db.set_agent_binding(FIXTURE_AGENT_ID, None)?;
-    } else {
-        let bound = serde_json::json!({ BOUND_FIELD: ids });
-        db.set_agent_binding(FIXTURE_AGENT_ID, Some(&bound.to_string()))?;
+/// The armed entries of the installed agent, through the single reader.
+pub fn binding_entries(db: &Database) -> Vec<BindingEntry> {
+    db.get_agent_binding(FIXTURE_AGENT_ID)
+        .map(|v| parse_binding(&v))
+        .unwrap_or_default()
+}
+
+// The armed ids, deduped (an id pinned on two tabs is still one armed spreadsheet).
+fn bound_ids(db: &Database) -> Vec<String> {
+    let mut ids: Vec<String> = Vec::new();
+    for e in binding_entries(db) {
+        if !ids.contains(&e.spreadsheet_id) {
+            ids.push(e.spreadsheet_id);
+        }
     }
-    Ok(())
+    ids
+}
+
+// The gate-format value of a set of entries. The v1 object survives a device downgrade or a
+// backup restored on old code, so it stays the wire while no tab is pinned; v2 is written ONLY
+// when a `sheet` pin exists (the residual re-open window on old code is confined to tab-pinned
+// bindings). None when nothing is armed.
+fn binding_value(entries: &[BindingEntry]) -> Option<serde_json::Value> {
+    if entries.is_empty() {
+        None
+    } else if entries.iter().all(|e| e.sheet.is_none()) {
+        let ids: Vec<&str> =
+            entries.iter().map(|e| e.spreadsheet_id.as_str()).collect();
+        Some(serde_json::json!({ BOUND_FIELD: ids }))
+    } else {
+        Some(serde_json::Value::Array(
+            entries
+                .iter()
+                .map(|e| match &e.sheet {
+                    Some(tab) => serde_json::json!({
+                        BOUND_FIELD: e.spreadsheet_id, SHEET_FIELD: tab
+                    }),
+                    None => {
+                        serde_json::json!({ BOUND_FIELD: e.spreadsheet_id })
+                    }
+                })
+                .collect(),
+        ))
+    }
+}
+
+/// Persist the armed entries (see `binding_value` for the v1-unless-pinned wire rule). Empty
+/// clears to the manifest placeholder, so off-bound is refused until the user re-arms.
+pub fn write_binding(
+    db: &Database,
+    entries: &[BindingEntry],
+) -> Result<(), String> {
+    match binding_value(entries) {
+        None => db.set_agent_binding(FIXTURE_AGENT_ID, None),
+        Some(v) => db.set_agent_binding(FIXTURE_AGENT_ID, Some(&v.to_string())),
+    }
+}
+
+/// The device bindings per connector SLUG, in gate format, for the chat surface. Today the
+/// only armable binding belongs to the installed CRM agent; its connector resolves by type,
+/// exactly as the chain path resolves it - one source of truth for both surfaces.
+pub fn armed_bounds(
+    db: &Database,
+) -> std::collections::BTreeMap<String, serde_json::Value> {
+    let mut out = std::collections::BTreeMap::new();
+    let Some(bound) = binding_value(&binding_entries(db)) else {
+        return out;
+    };
+    if let Some((slug, _)) =
+        crate::application::connector_pins::resolve_for_type(
+            db,
+            "tabular_store",
+        )
+    {
+        out.insert(slug, bound);
+    }
+    out
 }
 
 /// Arm the installed agent to one more spreadsheet: add its id to the bound set and record its display
@@ -261,15 +350,39 @@ pub async fn bind_spreadsheet(
         Ok(()) | Err(CaptureError::Unavailable(_)) => {}
         Err(CaptureError::Invalid(msg)) => return Err(msg),
     }
-    let mut ids = bound_ids(db);
-    if !ids.iter().any(|i| i == spreadsheet_id) {
-        ids.push(spreadsheet_id.to_string());
+    let mut entries = binding_entries(db);
+    if !entries.iter().any(|e| e.spreadsheet_id == spreadsheet_id) {
+        entries.push(BindingEntry::whole(spreadsheet_id));
     }
-    write_ids(db, &ids)?;
+    write_binding(db, &entries)?;
     let mut names = read_names(db);
     names.insert(spreadsheet_id.to_string(), name.into());
     write_names(db, &names);
     Ok(())
+}
+
+/// Pin one armed spreadsheet to a set of tabs. Empty = whole workbook (the pin clears).
+/// Replaces that spreadsheet's entries; other armed spreadsheets are untouched.
+pub fn set_sheet_pins(
+    db: &Database,
+    spreadsheet_id: &str,
+    tabs: &[String],
+) -> Result<(), String> {
+    let mut entries: Vec<BindingEntry> = binding_entries(db)
+        .into_iter()
+        .filter(|e| e.spreadsheet_id != spreadsheet_id)
+        .collect();
+    if tabs.is_empty() {
+        entries.push(BindingEntry::whole(spreadsheet_id));
+    } else {
+        for tab in tabs {
+            entries.push(BindingEntry {
+                spreadsheet_id: spreadsheet_id.to_string(),
+                sheet: Some(tab.clone()),
+            });
+        }
+    }
+    write_binding(db, &entries)
 }
 
 /// Disarm one spreadsheet by id. When the last one is removed the binding clears to the manifest
@@ -278,9 +391,9 @@ pub fn unbind_spreadsheet(
     db: &Database,
     spreadsheet_id: &str,
 ) -> Result<(), String> {
-    let mut ids = bound_ids(db);
-    ids.retain(|i| i != spreadsheet_id);
-    write_ids(db, &ids)?;
+    let mut entries = binding_entries(db);
+    entries.retain(|e| e.spreadsheet_id != spreadsheet_id);
+    write_binding(db, &entries)?;
     let mut names = read_names(db);
     names.remove(spreadsheet_id);
     write_names(db, &names);
@@ -530,22 +643,47 @@ pub async fn bind_spreadsheet_from_url(
 const SHEET_META_TOOL: &str = "google_sheets_list_sheets";
 
 pub async fn fetch_spreadsheet_name(db: &Database, id: &str) -> Option<String> {
-    let built = load_built(db, FIXTURE_AGENT_ID).ok()?;
-    let backend = BackendClient::from_db(db)?;
+    let meta = fetch_sheet_meta(db, id).await.ok()?;
+    title_from_meta(&meta)
+}
+
+/// The tab titles of one spreadsheet BEFORE it is armed, for the per-tab pin checkboxes.
+/// Same metadata fetch the arm-time schema capture uses (titles only, no cell data).
+pub async fn list_spreadsheet_tabs(
+    db: &Database,
+    spreadsheet_id: &str,
+) -> Result<Vec<String>, String> {
+    let meta = fetch_sheet_meta(db, spreadsheet_id).await?;
+    let titles = sheet_titles_from_meta(&meta);
+    if titles.is_empty() {
+        Err("no tabs found in sheet metadata".to_string())
+    } else {
+        Ok(titles)
+    }
+}
+
+// One spreadsheet's metadata (title + tabs) through the agent-scoped MCP route.
+async fn fetch_sheet_meta(
+    db: &Database,
+    spreadsheet_id: &str,
+) -> Result<serde_json::Value, String> {
+    let built = load_built(db, FIXTURE_AGENT_ID)?;
+    let backend = BackendClient::from_db(db)
+        .ok_or("no backend configured".to_string())?;
     let reg =
         McpRegistry::connect_agent(db, &backend, &built.slug, &built.agent_id)
             .await
-            .ok()?;
+            .map_err(|e| format!("mcp connect: {e}"))?;
     let mut args = serde_json::Map::new();
-    args.insert("spreadsheet_id".to_string(), id.into());
+    args.insert("spreadsheet_id".to_string(), spreadsheet_id.into());
     let result = reg
         .peer()
         .call_tool(
             CallToolRequestParams::new(SHEET_META_TOOL).with_arguments(args),
         )
         .await
-        .ok()?;
-    title_from_meta(&result_json(&result))
+        .map_err(|e| format!("list sheets: {e}"))?;
+    Ok(result_json(&result))
 }
 
 // The spreadsheet title from a `list_sheets` response: the top-level `title` (the connector returns
@@ -612,10 +750,11 @@ pub fn current_bindings(db: &Database) -> Vec<(String, String)> {
         .collect()
 }
 
-// Flatten a tool result to a single JSON value: prefer the structured payload, else parse the joined
-// text content. The Sheets connector serializes its list with Python `str()`, not `json.dumps`, so
-// the text is a Python dict literal - try strict JSON first, then normalize the Python repr to JSON.
-fn result_json(result: &rmcp::model::CallToolResult) -> serde_json::Value {
+/// Flatten a tool result to a single JSON value: prefer the structured payload, else parse the joined
+/// text content. The Sheets connector serializes its list with Python `str()`, not `json.dumps`, so
+/// the text is a Python dict literal - try strict JSON first, then normalize the Python repr to JSON.
+/// `pub` because the hook's response filter flattens the results it executes through the same path.
+pub fn result_json(result: &rmcp::model::CallToolResult) -> serde_json::Value {
     if let Some(structured) = &result.structured_content {
         return structured.clone();
     }

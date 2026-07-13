@@ -1,9 +1,10 @@
 // installed_agents persistence: pin (verify -> install), reload byte-identical, upsert repins, active
 // toggles, and the stored manifest still hashes to its pinned digest.
 
-use flowflow::application::connector_module::{
-    FIXTURE_AGENT_ID, FIXTURE_PACKAGE,
-};
+use flowflow::application::connector_module::FIXTURE_PACKAGE;
+
+// The golden fixture's own id (the arm-path FIXTURE_ID now points at the CRM agent).
+const FIXTURE_ID: &str = "agent-crm-sync";
 use flowflow::domain::agent_manifest::{
     digest_of_stored, verify_package, ADMIN_PUBKEY,
 };
@@ -38,10 +39,8 @@ fn install_then_reload_is_byte_identical_and_pinned() {
     let verified = verify_package(FIXTURE_PACKAGE, ADMIN_PUBKEY).unwrap();
     db.install_agent(&verified).expect("install");
 
-    let row = db
-        .get_installed_agent(FIXTURE_AGENT_ID)
-        .expect("agent is pinned");
-    assert_eq!(row.id, FIXTURE_AGENT_ID);
+    let row = db.get_installed_agent(FIXTURE_ID).expect("agent is pinned");
+    assert_eq!(row.id, FIXTURE_ID);
     assert_eq!(row.version, "1.0.0");
     assert_eq!(row.content_digest, verified.content_digest);
     assert_eq!(row.manifest_json, verified.manifest_json);
@@ -69,10 +68,10 @@ fn active_toggles() {
     let verified = verify_package(FIXTURE_PACKAGE, ADMIN_PUBKEY).unwrap();
     db.install_agent(&verified).unwrap();
 
-    db.set_agent_active(FIXTURE_AGENT_ID, false).unwrap();
-    assert!(!db.get_installed_agent(FIXTURE_AGENT_ID).unwrap().active);
-    db.set_agent_active(FIXTURE_AGENT_ID, true).unwrap();
-    assert!(db.get_installed_agent(FIXTURE_AGENT_ID).unwrap().active);
+    db.set_agent_active(FIXTURE_ID, false).unwrap();
+    assert!(!db.get_installed_agent(FIXTURE_ID).unwrap().active);
+    db.set_agent_active(FIXTURE_ID, true).unwrap();
+    assert!(db.get_installed_agent(FIXTURE_ID).unwrap().active);
 }
 
 #[test]
@@ -81,14 +80,14 @@ fn binding_roundtrips_and_clears() {
     let verified = verify_package(FIXTURE_PACKAGE, ADMIN_PUBKEY).unwrap();
     db.install_agent(&verified).unwrap();
 
-    assert!(db.get_agent_binding(FIXTURE_AGENT_ID).is_none());
+    assert!(db.get_agent_binding(FIXTURE_ID).is_none());
     let bound = serde_json::json!({ "spreadsheet_id": "1AbC" });
-    db.set_agent_binding(FIXTURE_AGENT_ID, Some(&bound.to_string()))
+    db.set_agent_binding(FIXTURE_ID, Some(&bound.to_string()))
         .unwrap();
-    assert_eq!(db.get_agent_binding(FIXTURE_AGENT_ID), Some(bound));
+    assert_eq!(db.get_agent_binding(FIXTURE_ID), Some(bound));
 
-    db.set_agent_binding(FIXTURE_AGENT_ID, None).unwrap();
-    assert!(db.get_agent_binding(FIXTURE_AGENT_ID).is_none());
+    db.set_agent_binding(FIXTURE_ID, None).unwrap();
+    assert!(db.get_agent_binding(FIXTURE_ID).is_none());
 }
 
 #[test]
@@ -97,10 +96,10 @@ fn reinstall_preserves_arm_time_binding() {
     let verified = verify_package(FIXTURE_PACKAGE, ADMIN_PUBKEY).unwrap();
     db.install_agent(&verified).unwrap();
     let bound = serde_json::json!({ "spreadsheet_id": "1AbC" });
-    db.set_agent_binding(FIXTURE_AGENT_ID, Some(&bound.to_string()))
+    db.set_agent_binding(FIXTURE_ID, Some(&bound.to_string()))
         .unwrap();
 
     // An update re-pins the manifest but must not wipe the sheet the user armed.
     db.install_agent(&verified).unwrap();
-    assert_eq!(db.get_agent_binding(FIXTURE_AGENT_ID), Some(bound));
+    assert_eq!(db.get_agent_binding(FIXTURE_ID), Some(bound));
 }
