@@ -79,10 +79,11 @@ pub fn build_agent(
 }
 
 /// Merge an arm-time binding over the manifest's `bound_resource`. The per-install value (e.g. the
-/// `spreadsheet_id` the user picked) wins key by key, so a manifest may pin a field the install can't
-/// override (a tab) while the install pins the resource the manifest left as a placeholder. A
-/// non-object on either side replaces wholesale. Called before `build_agent`, so validation and the
-/// gate see the real target, not the placeholder.
+/// `spreadsheet_id` the user picked) wins key by key, so the install pins the resource the manifest
+/// left as a placeholder. A v2 array binding composes the same way per ENTRY: each entry inherits
+/// the manifest object's fields, its own fields winning. A non-object on either side (or an array
+/// binding over a non-object target) replaces wholesale. Called before `build_agent`, so validation
+/// and the gate see the real target, not the placeholder.
 pub fn merge_bound(
     target: &mut Option<serde_json::Value>,
     binding: serde_json::Value,
@@ -92,6 +93,22 @@ pub fn merge_bound(
             for (k, v) in over {
                 base.insert(k, v);
             }
+        }
+        (Some(base), serde_json::Value::Array(entries)) => {
+            let merged: Vec<serde_json::Value> = entries
+                .into_iter()
+                .map(|e| match e {
+                    serde_json::Value::Object(over) => {
+                        let mut entry = base.clone();
+                        for (k, v) in over {
+                            entry.insert(k, v);
+                        }
+                        serde_json::Value::Object(entry)
+                    }
+                    other => other,
+                })
+                .collect();
+            *target = Some(serde_json::Value::Array(merged));
         }
         (_, binding) => *target = Some(binding),
     }

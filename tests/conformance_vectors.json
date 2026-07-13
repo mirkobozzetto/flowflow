@@ -342,7 +342,7 @@
       ]
     },
     {
-      "name": "search_exempt_from_bound_and_read",
+      "name": "search_denied_when_bound_pins_and_manifest_has_no_scoping",
       "governance": {
         "tools": [
           {
@@ -354,6 +354,26 @@
           "spreadsheet_id": "SHEET_A"
         },
         "read_before_write": true,
+        "deny_destructive": true
+      },
+      "calls": [
+        {
+          "tool": "google_sheets_list_spreadsheets",
+          "args": {},
+          "expect": "unscoped_search"
+        }
+      ]
+    },
+    {
+      "name": "search_exempt_while_nothing_is_pinned",
+      "governance": {
+        "tools": [
+          {
+            "tool": "google_sheets_list_spreadsheets",
+            "mode": "read_only"
+          }
+        ],
+        "read_before_write": false,
         "deny_destructive": true
       },
       "calls": [

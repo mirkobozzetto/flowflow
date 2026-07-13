@@ -12,9 +12,10 @@ use crate::application::approvals::{
     self, Outcome, ProposalView, APPROVAL_TIMEOUT,
 };
 use crate::domain::governance::{
-    call_fingerprint, gate, is_row_tool, row_tool_touched_columns,
-    validate_row_batch, ConnectorManifest, Decision, DenyReason, Governance,
-    ProposedCall, RunState,
+    bound_pins, bound_tabs_for, bound_values, call_fingerprint, gate,
+    is_row_tool, row_tool_touched_columns, validate_row_batch,
+    ConnectorManifest, Decision, DenyReason, Governance, ProposedCall,
+    RunState,
 };
 use crate::infrastructure::llm::LlmClient;
 use rig::agent::{HookAction, PromptHook, ToolCallHookAction};
@@ -74,6 +75,54 @@ struct Contract {
     schema: Mutex<serde_json::Map<String, serde_json::Value>>,
     resynced: Mutex<BTreeSet<String>>,
     schema_dirty: AtomicBool,
+}
+
+/// A string at a dotted path inside a JSON item ("id", "properties.title").
+/// `pub` so the response-filter semantics are pinned by tests without a live peer.
+pub fn path_str(item: &serde_json::Value, path: &str) -> Option<String> {
+    let mut cur = item;
+    for seg in path.split('.') {
+        cur = cur.get(seg)?;
+    }
+    cur.as_str().map(String::from)
+}
+
+/// Retain only the items at `items_path` that `keep` accepts; the rest of the response passes
+/// through, except a `total_count` sibling which is rewritten to the kept length (the original
+/// count would leak how many resources are masked). None = the path is missing or not an array
+/// (the caller fails closed). `pub` for the same test seam as `path_str`.
+pub fn filter_items(
+    mut response: serde_json::Value,
+    items_path: &str,
+    keep: impl Fn(&serde_json::Value) -> bool,
+) -> Option<serde_json::Value> {
+    let mut cur = &mut response;
+    for seg in items_path.split('.') {
+        cur = cur.get_mut(seg)?;
+    }
+    let arr = cur.as_array_mut()?;
+    arr.retain(|item| keep(item));
+    let kept = arr.len();
+    if let Some(obj) = response.as_object_mut() {
+        if obj.contains_key("total_count") {
+            obj.insert("total_count".into(), kept.into());
+        }
+    }
+    Some(response)
+}
+
+// The fail-closed shape: an empty items array, nothing else from the original response.
+fn empty_scoped(items_path: &str) -> serde_json::Value {
+    let leaf = items_path.split('.').next_back().unwrap_or(items_path);
+    serde_json::json!({ leaf: [] })
+}
+
+// The filtered result as the LLM will see it, with the fixed scope note attached.
+fn with_note(mut filtered: serde_json::Value, note: &str) -> String {
+    if let Some(obj) = filtered.as_object_mut() {
+        obj.insert("note".into(), note.into());
+    }
+    filtered.to_string()
 }
 
 // Single-line, length-capped view of a JSON-ish blob for the debug log.
@@ -335,6 +384,86 @@ impl ContractHook {
             });
         }
         reason
+    }
+
+    // The fixed agent-facing note on every filtered result. NO count of what was masked: the
+    // count itself would leak how much exists outside the armed scope. Identical on the
+    // success and fail-closed paths. English constant, like the preambles.
+    const SCOPED_NOTE: &str = "scoped to armed resources";
+
+    // A scoped tool's response, executed by the hook itself and filtered to the armed scope.
+    // rig cannot rewrite a tool result after the fact, so the hook runs the call through the
+    // peer and hands the filtered JSON back as the Skip reason - which the LLM receives as
+    // the tool's result. Only called after the gate ALLOWED the call (never executes a Deny),
+    // and only ever REMOVES items (never widens). None = this call is not scope-filtered.
+    // Any failure (no peer, transport error, unparseable response, missing items path) yields
+    // the empty-shape result + note: fail closed, never the raw response.
+    async fn scoped_filter(
+        &self,
+        contract: &Arc<Contract>,
+        tool_name: &str,
+        args: &serde_json::Value,
+    ) -> Option<String> {
+        let scoping = contract.conn.scoping.as_ref()?;
+        let bound = contract.gov.bound_resource.as_ref()?;
+        if !bound_pins(Some(bound)) {
+            return None;
+        }
+
+        // list tool: keep only items whose id is armed.
+        if let Some(list) =
+            scoping.list.as_ref().filter(|l| l.tool == tool_name)
+        {
+            let armed = bound_values(bound, &scoping.id_field);
+            let filtered = self
+                .execute_scoped(tool_name, args)
+                .await
+                .and_then(|response| {
+                    filter_items(response, &list.items_path, |item| {
+                        path_str(item, &list.id_key)
+                            .is_some_and(|id| armed.contains(&id))
+                    })
+                })
+                .unwrap_or_else(|| empty_scoped(&list.items_path));
+            return Some(with_note(filtered, Self::SCOPED_NOTE));
+        }
+
+        // tabs tool: mask unarmed tabs, only when every matching entry pins one.
+        if let Some(tabs) =
+            scoping.tabs.as_ref().filter(|t| t.tool == tool_name)
+        {
+            let id = args.get(&scoping.id_field).and_then(|v| v.as_str())?;
+            let armed_tabs = bound_tabs_for(bound, &scoping.id_field, id)?;
+            let filtered = self
+                .execute_scoped(tool_name, args)
+                .await
+                .and_then(|response| {
+                    filter_items(response, &tabs.items_path, |item| {
+                        path_str(item, &tabs.name_key)
+                            .is_some_and(|name| armed_tabs.contains(&name))
+                    })
+                })
+                .unwrap_or_else(|| empty_scoped(&tabs.items_path));
+            return Some(with_note(filtered, Self::SCOPED_NOTE));
+        }
+        None
+    }
+
+    // Execute a gate-allowed scoped call through the peer and flatten its result to JSON.
+    async fn execute_scoped(
+        &self,
+        tool: &str,
+        args: &serde_json::Value,
+    ) -> Option<serde_json::Value> {
+        let peer = self.peer.as_ref()?;
+        let mut params =
+            rmcp::model::CallToolRequestParams::new(tool.to_string());
+        if let Some(obj) = args.as_object() {
+            params = params.with_arguments(obj.clone());
+        }
+        let result = peer.call_tool(params).await.ok()?;
+        let json = crate::application::connector_module::result_json(&result);
+        (!json.is_null()).then_some(json)
     }
 
     // Attach the MCP server sink so an approved EDITED payload executes deterministically
@@ -734,6 +863,18 @@ impl<M: CompletionModel> PromptHook<M> for ContractHook {
         };
         match decision {
             Decision::Allow => {
+                // A gate-allowed SCOPED tool never runs raw: the hook executes it itself and
+                // substitutes the response filtered to the armed scope (Skip-reason = the
+                // result the LLM sees). Everything else continues to the normal tool path.
+                if let Some(filtered) =
+                    self.scoped_filter(contract, tool_name, &call.args).await
+                {
+                    self.record(format!(
+                        "scoped {tool_name} {} -> filtered result",
+                        excerpt(args, 160)
+                    ));
+                    return ToolCallHookAction::Skip { reason: filtered };
+                }
                 self.record(format!(
                     "called {tool_name} {} -> allowed",
                     excerpt(args, 160)

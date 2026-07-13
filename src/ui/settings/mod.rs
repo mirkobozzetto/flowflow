@@ -6,6 +6,7 @@ mod intelligence;
 mod privacy;
 mod shortcuts;
 mod storage;
+mod tab_pins;
 mod transcription;
 
 use crate::application::backup as backup_service;

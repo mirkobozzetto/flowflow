@@ -41,7 +41,7 @@ fn sheets_pin() -> PinnedConnector {
 
 #[test]
 fn surface_mounts_reads_and_cardable_writes_only() {
-    let surface = build_chat_surface(&[sheets_pin()]);
+    let surface = build_chat_surface(&[sheets_pin()], &Default::default());
     let names = &surface.tool_names;
     assert!(names.contains("google_sheets_list_spreadsheets"));
     assert!(names.contains("google_sheets_get_spreadsheet"));
@@ -55,7 +55,7 @@ fn surface_mounts_reads_and_cardable_writes_only() {
 
 #[test]
 fn surface_governance_derives_mode_from_action_all_require_approval() {
-    let surface = build_chat_surface(&[sheets_pin()]);
+    let surface = build_chat_surface(&[sheets_pin()], &Default::default());
     let (prefix, gov, _) = &surface.contracts[0];
     assert_eq!(prefix, "google_sheets_");
     for tp in &gov.tools {
@@ -88,7 +88,7 @@ fn surface_governance_derives_mode_from_action_all_require_approval() {
 // reaches the approval floor and HOLDS (never Deny ModeActionMismatch, never Allow).
 #[test]
 fn surface_write_reaches_hold_in_the_gate() {
-    let surface = build_chat_surface(&[sheets_pin()]);
+    let surface = build_chat_surface(&[sheets_pin()], &Default::default());
     let (_, gov, conn) = &surface.contracts[0];
     let mut run = RunState::default();
     let call = ProposedCall::new(
@@ -120,7 +120,8 @@ fn incoherent_write_marked_read_only_drops_the_connector() {
           ]
         }"#,
     );
-    let surface = build_chat_surface(&[lying, sheets_pin()]);
+    let surface =
+        build_chat_surface(&[lying, sheets_pin()], &Default::default());
     assert_eq!(surface.contracts.len(), 1, "liar dropped, sheets kept");
     assert!(!surface.tool_names.contains("liar_read"));
 }
@@ -138,7 +139,7 @@ fn notes_tool_name_collision_drops_the_connector() {
           ]
         }"#,
     );
-    let surface = build_chat_surface(&[colliding]);
+    let surface = build_chat_surface(&[colliding], &Default::default());
     assert!(surface.contracts.is_empty());
     assert!(surface.tool_names.is_empty());
 }
@@ -157,7 +158,8 @@ fn empty_prefix_or_unparseable_manifest_fails_closed() {
         }"#,
     );
     let garbage = pin("garbage", "{ not json");
-    let surface = build_chat_surface(&[no_prefix, garbage]);
+    let surface =
+        build_chat_surface(&[no_prefix, garbage], &Default::default());
     assert!(surface.contracts.is_empty());
 }
 
@@ -175,9 +177,71 @@ fn read_only_connector_still_mounts_frictionless() {
           ]
         }"#,
     );
-    let surface = build_chat_surface(&[exa]);
+    let surface = build_chat_surface(&[exa], &Default::default());
     let (_, gov, conn) = &surface.contracts[0];
     let mut run = RunState::default();
     let call = ProposedCall::new("exa_search", serde_json::json!({"q": "x"}));
     assert!(matches!(gate(gov, conn, &call, &mut run), Decision::Allow));
+}
+
+// ---- RFC 0023: the armed bound reaches the chat surface ----
+
+#[test]
+fn armed_connector_carries_its_bound_and_unarmed_stays_free() {
+    let mut armed = std::collections::BTreeMap::new();
+    armed.insert(
+        "google".to_string(),
+        serde_json::json!([{ "spreadsheet_id": "A", "sheet": "Clients" }]),
+    );
+    let surface = build_chat_surface(&[sheets_pin()], &armed);
+    let (_, gov, _) = &surface.contracts[0];
+    assert_eq!(
+        gov.bound_resource,
+        Some(
+            serde_json::json!([{ "spreadsheet_id": "A", "sheet": "Clients" }])
+        )
+    );
+
+    // No entry for the slug = the current unbounded surface.
+    let surface = build_chat_surface(&[sheets_pin()], &Default::default());
+    assert!(surface.contracts[0].1.bound_resource.is_none());
+}
+
+#[test]
+fn armed_chat_read_is_bounded_and_search_without_scoping_is_refused() {
+    use flowflow::domain::governance::DenyReason;
+
+    let mut armed = std::collections::BTreeMap::new();
+    armed.insert(
+        "google".to_string(),
+        serde_json::json!({ "spreadsheet_id": ["A"] }),
+    );
+    let surface = build_chat_surface(&[sheets_pin()], &armed);
+    let (_, gov, conn) = &surface.contracts[0];
+    let mut run = RunState::default();
+
+    // Armed: a chat read outside the armed set is refused by the same gate as the chain.
+    let off = ProposedCall::new(
+        "google_sheets_get_spreadsheet",
+        serde_json::json!({"spreadsheet_id": "LEAK"}),
+    );
+    assert!(matches!(
+        gate(gov, conn, &off, &mut run),
+        Decision::Deny(DenyReason::OutOfBoundResource { .. })
+    ));
+    let on = ProposedCall::new(
+        "google_sheets_get_spreadsheet",
+        serde_json::json!({"spreadsheet_id": "A"}),
+    );
+    assert!(matches!(gate(gov, conn, &on, &mut run), Decision::Allow));
+
+    // The sheets_pin manifest declares no `scoping`: the armed list is refused (fail closed).
+    let list = ProposedCall::new(
+        "google_sheets_list_spreadsheets",
+        serde_json::json!({}),
+    );
+    assert!(matches!(
+        gate(gov, conn, &list, &mut run),
+        Decision::Deny(DenyReason::UnscopedSearch { .. })
+    ));
 }

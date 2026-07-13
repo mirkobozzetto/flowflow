@@ -535,3 +535,226 @@ async fn after_reject_every_later_call_is_refused_without_a_new_card() {
     // The original card was already consumed by next_proposal_id above.
     assert_eq!(proposals, 0, "no second card after the reject");
 }
+
+// ---- RFC 0023: scoped tools, executed-and-filtered by the hook ----
+
+fn sheets_scoped() -> ConnectorManifest {
+    parse_connector_manifest(
+        r#"{
+          "connector": "google-sheets", "type": "tabular_store",
+          "server": "s", "mcp_prefix": "google_sheets_",
+          "provides": ["search", "read", "update"],
+          "tools": [
+            { "tool": "google_sheets_list_spreadsheets", "resource": "spreadsheet", "action": "search", "risk": "read_only" },
+            { "tool": "google_sheets_get_spreadsheet",   "resource": "spreadsheet", "action": "read",   "risk": "read_only" },
+            { "tool": "google_sheets_write_to_cell",     "resource": "cell",        "action": "update", "risk": "read_write" }
+          ],
+          "scoping": {
+            "id_field": "spreadsheet_id",
+            "list": { "tool": "google_sheets_list_spreadsheets", "items_path": "spreadsheets", "id_key": "id" },
+            "tabs": { "tool": "google_sheets_get_spreadsheet", "items_path": "sheets", "name_key": "properties.title" }
+          }
+        }"#,
+    )
+    .unwrap()
+}
+
+fn scoped_hook(bound: serde_json::Value) -> ContractHook {
+    let (tx, _rx) = tokio::sync::mpsc::unbounded_channel();
+    let gov = parse_governance(
+        &json!({
+          "tools": [
+            { "tool": "google_sheets_list_spreadsheets", "mode": "read_only" },
+            { "tool": "google_sheets_get_spreadsheet",   "mode": "read_only" }
+          ],
+          "bound_resource": bound,
+          "read_before_write": false,
+          "deny_destructive": true
+        })
+        .to_string(),
+    )
+    .unwrap();
+    ContractHook::with_contract(tx, gov, sheets_scoped(), Default::default())
+}
+
+#[tokio::test]
+async fn scoped_list_never_runs_raw_and_fails_closed_without_a_peer() {
+    // Armed: the gate allows the declared list, the hook must execute-and-filter it. With no
+    // peer attached, the result is the EMPTY shape + fixed note - never the raw tool result.
+    let hook =
+        scoped_hook(json!([{ "spreadsheet_id": "A", "sheet": "Clients" }]));
+    let action = PromptHook::<Model>::on_tool_call(
+        &hook,
+        "google_sheets_list_spreadsheets",
+        None,
+        "",
+        "{}",
+    )
+    .await;
+    match action {
+        ToolCallHookAction::Skip { reason } => {
+            let v: serde_json::Value = serde_json::from_str(&reason).unwrap();
+            assert_eq!(v["spreadsheets"], json!([]));
+            assert_eq!(v["note"], "scoped to armed resources");
+            // The note never carries a count.
+            assert!(!reason.contains("total_count"), "{reason}");
+        }
+        other => panic!("expected Skip with filtered result, got {other:?}"),
+    }
+}
+
+#[tokio::test]
+async fn tabs_read_is_filtered_only_when_the_matched_entry_pins_a_tab() {
+    // Whole-workbook arming: the read passes through untouched (Continue).
+    let hook = scoped_hook(json!([{ "spreadsheet_id": "A" }]));
+    let action = PromptHook::<Model>::on_tool_call(
+        &hook,
+        "google_sheets_get_spreadsheet",
+        None,
+        "",
+        &json!({"spreadsheet_id": "A"}).to_string(),
+    )
+    .await;
+    assert!(matches!(action, ToolCallHookAction::Continue));
+
+    // Tab-pinned arming: the hook owns the read; no peer = empty shape + note, never raw.
+    let hook =
+        scoped_hook(json!([{ "spreadsheet_id": "A", "sheet": "Clients" }]));
+    let action = PromptHook::<Model>::on_tool_call(
+        &hook,
+        "google_sheets_get_spreadsheet",
+        None,
+        "",
+        &json!({"spreadsheet_id": "A"}).to_string(),
+    )
+    .await;
+    match action {
+        ToolCallHookAction::Skip { reason } => {
+            let v: serde_json::Value = serde_json::from_str(&reason).unwrap();
+            assert_eq!(v["sheets"], json!([]));
+            assert_eq!(v["note"], "scoped to armed resources");
+        }
+        other => panic!("expected Skip, got {other:?}"),
+    }
+}
+
+#[tokio::test]
+async fn nothing_armed_keeps_free_discovery() {
+    let (tx, _rx) = tokio::sync::mpsc::unbounded_channel();
+    let gov = parse_governance(
+        r#"{
+          "tools": [ { "tool": "google_sheets_list_spreadsheets", "mode": "read_only" } ],
+          "read_before_write": false, "deny_destructive": true
+        }"#,
+    )
+    .unwrap();
+    let hook = ContractHook::with_contract(
+        tx,
+        gov,
+        sheets_scoped(),
+        Default::default(),
+    );
+    let action = PromptHook::<Model>::on_tool_call(
+        &hook,
+        "google_sheets_list_spreadsheets",
+        None,
+        "",
+        "{}",
+    )
+    .await;
+    assert!(matches!(action, ToolCallHookAction::Continue));
+}
+
+#[tokio::test]
+async fn undeclared_search_with_bound_is_denied_not_executed() {
+    // A manifest WITHOUT scoping: the gate refuses the search outright; the hook never runs it.
+    let (tx, _rx) = tokio::sync::mpsc::unbounded_channel();
+    let conn = parse_connector_manifest(
+        r#"{
+          "connector": "google-sheets", "type": "tabular_store",
+          "server": "s", "mcp_prefix": "google_sheets_",
+          "provides": ["search"],
+          "tools": [
+            { "tool": "google_sheets_list_spreadsheets", "resource": "spreadsheet", "action": "search", "risk": "read_only" }
+          ]
+        }"#,
+    )
+    .unwrap();
+    let gov = parse_governance(
+        r#"{
+          "tools": [ { "tool": "google_sheets_list_spreadsheets", "mode": "read_only" } ],
+          "bound_resource": [{ "spreadsheet_id": "A" }],
+          "read_before_write": false, "deny_destructive": true
+        }"#,
+    )
+    .unwrap();
+    let hook = ContractHook::with_contract(tx, gov, conn, Default::default());
+    let action = PromptHook::<Model>::on_tool_call(
+        &hook,
+        "google_sheets_list_spreadsheets",
+        None,
+        "",
+        "{}",
+    )
+    .await;
+    match action {
+        ToolCallHookAction::Skip { reason } => {
+            assert!(reason.contains("scoped to armed resources"), "{reason}");
+            assert!(reason.contains("cannot be filtered"), "{reason}");
+        }
+        other => panic!("expected Skip deny, got {other:?}"),
+    }
+}
+
+// ---- the pure filter, pinned against the real wire shapes ----
+
+use flowflow::application::connector_module::python_literal_to_json;
+use flowflow::application::tools::{filter_items, path_str};
+
+#[test]
+fn filter_keeps_armed_ids_and_rewrites_total_count() {
+    // The real klavis list shape travels as a Python repr; the armed filter runs after the
+    // same normalization the arm-time parser uses.
+    let wire = r#"{'spreadsheets': [{'id': 'A', 'name': 'Clients'}, {'id': 'LEAK', 'name': 'Salaires'}], 'total_count': 2}"#;
+    let v: serde_json::Value =
+        serde_json::from_str(&python_literal_to_json(wire)).unwrap();
+    let filtered = filter_items(v, "spreadsheets", |item| {
+        path_str(item, "id").is_some_and(|id| id == "A")
+    })
+    .unwrap();
+    assert_eq!(
+        filtered["spreadsheets"],
+        json!([{"id": "A", "name": "Clients"}])
+    );
+    assert_eq!(filtered["total_count"], json!(1));
+}
+
+#[test]
+fn filter_masks_tabs_by_dotted_name_key() {
+    let response = json!({
+        "spreadsheetId": "A",
+        "sheets": [
+            { "properties": { "title": "Clients" }, "data": [1] },
+            { "properties": { "title": "Salaires" }, "data": [2] }
+        ]
+    });
+    let filtered = filter_items(response, "sheets", |item| {
+        path_str(item, "properties.title").is_some_and(|t| t == "Clients")
+    })
+    .unwrap();
+    assert_eq!(filtered["sheets"].as_array().unwrap().len(), 1);
+    assert_eq!(filtered["sheets"][0]["properties"]["title"], "Clients");
+}
+
+#[test]
+fn filter_fails_closed_on_missing_or_non_array_path() {
+    assert!(
+        filter_items(json!({"other": []}), "spreadsheets", |_| true).is_none()
+    );
+    assert!(filter_items(
+        json!({"spreadsheets": "oops"}),
+        "spreadsheets",
+        |_| true
+    )
+    .is_none());
+}
