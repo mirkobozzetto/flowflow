@@ -29,6 +29,7 @@ zip = { version = "2", default-features = false, features = ["deflate"] }
 crc32fast = "1"
 quick-xml = "0.36"
 regex = "1"
+strsim = "0.11"
 fluent-bundle = "0.15"
 fluent-langneg = "0.13"
 unic-langid = "0.9"

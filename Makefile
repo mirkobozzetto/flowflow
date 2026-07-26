@@ -1,4 +1,4 @@
-.PHONY: build format js check dev ddev deploy desktop desktop-build desktop-app desktop-toml restore-ios-toml icon all appstore clean check-profiles renew ensure-profiles dmg release
+.PHONY: build format js check dev ddev deploy desktop desktop-build desktop-app desktop-toml restore-ios-toml icon all appstore clean clean-stale check-profiles renew ensure-profiles dmg release
 
 # Strip the iOS-only widget extension from Dioxus.toml: dx 0.7 compiles every
 # declared [[ios.widget_extensions]] even for desktop, and the Live Activity
@@ -57,7 +57,14 @@ deploy:
 restore-ios-toml:
 	@[ ! -f .Dioxus.toml.ios ] || { mv .Dioxus.toml.ios Dioxus.toml; echo ">> restored Dioxus.toml from orphaned desktop backup"; }
 
-all: js restore-ios-toml ensure-profiles
+# Scratch dirs no device build reads: dx serve output, flycheck, temp. `target/dx`
+# is where this build writes its bundle, so it must survive; `target/debug` holds
+# the host build-script artifacts this build itself produces, hence the purge at
+# the end of the recipe rather than here.
+clean-stale:
+	rm -rf target/ios-dev target/desktop-dev target/flycheck0 target/tmp
+
+all: clean-stale js restore-ios-toml ensure-profiles
 	set -a && . ./.env && IPHONEOS_DEPLOYMENT_TARGET=16.0 dx build --platform ios --device true
 	bash scripts/build-share-ext.sh debug
 	bash scripts/sign-widget.sh debug

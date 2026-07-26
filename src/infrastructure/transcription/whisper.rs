@@ -1,4 +1,5 @@
 use super::hesitations::clean_hesitations;
+use crate::domain::Dictionary;
 use std::path::{Path, PathBuf};
 use std::sync::{Arc, LazyLock, Mutex};
 use tokio::sync::Semaphore;
@@ -43,11 +44,22 @@ pub fn available_slots() -> usize {
 
 pub struct WhisperLocal {
     model_path: PathBuf,
+    dictionary: Dictionary,
 }
 
 impl WhisperLocal {
     pub fn new(model_path: PathBuf) -> Self {
-        Self { model_path }
+        Self {
+            model_path,
+            dictionary: Dictionary::default(),
+        }
+    }
+
+    /// Whisper has no vocabulary API, so the dictionary only ever acts on the
+    /// decoded text. `initial_prompt` biasing is deliberately not used.
+    pub fn with_dictionary(mut self, dictionary: Dictionary) -> Self {
+        self.dictionary = dictionary;
+        self
     }
 
     pub fn model_path(&self) -> &Path {
@@ -71,7 +83,7 @@ impl WhisperLocal {
         })
         .await
         .map_err(|e| format!("Whisper task: {e}"))??;
-        Ok(clean_hesitations(&raw))
+        Ok(self.dictionary.apply(&clean_hesitations(&raw)))
     }
 }
 

@@ -3,6 +3,7 @@ use crate::infrastructure::persistence::Database;
 pub const LANGUAGE_KEY: &str = "language";
 pub const STT_PROVIDER_KEY: &str = "stt_provider";
 pub const WHISPER_MODEL_KEY: &str = "whisper_model";
+pub const TRANSCRIPTION_DICTIONARY_KEY: &str = "transcription_dictionary";
 
 pub const SENSITIVE_SETTINGS: &[&str] = &[
     "openai_api_key",

@@ -1,4 +1,5 @@
 use super::hesitations::clean_hesitations;
+use crate::domain::Dictionary;
 use serde::Deserialize;
 use std::path::Path;
 use std::time::Duration;
@@ -27,10 +28,32 @@ struct TranscriptResponse {
     text: String,
 }
 
+/// `context.terms` is Soniox's native exact-spelling vocabulary field. Omitted
+/// entirely when the dictionary is empty, so an unused dictionary changes nothing
+/// about the request.
+pub fn transcription_request_body(
+    file_id: &str,
+    language: Option<&str>,
+    terms: &[&str],
+) -> serde_json::Value {
+    let mut body = serde_json::json!({
+        "model": "stt-async-v4",
+        "file_id": file_id,
+    });
+    if let Some(lang) = language {
+        body["language_hints"] = serde_json::json!([lang]);
+    }
+    if !terms.is_empty() {
+        body["context"] = serde_json::json!({ "terms": terms });
+    }
+    body
+}
+
 pub struct SonioxClient {
     client: reqwest::Client,
     api_key: String,
     lang: String,
+    dictionary: Dictionary,
 }
 
 impl SonioxClient {
@@ -44,12 +67,22 @@ impl SonioxClient {
             client,
             api_key,
             lang: crate::infrastructure::platform::detect_system_language(),
+            dictionary: Dictionary::default(),
         }
     }
 
     pub fn with_lang(mut self, lang: String) -> Self {
         self.lang = lang;
         self
+    }
+
+    pub fn with_dictionary(mut self, dictionary: Dictionary) -> Self {
+        self.dictionary = dictionary;
+        self
+    }
+
+    pub fn dictionary(&self) -> &Dictionary {
+        &self.dictionary
     }
 
     pub fn from_db(
@@ -70,7 +103,8 @@ impl SonioxClient {
                 "stt-error-soniox-key",
             ));
         }
-        Ok(Self::new(key).with_lang(lang))
+        let dictionary = crate::application::transcription_dictionary::load(db);
+        Ok(Self::new(key).with_lang(lang).with_dictionary(dictionary))
     }
 
     async fn upload_file(&self, path: &Path) -> Result<String, String> {
@@ -134,13 +168,11 @@ impl SonioxClient {
         language: Option<&str>,
     ) -> Result<String, String> {
         eprintln!("[soniox] creating transcription for {file_id}");
-        let mut body = serde_json::json!({
-            "model": "stt-async-v4",
-            "file_id": file_id,
-        });
-        if let Some(lang) = language {
-            body["language_hints"] = serde_json::json!([lang]);
-        }
+        let body = transcription_request_body(
+            file_id,
+            language,
+            &self.dictionary.terms(),
+        );
         let resp = self
             .client
             .post(format!("{BASE_URL}/v1/transcriptions"))
@@ -265,6 +297,6 @@ impl SonioxClient {
         let (tr_id, file_id) = self.start_transcription(path, language).await?;
         let raw = self.poll_transcript(&tr_id).await;
         let _ = self.delete_file(&file_id).await;
-        Ok(clean_hesitations(&raw?))
+        Ok(self.dictionary.apply(&clean_hesitations(&raw?)))
     }
 }
