@@ -23,6 +23,7 @@ pub mod share_inbox;
 pub mod tagging;
 pub mod titling;
 pub mod tools;
+pub mod transcription_dictionary;
 pub mod transcription_manager;
 pub mod web_search;
 

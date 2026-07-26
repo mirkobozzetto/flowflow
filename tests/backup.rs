@@ -68,6 +68,14 @@ mod manifest_tests {
             assert!(desc.contains(&format!("{prefix}*")), "missing {prefix}*");
         }
     }
+
+    #[test]
+    fn the_transcription_dictionary_travels_in_backup() {
+        use flowflow::infrastructure::persistence::settings_repo::{
+            is_excluded_from_backup, TRANSCRIPTION_DICTIONARY_KEY,
+        };
+        assert!(!is_excluded_from_backup(TRANSCRIPTION_DICTIONARY_KEY));
+    }
 }
 
 #[cfg(not(target_os = "ios"))]

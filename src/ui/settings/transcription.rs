@@ -1,4 +1,6 @@
 use crate::application::i18n::{t, t_args};
+use crate::application::transcription_dictionary;
+use crate::domain::{Dictionary, DictionaryEntry};
 use crate::infrastructure::persistence::settings_repo::{
     STT_PROVIDER_KEY, WHISPER_MODEL_KEY,
 };
@@ -27,6 +29,8 @@ pub fn TranscriptionSettings() -> Element {
 
     rsx! {
         div { class: "space-y-6 pb-20",
+            DictionarySection {}
+
             h2 { class: "text-lg font-semibold text-stone-900",
                 {t(&lang, "settings-stt-provider-title")}
             }
@@ -67,6 +71,96 @@ pub fn TranscriptionSettings() -> Element {
                 SonioxKeyForm {}
             } else {
                 WhisperModelsSection {}
+            }
+        }
+    }
+}
+
+#[component]
+fn DictionarySection() -> Element {
+    let db: Signal<Arc<Database>> = use_context();
+    let app: AppState = use_context();
+    let mut entries =
+        use_signal(|| transcription_dictionary::load(&db()).entries().to_vec());
+    let mut heard = use_signal(String::new);
+    let mut correct = use_signal(String::new);
+    let lang = (app.current_lang)();
+
+    rsx! {
+        div { class: "space-y-3",
+            h2 { class: "text-lg font-semibold text-stone-900",
+                {t(&lang, "dictionary-title")}
+            }
+            p { class: "text-xs text-stone-500", {t(&lang, "dictionary-hint")} }
+
+            div { class: "flex gap-2",
+                input {
+                    class: crate::ui::kit::INPUT,
+                    placeholder: t(&lang, "dictionary-heard-placeholder"),
+                    value: "{heard}",
+                    oninput: move |evt| heard.set(evt.value()),
+                }
+                input {
+                    class: crate::ui::kit::INPUT,
+                    placeholder: t(&lang, "dictionary-correct-placeholder"),
+                    value: "{correct}",
+                    oninput: move |evt| correct.set(evt.value()),
+                }
+            }
+            button {
+                class: crate::ui::kit::BTN_PRIMARY,
+                disabled: correct().trim().is_empty(),
+                onclick: move |_| {
+                    let target = correct().trim().to_string();
+                    if target.is_empty() {
+                        return;
+                    }
+                    let source = heard().trim().to_string();
+                    let source = if source.is_empty() { target.clone() } else { source };
+                    let mut next = entries();
+                    next.push(DictionaryEntry::new(source, target));
+                    let dict = Dictionary::from_entries(next);
+                    let _ = transcription_dictionary::save(&db(), &dict);
+                    entries.set(dict.entries().to_vec());
+                    heard.set(String::new());
+                    correct.set(String::new());
+                },
+                {t(&lang, "dictionary-add")}
+            }
+
+            if entries().is_empty() {
+                p { class: "text-xs text-stone-400 text-center py-2",
+                    {t(&lang, "dictionary-empty")}
+                }
+            } else {
+                div { class: "rounded-xl bg-warm-white border border-stone-200 divide-y divide-stone-100 overflow-hidden",
+                    for (idx, entry) in entries().into_iter().enumerate() {
+                        div { class: "px-4 py-3 flex items-center justify-between gap-2",
+                            div { class: "min-w-0",
+                                p { class: "text-sm font-medium text-stone-800 truncate",
+                                    "{entry.correct}"
+                                }
+                                if entry.heard != entry.correct {
+                                    p { class: "text-xs text-stone-400 truncate", "{entry.heard}" }
+                                }
+                            }
+                            button {
+                                class: "text-xs text-ios-red active:opacity-70 shrink-0",
+                                onclick: move |_| {
+                                    let mut next = entries();
+                                    if idx >= next.len() {
+                                        return;
+                                    }
+                                    next.remove(idx);
+                                    let dict = Dictionary::from_entries(next);
+                                    let _ = transcription_dictionary::save(&db(), &dict);
+                                    entries.set(dict.entries().to_vec());
+                                },
+                                {t(&lang, "dictionary-delete")}
+                            }
+                        }
+                    }
+                }
             }
         }
     }

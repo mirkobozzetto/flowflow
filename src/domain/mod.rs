@@ -1,6 +1,7 @@
 pub mod agent_manifest;
 pub mod attachment;
 pub mod conversation;
+pub mod dictionary;
 pub mod folder;
 pub mod governance;
 pub mod note;
@@ -10,6 +11,7 @@ pub mod thread;
 
 pub use attachment::*;
 pub use conversation::*;
+pub use dictionary::{Dictionary, DictionaryEntry};
 pub use folder::*;
 pub use note::{
     generate_auto_title, is_auto_title, NewTextNote, Note, NoteAudio, NoteType,

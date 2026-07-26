@@ -27,6 +27,7 @@ No manual searching. No folders to dig through. Just talk, and find it later.
 
 - **Voice capture** - tap to record, real-time waveform, pause/resume, auto-transcription via Soniox or fully on-device with local Whisper models, background audio with a Dynamic Island live timer
 - **Offline transcription** - download a Whisper model (tiny to large-v3-turbo) in Settings and transcribe in airplane mode; audio never leaves the device, sha256-verified downloads, errors surfaced inline in your language
+- **Transcription dictionary** - declare a term once in Settings and every note spells it right: your own name, brands, library names, client names. Exact spellings are pushed to Soniox before it decodes; a deterministic pass then fixes the variants you listed, and a phonetic pass catches the ones you did not - it turns "Marco Bozeto" into "Mirko Bozzetto" - while leaving legitimate words that merely sound alike untouched. Runs fully offline, travels in your backup, behaves the same on cloud and on-device Whisper. It matters beyond reading: a misspelled term also poisons the vector index, so the chat could never find the note again
 - **Multi-device sync** - encrypted LAN P2P between iPhone and Mac (Noise protocol, no server, no cloud), QR pairing, real-time UI refresh, zero data loss by design
 - **Backup & restore** - export everything (notes, audio, vectors) as one archive via the share sheet, API keys and pairing secrets never leave the device; import is a validated, crash-safe atomic replace, and sync reconverges without resurrecting deleted notes
 - **RAG chat** - powered by [rig](https://github.com/0xPlaygrounds/rig): ask questions about your notes, get answers with tappable sources; hybrid search (BM25 + vector + RRF + LLM rerank), temporal queries, agent tools, and a per-conversation theme scope that is remembered when you come back
@@ -68,7 +69,7 @@ No manual searching. No folders to dig through. Just talk, and find it later.
 ## How it works
 
 ```
-Talk → Record → Transcribe (cloud or on-device) → Clean fillers → Auto-embed → Store → AI title
+Talk → Record → Transcribe (cloud or on-device) → Clean fillers → Apply dictionary → Auto-embed → Store → AI title
 
 Later: Ask → Embed query → Hybrid search (BM25 + vector)  ∥  Web search (Exa, when enabled)
      → RRF fusion → LLM rerank → Temporal boost → Tag-enriched context → Agent with tools → Answer with sources

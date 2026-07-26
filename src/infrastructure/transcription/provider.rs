@@ -91,7 +91,9 @@ impl TranscriptionClient {
                 &[("id", &model_id)],
             ));
         }
-        Ok(WhisperLocal::new(path))
+        Ok(WhisperLocal::new(path).with_dictionary(
+            crate::application::transcription_dictionary::load(db),
+        ))
     }
 
     pub fn provider(&self) -> SttProvider {

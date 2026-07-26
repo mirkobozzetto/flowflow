@@ -111,7 +111,7 @@ async fn process_soniox(
     note_id: &str,
     job: Job,
 ) {
-    let client = match client_from_db(db) {
+    let client = match SonioxClient::from_db(db) {
         Ok(c) => c,
         Err(e) => {
             set_status(reg, note_id, &job.id, JobStatus::Failed(e));
@@ -161,7 +161,10 @@ async fn process_soniox(
                 }
                 let _ = db.delete_pending_transcription(note_id);
                 cleanup_file(&job.file_path);
-                let clean = clean_hesitations(&text);
+                // This path drives the raw Soniox calls to stay resumable, so it
+                // does not inherit the post-processing done inside `transcribe`.
+                let clean =
+                    client.dictionary().apply(&clean_hesitations(&text));
                 set_status(reg, note_id, &job.id, JobStatus::Done(clean));
                 return;
             }
@@ -197,20 +200,4 @@ async fn process_soniox(
             }
         }
     }
-}
-
-fn client_from_db(db: &Database) -> Result<SonioxClient, String> {
-    let lang = crate::application::i18n::ui_lang(db);
-    if db.get_setting("ai_consent") != Some("true".to_string()) {
-        return Err(crate::application::i18n::t(&lang, "error-ai-consent"));
-    }
-    let key = db
-        .get_setting("soniox_api_key")
-        .or_else(|| std::env::var("SONIOX_API_KEY").ok())
-        .or_else(|| option_env!("SONIOX_API_KEY").map(String::from))
-        .unwrap_or_default();
-    if key.is_empty() || key == "your_key_here" {
-        return Err(crate::application::i18n::t(&lang, "stt-error-soniox-key"));
-    }
-    Ok(SonioxClient::new(key).with_lang(lang))
 }
