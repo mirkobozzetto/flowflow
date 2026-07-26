@@ -1,3 +1,4 @@
+use crate::domain::Transcript;
 use crate::infrastructure::transcription::SttProvider;
 use std::collections::{HashMap, HashSet, VecDeque};
 use std::path::{Path, PathBuf};
@@ -8,7 +9,7 @@ pub enum JobStatus {
     Queued,
     Uploading,
     Polling { elapsed_s: u32 },
-    Done(String),
+    Done(Transcript),
     Failed(String),
 }
 

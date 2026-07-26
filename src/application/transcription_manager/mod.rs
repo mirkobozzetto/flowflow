@@ -8,6 +8,7 @@ pub use job::{Job, JobStatus};
 use job::{cleanup_file, Registry};
 use processing::process_front;
 
+use crate::domain::Transcript;
 use crate::infrastructure::persistence::Database;
 use crate::infrastructure::transcription::{SttProvider, TranscriptionClient};
 use std::collections::{HashMap, VecDeque};
@@ -53,11 +54,17 @@ impl TranscriptionManager {
         self.kick(note_id);
     }
 
-    pub fn take_done(&self, note_id: &str) -> Option<String> {
-        let text = {
+    /// The transcript of a finished job.
+    ///
+    /// Its words are carried but never persisted here: an imported file has no
+    /// `note_audios` row to anchor them to (`processing.rs` deletes the file once
+    /// decoded), so the caller takes `.text()`. Attaching them to "the last audio
+    /// of this note" would pin an import's timings onto an unrelated recording.
+    pub fn take_done(&self, note_id: &str) -> Option<Transcript> {
+        let transcript = {
             let mut g = self.reg.lock().unwrap();
             let q = g.queues.get_mut(note_id)?;
-            let text = match q.front().map(|j| j.status.clone()) {
+            let transcript = match q.front().map(|j| j.status.clone()) {
                 Some(JobStatus::Done(t)) => t,
                 _ => return None,
             };
@@ -65,11 +72,14 @@ impl TranscriptionManager {
             if q.is_empty() {
                 g.queues.remove(note_id);
             }
-            text
+            transcript
         };
-        eprintln!("[import] consumed note={note_id} chars={}", text.len());
+        eprintln!(
+            "[import] consumed note={note_id} words={}",
+            transcript.len()
+        );
         self.kick(note_id.to_string());
-        Some(text)
+        Some(transcript)
     }
 
     pub fn retry(&self, note_id: &str) {

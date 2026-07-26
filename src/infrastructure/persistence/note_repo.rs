@@ -1,9 +1,26 @@
-use crate::domain::{NewTextNote, Note, NoteAudio, NoteType, UpdateNote};
+use crate::domain::{
+    NewTextNote, Note, NoteAudio, NoteType, Transcript, UpdateNote,
+};
 use crate::infrastructure::persistence::{
     chunk_repo, now_iso, sync_meta, Database,
 };
 use std::str::FromStr;
 use uuid::Uuid;
+
+/// The word sidecar deliberately has no foreign key (see migration V20), so every
+/// path that removes a `note_audios` row has to remove its words explicitly. A
+/// missed path is not an orphan nuisance: on the wipe path it is a privacy defect.
+pub(crate) fn delete_words_for_audio(
+    tx: &rusqlite::Connection,
+    audio_id: &str,
+) -> Result<(), String> {
+    tx.execute(
+        "DELETE FROM note_audio_words WHERE audio_id = ?1",
+        [audio_id],
+    )
+    .map_err(|e| format!("Delete audio words: {e}"))?;
+    Ok(())
+}
 
 pub(crate) fn row_to_note(row: &rusqlite::Row) -> rusqlite::Result<Note> {
     let tags_json: String = row.get("tags")?;
@@ -319,6 +336,7 @@ impl Database {
             id,
         ) {
             sync_meta::tombstone_entity(&tx, "note_audio", &child)?;
+            delete_words_for_audio(&tx, &child)?;
         }
         for child in sync_meta::collect_ids(
             &tx,
@@ -398,6 +416,59 @@ impl Database {
         Ok(())
     }
 
+    /// Write a transcription and its word timings together. The text keeps its
+    /// existing home on `note_audios` (and stays on the sync wire); the words go
+    /// to the device-local sidecar.
+    ///
+    /// A transcript with no timings - dictation, or text coming back from a
+    /// provider that returned no tokens - clears any stale word row instead of
+    /// storing zeros, which would give the UI taps that all seek to the start.
+    pub fn set_audio_transcript(
+        &self,
+        audio_id: &str,
+        transcript: &Transcript,
+    ) -> Result<(), String> {
+        let conn = self.conn();
+        let tx = conn
+            .unchecked_transaction()
+            .map_err(|e| format!("Set transcript tx: {e}"))?;
+        tx.execute(
+            "UPDATE note_audios SET transcription = ?1 WHERE id = ?2",
+            rusqlite::params![transcript.text(), audio_id],
+        )
+        .map_err(|e| format!("Update transcription: {e}"))?;
+
+        if transcript.has_timings() {
+            let words_json = serde_json::to_string(&transcript.words)
+                .map_err(|e| format!("Serialize words: {e}"))?;
+            tx.execute(
+                "INSERT OR REPLACE INTO note_audio_words (audio_id, words_json)
+                 VALUES (?1, ?2)",
+                rusqlite::params![audio_id, words_json],
+            )
+            .map_err(|e| format!("Insert audio words: {e}"))?;
+        } else {
+            delete_words_for_audio(&tx, audio_id)?;
+        }
+        tx.commit()
+            .map_err(|e| format!("Set transcript commit: {e}"))?;
+        Ok(())
+    }
+
+    /// The word array for an audio clip, absent for every clip transcribed before
+    /// this feature existed. The caller renders today's plain paragraph then.
+    pub fn words_for_audio(&self, audio_id: &str) -> Option<Transcript> {
+        let json: String = self
+            .conn()
+            .query_row(
+                "SELECT words_json FROM note_audio_words WHERE audio_id = ?1",
+                [audio_id],
+                |row| row.get(0),
+            )
+            .ok()?;
+        serde_json::from_str(&json).ok().map(Transcript::new)
+    }
+
     pub fn has_any_audio(&self, note_id: &str) -> bool {
         self.conn()
             .query_row(
@@ -418,6 +489,7 @@ impl Database {
             .map_err(|e| format!("Delete audio: {e}"))?;
         if n > 0 {
             sync_meta::tombstone_entity(&tx, "note_audio", id)?;
+            delete_words_for_audio(&tx, id)?;
         }
         tx.commit()
             .map_err(|e| format!("Delete audio commit: {e}"))?;
@@ -487,6 +559,8 @@ impl Database {
         for id in ids {
             sync_meta::tombstone_entity(&tx, "note_audio", &id)?;
         }
+        tx.execute("DELETE FROM note_audio_words", [])
+            .map_err(|e| format!("Delete all audio words: {e}"))?;
         tx.execute("DELETE FROM note_audios", [])
             .map_err(|e| format!("Delete all audios: {e}"))?;
         tx.commit()
@@ -505,6 +579,9 @@ impl Database {
             .unchecked_transaction()
             .map_err(|e| format!("wipe tx: {e}"))?;
         for table in [
+            // Ahead of note_audios: word timings are transcript content, and a
+            // transcript surviving "delete my data" is a privacy defect.
+            "note_audio_words",
             "note_audios",
             "attachments",
             "note_reminders",

@@ -1,5 +1,6 @@
-use super::hesitations::clean_hesitations;
-use crate::domain::Dictionary;
+use super::hesitations::clean_hesitations_words;
+use crate::domain::transcript::words_from_span;
+use crate::domain::{Dictionary, Transcript, Word};
 use std::path::{Path, PathBuf};
 use std::sync::{Arc, LazyLock, Mutex};
 use tokio::sync::Semaphore;
@@ -70,7 +71,7 @@ impl WhisperLocal {
         &self,
         path: &Path,
         language: Option<&str>,
-    ) -> Result<String, String> {
+    ) -> Result<Transcript, String> {
         let _permit = WHISPER_LOCK
             .acquire()
             .await
@@ -83,7 +84,8 @@ impl WhisperLocal {
         })
         .await
         .map_err(|e| format!("Whisper task: {e}"))??;
-        Ok(self.dictionary.apply(&clean_hesitations(&raw)))
+        let cleaned = clean_hesitations_words(raw);
+        Ok(Transcript::new(self.dictionary.apply_words(cleaned)))
     }
 }
 
@@ -99,7 +101,7 @@ pub async fn bench(
         let audio = load_wav_mono_16k(&wav)?;
         let audio_secs = audio.len() as f32 / 16_000.0;
         let started = std::time::Instant::now();
-        let text = run_whisper(&model_path, &wav, None)?;
+        let text = Transcript::new(run_whisper(&model_path, &wav, None)?).text();
         let elapsed_ms = started.elapsed().as_millis();
         let rss_mb = peak_rss_mb();
         let preview: String = text.chars().take(120).collect();
@@ -122,36 +124,102 @@ fn peak_rss_mb() -> u64 {
     }
 }
 
-fn run_whisper(
-    model: &Path,
-    wav: &Path,
-    language: Option<&str>,
-) -> Result<String, String> {
-    let ctx = cached_context(model)?;
-    let audio = load_wav_mono_16k(wav)?;
-    if audio.is_empty() {
-        return Err("Empty audio".to_string());
-    }
+/// One word per segment: whisper.cpp wraps segments after decoding, so this only
+/// changes where segments break, never the decoded text. Nothing moves to
+/// `WhisperContextParameters`, so `CONTEXT_CACHE` keeps its key and its behaviour
+/// - which is also the seam that keeps a later DTW swap cheap.
+fn word_params(language: Option<&str>) -> FullParams<'_, '_> {
     let mut params = FullParams::new(SamplingStrategy::Greedy { best_of: 1 });
     params.set_language(Some(language.unwrap_or("auto")));
     params.set_print_special(false);
     params.set_print_progress(false);
     params.set_print_realtime(false);
     params.set_print_timestamps(false);
+    params.set_token_timestamps(true);
+    params.set_max_len(1);
+    params.set_split_on_word(true);
+    params
+}
+
+fn run_whisper(
+    model: &Path,
+    wav: &Path,
+    language: Option<&str>,
+) -> Result<Vec<Word>, String> {
+    let ctx = cached_context(model)?;
+    let audio = load_wav_mono_16k(wav)?;
+    if audio.is_empty() {
+        return Err("Empty audio".to_string());
+    }
     let mut state = ctx
         .create_state()
         .map_err(|e| format!("Whisper state: {e}"))?;
     state
-        .full(params, &audio)
+        .full(word_params(language), &audio)
         .map_err(|e| format!("Whisper inference: {e}"))?;
-    let n = state.full_n_segments();
-    let mut text = String::new();
-    for i in 0..n {
-        if let Some(seg) = state.get_segment(i) {
-            text.push_str(&seg.to_str_lossy().unwrap_or_default());
+
+    // Everything at or above the end-of-transcript id is a special or timestamp
+    // token. Under max_len(1) a segment holds one word, so those are a large
+    // fraction of every segment's token set and their probabilities would
+    // dominate an unfiltered mean.
+    let first_special = ctx.token_eot();
+    let mut words = Vec::with_capacity(state.full_n_segments() as usize);
+    for i in 0..state.full_n_segments() {
+        let Some(segment) = state.get_segment(i) else {
+            continue;
+        };
+        let text = segment.to_str_lossy().unwrap_or_default();
+        let text = text.trim();
+        if text.is_empty() {
+            continue;
         }
+        let start_ms = centiseconds_to_ms(segment.start_timestamp());
+        let end_ms = centiseconds_to_ms(segment.end_timestamp()).max(start_ms);
+        words.extend(words_from_span(
+            text,
+            start_ms,
+            end_ms,
+            segment_confidence(&segment, first_special),
+        ));
     }
-    Ok(text.trim().to_string())
+    Ok(words)
+}
+
+fn centiseconds_to_ms(centiseconds: i64) -> u32 {
+    (centiseconds.max(0) as u32).saturating_mul(10)
+}
+
+fn segment_confidence(
+    segment: &whisper_rs::WhisperSegment<'_>,
+    first_special: whisper_rs::WhisperTokenId,
+) -> f32 {
+    let tokens: Vec<(whisper_rs::WhisperTokenId, f32)> = (0..segment
+        .n_tokens())
+        .filter_map(|t| segment.get_token(t))
+        .map(|token| (token.token_id(), token.token_probability()))
+        .collect();
+    mean_text_probability(&tokens, first_special)
+}
+
+/// Mean probability over the text tokens only.
+///
+/// Split out from the segment walk so the filter can be tested: it is the whole
+/// point. Everything at or above the end-of-transcript id is special or a
+/// timestamp, and under `max_len(1)` those are a large share of a segment's
+/// tokens - their probabilities are not a confidence in anything.
+pub fn mean_text_probability(
+    tokens: &[(whisper_rs::WhisperTokenId, f32)],
+    first_special: whisper_rs::WhisperTokenId,
+) -> f32 {
+    let kept: Vec<f32> = tokens
+        .iter()
+        .filter(|(id, _)| *id < first_special)
+        .map(|(_, p)| *p)
+        .collect();
+    if kept.is_empty() {
+        return 0.0;
+    }
+    kept.iter().sum::<f32>() / kept.len() as f32
 }
 
 pub fn load_wav_mono_16k(path: &Path) -> Result<Vec<f32>, String> {

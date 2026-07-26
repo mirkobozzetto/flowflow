@@ -1,5 +1,6 @@
-use super::hesitations::clean_hesitations;
-use crate::domain::Dictionary;
+use super::hesitations::clean_hesitations_words;
+use crate::domain::transcript::words_from_span;
+use crate::domain::{Dictionary, Transcript, Word};
 use serde::Deserialize;
 use std::path::Path;
 use std::time::Duration;
@@ -26,6 +27,69 @@ struct TranscriptionStatus {
 #[derive(Deserialize)]
 struct TranscriptResponse {
     text: String,
+    /// Soniox returns timestamps by default, so no request change is needed.
+    /// Defaulted rather than required: a response without them degrades to an
+    /// empty word list and the UI falls back to today's paragraph.
+    #[serde(default)]
+    tokens: Vec<SonioxToken>,
+}
+
+#[derive(Deserialize)]
+pub struct SonioxToken {
+    pub text: String,
+    pub start_ms: u32,
+    pub end_ms: u32,
+    pub confidence: f32,
+}
+
+/// Soniox tokens are sub-word ("Bon", "j", "our"). A **leading space** in a
+/// token's text is what opens a new word; anything else continues the current
+/// one, which is also how punctuation stays glued to the word it belongs to.
+///
+/// Verified against a real French response on 2026-07-26, captured as
+/// `tests/fixtures/soniox_tokens.json`: applying this rule reproduces Soniox's
+/// own `text` field exactly.
+pub fn group_tokens_to_words(tokens: &[SonioxToken]) -> Vec<Word> {
+    let mut words: Vec<Word> = Vec::new();
+    let mut confidences: Vec<Vec<f32>> = Vec::new();
+
+    for token in tokens {
+        if token.text.trim().is_empty() {
+            continue;
+        }
+        let starts_word = token.text.starts_with(' ') || words.is_empty();
+        match words.last_mut() {
+            Some(word) if !starts_word => {
+                word.text.push_str(&token.text);
+                word.end_ms = token.end_ms.max(word.end_ms);
+                confidences
+                    .last_mut()
+                    .expect("a word always has a confidence bucket")
+                    .push(token.confidence);
+            }
+            _ => {
+                words.push(Word::new(
+                    token.text.trim(),
+                    token.start_ms,
+                    token.end_ms,
+                    token.confidence,
+                ));
+                confidences.push(vec![token.confidence]);
+            }
+        }
+    }
+
+    for (word, scores) in words.iter_mut().zip(confidences) {
+        word.confidence = scores.iter().sum::<f32>() / scores.len() as f32;
+    }
+    // A token carrying an interior space would otherwise put whitespace inside a
+    // word and break the one-word-one-span invariant.
+    words
+        .into_iter()
+        .flat_map(|w| {
+            words_from_span(&w.text, w.start_ms, w.end_ms, w.confidence)
+        })
+        .collect()
 }
 
 /// `context.terms` is Soniox's native exact-spelling vocabulary field. Omitted
@@ -197,7 +261,7 @@ impl SonioxClient {
     pub async fn check_status(
         &self,
         transcription_id: &str,
-    ) -> Result<Option<String>, String> {
+    ) -> Result<Option<Transcript>, String> {
         let resp = self
             .client
             .get(format!("{BASE_URL}/v1/transcriptions/{transcription_id}"))
@@ -227,11 +291,13 @@ impl SonioxClient {
     pub async fn poll_transcript(
         &self,
         transcription_id: &str,
-    ) -> Result<String, String> {
+    ) -> Result<Transcript, String> {
         eprintln!("[soniox] polling for {transcription_id}");
         for _ in 1..=MAX_POLLS {
-            if let Some(text) = self.check_status(transcription_id).await? {
-                return Ok(text);
+            if let Some(transcript) =
+                self.check_status(transcription_id).await?
+            {
+                return Ok(transcript);
             }
             tokio::time::sleep(POLL_INTERVAL).await;
         }
@@ -241,7 +307,7 @@ impl SonioxClient {
     async fn fetch_transcript(
         &self,
         transcription_id: &str,
-    ) -> Result<String, String> {
+    ) -> Result<Transcript, String> {
         let resp = self
             .client
             .get(format!(
@@ -258,8 +324,19 @@ impl SonioxClient {
         }
         let tr: TranscriptResponse =
             resp.json().await.map_err(|e| format!("Parse error: {e}"))?;
-        eprintln!("[soniox] transcript received ({} chars)", tr.text.len());
-        Ok(tr.text)
+        let words = group_tokens_to_words(&tr.tokens);
+        eprintln!(
+            "[soniox] transcript received ({} chars, {} words)",
+            tr.text.len(),
+            words.len()
+        );
+        // No tokens (an older or degraded response) still yields a usable
+        // transcript: the text is rebuilt into untimed words, so the UI renders
+        // today's paragraph instead of failing.
+        if words.is_empty() {
+            return Ok(Transcript::from_text(&tr.text));
+        }
+        Ok(Transcript::new(words))
     }
 
     pub async fn start_transcription(
@@ -293,10 +370,17 @@ impl SonioxClient {
         &self,
         path: &Path,
         language: Option<&str>,
-    ) -> Result<String, String> {
+    ) -> Result<Transcript, String> {
         let (tr_id, file_id) = self.start_transcription(path, language).await?;
         let raw = self.poll_transcript(&tr_id).await;
         let _ = self.delete_file(&file_id).await;
-        Ok(self.dictionary.apply(&clean_hesitations(&raw?)))
+        Ok(self.clean(raw?))
+    }
+
+    /// The cleaning both entry points share: hesitations dropped, then declared
+    /// terms corrected, word by word so every survivor keeps its timing.
+    pub fn clean(&self, transcript: Transcript) -> Transcript {
+        let cleaned = clean_hesitations_words(transcript.words);
+        Transcript::new(self.dictionary.apply_words(cleaned))
     }
 }

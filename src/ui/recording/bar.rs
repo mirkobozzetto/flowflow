@@ -14,7 +14,7 @@ pub fn RecordingBar(pending_audio: Signal<Option<(String, f64)>>) -> Element {
     let recording_state = (app.recording_state)();
     let is_idle = recording_state == RecordingState::Idle
         || matches!(recording_state, RecordingState::Error(_))
-        || matches!(recording_state, RecordingState::Transcribed(_));
+        || matches!(recording_state, RecordingState::Transcribed { .. });
     let lang = (app.current_lang)();
     let note_id_for_chat = (app.current_note_id)().filter(|id| !id.is_empty());
 

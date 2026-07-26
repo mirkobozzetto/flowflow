@@ -1,10 +1,22 @@
 use flowflow::domain::dictionary::{phonetic_key, PHONETIC_MATCH_THRESHOLD};
-use flowflow::domain::{Dictionary, DictionaryEntry};
+use flowflow::domain::{Dictionary, DictionaryEntry, Transcript, Word};
 
 fn terms_only(terms: &[&str]) -> Dictionary {
     Dictionary::from_entries(
         terms.iter().map(|t| DictionaryEntry::new(*t, *t)).collect(),
     )
+}
+
+/// Words 400 ms apart, so a merge is visible in the resulting span.
+fn timed(texts: &[&str]) -> Vec<Word> {
+    texts
+        .iter()
+        .enumerate()
+        .map(|(i, t)| {
+            let start = i as u32 * 400;
+            Word::new(*t, start, start + 400, 0.9)
+        })
+        .collect()
 }
 
 #[test]
@@ -151,4 +163,54 @@ fn phonetic_key_collapses_french_and_english_spellings_of_one_sound() {
 fn threshold_is_a_named_constant_in_the_documented_band() {
     assert!(PHONETIC_MATCH_THRESHOLD > 0.85);
     assert!(PHONETIC_MATCH_THRESHOLD < 1.0);
+}
+
+#[test]
+fn word_level_multi_word_merge_spans_first_start_to_last_end() {
+    let dict = Dictionary::parse("Sony Ox\tSoniox");
+    let out = dict.apply_words(timed(&["parce", "que", "Sony", "Ox", "coute"]));
+    assert_eq!(
+        out.iter().map(|w| w.text.as_str()).collect::<Vec<_>>(),
+        ["parce", "que", "Soniox", "coute"]
+    );
+    let merged = &out[2];
+    assert_eq!((merged.start_ms, merged.end_ms), (800, 1600));
+}
+
+#[test]
+fn word_level_apostrophe_rescue_stays_inside_one_word_and_keeps_its_timing() {
+    let dict = terms_only(&["LanceDB"]);
+    let out =
+        dict.apply_words(timed(&["pareil", "pour", "l'anceDB,", "la", "base"]));
+    assert_eq!(
+        out.iter().map(|w| w.text.as_str()).collect::<Vec<_>>(),
+        ["pareil", "pour", "LanceDB,", "la", "base"]
+    );
+    assert_eq!((out[2].start_ms, out[2].end_ms), (800, 1200));
+}
+
+#[test]
+fn word_level_correction_preserves_the_stored_text_invariant() {
+    let dict = Dictionary::parse("Sony Ox\tSoniox\nl'anceDB\tLanceDB");
+    let out = dict.apply_words(timed(&[
+        "avec",
+        "Sony",
+        "Ox",
+        "et",
+        "l'anceDB,",
+        "voilà",
+    ]));
+    let transcript = Transcript::new(out);
+    assert_eq!(
+        transcript.text().split_whitespace().count(),
+        transcript.words.len()
+    );
+    assert_eq!(transcript.text(), "avec Soniox et LanceDB, voilà");
+}
+
+#[test]
+fn word_level_apply_is_the_identity_without_entries() {
+    let dict = Dictionary::parse("");
+    let words = timed(&["rien", "à", "corriger"]);
+    assert_eq!(dict.apply_words(words.clone()), words);
 }

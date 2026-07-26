@@ -7,26 +7,18 @@ use dioxus::prelude::*;
 pub fn AudioPlayer(
     audio_path: String,
     duration_secs: Option<f64>,
+    /// Whether this clip is the one currently playing. Playback is global - one
+    /// `AVAudioPlayer` at a time - so the state lives in the parent, which is
+    /// also what lets the transcript follow along.
+    playing: bool,
+    on_play: EventHandler<()>,
+    on_stop: EventHandler<()>,
     on_delete: EventHandler<()>,
 ) -> Element {
     let app: AppState = use_context();
     let lang = (app.current_lang)();
     let confirm_label = t(&lang, "audio-confirm-delete");
-    let mut playing = use_signal(|| false);
     let mut confirm_delete = use_signal(|| false);
-
-    #[cfg(target_os = "macos")]
-    use_future(move || async move {
-        loop {
-            futures_timer::Delay::new(std::time::Duration::from_millis(500))
-                .await;
-            if playing()
-                && !crate::infrastructure::platform::macos::is_playing()
-            {
-                playing.set(false);
-            }
-        }
-    });
 
     let dur = duration_secs.unwrap_or(0.0);
     let mins = (dur as u32) / 60;
@@ -44,21 +36,13 @@ pub fn AudioPlayer(
                 },
                 disabled: !file_exists,
                 onclick: move |_| {
-                    if playing() {
-                        #[cfg(target_os = "ios")]
-                        crate::infrastructure::platform::ios::stop_audio();
-                        #[cfg(target_os = "macos")]
-                        crate::infrastructure::platform::macos::stop_audio();
-                        playing.set(false);
+                    if playing {
+                        on_stop.call(());
                     } else {
-                        #[cfg(target_os = "ios")]
-                        crate::infrastructure::platform::ios::play_audio(&audio_path);
-                        #[cfg(target_os = "macos")]
-                        crate::infrastructure::platform::macos::play_audio(&audio_path);
-                        playing.set(true);
+                        on_play.call(());
                     }
                 },
-                if playing() {
+                if playing {
                     svg {
                         width: "14", height: "14", view_box: "0 0 14 14", fill: "currentColor",
                         rect { x: "1", y: "1", width: "4", height: "12", rx: "1" }
@@ -80,11 +64,7 @@ pub fn AudioPlayer(
                 button {
                     class: "text-xs text-ios-red font-medium",
                     onclick: move |_| {
-                        #[cfg(target_os = "ios")]
-                        crate::infrastructure::platform::ios::stop_audio();
-                        #[cfg(target_os = "macos")]
-                        crate::infrastructure::platform::macos::stop_audio();
-                        playing.set(false);
+                        on_stop.call(());
                         confirm_delete.set(false);
                         on_delete.call(());
                     },

@@ -18,7 +18,28 @@ pub const MIGRATIONS: &[(i64, &str)] = &[
     (17, V17_SCHEMA),
     (18, V18_SCHEMA),
     (19, V19_SCHEMA),
+    (20, V20_SCHEMA),
 ];
+
+// Per-word timings and confidence for a transcription (RFC 0024). Device-local: it
+// is absent from sync/protocol/catalog.rs and from sync_meta's Tracked list, so no
+// trigger is created and it never reaches the wire.
+//
+// A separate table rather than a column on note_audios, because the sync applier
+// upserts with INSERT OR REPLACE (apply/entity.rs) and note_audios is declared
+// update_trigger: true - a column here would be wiped every time a peer echoed a
+// transcription update back. No foreign key for the same reason: the row deletion
+// inside INSERT OR REPLACE would fire ON DELETE CASCADE and reintroduce the wipe.
+//
+// Integrity is therefore manual, and the enumeration has to stay complete: four
+// paths remove a note_audios row, and wipe_local_content's hardcoded table list is
+// one of them - a transcript surviving "delete my data" is a privacy defect.
+const V20_SCHEMA: &str = "
+CREATE TABLE IF NOT EXISTS note_audio_words (
+    audio_id TEXT PRIMARY KEY,
+    words_json TEXT NOT NULL
+);
+";
 
 // Per-question RAG execution trace, persisted with the bot message. Nullable and
 // device-local: the sync wire never carries it, so a plain additive column suffices

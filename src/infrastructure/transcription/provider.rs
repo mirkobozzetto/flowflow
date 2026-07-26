@@ -107,7 +107,7 @@ impl TranscriptionClient {
         &self,
         path: &Path,
         language: Option<&str>,
-    ) -> Result<String, String> {
+    ) -> Result<crate::domain::Transcript, String> {
         match self {
             Self::Soniox(c) => c.transcribe(path, language).await,
             Self::Whisper(w) => w.transcribe(path, language).await,

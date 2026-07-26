@@ -15,7 +15,12 @@ pub fn use_transcription_sink(
     mut audios_version: Signal<u32>,
 ) {
     use_effect(move || {
-        if let RecordingState::Transcribed(text) = (app.recording_state)() {
+        if let RecordingState::Transcribed {
+            transcript,
+            audio_id,
+        } = (app.recording_state)()
+        {
+            let text = transcript.text();
             let current = content();
             if current.is_empty() {
                 content.set(text.clone());
@@ -23,7 +28,14 @@ pub fn use_transcription_sink(
                 content.set(format!("{}\n{}", current, text));
             }
             let id = local_note_id();
-            if !id.is_empty() && persist_last_transcription(&db(), &id, &text) {
+            if !id.is_empty()
+                && persist_last_transcription(
+                    &db(),
+                    &id,
+                    &transcript,
+                    audio_id.as_deref(),
+                )
+            {
                 audios_version.set(audios_version() + 1);
             }
             app.recording_state.set(RecordingState::Idle);
@@ -37,7 +49,10 @@ pub fn use_transcription_sink(
         if nid.is_empty() {
             return;
         }
-        if let Some(text) = observe_manager.take_done(&nid) {
+        // An imported file leaves no `note_audios` row behind, so its words have
+        // nothing to anchor to and only the text is kept.
+        if let Some(transcript) = observe_manager.take_done(&nid) {
+            let text = transcript.text();
             let cur = content.peek().clone();
             if cur.is_empty() {
                 content.set(text);

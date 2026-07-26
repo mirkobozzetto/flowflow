@@ -70,7 +70,7 @@ pub fn ThreadDetail() -> Element {
         let state = (app.recording_state)();
         let quiet = state == RecordingState::Idle
             || matches!(state, RecordingState::Error(_))
-            || matches!(state, RecordingState::Transcribed(_));
+            || matches!(state, RecordingState::Transcribed { .. });
         if !quiet {
             return;
         }

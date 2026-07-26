@@ -9,7 +9,14 @@ pub enum RecordingState {
     Recording,
     Paused,
     Transcribing,
-    Transcribed(String),
+    /// `audio_id` is the clip the words belong to, known as soon as the recording
+    /// stopped. Carrying it removes the guesswork: without it the transcript is
+    /// attached to "the last audio of this note", which lands on the wrong clip
+    /// when a note holds several. It is `None` for dictation, which has no clip.
+    Transcribed {
+        transcript: crate::domain::Transcript,
+        audio_id: Option<String>,
+    },
     Error(String),
 }
 

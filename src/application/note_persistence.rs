@@ -1,4 +1,4 @@
-use crate::domain::{NewTextNote, Note, UpdateNote};
+use crate::domain::{NewTextNote, Note, Transcript, UpdateNote};
 use crate::infrastructure::persistence::Database;
 
 pub fn create_note(
@@ -55,19 +55,32 @@ pub fn update_note(
         .unwrap_or_default()
 }
 
+/// The single place a transcription reaches `note_audios`, text and word timings
+/// together.
+///
+/// `audio_id` names the clip when the caller knows it - which the recording path
+/// does, since the row is created the moment recording stops. Falling back to
+/// "the last audio of this note" is the pre-existing inference, kept only for
+/// callers that genuinely have no id to give.
 pub fn persist_last_transcription(
     db: &Database,
     note_id: &str,
-    text: &str,
+    transcript: &Transcript,
+    audio_id: Option<&str>,
 ) -> bool {
-    let Some(last) =
-        db.list_audios(note_id).ok().and_then(|a| a.last().cloned())
-    else {
+    let target = match audio_id {
+        Some(id) => db
+            .list_audios(note_id)
+            .ok()
+            .and_then(|a| a.into_iter().find(|audio| audio.id == id)),
+        None => db.list_audios(note_id).ok().and_then(|a| a.last().cloned()),
+    };
+    let Some(target) = target else {
         return false;
     };
-    if last.transcription.is_some() {
+    if target.transcription.is_some() {
         return false;
     }
-    let _ = db.set_audio_transcription(&last.id, text);
+    let _ = db.set_audio_transcript(&target.id, transcript);
     true
 }
