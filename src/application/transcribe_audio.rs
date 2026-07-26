@@ -3,6 +3,17 @@ use crate::infrastructure::persistence::Database;
 use crate::infrastructure::transcription::TranscriptionClient;
 use std::path::Path;
 
+/// Save a Soniox key only once the service has confirmed it works.
+///
+/// Writing first and reporting "saved" made every typo look like a success. The
+/// key is only persisted on a positive answer, so what is stored is always a key
+/// that authenticated at least once.
+pub async fn save_soniox_key(db: &Database, key: &str) -> Result<(), String> {
+    let key = key.trim();
+    crate::infrastructure::transcription::client::verify_key(key).await?;
+    db.set_setting("soniox_api_key", key)
+}
+
 /// Transcribe a file that has no row of its own yet.
 ///
 /// The recording bar owns the state machine (generation counter, error display);

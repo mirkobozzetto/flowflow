@@ -113,6 +113,34 @@ pub fn transcription_request_body(
     body
 }
 
+/// Ask Soniox whether a key is real, instead of only writing it to the database.
+///
+/// Saving used to report success for any string, so a typo stayed invisible until
+/// the next dictation failed. This hits an authenticated endpoint that returns
+/// nothing useful on purpose: only the status code matters.
+pub async fn verify_key(api_key: &str) -> Result<(), String> {
+    let key = api_key.trim();
+    if key.is_empty() {
+        return Err("empty key".to_string());
+    }
+    let client = reqwest::Client::builder()
+        .connect_timeout(Duration::from_secs(10))
+        .timeout(Duration::from_secs(20))
+        .build()
+        .map_err(|e| format!("{e}"))?;
+    let resp = client
+        .get(format!("{BASE_URL}/v1/transcriptions"))
+        .bearer_auth(key)
+        .send()
+        .await
+        .map_err(|e| format!("{e}"))?;
+    match resp.status().as_u16() {
+        200..=299 => Ok(()),
+        401 | 403 => Err("unauthorized".to_string()),
+        other => Err(format!("HTTP {other}")),
+    }
+}
+
 pub struct SonioxClient {
     client: reqwest::Client,
     api_key: String,
