@@ -186,7 +186,7 @@ async fn test_search_notes_real() {
     use std::sync::Arc;
 
     let llm = Arc::new(LlmClient::from_env().expect("OPENAI_API_KEY required"));
-    let tool = SearchNotes::new(llm);
+    let tool = SearchNotes::new(llm, None);
     let args = SearchNotesArgs {
         query: "réunion projet".to_string(),
         top_k: Some(3),
@@ -261,6 +261,7 @@ async fn test_agent_with_tools_e2e() {
         "Tu es un assistant qui répond brièvement en français.",
         "Bonjour, peux-tu juste dire 'pong' ?",
         None,
+        flowflow::infrastructure::llm::NotesTools::Global,
     )
     .await
     .expect("agent prompt should succeed");

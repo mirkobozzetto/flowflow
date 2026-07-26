@@ -4,7 +4,7 @@ use crate::application::constants::{
     RAG_RELEVANCE_FLOOR, RRF_K, RRF_LOCAL_WEIGHT, RRF_WEB_WEIGHT,
 };
 use crate::application::tools::{prompt_agent_with_tools, ToolEvent};
-use crate::infrastructure::llm::LlmClient;
+use crate::infrastructure::llm::{LlmClient, NotesTools};
 use crate::infrastructure::persistence::Database;
 use crate::infrastructure::vectordb::{SearchResult, SourceType, VectorStore};
 use std::collections::HashSet;
@@ -16,7 +16,33 @@ use fusion::dedup_merged;
 pub use fusion::rrf_merge;
 
 mod temporal;
-use temporal::{apply_date_filter, detect_temporal_llm, detect_temporal_regex};
+use temporal::detect_temporal_llm;
+pub use temporal::{apply_date_filter, detect_temporal_regex, DateRange};
+
+/// Apply a date range, but never let it be the reason nothing is answered.
+///
+/// The filter drops every note outside the period, so a period the user has no
+/// notes in turns a good candidate set into an empty one and the chat abstains -
+/// looking as if it found nothing at all. When that happens the unfiltered set is
+/// kept and the caller is told, so the answer can say the period was empty
+/// instead of passing off-period notes as on-period ones.
+fn filter_by_date(
+    candidates: Vec<crate::infrastructure::vectordb::SearchResult>,
+    range: Option<&DateRange>,
+) -> (Vec<crate::infrastructure::vectordb::SearchResult>, bool) {
+    let Some(range) = range else {
+        return (candidates, false);
+    };
+    if candidates.is_empty() {
+        return (candidates, false);
+    }
+    let filtered = apply_date_filter(candidates.clone(), range);
+    if filtered.is_empty() {
+        eprintln!("[rag] date filter emptied the set, falling back unfiltered");
+        return (candidates, true);
+    }
+    (filtered, false)
+}
 
 mod scoring;
 use scoring::{apply_temporal_boost, compute_source_count, dedup_sources};
@@ -276,6 +302,9 @@ pub async fn query(
         RAG_INITIAL_K
     };
 
+    // Set when a date range matched nothing and was waived, so the answer can say
+    // the period was empty rather than present off-period notes as on-period.
+    let mut period_empty = false;
     let results: Vec<SearchResult> = if web_on {
         if let Some(ref tx) = status_tx {
             let _ = tx.send(ToolEvent::Started("web_search".into()));
@@ -295,11 +324,8 @@ pub async fn query(
             let _ = tx.send(ToolEvent::Finished("web_search".into()));
         }
         let local = local_res?;
-        let local = if let Some(ref range) = date_range {
-            apply_date_filter(local, range)
-        } else {
-            local
-        };
+        let (local, empty_period) = filter_by_date(local, date_range.as_ref());
+        period_empty = empty_period;
         eprintln!("[rag] web on: {} local, {} web", local.len(), web_res.len());
         // Both legs empty (no local chunk clears the floor AND the web returned nothing) ->
         // say so instead of fabricating from "(no relevant excerpts)" under the web prompt.
@@ -338,11 +364,9 @@ pub async fn query(
             .await?;
         search_timer.finish(&mut rag_trace, None, None, StepOutcome::Ok);
 
-        let candidates = if let Some(ref range) = date_range {
-            apply_date_filter(candidates, range)
-        } else {
-            candidates
-        };
+        let (candidates, empty_period) =
+            filter_by_date(candidates, date_range.as_ref());
+        period_empty = empty_period;
 
         // The LLM judge decides WHICH notes genuinely answer the question - it reads the content,
         // so it judges what a note is ABOUT, not mere word overlap. An `@mention` is an explicit
@@ -380,11 +404,20 @@ pub async fn query(
         kept.into_iter().take(source_count).collect()
     };
 
+    // The user asked for a period that holds nothing. Saying so beats both staying
+    // silent and letting off-period notes pass for on-period ones.
+    let period_note = if period_empty {
+        "Note: no note falls in the period the question asks about. The excerpts \
+         below are the closest matches from other dates - say the period is empty \
+         before using them.\n\n"
+    } else {
+        ""
+    };
     let context = if results.is_empty() {
         String::from("--- User notes ---\n\n(no relevant excerpts)\n")
     } else {
         let db_tags = Database::open().ok();
-        let mut ctx = String::from("--- User notes ---\n\n");
+        let mut ctx = format!("--- User notes ---\n\n{period_note}");
         for (i, r) in results.iter().enumerate() {
             match r.source_type {
                 SourceType::Web => {
@@ -436,9 +469,16 @@ pub async fn query(
         RAG_AGENT_SYSTEM_PROMPT
     };
     let agent_timer = StepTimer::start("agent", Some(ai.chat_model_name()));
-    let answer =
-        prompt_agent_with_tools(ai, system_prompt, &user_msg, status_tx)
-            .await?;
+    // Same perimeter as the initial retrieval: inside a folder or a thread, the
+    // agent's own re-search must not reach past what the user narrowed to.
+    let answer = prompt_agent_with_tools(
+        ai,
+        system_prompt,
+        &user_msg,
+        status_tx,
+        NotesTools::from_allowed(allowed_note_ids.as_deref()),
+    )
+    .await?;
     agent_timer.finish(
         &mut rag_trace,
         Some(estimate_tokens(&user_msg)),
@@ -476,11 +516,14 @@ pub async fn run_action(
     status_tx: Option<mpsc::UnboundedSender<ToolEvent>>,
 ) -> Result<RagResponse, String> {
     let ai = Arc::new(LlmClient::from_env()?);
+    // A note action is global by construction: it is triggered from one note and
+    // may create or summarize anywhere.
     let answer = prompt_agent_with_tools(
         ai,
         crate::application::constants::NOTE_ACTION_PROMPT,
         question,
         status_tx,
+        NotesTools::Global,
     )
     .await
     .map_err(|e| e.to_string())?;

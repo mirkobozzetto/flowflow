@@ -47,6 +47,43 @@ impl FromStr for Provider {
     }
 }
 
+/// Whether an agent run gets the local notes tools, and what those tools may see.
+///
+/// This replaced a bare `bool`. The boolean said "mount the tools" and said nothing
+/// about scope, so `search_notes` searched the whole corpus even inside a folder or
+/// thread chat - the one place the user had explicitly narrowed. Making the scope
+/// part of the same value means a caller cannot mount the tools without deciding it.
+#[derive(Clone, Default)]
+pub enum NotesTools {
+    /// No local notes tools on this run.
+    #[default]
+    None,
+    /// Mounted over every note.
+    Global,
+    /// Mounted over these notes only (folder, thread, or `@mention`).
+    Scoped(Arc<[String]>),
+}
+
+impl NotesTools {
+    /// `None` = do not mount. `Some(scope)` = mount, `scope` being the id filter
+    /// handed to the search tool.
+    pub fn scope(&self) -> Option<Option<Arc<[String]>>> {
+        match self {
+            NotesTools::None => None,
+            NotesTools::Global => Some(None),
+            NotesTools::Scoped(ids) => Some(Some(ids.clone())),
+        }
+    }
+
+    /// Mount over `ids` when the chat is scoped, over everything when it is not.
+    pub fn from_allowed(ids: Option<&[String]>) -> Self {
+        match ids {
+            Some(ids) => NotesTools::Scoped(Arc::from(ids)),
+            None => NotesTools::Global,
+        }
+    }
+}
+
 pub struct LlmClient {
     openai: openai::Client,
     provider: Provider,
@@ -192,13 +229,16 @@ impl LlmClient {
     /// subset over its server sink - the caller keeps the registry alive across the await
     /// so the sink stays valid. The `hook` always applies: enforcing when the caller
     /// attached a contract, observe-only otherwise. Nothing else in the app mounts tools.
+    ///
+    /// The note ids inside `NotesTools` are carried, never interpreted: resolving a
+    /// folder or a thread into ids stays in `application`.
     #[allow(clippy::too_many_arguments)]
     pub async fn run_agent(
         self: &Arc<Self>,
         openai_model: &str,
         preamble: &str,
         user_message: &str,
-        notes_tools: bool,
+        notes_tools: NotesTools,
         mcp: Option<(Vec<rmcp::model::Tool>, rmcp::service::ServerSink)>,
         hook: ContractHook,
         temperature: f64,
@@ -224,20 +264,20 @@ impl LlmClient {
                     .agent(openai_model)
                     .preamble(preamble)
                     .temperature(temperature);
-                match (notes_tools, mcp) {
-                    (true, Some((tools, peer))) => run!(base
-                        .tool(SearchNotes::new(self.clone()))
+                match (notes_tools.scope(), mcp) {
+                    (Some(scope), Some((tools, peer))) => run!(base
+                        .tool(SearchNotes::new(self.clone(), scope))
                         .tool(CreateNote::new())
                         .tool(SummarizeFolder::new(self.clone()))
                         .rmcp_tools(tools, peer)),
-                    (true, None) => run!(base
-                        .tool(SearchNotes::new(self.clone()))
+                    (Some(scope), None) => run!(base
+                        .tool(SearchNotes::new(self.clone(), scope))
                         .tool(CreateNote::new())
                         .tool(SummarizeFolder::new(self.clone()))),
-                    (false, Some((tools, peer))) => {
+                    (None, Some((tools, peer))) => {
                         run!(base.rmcp_tools(tools, peer))
                     }
-                    (false, None) => run!(base),
+                    (None, None) => run!(base),
                 }
             }
             Provider::Anthropic => {
@@ -251,20 +291,20 @@ impl LlmClient {
                     .preamble(preamble)
                     .temperature(temperature)
                     .max_tokens(ANTHROPIC_MAX_TOKENS);
-                match (notes_tools, mcp) {
-                    (true, Some((tools, peer))) => run!(base
-                        .tool(SearchNotes::new(self.clone()))
+                match (notes_tools.scope(), mcp) {
+                    (Some(scope), Some((tools, peer))) => run!(base
+                        .tool(SearchNotes::new(self.clone(), scope))
                         .tool(CreateNote::new())
                         .tool(SummarizeFolder::new(self.clone()))
                         .rmcp_tools(tools, peer)),
-                    (true, None) => run!(base
-                        .tool(SearchNotes::new(self.clone()))
+                    (Some(scope), None) => run!(base
+                        .tool(SearchNotes::new(self.clone(), scope))
                         .tool(CreateNote::new())
                         .tool(SummarizeFolder::new(self.clone()))),
-                    (false, Some((tools, peer))) => {
+                    (None, Some((tools, peer))) => {
                         run!(base.rmcp_tools(tools, peer))
                     }
-                    (false, None) => run!(base),
+                    (None, None) => run!(base),
                 }
             }
         }

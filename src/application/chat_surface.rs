@@ -11,7 +11,7 @@ use crate::domain::governance::{
     is_row_tool, parse_connector_manifest, Action, Approval, ConnectorManifest,
     Governance, Mode, Risk, ToolPolicy,
 };
-use crate::infrastructure::llm::LlmClient;
+use crate::infrastructure::llm::{LlmClient, NotesTools};
 use crate::infrastructure::persistence::installed_connector_repo::PinnedConnector;
 use std::collections::{BTreeMap, BTreeSet};
 use std::sync::Arc;
@@ -132,6 +132,7 @@ pub async fn prompt_chat_agent(
     preamble: &str,
     user_message: &str,
     status_tx: Option<mpsc::UnboundedSender<ToolEvent>>,
+    notes_tools: NotesTools,
 ) -> Result<String, LlmError> {
     // No event channel = no card can render: notes-only surface, observe-only hook.
     let Some(tx) = status_tx else {
@@ -141,7 +142,7 @@ pub async fn prompt_chat_agent(
                 CHAT_MODEL,
                 preamble,
                 user_message,
-                true,
+                notes_tools.clone(),
                 None,
                 ContractHook::new(dummy),
                 0.3,
@@ -183,7 +184,7 @@ pub async fn prompt_chat_agent(
                 CHAT_MODEL,
                 preamble,
                 user_message,
-                true,
+                notes_tools.clone(),
                 Some((mounted, peer)),
                 hook,
                 0.3,
@@ -196,7 +197,7 @@ pub async fn prompt_chat_agent(
                 CHAT_MODEL,
                 preamble,
                 user_message,
-                true,
+                notes_tools.clone(),
                 None,
                 ContractHook::new(tx),
                 0.3,

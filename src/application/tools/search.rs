@@ -11,11 +11,25 @@ use std::sync::Arc;
 #[derive(Clone)]
 pub struct SearchNotes {
     pub llm: Arc<LlmClient>,
+    /// The notes this run is allowed to see. `None` is a global chat; `Some(ids)`
+    /// is a folder, a thread or an `@mention`.
+    ///
+    /// The tool used to search the whole corpus unconditionally, so a scoped chat
+    /// leaked: the first retrieval respected the folder, then the agent's own
+    /// re-search did not, and the extra notes reached the answer while the sources
+    /// panel - built from the first retrieval only - never showed them.
+    pub allowed_note_ids: Option<Arc<[String]>>,
 }
 
 impl SearchNotes {
-    pub fn new(llm: Arc<LlmClient>) -> Self {
-        Self { llm }
+    pub fn new(
+        llm: Arc<LlmClient>,
+        allowed_note_ids: Option<Arc<[String]>>,
+    ) -> Self {
+        Self {
+            llm,
+            allowed_note_ids,
+        }
     }
 }
 
@@ -80,7 +94,12 @@ impl Tool for SearchNotes {
         // matches (a search for "Jean" returned nothing, so the agent declared "no relevant note"
         // while the note was in its initial context). The agent judges relevance from the content.
         let results = store
-            .hybrid_search(&args.query, vector, top_k, None)
+            .hybrid_search(
+                &args.query,
+                vector,
+                top_k,
+                self.allowed_note_ids.as_deref(),
+            )
             .await
             .map_err(|e| ToolFailure(format!("vectordb search: {e}")))?;
         Ok(results
