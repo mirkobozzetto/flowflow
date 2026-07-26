@@ -62,7 +62,11 @@ pub fn ChatView() -> Element {
     let confirm_delete = use_signal(|| false);
 
     use_effect(move || {
-        if let RecordingState::Transcribed(text) = (app.recording_state)() {
+        if let RecordingState::Transcribed { transcript, .. } =
+            (app.recording_state)()
+        {
+            // Dictation has no clip to seek into, so only the text is used.
+            let text = transcript.text();
             let current = input();
             if current.is_empty() {
                 input.set(text);

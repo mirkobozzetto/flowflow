@@ -1,3 +1,4 @@
+use crate::domain::transcript::{apply_rewrites, Rewrite, Transcript, Word};
 use regex::Regex;
 use std::collections::HashMap;
 
@@ -109,11 +110,32 @@ impl Dictionary {
         if self.entries.is_empty() || text.is_empty() {
             return text.to_string();
         }
-        let replaced = self.replace_literal(text);
-        self.rescue_phonetic(&replaced)
+        let words = Transcript::from_text(text).words;
+        Transcript::new(self.apply_words(words)).text()
     }
 
-    fn replace_literal(&self, text: &str) -> String {
+    /// The word-level entry point. Both passes report byte ranges over the joined
+    /// text and those ranges are mapped straight back onto the words they
+    /// covered, so a correction that lives inside one word keeps that word's
+    /// timing and a multi-word correction collapses into one timed span.
+    pub fn apply_words(&self, words: Vec<Word>) -> Vec<Word> {
+        if self.entries.is_empty() || words.is_empty() {
+            return words;
+        }
+        let literal = {
+            let joined = Transcript::new(words.clone()).text();
+            self.literal_rewrites(&joined)
+        };
+        let words = apply_rewrites(words, &literal);
+
+        let phonetic = {
+            let joined = Transcript::new(words.clone()).text();
+            self.phonetic_rewrites(&joined)
+        };
+        apply_rewrites(words, &phonetic)
+    }
+
+    fn literal_rewrites(&self, text: &str) -> Vec<Rewrite> {
         let alternation = self
             .entries
             .iter()
@@ -124,7 +146,7 @@ impl Dictionary {
             Ok(re) => re,
             Err(e) => {
                 eprintln!("[dictionary] literal pass skipped: {e}");
-                return text.to_string();
+                return Vec::new();
             }
         };
         let lookup: HashMap<String, &str> = self
@@ -132,18 +154,22 @@ impl Dictionary {
             .iter()
             .map(|e| (e.heard.to_lowercase(), e.correct.as_str()))
             .collect();
-        re.replace_all(text, |caps: &regex::Captures| {
-            let matched = &caps[0];
-            lookup
-                .get(&matched.to_lowercase())
-                .copied()
-                .unwrap_or(matched)
-                .to_string()
-        })
-        .into_owned()
+        re.find_iter(text)
+            .filter_map(|m| {
+                let correct = lookup.get(&m.as_str().to_lowercase())?;
+                if *correct == m.as_str() {
+                    return None;
+                }
+                Some(Rewrite {
+                    start: m.start(),
+                    end: m.end(),
+                    text: (*correct).to_string(),
+                })
+            })
+            .collect()
     }
 
-    fn rescue_phonetic(&self, text: &str) -> String {
+    fn phonetic_rewrites(&self, text: &str) -> Vec<Rewrite> {
         let targets: Vec<(String, &str)> = self
             .terms()
             .into_iter()
@@ -151,12 +177,11 @@ impl Dictionary {
             .filter(|(key, _)| key.len() >= MIN_PHONETIC_CHARS)
             .collect();
         if targets.is_empty() {
-            return text.to_string();
+            return Vec::new();
         }
 
         let words = word_spans(text);
-        let mut out = String::with_capacity(text.len());
-        let mut cursor = 0usize;
+        let mut rewrites = Vec::new();
         let mut w = 0usize;
 
         while w < words.len() {
@@ -182,16 +207,19 @@ impl Dictionary {
                 Some((_, size, term)) => {
                     let (start, _) = words[w];
                     let (_, end) = words[w + size - 1];
-                    out.push_str(&text[cursor..start]);
-                    out.push_str(term);
-                    cursor = end;
+                    if &text[start..end] != term {
+                        rewrites.push(Rewrite {
+                            start,
+                            end,
+                            text: term.to_string(),
+                        });
+                    }
                     w += size;
                 }
                 None => w += 1,
             }
         }
-        out.push_str(&text[cursor..]);
-        out
+        rewrites
     }
 }
 

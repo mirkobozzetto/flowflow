@@ -1,0 +1,239 @@
+{
+  "text": "Bonjour. Alors, euh, je voulais dire que c'est vraiment important: on utilise Soniox et LensDB pour le projet.",
+  "tokens": [
+    {
+      "text": "Bon",
+      "start_ms": 90,
+      "end_ms": 150,
+      "confidence": 0.9999465942382812
+    },
+    {
+      "text": "j",
+      "start_ms": 210,
+      "end_ms": 270,
+      "confidence": 0.9999561309814453
+    },
+    {
+      "text": "our",
+      "start_ms": 330,
+      "end_ms": 390,
+      "confidence": 0.9997692108154297
+    },
+    {
+      "text": ".",
+      "start_ms": 570,
+      "end_ms": 630,
+      "confidence": 0.5257344841957092
+    },
+    {
+      "text": " Al",
+      "start_ms": 990,
+      "end_ms": 1050,
+      "confidence": 0.9998494386672974
+    },
+    {
+      "text": "or",
+      "start_ms": 1110,
+      "end_ms": 1170,
+      "confidence": 0.9875073432922363
+    },
+    {
+      "text": "s,",
+      "start_ms": 1290,
+      "end_ms": 1350,
+      "confidence": 0.9986638426780701
+    },
+    {
+      "text": " e",
+      "start_ms": 1410,
+      "end_ms": 1470,
+      "confidence": 0.9982431530952454
+    },
+    {
+      "text": "uh",
+      "start_ms": 1470,
+      "end_ms": 1530,
+      "confidence": 0.9999027252197266
+    },
+    {
+      "text": ",",
+      "start_ms": 1590,
+      "end_ms": 1650,
+      "confidence": 0.981814980506897
+    },
+    {
+      "text": " je",
+      "start_ms": 1710,
+      "end_ms": 1770,
+      "confidence": 0.9999697208404541
+    },
+    {
+      "text": " vo",
+      "start_ms": 1830,
+      "end_ms": 1890,
+      "confidence": 0.9987044930458069
+    },
+    {
+      "text": "ul",
+      "start_ms": 1950,
+      "end_ms": 2010,
+      "confidence": 0.9992654323577881
+    },
+    {
+      "text": "ais",
+      "start_ms": 2070,
+      "end_ms": 2130,
+      "confidence": 0.9999828338623047
+    },
+    {
+      "text": " dire",
+      "start_ms": 2190,
+      "end_ms": 2250,
+      "confidence": 0.9999370574951172
+    },
+    {
+      "text": " que",
+      "start_ms": 2370,
+      "end_ms": 2430,
+      "confidence": 0.9999619126319885
+    },
+    {
+      "text": " c",
+      "start_ms": 2610,
+      "end_ms": 2670,
+      "confidence": 0.9999027252197266
+    },
+    {
+      "text": "'est",
+      "start_ms": 2730,
+      "end_ms": 2790,
+      "confidence": 0.9999485611915588
+    },
+    {
+      "text": " v",
+      "start_ms": 2790,
+      "end_ms": 2850,
+      "confidence": 0.9999377131462097
+    },
+    {
+      "text": "ra",
+      "start_ms": 2850,
+      "end_ms": 2910,
+      "confidence": 0.9999144077301025
+    },
+    {
+      "text": "iment",
+      "start_ms": 2910,
+      "end_ms": 2970,
+      "confidence": 0.9999809265136719
+    },
+    {
+      "text": " important",
+      "start_ms": 3390,
+      "end_ms": 3450,
+      "confidence": 0.8668221831321716
+    },
+    {
+      "text": ":",
+      "start_ms": 3690,
+      "end_ms": 3750,
+      "confidence": 0.5915274024009705
+    },
+    {
+      "text": " on",
+      "start_ms": 3930,
+      "end_ms": 3990,
+      "confidence": 0.9999618530273438
+    },
+    {
+      "text": " ut",
+      "start_ms": 4110,
+      "end_ms": 4170,
+      "confidence": 0.9999828338623047
+    },
+    {
+      "text": "il",
+      "start_ms": 4290,
+      "end_ms": 4350,
+      "confidence": 0.9998054504394531
+    },
+    {
+      "text": "ise",
+      "start_ms": 4410,
+      "end_ms": 4470,
+      "confidence": 0.9999752044677734
+    },
+    {
+      "text": " Son",
+      "start_ms": 4710,
+      "end_ms": 4770,
+      "confidence": 0.9975253939628601
+    },
+    {
+      "text": "io",
+      "start_ms": 4890,
+      "end_ms": 4950,
+      "confidence": 0.9984334111213684
+    },
+    {
+      "text": "x",
+      "start_ms": 5010,
+      "end_ms": 5070,
+      "confidence": 0.9987590909004211
+    },
+    {
+      "text": " et",
+      "start_ms": 5190,
+      "end_ms": 5250,
+      "confidence": 0.36354440450668335
+    },
+    {
+      "text": " L",
+      "start_ms": 5370,
+      "end_ms": 5430,
+      "confidence": 0.9590439796447754
+    },
+    {
+      "text": "ens",
+      "start_ms": 5430,
+      "end_ms": 5490,
+      "confidence": 0.4349598288536072
+    },
+    {
+      "text": "D",
+      "start_ms": 5610,
+      "end_ms": 5670,
+      "confidence": 0.9479193687438965
+    },
+    {
+      "text": "B",
+      "start_ms": 5790,
+      "end_ms": 5850,
+      "confidence": 0.9995652437210083
+    },
+    {
+      "text": " pour",
+      "start_ms": 5910,
+      "end_ms": 5970,
+      "confidence": 0.9998894333839417
+    },
+    {
+      "text": " le",
+      "start_ms": 5970,
+      "end_ms": 6030,
+      "confidence": 0.9999732971191406
+    },
+    {
+      "text": " projet",
+      "start_ms": 6150,
+      "end_ms": 6210,
+      "confidence": 0.9998626708984375
+    },
+    {
+      "text": ".",
+      "start_ms": 6210,
+      "end_ms": 6270,
+      "confidence": 0.9427247643470764
+    }
+  ]
+}

@@ -8,6 +8,7 @@ pub mod note;
 pub mod orchestration;
 pub mod reminder;
 pub mod thread;
+pub mod transcript;
 
 pub use attachment::*;
 pub use conversation::*;
@@ -23,3 +24,4 @@ pub use reminder::{
     DEFAULT_REMINDER_HOUR, REMINDER_STATE_ACTIVE, REMINDER_STATE_TOMBSTONE,
 };
 pub use thread::{NewThread, Thread, UpdateThread};
+pub use transcript::{Transcript, Word};

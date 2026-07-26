@@ -9,6 +9,7 @@ pub(crate) mod note_tools_menu;
 mod related;
 mod reminders;
 mod tags;
+mod transcript_view;
 
 pub(crate) mod attachment_modal;
 pub(crate) mod folder_picker;

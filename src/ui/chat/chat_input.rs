@@ -44,7 +44,7 @@ pub fn ChatInputBar(
     let recording_state = (app.recording_state)();
     let is_idle = recording_state == RecordingState::Idle
         || matches!(recording_state, RecordingState::Error(_))
-        || matches!(recording_state, RecordingState::Transcribed(_));
+        || matches!(recording_state, RecordingState::Transcribed { .. });
 
     let show_tools = (app.show_tools_menu)();
     let show_mention = (app.show_mention_menu)();

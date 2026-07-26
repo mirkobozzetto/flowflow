@@ -34,8 +34,12 @@ pub fn use_transcription_watcher(
                     let is_open = viewing_note
                         && current.as_deref() == Some(note_id.as_str());
                     if is_done && !is_open {
-                        if let Some(text) = manager.take_done(note_id) {
-                            append_transcription_to_note(&db, note_id, &text);
+                        if let Some(transcript) = manager.take_done(note_id) {
+                            append_transcription_to_note(
+                                &db,
+                                note_id,
+                                &transcript.text(),
+                            );
                             app.notes_version.set((app.notes_version)() + 1);
                             app.transcription_done_badge
                                 .set((app.transcription_done_badge)() + 1);
@@ -129,7 +133,7 @@ pub fn use_record_deeplink_watcher(
                     let state = (app.recording_state)();
                     let quiet = state == RecordingState::Idle
                         || matches!(state, RecordingState::Error(_))
-                        || matches!(state, RecordingState::Transcribed(_));
+                        || matches!(state, RecordingState::Transcribed { .. });
                     if quiet
                         && !crate::application::backup::restore_lock_active()
                     {

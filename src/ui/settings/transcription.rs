@@ -1,4 +1,5 @@
 use crate::application::i18n::{t, t_args};
+use crate::application::transcribe_audio::save_soniox_key;
 use crate::application::transcription_dictionary;
 use crate::domain::{Dictionary, DictionaryEntry};
 use crate::infrastructure::persistence::settings_repo::{
@@ -66,6 +67,11 @@ pub fn TranscriptionSettings() -> Element {
                     {t(&lang, "settings-stt-local")}
                 }
             }
+
+            // Which engine actually runs on the next note, spelled out. The tab
+            // alone was not enough: on cloud, a local model name stayed on screen
+            // and there was no way to tell which one would transcribe.
+            ActiveEngineBanner { provider }
 
             if provider() == SttProvider::Soniox {
                 SonioxKeyForm {}
@@ -166,17 +172,76 @@ fn DictionarySection() -> Element {
     }
 }
 
+/// States the engine that will transcribe the next note, and refuses to claim one
+/// is ready when it is not: no key on cloud, or no model downloaded on local.
+#[component]
+fn ActiveEngineBanner(provider: Signal<SttProvider>) -> Element {
+    let db: Signal<Arc<Database>> = use_context();
+    let app: AppState = use_context();
+    let lang = (app.current_lang)();
+
+    let (name, blocker) = match provider() {
+        SttProvider::Soniox => {
+            let has_key = db()
+                .get_setting("soniox_api_key")
+                .is_some_and(|k| !k.trim().is_empty());
+            (
+                t(&lang, "settings-stt-cloud"),
+                (!has_key).then(|| t(&lang, "stt-error-soniox-key")),
+            )
+        }
+        SttProvider::WhisperLocal => {
+            let dir = models::models_dir();
+            let active =
+                db().get_setting(WHISPER_MODEL_KEY).unwrap_or_default();
+            let ready =
+                !active.is_empty() && models::is_downloaded(&dir, &active);
+            let label = if ready {
+                format!("{} · {active}", t(&lang, "settings-stt-local"))
+            } else {
+                t(&lang, "settings-stt-local")
+            };
+            (label, (!ready).then(|| t(&lang, "stt-error-no-model")))
+        }
+    };
+
+    rsx! {
+        div {
+            class: if blocker.is_some() {
+                "rounded-xl border border-ios-red/40 bg-ios-red/5 px-4 py-3"
+            } else {
+                "rounded-xl border border-stone-200 bg-warm-white px-4 py-3"
+            },
+            p { class: "text-xs text-stone-500", {t(&lang, "settings-stt-active-label")} }
+            p { class: "text-sm font-medium text-stone-800 mt-0.5", "{name}" }
+            if let Some(ref reason) = blocker {
+                p { class: "text-xs text-ios-red mt-1", "{reason}" }
+            }
+        }
+    }
+}
+
+/// What the last save attempt produced. A key is never "saved" on its own: it is
+/// either confirmed by Soniox or rejected with the reason.
+#[derive(Clone, PartialEq)]
+enum KeyState {
+    Idle,
+    Checking,
+    Valid,
+    Invalid(String),
+}
+
 #[component]
 fn SonioxKeyForm() -> Element {
     let db: Signal<Arc<Database>> = use_context();
     let app: AppState = use_context();
     let mut soniox_key =
         use_signal(|| db().get_setting("soniox_api_key").unwrap_or_default());
-    let mut saved = use_signal(|| false);
+    let mut state = use_signal(|| KeyState::Idle);
     let lang = (app.current_lang)();
 
     rsx! {
-        div { class: "space-y-6",
+        div { class: "space-y-4",
             div {
                 label { class: "block text-sm font-medium text-stone-700 mb-1", {t(&lang, "settings-soniox-label")} }
                 input {
@@ -186,25 +251,43 @@ fn SonioxKeyForm() -> Element {
                     value: "{soniox_key}",
                     oninput: move |evt| {
                         soniox_key.set(evt.value());
-                        saved.set(false);
+                        state.set(KeyState::Idle);
                     },
                 }
             }
 
             button {
-                class: if saved() { crate::ui::kit::BTN_SUCCESS } else { crate::ui::kit::BTN_PRIMARY },
+                class: crate::ui::kit::BTN_PRIMARY,
+                disabled: state() == KeyState::Checking || soniox_key().trim().is_empty(),
                 onclick: move |_| {
-                    let sk = soniox_key().trim().to_string();
-                    if !sk.is_empty() {
-                        let _ = db().set_setting("soniox_api_key", &sk);
-                    }
-                    saved.set(true);
+                    let key = soniox_key().trim().to_string();
+                    state.set(KeyState::Checking);
+                    spawn(async move {
+                        match save_soniox_key(&db(), &key).await {
+                            Ok(()) => state.set(KeyState::Valid),
+                            Err(e) => state.set(KeyState::Invalid(e)),
+                        }
+                    });
                 },
-                if saved() {
-                    {t(&lang, "settings-saved")}
-                } else {
-                    {t(&lang, "settings-save")}
+                match state() {
+                    KeyState::Checking => t(&lang, "settings-key-checking"),
+                    _ => t(&lang, "settings-save"),
                 }
+            }
+
+            match state() {
+                KeyState::Valid => rsx! {
+                    p { class: "text-xs text-ios-green", {t(&lang, "settings-key-valid")} }
+                },
+                KeyState::Invalid(ref reason) => rsx! {
+                    div { class: "rounded-xl border border-ios-red/40 bg-ios-red/5 p-3",
+                        p { class: "text-xs text-ios-red font-medium",
+                            {t(&lang, "settings-key-invalid")}
+                        }
+                        p { class: "text-xs text-stone-500 mt-1 break-words", "{reason}" }
+                    }
+                },
+                _ => rsx! {},
             }
 
             p { class: "text-xs text-stone-400 text-center",
@@ -393,87 +476,6 @@ fn WhisperModelsSection() -> Element {
             p { class: "text-xs text-stone-400 text-center",
                 {t(&lang, "whisper-stored-locally")}
             }
-            if cfg!(debug_assertions) {
-                WhisperBenchSection {}
-            }
         }
     }
-}
-
-#[component]
-fn WhisperBenchSection() -> Element {
-    let db: Signal<Arc<Database>> = use_context();
-    let app: AppState = use_context();
-    let mut bench_result: Signal<Option<String>> = use_signal(|| None);
-    let mut bench_running = use_signal(|| false);
-    let lang = (app.current_lang)();
-
-    let dir = models::models_dir();
-    let downloaded = models::list_downloaded(&dir);
-    let _ = db;
-
-    rsx! {
-        if !downloaded.is_empty() {
-            div { class: "space-y-2 pt-2",
-                h3 { class: "text-sm font-semibold text-stone-700",
-                    {t(&lang, "whisper-bench-title")}
-                }
-                div { class: "flex flex-wrap gap-2",
-                    for id in downloaded {
-                        {
-                            let lang = lang.clone();
-                            rsx! {
-                                button {
-                                    class: "px-3 py-1.5 rounded-lg text-xs font-medium bg-stone-200 text-stone-700 active:opacity-70",
-                                    disabled: bench_running(),
-                                    onclick: move |_| {
-                                        let Some(wav) = largest_wav() else {
-                                            bench_result.set(Some(t(&lang, "whisper-bench-need-audio")));
-                                            return;
-                                        };
-                                        bench_running.set(true);
-                                        bench_result.set(Some(t(&lang, "whisper-bench-running")));
-                                        spawn(async move {
-                                            let dir = models::models_dir();
-                                            let report = match models::model_path(&dir, id) {
-                                                Some(model) => {
-                                                    crate::infrastructure::transcription::whisper::bench(model, wav).await
-                                                }
-                                                None => Err("Modèle inconnu".to_string()),
-                                            };
-                                            bench_result.set(Some(match report {
-                                                Ok(r) => format!("{id}: {r}"),
-                                                Err(e) => format!("{id}: {e}"),
-                                            }));
-                                            bench_running.set(false);
-                                        });
-                                    },
-                                    "{id}"
-                                }
-                            }
-                        }
-                    }
-                }
-                if let Some(ref r) = bench_result() {
-                    p { class: "text-xs text-stone-500 whitespace-pre-wrap break-words", "{r}" }
-                }
-            }
-        }
-    }
-}
-
-fn largest_wav() -> Option<std::path::PathBuf> {
-    let dir = crate::infrastructure::audio::output_dir();
-    let mut best: Option<(u64, std::path::PathBuf)> = None;
-    for entry in std::fs::read_dir(dir).ok()?.flatten() {
-        let path = entry.path();
-        if path.extension().and_then(|e| e.to_str()) != Some("wav") {
-            continue;
-        }
-        let size = entry.metadata().map(|m| m.len()).unwrap_or(0);
-        if best.as_ref().map(|(s, _)| size > *s).unwrap_or(true) {
-            best = Some((size, path));
-        }
-    }
-    best.map(|(_, p)| p)
 }

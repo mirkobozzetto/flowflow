@@ -1,3 +1,4 @@
+use crate::domain::transcript::{Transcript, Word};
 use regex::Regex;
 use std::sync::OnceLock;
 
@@ -6,19 +7,77 @@ const HESITATION_WORDS: &[&str] = &[
     "u+h+", "u+m+", "ah", "eh", "erm", "er", "like", "you know",
 ];
 
+/// Anchored, because a word is matched whole: `\b` boundaries inside a longer
+/// string would let "er" fire inside a real word once the text is split.
 fn hesitation_regex() -> &'static Regex {
     static RE: OnceLock<Regex> = OnceLock::new();
     RE.get_or_init(|| {
         let alternation = HESITATION_WORDS.join("|");
-        let pattern = format!(r"(?i)\b(?:{alternation})\b");
+        let pattern = format!(r"(?i)^(?:{alternation})$");
         Regex::new(&pattern).expect("valid hesitation regex")
     })
 }
 
+/// Widest hesitation expressed in words ("you know" is two).
+fn max_hesitation_words() -> usize {
+    static MAX: OnceLock<usize> = OnceLock::new();
+    *MAX.get_or_init(|| {
+        HESITATION_WORDS
+            .iter()
+            .map(|w| w.split_whitespace().count())
+            .max()
+            .unwrap_or(1)
+    })
+}
+
 pub fn clean_hesitations(text: &str) -> String {
+    let words = Transcript::from_text(text).words;
+    Transcript::new(clean_hesitations_words(words)).text()
+}
+
+/// Drop the words that are pure hesitation, keeping every survivor's timing.
+///
+/// Matching runs against a punctuation-trimmed copy of the word, so "euh," is
+/// recognised; the comma it was carrying is re-attached to the previous
+/// survivor rather than vanishing with the word.
+pub fn clean_hesitations_words(words: Vec<Word>) -> Vec<Word> {
+    let widest_phrase = max_hesitation_words();
     let re = hesitation_regex();
-    let stripped = re.replace_all(text, "").to_string();
-    cleanup_punctuation(&stripped)
+    let mut out: Vec<Word> = Vec::with_capacity(words.len());
+    let mut i = 0usize;
+
+    while i < words.len() {
+        let widest = widest_phrase.min(words.len() - i);
+        let matched = (1..=widest).rev().find(|size| {
+            let phrase = words[i..i + size]
+                .iter()
+                .map(|w| w.trimmed())
+                .collect::<Vec<_>>()
+                .join(" ");
+            re.is_match(&phrase)
+        });
+
+        let Some(size) = matched else {
+            out.push(words[i].clone());
+            i += 1;
+            continue;
+        };
+
+        let tail = words[i + size - 1].trailing_punctuation();
+        if !tail.is_empty() {
+            if let Some(prev) = out.last_mut() {
+                prev.text =
+                    cleanup_punctuation(&format!("{}{tail}", prev.text));
+            }
+        }
+        i += size;
+    }
+
+    if let Some(first) = out.first_mut() {
+        first.text = drop_leading_punct(&first.text);
+    }
+    out.retain(|w| !w.text.is_empty());
+    out
 }
 
 fn cleanup_punctuation(text: &str) -> String {

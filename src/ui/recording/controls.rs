@@ -1,7 +1,7 @@
 use crate::application::i18n::t;
+use crate::application::transcribe_audio::transcribe_file;
 use crate::infrastructure::audio::{self, AudioRecorder, RecordingState};
 use crate::infrastructure::persistence::Database;
-use crate::infrastructure::transcription::TranscriptionClient;
 use crate::ui::icons::*;
 use crate::ui::recording::Waveform;
 use crate::ui::AppState;
@@ -25,35 +25,19 @@ fn spawn_transcription(
     generation: u64,
     gen_signal: Signal<u64>,
     cleanup: bool,
+    audio_id: Option<String>,
 ) {
     spawn(async move {
-        let client = match TranscriptionClient::from_db(&db) {
-            Ok(c) => c,
-            Err(e) => {
-                if cleanup {
-                    let _ = std::fs::remove_file(&path);
-                }
-                if gen_signal() == generation {
-                    state.set(RecordingState::Error(e));
-                }
-                return;
-            }
-        };
-        let result = client.transcribe(&path, None).await;
-        if cleanup {
-            let _ = std::fs::remove_file(&path);
+        let result = transcribe_file(&db, &path, cleanup).await;
+        if gen_signal() != generation {
+            return;
         }
         match result {
-            Ok(text) => {
-                if gen_signal() == generation {
-                    state.set(RecordingState::Transcribed(text));
-                }
-            }
-            Err(e) => {
-                if gen_signal() == generation {
-                    state.set(RecordingState::Error(e));
-                }
-            }
+            Ok(transcript) => state.set(RecordingState::Transcribed {
+                transcript,
+                audio_id,
+            }),
+            Err(e) => state.set(RecordingState::Error(e)),
         }
     });
 }
@@ -233,10 +217,14 @@ pub fn RecordingControls(
                         let dur = rec.duration_secs();
                         match rec.stop(&audio::output_dir()) {
                             Ok(path) => {
+                                // The clip's id is known here, the moment it is stored. Carrying it
+                                // through is what lets the word timings land on this exact clip
+                                // rather than on whichever one happens to be the note's last.
+                                let mut audio_id = None;
                                 if !transcribe_only {
                                     let filename = audio::audio_filename(&path.display().to_string());
                                     if let Some(ref nid) = (app.current_note_id)().filter(|id| !id.is_empty()) {
-                                        let _ = db().add_audio(nid, &filename, dur as f64);
+                                        audio_id = db().add_audio(nid, &filename, dur as f64).ok().map(|a| a.id);
                                         app.notes_version.set((app.notes_version)() + 1);
                                     }
                                     pending_audio.set(Some((filename, dur as f64)));
@@ -244,7 +232,7 @@ pub fn RecordingControls(
                                 let gen = transcription_gen() + 1;
                                 transcription_gen.set(gen);
                                 app.recording_state.set(RecordingState::Transcribing);
-                                spawn_transcription(path, db(), app.recording_state, gen, transcription_gen, transcribe_only);
+                                spawn_transcription(path, db(), app.recording_state, gen, transcription_gen, transcribe_only, audio_id);
                             }
                             Err(e) => {
                                 app.recording_state.set(RecordingState::Error(e));

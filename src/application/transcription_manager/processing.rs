@@ -4,8 +4,7 @@ use super::job::{
 };
 use crate::infrastructure::persistence::Database;
 use crate::infrastructure::transcription::{
-    clean_hesitations, SonioxClient, SttProvider, TranscriptionClient,
-    WhisperLocal,
+    SonioxClient, SttProvider, TranscriptionClient, WhisperLocal,
 };
 use std::sync::Mutex;
 use std::time::{Duration, SystemTime};
@@ -155,7 +154,7 @@ async fn process_soniox(
             return;
         }
         match client.check_status(&tr_id).await {
-            Ok(Some(text)) => {
+            Ok(Some(transcript)) => {
                 if let Some(fid) = &file_id {
                     let _ = client.delete_file(fid).await;
                 }
@@ -163,8 +162,7 @@ async fn process_soniox(
                 cleanup_file(&job.file_path);
                 // This path drives the raw Soniox calls to stay resumable, so it
                 // does not inherit the post-processing done inside `transcribe`.
-                let clean =
-                    client.dictionary().apply(&clean_hesitations(&text));
+                let clean = client.clean(transcript);
                 set_status(reg, note_id, &job.id, JobStatus::Done(clean));
                 return;
             }
