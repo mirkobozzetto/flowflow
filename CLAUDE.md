@@ -35,24 +35,24 @@ Mirko Bozzetto — freelance full-stack developer, Brussels.
 
 ## Tracks (indicative order, Mirko decides)
 
-| Track | Description | Status |
-|-------|-------------|--------|
-| A | Minimal Dioxus iOS scaffold (hello world on simulator) | Done |
-| B | Audio capture iOS mic (cpal + hound, save WAV) | Done |
-| C | Soniox REST (upload WAV → transcription) | Done |
-| D | SQLite storage + UI refactor + Tailwind | Done |
-| E | Embeddings + RAG + Chat + Settings + Tags | Done |
-| F | RIG framework + agent tools + multi-provider | Done |
-| G | Document attachments (TXT, MD, CSV, PDF, DOCX) | Done |
-| H | Pluggable STT providers + local Whisper models (RFC 0005) | Built - device validation pending |
+| Track | Description                                               | Status                            |
+| ----- | --------------------------------------------------------- | --------------------------------- |
+| A     | Minimal Dioxus iOS scaffold (hello world on simulator)    | Done                              |
+| B     | Audio capture iOS mic (cpal + hound, save WAV)            | Done                              |
+| C     | Soniox REST (upload WAV → transcription)                  | Done                              |
+| D     | SQLite storage + UI refactor + Tailwind                   | Done                              |
+| E     | Embeddings + RAG + Chat + Settings + Tags                 | Done                              |
+| F     | RIG framework + agent tools + multi-provider              | Done                              |
+| G     | Document attachments (TXT, MD, CSV, PDF, DOCX)            | Done                              |
+| H     | Pluggable STT providers + local Whisper models (RFC 0005) | Built - device validation pending |
 
 ### Track F Progress
 
-| Step | Description | Status |
-|------|-------------|--------|
-| 1 | RIG migration (LlmClient replaces OpenAIClient) | Done |
-| 2 | Agent tools + reqwest unification | Done |
-| 3 | Multi-provider (Anthropic) | Done |
+| Step | Description                                     | Status |
+| ---- | ----------------------------------------------- | ------ |
+| 1    | RIG migration (LlmClient replaces OpenAIClient) | Done   |
+| 2    | Agent tools + reqwest unification               | Done   |
+| 3    | Multi-provider (Anthropic)                      | Done   |
 
 ### Track F — Future
 
@@ -62,27 +62,27 @@ Mirko Bozzetto — freelance full-stack developer, Brussels.
 
 ### Track G Progress
 
-| Step | Description | Status |
-|------|-------------|--------|
-| 1 | SQLite V3 migration + Attachment model + repo | Done |
-| 2 | Attachment cards UI in NoteDetail + modal viewer | Done |
-| 3 | Native iOS file picker (UIDocumentPickerViewController) | Done |
-| 4 | PDF parsing via pdf-extract | Done |
-| 5 | DOCX parsing via zip + quick-xml | Done |
-| 6 | Auto-embed attachments on import (chunked, scheme `att:{id}:{idx}`) | Done |
-| 7 | Tests (migration V3, CRUD, cascade delete, DOCX, PDF crate) | Done |
+| Step | Description                                                         | Status |
+| ---- | ------------------------------------------------------------------- | ------ |
+| 1    | SQLite V3 migration + Attachment model + repo                       | Done   |
+| 2    | Attachment cards UI in NoteDetail + modal viewer                    | Done   |
+| 3    | Native iOS file picker (UIDocumentPickerViewController)             | Done   |
+| 4    | PDF parsing via pdf-extract                                         | Done   |
+| 5    | DOCX parsing via zip + quick-xml                                    | Done   |
+| 6    | Auto-embed attachments on import (chunked, scheme `att:{id}:{idx}`) | Done   |
+| 7    | Tests (migration V3, CRUD, cascade delete, DOCX, PDF crate)         | Done   |
 
 ### Track E Progress
 
-| Step | Description | Status |
-|------|-------------|--------|
-| 1 | OpenAI client (embed + chat + chunking) | Done |
-| 2 | LanceDB VectorStore (store, search, delete) | Done |
-| 3 | Auto-embed on note save (validated on iPhone) | Done |
-| 4 | Settings UI for API keys (in-app, SQLite) | Done |
-| 5 | Tags UI on NoteDetail (chips, add/remove, LLM auto-gen) | Done |
-| 6 | Chat UI + RAG pipeline (search → context → response) | Done |
-| 7 | Chat history persistence (SQLite, sidebar tabs, CRUD) | Done |
+| Step | Description                                             | Status |
+| ---- | ------------------------------------------------------- | ------ |
+| 1    | OpenAI client (embed + chat + chunking)                 | Done   |
+| 2    | LanceDB VectorStore (store, search, delete)             | Done   |
+| 3    | Auto-embed on note save (validated on iPhone)           | Done   |
+| 4    | Settings UI for API keys (in-app, SQLite)               | Done   |
+| 5    | Tags UI on NoteDetail (chips, add/remove, LLM auto-gen) | Done   |
+| 6    | Chat UI + RAG pipeline (search → context → response)    | Done   |
+| 7    | Chat history persistence (SQLite, sidebar tabs, CRUD)   | Done   |
 
 ## Architecture (Clean Architecture, SRP — 202 modules, 4 layers)
 
@@ -140,22 +140,26 @@ src/
 ## Data Entities
 
 ### Note (global entity — voice and text are input modes, not types)
+
 - id (UUID), note_type (voice/text), title, content, tags[], duration, audio_file_path
 - Auto-titled with date+time when created on the fly
 - Speech-to-text available from any note
 - Embedding: auto-embedded on save (>50 chars) → chunked → OpenAI → LanceDB
 
 ### Folder (hierarchy)
+
 - id, name, description, parent_id (self-ref), created_at
 - N:N relation with Note via junction table (notes_folders)
 - ON DELETE SET NULL for parent (children become root)
 
 ### Conversation (chat history)
+
 - id (UUID), title (auto from first question, 50 chars), created_at, modified_at
 - Messages: id, conversation_id (FK CASCADE), role (user/bot), content, sources_json
 - Sidebar tabs Notes/Chats with rename/delete (same UX as folders)
 
 ### Attachment (imported document linked to a note)
+
 - id (UUID), note_id (FK CASCADE on parent note), filename, content_text, imported_at
 - Stored in SQLite (V3 migration), one-to-many with Note via `attachments.note_id`
 - Auto-embedded on import (>50 chars) → chunked → OpenAI → LanceDB
@@ -164,6 +168,7 @@ src/
 - CASCADE delete on parent note removal
 
 ### Settings (key-value)
+
 - key (PK), value — stores API keys and `llm_provider` in SQLite
 - Known keys: `openai_api_key`, `anthropic_api_key`, `soniox_api_key`, `llm_provider` (openai/anthropic), `stt_provider` (soniox/whisper_local), `whisper_model` (catalog id)
 - Fallback chain: DB → env var → compile-time `option_env!()`
@@ -260,7 +265,7 @@ ANTHROPIC_API_KEY=your_anthropic_api_key
 Keys can be set in-app (Settings view → saved in SQLite) or via `.env` at compile time.
 Fallback chain: SQLite settings → env var → `option_env!()` compile-time.
 OpenAI key is always required (used for embeddings). Anthropic key is required only when Provider is set to Anthropic in Settings.
-Soniox: https://console.soniox.com — OpenAI: https://platform.openai.com/api-keys — Anthropic: https://console.anthropic.com
+Soniox: <https://console.soniox.com> — OpenAI: <https://platform.openai.com/api-keys> — Anthropic: <https://console.anthropic.com>
 
 ### Manual commands (if needed)
 
@@ -287,7 +292,7 @@ xcrun devicectl manage pair --device <DEVICE_ID>
 7. Create provisioning profile (required for free Apple account):
    WORKAROUND: this method is cumbersome. Looking for a simpler approach.
    No existing Dioxus issue on this — worth opening one if dx doesn't improve this.
-   Ref: https://github.com/DioxusLabs/dioxus/issues/3817 (related App Store issue)
+   Ref: <https://github.com/DioxusLabs/dioxus/issues/3817> (related App Store issue)
    For now, create a TEMPORARY Swift/SwiftUI project in Xcode:
    - Xcode → File → New → Project → iOS → App
    - Product Name: `flowflow`, Organization Identifier: `com.mirkobozzetto`, Team: Personal Team
@@ -297,8 +302,8 @@ xcrun devicectl manage pair --device <DEVICE_ID>
    - Cmd+R to build — Xcode creates the provisioning profile automatically
    - Trust the dev profile on iPhone: Settings → General → VPN & Device Management → Trust
    - Close the Xcode project (profile stays in ~/Library/Developer/Xcode/UserData/Provisioning Profiles/)
-   The profile is tied to the bundle ID (com.mirkobozzetto.flowflow), not the language.
-   Once created, delete the Xcode project — the profile persists and `dx serve` uses it for the Rust app.
+     The profile is tied to the bundle ID (com.mirkobozzetto.flowflow), not the language.
+     Once created, delete the Xcode project — the profile persists and `dx serve` uses it for the Rust app.
 8. After first pairing, Wi-Fi works (same network)
 
 ## References
@@ -310,7 +315,7 @@ xcrun devicectl manage pair --device <DEVICE_ID>
 <!-- gitnexus:start -->
 # GitNexus — Code Intelligence
 
-This project is indexed by GitNexus as **flowflow** (4793 symbols, 12001 relationships, 300 execution flows). Use the GitNexus MCP tools to understand code, assess impact, and navigate safely.
+This project is indexed by GitNexus as **flowflow** (4865 symbols, 12149 relationships, 300 execution flows). Use the GitNexus MCP tools to understand code, assess impact, and navigate safely.
 
 > Index stale? Run `node .gitnexus/run.cjs analyze` from the project root — it auto-selects an available runner. No `.gitnexus/run.cjs` yet? `npx gitnexus analyze` (npm 11 crash → `npm i -g gitnexus`; #1939).
 
