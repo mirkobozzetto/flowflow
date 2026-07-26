@@ -4,7 +4,7 @@ use crate::application::constants::{
     RAG_RELEVANCE_FLOOR, RRF_K, RRF_LOCAL_WEIGHT, RRF_WEB_WEIGHT,
 };
 use crate::application::tools::{prompt_agent_with_tools, ToolEvent};
-use crate::infrastructure::llm::LlmClient;
+use crate::infrastructure::llm::{LlmClient, NotesTools};
 use crate::infrastructure::persistence::Database;
 use crate::infrastructure::vectordb::{SearchResult, SourceType, VectorStore};
 use std::collections::HashSet;
@@ -469,9 +469,16 @@ pub async fn query(
         RAG_AGENT_SYSTEM_PROMPT
     };
     let agent_timer = StepTimer::start("agent", Some(ai.chat_model_name()));
-    let answer =
-        prompt_agent_with_tools(ai, system_prompt, &user_msg, status_tx)
-            .await?;
+    // Same perimeter as the initial retrieval: inside a folder or a thread, the
+    // agent's own re-search must not reach past what the user narrowed to.
+    let answer = prompt_agent_with_tools(
+        ai,
+        system_prompt,
+        &user_msg,
+        status_tx,
+        NotesTools::from_allowed(allowed_note_ids.as_deref()),
+    )
+    .await?;
     agent_timer.finish(
         &mut rag_trace,
         Some(estimate_tokens(&user_msg)),
@@ -509,11 +516,14 @@ pub async fn run_action(
     status_tx: Option<mpsc::UnboundedSender<ToolEvent>>,
 ) -> Result<RagResponse, String> {
     let ai = Arc::new(LlmClient::from_env()?);
+    // A note action is global by construction: it is triggered from one note and
+    // may create or summarize anywhere.
     let answer = prompt_agent_with_tools(
         ai,
         crate::application::constants::NOTE_ACTION_PROMPT,
         question,
         status_tx,
+        NotesTools::Global,
     )
     .await
     .map_err(|e| e.to_string())?;

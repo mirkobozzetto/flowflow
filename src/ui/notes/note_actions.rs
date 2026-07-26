@@ -109,6 +109,7 @@ pub fn NoteActions(
                                         NOTE_ACTION_PROMPT,
                                         &c,
                                         None,
+                                        crate::infrastructure::llm::NotesTools::Global,
                                     )
                                     .await
                                     .map_err(|e| e.to_string())

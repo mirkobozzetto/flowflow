@@ -17,7 +17,7 @@ use crate::domain::governance::{
     ConnectorManifest, Decision, DenyReason, Governance, ProposedCall,
     RunState,
 };
-use crate::infrastructure::llm::LlmClient;
+use crate::infrastructure::llm::{LlmClient, NotesTools};
 use rig::agent::{HookAction, PromptHook, ToolCallHookAction};
 use rig::completion::CompletionModel;
 use std::collections::BTreeSet;
@@ -928,12 +928,14 @@ pub async fn prompt_agent_with_tools(
     preamble: &str,
     user_message: &str,
     status_tx: Option<mpsc::UnboundedSender<ToolEvent>>,
+    notes_tools: NotesTools,
 ) -> Result<String, crate::application::error::LlmError> {
     crate::application::chat_surface::prompt_chat_agent(
         llm,
         preamble,
         user_message,
         status_tx,
+        notes_tools,
     )
     .await
 }

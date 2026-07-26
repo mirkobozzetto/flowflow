@@ -101,6 +101,7 @@ async fn test_anthropic_agent_with_tools_real() {
             "Tu es un assistant qui répond brièvement en français.",
             "Bonjour, peux-tu juste dire 'pong' ?",
             None,
+            flowflow::infrastructure::llm::NotesTools::Global,
         )
         .await
         .expect("anthropic agent prompt should succeed");

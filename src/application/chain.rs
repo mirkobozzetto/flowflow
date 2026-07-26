@@ -8,7 +8,7 @@ use crate::application::error::LlmError;
 use crate::application::tools::ContractHook;
 use crate::domain::orchestration::{Chain, Guard};
 use crate::infrastructure::backend::BackendClient;
-use crate::infrastructure::llm::{resolve_chat_model, LlmClient};
+use crate::infrastructure::llm::{resolve_chat_model, LlmClient, NotesTools};
 use crate::infrastructure::mcp::McpRegistry;
 use crate::infrastructure::persistence::Database;
 use tokio::sync::mpsc;
@@ -169,7 +169,7 @@ pub async fn run_chain(
                 model,
                 &preamble,
                 &format!("Goal: {goal}"),
-                false,
+                NotesTools::None,
                 Some((avail, reg.peer())),
                 hook,
                 0.0,
