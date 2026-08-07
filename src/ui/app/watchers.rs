@@ -1,5 +1,6 @@
+use crate::application::note_persistence::append_transcription_to_note;
 use crate::application::transcription_manager::{
-    append_transcription_to_note, JobStatus, TranscriptionManager,
+    JobStatus, TranscriptionManager,
 };
 use crate::infrastructure::persistence::Database;
 use crate::infrastructure::sync::engine::SyncEngine;
@@ -33,19 +34,26 @@ pub fn use_transcription_watcher(
                     );
                     let is_open = viewing_note
                         && current.as_deref() == Some(note_id.as_str());
-                    if is_done && !is_open {
-                        if let Some(transcript) = manager.take_done(note_id) {
-                            append_transcription_to_note(
-                                &db,
-                                note_id,
-                                &transcript.text(),
-                            );
-                            app.notes_version.set((app.notes_version)() + 1);
-                            app.transcription_done_badge
-                                .set((app.transcription_done_badge)() + 1);
-                            engine.peek().schedule_debounced();
-                        }
+                    if !is_done || is_open {
+                        continue;
                     }
+                    let Some((transcript, audio_id)) =
+                        manager.take_done(note_id)
+                    else {
+                        continue;
+                    };
+                    if let Some(aid) = &audio_id {
+                        let _ = db.set_audio_transcript(aid, &transcript);
+                    }
+                    append_transcription_to_note(
+                        &db,
+                        note_id,
+                        &transcript.text(),
+                    );
+                    app.notes_version.set((app.notes_version)() + 1);
+                    app.transcription_done_badge
+                        .set((app.transcription_done_badge)() + 1);
+                    engine.peek().schedule_debounced();
                 }
                 futures_timer::Delay::new(std::time::Duration::from_millis(
                     700,

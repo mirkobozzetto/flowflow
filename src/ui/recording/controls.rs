@@ -1,5 +1,6 @@
 use crate::application::i18n::t;
 use crate::application::transcribe_audio::transcribe_file;
+use crate::application::transcription_manager::TranscriptionManager;
 use crate::infrastructure::audio::{self, AudioRecorder, RecordingState};
 use crate::infrastructure::persistence::Database;
 use crate::ui::icons::*;
@@ -18,25 +19,25 @@ fn now_ms() -> u64 {
         .as_millis() as u64
 }
 
+/// Dictation only: the transcript goes back through `RecordingState` to
+/// whatever input field is listening, and the file is always disposable. A kept
+/// recording takes the durable `TranscriptionManager` path instead.
 fn spawn_transcription(
     path: PathBuf,
     db: Arc<Database>,
     mut state: Signal<RecordingState>,
     generation: u64,
     gen_signal: Signal<u64>,
-    cleanup: bool,
-    audio_id: Option<String>,
 ) {
     spawn(async move {
-        let result = transcribe_file(&db, &path, cleanup).await;
+        let result = transcribe_file(&db, &path, true).await;
         if gen_signal() != generation {
             return;
         }
         match result {
-            Ok(transcript) => state.set(RecordingState::Transcribed {
-                transcript,
-                audio_id,
-            }),
+            Ok(transcript) => {
+                state.set(RecordingState::Transcribed { transcript })
+            }
             Err(e) => state.set(RecordingState::Error(e)),
         }
     });
@@ -63,6 +64,7 @@ pub fn RecordingControls(
     let mut app: AppState = use_context();
     let recorder: Signal<Arc<Mutex<AudioRecorder>>> = use_context();
     let db: Signal<Arc<Database>> = use_context();
+    let manager: TranscriptionManager = use_context();
     let mut duration = use_signal(|| 0.0f32);
     let mut last_tap_ms = use_signal(|| 0u64);
     let mut transcription_gen = use_signal(|| 0u64);
@@ -217,22 +219,30 @@ pub fn RecordingControls(
                         let dur = rec.duration_secs();
                         match rec.stop(&audio::output_dir()) {
                             Ok(path) => {
-                                // The clip's id is known here, the moment it is stored. Carrying it
-                                // through is what lets the word timings land on this exact clip
-                                // rather than on whichever one happens to be the note's last.
-                                let mut audio_id = None;
-                                if !transcribe_only {
-                                    let filename = audio::audio_filename(&path.display().to_string());
-                                    if let Some(ref nid) = (app.current_note_id)().filter(|id| !id.is_empty()) {
-                                        audio_id = db().add_audio(nid, &filename, dur as f64).ok().map(|a| a.id);
-                                        app.notes_version.set((app.notes_version)() + 1);
-                                    }
-                                    pending_audio.set(Some((filename, dur as f64)));
+                                if transcribe_only {
+                                    let gen = transcription_gen() + 1;
+                                    transcription_gen.set(gen);
+                                    app.recording_state.set(RecordingState::Transcribing);
+                                    spawn_transcription(
+                                        path, db(), app.recording_state, gen, transcription_gen,
+                                    );
+                                    return;
                                 }
-                                let gen = transcription_gen() + 1;
-                                transcription_gen.set(gen);
-                                app.recording_state.set(RecordingState::Transcribing);
-                                spawn_transcription(path, db(), app.recording_state, gen, transcription_gen, transcribe_only, audio_id);
+                                // The clip's id is known here, the moment it is stored. Carrying
+                                // it through the job is what lets the word timings land on this
+                                // exact clip rather than on whichever one happens to be last.
+                                let filename = audio::audio_filename(&path.display().to_string());
+                                if let Some(nid) = (app.current_note_id)().filter(|id| !id.is_empty()) {
+                                    if let Ok(audio) = db().add_audio(&nid, &filename, dur as f64) {
+                                        app.notes_version.set((app.notes_version)() + 1);
+                                        manager.enqueue(nid, path, Some(audio.id));
+                                    }
+                                }
+                                // `AudioJobBanner` is the progress UI from here on; leaving
+                                // `Transcribing` set would freeze the recording bar, since
+                                // nothing clears it on this path any more.
+                                pending_audio.set(Some((filename, dur as f64)));
+                                app.recording_state.set(RecordingState::Idle);
                             }
                             Err(e) => {
                                 app.recording_state.set(RecordingState::Error(e));

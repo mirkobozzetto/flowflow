@@ -1,47 +1,23 @@
-use crate::application::note_persistence::persist_last_transcription;
+use crate::application::embed::embed_note;
+use crate::application::note_persistence::commit_transcription;
 use crate::application::transcription_manager::TranscriptionManager;
-use crate::infrastructure::audio::RecordingState;
 use crate::infrastructure::persistence::Database;
+use crate::infrastructure::sync::engine::SyncEngine;
 use crate::ui::AppState;
 use dioxus::prelude::*;
 use std::sync::Arc;
 
+#[allow(clippy::too_many_arguments)]
 pub fn use_transcription_sink(
     mut app: AppState,
     db: Signal<Arc<Database>>,
+    engine: Signal<Arc<SyncEngine>>,
     manager: TranscriptionManager,
     mut content: Signal<String>,
+    mut base_content: Signal<String>,
     local_note_id: Signal<String>,
     mut audios_version: Signal<u32>,
 ) {
-    use_effect(move || {
-        if let RecordingState::Transcribed {
-            transcript,
-            audio_id,
-        } = (app.recording_state)()
-        {
-            let text = transcript.text();
-            let current = content();
-            if current.is_empty() {
-                content.set(text.clone());
-            } else {
-                content.set(format!("{}\n{}", current, text));
-            }
-            let id = local_note_id();
-            if !id.is_empty()
-                && persist_last_transcription(
-                    &db(),
-                    &id,
-                    &transcript,
-                    audio_id.as_deref(),
-                )
-            {
-                audios_version.set(audios_version() + 1);
-            }
-            app.recording_state.set(RecordingState::Idle);
-        }
-    });
-
     let observe_manager = manager.clone();
     use_effect(move || {
         let _ = (app.transcription_jobs)();
@@ -49,18 +25,27 @@ pub fn use_transcription_sink(
         if nid.is_empty() {
             return;
         }
-        // An imported file leaves no `note_audios` row behind, so its words have
-        // nothing to anchor to and only the text is kept.
-        if let Some(transcript) = observe_manager.take_done(&nid) {
-            let text = transcript.text();
-            let cur = content.peek().clone();
-            if cur.is_empty() {
-                content.set(text);
-            } else {
-                content.set(format!("{cur}\n{text}"));
-            }
-            app.transcription_jobs.set(observe_manager.snapshot());
+        let Some((transcript, audio_id)) = observe_manager.take_done(&nid)
+        else {
+            return;
+        };
+        // A recording anchors its word timings to its own clip; an import has
+        // no `note_audios` row, so only its text is kept.
+        if let Some(aid) = &audio_id {
+            let _ = db().set_audio_transcript(aid, &transcript);
+            audios_version.set(audios_version() + 1);
         }
+        let current = content.peek().clone();
+        if let Some(c) =
+            commit_transcription(&db(), &nid, &current, &transcript.text())
+        {
+            content.set(c.merged.clone());
+            base_content.set(c.merged.clone());
+            embed_note(nid.clone(), c.title, c.merged, c.tags, c.created_at);
+            app.notes_version.set((app.notes_version)() + 1);
+            engine.peek().schedule_debounced();
+        }
+        app.transcription_jobs.set(observe_manager.snapshot());
     });
 
     use_effect(move || {

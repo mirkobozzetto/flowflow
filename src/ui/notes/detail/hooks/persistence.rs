@@ -55,7 +55,9 @@ pub fn use_save_on_drop(
             }
             let (saved_id, saved_created_at) = if nid.is_empty() {
                 match create_note(&db, &t, &c, tags(), folder.as_deref(), pa) {
-                    Some(created) => (Some(created.id), created.created_at),
+                    Some((created, _)) => {
+                        (Some(created.id), created.created_at)
+                    }
                     None => (None, String::new()),
                 }
             } else {
@@ -64,7 +66,7 @@ pub fn use_save_on_drop(
                 (Some(nid.clone()), ca)
             };
             app.notes_version.set((app.notes_version)() + 1);
-            if let Some(ref id) = saved_id {
+            if let Some(id) = &saved_id {
                 embed_note(
                     id.clone(),
                     t.clone(),

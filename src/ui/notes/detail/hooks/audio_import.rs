@@ -60,7 +60,8 @@ pub fn use_audio_import(
                     current
                 }
             };
-            manager.enqueue(target_id, path);
+            // An imported file is not a kept clip: no `note_audios` row.
+            manager.enqueue(target_id, path, None);
         });
     });
 }

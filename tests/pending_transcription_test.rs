@@ -50,7 +50,7 @@ fn test_migration_v8_columns() {
 fn test_migration_v11_old_rows_read_with_default_provider() {
     let (db, _dir) = open_test_db();
 
-    db.add_pending_transcription("note-old", "tr-old", Some("file-old"))
+    db.add_pending_transcription("note-old", "tr-old", Some("file-old"), None)
         .expect("add");
     let rows = db.list_pending_transcriptions();
     assert_eq!(rows[0].provider, "soniox");
@@ -61,7 +61,7 @@ fn test_migration_v11_old_rows_read_with_default_provider() {
 fn test_local_pending_roundtrip() {
     let (db, _dir) = open_test_db();
 
-    db.add_pending_local_transcription("note-l", "/tmp/audio.wav")
+    db.add_pending_local_transcription("note-l", "/tmp/audio.wav", None)
         .expect("add local");
     let rows = db.list_pending_transcriptions();
     assert_eq!(rows.len(), 1);
@@ -70,7 +70,7 @@ fn test_local_pending_roundtrip() {
     assert_eq!(rows[0].soniox_file_id, None);
     assert_eq!(rows[0].file_path.as_deref(), Some("/tmp/audio.wav"));
 
-    db.add_pending_transcription("note-l", "tr-x", None)
+    db.add_pending_transcription("note-l", "tr-x", None, None)
         .expect("upsert to soniox");
     let rows = db.list_pending_transcriptions();
     assert_eq!(rows.len(), 1);
@@ -82,9 +82,9 @@ fn test_local_pending_roundtrip() {
 fn test_pending_transcription_crud() {
     let (db, _dir) = open_test_db();
 
-    db.add_pending_transcription("note-1", "tr-1", Some("file-1"))
+    db.add_pending_transcription("note-1", "tr-1", Some("file-1"), None)
         .expect("add");
-    db.add_pending_transcription("note-2", "tr-2", None)
+    db.add_pending_transcription("note-2", "tr-2", None, None)
         .expect("add none");
 
     let rows = db.list_pending_transcriptions();
@@ -107,9 +107,9 @@ fn test_pending_transcription_crud() {
 fn test_pending_transcription_upsert_replaces() {
     let (db, _dir) = open_test_db();
 
-    db.add_pending_transcription("note-1", "tr-old", Some("file-old"))
+    db.add_pending_transcription("note-1", "tr-old", Some("file-old"), None)
         .expect("add");
-    db.add_pending_transcription("note-1", "tr-new", Some("file-new"))
+    db.add_pending_transcription("note-1", "tr-new", Some("file-new"), None)
         .expect("upsert");
 
     let rows = db.list_pending_transcriptions();

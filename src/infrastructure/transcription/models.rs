@@ -36,7 +36,7 @@ pub fn start_background_download(dir: PathBuf, id: &'static str) {
         rt.block_on(async move {
             let mut last_pct = 0u64;
             let result = download(&dir, id, |done, total| {
-                let pct = if total > 0 { done * 100 / total } else { 0 };
+                let pct = (done * 100).checked_div(total).unwrap_or(0);
                 if pct != last_pct || done >= total {
                     last_pct = pct;
                     *DOWNLOAD_PROGRESS.lock().unwrap() =

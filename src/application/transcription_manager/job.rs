@@ -22,6 +22,10 @@ pub struct Job {
     pub provider: SttProvider,
     pub transcription_id: Option<String>,
     pub soniox_file_id: Option<String>,
+    /// The recorded clip this job transcribes. `Some` means the file on disk is
+    /// the user's kept recording: it must survive the job, and its word timings
+    /// have a row to be written to. `None` is an import.
+    pub audio_id: Option<String>,
 }
 
 #[derive(Default)]

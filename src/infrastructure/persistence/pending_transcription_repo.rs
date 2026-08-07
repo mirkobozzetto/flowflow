@@ -6,6 +6,9 @@ pub struct PendingTranscription {
     pub soniox_file_id: Option<String>,
     pub provider: String,
     pub file_path: Option<String>,
+    /// The recorded clip this job belongs to. `None` for an import, which has
+    /// no `note_audios` row to anchor word timings to.
+    pub audio_id: Option<String>,
 }
 
 impl Database {
@@ -14,19 +17,26 @@ impl Database {
         note_id: &str,
         transcription_id: &str,
         soniox_file_id: Option<&str>,
+        audio_id: Option<&str>,
     ) -> Result<(), String> {
         let conn = self.conn();
         conn.execute(
             "INSERT INTO pending_transcriptions
                 (note_id, transcription_id, soniox_file_id, provider,
-                 file_path)
-             VALUES (?1, ?2, ?3, 'soniox', NULL)
+                 file_path, audio_id)
+             VALUES (?1, ?2, ?3, 'soniox', NULL, ?4)
              ON CONFLICT(note_id) DO UPDATE SET
                 transcription_id = excluded.transcription_id,
                 soniox_file_id = excluded.soniox_file_id,
                 provider = excluded.provider,
-                file_path = excluded.file_path",
-            rusqlite::params![note_id, transcription_id, soniox_file_id],
+                file_path = excluded.file_path,
+                audio_id = excluded.audio_id",
+            rusqlite::params![
+                note_id,
+                transcription_id,
+                soniox_file_id,
+                audio_id
+            ],
         )
         .map_err(|e| format!("Add pending transcription: {e}"))?;
         Ok(())
@@ -36,19 +46,21 @@ impl Database {
         &self,
         note_id: &str,
         file_path: &str,
+        audio_id: Option<&str>,
     ) -> Result<(), String> {
         let conn = self.conn();
         conn.execute(
             "INSERT INTO pending_transcriptions
                 (note_id, transcription_id, soniox_file_id, provider,
-                 file_path)
-             VALUES (?1, NULL, NULL, 'whisper_local', ?2)
+                 file_path, audio_id)
+             VALUES (?1, NULL, NULL, 'whisper_local', ?2, ?3)
              ON CONFLICT(note_id) DO UPDATE SET
                 transcription_id = excluded.transcription_id,
                 soniox_file_id = excluded.soniox_file_id,
                 provider = excluded.provider,
-                file_path = excluded.file_path",
-            rusqlite::params![note_id, file_path],
+                file_path = excluded.file_path,
+                audio_id = excluded.audio_id",
+            rusqlite::params![note_id, file_path, audio_id],
         )
         .map_err(|e| format!("Add pending local transcription: {e}"))?;
         Ok(())
@@ -58,7 +70,7 @@ impl Database {
         let conn = self.conn();
         let mut stmt = match conn.prepare(
             "SELECT note_id, transcription_id, soniox_file_id, provider,
-                    file_path
+                    file_path, audio_id
              FROM pending_transcriptions",
         ) {
             Ok(s) => s,
@@ -71,6 +83,7 @@ impl Database {
                 soniox_file_id: row.get(2)?,
                 provider: row.get(3)?,
                 file_path: row.get(4)?,
+                audio_id: row.get(5)?,
             })
         })
         .map(|rows| rows.flatten().collect())

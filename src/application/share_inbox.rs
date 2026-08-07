@@ -86,7 +86,7 @@ fn import_shared_file(
     };
     // Same shape as the paperclip import: a carrier note + the document as
     // an attachment with its own chunked embeddings.
-    let Some(note) = create_note(db, display_name, "", vec![], None, None)
+    let Some((note, _)) = create_note(db, display_name, "", vec![], None, None)
     else {
         return false;
     };
@@ -113,7 +113,8 @@ fn import_shared_file(
 }
 
 fn import_text_note(db: &Database, content: &str) -> bool {
-    let Some(note) = create_note(db, "", content, vec![], None, None) else {
+    let Some((note, _)) = create_note(db, "", content, vec![], None, None)
+    else {
         return false;
     };
     embed_note(
@@ -225,7 +226,7 @@ async fn import_url_note(db: &Database, url: &str, fetch_title: bool) -> bool {
         .or_else(|| body.as_deref().and_then(extract_title))
         .unwrap_or_else(|| url_domain(url));
 
-    let Some(note) = create_note(db, &note_title, url, vec![], None, None)
+    let Some((note, _)) = create_note(db, &note_title, url, vec![], None, None)
     else {
         return false;
     };

@@ -373,7 +373,7 @@ fn WhisperModelsSection() -> Element {
                                         {
                                             let (_, done, total) = dl_state.clone().unwrap();
                                             let verifying = total > 0 && done >= total;
-                                            let pct = if total > 0 { done * 100 / total } else { 0 };
+                                            let pct = (done * 100).checked_div(total).unwrap_or(0);
                                             let label = if verifying {
                                                 t(&lang, "whisper-verifying")
                                             } else {
@@ -426,7 +426,7 @@ fn WhisperModelsSection() -> Element {
                                 if is_downloading_this {
                                     {
                                         let (_, done, total) = dl_state.clone().unwrap();
-                                        let pct = if total > 0 { done * 100 / total } else { 0 };
+                                        let pct = (done * 100).checked_div(total).unwrap_or(0);
                                         rsx! {
                                             div { class: "h-1.5 bg-stone-100 rounded-full overflow-hidden",
                                                 div {

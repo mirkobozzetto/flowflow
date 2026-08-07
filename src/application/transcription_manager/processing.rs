@@ -57,8 +57,11 @@ async fn process_local(
         );
         return;
     }
-    let _ =
-        db.add_pending_local_transcription(note_id, &path.to_string_lossy());
+    let _ = db.add_pending_local_transcription(
+        note_id,
+        &path.to_string_lossy(),
+        job.audio_id.as_deref(),
+    );
     set_status(reg, note_id, &job.id, JobStatus::Polling { elapsed_s: 0 });
     let started = SystemTime::now();
     let fut = whisper.transcribe(&path, None);
@@ -69,7 +72,12 @@ async fn process_local(
                 let _ = db.delete_pending_transcription(note_id);
                 match res {
                     Ok(text) => {
-                        cleanup_file(&path);
+                        // A clip with a `note_audios` row is the user's kept
+                        // recording: deleting it would break the player and
+                        // the retranscribe button.
+                        if job.audio_id.is_none() {
+                            cleanup_file(&path);
+                        }
                         set_status(
                             reg,
                             note_id,
@@ -124,7 +132,12 @@ async fn process_soniox(
         Some(tid) => (tid, job.soniox_file_id.clone()),
         None => match client.start_transcription(&job.file_path, None).await {
             Ok((tid, fid)) => {
-                let _ = db.add_pending_transcription(note_id, &tid, Some(&fid));
+                let _ = db.add_pending_transcription(
+                    note_id,
+                    &tid,
+                    Some(&fid),
+                    job.audio_id.as_deref(),
+                );
                 set_transcription_ids(reg, note_id, &job.id, &tid, &fid);
                 (tid, Some(fid))
             }
@@ -159,7 +172,9 @@ async fn process_soniox(
                     let _ = client.delete_file(fid).await;
                 }
                 let _ = db.delete_pending_transcription(note_id);
-                cleanup_file(&job.file_path);
+                if job.audio_id.is_none() {
+                    cleanup_file(&job.file_path);
+                }
                 // This path drives the raw Soniox calls to stay resumable, so it
                 // does not inherit the post-processing done inside `transcribe`.
                 let clean = client.clean(transcript);

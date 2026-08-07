@@ -1,6 +1,11 @@
-use crate::domain::{NewTextNote, Note, Transcript, UpdateNote};
+use crate::domain::{
+    merge_transcript_into_body, NewTextNote, Note, UpdateNote,
+};
 use crate::infrastructure::persistence::Database;
 
+/// Returns the created note and, when a clip was attached, its `note_audios`
+/// id - the caller needs it to enqueue a transcription against this exact clip
+/// rather than guessing "the note's last audio".
 pub fn create_note(
     db: &Database,
     title: &str,
@@ -8,7 +13,7 @@ pub fn create_note(
     tags: Vec<String>,
     folder_id: Option<&str>,
     audio: Option<(String, f64)>,
-) -> Option<Note> {
+) -> Option<(Note, Option<String>)> {
     let new = NewTextNote {
         title: if title.is_empty() {
             None
@@ -22,10 +27,10 @@ pub fn create_note(
     if let Some(fid) = folder_id {
         let _ = db.add_note_to_folder(&created.id, fid);
     }
-    if let Some((path, dur)) = audio {
-        let _ = db.add_audio(&created.id, &path, dur);
-    }
-    Some(created)
+    let audio_id = audio
+        .and_then(|(path, dur)| db.add_audio(&created.id, &path, dur).ok())
+        .map(|a| a.id);
+    Some((created, audio_id))
 }
 
 pub fn update_note(
@@ -55,32 +60,65 @@ pub fn update_note(
         .unwrap_or_default()
 }
 
-/// The single place a transcription reaches `note_audios`, text and word timings
-/// together.
+/// What a committed transcript leaves the caller: the merged body to show, and
+/// the note fields `embed_note` needs, so no caller re-reads the row.
+pub struct CommittedBody {
+    pub merged: String,
+    pub title: String,
+    pub tags: Vec<String>,
+    pub created_at: String,
+}
+
+/// The single path a transcript takes into `notes.content`.
 ///
-/// `audio_id` names the clip when the caller knows it - which the recording path
-/// does, since the row is created the moment recording stops. Falling back to
-/// "the last audio of this note" is the pre-existing inference, kept only for
-/// callers that genuinely have no id to give.
-pub fn persist_last_transcription(
+/// `current_body` is the editor's live value when a note is open, the stored
+/// body otherwise. `None` means nothing was written - blank transcript, or the
+/// note is gone.
+///
+/// Re-embedding is the caller's job. `embed_note` detaches an OS thread that
+/// opens the app-wide `Database` on its own, so keeping it out of here is what
+/// makes this function hermetic and testable against a temp DB; the returned
+/// `CommittedBody` carries everything `embed_note` asks for.
+pub fn commit_transcription(
     db: &Database,
     note_id: &str,
-    transcript: &Transcript,
-    audio_id: Option<&str>,
-) -> bool {
-    let target = match audio_id {
-        Some(id) => db
-            .list_audios(note_id)
-            .ok()
-            .and_then(|a| a.into_iter().find(|audio| audio.id == id)),
-        None => db.list_audios(note_id).ok().and_then(|a| a.last().cloned()),
+    current_body: &str,
+    text: &str,
+) -> Option<CommittedBody> {
+    let merged = merge_transcript_into_body(current_body, text)?;
+    let note = db.get_note(note_id).ok().flatten()?;
+    db.update_note(
+        note_id,
+        &UpdateNote {
+            title: None,
+            content: Some(merged.clone()),
+            tags: None,
+        },
+    )
+    .ok()?;
+    Some(CommittedBody {
+        merged,
+        title: note.title.unwrap_or_default(),
+        tags: note.tags,
+        created_at: note.created_at,
+    })
+}
+
+/// `commit_transcription` for callers with no open editor: the stored body is
+/// the current one. This one owns its re-embedding, since it has no UI to hand
+/// the `CommittedBody` back to.
+pub fn append_transcription_to_note(db: &Database, note_id: &str, text: &str) {
+    let Ok(Some(note)) = db.get_note(note_id) else {
+        return;
     };
-    let Some(target) = target else {
-        return false;
+    let Some(c) = commit_transcription(db, note_id, &note.content, text) else {
+        return;
     };
-    if target.transcription.is_some() {
-        return false;
-    }
-    let _ = db.set_audio_transcript(&target.id, transcript);
-    true
+    crate::application::embed::embed_note(
+        note_id.to_string(),
+        c.title,
+        c.merged,
+        c.tags,
+        c.created_at,
+    );
 }

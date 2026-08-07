@@ -15,8 +15,8 @@ pub use conversation::*;
 pub use dictionary::{Dictionary, DictionaryEntry};
 pub use folder::*;
 pub use note::{
-    generate_auto_title, is_auto_title, NewTextNote, Note, NoteAudio, NoteType,
-    UpdateNote,
+    generate_auto_title, is_auto_title, merge_transcript_into_body,
+    NewTextNote, Note, NoteAudio, NoteType, UpdateNote,
 };
 pub use reminder::{
     NewNoteReminder, NoteReminder, RecurrenceFreq, RecurrenceSpec,
