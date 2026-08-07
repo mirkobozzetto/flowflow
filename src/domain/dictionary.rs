@@ -67,7 +67,7 @@ impl Dictionary {
 
     pub fn from_entries(mut entries: Vec<DictionaryEntry>) -> Self {
         // Longest first so a phrase wins over a word it contains.
-        entries.sort_by(|a, b| b.heard.len().cmp(&a.heard.len()));
+        entries.sort_by_key(|e| std::cmp::Reverse(e.heard.len()));
         Self { entries }
     }
 

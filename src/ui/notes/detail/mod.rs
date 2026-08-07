@@ -162,33 +162,53 @@ pub fn NoteDetail() -> Element {
     use_transcription_sink(
         app,
         db,
+        engine,
         manager.clone(),
         content,
+        base_content,
         local_note_id,
         audios_version,
     );
 
     use_auto_title(app, db, content, title, generating_title, title_gen_done);
 
+    // Recording stopped before the note existed: `pending_audio` created it
+    // here, so this is where its clip's transcription job gets queued.
+    let deferred_manager = manager.clone();
     use_effect(move || {
-        if pending_audio().is_some() && local_note_id().is_empty() {
-            let t = title();
-            let c = content();
-            let folder = (app.detail_folder_id)();
-            if let Some(created) = create_note(
-                &db(),
-                &t,
-                &c,
-                tags(),
-                folder.as_deref(),
-                pending_audio(),
-            ) {
-                local_note_id.set(created.id.clone());
-                app.current_note_id.set(Some(created.id));
-                pending_audio.set(None);
-                audios_version.set(audios_version() + 1);
-                app.notes_version.set((app.notes_version)() + 1);
-            }
+        let Some((filename, _)) = pending_audio() else {
+            return;
+        };
+        if !local_note_id().is_empty() {
+            return;
+        }
+        let t = title();
+        let c = content();
+        let folder = (app.detail_folder_id)();
+        let Some((created, audio_id)) = create_note(
+            &db(),
+            &t,
+            &c,
+            tags(),
+            folder.as_deref(),
+            pending_audio(),
+        ) else {
+            return;
+        };
+        local_note_id.set(created.id.clone());
+        app.current_note_id.set(Some(created.id.clone()));
+        pending_audio.set(None);
+        audios_version.set(audios_version() + 1);
+        app.notes_version.set((app.notes_version)() + 1);
+        if let Some(aid) = audio_id {
+            // The row stores the bare filename; the job needs a real path.
+            let path =
+                crate::infrastructure::audio::resolve_audio_path(&filename);
+            deferred_manager.enqueue(
+                created.id,
+                std::path::PathBuf::from(path),
+                Some(aid),
+            );
         }
     });
 

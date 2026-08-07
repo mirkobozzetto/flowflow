@@ -325,7 +325,7 @@ note-menu-import-audio = Import an audio
 note-menu-delete = Delete note
 
 audio-transcribing = Transcribing
-audio-import-failed = Audio import failed
+audio-transcription-failed = Transcription failed
 audio-import-retry = Retry
 
 note-extract-interrupted = Extraction interrupted

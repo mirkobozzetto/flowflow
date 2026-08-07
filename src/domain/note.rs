@@ -63,6 +63,27 @@ pub fn is_auto_title(title: &str) -> bool {
         || EN_MONTHS.iter().any(|m| date_part.contains(m))
 }
 
+/// The body a note gets when a transcript lands on it: the transcript alone
+/// when the note is still empty, appended on its own line otherwise.
+///
+/// `None` means write nothing. A blank transcript - silence, a provider that
+/// returned no tokens - must not bump `modified_at`: an empty edit would then
+/// win a later sync merge against a peer that holds the real text.
+pub fn merge_transcript_into_body(
+    current: &str,
+    transcript: &str,
+) -> Option<String> {
+    let text = transcript.trim();
+    if text.is_empty() {
+        return None;
+    }
+    if current.is_empty() {
+        Some(text.to_string())
+    } else {
+        Some(format!("{current}\n{text}"))
+    }
+}
+
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub enum NoteType {
     Voice,

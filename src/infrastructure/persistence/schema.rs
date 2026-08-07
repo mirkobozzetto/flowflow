@@ -19,6 +19,7 @@ pub const MIGRATIONS: &[(i64, &str)] = &[
     (18, V18_SCHEMA),
     (19, V19_SCHEMA),
     (20, V20_SCHEMA),
+    (21, V21_SCHEMA),
 ];
 
 // Per-word timings and confidence for a transcription (RFC 0024). Device-local: it
@@ -39,6 +40,13 @@ CREATE TABLE IF NOT EXISTS note_audio_words (
     audio_id TEXT PRIMARY KEY,
     words_json TEXT NOT NULL
 );
+";
+
+// Carries the recorded clip through a durable transcription job: a recording
+// keeps its `note_audios` row, so its word timings have an anchor and the file
+// must survive the job. An import leaves it NULL.
+const V21_SCHEMA: &str = "
+ALTER TABLE pending_transcriptions ADD COLUMN audio_id TEXT;
 ";
 
 // Per-question RAG execution trace, persisted with the bot message. Nullable and

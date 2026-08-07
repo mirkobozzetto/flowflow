@@ -296,7 +296,7 @@ pub fn AudioJobBanner(local_note_id: Signal<String>) -> Element {
         if let Some(ref js) = audio_job_status {
             match js {
                 JobStatus::Failed(reason) => {
-                    let failed_label = t(&lang, "audio-import-failed");
+                    let failed_label = t(&lang, "audio-transcription-failed");
                     let retry_label = t(&lang, "audio-import-retry");
                     let msg = format!("{failed_label}: {reason}");
                     let retry_manager = manager.clone();
