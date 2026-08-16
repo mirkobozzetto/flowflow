@@ -1,12 +1,14 @@
 pub mod create;
 pub mod search;
 pub mod summarize;
+pub mod web;
 
 pub use create::{CreateNote, CreateNoteArgs, CreateNoteResult};
 pub use search::{SearchNotes, SearchNotesArgs, SearchNotesHit};
 pub use summarize::{
     SummarizeFolder, SummarizeFolderArgs, SummarizeFolderResult,
 };
+pub use web::{SearchWeb, SearchWebArgs, SearchWebHit};
 
 use crate::application::approvals::{
     self, Outcome, ProposalView, APPROVAL_TIMEOUT,
@@ -20,7 +22,7 @@ use crate::domain::governance::{
 use crate::infrastructure::llm::{LlmClient, NotesTools};
 use rig::agent::{HookAction, PromptHook, ToolCallHookAction};
 use rig::completion::CompletionModel;
-use std::collections::BTreeSet;
+use std::collections::{BTreeMap, BTreeSet};
 use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 use std::sync::{Arc, Mutex};
 use tokio::sync::mpsc;
@@ -58,7 +60,9 @@ pub enum ToolEvent {
 struct Contract {
     gov: Governance,
     conn: ConnectorManifest,
-    run: Mutex<RunState>,
+    // Shared by every connector of the run: `max_tool_calls` and the budgets bound the whole
+    // run, not each connector separately.
+    run: Arc<Mutex<RunState>>,
     // Ground-truth log of what each tool call actually did (proposed args, gate verdict, raw result), so the
     // chain debug trace shows reality instead of the model's narration. Drained per state by the runtime.
     events: Mutex<Vec<String>>,
@@ -140,10 +144,15 @@ fn excerpt(s: &str, max: usize) -> String {
 // It emits `ToolEvent`s for the chat status UI and, when contracts are attached, applies the
 // governance gate and returns `Skip{reason}` on a violation so the model self-corrects. With no
 // contract it is a pure observer (notes-only surfaces).
-// Local notes tools pass the gate untouched: they are constructed in-process, never MCP.
+// Local tools pass the gate untouched: they are constructed in-process, never MCP, and reach no
+// connector resource. `search_web` is read-only and writes nothing, so it needs no contract.
 // The chat surface asserts no connector tool collides with these names at build time.
-pub const NOTES_TOOL_NAMES: [&str; 3] =
-    ["search_notes", "create_note", "summarize_folder"];
+pub const NOTES_TOOL_NAMES: [&str; 4] = [
+    "search_notes",
+    "create_note",
+    "summarize_folder",
+    "search_web",
+];
 
 #[derive(Clone)]
 pub struct ContractHook {
@@ -160,6 +169,9 @@ pub struct ContractHook {
     // MCP sink for executing an approved EDITED payload directly; None = edits fall back to
     // reject (no deterministic way to run the user's bytes).
     peer: Option<rmcp::service::ServerSink>,
+    // Which server serves each tool, when several connectors are mounted. Empty otherwise:
+    // `peer` is the fallback.
+    peers: BTreeMap<String, rmcp::service::ServerSink>,
     // Card deadline; APPROVAL_TIMEOUT in production, shrunk by tests.
     approval_timeout: std::time::Duration,
 }
@@ -174,6 +186,7 @@ impl ContractHook {
             state_allowed: None,
             state_name: None,
             peer: None,
+            peers: BTreeMap::new(),
             approval_timeout: APPROVAL_TIMEOUT,
         }
     }
@@ -182,11 +195,12 @@ impl ContractHook {
         gov: Governance,
         conn: ConnectorManifest,
         schema: serde_json::Map<String, serde_json::Value>,
+        run: Arc<Mutex<RunState>>,
     ) -> Arc<Contract> {
         Arc::new(Contract {
             gov,
             conn,
-            run: Mutex::new(RunState::default()),
+            run,
             events: Mutex::new(Vec::new()),
             held_secs: AtomicU64::new(0),
             abort: AtomicBool::new(false),
@@ -210,23 +224,25 @@ impl ContractHook {
             tx,
             contracts: vec![(
                 String::new(),
-                Self::make_contract(gov, conn, schema),
+                Self::make_contract(gov, conn, schema, Arc::default()),
             )],
             state_allowed: None,
             state_name: None,
             peer: None,
+            peers: BTreeMap::new(),
             approval_timeout: APPROVAL_TIMEOUT,
         }
     }
 
-    // Enforcing, one contract per connector (the chat surface). Each entry is
-    // (mcp_prefix, governance, manifest); a call resolves to its connector by longest
-    // prefix match, and a tool no entry claims is refused. No armed schema: row tools
-    // are excluded from the chat surface upstream.
+    // Enforcing, one contract per connector (the chat surface, and any agent that needs more
+    // than one connector). Each entry is (mcp_prefix, governance, manifest); a call resolves to
+    // its connector by longest prefix match, and a tool no entry claims is refused. All entries
+    // share one run state, so the limits bound the run and not each connector.
     pub fn with_contracts(
         tx: mpsc::UnboundedSender<ToolEvent>,
         entries: Vec<(String, Governance, ConnectorManifest)>,
     ) -> Self {
+        let run: Arc<Mutex<RunState>> = Arc::default();
         Self {
             tx,
             contracts: entries
@@ -234,13 +250,19 @@ impl ContractHook {
                 .map(|(prefix, gov, conn)| {
                     (
                         prefix,
-                        Self::make_contract(gov, conn, serde_json::Map::new()),
+                        Self::make_contract(
+                            gov,
+                            conn,
+                            serde_json::Map::new(),
+                            run.clone(),
+                        ),
                     )
                 })
                 .collect(),
             state_allowed: None,
             state_name: None,
             peer: None,
+            peers: BTreeMap::new(),
             approval_timeout: APPROVAL_TIMEOUT,
         }
     }
@@ -332,7 +354,7 @@ impl ContractHook {
                 .lock()
                 .expect("resync set poisoned")
                 .insert(format!("{sid}\u{1f}{sheet}"));
-        if let (true, Some(peer)) = (first_resync, &self.peer) {
+        if let (true, Some(peer)) = (first_resync, self.peer_for(&call.tool)) {
             match crate::application::connector_module::fetch_tab_headers(
                 peer, sid, sheet,
             )
@@ -455,7 +477,7 @@ impl ContractHook {
         tool: &str,
         args: &serde_json::Value,
     ) -> Option<serde_json::Value> {
-        let peer = self.peer.as_ref()?;
+        let peer = self.peer_for(tool)?;
         let mut params =
             rmcp::model::CallToolRequestParams::new(tool.to_string());
         if let Some(obj) = args.as_object() {
@@ -471,6 +493,32 @@ impl ContractHook {
     pub fn with_peer(mut self, peer: rmcp::service::ServerSink) -> Self {
         self.peer = Some(peer);
         self
+    }
+
+    // Load the armed sheet schema snapshot row writes are validated against. Applies to every
+    // contract: the tools that use it belong to one connector anyway.
+    pub fn with_schema(
+        self,
+        schema: serde_json::Map<String, serde_json::Value>,
+    ) -> Self {
+        for (_, contract) in &self.contracts {
+            *contract.schema.lock().expect("schema poisoned") = schema.clone();
+        }
+        self
+    }
+
+    // Name the server behind each tool, so a run with several connectors dials the right one.
+    pub fn with_peers(
+        mut self,
+        peers: Vec<(String, rmcp::service::ServerSink)>,
+    ) -> Self {
+        self.peers = peers.into_iter().collect();
+        self
+    }
+
+    // The server to dial for a tool: its owner when known, else the single attached peer.
+    fn peer_for(&self, tool: &str) -> Option<&rmcp::service::ServerSink> {
+        self.peers.get(tool).or(self.peer.as_ref())
     }
 
     /// Seconds spent suspended on approval cards this run (summed across contracts).
@@ -499,6 +547,7 @@ impl ContractHook {
             state_allowed: Some(allowed),
             state_name: Some(state),
             peer: self.peer.clone(),
+            peers: self.peers.clone(),
             approval_timeout: self.approval_timeout,
         }
     }
@@ -574,7 +623,7 @@ impl ContractHook {
         tool: &str,
         args: &serde_json::Value,
     ) -> Result<String, String> {
-        let peer = self.peer.as_ref().ok_or("no MCP peer attached")?;
+        let peer = self.peer_for(tool).ok_or("no MCP peer attached")?;
         let mut params =
             rmcp::model::CallToolRequestParams::new(tool.to_string());
         if let Some(obj) = args.as_object() {

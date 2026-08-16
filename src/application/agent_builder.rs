@@ -14,51 +14,128 @@ use crate::domain::governance::{
 };
 use crate::domain::orchestration::Chain;
 
+// The local web search tool. An agent opts into web access by governing this name; it runs
+// on-device against the user's own Exa key, so no connector serves it.
+pub const WEB_SEARCH_TOOL: &str = "search_web";
+
+// One resolved connector of a built agent: the slug the device dials and the manifest its calls
+// are governed against.
+#[derive(Debug, Clone)]
+pub struct BoundConnector {
+    pub slug: String,
+    pub manifest: ConnectorManifest,
+}
+
 // The resolved, runnable contract handed to the chain runtime / module path. `model` is surfaced for
 // when per-agent model selection lands; the run still uses the provider-configured LlmClient today.
+// An agent may require several connectors (search the web, then write the sheet); they are resolved
+// in manifest order and the first one stays the default for single-connector paths.
 #[derive(Debug)]
 pub struct BuiltAgent {
     pub agent_id: String,
-    pub slug: String,
     pub model: String,
     pub temperature: Option<f32>,
     pub preamble: String,
     pub governance: Governance,
-    pub connector: ConnectorManifest,
+    pub connectors: Vec<BoundConnector>,
     pub chains: BTreeMap<String, Chain>,
 }
 
-/// The connector TYPE this manifest requires (its first `required_connectors` entry). The caller
-/// resolves it to a pinned (slug, manifest) via `connector_pins` - data, not a compiled match
-/// (RFC 0016) - and hands the resolution in, so the build stays pure.
-pub fn required_connector_type(
-    manifest: &AgentManifest,
-) -> Result<&str, String> {
-    manifest
-        .required_connectors
-        .first()
-        .map(|r| r.connector_type.as_str())
-        .ok_or_else(|| "manifest declares no required_connectors".to_string())
+impl BuiltAgent {
+    /// The first resolved connector. Every agent has at least one: the build refuses otherwise.
+    pub fn primary(&self) -> &BoundConnector {
+        self.connectors
+            .first()
+            .expect("built agent has a connector")
+    }
+
+    pub fn slug(&self) -> &str {
+        &self.primary().slug
+    }
+
+    pub fn connector(&self) -> &ConnectorManifest {
+        &self.primary().manifest
+    }
+
+    /// Whether the manifest governs the local web search tool. Declaring it is what opts an
+    /// agent into web access; it is served by no connector, so the gate never routes it.
+    pub fn governs_web_search(&self) -> bool {
+        self.governance
+            .tools
+            .iter()
+            .any(|t| t.tool == WEB_SEARCH_TOOL)
+    }
+
+    /// Every connector slug to dial for a run, in manifest order.
+    pub fn slugs(&self) -> Vec<String> {
+        self.connectors.iter().map(|c| c.slug.clone()).collect()
+    }
+
+    /// One (mcp_prefix, governance, manifest) entry per connector, for the gating hook. The
+    /// governance block is agent-level, so each connector is gated against the same rules over
+    /// its own tool set.
+    pub fn contract_entries(
+        &self,
+    ) -> Vec<(String, Governance, ConnectorManifest)> {
+        self.connectors
+            .iter()
+            .map(|c| {
+                (
+                    c.manifest.mcp_prefix.clone(),
+                    self.governance.clone(),
+                    c.manifest.clone(),
+                )
+            })
+            .collect()
+    }
 }
 
-/// Validate a manifest against its RESOLVED connector into a runnable agent. Fails closed:
-/// governance that does not validate against the connector, or an unsound chain, stop the build.
-pub fn build_agent(
+/// The connector TYPES this manifest requires, in declaration order. The caller resolves each to a
+/// pinned (slug, manifest) via `connector_pins` - data, not a compiled match (RFC 0016) - and hands
+/// the resolutions in, so the build stays pure.
+pub fn required_connector_types(
     manifest: &AgentManifest,
-    slug: &str,
-    conn_json: &str,
-) -> Result<BuiltAgent, String> {
-    let connector = parse_connector_manifest(conn_json)
-        .map_err(|e| format!("connector manifest: {e}"))?;
+) -> Result<Vec<&str>, String> {
+    let types: Vec<&str> = manifest
+        .required_connectors
+        .iter()
+        .map(|r| r.connector_type.as_str())
+        .collect();
+    if types.is_empty() {
+        return Err("manifest declares no required_connectors".to_string());
+    }
+    Ok(types)
+}
 
-    validate_governance(&manifest.governance, &connector).map_err(|errs| {
-        let joined = errs
-            .iter()
-            .map(|e| e.to_string())
-            .collect::<Vec<_>>()
-            .join("; ");
-        format!("governance invalid: {joined}")
-    })?;
+/// Validate a manifest against its RESOLVED connectors into a runnable agent. Fails closed:
+/// governance that does not validate against the connectors, an unsound chain, or two connectors
+/// serving the same tool name (the call would have no unambiguous owner) stop the build.
+pub fn build_agent_multi(
+    manifest: &AgentManifest,
+    resolved: &[(String, String)],
+) -> Result<BuiltAgent, String> {
+    if resolved.is_empty() {
+        return Err("no connector resolved for this agent".to_string());
+    }
+    let mut connectors = Vec::with_capacity(resolved.len());
+    for (slug, conn_json) in resolved {
+        let manifest = parse_connector_manifest(conn_json)
+            .map_err(|e| format!("connector manifest `{slug}`: {e}"))?;
+        connectors.push(BoundConnector {
+            slug: slug.clone(),
+            manifest,
+        });
+    }
+
+    if let Some(dupe) = duplicate_tool(&connectors) {
+        return Err(format!(
+            "two connectors serve the tool `{dupe}`: a call would have no unambiguous owner"
+        ));
+    }
+
+    // A tool the agent governs must exist on ONE of the connectors; validating against each
+    // connector separately would reject every tool served by the others.
+    validate_governance_across(&manifest.governance, &connectors)?;
 
     for (name, chain) in &manifest.orchestration.chains {
         chain
@@ -68,14 +145,77 @@ pub fn build_agent(
 
     Ok(BuiltAgent {
         agent_id: manifest.id.clone(),
-        slug: slug.to_string(),
         model: manifest.model.clone(),
         temperature: manifest.temperature,
-        preamble: preamble_for(manifest, &connector),
+        preamble: preamble_for_all(manifest, &connectors),
         governance: manifest.governance.clone(),
-        connector,
+        connectors,
         chains: manifest.orchestration.chains.clone(),
     })
+}
+
+/// Single-connector build, the common case.
+pub fn build_agent(
+    manifest: &AgentManifest,
+    slug: &str,
+    conn_json: &str,
+) -> Result<BuiltAgent, String> {
+    build_agent_multi(manifest, &[(slug.to_string(), conn_json.to_string())])
+}
+
+// A tool name served by more than one connector.
+fn duplicate_tool(connectors: &[BoundConnector]) -> Option<String> {
+    let mut seen = std::collections::BTreeSet::new();
+    for c in connectors {
+        for tool in &c.manifest.tools {
+            if !seen.insert(tool.tool.clone()) {
+                return Some(tool.tool.clone());
+            }
+        }
+    }
+    None
+}
+
+// Governance holds for the agent as a whole: each governed tool is validated against the connector
+// that serves it. A tool no connector serves fails the build, as it did with one connector.
+fn validate_governance_across(
+    gov: &Governance,
+    connectors: &[BoundConnector],
+) -> Result<(), String> {
+    let mut errors = Vec::new();
+    for c in connectors {
+        let mine: Vec<_> = gov
+            .tools
+            .iter()
+            .filter(|tp| c.manifest.tool(&tp.tool).is_some())
+            .cloned()
+            .collect();
+        let scoped = Governance {
+            tools: mine,
+            ..gov.clone()
+        };
+        if let Err(errs) = validate_governance(&scoped, &c.manifest) {
+            errors.extend(errs.iter().map(|e| e.to_string()));
+        }
+    }
+    let unknown: Vec<_> = gov
+        .tools
+        .iter()
+        .filter(|tp| tp.tool != WEB_SEARCH_TOOL)
+        .filter(|tp| {
+            !connectors
+                .iter()
+                .any(|c| c.manifest.tool(&tp.tool).is_some())
+        })
+        .map(|tp| format!("tool `{}` is served by no connector", tp.tool))
+        .collect();
+    errors.extend(unknown);
+
+    if errors.is_empty() {
+        Ok(())
+    } else {
+        Err(format!("governance invalid: {}", errors.join("; ")))
+    }
 }
 
 /// Merge an arm-time binding over the manifest's `bound_resource`. The per-install value (e.g. the
@@ -114,8 +254,15 @@ pub fn merge_bound(
     }
 }
 
-fn preamble_for(manifest: &AgentManifest, conn: &ConnectorManifest) -> String {
-    let summary = capability_summary(&manifest.governance, conn);
+fn preamble_for_all(
+    manifest: &AgentManifest,
+    connectors: &[BoundConnector],
+) -> String {
+    let summary = connectors
+        .iter()
+        .map(|c| capability_summary(&manifest.governance, &c.manifest))
+        .collect::<Vec<_>>()
+        .join("\n\n");
     if manifest.system_prompt.trim().is_empty() {
         summary
     } else {

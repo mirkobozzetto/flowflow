@@ -4,7 +4,7 @@ use crate::application::constants::{
 };
 use crate::application::error::LlmError;
 use crate::application::tools::{
-    ContractHook, CreateNote, SearchNotes, SummarizeFolder,
+    ContractHook, CreateNote, SearchNotes, SearchWeb, SummarizeFolder,
 };
 use rig::client::{CompletionClient, EmbeddingsClient};
 use rig::completion::Prompt;
@@ -239,7 +239,8 @@ impl LlmClient {
         preamble: &str,
         user_message: &str,
         notes_tools: NotesTools,
-        mcp: Option<(Vec<rmcp::model::Tool>, rmcp::service::ServerSink)>,
+        web_key: Option<String>,
+        mcp: Vec<(Vec<rmcp::model::Tool>, rmcp::service::ServerSink)>,
         hook: ContractHook,
         temperature: f64,
         max_turns: usize,
@@ -257,6 +258,24 @@ impl LlmClient {
                     .map_err(|e| LlmError::Completion(e.to_string()))
             };
         }
+        // One `rmcp_tools` call PER connector: each tool clones the sink it was mounted with,
+        // so a call routes to its own server. Mounting the merged list against a single sink
+        // would send every call to whichever server happened to be first.
+        macro_rules! mount {
+            ($b:expr, $mcp:expr) => {{
+                let mut mounts = $mcp.into_iter();
+                match mounts.next() {
+                    Some((tools, peer)) => {
+                        let mut b = $b.rmcp_tools(tools, peer);
+                        for (tools, peer) in mounts {
+                            b = b.rmcp_tools(tools, peer);
+                        }
+                        run!(b)
+                    }
+                    None => run!($b),
+                }
+            }};
+        }
         match self.provider {
             Provider::OpenAi => {
                 let base = self
@@ -264,20 +283,22 @@ impl LlmClient {
                     .agent(openai_model)
                     .preamble(preamble)
                     .temperature(temperature);
-                match (notes_tools.scope(), mcp) {
-                    (Some(scope), Some((tools, peer))) => run!(base
-                        .tool(SearchNotes::new(self.clone(), scope))
-                        .tool(CreateNote::new())
-                        .tool(SummarizeFolder::new(self.clone()))
-                        .rmcp_tools(tools, peer)),
-                    (Some(scope), None) => run!(base
-                        .tool(SearchNotes::new(self.clone(), scope))
-                        .tool(CreateNote::new())
-                        .tool(SummarizeFolder::new(self.clone()))),
-                    (None, Some((tools, peer))) => {
-                        run!(base.rmcp_tools(tools, peer))
+                match (notes_tools.scope(), web_key) {
+                    (Some(scope), web) => {
+                        let b = base
+                            .tool(SearchNotes::new(self.clone(), scope))
+                            .tool(CreateNote::new())
+                            .tool(SummarizeFolder::new(self.clone()));
+                        let b = match web {
+                            Some(key) => b.tool(SearchWeb::new(key)),
+                            None => b,
+                        };
+                        mount!(b, mcp)
                     }
-                    (None, None) => run!(base),
+                    (None, Some(key)) => {
+                        mount!(base.tool(SearchWeb::new(key)), mcp)
+                    }
+                    (None, None) => mount!(base, mcp),
                 }
             }
             Provider::Anthropic => {
@@ -291,20 +312,22 @@ impl LlmClient {
                     .preamble(preamble)
                     .temperature(temperature)
                     .max_tokens(ANTHROPIC_MAX_TOKENS);
-                match (notes_tools.scope(), mcp) {
-                    (Some(scope), Some((tools, peer))) => run!(base
-                        .tool(SearchNotes::new(self.clone(), scope))
-                        .tool(CreateNote::new())
-                        .tool(SummarizeFolder::new(self.clone()))
-                        .rmcp_tools(tools, peer)),
-                    (Some(scope), None) => run!(base
-                        .tool(SearchNotes::new(self.clone(), scope))
-                        .tool(CreateNote::new())
-                        .tool(SummarizeFolder::new(self.clone()))),
-                    (None, Some((tools, peer))) => {
-                        run!(base.rmcp_tools(tools, peer))
+                match (notes_tools.scope(), web_key) {
+                    (Some(scope), web) => {
+                        let b = base
+                            .tool(SearchNotes::new(self.clone(), scope))
+                            .tool(CreateNote::new())
+                            .tool(SummarizeFolder::new(self.clone()));
+                        let b = match web {
+                            Some(key) => b.tool(SearchWeb::new(key)),
+                            None => b,
+                        };
+                        mount!(b, mcp)
                     }
-                    (None, None) => run!(base),
+                    (None, Some(key)) => {
+                        mount!(base.tool(SearchWeb::new(key)), mcp)
+                    }
+                    (None, None) => mount!(base, mcp),
                 }
             }
         }

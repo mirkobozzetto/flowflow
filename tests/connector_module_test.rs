@@ -46,7 +46,7 @@ fn fixture_verifies_and_identifies() {
 #[test]
 fn built_governance_is_install_valid() {
     let b = built();
-    validate_governance(&b.governance, &b.connector)
+    validate_governance(&b.governance, &b.connector())
         .expect("built governance passes install validation");
 }
 
@@ -60,7 +60,7 @@ fn gate_scopes_unfilterable_list_and_bounds_read_write() {
     // every resource. The manifest's scoping block re-enables it, hook-filtered.
     let list = ProposedCall::new("google_sheets_list_spreadsheets", json!({}));
     assert!(matches!(
-        gate(&b.governance, &b.connector, &list, &mut run),
+        gate(&b.governance, &b.connector(), &list, &mut run),
         Decision::Deny(DenyReason::UnscopedSearch { .. })
     ));
 
@@ -69,12 +69,12 @@ fn gate_scopes_unfilterable_list_and_bounds_read_write() {
         "google_sheets_get_spreadsheet",
         json!({ "spreadsheet_id": "bound-at-install" }),
     );
-    assert!(gate(&b.governance, &b.connector, &read, &mut run).is_allowed());
+    assert!(gate(&b.governance, &b.connector(), &read, &mut run).is_allowed());
     let write = ProposedCall::new(
         "google_sheets_write_to_cell",
         json!({ "spreadsheet_id": "bound-at-install", "cell": "A1", "value": "v" }),
     );
-    assert!(gate(&b.governance, &b.connector, &write, &mut run).is_allowed());
+    assert!(gate(&b.governance, &b.connector(), &write, &mut run).is_allowed());
 }
 
 #[test]
@@ -86,7 +86,7 @@ fn gate_denies_off_bound_read() {
         json!({ "spreadsheet_id": "some-other-sheet" }),
     );
     assert!(matches!(
-        gate(&b.governance, &b.connector, &read, &mut run),
+        gate(&b.governance, &b.connector(), &read, &mut run),
         Decision::Deny(DenyReason::OutOfBoundResource { .. })
     ));
 }
@@ -97,7 +97,7 @@ fn gate_denies_ungoverned_tool() {
     let mut run = RunState::default();
     let call = ProposedCall::new("google_sheets_create_spreadsheet", json!({}));
     assert!(matches!(
-        gate(&b.governance, &b.connector, &call, &mut run),
+        gate(&b.governance, &b.connector(), &call, &mut run),
         Decision::Deny(DenyReason::NotAllowed { .. })
     ));
 }
@@ -441,7 +441,7 @@ fn state_filter_is_independent_of_the_gate() {
         "google_sheets_get_spreadsheet",
         json!({ "spreadsheet_id": "bound-at-install" }),
     );
-    assert!(gate(&b.governance, &b.connector, &read, &mut run).is_allowed());
+    assert!(gate(&b.governance, &b.connector(), &read, &mut run).is_allowed());
     assert!(!chain
         .state("find")
         .unwrap()
