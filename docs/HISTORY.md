@@ -85,3 +85,55 @@ Finger-following gestures from a small native pointer controller (rAF + CSS tran
 ## 2026-06 - Composer tools menu, per-chat web, @ mentions
 
 Web search moves from a single global Settings toggle to a per-chat control inside a composer **+** menu (a tools + connectors hub) - a drag-to-dismiss bottom-sheet on iPhone, a popover with a hover tooltip on Mac, the switch in the brand orange and off by default, persisted per conversation (settings-KV, like the chat scope). Typing **@** opens a mention menu that scopes a message's RAG to a chosen note. The same **+** hub appears on notes. RAG `query()` now takes the per-chat web flag and mention note ids; a scoped chat answers from its notes unless web is explicitly on. See [prd/composer-tools-menu/](prd/composer-tools-menu/).
+
+## Track board (archive)
+
+The original build order. Kept for reference; all of it shipped and is described in
+prose above. Moved out of `CLAUDE.md` on 2026-08-16 to keep the always-loaded context small.
+
+| Track | Description                                               | Status                            |
+| ----- | --------------------------------------------------------- | --------------------------------- |
+| A     | Minimal Dioxus iOS scaffold (hello world on simulator)    | Done                              |
+| B     | Audio capture iOS mic (cpal + hound, save WAV)            | Done                              |
+| C     | Soniox REST (upload WAV -> transcription)                 | Done                              |
+| D     | SQLite storage + UI refactor + Tailwind                   | Done                              |
+| E     | Embeddings + RAG + Chat + Settings + Tags                 | Done                              |
+| F     | RIG framework + agent tools + multi-provider              | Done                              |
+| G     | Document attachments (TXT, MD, CSV, PDF, DOCX)            | Done                              |
+| H     | Pluggable STT providers + local Whisper models (RFC 0005) | Built - device validation pending |
+
+### Track E steps
+
+| Step | Description                                             | Status |
+| ---- | ------------------------------------------------------- | ------ |
+| 1    | OpenAI client (embed + chat + chunking)                 | Done   |
+| 2    | LanceDB VectorStore (store, search, delete)             | Done   |
+| 3    | Auto-embed on note save (validated on iPhone)           | Done   |
+| 4    | Settings UI for API keys (in-app, SQLite)               | Done   |
+| 5    | Tags UI on NoteDetail (chips, add/remove, LLM auto-gen) | Done   |
+| 6    | Chat UI + RAG pipeline (search -> context -> response)  | Done   |
+| 7    | Chat history persistence (SQLite, sidebar tabs, CRUD)   | Done   |
+
+### Track F steps
+
+| Step | Description                                     | Status |
+| ---- | ----------------------------------------------- | ------ |
+| 1    | RIG migration (LlmClient replaces OpenAIClient) | Done   |
+| 2    | Agent tools + reqwest unification               | Done   |
+| 3    | Multi-provider (Anthropic)                      | Done   |
+
+Never built: Mistral provider via rig-core abstractions; extra agent tools (search by
+date, link notes, batch tag generation). Any new tool must have its iOS
+cross-compilation validated before it lands.
+
+### Track G steps
+
+| Step | Description                                                         | Status |
+| ---- | ------------------------------------------------------------------- | ------ |
+| 1    | SQLite V3 migration + Attachment model + repo                       | Done   |
+| 2    | Attachment cards UI in NoteDetail + modal viewer                    | Done   |
+| 3    | Native iOS file picker (UIDocumentPickerViewController)             | Done   |
+| 4    | PDF parsing via pdf-extract                                         | Done   |
+| 5    | DOCX parsing via zip + quick-xml                                    | Done   |
+| 6    | Auto-embed attachments on import (chunked, scheme `att:{id}:{idx}`) | Done   |
+| 7    | Tests (migration V3, CRUD, cascade delete, DOCX, PDF crate)         | Done   |

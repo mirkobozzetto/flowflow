@@ -33,57 +33,6 @@ Mirko Bozzetto — freelance full-stack developer, Brussels.
 - Git: commit after each validated step, descriptive messages.
 - File names, structure, architecture evolve as needed. Nothing is set in stone.
 
-## Tracks (indicative order, Mirko decides)
-
-| Track | Description                                               | Status                            |
-| ----- | --------------------------------------------------------- | --------------------------------- |
-| A     | Minimal Dioxus iOS scaffold (hello world on simulator)    | Done                              |
-| B     | Audio capture iOS mic (cpal + hound, save WAV)            | Done                              |
-| C     | Soniox REST (upload WAV → transcription)                  | Done                              |
-| D     | SQLite storage + UI refactor + Tailwind                   | Done                              |
-| E     | Embeddings + RAG + Chat + Settings + Tags                 | Done                              |
-| F     | RIG framework + agent tools + multi-provider              | Done                              |
-| G     | Document attachments (TXT, MD, CSV, PDF, DOCX)            | Done                              |
-| H     | Pluggable STT providers + local Whisper models (RFC 0005) | Built - device validation pending |
-
-### Track F Progress
-
-| Step | Description                                     | Status |
-| ---- | ----------------------------------------------- | ------ |
-| 1    | RIG migration (LlmClient replaces OpenAIClient) | Done   |
-| 2    | Agent tools + reqwest unification               | Done   |
-| 3    | Multi-provider (Anthropic)                      | Done   |
-
-### Track F — Future
-
-- Mistral provider via rig-core abstractions
-- Additional agent tools (search by date, link notes, batch tag generation)
-- Prerequisite: validate iOS cross-compilation on each new tool
-
-### Track G Progress
-
-| Step | Description                                                         | Status |
-| ---- | ------------------------------------------------------------------- | ------ |
-| 1    | SQLite V3 migration + Attachment model + repo                       | Done   |
-| 2    | Attachment cards UI in NoteDetail + modal viewer                    | Done   |
-| 3    | Native iOS file picker (UIDocumentPickerViewController)             | Done   |
-| 4    | PDF parsing via pdf-extract                                         | Done   |
-| 5    | DOCX parsing via zip + quick-xml                                    | Done   |
-| 6    | Auto-embed attachments on import (chunked, scheme `att:{id}:{idx}`) | Done   |
-| 7    | Tests (migration V3, CRUD, cascade delete, DOCX, PDF crate)         | Done   |
-
-### Track E Progress
-
-| Step | Description                                             | Status |
-| ---- | ------------------------------------------------------- | ------ |
-| 1    | OpenAI client (embed + chat + chunking)                 | Done   |
-| 2    | LanceDB VectorStore (store, search, delete)             | Done   |
-| 3    | Auto-embed on note save (validated on iPhone)           | Done   |
-| 4    | Settings UI for API keys (in-app, SQLite)               | Done   |
-| 5    | Tags UI on NoteDetail (chips, add/remove, LLM auto-gen) | Done   |
-| 6    | Chat UI + RAG pipeline (search → context → response)    | Done   |
-| 7    | Chat history persistence (SQLite, sidebar tabs, CRUD)   | Done   |
-
 ## Architecture (Clean Architecture, SRP — 202 modules, 4 layers)
 
 Layered clean architecture. Dependencies point inward only:
@@ -207,32 +156,9 @@ RAG Chat Pipeline:
 
 ## Stack Versions
 
-- Dioxus 0.7 (CLI dx 0.7.7)
-- cpal 0.17 (audio I/O via CoreAudio on iOS)
-- hound 3.5 (WAV file writing)
-- reqwest 0.13 (HTTP client, multipart + JSON, unified with rig-core)
-- rig-core 0.36 (LLM abstraction, agent + tools, rustls feature, OpenAI + Anthropic providers)
-- Anthropic provider (Claude Sonnet 4.6 default, max_tokens 4096, chat + agent + tools)
-- tokio 1 (async runtime)
-- serde 1.0 + serde_json 1.0 (JSON serialization)
-- dotenvy 0.15 (.env loader)
-- rusqlite 0.34 (SQLite, bundled for iOS cross-compile)
-- uuid 1 (UUID v4 generation)
-- chrono 0.4 (ISO 8601 timestamps)
-- Tailwind CSS V4 (auto-detected by dx)
-- lancedb 0.27.2 (vector DB, default-features = false for iOS)
-- arrow-array 57 + arrow-schema 57 (must match lancedb's arrow version)
-- pulldown-cmark 0.12 (markdown → HTML for chat responses)
-- pdf-extract 0.10 (PDF text extraction)
-- zip 2 (DOCX archive reading)
-- quick-xml 0.36 (DOCX word/document.xml parser)
-- futures 0.3.32 (stream collect for LanceDB queries)
-- whisper-rs 0.16 (local STT, whisper.cpp via cmake, metal feature on apple targets)
-- fs4 0.13 (free disk space check for model downloads)
-- libc 0.2 (getrusage peak RSS in the whisper bench)
-- Rust 1.94.1
-- iOS targets: aarch64-apple-ios, aarch64-apple-ios-sim
-- IPHONEOS_DEPLOYMENT_TARGET=16.0 (required for lancedb/zstd-sys)
+Pinned versions and why: `docs/guides/stack.md`. Key constraints to keep in mind:
+Dioxus 0.7, Rust 1.94.1, `IPHONEOS_DEPLOYMENT_TARGET=16.0` (required by
+lancedb/zstd-sys), and arrow-array/arrow-schema must match lancedb's arrow version.
 
 ## Commands (use Makefile)
 
@@ -267,47 +193,12 @@ Fallback chain: SQLite settings → env var → `option_env!()` compile-time.
 OpenAI key is always required (used for embeddings). Anthropic key is required only when Provider is set to Anthropic in Settings.
 Soniox: <https://console.soniox.com> — OpenAI: <https://platform.openai.com/api-keys> — Anthropic: <https://console.anthropic.com>
 
-### Manual commands (if needed)
-
-```bash
-# Simulator management
-open /Applications/Xcode.app/Contents/Developer/Applications/Simulator.app
-xcrun simctl boot "iPhone 17 Pro"
-xcrun simctl shutdown all
-
-# Device management
-xcrun devicectl list devices
-xcrun devicectl manage pair --device <DEVICE_ID>
-```
-
-## Physical Device Setup (one-time)
-
-1. iPhone: Settings → Privacy & Security → Developer Mode → enable → restart
-2. Connect via USB, accept "Trust This Computer"
-3. `xcrun devicectl manage pair --device <ID>` (fixes the "no DDI" error)
-4. Xcode → Settings → Apple Accounts → click account → Manage Certificates → + → Apple Development
-5. If certificate not recognized by codesigning, install Apple WWDR intermediate cert:
-   `curl -sO https://www.apple.com/certificateauthority/AppleWWDRCAG3.cer && security add-certificates AppleWWDRCAG3.cer && rm AppleWWDRCAG3.cer`
-6. Verify: `security find-identity -v -p codesigning` must show "Apple Development"
-7. Create provisioning profile (required for free Apple account):
-   WORKAROUND: this method is cumbersome. Looking for a simpler approach.
-   No existing Dioxus issue on this — worth opening one if dx doesn't improve this.
-   Ref: <https://github.com/DioxusLabs/dioxus/issues/3817> (related App Store issue)
-   For now, create a TEMPORARY Swift/SwiftUI project in Xcode:
-   - Xcode → File → New → Project → iOS → App
-   - Product Name: `flowflow`, Organization Identifier: `com.mirkobozzetto`, Team: Personal Team
-   - Interface: SwiftUI, Language: Swift (doesn't matter, it's temporary)
-   - Save to /tmp
-   - Select iPhone as destination at the top of Xcode
-   - Cmd+R to build — Xcode creates the provisioning profile automatically
-   - Trust the dev profile on iPhone: Settings → General → VPN & Device Management → Trust
-   - Close the Xcode project (profile stays in ~/Library/Developer/Xcode/UserData/Provisioning Profiles/)
-     The profile is tied to the bundle ID (com.mirkobozzetto.flowflow), not the language.
-     Once created, delete the Xcode project — the profile persists and `dx serve` uses it for the Rust app.
-8. After first pairing, Wi-Fi works (same network)
-
 ## References
 
+- `docs/guides/stack.md`: pinned dependency versions and why each is pinned
+- `docs/guides/device-setup.md`: one-time iPhone setup, provisioning profile, manual simctl/devicectl commands
+- `docs/guides/appstore.md`: App Store build and submission
+- `docs/HISTORY.md`: what shipped, milestone by milestone, plus the original track board
 - `ANALYSIS.md`: full SuperPowerNotes analysis
 - `INSTRUCTIONS.md`: first session startup brief
 - SuperPowerNotes source: `/Users/mirkobozzetto/stuffs/superpowernotes`
@@ -315,7 +206,7 @@ xcrun devicectl manage pair --device <DEVICE_ID>
 <!-- gitnexus:start -->
 # GitNexus — Code Intelligence
 
-This project is indexed by GitNexus as **flowflow** (5010 symbols, 12504 relationships, 300 execution flows). Use the GitNexus MCP tools to understand code, assess impact, and navigate safely.
+This project is indexed by GitNexus as **flowflow** (5078 symbols, 12682 relationships, 300 execution flows). Use the GitNexus MCP tools to understand code, assess impact, and navigate safely.
 
 > Index stale? Run `node .gitnexus/run.cjs analyze` from the project root — it auto-selects an available runner. No `.gitnexus/run.cjs` yet? `npx gitnexus analyze` (npm 11 crash → `npm i -g gitnexus`; #1939).
 
