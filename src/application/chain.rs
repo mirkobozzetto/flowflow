@@ -9,7 +9,7 @@ use crate::application::tools::ContractHook;
 use crate::domain::orchestration::{Chain, Guard};
 use crate::infrastructure::backend::BackendClient;
 use crate::infrastructure::llm::{resolve_chat_model, LlmClient, NotesTools};
-use crate::infrastructure::mcp::McpRegistry;
+use crate::infrastructure::mcp::McpPool;
 use crate::infrastructure::persistence::Database;
 use tokio::sync::mpsc;
 
@@ -68,23 +68,33 @@ pub async fn run_chain(
 
     let llm = std::sync::Arc::new(LlmClient::from_db(db)?);
     let model = resolve_chat_model(&agent.model);
+    // Web search is offered to a chain only when the agent's manifest governs `search_web` AND a
+    // key is configured. No key, or no declaration, and the tool is simply not mounted.
+    let web_key = agent
+        .governs_web_search()
+        .then(|| crate::application::web_search::exa_api_key(db))
+        .filter(|k| !k.trim().is_empty());
     let backend = BackendClient::from_db(db).ok_or_else(|| {
         LlmError::NotConfigured("no backend configured".into())
     })?;
-    let reg =
-        McpRegistry::connect_agent(db, &backend, &agent.slug, &agent.agent_id)
+    // One session per connector the agent requires. The pool lives for the whole run: the tools
+    // mounted below forward through its sinks.
+    let pool =
+        McpPool::connect_agent(db, &backend, &agent.slugs(), &agent.agent_id)
             .await
             .map_err(|e| LlmError::Completion(format!("mcp connect: {e}")))?;
+    if let Some(dupe) = pool.duplicate_tools().first() {
+        return Err(LlmError::Completion(format!(
+            "two connectors serve the tool `{dupe}`: refusing to run rather than guess its owner"
+        )));
+    }
 
-    // One base contract, shared across states: budgets and read_before_write accumulate over the whole run.
-    // The peer lets the hook execute a user-EDITED payload deterministically and re-sync sheet headers.
-    let base = ContractHook::with_contract(
-        events,
-        agent.governance.clone(),
-        agent.connector.clone(),
-        crate::application::connector_module::armed_schema_map(db),
-    )
-    .with_peer(reg.peer());
+    // One base contract set, shared across states: budgets and read_before_write accumulate over
+    // the whole run. The peers let the hook execute a user-EDITED payload deterministically, and
+    // re-sync sheet headers, against the server that owns the tool.
+    let base = ContractHook::with_contracts(events, agent.contract_entries())
+        .with_schema(crate::application::connector_module::armed_schema_map(db))
+        .with_peers(pool.peers_by_tool());
 
     let mut trace = Vec::new();
     let mut transcript = String::new();
@@ -145,10 +155,21 @@ pub async fn run_chain(
             break;
         }
 
-        let avail: Vec<_> = reg
-            .tools()
+        // Per connector, the tools this state allows. A connector contributing none is dropped:
+        // mounting an empty tool list would still bind its sink for nothing.
+        let avail: Vec<_> = pool
+            .mounts()
             .into_iter()
-            .filter(|t| state.permits(t.name.as_ref()))
+            .map(|(tools, peer)| {
+                (
+                    tools
+                        .into_iter()
+                        .filter(|t| state.permits(t.name.as_ref()))
+                        .collect::<Vec<_>>(),
+                    peer,
+                )
+            })
+            .filter(|(tools, _)| !tools.is_empty())
             .collect();
         if avail.is_empty() {
             trace.push(ChainStep {
@@ -170,7 +191,8 @@ pub async fn run_chain(
                 &preamble,
                 &format!("Goal: {goal}"),
                 NotesTools::None,
-                Some((avail, reg.peer())),
+                web_key.clone(),
+                avail,
                 hook,
                 0.0,
                 4,

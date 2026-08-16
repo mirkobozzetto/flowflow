@@ -3,7 +3,7 @@
 // agent-scoped MCP route with x-agent-id, and enforces the governance gate on-device. The contract is
 // no longer hardcoded here - it comes from the manifest the builder resolves.
 
-use crate::application::agent_builder::{build_agent, merge_bound, BuiltAgent};
+use crate::application::agent_builder::{merge_bound, BuiltAgent};
 use crate::application::chain::{run_chain, ChainOutcome};
 use crate::domain::agent_manifest::{digest_of_stored, parse_manifest};
 use crate::infrastructure::backend::BackendClient;
@@ -169,7 +169,7 @@ pub async fn arm_list_spreadsheets(
     let backend = BackendClient::from_db(db)
         .ok_or("no backend configured".to_string())?;
     let reg =
-        McpRegistry::connect_agent(db, &backend, &built.slug, &built.agent_id)
+        McpRegistry::connect_agent(db, &backend, built.slug(), &built.agent_id)
             .await
             .map_err(|e| format!("mcp connect: {e}"))?;
     let result = reg
@@ -523,7 +523,7 @@ async fn capture_sheet_schema(
     let backend = BackendClient::from_db(db)
         .ok_or_else(|| unavailable("no backend configured".into()))?;
     let reg =
-        McpRegistry::connect_agent(db, &backend, &built.slug, &built.agent_id)
+        McpRegistry::connect_agent(db, &backend, built.slug(), &built.agent_id)
             .await
             .map_err(|e| unavailable(format!("mcp connect: {e}")))?;
 
@@ -671,7 +671,7 @@ async fn fetch_sheet_meta(
     let backend = BackendClient::from_db(db)
         .ok_or("no backend configured".to_string())?;
     let reg =
-        McpRegistry::connect_agent(db, &backend, &built.slug, &built.agent_id)
+        McpRegistry::connect_agent(db, &backend, built.slug(), &built.agent_id)
             .await
             .map_err(|e| format!("mcp connect: {e}"))?;
     let mut args = serde_json::Map::new();
@@ -900,14 +900,19 @@ fn load_built(db: &Database, agent_id: &str) -> Result<BuiltAgent, String> {
         merge_bound(&mut manifest.governance.bound_resource, binding);
     }
     // Data-driven connector resolution (RFC 0016): the pinned manifest, lowest slug of the type.
-    // No pin (never fetched, or revoked) -> the agent is disarmed with a clear message.
-    let ctype =
-        crate::application::agent_builder::required_connector_type(&manifest)?;
-    let (slug, conn_json) = crate::application::connector_pins::resolve_for_type(db, ctype)
-        .ok_or_else(|| {
-            format!("no connector pinned for type `{ctype}` (revoked or not yet installed)")
-        })?;
-    build_agent(&manifest, &slug, &conn_json)
+    // Every required type must resolve; a missing pin (never fetched, or revoked) disarms the
+    // agent with a clear message rather than running it with half its tools.
+    let types =
+        crate::application::agent_builder::required_connector_types(&manifest)?;
+    let mut resolved = Vec::with_capacity(types.len());
+    for ctype in types {
+        let pinned = crate::application::connector_pins::resolve_for_type(db, ctype)
+            .ok_or_else(|| {
+                format!("no connector pinned for type `{ctype}` (revoked or not yet installed)")
+            })?;
+        resolved.push(pinned);
+    }
+    crate::application::agent_builder::build_agent_multi(&manifest, &resolved)
 }
 
 // Arm-time install of the CRM module's agent. The generic install lives in

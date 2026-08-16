@@ -2,7 +2,7 @@
 // the chain, and fails closed on an unarmed connector or governance that does not validate.
 
 use flowflow::application::agent_builder::{
-    build_agent, capability_summary, merge_bound, required_connector_type,
+    build_agent, capability_summary, merge_bound, required_connector_types,
 };
 use flowflow::domain::agent_manifest::parse_manifest;
 use flowflow::domain::governance::ConnectorManifest;
@@ -51,7 +51,7 @@ fn builds_expected_shape_and_real_bound() {
         .expect("valid manifest builds");
 
     assert_eq!(built.agent_id, "crm-sync");
-    assert_eq!(built.slug, "google");
+    assert_eq!(built.slug(), "google");
     assert_eq!(built.model, "gpt-5.4-mini");
     assert_eq!(built.temperature, Some(0.1));
     // The bound comes from the manifest, not a code constant.
@@ -81,7 +81,7 @@ fn capability_summary_lists_only_governed_tools() {
     let manifest = parse_manifest(VALID_MANIFEST).unwrap();
     let built = build_agent(&manifest, "google", SHEETS_BACKFILL_MANIFEST_JSON)
         .unwrap();
-    let summary = capability_summary(&built.governance, &built.connector);
+    let summary = capability_summary(&built.governance, &built.connector());
     assert!(summary.contains("google_sheets_get_spreadsheet"));
     // A connector tool the governance does not grant is absent from the summary.
     assert!(!summary.contains("google_sheets_create_spreadsheet"));
@@ -92,7 +92,10 @@ fn required_connector_type_surfaces_the_type_to_resolve() {
     // Resolution is data-driven now (connector_pins): the builder only SURFACES the required
     // type; an unpinned type fails closed at load_built with "no connector pinned".
     let manifest = parse_manifest(VALID_MANIFEST).unwrap();
-    assert_eq!(required_connector_type(&manifest).unwrap(), "tabular_store");
+    assert_eq!(
+        required_connector_types(&manifest).unwrap(),
+        vec!["tabular_store"]
+    );
 
     let m = VALID_MANIFEST.replace(
         r#""required_connectors": [
@@ -101,7 +104,7 @@ fn required_connector_type_surfaces_the_type_to_resolve() {
         r#""required_connectors": [],"#,
     );
     let manifest = parse_manifest(&m).unwrap();
-    assert!(required_connector_type(&manifest).is_err());
+    assert!(required_connector_types(&manifest).is_err());
 }
 
 #[test]
@@ -146,6 +149,6 @@ fn connector_manifest_resolves_for_tabular_store() {
     let manifest = parse_manifest(VALID_MANIFEST).unwrap();
     let built = build_agent(&manifest, "google", SHEETS_BACKFILL_MANIFEST_JSON)
         .unwrap();
-    let conn: &ConnectorManifest = &built.connector;
+    let conn: &ConnectorManifest = &built.connector();
     assert_eq!(conn.connector, "google-sheets");
 }

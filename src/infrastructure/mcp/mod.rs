@@ -119,6 +119,73 @@ impl McpRegistry {
     }
 }
 
+/// The connectors one agent run talks to. Each entry keeps its own live session; dropping the
+/// pool tears every one of them down, so it must outlive the run that mounted its tools.
+pub struct McpPool {
+    registries: Vec<McpRegistry>,
+}
+
+impl McpPool {
+    /// Connect the agent-scoped proxy once per connector slug. A slug that fails to connect
+    /// fails the whole pool: a partially connected agent would silently lose half its tools.
+    pub async fn connect_agent(
+        db: &Database,
+        backend: &BackendClient,
+        slugs: &[String],
+        agent_id: &str,
+    ) -> Result<Self, BackendError> {
+        let mut registries = Vec::with_capacity(slugs.len());
+        for slug in slugs {
+            registries.push(
+                McpRegistry::connect_agent(db, backend, slug, agent_id).await?,
+            );
+        }
+        Ok(Self { registries })
+    }
+
+    /// One (tools, sink) pair per connector, for `AgentBuilder::rmcp_tools` - mounted
+    /// separately so each tool carries the sink of the server that serves it.
+    pub fn mounts(&self) -> Vec<(Vec<Tool>, ServerSink)> {
+        self.registries
+            .iter()
+            .map(|r| (r.tools(), r.peer()))
+            .collect()
+    }
+
+    /// Which server serves each tool name, for the hook's direct execution path.
+    pub fn peers_by_tool(&self) -> Vec<(String, ServerSink)> {
+        self.registries
+            .iter()
+            .flat_map(|r| {
+                let peer = r.peer();
+                r.tools()
+                    .into_iter()
+                    .map(move |t| (t.name.to_string(), peer.clone()))
+            })
+            .collect()
+    }
+
+    /// Tool names served by more than one connector. A duplicate makes routing ambiguous, so
+    /// the caller refuses to run rather than guess which server owns the call.
+    pub fn duplicate_tools(&self) -> Vec<String> {
+        let mut seen = std::collections::BTreeSet::new();
+        let mut dupes = std::collections::BTreeSet::new();
+        for registry in &self.registries {
+            for tool in registry.tools() {
+                let name = tool.name.to_string();
+                if !seen.insert(name.clone()) {
+                    dupes.insert(name);
+                }
+            }
+        }
+        dupes.into_iter().collect()
+    }
+
+    pub fn is_empty(&self) -> bool {
+        self.registries.iter().all(McpRegistry::is_empty)
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
