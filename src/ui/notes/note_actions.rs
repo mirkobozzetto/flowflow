@@ -1,22 +1,82 @@
+use crate::application::approvals::ProposalView;
 use crate::application::constants::NOTE_ACTION_PROMPT;
 use crate::application::i18n::t;
+use crate::application::tools::ToolEvent;
 use crate::domain::NewTextNote;
 use crate::infrastructure::backend::BackendClient;
 use crate::infrastructure::llm::LlmClient;
 use crate::infrastructure::persistence::Database;
 use crate::ui::chat::action_card::ActionResultCard;
+use crate::ui::chat::approval_card::ApprovalCard;
+use crate::ui::chat::models::{tool_label, ProposalStatus};
 use crate::ui::AppState;
 use dioxus::prelude::*;
 use std::sync::Arc;
+use tokio::sync::mpsc;
 
 fn action_key(note_id: &str) -> String {
     format!("note_action:{note_id}")
 }
 
+// One approval card of the current run. The chat keeps its cards as conversation messages so
+// they survive a reload; a note has no message table, so a card lives only as long as its run
+// and an undecided proposal expires with it.
+#[derive(Clone, PartialEq)]
+struct Card {
+    view: ProposalView,
+    status: ProposalStatus,
+    edit_error: Option<String>,
+}
+
+fn set_status(cards: &mut Signal<Vec<Card>>, id: &str, status: ProposalStatus) {
+    if let Some(c) = cards.write().iter_mut().find(|c| c.view.id == id) {
+        c.status = status;
+        c.edit_error = None;
+    }
+}
+
+// Drain the run's tool events into the note's live UI state. Returns the sender the agent run
+// is given; the loop ends when the run drops it.
+fn drain_tool_events(
+    mut cards: Signal<Vec<Card>>,
+    mut tool_status: Signal<Option<String>>,
+    lang: String,
+) -> mpsc::UnboundedSender<ToolEvent> {
+    let (tx, mut rx) = mpsc::unbounded_channel();
+    spawn(async move {
+        while let Some(event) = rx.recv().await {
+            match event {
+                ToolEvent::Started(name) => {
+                    tool_status.set(Some(tool_label(&lang, &name)))
+                }
+                ToolEvent::Finished(_) => tool_status.set(None),
+                ToolEvent::Proposal(view) => cards.write().push(Card {
+                    view,
+                    status: ProposalStatus::Pending,
+                    edit_error: None,
+                }),
+                ToolEvent::ProposalResolved { id, status } => {
+                    set_status(&mut cards, &id, status.into())
+                }
+                ToolEvent::EditRejected { id, reason } => {
+                    if let Some(c) =
+                        cards.write().iter_mut().find(|c| c.view.id == id)
+                    {
+                        c.edit_error = Some(reason);
+                    }
+                }
+            }
+        }
+    });
+    tx
+}
+
 // Run-this-note-as-an-action. The note text IS the instruction: it goes through the agent with the
 // connected tools (NOTE_ACTION_PROMPT keeps the reply to a one-line confirmation + resource link).
 // The result is cached per note so reopening the note shows what it produced instead of re-offering
-// a fresh run. Dark unless a backend connector is configured.
+// a fresh run. Dark unless a backend connector is configured. The run carries a live event
+// channel, so it gets the same governed surface as the chat: a connector write holds for the
+// approval card below the button instead of being dropped.
 #[component]
 pub fn NoteActions(
     mut local_note_id: Signal<String>,
@@ -33,6 +93,8 @@ pub fn NoteActions(
     let mut running = use_signal(|| false);
     let mut result: Signal<Option<String>> = use_signal(|| None);
     let mut error: Signal<Option<String>> = use_signal(|| None);
+    let mut cards: Signal<Vec<Card>> = use_signal(Vec::new);
+    let mut tool_status: Signal<Option<String>> = use_signal(|| None);
 
     // surface any previously cached result for this note (persistence across reopen)
     use_effect(move || {
@@ -65,6 +127,9 @@ pub fn NoteActions(
                         }
                         running.set(true);
                         error.set(None);
+                        cards.write().clear();
+                        tool_status.set(None);
+                        let tx = drain_tool_events(cards, tool_status, lang.clone());
                         let c = content();
                         let t_in = title();
                         let tg = tags();
@@ -99,8 +164,6 @@ pub fn NoteActions(
                                     cur
                                 }
                             };
-                            // No event channel here = no approval card can render, so this
-                            // path gets the notes-only surface (connector writes need chat).
                             let outcome = match LlmClient::from_db(&database) {
                                 Ok(ai) => {
                                     let ai = Arc::new(ai);
@@ -108,7 +171,7 @@ pub fn NoteActions(
                                         ai,
                                         NOTE_ACTION_PROMPT,
                                         &c,
-                                        None,
+                                        Some(tx),
                                         crate::infrastructure::llm::NotesTools::Global,
                                     )
                                     .await
@@ -123,15 +186,31 @@ pub fn NoteActions(
                                 }
                                 Err(e) => error.set(Some(e)),
                             }
+                            tool_status.set(None);
                             running.set(false);
                         });
                     },
                     if running() {
                         span { class: "inline-block w-3.5 h-3.5 border-2 border-ios-orange-dark border-t-transparent rounded-full animate-spin" }
-                        span { "{running_label}" }
+                        span { {tool_status().unwrap_or_else(|| running_label.clone())} }
                     } else {
                         span { "{run_label}" }
                     }
+                }
+                {
+                    cards().into_iter().enumerate().map(|(i, card)| {
+                        let id = card.view.id.clone();
+                        rsx! {
+                            ApprovalCard {
+                                key: "{i}",
+                                view: card.view,
+                                status: card.status,
+                                edit_error: card.edit_error,
+                                on_expired: move |_| set_status(&mut cards, &id, ProposalStatus::Expired),
+                                lang: lang.clone(),
+                            }
+                        }
+                    })
                 }
                 {
                     if let Some(answer) = result() {

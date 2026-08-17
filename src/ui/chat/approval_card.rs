@@ -2,23 +2,24 @@ use crate::application::approvals::{
     self, ProposalView, UserDecision, APPROVAL_TIMEOUT,
 };
 use crate::application::i18n::t;
-use crate::ui::chat::actions::update_proposal_status;
-use crate::ui::chat::models::{ChatMsg, ProposalStatus};
+use crate::ui::chat::models::ProposalStatus;
 use crate::ui::icons::IconShieldCheck;
 use dioxus::prelude::*;
 use uuid::Uuid;
 
-// The in-chat approval card for a suspended connector write: payload rows, the TOCTOU caveat,
-// and Approuver / Modifier / Refuser. Modifier opens an inline editor over the value field;
+// The approval card for a suspended connector write: payload rows, the TOCTOU caveat, and
+// Approuver / Modifier / Refuser. Modifier opens an inline editor over the value field;
 // every action delegates to `approvals::decide`/`touch` - the card never touches the registry.
 // Once decided the buttons vanish and only a status pill remains. A decide that returns Expired
-// (the run already died) freezes the card locally, since no hook is left to emit the resolution.
+// (the run already died) has no hook left to emit the resolution, so the card asks its owner
+// to freeze it: `on_expired`. That handler is the card's only tie to where it is mounted, which
+// is why the same component serves the chat and a note action.
 #[component]
 pub fn ApprovalCard(
     view: ProposalView,
     status: ProposalStatus,
     edit_error: Option<String>,
-    messages: Signal<Vec<ChatMsg>>,
+    on_expired: EventHandler<()>,
     lang: String,
 ) -> Element {
     let mut editing = use_signal(|| false);
@@ -33,17 +34,10 @@ pub fn ApprovalCard(
     let pending = status == ProposalStatus::Pending;
     let card_id = Uuid::parse_str(&view.id).ok();
 
-    let approve = {
-        let id = view.id.clone();
-        move |_| {
-            if let Some(uuid) = card_id {
-                if approvals::decide(uuid, UserDecision::Approved).is_err() {
-                    update_proposal_status(
-                        &mut messages,
-                        &id,
-                        ProposalStatus::Expired,
-                    );
-                }
+    let approve = move |_| {
+        if let Some(uuid) = card_id {
+            if approvals::decide(uuid, UserDecision::Approved).is_err() {
+                on_expired.call(());
             }
         }
     };
@@ -55,23 +49,15 @@ pub fn ApprovalCard(
         editing.set(true);
     };
 
-    let reject = {
-        let id = view.id.clone();
-        move |_| {
-            if let Some(uuid) = card_id {
-                if approvals::decide(uuid, UserDecision::Rejected).is_err() {
-                    update_proposal_status(
-                        &mut messages,
-                        &id,
-                        ProposalStatus::Expired,
-                    );
-                }
+    let reject = move |_| {
+        if let Some(uuid) = card_id {
+            if approvals::decide(uuid, UserDecision::Rejected).is_err() {
+                on_expired.call(());
             }
         }
     };
 
     let submit_edit = {
-        let id = view.id.clone();
         let raw = view.raw_args.clone();
         move |_| {
             let mut args = raw.clone();
@@ -84,11 +70,7 @@ pub fn ApprovalCard(
             if let Some(uuid) = card_id {
                 if approvals::decide(uuid, UserDecision::Edited(args)).is_err()
                 {
-                    update_proposal_status(
-                        &mut messages,
-                        &id,
-                        ProposalStatus::Expired,
-                    );
+                    on_expired.call(());
                 }
             }
             editing.set(false);
@@ -148,7 +130,7 @@ pub fn ApprovalCard(
                     }
                     div { class: "mt-2 flex gap-2",
                         button {
-                            class: "flex-1 min-h-[44px] rounded-lg bg-ios-green/15 text-ios-green font-medium text-sm active:opacity-80",
+                            class: "flex-1 min-h-[44px] rounded-lg bg-ios-orange text-white font-medium text-sm active:opacity-80",
                             onclick: submit_edit,
                             {t(&lang, "approval-confirm")}
                         }
@@ -162,7 +144,7 @@ pub fn ApprovalCard(
             } else if pending {
                 div { class: "mt-3 flex gap-2",
                     button {
-                        class: "flex-1 min-h-[44px] rounded-lg bg-ios-green text-white font-medium text-sm active:opacity-80",
+                        class: "flex-1 min-h-[44px] rounded-lg bg-ios-orange text-white font-medium text-sm active:opacity-80",
                         onclick: approve,
                         {t(&lang, "approval-approve")}
                     }
@@ -216,8 +198,9 @@ fn pill_key(status: &ProposalStatus) -> &'static str {
 
 fn pill_class(status: &ProposalStatus) -> &'static str {
     match status {
-        ProposalStatus::Approved => "bg-ios-green/15 text-ios-green",
-        ProposalStatus::Edited => "bg-ios-orange/15 text-ios-orange-dark",
+        ProposalStatus::Approved | ProposalStatus::Edited => {
+            "bg-ios-orange-50 text-ios-orange-dark"
+        }
         ProposalStatus::Rejected => "bg-ios-red/10 text-ios-red",
         ProposalStatus::Pending | ProposalStatus::Expired => {
             "bg-stone-100 text-stone-500"
