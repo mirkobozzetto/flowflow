@@ -1,14 +1,16 @@
 use crate::domain::ChatScope;
 use crate::infrastructure::audio::RecordingState;
 use crate::infrastructure::persistence::Database;
-use crate::ui::chat::actions::{load_messages_from_db, send_question};
+use crate::ui::chat::actions::{
+    load_messages_from_db, send_question, update_proposal_status,
+};
 use crate::ui::chat::approval_card::ApprovalCard;
 use crate::ui::chat::bot_bubble::BotBubble;
 use crate::ui::chat::chat_input::ChatInputBar;
 use crate::ui::chat::empty_state::ChatEmptyState;
 use crate::ui::chat::mention_menu::MentionedNote;
 use crate::ui::chat::menu::ChatMenu;
-use crate::ui::chat::models::ChatMsg;
+use crate::ui::chat::models::{ChatMsg, ProposalStatus};
 use crate::ui::chat::typing_indicator::TypingIndicator;
 use crate::ui::chat::user_bubble::UserBubble;
 use crate::ui::state::View;
@@ -203,14 +205,21 @@ pub fn ChatView() -> Element {
                                         }
                                     }
                                 },
-                                ChatMsg::Proposal { view, status, edit_error } => rsx! {
-                                    div { key: "{i}",
-                                        ApprovalCard {
-                                            view: view.clone(),
-                                            status: status.clone(),
-                                            edit_error: edit_error.clone(),
-                                            messages: messages,
-                                            lang: (app.current_lang)(),
+                                ChatMsg::Proposal { view, status, edit_error } => {
+                                    let id = view.id.clone();
+                                    rsx! {
+                                        div { key: "{i}",
+                                            ApprovalCard {
+                                                view: view.clone(),
+                                                status: status.clone(),
+                                                edit_error: edit_error.clone(),
+                                                on_expired: move |_| update_proposal_status(
+                                                    &mut messages,
+                                                    &id,
+                                                    ProposalStatus::Expired,
+                                                ),
+                                                lang: (app.current_lang)(),
+                                            }
                                         }
                                     }
                                 },
