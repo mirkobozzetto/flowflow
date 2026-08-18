@@ -19,9 +19,10 @@ pub use note::{
     NewTextNote, Note, NoteAudio, NoteType, UpdateNote,
 };
 pub use reminder::{
-    NewNoteReminder, NoteReminder, RecurrenceFreq, RecurrenceSpec,
-    ReminderIntent, BACKEND_EVENTKIT, BACKEND_USER_NOTIFICATIONS,
-    DEFAULT_REMINDER_HOUR, REMINDER_STATE_ACTIVE, REMINDER_STATE_TOMBSTONE,
+    clean_event_title, NewNoteReminder, NoteReminder, RecurrenceFreq,
+    RecurrenceSpec, ReminderIntent, BACKEND_EVENTKIT,
+    BACKEND_USER_NOTIFICATIONS, DEFAULT_REMINDER_HOUR, MAX_EVENT_TITLE_CHARS,
+    REMINDER_STATE_ACTIVE, REMINDER_STATE_TOMBSTONE,
 };
 pub use thread::{NewThread, Thread, UpdateThread};
 pub use transcript::{Transcript, Word};

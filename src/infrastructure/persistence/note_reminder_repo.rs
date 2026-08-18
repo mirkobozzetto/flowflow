@@ -153,6 +153,24 @@ impl Database {
         .unwrap_or(false)
     }
 
+    /// Same intent already scheduled under ANY note. The per-note check above cannot see
+    /// it: a chat-scheduled reminder gets its own carrier note, so a hash extracted from
+    /// an existing note would pass and create a second calendar event for one appointment.
+    pub fn reminder_exists_by_intent_hash_anywhere(
+        &self,
+        intent_hash: &str,
+    ) -> bool {
+        let conn = self.conn();
+        conn.query_row(
+            "SELECT COUNT(*) FROM note_reminders
+             WHERE intent_hash = ?1 AND state = 'active'",
+            rusqlite::params![intent_hash],
+            |row| row.get::<_, i64>(0),
+        )
+        .map(|n| n > 0)
+        .unwrap_or(false)
+    }
+
     pub fn note_has_active_reminder(&self, note_id: &str) -> bool {
         let conn = self.conn();
         conn.query_row(

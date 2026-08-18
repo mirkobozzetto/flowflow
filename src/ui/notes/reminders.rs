@@ -267,7 +267,18 @@ pub fn ReminderSuggestions(
                             let range_to = range_to_label.clone();
                             rsx! {
                                 div { class: "bg-white/40 rounded-lg p-2.5",
-                                    p { class: "text-sm text-stone-800 mb-1.5", "{action}" }
+                                    // Editable, like the date and time below it: the title comes
+                                    // out of an extraction over free-form dictation, so it is the
+                                    // field most likely to be wrong, and it was the only one the
+                                    // user could not touch before confirming.
+                                    input {
+                                        r#type: "text",
+                                        class: "w-full text-sm text-stone-800 mb-1.5 bg-transparent border-b border-transparent outline-none focus:border-ios-orange-dark transition-colors duration-150",
+                                        value: "{action}",
+                                        oninput: move |e| {
+                                            detected_reminders.write()[idx].action = e.value();
+                                        },
+                                    }
                                     if !items.is_empty() {
                                         ul { class: "mb-1.5 ml-1 space-y-0.5",
                                             for it in items.iter() {

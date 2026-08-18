@@ -11,6 +11,34 @@ pub enum ScheduleResult {
     Failed(String),
 }
 
+/// `schedule` run on a thread of its own, awaited through a channel. EventKit's
+/// `EKEventStore` and its completion block are not `Send` and are held across an await, so
+/// `schedule`'s future cannot cross a `Send` bound - which is exactly what rig's
+/// `Tool::call` requires. Agent tools go through here; the note UI, which spawns on a local
+/// task, keeps calling `schedule` directly. The thread opens its own `Database` rather than
+/// carrying one across, so nothing but the plain intent crosses the boundary.
+pub async fn schedule_off_thread(
+    note_id: String,
+    intent: ReminderIntent,
+) -> ScheduleResult {
+    let (tx, rx) = tokio::sync::oneshot::channel();
+    std::thread::spawn(move || {
+        let outcome = tokio::runtime::Builder::new_current_thread()
+            .enable_all()
+            .build()
+            .map_err(|e| format!("runtime: {e}"))
+            .and_then(|rt| {
+                let db = Database::open().map(Arc::new)?;
+                Ok(rt.block_on(schedule(db, note_id, intent)))
+            })
+            .unwrap_or_else(ScheduleResult::Failed);
+        let _ = tx.send(outcome);
+    });
+    rx.await.unwrap_or_else(|_| {
+        ScheduleResult::Failed("scheduling thread died".into())
+    })
+}
+
 pub async fn schedule(
     db: Arc<Database>,
     note_id: String,
@@ -57,7 +85,7 @@ pub async fn schedule(
             (true, 9, 0, 9, 0)
         };
         let outcome = create_event(EventRequest {
-            title: intent.action.clone(),
+            title: crate::domain::clean_event_title(&intent.action),
             notes: intent.notes_body().unwrap_or_default(),
             recurrence: intent.effective_recurrence().map(str::to_string),
             recurrence_until: intent

@@ -3,6 +3,44 @@ use serde::Deserialize;
 
 pub const DEFAULT_REMINDER_HOUR: u32 = 9;
 
+/// Where a calendar title stops being a title. Past this it is a sentence someone pasted,
+/// and the calendar row truncates it anyway - better to cut on a word here than mid-word
+/// in the OS.
+pub const MAX_EVENT_TITLE_CHARS: usize = 60;
+
+/// The last thing between a model's output and `EKEvent.setTitle`. The extraction prompt
+/// asks for a short headline with no date words, but a prompt is a request: on a long,
+/// rambling message the model hands back a whole sentence, sometimes with newlines. This
+/// is the part that holds whatever the model does.
+///
+/// Collapses whitespace, drops trailing punctuation, and cuts on a word boundary. It never
+/// tries to rewrite meaning - a bad title stays bad, it just stays SHORT and well-formed,
+/// and the user can fix it in the iOS sheet.
+pub fn clean_event_title(raw: &str) -> String {
+    let collapsed = raw
+        .split_whitespace()
+        .collect::<Vec<_>>()
+        .join(" ")
+        .trim_end_matches(['.', ',', ';', ':', '!', '?', '-'])
+        .trim()
+        .to_string();
+
+    if collapsed.chars().count() <= MAX_EVENT_TITLE_CHARS {
+        return collapsed;
+    }
+    let cut: String = collapsed.chars().take(MAX_EVENT_TITLE_CHARS).collect();
+    match cut.rsplit_once(' ') {
+        // Only honor the word boundary when it leaves a real title behind; a single very
+        // long word would otherwise cut down to almost nothing.
+        Some((head, _))
+            if head.chars().count() >= MAX_EVENT_TITLE_CHARS / 2 =>
+        {
+            format!("{}…", head.trim_end_matches([',', ';', ':', '-']))
+        }
+        _ => format!("{}…", cut.trim_end()),
+    }
+}
+
 #[derive(Debug, Clone, PartialEq, Eq, Deserialize)]
 pub struct ReminderIntent {
     pub action: String,

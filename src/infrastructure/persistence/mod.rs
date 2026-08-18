@@ -275,7 +275,7 @@ impl Database {
                     installed_connector_repo::backfill_sheets_pin(&conn)?;
                 }
                 // The table rebuild dropped conversation_messages' sync triggers.
-                if version == 18 {
+                if version == 18 || version == 22 {
                     sync_meta::install_sync_triggers(&conn)?;
                 }
                 conn.execute(

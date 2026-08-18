@@ -56,21 +56,64 @@ pub fn month_abbr(lang: &str, month: u32) -> &'static str {
     table.get(month as usize).copied().unwrap_or("")
 }
 
+pub fn weekday_name(lang: &str, wd: chrono::Weekday) -> &'static str {
+    const FR: [&str; 7] = [
+        "lundi", "mardi", "mercredi", "jeudi", "vendredi", "samedi", "dimanche",
+    ];
+    const EN: [&str; 7] = [
+        "Monday",
+        "Tuesday",
+        "Wednesday",
+        "Thursday",
+        "Friday",
+        "Saturday",
+        "Sunday",
+    ];
+    let table = if lang == "fr" { &FR } else { &EN };
+    table[wd.num_days_from_monday() as usize]
+}
+
+/// How the date reads back to someone who typed "demain". Within the week the day is named
+/// ("Demain", "Jeudi"); past that, the calendar date. Someone who said "tomorrow" and reads
+/// "19 août" has to do the conversion themselves just to check the agent understood.
 pub fn reminder_due_label(
     lang: &str,
     r: &crate::domain::NoteReminder,
 ) -> String {
+    use chrono::{Datelike, Local, NaiveDate};
     let (m, d) = match (r.due_month, r.due_day) {
         (Some(m), Some(d)) => (m, d),
         _ => return String::new(),
     };
-    let mon = month_abbr(lang, m as u32);
+    let day_part = r
+        .due_year
+        .and_then(|y| NaiveDate::from_ymd_opt(y, m as u32, d as u32))
+        .and_then(|date| {
+            let today = Local::now().date_naive();
+            match (date - today).num_days() {
+                0 => Some(t(lang, "reminder-today")),
+                1 => Some(t(lang, "reminder-tomorrow")),
+                2..=6 => {
+                    let name = weekday_name(lang, date.weekday());
+                    let mut c = name.chars();
+                    Some(match c.next() {
+                        Some(f) => {
+                            f.to_uppercase().collect::<String>() + c.as_str()
+                        }
+                        None => name.to_string(),
+                    })
+                }
+                _ => None,
+            }
+        })
+        .unwrap_or_else(|| format!("{d} {}", month_abbr(lang, m as u32)));
+
     if r.is_all_day {
-        format!("{d} {mon}")
+        day_part
     } else {
         let h = r.due_hour.unwrap_or(9);
         let min = r.due_minute.unwrap_or(0);
-        format!("{d} {mon}, {h:02}:{min:02}")
+        format!("{day_part} {h:02}:{min:02}")
     }
 }
 

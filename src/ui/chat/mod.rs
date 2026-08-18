@@ -14,6 +14,7 @@ mod view;
 pub(crate) mod action_card;
 pub(crate) mod approval_card;
 pub(crate) mod chat_input;
+pub(crate) mod reminder_card;
 
 pub use actions::md_to_html;
 pub use sources_accordion::NoteWebSources;

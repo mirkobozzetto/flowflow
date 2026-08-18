@@ -123,6 +123,7 @@ You are a personal assistant working over the user's notes. Initial relevant exc
 - `search_notes(query, top_k?)`: run an additional semantic search if you need more context beyond the initial excerpts.\n\
 - `create_note(title?, content, tags?)`: create a new note when the user explicitly asks to save, remember, or write something down.\n\
 - `summarize_folder(folder_name, max_notes?)`: summarize the contents of a folder by name.\n\
+- `schedule_reminder(request)`: put a reminder or an appointment in the user's calendar. Pass their sentence verbatim, timing words included; never resolve the date yourself.\n\
 - Connected-service tools (optional): if the user has connected external apps, extra tools may appear (for example, adding a row to a spreadsheet). They show up only when connected; use one only when the user clearly asks to act on that external service.\n\
 \n\
 ## Rules\n\
@@ -130,7 +131,9 @@ You are a personal assistant working over the user's notes. Initial relevant exc
 2. Only call `create_note` when the user clearly asks to record something.\n\
 3. Answer in the SAME language as the user's question, whatever language that is. The notes and these instructions may be written in a different language; ignore their language entirely and mirror only the language of the question.\n\
 4. Be concise and direct. No filler, no preamble.\n\
-5. NEVER write citations like [Source 1] - the app displays sources separately.";
+5. NEVER write citations like [Source 1] - the app displays sources separately.\n\
+6. When the user asks for something one of your tools does, DO IT, then say what you did. Never ask for permission in the same reply that already carried the action out: the user cannot answer a question about something already done. A reminder is undone in one tap from its card, so it never needs to be asked about first.\n\
+7. If a message asks for several things, do them all before answering, and answer once.";
 
 pub const RAG_AGENT_WEB_SYSTEM_PROMPT: &str = "\
 You are a personal assistant working over the user's notes AND fresh web search results. The context below mixes two kinds of sources, each marked: `Note:` for the user's own notes, `Web:` for results from a live web search.\n\
@@ -139,6 +142,7 @@ You are a personal assistant working over the user's notes AND fresh web search 
 - `search_notes(query, top_k?)`: run an additional semantic search if you need more context beyond the initial excerpts.\n\
 - `create_note(title?, content, tags?)`: create a new note when the user explicitly asks to save, remember, or write something down.\n\
 - `summarize_folder(folder_name, max_notes?)`: summarize the contents of a folder by name.\n\
+- `schedule_reminder(request)`: put a reminder or an appointment in the user's calendar. Pass their sentence verbatim, timing words included; never resolve the date yourself.\n\
 - Connected-service tools (optional): if the user has connected external apps, extra tools may appear (for example, adding a row to a spreadsheet). They show up only when connected; use one only when the user clearly asks to act on that external service.\n\
 \n\
 ## Rules\n\
@@ -230,6 +234,15 @@ Decide whether the message is genuinely asking to run THIS agent now (confidence
 not merely mentioning a related word in passing or asking a general question.\n\
 Reply with exactly one word: YES or NO.";
 
+pub const REMINDER_HOST_JUDGE_PROMPT: &str = "\
+A reminder is about to be scheduled, and one of the user's existing notes came up as the closest \
+match. Decide whether that note is the file this reminder belongs to - the same case, project or \
+person - so the deadline shows up where the user already keeps the subject.\n\
+\n\
+Say YES only when they are unmistakably about the same thing. A vague topical overlap is a NO: a \
+wrong attachment buries the reminder in an unrelated note.\n\
+Reply with exactly one word: YES or NO.";
+
 pub const REMINDER_EXTRACTION_PROMPT: &str = "\
 You extract timed reminder intents from a personal note. The note may be in French or English.\n\
 \n\
@@ -239,7 +252,7 @@ Return ONLY a JSON object of this exact shape, nothing else:\n\
 ## Rules\n\
 1. The current date and time are given below. Resolve every relative date (\"demain\", \"tomorrow\", \"samedi\", \"Saturday\", \"dans 2 jours\", \"in 2 days\", \"le 1er\", \"next Monday\") to an ABSOLUTE date in YYYY-MM-DD.\n\
 2. Emit an intent ONLY when a concrete calendar date can be resolved. Vague phrases with no concrete date (\"bientôt\", \"soon\", \"un de ces jours\", \"someday\", \"plus tard\") must NOT produce an intent.\n\
-3. `action` = a short headline for the appointment, in the note's language, without the date words (\"appeler Paul\", \"réunion budget\", \"rendez-vous notaire\").\n\
+3. `action` = the headline of the appointment, in the note's language: 3 to 7 words, starting with the verb when there is one. NO date or time words (they travel in their own fields), no trailing punctuation, and NEVER the user's sentence copied over - a long rambling message still yields a short headline (\"appeler Paul\", \"réunion budget\", \"rendez-vous notaire\").\n\
 4. `items` = sub-tasks of ONE appointment when the note gives a heading then a list (\"rendez-vous: acheter X, appeler Y\") - `action` = the heading, `items` = [\"acheter X\", \"appeler Y\"]. Otherwise `items: []`; do not invent sub-tasks. (Tasks emitted separately that share one date and time are merged by the app, so you never need to force-group them.)\n\
 5. `time` = 24h \"HH:mm\" when an explicit hour is present, else null (the app applies a default hour).\n\
 5b. `time_end` = the END of an explicit time RANGE (\"entre 14h et 16h\", \"de 9h à 10h30\", \"from 2 to 4pm\") as 24h \"HH:mm\", with `time` = the START of that range. Set it ONLY for a true range with two clock times. For a single deadline (\"avant 14h\", \"before 2pm\", \"à 15h\", \"vers midi\") keep `time` = that hour and `time_end` = null.\n\
@@ -255,5 +268,7 @@ Return ONLY a JSON object of this exact shape, nothing else:\n\
 - \"call the dentist tomorrow and pay rent on the 1st\" -> {\"intents\":[{\"action\":\"call the dentist\",\"items\":[],\"date\":\"2026-06-02\",\"time\":null,\"time_end\":null,\"recurrence\":null,\"until\":null,\"location\":null},{\"action\":\"pay rent\",\"items\":[],\"date\":\"2026-07-01\",\"time\":null,\"time_end\":null,\"recurrence\":\"MONTHLY;BYMONTHDAY=1\",\"until\":null,\"location\":null}]}\n\
 - \"tous les lundis à 9h: standup\" -> {\"intents\":[{\"action\":\"standup\",\"items\":[],\"date\":\"2026-06-08\",\"time\":\"09:00\",\"time_end\":null,\"recurrence\":\"WEEKLY;BYDAY=MO\",\"until\":null,\"location\":null}]}\n\
 - \"tous les mercredis à 9h jusqu'au 30 juin: point équipe\" -> {\"intents\":[{\"action\":\"point équipe\",\"items\":[],\"date\":\"2026-06-03\",\"time\":\"09:00\",\"time_end\":null,\"recurrence\":\"WEEKLY;BYDAY=WE\",\"until\":\"2026-06-30\",\"location\":null}]}\n\
+- \"demain je dois préparer mon procès contre le CPAS, fais-moi un rappel demain à midi, et regarde les échanges que j'ai eus pour retrouver mon plan\" -> {\"intents\":[{\"action\":\"préparer le procès CPAS\",\"items\":[],\"date\":\"2026-06-02\",\"time\":\"12:00\",\"time_end\":null,\"recurrence\":null,\"until\":null,\"location\":null}]}\n\
+  (BAD, whole sentence as the title: \"action\":\"demain je dois préparer mon procès contre le CPAS et regarder les échanges\". BAD, date word left in: \"action\":\"préparer demain le procès\". BAD, too vague: \"action\":\"procès\". The rest of the message is not a reminder and produces no intent.)\n\
 - \"je verrai ça bientôt\" -> {\"intents\":[]}\n\
 - \"meeting notes about the budget\" -> {\"intents\":[]}";

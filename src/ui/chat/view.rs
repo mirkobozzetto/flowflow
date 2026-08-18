@@ -2,7 +2,8 @@ use crate::domain::ChatScope;
 use crate::infrastructure::audio::RecordingState;
 use crate::infrastructure::persistence::Database;
 use crate::ui::chat::actions::{
-    load_messages_from_db, send_question, update_proposal_status,
+    cancel_reminder_card, load_messages_from_db, send_question,
+    update_proposal_status,
 };
 use crate::ui::chat::approval_card::ApprovalCard;
 use crate::ui::chat::bot_bubble::BotBubble;
@@ -11,6 +12,7 @@ use crate::ui::chat::empty_state::ChatEmptyState;
 use crate::ui::chat::mention_menu::MentionedNote;
 use crate::ui::chat::menu::ChatMenu;
 use crate::ui::chat::models::{ChatMsg, ProposalStatus};
+use crate::ui::chat::reminder_card::ReminderCard;
 use crate::ui::chat::typing_indicator::TypingIndicator;
 use crate::ui::chat::user_bubble::UserBubble;
 use crate::ui::state::View;
@@ -219,6 +221,25 @@ pub fn ChatView() -> Element {
                                                     ProposalStatus::Expired,
                                                 ),
                                                 lang: (app.current_lang)(),
+                                            }
+                                        }
+                                    }
+                                },
+                                ChatMsg::Reminder { card, cancelled } => {
+                                    let row_id = card.row_id.clone();
+                                    let note_id = card.note_id.clone();
+                                    rsx! {
+                                        div { key: "{i}", class: "flex justify-start",
+                                            div { class: "max-w-[85%]",
+                                                ReminderCard {
+                                                    card: card.clone(),
+                                                    cancelled: *cancelled,
+                                                    on_cancel: move |_| cancel_reminder_card(
+                                                        &mut messages,
+                                                        &note_id,
+                                                        &row_id,
+                                                    ),
+                                                }
                                             }
                                         }
                                     }
