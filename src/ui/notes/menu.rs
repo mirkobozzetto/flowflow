@@ -1,4 +1,3 @@
-use crate::application::embed::delete_note_embeddings;
 use crate::application::i18n::t;
 use crate::ui::icons::*;
 use crate::ui::kit;
@@ -173,11 +172,7 @@ pub fn NoteMenu(
                                 move |_| {
                                     app.show_note_menu.set(false);
                                     deleted.set(true);
-                                    for a in db().list_audios(&note_id).unwrap_or_default() {
-                                        let _ = std::fs::remove_file(crate::infrastructure::audio::resolve_audio_path(&a.file_path));
-                                    }
-                                    let _ = db().delete_note(&note_id);
-                                    delete_note_embeddings(note_id.clone());
+                                    crate::application::note_persistence::delete_note(&db(), &note_id);
                                     engine.peek().schedule_debounced();
                                     app.current_note_id.set(None);
                                 }

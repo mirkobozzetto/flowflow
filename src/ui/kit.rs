@@ -16,6 +16,8 @@ pub const PILL_GHOST: &str = "shrink-0 h-9 px-3 flex items-center justify-center
 
 pub const MENU_PANEL: &str = "z-50 min-w-[200px] bg-warm-white border border-stone-200 rounded-xl shadow-lg p-1 menu-pop";
 
+pub const MENU_PANEL_ANCHORED: &str = "z-50 w-60 bg-warm-white border border-stone-200 rounded-xl p-1 menu-anchor";
+
 pub const MENU_ITEM: &str = "w-full flex items-center gap-2.5 px-3 py-2.5 min-h-[40px] rounded-lg text-sm text-stone-800 text-left active:bg-stone-100 hover:bg-stone-100 transition-colors duration-150";
 
 pub const MENU_ITEM_DANGER: &str = "w-full flex items-center gap-2.5 px-3 py-2.5 min-h-[40px] rounded-lg text-sm text-ios-red-dark text-left active:bg-ios-red-50 hover:bg-ios-red-50 transition-colors duration-150";

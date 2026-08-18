@@ -48,6 +48,7 @@ impl SettingsSection {
 pub enum RowMenu {
     Conversation(String),
     Folder(String),
+    Note(String),
 }
 
 #[derive(Clone, Debug, PartialEq)]
@@ -107,6 +108,9 @@ pub struct AppState {
     pub audio_import_requested: Signal<bool>,
     pub sync_data_version: Signal<u64>,
     pub row_menu: Signal<Option<RowMenu>>,
+    // Where the finger was when the row menu opened, in client pixels. The menu
+    // grows out of that point instead of a fixed corner.
+    pub row_menu_at: Signal<(f64, f64)>,
     pub view_history: Signal<Vec<View>>,
     pub view_future: Signal<Vec<View>>,
     pub history_nav: Signal<bool>,
@@ -160,6 +164,7 @@ impl AppState {
             audio_import_requested: Signal::new(false),
             sync_data_version: Signal::new(0),
             row_menu: Signal::new(None),
+            row_menu_at: Signal::new((0.0, 0.0)),
             view_history: Signal::new(Vec::new()),
             view_future: Signal::new(Vec::new()),
             history_nav: Signal::new(false),

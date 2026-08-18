@@ -2,9 +2,14 @@ use crate::application::i18n::t;
 use crate::domain::Note;
 use crate::infrastructure::persistence::Database;
 use crate::ui::icons::{IconArrowUpRight, IconBell};
-use crate::ui::{AppState, View};
+use crate::ui::{AppState, RowMenu, View};
 use dioxus::prelude::*;
 use std::sync::Arc;
+
+/// Finger travel, in CSS pixels, past which a press is a scroll, not a hold.
+const PRESS_SLOP: f64 = 10.0;
+/// How long a finger must stay down before the note action sheet opens.
+const LONG_PRESS_MS: u64 = 450;
 
 #[component]
 pub fn NoteCard(note: Note) -> Element {
@@ -12,6 +17,14 @@ pub fn NoteCard(note: Note) -> Element {
     let db: Signal<Arc<Database>> = use_context();
     let note_id = note.id.clone();
     let lang = (app.current_lang)();
+    // Same press bookkeeping as the related-notes rows (related.rs): a counter
+    // invalidates the pending timer when the finger lifts or the list scrolls.
+    let mut press_seq = use_signal(|| 0u32);
+    let mut pressed = use_signal(|| None::<u32>);
+    let mut press_origin = use_signal(|| (0.0f64, 0.0f64));
+    let mut suppress_click = use_signal(|| false);
+    let press_id = note.id.clone();
+    let menu_id = note.id.clone();
 
     let title = note
         .title
@@ -46,10 +59,66 @@ pub fn NoteCard(note: Note) -> Element {
         .ok()
         .and_then(|f| f.first().map(|f| f.name.clone()));
 
+    // The pressed card stays lit above the dimming veil the list draws.
+    let picked = (app.row_menu)() == Some(RowMenu::Note(note.id.clone()));
+
     rsx! {
         div {
             class: "bg-warm-white p-4 border border-stone-200 rounded-xl mb-2.5 lg:mb-0 lg:h-full cursor-pointer break-inside-avoid hover:border-stone-300 hover:shadow-sm transition-all duration-150",
+            // Sits between the veil and the menu: lit enough to read as selected,
+            // dimmer than the panel that owns the focus.
+            class: if picked { "relative z-20 shadow-xl border-stone-300 brightness-90" } else { "" },
+            onpointerdown: move |evt| {
+                let p = evt.client_coordinates();
+                press_origin.set((p.x, p.y));
+                let seq = press_seq() + 1;
+                press_seq.set(seq);
+                pressed.set(Some(seq));
+                let id = press_id.clone();
+                spawn(async move {
+                    futures_timer::Delay::new(
+                        std::time::Duration::from_millis(LONG_PRESS_MS),
+                    )
+                    .await;
+                    if pressed() == Some(seq) {
+                        pressed.set(None);
+                        suppress_click.set(true);
+                        app.row_menu_at.set(press_origin());
+                        app.row_menu.set(Some(RowMenu::Note(id)));
+                    }
+                });
+            },
+            // Desktop equivalent of the hold, per the platform convention.
+            oncontextmenu: move |evt| {
+                evt.prevent_default();
+                pressed.set(None);
+                let p = evt.client_coordinates();
+                app.row_menu_at.set((p.x, p.y));
+                app.row_menu.set(Some(RowMenu::Note(menu_id.clone())));
+            },
+            onpointerup: move |_| pressed.set(None),
+            onpointercancel: move |_| pressed.set(None),
+            onpointerleave: move |_| pressed.set(None),
+            // A finger always drifts a little; only real travel (a scroll) cancels.
+            onpointermove: move |evt| {
+                if pressed().is_none() {
+                    return;
+                }
+                let p = evt.client_coordinates();
+                let (ox, oy) = press_origin();
+                if (p.x - ox).abs() > PRESS_SLOP || (p.y - oy).abs() > PRESS_SLOP {
+                    pressed.set(None);
+                }
+            },
             onclick: move |_| {
+                if suppress_click() {
+                    suppress_click.set(false);
+                    return;
+                }
+                if (app.row_menu)().is_some() {
+                    app.row_menu.set(None);
+                    return;
+                }
                 app.show_folder_picker.set(false);
                 app.view.set(View::NoteDetail { note_id: note_id.clone() });
             },
