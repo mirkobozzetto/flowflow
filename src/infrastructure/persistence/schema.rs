@@ -20,6 +20,7 @@ pub const MIGRATIONS: &[(i64, &str)] = &[
     (19, V19_SCHEMA),
     (20, V20_SCHEMA),
     (21, V21_SCHEMA),
+    (22, V22_SCHEMA),
 ];
 
 // Per-word timings and confidence for a transcription (RFC 0024). Device-local: it
@@ -54,6 +55,34 @@ ALTER TABLE pending_transcriptions ADD COLUMN audio_id TEXT;
 // (triggers survive ALTER TABLE ADD COLUMN).
 const V19_SCHEMA: &str = "
 ALTER TABLE conversation_messages ADD COLUMN trace_json TEXT;
+";
+
+// Reminder cards persist as messages with role "reminder", which the v18 CHECK does not
+// admit: the insert failed, the card lived only in memory, and the first reload wiped it -
+// buttons appearing then vanishing. Same rebuild-and-copy as v18 (SQLite cannot alter a
+// CHECK in place), keeping trace_json added since, and the triggers dropped with the table
+// are reinstalled by the v22 migrate hook.
+const V22_SCHEMA: &str = "
+CREATE TABLE conversation_messages_new (
+    id TEXT PRIMARY KEY,
+    conversation_id TEXT NOT NULL
+        REFERENCES conversations(id) ON DELETE CASCADE,
+    role TEXT NOT NULL
+        CHECK (role IN ('user', 'bot', 'proposal', 'reminder')),
+    content TEXT NOT NULL,
+    sources_json TEXT,
+    created_at TEXT NOT NULL
+        DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')),
+    trace_json TEXT
+);
+INSERT INTO conversation_messages_new
+    (id, conversation_id, role, content, sources_json, created_at, trace_json)
+    SELECT id, conversation_id, role, content, sources_json, created_at, trace_json
+    FROM conversation_messages;
+DROP TABLE conversation_messages;
+ALTER TABLE conversation_messages_new RENAME TO conversation_messages;
+CREATE INDEX IF NOT EXISTS idx_cm_conversation
+    ON conversation_messages(conversation_id);
 ";
 
 // Approval cards (RFC 0019) persist as messages with role "proposal", but the original

@@ -2,7 +2,9 @@ use chrono::{NaiveDate, NaiveTime};
 use flowflow::application::reminders_extract::{
     group_same_slot, parse_reminder_intents,
 };
-use flowflow::domain::DEFAULT_REMINDER_HOUR;
+use flowflow::domain::{
+    clean_event_title, DEFAULT_REMINDER_HOUR, MAX_EVENT_TITLE_CHARS,
+};
 
 #[test]
 fn parses_single_intent_with_time() {
@@ -159,4 +161,57 @@ fn folds_a_model_grouped_intent_and_a_stray_at_the_same_slot() {
         grouped[0].items,
         vec!["acheter X", "appeler Y", "préparer Z"]
     );
+}
+
+// The deterministic guard between the extraction model and EKEvent.setTitle. The prompt asks
+// for a short headline; these are what holds when it does not comply.
+
+#[test]
+fn keeps_a_short_title_untouched() {
+    assert_eq!(clean_event_title("appeler Paul"), "appeler Paul");
+}
+
+#[test]
+fn collapses_newlines_and_repeated_spaces() {
+    assert_eq!(
+        clean_event_title("  réunion\n\nbudget   équipe  "),
+        "réunion budget équipe"
+    );
+}
+
+#[test]
+fn drops_trailing_punctuation() {
+    assert_eq!(
+        clean_event_title("préparer le dossier."),
+        "préparer le dossier"
+    );
+    assert_eq!(
+        clean_event_title("rappeler l'avocat !"),
+        "rappeler l'avocat"
+    );
+}
+
+#[test]
+fn cuts_a_whole_sentence_on_a_word_boundary() {
+    let raw = "demain je dois préparer mon procès contre le CPAS et relire \
+               tous les échanges que j'ai eus avec eux";
+    let out = clean_event_title(raw);
+    assert!(
+        out.chars().count() <= MAX_EVENT_TITLE_CHARS + 1,
+        "got {out:?}"
+    );
+    assert!(out.ends_with('…'), "got {out:?}");
+    // Cut between words, never mid-word.
+    let body = out.trim_end_matches('…');
+    assert!(
+        raw.split_whitespace().any(|w| body.ends_with(w)),
+        "got {out:?}"
+    );
+}
+
+#[test]
+fn a_single_overlong_word_is_still_cut_but_survives() {
+    let out = clean_event_title(&"a".repeat(200));
+    assert_eq!(out.chars().count(), MAX_EVENT_TITLE_CHARS + 1);
+    assert!(out.ends_with('…'));
 }

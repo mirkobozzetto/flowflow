@@ -65,6 +65,9 @@ fn drain_tool_events(
                         c.edit_error = Some(reason);
                     }
                 }
+                // The note surface has its own reminder list, so a reminder scheduled from
+                // here needs no card: it shows up under the note it landed on.
+                ToolEvent::ReminderScheduled(_) => {}
             }
         }
     });

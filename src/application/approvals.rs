@@ -90,7 +90,7 @@ pub fn reload_proposal(content: &str) -> Option<(ProposalView, ReloadStatus)> {
 /// The message roles the chat renders on reload. Any other role (an older or newer schema) is
 /// dropped instead of being shown as a bot bubble with raw content.
 pub fn is_renderable_role(role: &str) -> bool {
-    matches!(role, "user" | "bot" | "proposal")
+    matches!(role, "user" | "bot" | "proposal" | "reminder")
 }
 
 struct Pending {

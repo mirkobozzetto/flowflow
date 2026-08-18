@@ -10,6 +10,7 @@ pub struct ChatSource {
 
 use crate::application::approvals::{ProposalView, ReloadStatus};
 use crate::application::tools::ProposalStatus as ResolvedStatus;
+use crate::application::tools::ReminderCard;
 
 #[derive(Clone, PartialEq)]
 pub enum ChatMsg {
@@ -27,6 +28,12 @@ pub enum ChatMsg {
         view: ProposalView,
         status: ProposalStatus,
         edit_error: Option<String>,
+    },
+    /// A reminder the agent put in the calendar. The write already happened, so the card
+    /// is proof plus an undo, never a confirmation gate.
+    Reminder {
+        card: ReminderCard,
+        cancelled: bool,
     },
 }
 
@@ -72,6 +79,7 @@ pub fn tool_label(lang: &str, name: &str) -> String {
         "create_note" => "chat-tool-create",
         "summarize_folder" => "chat-tool-summarize",
         "web_search" => "chat-tool-web",
+        "schedule_reminder" => "chat-tool-reminder",
         _ => "chat-tool-working",
     };
     t(lang, key)

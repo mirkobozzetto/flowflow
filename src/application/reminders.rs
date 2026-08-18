@@ -85,7 +85,7 @@ pub async fn schedule(
             (true, 9, 0, 9, 0)
         };
         let outcome = create_event(EventRequest {
-            title: intent.action.clone(),
+            title: crate::domain::clean_event_title(&intent.action),
             notes: intent.notes_body().unwrap_or_default(),
             recurrence: intent.effective_recurrence().map(str::to_string),
             recurrence_until: intent

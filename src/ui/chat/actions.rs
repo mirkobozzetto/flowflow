@@ -22,6 +22,53 @@ fn persist_status(status: &ProposalStatus) -> &'static str {
     }
 }
 
+/// Undo a reminder from its chat card: the calendar event goes, the note's reminder row goes,
+/// and the card stays as a struck-through record of what happened. Same two calls the note's
+/// own reminder line makes, so cancelling from either side leaves the same state.
+pub fn cancel_reminder_card(
+    messages: &mut Signal<Vec<ChatMsg>>,
+    note_id: &str,
+    row_id: &str,
+) {
+    let event_id = Database::open()
+        .ok()
+        .and_then(|db| {
+            let row = db
+                .reminders_for_note(note_id)
+                .into_iter()
+                .find(|r| r.id == row_id)?;
+            let _ = db.delete_note_reminder(row_id);
+            Some(row.reminder_id)
+        })
+        .unwrap_or_default();
+
+    #[cfg(target_os = "ios")]
+    if !event_id.is_empty() {
+        spawn(async move {
+            if let Err(e) =
+                crate::infrastructure::platform::ios::reminders::remove_event(
+                    event_id,
+                )
+                .await
+            {
+                eprintln!("[reminder] card undo failed: {e}");
+            }
+        });
+    }
+    #[cfg(not(target_os = "ios"))]
+    let _ = event_id;
+
+    let mut w = messages.write();
+    for m in w.iter_mut() {
+        if let ChatMsg::Reminder { card, cancelled } = m {
+            if card.row_id == row_id {
+                *cancelled = true;
+                return;
+            }
+        }
+    }
+}
+
 // Set an approval card's status by its view id (both the resolved event and a locally-detected
 // expiry route through here); clears any stale edit error on the way.
 pub fn update_proposal_status(
@@ -255,8 +302,9 @@ pub fn send_question(
                     role: "bot".into(),
                     content: text.clone(),
                 }),
-                // A proposal turn is not conversational context; it never rewrites a follow-up.
-                ChatMsg::Proposal { .. } => None,
+                // Neither a proposal nor a reminder card is conversational context; neither
+                // ever rewrites a follow-up.
+                ChatMsg::Proposal { .. } | ChatMsg::Reminder { .. } => None,
             })
             .collect()
     };
@@ -344,6 +392,27 @@ pub fn send_question(
                 }
                 ToolEvent::EditRejected { id, reason } => {
                     set_proposal_edit_error(&mut msgs_ev, &id, reason);
+                }
+                ToolEvent::ReminderScheduled(card) => {
+                    // Persisted like a proposal: the card must still be there after a
+                    // reload, or it is just another sentence that scrolled away.
+                    if let Some(cid) = conv_ev() {
+                        let content =
+                            serde_json::to_string(&card).unwrap_or_default();
+                        // Loud on failure: a swallowed insert leaves the card in memory
+                        // only, so it shows up and then vanishes on the next reload.
+                        if let Err(e) = db_ev()
+                            .add_message(&cid, "reminder", &content, None)
+                        {
+                            eprintln!(
+                                "[chat] reminder card not persisted: {e}"
+                            );
+                        }
+                    }
+                    msgs_ev.write().push(ChatMsg::Reminder {
+                        card,
+                        cancelled: false,
+                    });
                 }
             }
         }
@@ -503,6 +572,21 @@ pub fn load_messages_from_db(
                         text: m.content,
                         sources,
                         trace,
+                    })
+                }
+                // A reminder is a committed write, so it reloads exactly as it was left;
+                // `cancelled` is derived from the row still being active, which also picks
+                // up a cancel made from the note side.
+                "reminder" => {
+                    let card: crate::application::tools::ReminderCard =
+                        serde_json::from_str(&m.content).ok()?;
+                    let live = db
+                        .reminders_for_note(&card.note_id)
+                        .into_iter()
+                        .any(|r| r.id == card.row_id);
+                    Some(ChatMsg::Reminder {
+                        card,
+                        cancelled: !live,
                     })
                 }
                 // Only "proposal" remains; a run never survives the app, so a persisted

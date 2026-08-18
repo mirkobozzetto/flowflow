@@ -277,6 +277,9 @@ impl LlmClient {
                 }
             }};
         }
+        // Cloned before the hook is moved into the run: `schedule_reminder` renders as a
+        // card, so it needs the same channel the hook reports status on.
+        let tool_events = hook.events();
         match self.provider {
             Provider::OpenAi => {
                 let base = self
@@ -290,7 +293,10 @@ impl LlmClient {
                             .tool(SearchNotes::new(self.clone(), scope))
                             .tool(CreateNote::new())
                             .tool(SummarizeFolder::new(self.clone()))
-                            .tool(ScheduleReminder::new(self.clone()));
+                            .tool(ScheduleReminder::new(
+                                self.clone(),
+                                tool_events.clone(),
+                            ));
                         let b = match web {
                             Some(key) => b.tool(SearchWeb::new(key)),
                             None => b,
@@ -320,7 +326,10 @@ impl LlmClient {
                             .tool(SearchNotes::new(self.clone(), scope))
                             .tool(CreateNote::new())
                             .tool(SummarizeFolder::new(self.clone()))
-                            .tool(ScheduleReminder::new(self.clone()));
+                            .tool(ScheduleReminder::new(
+                                self.clone(),
+                                tool_events.clone(),
+                            ));
                         let b = match web {
                             Some(key) => b.tool(SearchWeb::new(key)),
                             None => b,

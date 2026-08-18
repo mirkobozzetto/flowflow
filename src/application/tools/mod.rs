@@ -8,6 +8,18 @@ pub use create::{CreateNote, CreateNoteArgs, CreateNoteResult};
 pub use reminder::{
     ScheduleReminder, ScheduleReminderArgs, ScheduleReminderResult,
 };
+
+/// A scheduled reminder, as the chat renders it. Carries identity, not presentation: the due
+/// label is formatted from the persisted row at render time, so the card and the note always
+/// agree and a cancel from either side shows on both.
+#[derive(Clone, Debug, PartialEq, serde::Serialize, serde::Deserialize)]
+pub struct ReminderCard {
+    /// `note_reminders.id` - the row to open the iOS event sheet from, and to cancel.
+    pub row_id: String,
+    pub title: String,
+    pub note_id: String,
+    pub note_title: String,
+}
 pub use search::{SearchNotes, SearchNotesArgs, SearchNotesHit};
 pub use summarize::{
     SummarizeFolder, SummarizeFolderArgs, SummarizeFolderResult,
@@ -55,6 +67,9 @@ pub enum ToolEvent {
         id: String,
         reason: String,
     },
+    /// A reminder went into the calendar: render its card. Not an approval - the write
+    /// already happened, and the card carries the undo.
+    ReminderScheduled(ReminderCard),
 }
 
 // One connector's governance + the manifest it was validated against, plus the live run
@@ -194,6 +209,12 @@ impl ContractHook {
             peers: BTreeMap::new(),
             approval_timeout: APPROVAL_TIMEOUT,
         }
+    }
+
+    /// The run's event channel, for a local tool that must reach the chat UI directly.
+    /// `schedule_reminder` is the only one: its result is a card, not prose.
+    pub fn events(&self) -> mpsc::UnboundedSender<ToolEvent> {
+        self.tx.clone()
     }
 
     fn make_contract(

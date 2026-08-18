@@ -324,6 +324,9 @@ pub async fn present_event(identifier: String) {
         };
         let evc = EKEventViewController::new(mtm);
         evc.setEvent(Some(&event));
+        // Puts iOS's own Edit button in the sheet: the agent's generated title, the time and
+        // the alert are all fixable there, so nothing has to be re-asked in the chat.
+        evc.setAllowsEditing(true);
         let nav = UINavigationController::initWithRootViewController(
             UINavigationController::alloc(mtm),
             &evc,

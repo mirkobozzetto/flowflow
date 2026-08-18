@@ -8,28 +8,70 @@
 // the extraction prompt and resolves the date in Rust (`domain::reminder`). One extraction
 // path for both surfaces, and the model never gets to invent a day.
 
+use crate::application::constants::{CHEAP_MODEL, REMINDER_HOST_JUDGE_PROMPT};
 use crate::application::embed::embed_note;
 use crate::application::reminders::{schedule_off_thread, ScheduleResult};
 use crate::application::reminders_extract::extract_reminders;
-use crate::application::tools::ToolFailure;
+use crate::application::tools::{ReminderCard, ToolEvent, ToolFailure};
 use crate::domain::NewTextNote;
 use crate::infrastructure::llm::LlmClient;
 use crate::infrastructure::persistence::Database;
+use crate::infrastructure::vectordb::VectorStore;
 use chrono::Local;
 use rig::completion::ToolDefinition;
 use rig::tool::Tool;
 use serde::{Deserialize, Serialize};
 use serde_json::json;
 use std::sync::Arc;
+use tokio::sync::mpsc;
 
 #[derive(Clone)]
 pub struct ScheduleReminder {
     pub llm: Arc<LlmClient>,
+    /// The chat's event channel, so a scheduled reminder can render as a card instead of
+    /// living only inside the model's prose. Cards are the whole point: a sentence saying
+    /// "reminder created" leaves nothing to open, correct or undo.
+    pub events: mpsc::UnboundedSender<ToolEvent>,
 }
 
 impl ScheduleReminder {
-    pub fn new(llm: Arc<LlmClient>) -> Self {
-        Self { llm }
+    pub fn new(
+        llm: Arc<LlmClient>,
+        events: mpsc::UnboundedSender<ToolEvent>,
+    ) -> Self {
+        Self { llm, events }
+    }
+
+    /// The note this reminder belongs on. The closest note by hybrid search, kept only when
+    /// the judge confirms it is the same subject - so "prepare my case against the CPAS"
+    /// lands on the CPAS file the user already keeps, and its deadline shows up there.
+    ///
+    /// A cosine threshold cannot make this call on a small personal corpus (the scores
+    /// cluster; `rag::rerank` learned this the hard way), hence the model judges.
+    async fn host_note(&self, request: &str) -> Option<(String, String)> {
+        let vector = self.llm.embed(request).await.ok()?;
+        let store = VectorStore::open().await.ok()?;
+        let hit = store
+            .hybrid_search(request, vector, 1, None)
+            .await
+            .ok()?
+            .into_iter()
+            .next()?;
+        let preview = crate::application::ai::char_prefix(&hit.chunk_text, 400);
+        let user_msg = format!(
+            "Reminder: {request}\n\nNote: \"{}\"\n{preview}",
+            hit.title
+        );
+        let verdict = self
+            .llm
+            .chat_with_model(CHEAP_MODEL, REMINDER_HOST_JUDGE_PROMPT, &user_msg)
+            .await
+            .ok()?;
+        verdict
+            .trim()
+            .to_ascii_uppercase()
+            .starts_with("YES")
+            .then_some((hit.note_id, hit.title))
     }
 }
 
@@ -55,6 +97,9 @@ pub struct ScheduleReminderResult {
     /// is a NOT NULL foreign key, and it is what makes the reminder visible and cancelable
     /// in the app afterwards.
     pub note_id: Option<String>,
+    /// Named so the model can tell the user WHERE the reminder landed - on their existing
+    /// file, or on a fresh note holding the request.
+    pub note_title: Option<String>,
 }
 
 impl Tool for ScheduleReminder {
@@ -69,10 +114,11 @@ impl Tool for ScheduleReminder {
             description: "Schedule a reminder or an appointment in the user's calendar. \
                 Use it when the user asks to be reminded of something, or to book a slot \
                 (\"remind me Thursday to call the accountant\", \"dentist Tuesday at 3pm\"). \
-                Pass the user's own sentence verbatim, INCLUDING the words about when: the \
-                date is resolved by the app against the real current time. Never compute a \
-                date yourself and never rewrite the timing into your own words. A note \
-                holding the request is created alongside the reminder."
+                Pass the part of their message that asks for it, verbatim, INCLUDING the \
+                words about when - not their whole message, or unrelated sentences turn into \
+                extra reminders. The date is resolved by the app against the real current \
+                time: never compute a date yourself, never rewrite the timing into your own \
+                words. Schedule first and report after; do not ask whether to."
                 .to_string(),
             parameters: json!({
                 "type": "object",
@@ -123,28 +169,38 @@ impl Tool for ScheduleReminder {
                 scheduled: Vec::new(),
                 already_scheduled,
                 note_id: None,
+                note_title: None,
             });
         }
 
-        let note = db
-            .create_text_note(&NewTextNote {
-                title: Some(fresh[0].action.clone()),
-                content: args.request.clone(),
-                tags: Vec::new(),
-            })
-            .map_err(|e| ToolFailure(format!("create note: {e}")))?;
-        embed_note(
-            note.id.clone(),
-            note.title.clone().unwrap_or_default(),
-            note.content.clone(),
-            note.tags.clone(),
-            note.created_at.clone(),
-        );
+        // Prefer the note the reminder is actually about; fall back to a carrier note
+        // holding the request, which is also what makes the reminder visible in the app.
+        let (note_id, note_title) = match self.host_note(&args.request).await {
+            Some(found) => found,
+            None => {
+                let note = db
+                    .create_text_note(&NewTextNote {
+                        title: Some(fresh[0].action.clone()),
+                        content: args.request.clone(),
+                        tags: Vec::new(),
+                    })
+                    .map_err(|e| ToolFailure(format!("create note: {e}")))?;
+                embed_note(
+                    note.id.clone(),
+                    note.title.clone().unwrap_or_default(),
+                    note.content.clone(),
+                    note.tags.clone(),
+                    note.created_at.clone(),
+                );
+                (note.id, note.title.unwrap_or_default())
+            }
+        };
 
         let mut scheduled = Vec::new();
         let mut failures = Vec::new();
         for intent in fresh {
             let title = intent.action.clone();
+            let hash = intent.intent_hash();
             let date = intent
                 .resolved_date()
                 .map(|d| d.to_string())
@@ -152,8 +208,24 @@ impl Tool for ScheduleReminder {
             let time = intent
                 .has_explicit_time()
                 .then(|| intent.resolved_time().format("%H:%M").to_string());
-            match schedule_off_thread(note.id.clone(), intent).await {
+            match schedule_off_thread(note_id.clone(), intent).await {
                 ScheduleResult::Created => {
+                    // The row the scheduler just wrote, found back by its intent hash:
+                    // the card needs it to open the iOS event sheet and to cancel.
+                    if let Some(row) = db
+                        .reminders_for_note(&note_id)
+                        .into_iter()
+                        .find(|r| r.intent_hash == hash)
+                    {
+                        let _ = self.events.send(ToolEvent::ReminderScheduled(
+                            ReminderCard {
+                                row_id: row.id,
+                                title: title.clone(),
+                                note_id: note_id.clone(),
+                                note_title: note_title.clone(),
+                            },
+                        ));
+                    }
                     scheduled.push(ScheduledReminder { title, date, time })
                 }
                 ScheduleResult::Duplicate => already_scheduled.push(title),
@@ -174,7 +246,8 @@ impl Tool for ScheduleReminder {
         Ok(ScheduleReminderResult {
             scheduled,
             already_scheduled,
-            note_id: Some(note.id),
+            note_id: Some(note_id),
+            note_title: Some(note_title),
         })
     }
 }
