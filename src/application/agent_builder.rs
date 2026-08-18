@@ -36,6 +36,11 @@ pub struct BuiltAgent {
     pub model: String,
     pub temperature: Option<f32>,
     pub preamble: String,
+    // The manifest's own instruction, alone. `preamble` bundles it with the capability summary,
+    // which lists every tool the agent governs: injected into a chain state that allows only a
+    // subset, that list contradicts the state's restriction, and at the tool-less answer step it
+    // is pure hallucination fuel. The chain runtime needs the mission and nothing else.
+    pub mission: String,
     pub governance: Governance,
     pub connectors: Vec<BoundConnector>,
     pub chains: BTreeMap<String, Chain>,
@@ -148,6 +153,7 @@ pub fn build_agent_multi(
         model: manifest.model.clone(),
         temperature: manifest.temperature,
         preamble: preamble_for_all(manifest, &connectors),
+        mission: manifest.system_prompt.trim().to_string(),
         governance: manifest.governance.clone(),
         connectors,
         chains: manifest.orchestration.chains.clone(),

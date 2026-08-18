@@ -21,6 +21,15 @@ const ANSWER_PREAMBLE: &str =
      are not certain of a URL, name the resource without linking it. Reply in the user's \
      language.";
 
+// The chain ran and touched nothing. ANSWER_PREAMBLE would have the model answer the goal on
+// its own, which reads as work done: a note handed to an agent it has no business with came back
+// as a friendly paraphrase. Say the refusal instead.
+const NO_OP_PREAMBLE: &str =
+    "This agent ran over the material below and found nothing in it that falls under its \
+     mission. No tool was called and nothing was created or changed. Reply with ONE short \
+     sentence saying you have nothing to do here and why, in the user's language. Do not \
+     answer the material, do not summarize it, do not rephrase it, and do not offer to.";
+
 pub struct ChainStep {
     pub state: String,
     pub outcome: String,
@@ -32,6 +41,16 @@ pub struct ChainStep {
 pub struct ChainOutcome {
     pub final_text: String,
     pub trace: Vec<ChainStep>,
+}
+
+// The agent's mission leads every prompt: without it the model executes a numbered step for an
+// agent it knows nothing about, decides the goal is none of its business, and calls nothing.
+fn with_mission(mission: &str, body: String) -> String {
+    if mission.is_empty() {
+        body
+    } else {
+        format!("{mission}\n\n{body}")
+    }
 }
 
 fn state_preamble(state: &str, allowed: &[String], transcript: &str) -> String {
@@ -98,6 +117,9 @@ pub async fn run_chain(
 
     let mut trace = Vec::new();
     let mut transcript = String::new();
+    // A state the read_before_write guard skipped is a structural block, not a mismatch between
+    // the agent and the material: it must never read as "nothing to do here".
+    let mut guard_skipped = false;
     let mut name = chain.initial.clone();
     let start = std::time::Instant::now();
 
@@ -128,6 +150,7 @@ pub async fn run_chain(
                         .into(),
                 tools: Vec::new(),
             });
+            guard_skipped = true;
             match state.on_done.clone() {
                 Some(next) => {
                     name = next;
@@ -138,12 +161,21 @@ pub async fn run_chain(
         }
 
         if state.terminal {
+            // Every gate decision is recorded, blocked/held/rejected/expired included, so an empty
+            // tool log across every state means no state ever tried to act.
+            let no_op = !guard_skipped
+                && trace.iter().all(|step| step.tools.is_empty());
             // The goal rides along: without it the synthesis can only summarize the transcript
             // and tends to lead with incidental failures instead of answering the question.
             let answer_input =
                 format!("User goal: {goal}\n\nChain context:\n{transcript}");
+            let preamble = if no_op {
+                with_mission(&agent.mission, NO_OP_PREAMBLE.to_string())
+            } else {
+                with_mission(&agent.mission, ANSWER_PREAMBLE.to_string())
+            };
             let answer = llm
-                .chat(ANSWER_PREAMBLE, &answer_input)
+                .chat(&preamble, &answer_input)
                 .await
                 .unwrap_or_else(|_| transcript.clone());
             trace.push(ChainStep {
@@ -184,7 +216,10 @@ pub async fn run_chain(
         }
 
         let hook = base.scoped_to(state.allowed_tools.clone(), name.clone());
-        let preamble = state_preamble(&name, &state.allowed_tools, &transcript);
+        let preamble = with_mission(
+            &agent.mission,
+            state_preamble(&name, &state.allowed_tools, &transcript),
+        );
         let reply = llm
             .run_agent(
                 model,
