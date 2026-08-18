@@ -260,7 +260,7 @@ pub fn ChatView() -> Element {
                 let mention_ids: Vec<String> =
                     mentions().iter().map(|m| m.note_id.clone()).collect();
                 let lang = (app.current_lang)();
-                send_question(q, &mut messages, &mut loading, &mut tool_status, conversation_id, db, scope, web, mention_ids, lang);
+                send_question(q, &mut messages, &mut loading, &mut tool_status, conversation_id, db, scope, web, mention_ids, lang, app);
                 mentions.set(Vec::new());
             },
         }

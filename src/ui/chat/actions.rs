@@ -8,6 +8,7 @@ use crate::infrastructure::persistence::Database;
 use crate::ui::chat::models::{
     tool_label, ChatMsg, ChatSource, ProposalStatus,
 };
+use crate::ui::AppState;
 use dioxus::prelude::*;
 use std::sync::Arc;
 
@@ -234,6 +235,7 @@ pub fn send_question(
     web: bool,
     mention_ids: Vec<String>,
     lang: String,
+    app: AppState,
 ) {
     // Snapshot the recent turns BEFORE pushing the new question: this is the conversation
     // context rag::query rewrites follow-ups against ("et lui ?" -> the referent's name).
@@ -258,6 +260,10 @@ pub fn send_question(
             })
             .collect()
     };
+
+    // Only the opening turn carries the placeholder title the LLM refines later.
+    let first_turn = history.is_empty();
+    let placeholder: String = question.chars().take(50).collect();
 
     messages.write().push(ChatMsg::User(question.clone()));
     loading.set(true);
@@ -409,11 +415,32 @@ pub fn send_question(
                     }
                 }
 
+                let title_source =
+                    first_turn.then(|| format!("{question}\n\n{}", r.answer));
+
                 msgs.write().push(ChatMsg::Bot {
                     text: r.answer,
                     sources,
                     trace: r.trace,
                 });
+
+                if let (Some(source), Some(cid)) = (title_source, conv_signal())
+                {
+                    let titled =
+                        crate::application::titling::retitle_conversation(
+                            &db(),
+                            &cid,
+                            &placeholder,
+                            &source,
+                            &lang,
+                        )
+                        .await;
+                    if titled.is_some() {
+                        // The drawer stays mounted: the Chats list only re-reads on this bump.
+                        let mut app = app;
+                        app.invalidate_data();
+                    }
+                }
             }
             Err(e) => {
                 let err_msg = chat_error_message(&lang, &e);
