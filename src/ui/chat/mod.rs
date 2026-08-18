@@ -5,7 +5,7 @@ mod mention_menu;
 mod menu;
 pub(crate) mod models;
 mod sources_accordion;
-mod tools_menu;
+pub(crate) mod tools_menu;
 mod trace_accordion;
 mod typing_indicator;
 mod user_bubble;
@@ -18,5 +18,4 @@ pub(crate) mod reminder_card;
 
 pub use actions::md_to_html;
 pub use sources_accordion::NoteWebSources;
-pub(crate) use tools_menu::ConnectorsSection;
 pub use view::ChatView;

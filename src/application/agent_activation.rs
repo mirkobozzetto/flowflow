@@ -245,12 +245,42 @@ fn chain_trace(
     trace
 }
 
-/// The installed+active agents the + palette offers, with the exact command a tap sends.
-/// The command targets the ID, never the alias: ids are unique on device, aliases are
-/// not, and a palette tap must be deterministic.
-pub fn palette_entries(db: &Database) -> Vec<(String, String)> {
+/// Frame a note's body as material for an agent run. A chat goal carries the user's intent
+/// ("lance crm ajoute Sophie au tableur"); a note body carries none, so the agent's own mission
+/// is what decides whether the note concerns it at all.
+pub fn note_goal(content: &str) -> String {
+    format!(
+        "{}{content}",
+        crate::application::constants::NOTE_AS_MATERIAL_PROMPT
+    )
+}
+
+/// One installed+active agent as the + palettes offer it. The chat sends `launch_command`
+/// as a message; a note has no composer and runs the agent on its own text, so it shows
+/// the description instead. One source for both surfaces.
+#[derive(Debug, Clone, PartialEq)]
+pub struct PaletteAgent {
+    pub id: String,
+    pub name: String,
+    pub description: String,
+}
+
+impl PaletteAgent {
+    /// The command targets the ID, never the alias: ids are unique on device, aliases are
+    /// not, and a palette tap must be deterministic.
+    pub fn launch_command(&self) -> String {
+        format!("lance {}", self.id)
+    }
+}
+
+/// The installed+active agents the + palettes offer.
+pub fn palette_entries(db: &Database) -> Vec<PaletteAgent> {
     installed_manifests(db)
         .into_iter()
-        .map(|m| (m.name, format!("lance {}", m.id)))
+        .map(|m| PaletteAgent {
+            id: m.id,
+            name: m.name,
+            description: m.description,
+        })
         .collect()
 }

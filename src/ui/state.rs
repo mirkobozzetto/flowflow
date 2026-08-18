@@ -1,3 +1,4 @@
+use crate::application::agent_activation::PaletteAgent;
 use crate::application::transcription_manager::Job;
 use crate::domain::Attachment;
 use crate::domain::ChatScope;
@@ -91,6 +92,9 @@ pub struct AppState {
     pub show_tools_menu: Signal<bool>,
     pub show_mention_menu: Signal<bool>,
     pub show_note_tools_menu: Signal<bool>,
+    // The agent the note + palette wants run on the open note's text; consumed and
+    // cleared by NoteActions, which owns the run and its approval cards.
+    pub pending_note_agent: Signal<Option<PaletteAgent>>,
     // Per-chat web-search toggle (mirrors chat_scope: restored on open, persisted
     // per conversation). Default OFF; the composer "+" menu flips it.
     pub chat_web: Signal<bool>,
@@ -151,6 +155,7 @@ impl AppState {
             show_tools_menu: Signal::new(false),
             show_mention_menu: Signal::new(false),
             show_note_tools_menu: Signal::new(false),
+            pending_note_agent: Signal::new(None),
             chat_web: Signal::new(false),
             sidebar_tab: Signal::new(SidebarTab::Notes),
             show_folder_picker: Signal::new(false),

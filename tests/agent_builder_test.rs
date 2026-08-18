@@ -77,6 +77,18 @@ fn preamble_carries_system_prompt_and_capability_summary() {
 }
 
 #[test]
+fn mission_is_the_manifest_instruction_without_the_capability_summary() {
+    let manifest = parse_manifest(VALID_MANIFEST).unwrap();
+    let built = build_agent(&manifest, "google", SHEETS_BACKFILL_MANIFEST_JSON)
+        .unwrap();
+    // The chain runtime prompts with `mission`, one state at a time. A tool list in there would
+    // contradict the state's own restriction, so the capability summary must stay out of it.
+    assert_eq!(built.mission, "Keep the sheet tidy.");
+    assert!(!built.mission.contains("google_sheets_list_spreadsheets"));
+    assert!(!built.mission.contains("sheet-123"));
+}
+
+#[test]
 fn capability_summary_lists_only_governed_tools() {
     let manifest = parse_manifest(VALID_MANIFEST).unwrap();
     let built = build_agent(&manifest, "google", SHEETS_BACKFILL_MANIFEST_JSON)

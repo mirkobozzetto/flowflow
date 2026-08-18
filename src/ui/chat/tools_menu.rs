@@ -14,7 +14,7 @@ const ROW_DISABLED: &str = "w-full flex items-center gap-3 px-3 min-h-[48px] rou
 pub(crate) const LEAD_ICON: &str = "w-[22px] h-[22px] shrink-0 flex items-center justify-center text-stone-500";
 const LEAD_TILE: &str = "w-7 h-7 shrink-0 flex items-center justify-center rounded-lg bg-stone-100 overflow-hidden";
 pub(crate) const ROW_TITLE: &str = "text-sm font-medium text-stone-800";
-const ROW_SUB: &str = "text-xs text-stone-400";
+pub(crate) const ROW_SUB: &str = "text-xs text-stone-400";
 pub(crate) const SECTION: &str =
     "px-3 py-2 text-xs font-medium text-stone-400 uppercase tracking-wide";
 pub(crate) const SEP: &str = "h-px bg-stone-200 mx-3 my-2";
@@ -77,12 +77,12 @@ fn ToolsMenuBody() -> Element {
     rsx! {
         if !agents.is_empty() {
             div { class: SECTION, {t(&lang, "chat-tools-section-agents")} }
-            for (name, command) in agents {
+            for agent in agents {
                 button {
                     class: ROW,
-                    key: "{command}",
+                    key: "{agent.id}",
                     onclick: {
-                        let command = command.clone();
+                        let command = agent.launch_command();
                         move |_| {
                             app.show_tools_menu.set(false);
                             app.pending_chat_input.set(Some(command.clone()));
@@ -90,8 +90,8 @@ fn ToolsMenuBody() -> Element {
                     },
                     span { class: LEAD_ICON, IconChatAi { size: 22 } }
                     span { class: "flex-1 flex flex-col gap-0.5 min-w-0",
-                        span { class: ROW_TITLE, "{name}" }
-                        span { class: ROW_SUB, "{command}" }
+                        span { class: ROW_TITLE, "{agent.name}" }
+                        span { class: ROW_SUB, {agent.launch_command()} }
                     }
                 }
             }
