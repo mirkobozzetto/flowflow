@@ -4,7 +4,7 @@ use crate::infrastructure::persistence::Database;
 use crate::ui::icons::*;
 use crate::ui::notes::note_card::NoteCard;
 use crate::ui::thread::ThreadCard;
-use crate::ui::AppState;
+use crate::ui::{AppState, RowMenu};
 use dioxus::prelude::*;
 use std::sync::Arc;
 
@@ -148,6 +148,12 @@ pub fn NotesList() -> Element {
                 }
             }
         } else {
+            // Dims the rest of the list while a note menu is open, so the pressed
+            // card reads as picked up. Visual only: the outside-click catcher is
+            // the global row-menu backdrop.
+            if matches!((app.row_menu)(), Some(RowMenu::Note(_))) {
+                div { class: "absolute inset-0 z-10 bg-black/35 pointer-events-none backdrop-fade" }
+            }
             div { class: "safe-pb-32 lg:grid lg:grid-cols-2 lg:gap-2.5",
                 for item in notes().into_iter().take(visible_count()) {
                     match item {

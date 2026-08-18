@@ -323,6 +323,8 @@ folder-menu-delete-warning = Les notes du thème ne seront pas supprimées.
 note-menu-import = Importer un document
 note-menu-import-audio = Importer un audio
 note-menu-delete = Supprimer la note
+note-menu-copy = Copier le texte
+note-menu-no-folder = Aucun dossier
 
 audio-transcribing = Transcription en cours
 audio-transcription-failed = Échec de la transcription
