@@ -1,3 +1,4 @@
+use crate::application::agent_activation::{self, PaletteAgent};
 use crate::application::approvals::ProposalView;
 use crate::application::constants::NOTE_ACTION_PROMPT;
 use crate::application::i18n::t;
@@ -74,6 +75,62 @@ fn drain_tool_events(
     tx
 }
 
+// What the busy button reads while a run is in flight: the agent that was picked, then the
+// tool it is on right now. Either half can be missing - the generic note action has no agent,
+// and no tool is running between two calls.
+fn busy_label(
+    agent: Option<String>,
+    tool: Option<String>,
+    generic: &str,
+) -> String {
+    match (agent, tool) {
+        (Some(a), Some(t)) => format!("{a} · {t}"),
+        (Some(a), None) => a,
+        (None, Some(t)) => t,
+        (None, None) => generic.to_string(),
+    }
+}
+
+// The one run path both entry points share. No agent: the note text IS the instruction
+// (NOTE_ACTION_PROMPT). An agent picked in the + palette: resolve it through the normal
+// activation path (its own launch command, nothing new) and run it on the note's text. The chat
+// goal carries the user's intent ("lance crm ajoute Sophie au tableur"); a note body carries
+// none, so NOTE_AS_MATERIAL_PROMPT frames it as material and the agent's own mission decides
+// what to do with it. The goal is never the launch command.
+async fn execute(
+    db: Arc<Database>,
+    agent: Option<PaletteAgent>,
+    content: String,
+    tx: mpsc::UnboundedSender<ToolEvent>,
+    lang: String,
+) -> Result<String, String> {
+    match agent {
+        Some(a) => {
+            let activation =
+                agent_activation::resolve(&db, &a.launch_command())
+                    .await
+                    .ok_or_else(|| t(&lang, "note-agent-unavailable"))?;
+            let goal = agent_activation::note_goal(&content);
+            agent_activation::run(&db, &activation, &goal, tx)
+                .await
+                .map(|(answer, _)| answer)
+        }
+        None => {
+            let ai =
+                Arc::new(LlmClient::from_db(&db).map_err(|e| e.to_string())?);
+            crate::application::chat_surface::prompt_chat_agent(
+                ai,
+                NOTE_ACTION_PROMPT,
+                &content,
+                Some(tx),
+                crate::infrastructure::llm::NotesTools::Global,
+            )
+            .await
+            .map_err(|e| e.to_string())
+        }
+    }
+}
+
 // Run-this-note-as-an-action. The note text IS the instruction: it goes through the agent with the
 // connected tools (NOTE_ACTION_PROMPT keeps the reply to a one-line confirmation + resource link).
 // The result is cached per note so reopening the note shows what it produced instead of re-offering
@@ -98,6 +155,8 @@ pub fn NoteActions(
     let mut error: Signal<Option<String>> = use_signal(|| None);
     let mut cards: Signal<Vec<Card>> = use_signal(Vec::new);
     let mut tool_status: Signal<Option<String>> = use_signal(|| None);
+    // The agent name shown on the busy button; None means the generic note action.
+    let mut running_agent: Signal<Option<String>> = use_signal(|| None);
 
     // surface any previously cached result for this note (persistence across reopen)
     use_effect(move || {
@@ -110,6 +169,85 @@ pub fn NoteActions(
         result.set(stored);
     });
 
+    let launch = use_callback({
+        let lang = lang.clone();
+        move |agent: Option<PaletteAgent>| {
+            if running() {
+                return;
+            }
+            running.set(true);
+            error.set(None);
+            cards.write().clear();
+            tool_status.set(None);
+            running_agent.set(agent.as_ref().map(|a| a.name.clone()));
+            let tx = drain_tool_events(cards, tool_status, lang.clone());
+            let lang = lang.clone();
+            let c = content();
+            let t_in = title();
+            let tg = tags();
+            let fid = (app.detail_folder_id)();
+            spawn(async move {
+                let database = db();
+                let nid = {
+                    let cur = local_note_id();
+                    if cur.is_empty() {
+                        let new = NewTextNote {
+                            title: if t_in.is_empty() {
+                                None
+                            } else {
+                                Some(t_in)
+                            },
+                            content: c.clone(),
+                            tags: tg,
+                        };
+                        match database.create_text_note(&new) {
+                            Ok(created) => {
+                                if let Some(ref f) = fid {
+                                    let _ = database
+                                        .add_note_to_folder(&created.id, f);
+                                }
+                                local_note_id.set(created.id.clone());
+                                app.current_note_id
+                                    .set(Some(created.id.clone()));
+                                app.notes_version
+                                    .set((app.notes_version)() + 1);
+                                created.id
+                            }
+                            Err(e) => {
+                                error.set(Some(e));
+                                running.set(false);
+                                running_agent.set(None);
+                                return;
+                            }
+                        }
+                    } else {
+                        cur
+                    }
+                };
+                match execute(database.clone(), agent, c, tx, lang).await {
+                    Ok(answer) => {
+                        let _ =
+                            database.set_setting(&action_key(&nid), &answer);
+                        result.set(Some(answer));
+                    }
+                    Err(e) => error.set(Some(e)),
+                }
+                tool_status.set(None);
+                running_agent.set(None);
+                running.set(false);
+            });
+        }
+    });
+
+    // The + palette hands the agent over through AppState: the menu lives in the recording
+    // bar, the run and its approval cards live here.
+    use_effect(move || {
+        if let Some(agent) = (app.pending_note_agent)() {
+            app.pending_note_agent.set(None);
+            launch.call(Some(agent));
+        }
+    });
+
     let has_result = result().is_some();
     let run_label = if has_result {
         t(&lang, "note-rerun-action")
@@ -117,87 +255,26 @@ pub fn NoteActions(
         t(&lang, "note-run-action")
     };
     let running_label = t(&lang, "note-running-action");
+    // The button is the only visible hint a note can be run, so it stays tied to an
+    // actionable text; a palette run on any other note still needs it for its busy state.
+    let show_button = crate::application::intent::is_actionable(&content())
+        || running()
+        || has_result;
 
     rsx! {
-        if backend_on() && crate::application::intent::is_actionable(&content()) {
+        if backend_on() {
             div { class: "mt-3",
-                button {
-                    class: "w-full min-h-[44px] flex items-center justify-center gap-2 rounded-xl bg-ios-orange/10 text-ios-orange-dark text-sm font-medium active:bg-ios-orange/25 disabled:opacity-50 transition-colors duration-150",
-                    disabled: running(),
-                    onclick: move |_| {
+                if show_button {
+                    button {
+                        class: "w-full min-h-[44px] flex items-center justify-center gap-2 rounded-xl bg-ios-orange/10 text-ios-orange-dark text-sm font-medium active:bg-ios-orange/25 disabled:opacity-50 transition-colors duration-150",
+                        disabled: running(),
+                        onclick: move |_| launch.call(None),
                         if running() {
-                            return;
+                            span { class: "inline-block w-3.5 h-3.5 border-2 border-ios-orange-dark border-t-transparent rounded-full animate-spin" }
+                            span { {busy_label(running_agent(), tool_status(), &running_label)} }
+                        } else {
+                            span { "{run_label}" }
                         }
-                        running.set(true);
-                        error.set(None);
-                        cards.write().clear();
-                        tool_status.set(None);
-                        let tx = drain_tool_events(cards, tool_status, lang.clone());
-                        let c = content();
-                        let t_in = title();
-                        let tg = tags();
-                        let fid = (app.detail_folder_id)();
-                        spawn(async move {
-                            let database = db();
-                            let nid = {
-                                let cur = local_note_id();
-                                if cur.is_empty() {
-                                    let new = NewTextNote {
-                                        title: if t_in.is_empty() { None } else { Some(t_in) },
-                                        content: c.clone(),
-                                        tags: tg,
-                                    };
-                                    match database.create_text_note(&new) {
-                                        Ok(created) => {
-                                            if let Some(ref f) = fid {
-                                                let _ = database.add_note_to_folder(&created.id, f);
-                                            }
-                                            local_note_id.set(created.id.clone());
-                                            app.current_note_id.set(Some(created.id.clone()));
-                                            app.notes_version.set((app.notes_version)() + 1);
-                                            created.id
-                                        }
-                                        Err(e) => {
-                                            error.set(Some(e));
-                                            running.set(false);
-                                            return;
-                                        }
-                                    }
-                                } else {
-                                    cur
-                                }
-                            };
-                            let outcome = match LlmClient::from_db(&database) {
-                                Ok(ai) => {
-                                    let ai = Arc::new(ai);
-                                    crate::application::chat_surface::prompt_chat_agent(
-                                        ai,
-                                        NOTE_ACTION_PROMPT,
-                                        &c,
-                                        Some(tx),
-                                        crate::infrastructure::llm::NotesTools::Global,
-                                    )
-                                    .await
-                                    .map_err(|e| e.to_string())
-                                }
-                                Err(e) => Err(e.to_string()),
-                            };
-                            match outcome {
-                                Ok(answer) => {
-                                    let _ = database.set_setting(&action_key(&nid), &answer);
-                                    result.set(Some(answer));
-                                }
-                                Err(e) => error.set(Some(e)),
-                            }
-                            tool_status.set(None);
-                            running.set(false);
-                        });
-                    },
-                    if running() {
-                        span { class: "inline-block w-3.5 h-3.5 border-2 border-ios-orange-dark border-t-transparent rounded-full animate-spin" }
-                        span { {tool_status().unwrap_or_else(|| running_label.clone())} }
-                    } else {
-                        span { "{run_label}" }
                     }
                 }
                 {

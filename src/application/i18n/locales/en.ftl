@@ -100,6 +100,7 @@ account-link-expires = Expires at {$time}
 note-run-action = Run this note
 note-rerun-action = Run again
 note-running-action = Running...
+note-agent-unavailable = This agent is no longer available.
 shortcut-new-note = New note
 shortcut-new-chat = New chat
 shortcut-menus = Switch Notes / Chats menu

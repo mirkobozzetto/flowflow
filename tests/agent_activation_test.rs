@@ -3,7 +3,8 @@
 // falls through. Trigger schema parses from the manifest (platform-authored words).
 
 use flowflow::application::agent_activation::{
-    palette_entries, resolve_deterministic, Activation, Resolution,
+    note_goal, palette_entries, resolve_deterministic, Activation,
+    PaletteAgent, Resolution,
 };
 use flowflow::domain::agent_manifest::{parse_manifest, AgentManifest};
 use flowflow::domain::orchestration::parse_orchestration;
@@ -212,10 +213,59 @@ fn palette_lists_installed_active_agents_with_launch_command() {
     .unwrap();
     db.install_agent(&verified).unwrap();
 
-    // The command targets the unique id, never the (collidable) alias.
+    // One source for both + menus: the chat shows the launch command, a note shows the
+    // description, and neither surface can drift from the other.
     let entries = palette_entries(&db);
+    assert_eq!(entries.len(), 1);
+    let agent = &entries[0];
+    assert_eq!(agent.id, "agent-crm-sync");
+    assert_eq!(agent.name, "CRM Sync");
+    assert!(!agent.description.trim().is_empty());
+    // The command targets the unique id, never the (collidable) alias.
+    assert_eq!(agent.launch_command(), "lance agent-crm-sync");
+}
+
+#[test]
+fn palette_hides_a_deactivated_agent() {
+    let dir = tempfile::tempdir().unwrap();
+    let db = flowflow::infrastructure::persistence::Database::open_at(
+        dir.path().join("t.db"),
+    )
+    .unwrap();
+    let verified = flowflow::domain::agent_manifest::verify_package(
+        flowflow::application::connector_module::FIXTURE_PACKAGE,
+        flowflow::domain::agent_manifest::ADMIN_PUBKEY,
+    )
+    .unwrap();
+    db.install_agent(&verified).unwrap();
+    db.set_agent_active("agent-crm-sync", false).unwrap();
+
+    assert!(palette_entries(&db).is_empty());
+}
+
+#[test]
+fn a_note_palette_tap_resolves_its_own_agent_and_leaves_the_goal_free() {
+    let m = manifest("agent-crm-sync", "synchro-clients", "[]", ONE_CHAIN);
+    let agent = PaletteAgent {
+        id: "agent-crm-sync".into(),
+        name: "CRM Sync".into(),
+        description: "Keeps the CRM tidy.".into(),
+    };
+
+    // The tap resolves through the ordinary activation path, on the launch command alone.
     assert_eq!(
-        entries,
-        vec![("CRM Sync".to_string(), "lance agent-crm-sync".to_string())]
+        resolve_deterministic(&agent.launch_command(), &[m]),
+        Resolution::Direct(Activation {
+            agent_id: "agent-crm-sync".into(),
+            chain: "main".into(),
+        })
     );
+
+    // The run gets the note itself, framed as material. The launch command never travels as
+    // the goal: it is how the agent is picked, not what it is asked to do.
+    let note = "Client meeting: Dupont signed for 12 seats.";
+    let goal = note_goal(note);
+    assert!(goal.contains(note));
+    assert!(!goal.contains(&agent.launch_command()));
+    assert!(goal.starts_with("The text below is a personal note"));
 }
