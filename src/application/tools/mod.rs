@@ -1,9 +1,13 @@
 pub mod create;
+pub mod reminder;
 pub mod search;
 pub mod summarize;
 pub mod web;
 
 pub use create::{CreateNote, CreateNoteArgs, CreateNoteResult};
+pub use reminder::{
+    ScheduleReminder, ScheduleReminderArgs, ScheduleReminderResult,
+};
 pub use search::{SearchNotes, SearchNotesArgs, SearchNotesHit};
 pub use summarize::{
     SummarizeFolder, SummarizeFolderArgs, SummarizeFolderResult,
@@ -147,11 +151,12 @@ fn excerpt(s: &str, max: usize) -> String {
 // Local tools pass the gate untouched: they are constructed in-process, never MCP, and reach no
 // connector resource. `search_web` is read-only and writes nothing, so it needs no contract.
 // The chat surface asserts no connector tool collides with these names at build time.
-pub const NOTES_TOOL_NAMES: [&str; 4] = [
+pub const NOTES_TOOL_NAMES: [&str; 5] = [
     "search_notes",
     "create_note",
     "summarize_folder",
     "search_web",
+    "schedule_reminder",
 ];
 
 #[derive(Clone)]

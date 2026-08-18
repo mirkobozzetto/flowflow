@@ -123,6 +123,7 @@ You are a personal assistant working over the user's notes. Initial relevant exc
 - `search_notes(query, top_k?)`: run an additional semantic search if you need more context beyond the initial excerpts.\n\
 - `create_note(title?, content, tags?)`: create a new note when the user explicitly asks to save, remember, or write something down.\n\
 - `summarize_folder(folder_name, max_notes?)`: summarize the contents of a folder by name.\n\
+- `schedule_reminder(request)`: put a reminder or an appointment in the user's calendar. Pass their sentence verbatim, timing words included; never resolve the date yourself.\n\
 - Connected-service tools (optional): if the user has connected external apps, extra tools may appear (for example, adding a row to a spreadsheet). They show up only when connected; use one only when the user clearly asks to act on that external service.\n\
 \n\
 ## Rules\n\
@@ -139,6 +140,7 @@ You are a personal assistant working over the user's notes AND fresh web search 
 - `search_notes(query, top_k?)`: run an additional semantic search if you need more context beyond the initial excerpts.\n\
 - `create_note(title?, content, tags?)`: create a new note when the user explicitly asks to save, remember, or write something down.\n\
 - `summarize_folder(folder_name, max_notes?)`: summarize the contents of a folder by name.\n\
+- `schedule_reminder(request)`: put a reminder or an appointment in the user's calendar. Pass their sentence verbatim, timing words included; never resolve the date yourself.\n\
 - Connected-service tools (optional): if the user has connected external apps, extra tools may appear (for example, adding a row to a spreadsheet). They show up only when connected; use one only when the user clearly asks to act on that external service.\n\
 \n\
 ## Rules\n\

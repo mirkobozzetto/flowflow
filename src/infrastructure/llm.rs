@@ -4,7 +4,8 @@ use crate::application::constants::{
 };
 use crate::application::error::LlmError;
 use crate::application::tools::{
-    ContractHook, CreateNote, SearchNotes, SearchWeb, SummarizeFolder,
+    ContractHook, CreateNote, ScheduleReminder, SearchNotes, SearchWeb,
+    SummarizeFolder,
 };
 use rig::client::{CompletionClient, EmbeddingsClient};
 use rig::completion::Prompt;
@@ -288,7 +289,8 @@ impl LlmClient {
                         let b = base
                             .tool(SearchNotes::new(self.clone(), scope))
                             .tool(CreateNote::new())
-                            .tool(SummarizeFolder::new(self.clone()));
+                            .tool(SummarizeFolder::new(self.clone()))
+                            .tool(ScheduleReminder::new(self.clone()));
                         let b = match web {
                             Some(key) => b.tool(SearchWeb::new(key)),
                             None => b,
@@ -317,7 +319,8 @@ impl LlmClient {
                         let b = base
                             .tool(SearchNotes::new(self.clone(), scope))
                             .tool(CreateNote::new())
-                            .tool(SummarizeFolder::new(self.clone()));
+                            .tool(SummarizeFolder::new(self.clone()))
+                            .tool(ScheduleReminder::new(self.clone()));
                         let b = match web {
                             Some(key) => b.tool(SearchWeb::new(key)),
                             None => b,
