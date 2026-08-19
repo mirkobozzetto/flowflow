@@ -1,0 +1,152 @@
+{
+  "nav": {
+    "label": "Beta"
+  },
+  "hero": {
+    "h1Lead": "Together,",
+    "h1Accent": "at last",
+    "sub": "Coming to",
+    "subStrong": "FlowFlow",
+    "ctaPrimary": "See what's coming",
+    "ctaGhost": "flowflow.be"
+  },
+  "marquee": [
+    "shared themes",
+    "shared agents",
+    "team marketplace",
+    "pro tools together",
+    "your AI credits",
+    "profile",
+    "encrypted backup"
+  ],
+  "roadmap": {
+    "fig": "Roadmap",
+    "h2Lead": "What's",
+    "h2Accent": "coming",
+    "now": "In progress",
+    "next": "Coming",
+    "done": "Shipped",
+    "items": [
+      {
+        "state": "now",
+        "title": "Shared themes",
+        "text": "One theme several people fill together"
+      },
+      {
+        "state": "next",
+        "title": "Shared AI agents",
+        "text": "The team's agents, running on the common corpus"
+      },
+      {
+        "state": "next",
+        "title": "Shared marketplace",
+        "text": "Install an agent for the whole group at once"
+      },
+      {
+        "state": "next",
+        "title": "Pro tools together",
+        "text": "Drive Sheets, Calendar and the rest as a team"
+      },
+      {
+        "state": "next",
+        "title": "Your AI credits",
+        "text": "Plug in your own ChatGPT or Grok subscription"
+      },
+      {
+        "state": "next",
+        "title": "Your account",
+        "text": "Devices, services, subscription, security"
+      },
+      {
+        "state": "next",
+        "title": "Profile",
+        "text": "Your photo, your name, what others see"
+      },
+      {
+        "state": "next",
+        "title": "Your numbers",
+        "text": "Computed on your phone"
+      },
+      {
+        "state": "done",
+        "title": "Note filters",
+        "text": "Voice, reminders, documents, threads"
+      }
+    ]
+  },
+  "themes": {
+    "fig": "In progress",
+    "h2Lead": "A memory you",
+    "h2Accent": "share",
+    "panels": [
+      {
+        "num": "01",
+        "title": "Bring someone in",
+        "text": "Access lands on the theme and flows down into its sub-themes"
+      },
+      {
+        "num": "02",
+        "title": "Everyone drops in",
+        "text": "The author sits on the card, alongside the date"
+      },
+      {
+        "num": "03",
+        "title": "The chat answers",
+        "text": "On all three sets of notes, and sources name who said what"
+      }
+    ],
+    "screen": {
+      "tabNotes": "Notes",
+      "tabChats": "Chats",
+      "newNote": "New note",
+      "allNotes": "All my notes",
+      "themes": "THEMES",
+      "settings": "Settings",
+      "you": "You",
+      "askUser": "What did we say about the budget?",
+      "askBot": "Julie noted on the 19th that they are going up to 8,000 EUR for Friday. Thomas added that the delivery schedule is the blocker.",
+      "sources": "Sources",
+      "note1": "Meeting on the 19th, budget",
+      "note1Text": "They are going up to 8k but they want the quote before Friday",
+      "note2": "Article 7 to renegotiate",
+      "note2Text": "The exit clause is on page 4 of the attached PDF",
+      "note3": "Follow-up call",
+      "note3Text": "Dictated on the way out, they are waiting on the schedule"
+    }
+  },
+  "promise": {
+    "fig": "The promise",
+    "big": "The server carries it, it cannot read it",
+    "small": "What you drop in together travels encrypted. Nobody but you can open it."
+  },
+  "account": {
+    "fig": "Coming",
+    "h2Lead": "Your account,",
+    "h2Accent": "finally visible",
+    "lead": "Click through the menu",
+    "nav": {
+      "overview": "Overview",
+      "profile": "Profile",
+      "groupAccount": "Account",
+      "devices": "Devices",
+      "services": "Services",
+      "themes": "Shared themes",
+      "agents": "Agents",
+      "groupSettings": "Settings",
+      "billing": "Subscription",
+      "security": "Security"
+    }
+  },
+  "stats": {
+    "fig": "Coming",
+    "h2Lead": "Your numbers,",
+    "h2Accent": "on your phone",
+    "lead": "The server counts nothing",
+    "items": [
+      { "label": "This year", "value": "41 h", "note": "dictated" },
+      { "label": "Notes", "value": "1,284", "note": "71% of them while walking" },
+      { "label": "Your hour", "value": "08:12", "note": "when you capture the most" },
+      { "label": "Questions", "value": "412", "note": "asked of your own memory" }
+    ]
+  }
+}

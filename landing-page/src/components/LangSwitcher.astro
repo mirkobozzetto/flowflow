@@ -10,8 +10,11 @@ const { lang } = Astro.props;
 const short: Record<Lang, string> = { en: "EN", fr: "FR" };
 const groupLabel = lang === "fr" ? "Choix de la langue" : "Language";
 
-function homePath(target: Lang): string {
-  return target === defaultLang ? "/" : `/${target}/`;
+const here = Astro.url.pathname.replace(/^\/(en|fr)(?=\/|$)/, "") || "/";
+
+function langPath(target: Lang): string {
+  if (target === defaultLang) return here;
+  return here === "/" ? `/${target}/` : `/${target}${here}`;
 }
 ---
 
@@ -32,7 +35,7 @@ function homePath(target: Lang): string {
       ) : (
         <a
           class="lang-opt text-[12.5px] font-semibold tracking-[0.02em] px-2.25 py-1.25 rounded-[7px] text-stone-500 no-underline transition-[color,background] duration-150 hover:text-ink focus-visible:outline-2 focus-visible:outline-orange focus-visible:outline-offset-2"
-          href={homePath(code)}
+          href={langPath(code)}
           hreflang={code}
           lang={code}
           aria-label={languages[code]}

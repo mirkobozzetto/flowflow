@@ -1,0 +1,55 @@
+---
+import Avatar from "./Avatar.astro";
+
+interface Screen {
+  askUser: string;
+  askBot: string;
+  sources: string;
+  note1: string;
+  note2: string;
+  note3: string;
+}
+
+interface Props {
+  s: Screen;
+}
+
+const { s } = Astro.props;
+
+const sources = [
+  { who: "julie", label: s.note1, date: "19/08" },
+  { who: "thomas", label: s.note2, date: "18/08" },
+  { who: "mirko", label: s.note3, date: "17/08" },
+] as const;
+---
+
+<div class="b-iph">
+  <div class="b-scr">
+    <div class="b-top">
+      <span class="ttl">Client Delvaux</span>
+      <span class="b-stack">
+        <Avatar who="mirko" size={18} />
+        <Avatar who="julie" size={18} />
+        <Avatar who="thomas" size={18} />
+      </span>
+    </div>
+    <div class="b-bd">
+      <div class="b-chat">
+        <div class="b-bub-u">{s.askUser}</div>
+        <div class="b-bub-b">{s.askBot}</div>
+        <div class="b-srcs">
+          <div class="h">{s.sources}</div>
+          {
+            sources.map((src) => (
+              <div class="b-src">
+                <Avatar who={src.who} size={14} />
+                <span class="t">{src.label}</span>
+                <span class="d">{src.date}</span>
+              </div>
+            ))
+          }
+        </div>
+      </div>
+    </div>
+  </div>
+</div>

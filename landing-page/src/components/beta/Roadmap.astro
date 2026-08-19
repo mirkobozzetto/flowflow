@@ -1,0 +1,50 @@
+---
+import { useTranslations } from "../../lib/i18n";
+
+interface Item {
+  state: "now" | "next" | "done";
+  title: string;
+  text: string;
+}
+
+interface Props {
+  lang: string;
+}
+
+const { lang } = Astro.props;
+const t = useTranslations(lang, "beta");
+const items = t<Item[]>("roadmap.items");
+const labels = {
+  now: t("roadmap.now"),
+  next: t("roadmap.next"),
+  done: t("roadmap.done"),
+} as const;
+---
+
+<section id="beta-roadmap" class="py-30">
+  <div class="container">
+    <div class="reveal mb-16">
+      <p class="fig mb-6">{t("roadmap.fig")}</p>
+      <h2
+        class="m-0 text-[clamp(32px,4.6vw,54px)] leading-[1.02] tracking-[-0.028em] font-bold text-ink text-balance max-w-[17ch]"
+      >
+        {t("roadmap.h2Lead")}{" "}
+        <em class="font-serif italic font-normal text-orange-dark">
+          {t("roadmap.h2Accent")}
+        </em>
+      </h2>
+    </div>
+
+    <div class="b-road reveal" data-d="1">
+      {
+        items.map((item) => (
+          <article class={`b-rd${item.state === "now" ? " now" : ""}`}>
+            <span class="b-st">{labels[item.state]}</span>
+            <h3>{item.title}</h3>
+            <p>{item.text}</p>
+          </article>
+        ))
+      }
+    </div>
+  </div>
+</section>

@@ -11,6 +11,9 @@ interface Props {
 
 const { lang } = Astro.props;
 const t = useTranslations(lang, "hero");
+const tb = useTranslations(lang, "beta");
+const betaPath = localizePath("/beta", lang);
+const onBeta = Astro.url.pathname.replace(/\/$/, "").endsWith("/beta");
 ---
 
 <nav class="fixed top-0 left-0 right-0 z-90 px-3">
@@ -30,6 +33,7 @@ const t = useTranslations(lang, "hero");
         <a class="nav-link" href="#product">{t("nav.product")}</a>
         <a class="nav-link" href="#agentic">{t("nav.agentic")}</a>
         <a class="nav-link" href="#faq">{t("nav.faq")}</a>
+        <a class="nav-link" href={betaPath} aria-current={onBeta ? "page" : undefined}>{tb("nav.label")}</a>
       </div>
 
       <a
@@ -75,6 +79,7 @@ const t = useTranslations(lang, "hero");
       <a class="nav-link" href="#product">{t("nav.product")}</a>
       <a class="nav-link" href="#agentic">{t("nav.agentic")}</a>
       <a class="nav-link" href="#faq">{t("nav.faq")}</a>
+      <a class="nav-link" href={betaPath}>{tb("nav.label")}</a>
       <span class="h-px bg-stone-200 my-1" aria-hidden="true"></span>
       <a class="nav-cta" href={macDownloadUrl} {...externalLinkAttrs}>
         {t("nav.cta")}
@@ -121,6 +126,10 @@ const t = useTranslations(lang, "hero");
     padding: 8px 12px;
     border-radius: 9px;
     transition: 0.15s;
+  }
+  .nav-link[aria-current="page"] {
+    color: var(--orange-dark);
+    background: var(--orange-50);
   }
   .nav-link:hover {
     color: var(--ink);

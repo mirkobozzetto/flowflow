@@ -1,0 +1,26 @@
+---
+import "../../styles/beta.css";
+import Footer from "../Footer.astro";
+import Nav from "../Nav.astro";
+import BetaHero from "./BetaHero.astro";
+import Dashboard from "./Dashboard.astro";
+import Promise from "./Promise.astro";
+import Roadmap from "./Roadmap.astro";
+import SharedThemes from "./SharedThemes.astro";
+import Stats from "./Stats.astro";
+
+interface Props {
+  lang: string;
+}
+
+const { lang } = Astro.props;
+---
+
+<Nav lang={lang} />
+<BetaHero lang={lang} />
+<Roadmap lang={lang} />
+<SharedThemes lang={lang} />
+<Promise lang={lang} />
+<Dashboard lang={lang} />
+<Stats lang={lang} />
+<Footer lang={lang} />

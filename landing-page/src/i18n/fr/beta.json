@@ -1,0 +1,152 @@
+{
+  "nav": {
+    "label": "Beta"
+  },
+  "hero": {
+    "h1Lead": "À plusieurs,",
+    "h1Accent": "enfin",
+    "sub": "Bientôt sur",
+    "subStrong": "FlowFlow",
+    "ctaPrimary": "Voir ce qui vient",
+    "ctaGhost": "flowflow.be"
+  },
+  "marquee": [
+    "thèmes partagés",
+    "agents partagés",
+    "marketplace d'équipe",
+    "outils pro à plusieurs",
+    "tes crédits IA",
+    "profil",
+    "sauvegarde chiffrée"
+  ],
+  "roadmap": {
+    "fig": "Feuille de route",
+    "h2Lead": "Ce qui",
+    "h2Accent": "vient",
+    "now": "En cours",
+    "next": "À venir",
+    "done": "Livré",
+    "items": [
+      {
+        "state": "now",
+        "title": "Thèmes partagés",
+        "text": "Un thème que plusieurs personnes remplissent"
+      },
+      {
+        "state": "next",
+        "title": "Agents IA partagés",
+        "text": "Les agents de l'équipe, sur le corpus commun"
+      },
+      {
+        "state": "next",
+        "title": "Marketplace partagée",
+        "text": "Installer un agent pour tout le groupe d'un coup"
+      },
+      {
+        "state": "next",
+        "title": "Outils pro à plusieurs",
+        "text": "Piloter Sheets, Agenda et le reste en collaboratif"
+      },
+      {
+        "state": "next",
+        "title": "Tes crédits IA",
+        "text": "Brancher ton abonnement ChatGPT ou Grok"
+      },
+      {
+        "state": "next",
+        "title": "Ton compte",
+        "text": "Appareils, services, abonnement, sécurité"
+      },
+      {
+        "state": "next",
+        "title": "Profil",
+        "text": "Ta photo, ton nom, ce que les autres voient"
+      },
+      {
+        "state": "next",
+        "title": "Tes chiffres",
+        "text": "Calculés sur ton téléphone"
+      },
+      {
+        "state": "done",
+        "title": "Filtres de notes",
+        "text": "Vocales, rappels, documents, fils"
+      }
+    ]
+  },
+  "themes": {
+    "fig": "En cours",
+    "h2Lead": "Une mémoire",
+    "h2Accent": "commune",
+    "panels": [
+      {
+        "num": "01",
+        "title": "Entrer quelqu'un",
+        "text": "Le droit se pose sur le thème et descend dans ses sous-thèmes"
+      },
+      {
+        "num": "02",
+        "title": "Chacun dépose",
+        "text": "L'auteur apparaît sur la carte, au rang de la date"
+      },
+      {
+        "num": "03",
+        "title": "Le chat répond",
+        "text": "Sur les notes des trois, et les sources citent qui a dit quoi"
+      }
+    ],
+    "screen": {
+      "tabNotes": "Notes",
+      "tabChats": "Chats",
+      "newNote": "Nouvelle note",
+      "allNotes": "Toutes mes notes",
+      "themes": "THÈMES",
+      "settings": "Réglages",
+      "you": "Toi",
+      "askUser": "On a dit quoi sur le budget ?",
+      "askBot": "Julie a noté le 19 qu'ils montent à 8 000 € pour vendredi. Thomas a ajouté que le planning est bloquant.",
+      "sources": "Sources",
+      "note1": "Réunion du 19, budget",
+      "note1Text": "Ils montent à 8k mais veulent le devis avant vendredi",
+      "note2": "Article 7 à renégocier",
+      "note2Text": "La clause de sortie est page 4 du PDF joint",
+      "note3": "Appel de relance",
+      "note3Text": "Dicté en sortant, ils attendent le planning"
+    }
+  },
+  "promise": {
+    "fig": "La promesse",
+    "big": "Le serveur transporte, il ne lit pas",
+    "small": "Ce que vous déposez à plusieurs voyage chiffré. Personne d'autre que vous ne peut l'ouvrir."
+  },
+  "account": {
+    "fig": "À venir",
+    "h2Lead": "Ton compte,",
+    "h2Accent": "enfin visible",
+    "lead": "Clique dans le menu",
+    "nav": {
+      "overview": "Aperçu",
+      "profile": "Profil",
+      "groupAccount": "Compte",
+      "devices": "Appareils",
+      "services": "Services",
+      "themes": "Thèmes partagés",
+      "agents": "Agents",
+      "groupSettings": "Réglages",
+      "billing": "Abonnement",
+      "security": "Sécurité"
+    }
+  },
+  "stats": {
+    "fig": "À venir",
+    "h2Lead": "Tes chiffres,",
+    "h2Accent": "sur ton téléphone",
+    "lead": "Le serveur ne compte rien",
+    "items": [
+      { "label": "Cette année", "value": "41 h", "note": "dictées" },
+      { "label": "Notes", "value": "1 284", "note": "dont 71 % en marchant" },
+      { "label": "Ton heure", "value": "08:12", "note": "le moment où tu notes le plus" },
+      { "label": "Questions", "value": "412", "note": "à ta propre mémoire" }
+    ]
+  }
+}

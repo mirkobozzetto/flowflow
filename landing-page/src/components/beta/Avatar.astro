@@ -1,0 +1,31 @@
+---
+import { Image } from "astro:assets";
+import aicha from "../../assets/people/aicha.jpg";
+import julie from "../../assets/people/julie.jpg";
+import mirko from "../../assets/people/mirko.png";
+import thomas from "../../assets/people/thomas.jpg";
+
+export type Person = "mirko" | "julie" | "thomas" | "aicha";
+
+interface Props {
+  who: Person;
+  size: number;
+  class?: string;
+}
+
+const { who, size, class: extra = "" } = Astro.props;
+
+const people = {
+  mirko: { src: mirko, alt: "Mirko" },
+  julie: { src: julie, alt: "Julie Lambert" },
+  thomas: { src: thomas, alt: "Thomas Dubois" },
+  aicha: { src: aicha, alt: "Aïcha Karim" },
+} as const;
+
+const { src, alt } = people[who];
+const me = who === "mirko" ? " me" : "";
+---
+
+<span class={`b-av${me} ${extra}`} style={`width:${size}px;height:${size}px`}>
+  <Image src={src} alt={alt} width={size * 2} height={size * 2} />
+</span>

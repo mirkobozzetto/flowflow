@@ -1,0 +1,150 @@
+---
+import { useTranslations } from "../../lib/i18n";
+import PhoneChat from "./PhoneChat.astro";
+import PhoneDrawer from "./PhoneDrawer.astro";
+import PhoneNotes from "./PhoneNotes.astro";
+
+interface Panel {
+  num: string;
+  title: string;
+  text: string;
+}
+
+interface Props {
+  lang: string;
+}
+
+const { lang } = Astro.props;
+const t = useTranslations(lang, "beta");
+const panels = t<Panel[]>("themes.panels");
+const s = t<Record<string, string>>("themes.screen");
+---
+
+<section id="beta-themes" aria-label={t("themes.fig")}>
+  <div id="hscroll">
+    <div class="hsticky">
+      <div class="container">
+        <p class="fig mb-5">{t("themes.fig")}</p>
+        <h2
+          class="m-0 text-[clamp(32px,4.6vw,54px)] leading-[1.02] tracking-[-0.028em] font-bold text-ink text-balance max-w-[17ch]"
+        >
+          {t("themes.h2Lead")}{" "}
+          <em class="font-serif italic font-normal text-orange-dark">
+            {t("themes.h2Accent")}
+          </em>
+        </h2>
+      </div>
+
+      <div class="htrack" id="htrack">
+        <div class="b-panel">
+          <div class="txt">
+            <div class="num">{panels[0].num}</div>
+            <h3>{panels[0].title}</h3>
+            <p>{panels[0].text}</p>
+          </div>
+          <PhoneDrawer s={s as any} />
+        </div>
+
+        <div class="b-panel">
+          <div class="txt">
+            <div class="num">{panels[1].num}</div>
+            <h3>{panels[1].title}</h3>
+            <p>{panels[1].text}</p>
+          </div>
+          <PhoneNotes s={s as any} />
+        </div>
+
+        <div class="b-panel">
+          <div class="txt">
+            <div class="num">{panels[2].num}</div>
+            <h3>{panels[2].title}</h3>
+            <p>{panels[2].text}</p>
+          </div>
+          <PhoneChat s={s as any} />
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<script>
+  import "../../scripts/horizontalScroll.ts";
+</script>
+
+<style>
+  #hscroll {
+    position: relative;
+    height: 360vh;
+  }
+
+  .hsticky {
+    position: sticky;
+    top: 0;
+    height: 100vh;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+  }
+
+  .htrack {
+    display: flex;
+    gap: 22px;
+    will-change: transform;
+    padding: 26px max(28px, calc((100vw - 1180px) / 2)) 0;
+  }
+
+  #hscroll[data-fallback="true"] {
+    height: auto;
+  }
+
+  #hscroll[data-fallback="true"] .hsticky {
+    position: static;
+    height: auto;
+    padding: 56px 0;
+    gap: 22px;
+  }
+
+  #hscroll[data-fallback="true"] .htrack {
+    flex-direction: column;
+    align-items: flex-start;
+    transform: none !important;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    #hscroll {
+      height: auto;
+    }
+
+    .hsticky {
+      position: static;
+      height: auto;
+      padding: 56px 0;
+      gap: 22px;
+    }
+
+    .htrack {
+      flex-direction: column;
+      align-items: flex-start;
+      transform: none !important;
+    }
+  }
+
+  @media (max-width: 768px) {
+    #hscroll {
+      height: auto;
+    }
+
+    .hsticky {
+      position: static;
+      height: auto;
+      padding: 40px 0;
+      gap: 22px;
+    }
+
+    .htrack {
+      flex-direction: column;
+      align-items: flex-start;
+    }
+  }
+</style>

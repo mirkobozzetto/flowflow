@@ -1,0 +1,57 @@
+---
+import { useTranslations } from "../../lib/i18n";
+
+interface Stat {
+  label: string;
+  value: string;
+  note: string;
+}
+
+interface Props {
+  lang: string;
+}
+
+const { lang } = Astro.props;
+const t = useTranslations(lang, "beta");
+const items = t<Stat[]>("stats.items");
+const chips = t<string[]>("marquee");
+---
+
+<section id="beta-stats" class="py-30">
+  <div class="container">
+    <div class="b-dark reveal">
+      <p class="fig mb-6">{t("stats.fig")}</p>
+      <h2
+        class="m-0 text-[clamp(32px,4.6vw,54px)] leading-[1.02] tracking-[-0.028em] font-bold text-warm-white text-balance max-w-[17ch]"
+      >
+        {t("stats.h2Lead")}{" "}
+        <em class="font-serif italic font-normal text-orange-bright">
+          {t("stats.h2Accent")}
+        </em>
+      </h2>
+      <p class="mt-4.5 mb-13 text-[17px] text-stone-400">{t("stats.lead")}</p>
+
+      <div class="b-stats">
+        {
+          items.map((stat) => (
+            <div class="b-stat">
+              <span class="l">{stat.label}</span>
+              <span class="n">{stat.value}</span>
+              <span class="s">{stat.note}</span>
+            </div>
+          ))
+        }
+      </div>
+
+      <div class="b-chips">
+        {
+          chips.map((chip) => (
+            <span class="b-chip">
+              {chip} <span class="pd" />
+            </span>
+          ))
+        }
+      </div>
+    </div>
+  </div>
+</section>

@@ -1,10 +1,12 @@
 import enAgentic from "../i18n/en/agentic.json";
+import enBeta from "../i18n/en/beta.json";
 import enBento from "../i18n/en/bento.json";
 import enFaq from "../i18n/en/faq.json";
 import enFooter from "../i18n/en/footer.json";
 import enHero from "../i18n/en/hero.json";
 import enShowcase from "../i18n/en/showcase.json";
 import frAgentic from "../i18n/fr/agentic.json";
+import frBeta from "../i18n/fr/beta.json";
 import frBento from "../i18n/fr/bento.json";
 import frFaq from "../i18n/fr/faq.json";
 import frFooter from "../i18n/fr/footer.json";
@@ -18,7 +20,8 @@ export type Namespace =
   | "agentic"
   | "bento"
   | "faq"
-  | "footer";
+  | "footer"
+  | "beta";
 
 const sections = {
   en: {
@@ -28,6 +31,7 @@ const sections = {
     bento: enBento,
     faq: enFaq,
     footer: enFooter,
+    beta: enBeta,
   },
   fr: {
     hero: frHero,
@@ -36,6 +40,7 @@ const sections = {
     bento: frBento,
     faq: frFaq,
     footer: frFooter,
+    beta: frBeta,
   },
 } as const;
 

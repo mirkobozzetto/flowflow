@@ -1,0 +1,60 @@
+---
+import Avatar from "./Avatar.astro";
+
+interface Screen {
+  you: string;
+  note1: string;
+  note1Text: string;
+  note2: string;
+  note2Text: string;
+  note3: string;
+  note3Text: string;
+}
+
+interface Props {
+  s: Screen;
+}
+
+const { s } = Astro.props;
+
+const notes = [
+  { who: "julie", name: "Julie", date: "19", title: s.note1, text: s.note1Text },
+  {
+    who: "thomas",
+    name: "Thomas",
+    date: "18",
+    title: s.note2,
+    text: s.note2Text,
+  },
+  { who: "mirko", name: s.you, date: "17", title: s.note3, text: s.note3Text },
+] as const;
+---
+
+<div class="b-iph">
+  <div class="b-scr">
+    <div class="b-top">
+      <span class="ttl">Client Delvaux <i class="b-chev"></i></span>
+      <span class="b-stack">
+        <Avatar who="mirko" size={18} />
+        <Avatar who="julie" size={18} />
+        <Avatar who="thomas" size={18} />
+      </span>
+    </div>
+    <div class="b-bd">
+      {
+        notes.map((n) => (
+          <div class="b-nc">
+            <h4>{n.title}</h4>
+            <p>{n.text}</p>
+            <div class="b-meta">
+              <Avatar who={n.who} size={14} />
+              <span class="who">{n.name}</span>
+              <span>·</span>
+              <span>{n.date}/08</span>
+            </div>
+          </div>
+        ))
+      }
+    </div>
+  </div>
+</div>
