@@ -1,0 +1,175 @@
+---
+import Avatar from "./Avatar.astro";
+
+interface Screen {
+  tabNotes: string;
+  tabChats: string;
+  newNote: string;
+  allNotes: string;
+  themes: string;
+  settings: string;
+}
+
+interface Props {
+  s: Screen;
+}
+
+const { s } = Astro.props;
+
+const folder =
+  "M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z";
+const plain = [
+  { name: "Dev", count: "25" },
+  { name: "Idées", count: "6" },
+  { name: "Pro", count: "5" },
+  { name: "vie perso", count: "1" },
+];
+---
+
+<div class="b-iph">
+  <div class="b-scr">
+    <div class="b-dw">
+      <div class="b-sbar"><span>22:07</span><span class="bt">57</span></div>
+
+      <div class="b-tabs">
+        <span class="b-tab on">{s.tabNotes}</span>
+        <span class="b-tab">{s.tabChats}</span>
+      </div>
+
+      <div class="b-new">
+        <svg
+          width="13"
+          height="13"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          stroke-width="2.4"
+          stroke-linecap="round"
+          aria-hidden="true"><path d="M12 5v14M5 12h14"></path></svg
+        >
+        {s.newNote}
+      </div>
+
+      <div class="b-all">
+        <svg
+          width="13"
+          height="13"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          stroke-width="1.8"
+          stroke-linejoin="round"
+          aria-hidden="true"
+          ><path d="M8 3h7l4 4v10a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2z"
+          ></path><path d="M15 3v4h4"></path></svg
+        >
+        {s.allNotes}
+      </div>
+
+      <div class="b-sep"></div>
+
+      <div class="b-grp">
+        {s.themes}
+        <svg
+          width="11"
+          height="11"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          stroke-width="2"
+          stroke-linecap="round"
+          aria-hidden="true"><path d="M12 5v14M5 12h14"></path></svg
+        >
+      </div>
+
+      <div class="b-frow">
+        <i class="ch"></i>
+        <svg
+          width="13"
+          height="13"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          stroke-width="1.7"
+          stroke-linejoin="round"
+          aria-hidden="true"><path d={folder}></path></svg
+        >
+        <span class="nm">Client Delvaux</span>
+        <span class="b-stack">
+          <Avatar who="mirko" size={14} />
+          <Avatar who="julie" size={14} />
+          <Avatar who="thomas" size={14} />
+        </span>
+        <span class="dots">···</span>
+      </div>
+
+      {
+        ["Réunions", "Juridique"].map((name) => (
+          <div class="b-frow">
+            <span class="sp" />
+            <svg
+              width="13"
+              height="13"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="1.7"
+              stroke-linejoin="round"
+              style="margin-left:11px"
+              aria-hidden="true"
+            >
+              <path d={folder} />
+            </svg>
+            <span class="nm">{name}</span>
+            <span class="b-stack dim">
+              <Avatar who="mirko" size={14} />
+              <Avatar who="julie" size={14} />
+              <Avatar who="thomas" size={14} />
+            </span>
+            <span class="dots">···</span>
+          </div>
+        ))
+      }
+
+      {
+        plain.map((f) => (
+          <div class="b-frow">
+            <span class="sp" />
+            <svg
+              width="13"
+              height="13"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="1.7"
+              stroke-linejoin="round"
+              aria-hidden="true"
+            >
+              <path d={folder} />
+            </svg>
+            <span class="nm">{f.name}</span>
+            <span class="ct">{f.count}</span>
+            <span class="dots">···</span>
+          </div>
+        ))
+      }
+
+      <div class="b-set">
+        <svg
+          width="13"
+          height="13"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          stroke-width="1.7"
+          stroke-linejoin="round"
+          aria-hidden="true"
+          ><circle cx="12" cy="12" r="3.2"></circle><path
+            d="M20.3 14.6a1.7 1.7 0 0 0 .3 1.9 2 2 0 1 1-2.9 2.9 1.7 1.7 0 0 0-2.9 1.2 2 2 0 1 1-4 0 1.7 1.7 0 0 0-2.9-1.2 2 2 0 1 1-2.9-2.9 1.7 1.7 0 0 0-1.2-2.9 2 2 0 1 1 0-4 1.7 1.7 0 0 0 1.2-2.9 2 2 0 1 1 2.9-2.9 1.7 1.7 0 0 0 2.9-1.2 2 2 0 1 1 4 0 1.7 1.7 0 0 0 2.9 1.2 2 2 0 1 1 2.9 2.9 1.7 1.7 0 0 0 1.2 2.9 2 2 0 1 1 0 4 1.7 1.7 0 0 0-1.5 1z"
+          ></path></svg
+        >
+        {s.settings}
+      </div>
+    </div>
+  </div>
+</div>

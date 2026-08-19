@@ -1,0 +1,491 @@
+---
+import { Image } from "astro:assets";
+import logo from "../../assets/logo.png";
+import { useTranslations } from "../../lib/i18n";
+import Avatar from "./Avatar.astro";
+import BrandIcon from "./BrandIcon.astro";
+
+interface Props {
+  lang: string;
+}
+
+const { lang } = Astro.props;
+const t = useTranslations(lang, "beta");
+const n = t<Record<string, string>>("account.nav");
+const fr = lang === "fr";
+
+const panes = [
+  { key: "overview", label: n.overview },
+  { key: "profile", label: n.profile },
+  { key: "devices", label: n.devices },
+  { key: "services", label: n.services },
+  { key: "themes", label: n.themes },
+  { key: "agents", label: n.agents },
+  { key: "billing", label: n.billing },
+  { key: "security", label: n.security },
+] as const;
+
+const c = fr
+  ? {
+      devices: "Appareils",
+      now: "à l'instant",
+      ago: "il y a 12 min",
+      free: "Emplacement libre",
+      pair: "Appairer",
+      remove: "Retirer",
+      qr: "scanner un QR depuis l'app",
+      sharedThemes: "Thèmes partagés",
+      members: "membres",
+      billing: "Abonnement",
+      premium: "Premium",
+      noLimit: "sans limite",
+      granted: "Accordé",
+      origin: "Origine",
+      services: "Services",
+      active: "Actif",
+      notConnected: "Non connecté",
+      connect: "Connecter",
+      revoke: "Révoquer",
+      sheetsNote: "lecture et écriture · 2 feuilles armées",
+      gmailNote: "lecture seule",
+      calNote: "non connecté",
+      creditsNote: "brancher ton abonnement pour les crédits",
+      soon: "Bientôt",
+      changePhoto: "Changer la photo",
+      seenBy: "Ce que voient les membres de tes thèmes",
+      photoName: "Photo et nom",
+      photoNameNote: "sur chaque note que tu déposes",
+      activity: "Activité récente",
+      activityNote: "« a ajouté il y a 2 min »",
+      email: "Adresse e-mail",
+      emailNote: "dans la liste des membres",
+      owner: "Propriétaire",
+      member: "Membre",
+      write: "écriture",
+      read: "lecture",
+      invite: "Inviter",
+      inviteNote: "par lien, valable 5 minutes",
+      copy: "Copier",
+      leave: "Quitter",
+      leaveNote: "tu gardes ce que tu as reçu",
+      newTheme: "Nouveau",
+      soonShared: "Bientôt partagés",
+      shared: "Partagé",
+      tune: "Régler",
+      marketplace: "Marketplace",
+      marketplaceNote: "installer un agent pour tout le groupe",
+      browse: "Parcourir",
+      installedOn: "installé sur",
+      plan: "Plan actuel",
+      due: "Échéance",
+      none: "Aucune",
+      agents: "Agents",
+      agentsActive: "4 actifs",
+      sharing: "Partage",
+      perMonth: "6 € / mois",
+      unlimited: "illimités",
+      included: "incluse",
+      backup: "Sauvegarde chiffrée",
+      off: "Désactivée",
+      stayLocal: "Tes notes restent sur tes appareils",
+      stayLocalNote: "rien n'est en ligne aujourd'hui",
+      passkeys: "Passkeys",
+      added: "ajoutée le 4 mai",
+      sessions: "Sessions web",
+      current: "session actuelle",
+      logoutAll: "Tout déconnecter",
+      exceptThis: "sauf celle-ci",
+      logout: "Déconnecter",
+      recent: "Connexions récentes",
+      today: "Aujourd'hui, 21:04",
+      yesterday: "Hier, 09:12",
+      paired: "appairé le 4 mai",
+    }
+  : {
+      devices: "Devices",
+      now: "just now",
+      ago: "12 min ago",
+      free: "Free slot",
+      pair: "Pair",
+      remove: "Remove",
+      qr: "scan a QR from the app",
+      sharedThemes: "Shared themes",
+      members: "members",
+      billing: "Subscription",
+      premium: "Premium",
+      noLimit: "no limit",
+      granted: "Granted",
+      origin: "Origin",
+      services: "Services",
+      active: "Active",
+      notConnected: "Not connected",
+      connect: "Connect",
+      revoke: "Revoke",
+      sheetsNote: "read and write · 2 sheets armed",
+      gmailNote: "read only",
+      calNote: "not connected",
+      creditsNote: "plug in your subscription for credits",
+      soon: "Soon",
+      changePhoto: "Change photo",
+      seenBy: "What members of your themes see",
+      photoName: "Photo and name",
+      photoNameNote: "on every note you drop in",
+      activity: "Recent activity",
+      activityNote: "“added 2 min ago”",
+      email: "Email address",
+      emailNote: "in the member list",
+      owner: "Owner",
+      member: "Member",
+      write: "write",
+      read: "read",
+      invite: "Invite",
+      inviteNote: "by link, valid 5 minutes",
+      copy: "Copy",
+      leave: "Leave",
+      leaveNote: "you keep what you received",
+      newTheme: "New",
+      soonShared: "Shared soon",
+      shared: "Shared",
+      tune: "Tune",
+      marketplace: "Marketplace",
+      marketplaceNote: "install an agent for the whole group",
+      browse: "Browse",
+      installedOn: "installed on",
+      plan: "Current plan",
+      due: "Renews",
+      none: "Never",
+      agents: "Agents",
+      agentsActive: "4 active",
+      sharing: "Sharing",
+      perMonth: "6 EUR / month",
+      unlimited: "unlimited",
+      included: "included",
+      backup: "Encrypted backup",
+      off: "Off",
+      stayLocal: "Your notes stay on your devices",
+      stayLocalNote: "nothing is online today",
+      passkeys: "Passkeys",
+      added: "added on 4 May",
+      sessions: "Web sessions",
+      current: "current session",
+      logoutAll: "Sign out everywhere",
+      exceptThis: "except this one",
+      logout: "Sign out",
+      recent: "Recent sign-ins",
+      today: "Today, 21:04",
+      yesterday: "Yesterday, 09:12",
+      paired: "paired on 4 May",
+    };
+---
+
+<section id="beta-account" class="py-30">
+  <div class="container">
+    <div class="reveal mb-16">
+      <p class="fig mb-6">{t("account.fig")}</p>
+      <h2
+        class="m-0 text-[clamp(32px,4.6vw,54px)] leading-[1.02] tracking-[-0.028em] font-bold text-ink text-balance max-w-[17ch]"
+      >
+        {t("account.h2Lead")}{" "}
+        <em class="font-serif italic font-normal text-orange-dark">
+          {t("account.h2Accent")}
+        </em>
+      </h2>
+      <p class="mt-4.5 text-[17px] text-stone-500">{t("account.lead")}</p>
+    </div>
+
+    <div class="b-app reveal" data-d="1">
+      <aside class="b-side">
+        <div class="sb">
+          <Image src={logo} alt="" width={26} height={26} />
+          FlowFlow
+        </div>
+        {
+          panes.map((p, i) => (
+            <>
+              {p.key === "devices" && <div class="grp">{n.groupAccount}</div>}
+              {p.key === "billing" && <div class="grp">{n.groupSettings}</div>}
+              <button
+                class={`b-item${i === 0 ? " on" : ""}`}
+                type="button"
+                data-pane={p.key}
+              >
+                {p.label}
+              </button>
+            </>
+          ))
+        }
+        <div class="me">
+          <Avatar who="mirko" size={34} />
+          <div><b>Mirko</b><small>{c.premium}</small></div>
+        </div>
+      </aside>
+
+      <div>
+        <div class="b-pane on" data-pane="overview">
+          <div class="b-ph"><h3>{n.overview}</h3></div>
+          <div class="b-cards">
+            <div class="b-c">
+              <h4><span class="t">{c.devices}</span><span class="b-st">2 / 3</span></h4>
+              <div class="b-row">
+                <span class="b-dot"></span>
+                <div class="g"><b>iPhone</b><small>{c.now}</small></div>
+              </div>
+              <div class="b-row">
+                <span class="b-dot"></span>
+                <div class="g"><b>MacBook Pro</b><small>{c.ago}</small></div>
+              </div>
+            </div>
+
+            <div class="b-c">
+              <h4><span class="t">{c.sharedThemes}</span></h4>
+              <div class="b-row">
+                <span class="b-stack">
+                  <Avatar who="mirko" size={28} />
+                  <Avatar who="julie" size={28} />
+                  <Avatar who="thomas" size={28} />
+                </span>
+                <div class="g"><b>Client Delvaux</b><small>3 {c.members}</small></div>
+              </div>
+              <div class="b-row">
+                <span class="b-stack">
+                  <Avatar who="mirko" size={28} />
+                  <Avatar who="aicha" size={28} />
+                </span>
+                <div class="g"><b>Veille</b><small>2 {c.members}</small></div>
+              </div>
+            </div>
+
+            <div class="b-c">
+              <h4><span class="t">{c.billing}</span><span class="b-st">{c.premium}</span></h4>
+              <p class="b-big">{c.noLimit}</p>
+              <div class="b-kv"><span class="k">{c.origin}</span><span class="v">{c.granted}</span></div>
+            </div>
+
+            <div class="b-c">
+              <h4><span class="t">{c.services}</span></h4>
+              <div class="b-kv"><span class="k">Google Sheets</span><span class="v">{c.active}</span></div>
+              <div class="b-kv"><span class="k">Gmail</span><span class="v">{c.active}</span></div>
+              <div class="b-kv"><span class="k">Google Calendar</span><span class="b-st">{c.notConnected}</span></div>
+            </div>
+          </div>
+        </div>
+
+        <div class="b-pane" data-pane="profile">
+          <div class="b-ph"><h3>{n.profile}</h3></div>
+          <div class="b-cards">
+            <div class="b-c wide">
+              <div class="b-prof">
+                <span class="b-shot">
+                  <Avatar who="mirko" size={84} />
+                  <span class="cam">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2" stroke-linejoin="round" aria-hidden="true"><path d="M4 8h3l1.5-2h7L17 8h3v11H4z"></path><circle cx="12" cy="13" r="3.2"></circle></svg>
+                  </span>
+                </span>
+                <div class="id">
+                  <b>Mirko Bozzetto</b><span>mirko@flowflow.be</span>
+                </div>
+                <button class="b-btn" type="button">{c.changePhoto}</button>
+              </div>
+            </div>
+            <div class="b-c wide">
+              <h4><span class="t">{c.seenBy}</span></h4>
+              <div class="b-row">
+                <div class="g"><b>{c.photoName}</b><small>{c.photoNameNote}</small></div>
+                <button class="b-tog on" type="button" aria-label={c.photoName}><i></i></button>
+              </div>
+              <div class="b-row">
+                <div class="g"><b>{c.activity}</b><small>{c.activityNote}</small></div>
+                <button class="b-tog on" type="button" aria-label={c.activity}><i></i></button>
+              </div>
+              <div class="b-row">
+                <div class="g"><b>{c.email}</b><small>{c.emailNote}</small></div>
+                <button class="b-tog" type="button" aria-label={c.email}><i></i></button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="b-pane" data-pane="devices">
+          <div class="b-ph"><h3>{n.devices}</h3><span class="b-st sp">2 / 3</span></div>
+          <div class="b-cards"><div class="b-c wide">
+            <div class="b-row">
+              <span class="b-dot"></span>
+              <div class="g"><b>iPhone 15 Pro</b><small>d4b1…7a02 · {c.paired}</small></div>
+              <span class="r">{c.now}</span>
+              <button class="b-btn" type="button">{c.remove}</button>
+            </div>
+            <div class="b-row">
+              <span class="b-dot"></span>
+              <div class="g"><b>MacBook Pro</b><small>91ce…3f7d · {c.paired}</small></div>
+              <span class="r">{c.ago}</span>
+              <button class="b-btn" type="button">{c.remove}</button>
+            </div>
+            <div class="b-row">
+              <span class="b-dot idle"></span>
+              <div class="g text-stone-400"><b>{c.free}</b><small>{c.qr}</small></div>
+              <button class="b-btn pri" type="button">{c.pair}</button>
+            </div>
+          </div></div>
+        </div>
+
+        <div class="b-pane" data-pane="services">
+          <div class="b-ph"><h3>{n.services}</h3></div>
+          <div class="b-cards"><div class="b-c wide">
+            <div class="b-row">
+              <span class="b-svc"><BrandIcon name="sheets" /></span>
+              <div class="g"><b>Google Sheets</b><small>{c.sheetsNote}</small></div>
+              <span class="r">{c.active}</span>
+              <button class="b-btn" type="button">{c.revoke}</button>
+            </div>
+            <div class="b-row">
+              <span class="b-svc"><BrandIcon name="gmail" /></span>
+              <div class="g"><b>Gmail</b><small>{c.gmailNote}</small></div>
+              <span class="r">{c.active}</span>
+              <button class="b-btn" type="button">{c.revoke}</button>
+            </div>
+            <div class="b-row">
+              <span class="b-svc"><BrandIcon name="calendar" /></span>
+              <div class="g text-stone-400"><b>Google Calendar</b><small>{c.calNote}</small></div>
+              <button class="b-btn pri" type="button">{c.connect}</button>
+            </div>
+            <div class="b-row">
+              <span class="b-svc"><BrandIcon name="openai" /></span>
+              <div class="g text-stone-400"><b>ChatGPT</b><small>{c.creditsNote}</small></div>
+              <span class="b-st">{c.soon}</span>
+            </div>
+            <div class="b-row">
+              <span class="b-svc"><BrandIcon name="grok" /></span>
+              <div class="g text-stone-400"><b>Grok</b><small>{c.creditsNote}</small></div>
+              <span class="b-st">{c.soon}</span>
+            </div>
+          </div></div>
+        </div>
+
+        <div class="b-pane" data-pane="themes">
+          <div class="b-ph">
+            <h3>{n.themes}</h3>
+            <button class="b-btn pri sp" type="button">{c.newTheme}</button>
+          </div>
+          <div class="b-cards">
+            <div class="b-c">
+              <h4><span class="t">Client Delvaux</span><span class="b-st">{c.owner}</span></h4>
+              <div class="b-row">
+                <Avatar who="mirko" size={28} />
+                <div class="g"><b>{t("themes.screen.you")}</b><small>mirko@flowflow.be</small></div>
+              </div>
+              <div class="b-row">
+                <Avatar who="julie" size={28} />
+                <div class="g"><b>Julie Lambert</b><small>{c.write}</small></div>
+              </div>
+              <div class="b-row">
+                <Avatar who="thomas" size={28} />
+                <div class="g"><b>Thomas Dubois</b><small>{c.read}</small></div>
+              </div>
+              <div class="b-row">
+                <div class="g text-stone-400"><b>{c.invite}</b><small>{c.inviteNote}</small></div>
+                <button class="b-btn" type="button">{c.copy}</button>
+              </div>
+            </div>
+            <div class="b-c">
+              <h4><span class="t">Veille</span><span class="b-st">{c.member}</span></h4>
+              <div class="b-row">
+                <Avatar who="aicha" size={28} />
+                <div class="g"><b>Aïcha Karim</b><small>{c.owner.toLowerCase()}</small></div>
+              </div>
+              <div class="b-row">
+                <Avatar who="mirko" size={28} />
+                <div class="g"><b>{t("themes.screen.you")}</b><small>{c.write}</small></div>
+              </div>
+              <div class="b-row">
+                <div class="g text-stone-400"><b>{c.leave}</b><small>{c.leaveNote}</small></div>
+                <button class="b-btn" type="button">{c.leave}</button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="b-pane" data-pane="agents">
+          <div class="b-ph"><h3>{n.agents}</h3><span class="b-st sp">{c.soonShared}</span></div>
+          <div class="b-cards"><div class="b-c wide">
+            <div class="b-row">
+              <div class="g"><b>Compte rendu client</b><small>{c.installedOn} Client Delvaux · 3 {c.members}</small></div>
+              <span class="r">{c.shared}</span>
+              <button class="b-btn" type="button">{c.tune}</button>
+            </div>
+            <div class="b-row">
+              <div class="g"><b>Veille hebdo</b><small>{c.installedOn} Veille · 2 {c.members}</small></div>
+              <span class="r">{c.shared}</span>
+              <button class="b-btn" type="button">{c.tune}</button>
+            </div>
+            <div class="b-row">
+              <div class="g text-stone-400"><b>{c.marketplace}</b><small>{c.marketplaceNote}</small></div>
+              <button class="b-btn pri" type="button">{c.browse}</button>
+            </div>
+          </div></div>
+        </div>
+
+        <div class="b-pane" data-pane="billing">
+          <div class="b-ph"><h3>{n.billing}</h3></div>
+          <div class="b-cards">
+            <div class="b-c">
+              <h4><span class="t">{c.plan}</span><span class="b-st">{c.premium}</span></h4>
+              <div class="b-kv"><span class="k">{c.origin}</span><span class="v">{c.granted}</span></div>
+              <div class="b-kv"><span class="k">{c.due}</span><span class="v">{c.none}</span></div>
+              <div class="b-kv"><span class="k">{c.agents}</span><span class="v">{c.agentsActive}</span></div>
+            </div>
+            <div class="b-c">
+              <h4><span class="t">{c.sharing}</span><span class="b-st">{c.soon}</span></h4>
+              <p class="b-big">{c.perMonth}</p>
+              <div class="b-kv"><span class="k">{c.sharedThemes}</span><span class="v">{c.unlimited}</span></div>
+              <div class="b-kv"><span class="k">{c.backup}</span><span class="v">{c.included}</span></div>
+            </div>
+            <div class="b-c wide">
+              <h4><span class="t">{c.backup}</span><span class="b-st">{c.off}</span></h4>
+              <div class="b-row">
+                <div class="g"><b>{c.stayLocal}</b><small>{c.stayLocalNote}</small></div>
+                <button class="b-tog" type="button" aria-label={c.backup}><i></i></button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="b-pane" data-pane="security">
+          <div class="b-ph"><h3>{n.security}</h3></div>
+          <div class="b-cards">
+            <div class="b-c">
+              <h4><span class="t">{c.passkeys}</span><span class="b-st">2</span></h4>
+              <div class="b-row">
+                <div class="g"><b>iPhone</b><small>{c.added}</small></div>
+                <button class="b-btn" type="button">{c.remove}</button>
+              </div>
+              <div class="b-row">
+                <div class="g"><b>MacBook Pro</b><small>{c.added}</small></div>
+                <button class="b-btn" type="button">{c.remove}</button>
+              </div>
+            </div>
+            <div class="b-c">
+              <h4><span class="t">{c.sessions}</span></h4>
+              <div class="b-row">
+                <span class="b-dot"></span>
+                <div class="g"><b>Safari · macOS</b><small>{c.current}</small></div>
+              </div>
+              <div class="b-row">
+                <div class="g text-stone-400"><b>{c.logoutAll}</b><small>{c.exceptThis}</small></div>
+                <button class="b-btn" type="button">{c.logout}</button>
+              </div>
+            </div>
+            <div class="b-c wide">
+              <h4><span class="t">{c.recent}</span></h4>
+              <div class="b-kv"><span class="k">{c.today}</span><span class="v">Bruxelles</span></div>
+              <div class="b-kv"><span class="k">{c.yesterday}</span><span class="v">Bruxelles</span></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<script>
+  import "../../scripts/dashboard.ts";
+</script>

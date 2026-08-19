@@ -1,0 +1,18 @@
+---
+import { useTranslations } from "../../lib/i18n";
+
+interface Props {
+  lang: string;
+}
+
+const { lang } = Astro.props;
+const t = useTranslations(lang, "beta");
+---
+
+<section class="b-field">
+  <div class="b-field-in reveal">
+    <p class="fig mb-6">{t("promise.fig")}</p>
+    <p class="big">{t("promise.big")}</p>
+    <p class="small">{t("promise.small")}</p>
+  </div>
+</section>
