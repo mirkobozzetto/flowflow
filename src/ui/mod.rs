@@ -1,6 +1,7 @@
 mod app;
 mod chat;
 mod clipboard;
+pub(crate) mod delete_confirm;
 pub mod hooks;
 pub mod icons;
 mod keyboard;

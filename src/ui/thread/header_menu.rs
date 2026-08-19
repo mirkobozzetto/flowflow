@@ -1,6 +1,7 @@
 use crate::application::i18n::t;
 use crate::domain::UpdateThread;
 use crate::infrastructure::persistence::Database;
+use crate::ui::delete_confirm::DeleteConfirm;
 use crate::ui::icons::*;
 use crate::ui::kit;
 use crate::ui::{AppState, View};
@@ -114,29 +115,21 @@ pub fn ThreadHeaderMenu(thread_id: String) -> Element {
                     }
                 }
             } else if confirm_delete() {
-                div { class: "px-3 py-2.5",
-                    p { class: "text-sm font-semibold text-stone-900 mb-0.5", {t(&lang, "thread-menu-delete-title")} }
-                    p { class: "text-xs text-stone-500 mb-3", {t(&lang, "thread-menu-delete-warning")} }
-                    div { class: "flex gap-2",
-                        button {
-                            class: kit::CONFIRM_BTN_GHOST,
-                            onclick: move |_| app.show_thread_menu.set(false),
-                            {t(&lang, "thread-menu-cancel")}
+                DeleteConfirm {
+                    title: t(&lang, "thread-menu-delete-title"),
+                    warning: t(&lang, "thread-menu-delete-warning"),
+                    cancel_label: t(&lang, "thread-menu-cancel"),
+                    confirm_label: t(&lang, "thread-menu-delete"),
+                    on_cancel: move |_| app.show_thread_menu.set(false),
+                    on_confirm: {
+                        let tid = thread_id.clone();
+                        move |_| {
+                            let _ = db().delete_thread(&tid);
+                            app.notes_version.set((app.notes_version)() + 1);
+                            app.show_thread_menu.set(false);
+                            app.view.set(View::NotesList);
                         }
-                        button {
-                            class: kit::CONFIRM_BTN_DANGER,
-                            onclick: {
-                                let tid = thread_id.clone();
-                                move |_| {
-                                    let _ = db().delete_thread(&tid);
-                                    app.notes_version.set((app.notes_version)() + 1);
-                                    app.show_thread_menu.set(false);
-                                    app.view.set(View::NotesList);
-                                }
-                            },
-                            {t(&lang, "thread-menu-delete")}
-                        }
-                    }
+                    },
                 }
             } else {
                 button {
