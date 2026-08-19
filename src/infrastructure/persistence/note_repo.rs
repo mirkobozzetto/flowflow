@@ -4,6 +4,7 @@ use crate::domain::{
 use crate::infrastructure::persistence::{
     chunk_repo, now_iso, sync_meta, Database,
 };
+use std::collections::HashSet;
 use std::str::FromStr;
 use uuid::Uuid;
 
@@ -603,6 +604,34 @@ impl Database {
         }
         tx.commit().map_err(|e| format!("wipe commit: {e}"))?;
         Ok(audio_paths)
+    }
+
+    /// One query for the whole feed instead of one per note: the notes list asks
+    /// this once per memo pass, and only when the matching filter is on.
+    pub fn note_ids_with_active_reminder(
+        &self,
+    ) -> Result<HashSet<String>, String> {
+        self.note_id_set(
+            "SELECT DISTINCT note_id FROM note_reminders WHERE state = 'active'",
+        )
+    }
+
+    pub fn note_ids_with_attachment(&self) -> Result<HashSet<String>, String> {
+        self.note_id_set("SELECT DISTINCT note_id FROM attachments")
+    }
+
+    fn note_id_set(&self, sql: &str) -> Result<HashSet<String>, String> {
+        let conn = self.conn();
+        let mut stmt =
+            conn.prepare(sql).map_err(|e| format!("Prepare: {e}"))?;
+        let rows = stmt
+            .query_map([], |r| r.get::<_, String>(0))
+            .map_err(|e| format!("Query: {e}"))?;
+        let mut ids = HashSet::new();
+        for row in rows {
+            ids.insert(row.map_err(|e| format!("Row: {e}"))?);
+        }
+        Ok(ids)
     }
 
     pub fn list_all_tags(&self) -> Vec<String> {

@@ -216,6 +216,11 @@ note-list-no-results = No result
 note-list-no-results-hint = Try another term
 note-list-welcome = Welcome
 note-list-first-note-hint = Tap + for your first note
+note-filter-voice = Voice notes
+note-filter-reminder = Notes with a reminder
+note-filter-document = Notes with a document
+note-filter-thread = Threads
+note-filter-many = { $count } filters active
 
 chat-menu-rename = Rename
 chat-menu-cancel = Cancel

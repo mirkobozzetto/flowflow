@@ -16,5 +16,6 @@ pub(crate) mod folder_picker;
 pub(crate) mod note_card;
 pub(crate) mod note_list;
 pub(crate) mod row_menu;
+pub(crate) mod search_filters;
 
 pub use detail::NoteDetail;

@@ -14,7 +14,9 @@ mod state;
 mod sync;
 mod thread;
 
-pub use state::{AppState, RowMenu, SettingsSection, SidebarTab, View};
+pub use state::{
+    AppState, NoteFilters, RowMenu, SettingsSection, SidebarTab, View,
+};
 
 use dioxus::prelude::*;
 

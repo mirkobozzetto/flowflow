@@ -52,6 +52,30 @@ pub enum RowMenu {
     Note(String),
 }
 
+// The attribute toggles sitting in the notes search field. Additive: a note has
+// to clear every one that is on. `thread` is the odd one out, it swaps the feed
+// to threads rather than narrowing the notes.
+#[derive(Clone, Copy, Debug, Default, PartialEq)]
+pub struct NoteFilters {
+    pub voice: bool,
+    pub reminder: bool,
+    pub document: bool,
+    pub thread: bool,
+}
+
+impl NoteFilters {
+    pub fn is_empty(self) -> bool {
+        !self.voice && !self.reminder && !self.document && !self.thread
+    }
+
+    pub fn count(self) -> usize {
+        [self.voice, self.reminder, self.document, self.thread]
+            .into_iter()
+            .filter(|on| *on)
+            .count()
+    }
+}
+
 #[derive(Clone, Debug, PartialEq)]
 pub enum View {
     NotesList,
@@ -79,6 +103,7 @@ pub struct AppState {
     pub current_note_id: Signal<Option<String>>,
     pub previous_view: Signal<Option<View>>,
     pub search_query: Signal<String>,
+    pub note_filters: Signal<NoteFilters>,
     pub show_note_menu: Signal<bool>,
     pub attachments_version: Signal<u32>,
     pub attachment_modal: Signal<Option<Attachment>>,
@@ -145,6 +170,7 @@ impl AppState {
             current_note_id: Signal::new(None),
             previous_view: Signal::new(None),
             search_query: Signal::new(String::new()),
+            note_filters: Signal::new(NoteFilters::default()),
             show_note_menu: Signal::new(false),
             attachments_version: Signal::new(0),
             attachment_modal: Signal::new(None),
