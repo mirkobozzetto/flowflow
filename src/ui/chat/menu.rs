@@ -1,6 +1,7 @@
 use crate::application::i18n::t;
 use crate::infrastructure::persistence::Database;
 use crate::ui::chat::models::ChatSource;
+use crate::ui::delete_confirm::DeleteConfirm;
 use crate::ui::icons::*;
 use crate::ui::kit;
 use crate::ui::state::View;
@@ -99,44 +100,36 @@ pub fn ChatMenu(props: ChatMenuProps) -> Element {
                     }
                 }
             } else if confirm_delete() {
-                div { class: "px-3 py-2.5",
-                    p { class: "text-sm font-semibold text-stone-900 mb-0.5", {t(&lang, "chat-menu-delete-title")} }
-                    p { class: "text-xs text-stone-500 mb-3", {t(&lang, "chat-menu-delete-warning")} }
-                    div { class: "flex gap-2",
-                        button {
-                            class: kit::CONFIRM_BTN_GHOST,
-                            onclick: move |_| {
-                                confirm_delete.set(false);
-                                app.show_chat_menu.set(false);
-                            },
-                            {t(&lang, "chat-menu-cancel")}
+                DeleteConfirm {
+                    title: t(&lang, "chat-menu-delete-title"),
+                    warning: t(&lang, "chat-menu-delete-warning"),
+                    cancel_label: t(&lang, "chat-menu-cancel"),
+                    confirm_label: t(&lang, "chat-menu-delete"),
+                    on_cancel: move |_| {
+                        confirm_delete.set(false);
+                        app.show_chat_menu.set(false);
+                    },
+                    on_confirm: move |_| {
+                        if let Some(ref cid) = conversation_id() {
+                            let _ = db().delete_conversation(cid);
                         }
-                        button {
-                            class: kit::CONFIRM_BTN_DANGER,
-                            onclick: move |_| {
-                                if let Some(ref cid) = conversation_id() {
-                                    let _ = db().delete_conversation(cid);
-                                }
-                                // The drawer's conversation list stays mounted on mobile (the swipe
-                                // panel never unmounts) and only re-reads on this version: without
-                                // the bump the deleted chat ghosts in the list.
-                                app.invalidate_data();
-                                confirm_delete.set(false);
-                                app.show_chat_menu.set(false);
-                                app.sliding_out.set(true);
-                                // spawn_forever, NOT spawn: show_chat_menu=false unmounts THIS menu in
-                                // the same click, which cancels a scope-bound task mid-delay - leaving
-                                // sliding_out stuck true (whole screen pointer-events-none) and the
-                                // view never set. The freeze-after-delete bug.
-                                dioxus::core::spawn_forever(async move {
-                                    futures_timer::Delay::new(std::time::Duration::from_millis(150)).await;
-                                    app.sliding_out.set(false);
-                                    app.view.set(View::NotesList);
-                                });
-                            },
-                            {t(&lang, "chat-menu-delete")}
-                        }
-                    }
+                        // The drawer's conversation list stays mounted on mobile (the swipe
+                        // panel never unmounts) and only re-reads on this version: without
+                        // the bump the deleted chat ghosts in the list.
+                        app.invalidate_data();
+                        confirm_delete.set(false);
+                        app.show_chat_menu.set(false);
+                        app.sliding_out.set(true);
+                        // spawn_forever, NOT spawn: show_chat_menu=false unmounts THIS menu in
+                        // the same click, which cancels a scope-bound task mid-delay - leaving
+                        // sliding_out stuck true (whole screen pointer-events-none) and the
+                        // view never set. The freeze-after-delete bug.
+                        dioxus::core::spawn_forever(async move {
+                            futures_timer::Delay::new(std::time::Duration::from_millis(150)).await;
+                            app.sliding_out.set(false);
+                            app.view.set(View::NotesList);
+                        });
+                    },
                 }
             } else {
                 button {

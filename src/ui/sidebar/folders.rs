@@ -3,6 +3,7 @@ use crate::domain::{
     flatten_tree, subtree_ids, Folder, NewFolder, UpdateFolder,
 };
 use crate::infrastructure::persistence::Database;
+use crate::ui::delete_confirm::DeleteConfirm;
 use crate::ui::icons::*;
 use crate::ui::kit;
 use crate::ui::{AppState, RowMenu, View};
@@ -330,42 +331,30 @@ fn FolderItem(folder: Folder, depth: u32) -> Element {
                                     }
                                 }
                             } else if confirm_delete() {
-                                div { class: "px-3 py-2.5",
-                                    p { class: "text-sm font-semibold text-stone-900 mb-0.5",
-                                        {t(&lang, "folder-menu-delete-title")}
-                                    }
-                                    p { class: "text-xs text-stone-500 mb-3",
-                                        {t(&lang, "folder-menu-delete-warning")}
-                                    }
-                                    div { class: "flex gap-2",
-                                        button {
-                                            class: kit::CONFIRM_BTN_GHOST,
-                                            onclick: move |_| {
-                                                confirm_delete.set(false);
-                                                app.row_menu.set(None);
-                                            },
-                                            {t(&lang, "chat-menu-cancel")}
-                                        }
-                                        button {
-                                            class: kit::CONFIRM_BTN_DANGER,
-                                            onclick: move |_| {
-                                                // Close the menu THIS render pass, delete on the next
-                                                // task: the row must never be torn down in the same
-                                                // patch as its own open menu (orphaned-node freeze).
-                                                confirm_delete.set(false);
-                                                app.row_menu.set(None);
-                                                let fid = folder_id_for_delete.clone();
-                                                spawn(async move {
-                                                    let _ = db().delete_folder(&fid);
-                                                    if (app.selected_folder_id)().as_deref() == Some(fid.as_str()) {
-                                                        app.selected_folder_id.set(None);
-                                                    }
-                                                    app.folders_version.set((app.folders_version)() + 1);
-                                                });
-                                            },
-                                            {t(&lang, "chat-menu-delete")}
-                                        }
-                                    }
+                                DeleteConfirm {
+                                    title: t(&lang, "folder-menu-delete-title"),
+                                    warning: t(&lang, "folder-menu-delete-warning"),
+                                    cancel_label: t(&lang, "chat-menu-cancel"),
+                                    confirm_label: t(&lang, "chat-menu-delete"),
+                                    on_cancel: move |_| {
+                                        confirm_delete.set(false);
+                                        app.row_menu.set(None);
+                                    },
+                                    on_confirm: move |_| {
+                                        // Close the menu THIS render pass, delete on the next
+                                        // task: the row must never be torn down in the same
+                                        // patch as its own open menu (orphaned-node freeze).
+                                        confirm_delete.set(false);
+                                        app.row_menu.set(None);
+                                        let fid = folder_id_for_delete.clone();
+                                        spawn(async move {
+                                            let _ = db().delete_folder(&fid);
+                                            if (app.selected_folder_id)().as_deref() == Some(fid.as_str()) {
+                                                app.selected_folder_id.set(None);
+                                            }
+                                            app.folders_version.set((app.folders_version)() + 1);
+                                        });
+                                    },
                                 }
                             } else {
                                 button {

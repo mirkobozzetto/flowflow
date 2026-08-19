@@ -1,4 +1,5 @@
 use crate::application::i18n::t;
+use crate::ui::delete_confirm::DeleteConfirm;
 use crate::ui::icons::*;
 use crate::ui::kit;
 use crate::ui::AppState;
@@ -149,37 +150,25 @@ pub fn NoteMenu(
         }
         div { class: "absolute right-4 top-1 {kit::MENU_PANEL}",
             if confirm_delete() {
-                div { class: "px-3 py-2.5",
-                    p { class: "text-sm font-semibold text-stone-900 mb-0.5",
-                        {t(&lang, "note-menu-delete-title")}
-                    }
-                    p { class: "text-xs text-stone-500 mb-3",
-                        {t(&lang, "note-menu-delete-warning")}
-                    }
-                    div { class: "flex gap-2",
-                        button {
-                            class: kit::CONFIRM_BTN_GHOST,
-                            onclick: move |_| {
-                                confirm_delete.set(false);
-                                app.show_note_menu.set(false);
-                            },
-                            {t(&lang, "chat-menu-cancel")}
+                DeleteConfirm {
+                    title: t(&lang, "note-menu-delete-title"),
+                    warning: t(&lang, "note-menu-delete-warning"),
+                    cancel_label: t(&lang, "chat-menu-cancel"),
+                    confirm_label: t(&lang, "chat-menu-delete"),
+                    on_cancel: move |_| {
+                        confirm_delete.set(false);
+                        app.show_note_menu.set(false);
+                    },
+                    on_confirm: {
+                        let note_id = note_id.clone();
+                        move |_| {
+                            app.show_note_menu.set(false);
+                            deleted.set(true);
+                            crate::application::note_persistence::delete_note(&db(), &note_id);
+                            engine.peek().schedule_debounced();
+                            app.current_note_id.set(None);
                         }
-                        button {
-                            class: kit::CONFIRM_BTN_DANGER,
-                            onclick: {
-                                let note_id = note_id.clone();
-                                move |_| {
-                                    app.show_note_menu.set(false);
-                                    deleted.set(true);
-                                    crate::application::note_persistence::delete_note(&db(), &note_id);
-                                    engine.peek().schedule_debounced();
-                                    app.current_note_id.set(None);
-                                }
-                            },
-                            {t(&lang, "chat-menu-delete")}
-                        }
-                    }
+                    },
                 }
             } else {
                 button {

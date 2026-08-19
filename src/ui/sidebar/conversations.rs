@@ -1,5 +1,6 @@
 use crate::application::i18n::t;
 use crate::infrastructure::persistence::Database;
+use crate::ui::delete_confirm::DeleteConfirm;
 use crate::ui::icons::*;
 use crate::ui::kit;
 use crate::ui::{AppState, RowMenu, View};
@@ -185,39 +186,27 @@ fn ConversationItem(
                 if menu_open {
                     div { class: "absolute right-2 top-full {kit::MENU_PANEL}",
                         if confirm_delete() {
-                            div { class: "px-3 py-2.5",
-                                p { class: "text-sm font-semibold text-stone-900 mb-0.5",
-                                    {t(&lang, "chat-menu-delete-title")}
-                                }
-                                p { class: "text-xs text-stone-500 mb-3",
-                                    {t(&lang, "chat-menu-delete-warning")}
-                                }
-                                div { class: "flex gap-2",
-                                    button {
-                                        class: kit::CONFIRM_BTN_GHOST,
-                                        onclick: move |_| {
-                                            confirm_delete.set(false);
-                                            app.row_menu.set(None);
-                                        },
-                                        {t(&lang, "chat-menu-cancel")}
-                                    }
-                                    button {
-                                        class: kit::CONFIRM_BTN_DANGER,
-                                        onclick: move |_| {
-                                            // Close the menu THIS render pass, delete on the next
-                                            // task: the row must never be torn down in the same
-                                            // patch as its own open menu (orphaned-node freeze).
-                                            confirm_delete.set(false);
-                                            app.row_menu.set(None);
-                                            let cid = conv_id_del.clone();
-                                            spawn(async move {
-                                                let _ = db().delete_conversation(&cid);
-                                                app.invalidate_data();
-                                            });
-                                        },
-                                        {t(&lang, "chat-menu-delete")}
-                                    }
-                                }
+                            DeleteConfirm {
+                                title: t(&lang, "chat-menu-delete-title"),
+                                warning: t(&lang, "chat-menu-delete-warning"),
+                                cancel_label: t(&lang, "chat-menu-cancel"),
+                                confirm_label: t(&lang, "chat-menu-delete"),
+                                on_cancel: move |_| {
+                                    confirm_delete.set(false);
+                                    app.row_menu.set(None);
+                                },
+                                on_confirm: move |_| {
+                                    // Close the menu THIS render pass, delete on the next
+                                    // task: the row must never be torn down in the same
+                                    // patch as its own open menu (orphaned-node freeze).
+                                    confirm_delete.set(false);
+                                    app.row_menu.set(None);
+                                    let cid = conv_id_del.clone();
+                                    spawn(async move {
+                                        let _ = db().delete_conversation(&cid);
+                                        app.invalidate_data();
+                                    });
+                                },
                             }
                         } else {
                             button {
