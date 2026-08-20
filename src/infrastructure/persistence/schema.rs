@@ -21,7 +21,27 @@ pub const MIGRATIONS: &[(i64, &str)] = &[
     (20, V20_SCHEMA),
     (21, V21_SCHEMA),
     (22, V22_SCHEMA),
+    (23, V23_SCHEMA),
+    (24, V24_SCHEMA),
 ];
+
+// Human-readable peer label exchanged in the sync HELLO (protocol v4). A
+// label for the pairing UI and author chips, never an identity: authorization
+// stays key-based.
+const V24_SCHEMA: &str = "
+ALTER TABLE sync_peers ADD COLUMN name TEXT;
+";
+
+// Who wrote the note: the local sync_device_id (a UUID minted at first launch,
+// no backend needed). Nullable; pre-V23 rows are backfilled by the migrate hook
+// from sync_row_meta.origin_device (last-writer, an accepted one-time
+// approximation), local-only rows fall back to the local device id. The
+// backfill MUST run under set_applying: the unqualified AFTER UPDATE sync
+// trigger on notes would otherwise re-author every row and re-push the corpus
+// to every peer.
+const V23_SCHEMA: &str = "
+ALTER TABLE notes ADD COLUMN author_device TEXT;
+";
 
 // Per-word timings and confidence for a transcription (RFC 0024). Device-local: it
 // is absent from sync/protocol/catalog.rs and from sync_meta's Tracked list, so no

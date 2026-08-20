@@ -132,6 +132,36 @@ fn manual_sync_flows_through_the_listener_and_reports_done() {
     );
 }
 
+// v4: author_device rides the note catalog verbatim (no re-authoring on
+// apply), and the HELLO device_name lands on the receiving peer row.
+#[test]
+fn sync_carries_note_author_and_peer_name() {
+    let (db_a, _da) = open_db();
+    let (db_b, _db) = open_db();
+    let (id_a, id_b) = pair(&db_a, &db_b);
+    db_a.set_setting("device_name", "iPhone de Mirko").unwrap();
+
+    let engine_a = SyncEngine::start_listener(db_a.clone(), 0);
+    let port_a = engine_a.listen_port().expect("listener bound");
+    set_peer_endpoint(&db_b, &id_a, "127.0.0.1", port_a).expect("endpoint");
+
+    let note_a = make_note(&db_a, "from A", "authored on A");
+    let engine_b = SyncEngine::start_listener(db_b.clone(), 0);
+    engine_b.sync_now_blocking();
+
+    let copy = db_b.get_note(&note_a).expect("q").expect("note synced");
+    assert_eq!(
+        copy.author_device.as_deref(),
+        Some(id_a.as_str()),
+        "author must survive the wire, not be re-stamped by the receiver"
+    );
+    let peer = db_b.get_peer(&id_a).expect("q").expect("peer row");
+    assert_eq!(peer.name.as_deref(), Some("iPhone de Mirko"));
+    // B never set a name: A's row for B stays label-less.
+    let peer_b = db_a.get_peer(&id_b).expect("q").expect("peer row");
+    assert_eq!(peer_b.name, None);
+}
+
 #[test]
 fn debounced_save_syncs_after_the_quiet_period() {
     let (db_a, _da) = open_db();

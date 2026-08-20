@@ -93,6 +93,11 @@ fn my_hello(db: &Database, peer_device: &str) -> Result<Msg, SyncError> {
         gc_horizon: peer.gc_horizon,
         next_seq,
         restored: my_restored_floor(db, peer_device)?.is_some(),
+        device_name: db
+            .get_setting(
+                crate::infrastructure::persistence::settings_repo::DEVICE_NAME_KEY,
+            )
+            .unwrap_or_default(),
     })
 }
 
@@ -103,6 +108,7 @@ struct PeerHello {
     gc_horizon: i64,
     next_seq: i64,
     restored: bool,
+    device_name: String,
 }
 
 fn expect_hello(msg: Msg) -> Result<PeerHello, SyncError> {
@@ -114,6 +120,7 @@ fn expect_hello(msg: Msg) -> Result<PeerHello, SyncError> {
             gc_horizon,
             next_seq,
             restored,
+            device_name,
         } => Ok(PeerHello {
             protocol_version,
             device_id,
@@ -121,6 +128,7 @@ fn expect_hello(msg: Msg) -> Result<PeerHello, SyncError> {
             gc_horizon,
             next_seq,
             restored,
+            device_name,
         }),
         _ => Err(proto_err("expected HELLO")),
     }
@@ -188,6 +196,10 @@ fn plan_session(
     // Freshest truth about how far the peer consumed MY space; feeds the
     // tombstone GC. Overwrites (a restored peer's ack legitimately regresses).
     gc::record_peer_ack(db, peer_device, hello.last_acked_seq)
+        .map_err(SyncError::Protocol)?;
+    // Refresh the peer's display name on every session: renames propagate at
+    // the next sync, and notes only ever store the UUID.
+    db.set_peer_name(peer_device, &hello.device_name)
         .map_err(SyncError::Protocol)?;
     let me_declared = my_restored_floor(db, peer_device)?.is_some();
     let peer_declared = hello.restored;

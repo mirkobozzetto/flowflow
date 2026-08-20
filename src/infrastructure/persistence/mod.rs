@@ -278,6 +278,14 @@ impl Database {
                 if version == 18 || version == 22 {
                     sync_meta::install_sync_triggers(&conn)?;
                 }
+                // Backfill under the apply guard: the notes AFTER UPDATE sync
+                // trigger must not re-author the corpus or burn sync_seq rows.
+                if version == 23 {
+                    self.applying.store(true, Ordering::Relaxed);
+                    let res = backfill_author_device(&conn);
+                    self.applying.store(false, Ordering::Relaxed);
+                    res?;
+                }
                 conn.execute(
                     "INSERT OR IGNORE INTO _migrations (version) VALUES (?1)",
                     [version],
@@ -314,6 +322,23 @@ impl Database {
             }
         }
     }
+}
+
+// V23 backfill: credit each pre-existing note to sync_row_meta.origin_device
+// (last-writer, one-time approximation), then local-only rows to the local
+// device id. Caller MUST hold the apply guard (set_applying) so the notes
+// AFTER UPDATE trigger stays silent.
+fn backfill_author_device(conn: &Connection) -> Result<(), String> {
+    conn.execute_batch(
+        "UPDATE notes SET author_device = (
+             SELECT m.origin_device FROM sync_row_meta m
+             WHERE m.entity_kind = 'note' AND m.entity_id = notes.id
+         );
+         UPDATE notes SET author_device =
+             (SELECT value FROM settings WHERE key = 'sync_device_id')
+             WHERE author_device IS NULL;",
+    )
+    .map_err(|e| format!("v23 author backfill: {e}"))
 }
 
 #[cfg(all(test, not(target_os = "ios")))]

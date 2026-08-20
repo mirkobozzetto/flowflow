@@ -1,6 +1,7 @@
 use crate::infrastructure::persistence::Database;
 
 pub const LANGUAGE_KEY: &str = "language";
+pub const DEVICE_NAME_KEY: &str = "device_name";
 pub const STT_PROVIDER_KEY: &str = "stt_provider";
 pub const WHISPER_MODEL_KEY: &str = "whisper_model";
 pub const TRANSCRIPTION_DICTIONARY_KEY: &str = "transcription_dictionary";

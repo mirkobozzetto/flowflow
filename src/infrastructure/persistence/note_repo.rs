@@ -36,6 +36,7 @@ pub(crate) fn row_to_note(row: &rusqlite::Row) -> rusqlite::Result<Note> {
         tags,
         sources_json: row.get("sources_json")?,
         thread_id: row.get("thread_id")?,
+        author_device: row.get("author_device")?,
         created_at: row.get("created_at")?,
         modified_at: row.get("modified_at")?,
     })
@@ -61,8 +62,10 @@ impl Database {
         self.conn()
             .execute(
                 "INSERT INTO notes
-                 (id, note_type, title, content, tags, created_at, modified_at)
-                 VALUES (?1,?2,?3,?4,?5,?6,?7)",
+                 (id, note_type, title, content, tags, created_at, modified_at,
+                  author_device)
+                 VALUES (?1,?2,?3,?4,?5,?6,?7,
+                  (SELECT value FROM settings WHERE key = 'sync_device_id'))",
                 rusqlite::params![
                     id,
                     "text",
@@ -90,8 +93,10 @@ impl Database {
         self.conn()
             .execute(
                 "INSERT INTO notes
-                 (id, note_type, title, content, tags, thread_id, created_at, modified_at)
-                 VALUES (?1,?2,?3,?4,?5,?6,?7,?8)",
+                 (id, note_type, title, content, tags, thread_id, created_at, modified_at,
+                  author_device)
+                 VALUES (?1,?2,?3,?4,?5,?6,?7,?8,
+                  (SELECT value FROM settings WHERE key = 'sync_device_id'))",
                 rusqlite::params![
                     id,
                     "text",

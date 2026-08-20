@@ -14,6 +14,7 @@ fn note(id: &str, title: Option<&str>, content: &str, tags: &[&str]) -> Note {
         tags: tags.iter().map(|t| t.to_string()).collect(),
         sources_json: None,
         thread_id: None,
+        author_device: None,
         created_at: format!("2026-06-0{}T10:00:00Z", id.len().min(9)),
         modified_at: "2026-06-01T10:00:00Z".into(),
     }
