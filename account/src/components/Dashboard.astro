@@ -29,7 +29,7 @@ const panes = [
 ] as const;
 
 const meName = me.display_name ?? me.email;
-const plan = data.entitlements[0] ?? null;
+const plan = data.plans[0] ?? null;
 const planLabel = plan
   ? plan.plan.charAt(0).toUpperCase() + plan.plan.slice(1)
   : t("overview.free");
@@ -191,7 +191,6 @@ const freeSlots = Math.max(0, DEVICE_CAP - data.devices.length);
                   <b>{shortId(d.device_id)}</b>
                   <small>
                     {t("devices.paired")} {fmtDate(d.created_at, lang)}
-                    {d.premium ? ` · ${t("devices.premiumBadge")}` : ""}
                   </small>
                 </div>
                 <span class="r">
@@ -261,7 +260,7 @@ const freeSlots = Math.max(0, DEVICE_CAP - data.devices.length);
       <div class="b-ph"><h3>{n.billing}</h3></div>
       <div class="b-cards">
         {
-          data.entitlements.length === 0 && (
+          data.plans.length === 0 && (
             <div class="b-c wide">
               <div class="b-empty">
                 <b>{t("billing.noPlan")}</b>
@@ -270,7 +269,7 @@ const freeSlots = Math.max(0, DEVICE_CAP - data.devices.length);
           )
         }
         {
-          data.entitlements.map((e) => (
+          data.plans.map((e, i) => (
             <div class="b-c">
               <h4>
                 <span class="t">{t("billing.plan")}</span>
@@ -290,10 +289,10 @@ const freeSlots = Math.max(0, DEVICE_CAP - data.devices.length);
                     : t("billing.none")}
                 </span>
               </div>
-              {e.item_ids.length > 0 && (
+              {i === 0 && data.items.length > 0 && (
                 <div class="b-kv">
                   <span class="k">{t("billing.items")}</span>
-                  <span class="v">{e.item_ids.length}</span>
+                  <span class="v">{data.items.length}</span>
                 </div>
               )}
             </div>

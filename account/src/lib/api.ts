@@ -18,16 +18,21 @@ export interface Me {
 
 export interface DeviceRow {
   device_id: string;
-  premium: boolean;
   created_at: string;
   last_seen: string | null;
 }
 
-export interface EntitlementRow {
+export interface PlanRow {
   plan: string;
   status: string;
   expires_at: string | null;
-  item_ids: string[];
+}
+
+// GET /v1/me/entitlements: the raw plan rows plus the resolved catalog item
+// ids (account-level, not per plan row).
+interface EntitlementsResp {
+  plans: PlanRow[];
+  items: string[];
 }
 
 export interface ConnectionRow {
@@ -35,6 +40,15 @@ export interface ConnectionRow {
   provider: string;
   access_expires_at: string | null;
   scopes: string | null;
+}
+
+// Backend shape of GET /v1/me/requests; the UI shows target_id as the item.
+interface BackendRequestRow {
+  target_kind: string;
+  target_id: string;
+  status: string;
+  created_at: string;
+  decided_at: string | null;
 }
 
 export interface RequestRow {
@@ -51,7 +65,8 @@ export interface LoginEventRow {
 export interface AccountData {
   linked: boolean;
   devices: DeviceRow[];
-  entitlements: EntitlementRow[];
+  plans: PlanRow[];
+  items: string[];
   connections: ConnectionRow[];
   requests: RequestRow[];
   loginEvents: LoginEventRow[];
@@ -83,17 +98,22 @@ export async function fetchAccountData(cookie: string): Promise<AccountData> {
   const [devices, entitlements, connections, requests, loginEvents] =
     await Promise.all([
       backendJson<DeviceRow[]>("/v1/me/devices", cookie),
-      backendJson<EntitlementRow[]>("/v1/me/entitlements", cookie),
+      backendJson<EntitlementsResp>("/v1/me/entitlements", cookie),
       backendJson<ConnectionRow[]>("/v1/me/connections", cookie),
-      backendJson<RequestRow[]>("/v1/me/requests", cookie),
+      backendJson<BackendRequestRow[]>("/v1/me/requests", cookie),
       backendJson<LoginEventRow[]>("/v1/me/login-events", cookie),
     ]);
   return {
     linked: (devices ?? []).length > 0,
     devices: devices ?? [],
-    entitlements: entitlements ?? [],
+    plans: entitlements?.plans ?? [],
+    items: entitlements?.items ?? [],
     connections: connections ?? [],
-    requests: requests ?? [],
+    requests: (requests ?? []).map((r) => ({
+      item: r.target_id,
+      status: r.status,
+      decided_at: r.decided_at,
+    })),
     loginEvents: loginEvents ?? [],
   };
 }
@@ -135,25 +155,23 @@ function previewData(): AccountData {
     devices: [
       {
         device_id: "d4b17c02-91ce-4f7d-a2b8-33e05c1e7a02",
-        premium: true,
         created_at: daysAgo(107),
         last_seen: daysAgo(0),
       },
       {
         device_id: "91ce3f7d-55aa-4e21-9c47-8b12ef043f7d",
-        premium: true,
         created_at: daysAgo(107),
         last_seen: daysAgo(1),
       },
     ],
-    entitlements: [
+    plans: [
       {
         plan: "premium",
         status: "active",
         expires_at: null,
-        item_ids: ["agent-crm", "sheets", "gmail", "exa-search"],
       },
     ],
+    items: ["agent-crm", "sheets", "gmail", "exa-search"],
     connections: [
       {
         device_id: "d4b17c02-91ce-4f7d-a2b8-33e05c1e7a02",
