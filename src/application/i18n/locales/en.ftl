@@ -300,6 +300,10 @@ settings-language-section = Language
 language-en = English
 language-fr = French
 
+settings-device-name-label = Device name
+settings-device-name-placeholder = e.g. Mirko's iPhone
+settings-device-name-hint = Shown to paired devices next to the notes you write.
+
 sidebar-tab-notes = Notes
 sidebar-tab-chats = Chats
 sidebar-all-notes = All my notes

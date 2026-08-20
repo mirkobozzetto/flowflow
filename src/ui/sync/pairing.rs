@@ -293,8 +293,11 @@ pub fn SyncPairingView() -> Element {
                         for peer in peers_list() {
                             {
                                 let peer_id = peer.device_id.clone();
-                                let initial = peer
-                                    .device_id
+                                let label = peer
+                                    .name
+                                    .clone()
+                                    .unwrap_or_else(|| peer.device_id.clone());
+                                let initial = label
                                     .chars()
                                     .next()
                                     .unwrap_or('?')
@@ -308,7 +311,7 @@ pub fn SyncPairingView() -> Element {
                                                 "{initial}"
                                             }
                                             div { class: "min-w-0",
-                                                p { class: "text-sm font-medium text-stone-900 truncate", "{peer.device_id}" }
+                                                p { class: "text-sm font-medium text-stone-900 truncate", "{label}" }
                                                 if let Some(ref at) = peer.paired_at {
                                                     p { class: "text-xs text-stone-500 truncate", "{at}" }
                                                 }
