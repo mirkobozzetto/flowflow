@@ -1,0 +1,88 @@
+{
+  "nav": {
+    "overview": "Aperçu",
+    "groupAccount": "Compte",
+    "devices": "Appareils",
+    "services": "Services",
+    "groupSettings": "Réglages",
+    "billing": "Abonnement",
+    "security": "Sécurité"
+  },
+  "auth": {
+    "signIn": "Se connecter",
+    "signInLead": "Une passkey, tous les sites FlowFlow.",
+    "register": "Créer un compte",
+    "registerLead": "Une passkey à la place d'un mot de passe.",
+    "email": "Adresse e-mail",
+    "displayName": "Nom (optionnel)",
+    "continue": "Continuer",
+    "noPasskey": "Pas de passkey sur cet appareil - crée un compte ou utilise un autre appareil.",
+    "emailTaken": "Cette adresse est déjà enregistrée. Connecte-toi plutôt.",
+    "genericError": "Quelque chose a échoué. Réessaie.",
+    "haveAccount": "Déjà un compte ?",
+    "needAccount": "Nouveau sur FlowFlow ?",
+    "signOut": "Se déconnecter"
+  },
+  "link": {
+    "title": "Lier un appareil",
+    "lead": "Colle le code affiché dans l'app FlowFlow pour lier ce compte à tes appareils.",
+    "code": "Code de liaison",
+    "linkBtn": "Lier",
+    "linked": "Compte lié",
+    "notLinked": "Aucun appareil lié pour l'instant.",
+    "done": "Appareil lié."
+  },
+  "overview": {
+    "devices": "Appareils",
+    "now": "à l'instant",
+    "billing": "Abonnement",
+    "premium": "Premium",
+    "free": "Gratuit",
+    "noLimit": "sans limite",
+    "origin": "Origine",
+    "granted": "Accordé",
+    "services": "Services",
+    "active": "Actif",
+    "requests": "Demandes d'accès",
+    "noRequests": "Aucune demande",
+    "empty": "Rien ici pour l'instant",
+    "emptyLead": "Lie un appareil depuis l'app FlowFlow pour voir ton compte ici."
+  },
+  "devices": {
+    "paired": "enrôlé",
+    "lastSeen": "vu",
+    "never": "jamais",
+    "free": "Emplacement libre",
+    "qr": "appairer depuis l'app",
+    "premiumBadge": "Premium",
+    "none": "Aucun appareil sur ce compte pour l'instant."
+  },
+  "services": {
+    "readWrite": "lecture et écriture",
+    "scopes": "portées",
+    "expires": "expire",
+    "active": "Actif",
+    "none": "Aucun service connecté.",
+    "device": "appareil"
+  },
+  "billing": {
+    "plan": "Plan actuel",
+    "due": "Échéance",
+    "none": "Aucune",
+    "status": "Statut",
+    "items": "Inclus",
+    "requests": "Demandes d'accès",
+    "requested": "demandée",
+    "decided": "décidée",
+    "pending": "en attente",
+    "approved": "approuvée",
+    "denied": "refusée",
+    "noPlan": "Aucun abonnement sur ce compte."
+  },
+  "security": {
+    "recent": "Connexions récentes",
+    "signin": "Connexion",
+    "register": "Inscription",
+    "none": "Aucune connexion enregistrée."
+  }
+}
