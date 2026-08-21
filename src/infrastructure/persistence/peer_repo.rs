@@ -7,6 +7,8 @@ pub struct SyncPeer {
     pub last_acked_seq: i64,
     pub paired_at: Option<String>,
     pub gc_horizon: i64,
+    // Display name from the peer's HELLO (v4); a label, never an identity.
+    pub name: Option<String>,
 }
 
 fn row_to_peer(row: &rusqlite::Row) -> rusqlite::Result<SyncPeer> {
@@ -16,6 +18,7 @@ fn row_to_peer(row: &rusqlite::Row) -> rusqlite::Result<SyncPeer> {
         last_acked_seq: row.get("last_acked_seq")?,
         paired_at: row.get("paired_at")?,
         gc_horizon: row.get("gc_horizon")?,
+        name: row.get("name")?,
     })
 }
 
@@ -45,7 +48,7 @@ impl Database {
         self.conn()
             .query_row(
                 "SELECT device_id, static_pubkey, last_acked_seq, paired_at,
-                        gc_horizon
+                        gc_horizon, name
                  FROM sync_peers WHERE device_id = ?1",
                 [device_id],
                 row_to_peer,
@@ -62,7 +65,7 @@ impl Database {
         let mut stmt = conn
             .prepare(
                 "SELECT device_id, static_pubkey, last_acked_seq, paired_at,
-                        gc_horizon
+                        gc_horizon, name
                  FROM sync_peers ORDER BY paired_at DESC",
             )
             .map_err(|e| format!("list peers: {e}"))?;
@@ -72,6 +75,23 @@ impl Database {
             .collect::<Result<Vec<_>, _>>()
             .map_err(|e| format!("list peers: {e}"))?;
         Ok(peers)
+    }
+
+    // Store the peer's HELLO display name; an empty name clears the label so
+    // the UI falls back to the truncated device id.
+    pub fn set_peer_name(
+        &self,
+        device_id: &str,
+        name: &str,
+    ) -> Result<(), String> {
+        let value = (!name.is_empty()).then_some(name);
+        self.conn()
+            .execute(
+                "UPDATE sync_peers SET name = ?1 WHERE device_id = ?2",
+                rusqlite::params![value, device_id],
+            )
+            .map_err(|e| format!("set peer name: {e}"))?;
+        Ok(())
     }
 
     pub fn delete_peer(&self, device_id: &str) -> Result<(), String> {

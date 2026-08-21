@@ -1,4 +1,4 @@
-.PHONY: build format js check dev ddev deploy desktop desktop-build desktop-app desktop-toml restore-ios-toml icon all appstore clean clean-stale check-profiles renew ensure-profiles dmg release
+.PHONY: build format js check dev ddev deploy desktop desktop-build desktop-app desktop-toml restore-ios-toml icon all appstore clean clean-stale check-profiles renew ensure-profiles dmg release account
 
 # Strip the iOS-only widget extension from Dioxus.toml: dx 0.7 compiles every
 # declared [[ios.widget_extensions]] even for desktop, and the Live Activity
@@ -312,3 +312,7 @@ upload:
 
 clean:
 	rm -rf target/dx target/ios-dev target/desktop-dev target/flycheck0 target/tmp
+
+# Customer account site (account/) with fixture data, no backend needed.
+account:
+	cd account && bun install && ACCOUNT_PREVIEW=1 bun run dev

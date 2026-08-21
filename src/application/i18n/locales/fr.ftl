@@ -71,7 +71,7 @@ settings-group-account = Compte
 settings-group-intelligence = Intelligence
 settings-group-data = Données
 settings-group-connections = Connexions
-settings-group-general = Général
+settings-group-general = Application
 account-description = Ton compte regroupe jusqu'à 3 appareils appairés. Le premium suit le compte, partagé entre les appareils.
 account-id-label = ID du compte
 account-premium = Premium
@@ -299,6 +299,10 @@ folder-picker-all = Toutes les notes
 settings-language-section = Langue
 language-en = Anglais
 language-fr = Français
+
+settings-device-name-label = Nom de l'appareil
+settings-device-name-placeholder = ex. iPhone de Mirko
+settings-device-name-hint = Visible par vos appareils appairés à côté des notes que vous écrivez.
 
 sidebar-tab-notes = Notes
 sidebar-tab-chats = Chats

@@ -7,12 +7,27 @@ pub(super) fn local_lan_ip() -> Result<String, SyncError> {
             return Ok(addr);
         }
     }
-    // Enumerate interfaces and pick a real Wi-Fi/LAN address first. The UDP-connect trick below
-    // can latch onto a VPN/hotspot interface (utun*, e.g. 192.168.129.x) on iOS, baking an
-    // unreachable address into the pairing payload, so it is only a last resort.
-    if let Some(ip) = lan_ipv4_from_interfaces() {
+    // Two traps cancel each other out:
+    // - the UDP-connect trick alone can latch onto a VPN interface on iOS
+    //   (utun*, private IP, unreachable by LAN peers);
+    // - the interface scan alone can pick the iPhone-USB tether link on
+    //   macOS (en5-ish, 192.168.129.x, dies with the cable) because it
+    //   prefers any en* it meets first.
+    // So: trust the default-route address only when it belongs to a usable
+    // LAN interface; otherwise fall back to the scan, then to the raw route.
+    let usable = usable_lan_ips();
+    if let Ok(route) = default_route_ip() {
+        if usable.contains(&route) {
+            return Ok(route);
+        }
+    }
+    if let Some(ip) = usable.into_iter().next() {
         return Ok(ip);
     }
+    default_route_ip()
+}
+
+fn default_route_ip() -> Result<String, SyncError> {
     let socket = UdpSocket::bind("0.0.0.0:0")
         .map_err(|e| SyncError::Pairing(format!("udp bind: {e}")))?;
     socket
@@ -34,17 +49,17 @@ fn is_usable_lan(name: &str, ip: Ipv4Addr) -> bool {
     ip.is_private() && !SKIP.iter().any(|p| name.starts_with(p))
 }
 
-// Best private IPv4 across up, non-loopback interfaces, preferring Wi-Fi (en*). Returns None when
-// nothing qualifies, so the caller falls back to the UDP-route heuristic.
-fn lan_ipv4_from_interfaces() -> Option<String> {
+// Every usable private IPv4, en* interfaces first in name order (en0 built-in
+// Wi-Fi before en5-ish USB tether links), then the rest.
+fn usable_lan_ips() -> Vec<String> {
     use std::ffi::CStr;
+    let mut en: Vec<(String, String)> = Vec::new();
+    let mut other: Vec<String> = Vec::new();
     unsafe {
         let mut ifap: *mut libc::ifaddrs = std::ptr::null_mut();
         if libc::getifaddrs(&mut ifap) != 0 || ifap.is_null() {
-            return None;
+            return Vec::new();
         }
-        let mut preferred: Option<String> = None;
-        let mut fallback: Option<String> = None;
         let mut cur = ifap;
         while !cur.is_null() {
             let ifa = &*cur;
@@ -69,15 +84,15 @@ fn lan_ipv4_from_interfaces() -> Option<String> {
                 continue;
             }
             if name.starts_with("en") {
-                preferred = Some(ip.to_string());
-                break;
-            } else if fallback.is_none() {
-                fallback = Some(ip.to_string());
+                en.push((name.into_owned(), ip.to_string()));
+            } else {
+                other.push(ip.to_string());
             }
         }
         libc::freeifaddrs(ifap);
-        preferred.or(fallback)
     }
+    en.sort();
+    en.into_iter().map(|(_, ip)| ip).chain(other).collect()
 }
 
 #[cfg(test)]

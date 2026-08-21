@@ -33,6 +33,10 @@ pub(super) enum Msg {
         next_seq: i64,
         #[serde(default)]
         restored: bool,
+        // Human-readable label for the pairing UI (v4). A label, never an
+        // identity: authorization stays key-based.
+        #[serde(default)]
+        device_name: String,
     },
     RestoredFloor {
         floor: i64,

@@ -72,8 +72,36 @@ pub fn SyncPairingView() -> Element {
         }
     });
 
+    let mut device_name = use_signal(|| {
+        crate::application::device_naming::ensure_device_name(&db.peek())
+    });
+
     rsx! {
         div { class: "space-y-6 border-t border-stone-200 pt-4",
+
+            // ---- This device ----
+            div {
+                label { class: "block text-sm font-medium text-stone-700 mb-2",
+                    {t(&lang, "settings-device-name-label")}
+                }
+                input {
+                    class: crate::ui::kit::INPUT,
+                    placeholder: t(&lang, "settings-device-name-placeholder"),
+                    value: "{device_name}",
+                    oninput: move |evt| {
+                        let value = evt.value();
+                        let _ = db()
+                            .set_setting(
+                                crate::infrastructure::persistence::settings_repo::DEVICE_NAME_KEY,
+                                &value,
+                            );
+                        device_name.set(value);
+                    },
+                }
+                p { class: "text-xs text-stone-500 mt-1.5",
+                    {t(&lang, "settings-device-name-hint")}
+                }
+            }
 
             // ---- Add a device ----
             div { class: "space-y-4",
@@ -293,8 +321,11 @@ pub fn SyncPairingView() -> Element {
                         for peer in peers_list() {
                             {
                                 let peer_id = peer.device_id.clone();
-                                let initial = peer
-                                    .device_id
+                                let label = peer
+                                    .name
+                                    .clone()
+                                    .unwrap_or_else(|| peer.device_id.clone());
+                                let initial = label
                                     .chars()
                                     .next()
                                     .unwrap_or('?')
@@ -308,7 +339,7 @@ pub fn SyncPairingView() -> Element {
                                                 "{initial}"
                                             }
                                             div { class: "min-w-0",
-                                                p { class: "text-sm font-medium text-stone-900 truncate", "{peer.device_id}" }
+                                                p { class: "text-sm font-medium text-stone-900 truncate", "{label}" }
                                                 if let Some(ref at) = peer.paired_at {
                                                     p { class: "text-xs text-stone-500 truncate", "{at}" }
                                                 }

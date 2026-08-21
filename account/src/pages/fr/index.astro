@@ -1,0 +1,18 @@
+---
+import Dashboard from "../../components/Dashboard.astro";
+import Layout from "../../layouts/Layout.astro";
+import { fetchAccountData, fetchMe } from "../../lib/api";
+
+export const prerender = false;
+
+const cookie = Astro.request.headers.get("cookie") ?? "";
+const me = await fetchMe(cookie);
+if (!me) return Astro.redirect("/fr/login");
+const data = await fetchAccountData(cookie);
+---
+
+<Layout lang="fr">
+  <main class="container py-10">
+    <Dashboard lang="fr" me={me} data={data} />
+  </main>
+</Layout>

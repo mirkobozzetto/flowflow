@@ -1,0 +1,19 @@
+@import "tailwindcss";
+@import "./tokens.css";
+@import "../fonts/fonts.css";
+@import "./base.css";
+@import "./animations.css";
+@import "./beta.css";
+
+@theme {
+  --color-warm-white: #fdfcfb;
+  --color-ink: #161311;
+  --color-ink-2: #211c19;
+  --color-orange: oklch(0.6 0.22 50);
+  --color-orange-bright: oklch(0.68 0.21 50);
+  --color-orange-dark: oklch(0.48 0.16 50);
+  --color-orange-50: oklch(0.97 0.04 50);
+  --color-orange-100: oklch(0.92 0.07 50);
+  --font-serif: "Instrument Serif", Georgia, serif;
+  --font-sans: "Clash Grotesk", -apple-system, BlinkMacSystemFont, sans-serif;
+}

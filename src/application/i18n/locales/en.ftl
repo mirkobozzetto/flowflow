@@ -71,7 +71,7 @@ settings-group-account = Account
 settings-group-intelligence = Intelligence
 settings-group-data = Data
 settings-group-connections = Connections
-settings-group-general = General
+settings-group-general = App
 account-description = Your account groups up to 3 paired devices. Premium follows the account, shared across devices.
 account-id-label = Account ID
 account-premium = Premium
@@ -299,6 +299,10 @@ folder-picker-all = All notes
 settings-language-section = Language
 language-en = English
 language-fr = French
+
+settings-device-name-label = Device name
+settings-device-name-placeholder = e.g. Mirko's iPhone
+settings-device-name-hint = Shown to paired devices next to the notes you write.
 
 sidebar-tab-notes = Notes
 sidebar-tab-chats = Chats
