@@ -10,6 +10,7 @@ pub mod chat_surface;
 pub mod connector_module;
 pub mod connector_pins;
 pub mod constants;
+pub mod device_naming;
 pub mod embed;
 pub mod error;
 pub mod i18n;

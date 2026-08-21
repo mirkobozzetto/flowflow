@@ -93,11 +93,7 @@ fn my_hello(db: &Database, peer_device: &str) -> Result<Msg, SyncError> {
         gc_horizon: peer.gc_horizon,
         next_seq,
         restored: my_restored_floor(db, peer_device)?.is_some(),
-        device_name: db
-            .get_setting(
-                crate::infrastructure::persistence::settings_repo::DEVICE_NAME_KEY,
-            )
-            .unwrap_or_default(),
+        device_name: crate::application::device_naming::ensure_device_name(db),
     })
 }
 
