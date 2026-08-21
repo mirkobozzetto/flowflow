@@ -1,3 +1,4 @@
+pub mod beacon;
 pub mod conflict;
 pub mod deeplink;
 pub mod engine;

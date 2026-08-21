@@ -157,9 +157,57 @@ fn sync_carries_note_author_and_peer_name() {
     );
     let peer = db_b.get_peer(&id_a).expect("q").expect("peer row");
     assert_eq!(peer.name.as_deref(), Some("iPhone de Mirko"));
-    // B never set a name: A's row for B stays label-less.
+    // B never chose a name: the generated default ("adjective-animal-NN")
+    // travels instead, so a peer label is never empty.
     let peer_b = db_a.get_peer(&id_b).expect("q").expect("peer row");
-    assert_eq!(peer_b.name, None);
+    let generated = peer_b.name.expect("generated default name");
+    assert!(!generated.is_empty());
+    assert_eq!(generated.split('-').count(), 3, "docker-style: {generated}");
+}
+
+// The network-change deadlock: both address books stale at once, nobody can
+// dial anybody. A single beacon announce must rewrite the stale endpoint
+// from the packet's source and let the next pass reach the peer.
+#[test]
+fn beacon_heals_stale_endpoints_and_resyncs() {
+    use flowflow::infrastructure::sync::beacon;
+
+    let (db_a, _da) = open_db();
+    let (db_b, _db) = open_db();
+    let (id_a, id_b) = pair(&db_a, &db_b);
+
+    let engine_b = SyncEngine::start_listener(db_b.clone(), 0);
+    let port_b = engine_b.listen_port().expect("listener bound");
+    let note_b = make_note(&db_b, "from B", "found me through the beacon");
+
+    // Both books poisoned: the exact both-sides-stale deadlock.
+    set_peer_endpoint(&db_a, &id_b, "192.0.2.1", 1).expect("endpoint");
+    set_peer_endpoint(&db_b, &id_a, "192.0.2.2", 1).expect("endpoint");
+
+    // A's beacon listener on an ephemeral UDP port (tests must not race for
+    // the well-known one).
+    let udp = std::net::UdpSocket::bind("127.0.0.1:0").expect("udp bind");
+    let udp_port = udp.local_addr().unwrap().port();
+    beacon::spawn_listener_on(udp, db_a.clone());
+
+    // B announces itself to A.
+    beacon::announce_to(("127.0.0.1", udp_port), &id_b, port_b)
+        .expect("announce");
+
+    assert!(
+        wait_until(3000, || {
+            peer_endpoint(&db_a, &id_b)
+                .is_some_and(|(h, p)| h == "127.0.0.1" && p == port_b)
+        }),
+        "beacon must rewrite the stale endpoint from the packet source"
+    );
+
+    let engine_a = SyncEngine::start_listener(db_a.clone(), 0);
+    engine_a.sync_now_blocking();
+    assert!(
+        db_a.get_note(&note_b).expect("q").is_some(),
+        "healed endpoint must carry the note"
+    );
 }
 
 #[test]

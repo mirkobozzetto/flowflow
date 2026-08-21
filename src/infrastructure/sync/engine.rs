@@ -116,6 +116,12 @@ pub fn sync_now_if_live() {
         return;
     };
     if let Some(engine) = slot.lock().unwrap().upgrade() {
+        // Foreground resume is when a Wi-Fi change surfaces: re-announce so
+        // peers with a stale address for us heal even if our own dial fails.
+        super::beacon::burst(
+            &engine.db,
+            engine.listen_port.unwrap_or_else(sync_port),
+        );
         engine.sync_now();
     }
 }
@@ -173,6 +179,13 @@ impl SyncEngine {
             let serve = engine.clone();
             std::thread::spawn(move || serve.serve_loop(listener));
         }
+        // LAN beacon: hear peers that moved networks, and announce ourselves
+        // so a peer whose address book went stale can find us back.
+        super::beacon::spawn_listener(engine.db.clone());
+        super::beacon::burst(
+            &engine.db,
+            engine.listen_port.unwrap_or_else(sync_port),
+        );
         engine
     }
 
@@ -378,6 +391,12 @@ impl SyncEngine {
             }
             run_tombstone_gc(&self.db);
         } else if let Some(message) = first_error {
+            // Nobody reachable: our address book may be stale in BOTH
+            // directions. Announce ourselves so the peers dial back.
+            super::beacon::burst(
+                &self.db,
+                self.listen_port.unwrap_or_else(sync_port),
+            );
             self.set_activity(SyncActivity::Error {
                 at: local_clock(),
                 message,
