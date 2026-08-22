@@ -97,6 +97,26 @@ pub fn SyncPairingView() -> Element {
                             );
                         device_name.set(value);
                     },
+                    // Push the final name to the backend once editing ends, so the
+                    // other devices' account screens pick it up.
+                    onfocusout: move |_| {
+                        let name = device_name.peek().trim().to_string();
+                        if name.is_empty() {
+                            return;
+                        }
+                        spawn(async move {
+                            let database = db();
+                            if let Some(client) =
+                                crate::infrastructure::backend::BackendClient::from_db(&database)
+                            {
+                                if let Err(e) =
+                                    client.set_device_name(&database, &name).await
+                                {
+                                    eprintln!("[account] name push: {e}");
+                                }
+                            }
+                        });
+                    },
                 }
                 p { class: "text-xs text-stone-500 mt-1.5",
                     {t(&lang, "settings-device-name-hint")}
