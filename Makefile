@@ -1,5 +1,9 @@
 .PHONY: build format js check dev ddev deploy desktop desktop-build desktop-app desktop-toml restore-ios-toml icon all appstore clean clean-stale check-profiles renew ensure-profiles dmg release account
 
+# Homebrew's rust (no iOS targets) shadows rustup's toolchain when
+# /opt/homebrew/bin comes first in PATH; force the rustup one.
+export PATH := $(HOME)/.cargo/bin:$(PATH)
+
 # Strip the iOS-only widget extension from Dioxus.toml: dx 0.7 compiles every
 # declared [[ios.widget_extensions]] even for desktop, and the Live Activity
 # Swift code does not build outside iOS (issue #20). The original file is
