@@ -1,6 +1,7 @@
 mod apply;
 mod catalog;
 mod collect;
+mod heal;
 mod session;
 mod wire;
 

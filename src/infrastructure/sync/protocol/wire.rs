@@ -37,9 +37,32 @@ pub(super) enum Msg {
         // identity: authorization stays key-based.
         #[serde(default)]
         device_name: String,
+        // Account-heal advertisement (RFC 0026). All defaulted: an older
+        // build simply never runs the heal exchange (both Hellos must say
+        // heal=true), no version bump needed. `premium` is self-declared
+        // cache; the mint side re-verifies against its own backend anyway.
+        #[serde(default)]
+        heal: bool,
+        #[serde(default)]
+        premium: bool,
+        #[serde(default)]
+        backend_host: Option<String>,
     },
     RestoredFloor {
         floor: i64,
+    },
+    // Account-heal exchange (RFC 0026): symmetric and UNCONDITIONAL once
+    // both Hellos advertised heal=true - a conditional frame on a blocking
+    // stream would deadlock the side that expects nothing. Fields are None
+    // when a side has nothing to ask or grant.
+    JoinRequest {
+        pubkey: Option<String>,
+        // Ed25519 signature (base64) over the Noise handshake hash: binds
+        // the enrolled pubkey to the peer of THIS session.
+        sig: Option<String>,
+    },
+    JoinToken {
+        token: Option<String>,
     },
     Push {
         rows: Vec<SyncRow>,

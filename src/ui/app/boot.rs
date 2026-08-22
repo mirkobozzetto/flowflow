@@ -1,6 +1,6 @@
 use crate::infrastructure::persistence::Database;
 
-pub fn run_boot_effects(db: &Database) {
+pub fn run_boot_effects(db: &std::sync::Arc<Database>) {
     if crate::application::backup::restore_recovery_window_active() {
         eprintln!("[backup] orphan audio cleanup skipped (recovery window)");
     } else {
@@ -8,6 +8,12 @@ pub fn run_boot_effects(db: &Database) {
     }
     crate::application::backup::finalize_restore_bak();
     crate::infrastructure::sync::reconcile::run_boot_reconcile();
+    // Warm the plan cache off the boot path so the sync Hello can advertise
+    // premium (RFC 0026) even before the account page was ever opened.
+    let heal_db = db.clone();
+    std::thread::spawn(move || {
+        crate::application::account_heal::refresh_account_cache(&heal_db);
+    });
     #[cfg(target_os = "ios")]
     {
         crate::infrastructure::platform::ios::sync_ffi::observe_background_checkpoint();
