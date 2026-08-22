@@ -1,0 +1,101 @@
+---
+import { localizePath, useTranslations } from "../lib/i18n";
+
+interface Props {
+  lang: string;
+  mode: "login" | "register" | "link";
+}
+
+const { lang, mode } = Astro.props;
+const t = useTranslations(lang, "account");
+const home = localizePath("/", lang);
+
+const title =
+  mode === "login"
+    ? t("auth.signIn")
+    : mode === "register"
+      ? t("auth.register")
+      : t("link.title");
+const lead =
+  mode === "login"
+    ? t("auth.signInLead")
+    : mode === "register"
+      ? t("auth.registerLead")
+      : t("link.lead");
+---
+
+<div class="b-auth">
+  <div
+    class="card b-c"
+    id="auth-root"
+    data-mode={mode}
+    data-home={home}
+    data-err-nopasskey={t("auth.noPasskey")}
+    data-err-taken={t("auth.emailTaken")}
+    data-err-generic={t("auth.genericError")}
+  >
+    <h4><span class="t">{title}</span></h4>
+    <p class="mt-1 mb-4 text-[14.5px] text-stone-500">{lead}</p>
+    <p class="b-err" id="auth-err"></p>
+    {
+      mode !== "link" && (
+        <input
+          class="b-field"
+          id="auth-email"
+          type="email"
+          autocomplete="email webauthn"
+          placeholder={t("auth.email")}
+        />
+      )
+    }
+    {
+      mode === "register" && (
+        <input
+          class="b-field"
+          id="auth-name"
+          type="text"
+          autocomplete="name"
+          placeholder={t("auth.displayName")}
+        />
+      )
+    }
+    {
+      mode === "link" && (
+        <input
+          class="b-field"
+          id="auth-code"
+          type="text"
+          autocomplete="off"
+          placeholder={t("link.code")}
+        />
+      )
+    }
+    <button class="b-btn pri w-full" type="button" id="auth-go">
+      {mode === "link" ? t("link.linkBtn") : t("auth.continue")}
+    </button>
+    {
+      mode === "login" && (
+        <p class="mt-4 mb-0 text-[14px] text-stone-500">
+          {t("auth.needAccount")}{" "}
+          <a class="text-orange-dark" href={localizePath("/register", lang)}>
+            {t("auth.register")}
+          </a>
+        </p>
+      )
+    }
+    {
+      mode === "register" && (
+        <p class="mt-4 mb-0 text-[14px] text-stone-500">
+          {t("auth.haveAccount")}{" "}
+          <a class="text-orange-dark" href={localizePath("/login", lang)}>
+            {t("auth.signIn")}
+          </a>
+        </p>
+      )
+    }
+  </div>
+</div>
+
+<script>
+  import "../scripts/auth.ts";
+</script>

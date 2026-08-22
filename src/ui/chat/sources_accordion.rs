@@ -123,6 +123,10 @@ fn SourceCard(source: ChatSource, conversation_id: Option<String>) -> Element {
     } else {
         source.chunk_text.clone()
     };
+    let author = crate::application::authorship::author_label_for_note_id(
+        &db.peek(),
+        &source.note_id,
+    );
     let date_label = if source.created_at.len() >= 16 {
         let d = &source.created_at[..10];
         let h = &source.created_at[11..16];
@@ -150,8 +154,15 @@ fn SourceCard(source: ChatSource, conversation_id: Option<String>) -> Element {
                 });
             },
             div { class: "flex items-center justify-between",
-                span { class: "text-xs font-medium text-ios-orange-dark",
-                    "{source.title}"
+                div { class: "flex items-center gap-1.5 min-w-0",
+                    span { class: "text-xs font-medium text-ios-orange-dark truncate",
+                        "{source.title}"
+                    }
+                    if let Some(ref author) = author {
+                        span { class: "px-1.5 py-0.5 rounded-full bg-warm-white border border-stone-200 text-stone-500 text-xs font-medium shrink-0",
+                            "{author}"
+                        }
+                    }
                 }
                 if !date_label.is_empty() {
                     span { class: "text-xs text-stone-500 ml-1 shrink-0",

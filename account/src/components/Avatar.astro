@@ -1,0 +1,16 @@
+---
+interface Props {
+  name: string;
+  size: number;
+}
+
+const { name, size } = Astro.props;
+const initial = (name.trim()[0] ?? "?").toUpperCase();
+const fontSize = Math.round(size * 0.44);
+---
+
+<span
+  class="b-av me acct-av"
+  style={`width:${size}px;height:${size}px;font-size:${fontSize}px`}
+  >{initial}</span
+>

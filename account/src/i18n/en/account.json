@@ -1,0 +1,87 @@
+{
+  "nav": {
+    "overview": "Overview",
+    "groupAccount": "Account",
+    "devices": "Devices",
+    "services": "Services",
+    "groupSettings": "Settings",
+    "billing": "Subscription",
+    "security": "Security"
+  },
+  "auth": {
+    "signIn": "Sign in",
+    "signInLead": "One passkey, every FlowFlow site.",
+    "register": "Create account",
+    "registerLead": "A passkey instead of a password.",
+    "email": "Email address",
+    "displayName": "Name (optional)",
+    "continue": "Continue",
+    "noPasskey": "No passkey on this device - register or use another device.",
+    "emailTaken": "This email is already registered. Sign in instead.",
+    "genericError": "Something went wrong. Try again.",
+    "haveAccount": "Already have an account?",
+    "needAccount": "New to FlowFlow?",
+    "signOut": "Sign out"
+  },
+  "link": {
+    "title": "Link a device",
+    "lead": "Paste the code shown in the FlowFlow app to link this account to your devices.",
+    "code": "Link code",
+    "linkBtn": "Link",
+    "linked": "Linked account",
+    "notLinked": "No device linked yet.",
+    "done": "Device linked."
+  },
+  "overview": {
+    "devices": "Devices",
+    "now": "just now",
+    "billing": "Subscription",
+    "premium": "Premium",
+    "free": "Free",
+    "noLimit": "no limit",
+    "origin": "Origin",
+    "granted": "Granted",
+    "services": "Services",
+    "active": "Active",
+    "requests": "Access requests",
+    "noRequests": "No requests",
+    "empty": "Nothing here yet",
+    "emptyLead": "Link a device from the FlowFlow app to see your account here."
+  },
+  "devices": {
+    "paired": "enrolled",
+    "lastSeen": "last seen",
+    "never": "never",
+    "free": "Free slot",
+    "qr": "pair from the app",
+    "none": "No device on this account yet."
+  },
+  "services": {
+    "readWrite": "read and write",
+    "scopes": "scopes",
+    "expires": "expires",
+    "active": "Active",
+    "none": "No connected service.",
+    "device": "device"
+  },
+  "billing": {
+    "plan": "Current plan",
+    "due": "Expires",
+    "none": "Never",
+    "status": "Status",
+    "items": "Included items",
+    "requests": "Access requests",
+    "requested": "requested",
+    "decided": "decided",
+    "pending": "pending",
+    "approved": "approved",
+    "denied": "denied",
+    "noPlan": "No subscription on this account."
+  },
+  "security": {
+    "recent": "Recent sign-ins",
+    "signin": "Sign-in",
+    "register": "Registration",
+    "none": "No sign-in recorded."
+  }
+}

@@ -86,6 +86,7 @@ fn my_hello(db: &Database, peer_device: &str) -> Result<Msg, SyncError> {
         .map_err(SyncError::Protocol)?
         .ok_or_else(|| proto_err(format!("unknown peer {peer_device}")))?;
     let next_seq = my_next_seq(db, &device_id)?;
+    let backend_host = crate::application::account_heal::my_backend_host(db);
     Ok(Msg::Hello {
         protocol_version: PROTOCOL_VERSION,
         device_id,
@@ -93,6 +94,10 @@ fn my_hello(db: &Database, peer_device: &str) -> Result<Msg, SyncError> {
         gc_horizon: peer.gc_horizon,
         next_seq,
         restored: my_restored_floor(db, peer_device)?.is_some(),
+        device_name: crate::application::device_naming::ensure_device_name(db),
+        heal: backend_host.is_some(),
+        premium: crate::application::account_heal::my_premium_cached(db),
+        backend_host,
     })
 }
 
@@ -103,6 +108,10 @@ struct PeerHello {
     gc_horizon: i64,
     next_seq: i64,
     restored: bool,
+    device_name: String,
+    heal: bool,
+    premium: bool,
+    backend_host: Option<String>,
 }
 
 fn expect_hello(msg: Msg) -> Result<PeerHello, SyncError> {
@@ -114,6 +123,10 @@ fn expect_hello(msg: Msg) -> Result<PeerHello, SyncError> {
             gc_horizon,
             next_seq,
             restored,
+            device_name,
+            heal,
+            premium,
+            backend_host,
         } => Ok(PeerHello {
             protocol_version,
             device_id,
@@ -121,9 +134,34 @@ fn expect_hello(msg: Msg) -> Result<PeerHello, SyncError> {
             gc_horizon,
             next_seq,
             restored,
+            device_name,
+            heal,
+            premium,
+            backend_host,
         }),
         _ => Err(proto_err("expected HELLO")),
     }
+}
+
+// The heal exchange runs only when BOTH sides advertised it; an older build
+// (or a device with no backend) never sees the extra frames.
+fn heal_after_session<S: Read + Write>(
+    chan: &mut SecureChannel<S>,
+    db: &Database,
+    hello: &PeerHello,
+    initiator: bool,
+) {
+    let me_heal =
+        crate::application::account_heal::my_backend_host(db).is_some();
+    if !(me_heal && hello.heal) {
+        return;
+    }
+    let peer = super::heal::PeerHealInfo {
+        premium: hello.premium,
+        backend_host: hello.backend_host.clone(),
+        device_name: hello.device_name.clone(),
+    };
+    super::heal::exchange(chan, db, &peer, initiator);
 }
 
 fn expect_restored_floor(msg: Msg) -> Result<i64, SyncError> {
@@ -188,6 +226,10 @@ fn plan_session(
     // Freshest truth about how far the peer consumed MY space; feeds the
     // tombstone GC. Overwrites (a restored peer's ack legitimately regresses).
     gc::record_peer_ack(db, peer_device, hello.last_acked_seq)
+        .map_err(SyncError::Protocol)?;
+    // Refresh the peer's display name on every session: renames propagate at
+    // the next sync, and notes only ever store the UUID.
+    db.set_peer_name(peer_device, &hello.device_name)
         .map_err(SyncError::Protocol)?;
     let me_declared = my_restored_floor(db, peer_device)?.is_some();
     let peer_declared = hello.restored;
@@ -507,6 +549,7 @@ pub fn sync_with_peer(
     if i_declared {
         complete_restored_session(db, peer_device)?;
     }
+    heal_after_session(&mut chan, db, &hello, true);
     log(&format!(
         "session done with {peer_device}: pushed {} applied {} \
          skipped {} conflicts {}",
@@ -589,6 +632,7 @@ pub fn serve_sync_once(
     if i_declared {
         complete_restored_session(db, &hint.device_id)?;
     }
+    heal_after_session(&mut chan, db, &hello, false);
     log(&format!(
         "served {}: pushed {} applied {} skipped {} conflicts {}",
         hint.device_id,

@@ -1,10 +1,16 @@
+use crate::application::device_naming::ensure_device_name;
 use crate::application::i18n::{t, t_args};
 use crate::infrastructure::backend::{Account, BackendClient};
 use crate::infrastructure::persistence::Database;
-use crate::ui::icons::{IconArrowUpRight, IconCheck, IconCopy, IconTrash};
+use crate::ui::icons::{
+    IconArrowUpRight, IconArrowsClockwise, IconCheck, IconCopy,
+    IconDeviceLaptop, IconDevicePhone, IconShieldCheck, IconTrash,
+};
 use crate::ui::{AppState, View};
 use dioxus::prelude::*;
 use std::sync::Arc;
+
+const ACCOUNT_SITE_URL: &str = "https://account.flowflow.be";
 
 #[component]
 pub fn AccountSettings() -> Element {
@@ -19,6 +25,21 @@ pub fn AccountSettings() -> Element {
     let mut busy = use_signal(|| false);
     let mut confirm_leave = use_signal(|| false);
     let mut confirm_delete = use_signal(|| false);
+    let mut confirm_remove: Signal<Option<String>> = use_signal(|| None);
+    // The heal notice shows ONCE: consumed at mount, gone on the next visit.
+    let heal_event: Signal<Option<String>> = use_signal(|| {
+        let database = db();
+        let v = database
+            .get_setting(crate::application::account_heal::HEAL_EVENT_KEY)
+            .filter(|s| !s.is_empty());
+        if v.is_some() {
+            let _ = database.set_setting(
+                crate::application::account_heal::HEAL_EVENT_KEY,
+                "",
+            );
+        }
+        v
+    });
     let mut link_code: Signal<Option<(String, String)>> = use_signal(|| None);
     let mut id_copied = use_signal(|| false);
     let mut code_copied = use_signal(|| false);
@@ -32,6 +53,9 @@ pub fn AccountSettings() -> Element {
                 None => account.set(None),
                 Some(client) => match client.account(&database).await {
                     Ok(a) => {
+                        crate::application::account_heal::cache_account(
+                            &database, &a,
+                        );
                         account.set(Some(a));
                         status.set(None);
                     }
@@ -42,6 +66,26 @@ pub fn AccountSettings() -> Element {
     });
 
     let has_backend = BackendClient::from_db(&db()).is_some();
+    let my_device_name = ensure_device_name(&db());
+    let sync_peers = db().list_peers().unwrap_or_default();
+    let has_sync_peer = !sync_peers.is_empty();
+    // Until the backend carries names, the Mac already knows its sync peer's
+    // name: when the cluster has exactly one other device and exactly one
+    // named sync peer, that name labels the row. Backend name wins once set.
+    let peer_name_fallback: Option<String> = account().as_ref().and_then(|a| {
+        let others = a
+            .devices
+            .iter()
+            .filter(|d| d.device_id != this_device())
+            .count();
+        let named: Vec<&String> =
+            sync_peers.iter().filter_map(|p| p.name.as_ref()).collect();
+        if others == 1 && named.len() == 1 {
+            Some(named[0].clone())
+        } else {
+            None
+        }
+    });
 
     rsx! {
         div { class: "space-y-7 pb-20",
@@ -62,106 +106,218 @@ pub fn AccountSettings() -> Element {
             }
 
             if let Some(acc) = account() {
-                // Identity card: account id + status badge, then the device-capacity meter.
+                // Plan hero: the status first; the upgrade path goes through the web site.
                 div { class: "bg-warm-white rounded-xl border border-stone-200 p-5",
-                    div { class: "flex items-start justify-between gap-3 mb-4",
-                        div { class: "min-w-0 flex-1",
-                            label { class: "block text-xs font-medium text-stone-400 mb-1.5",
-                                {t(&lang, "account-id-label")}
-                            }
-                            div { class: "flex items-center gap-2",
-                                code { class: "font-mono text-[13px] text-stone-700 break-all",
-                                    "{acc.account_id}"
-                                }
-                                button {
-                                    class: if id_copied() {
-                                        "shrink-0 p-1.5 rounded-md text-ios-green transition-colors"
-                                    } else {
-                                        "shrink-0 p-1.5 rounded-md text-stone-400 hover:bg-stone-100 active:bg-stone-100 transition-colors"
-                                    },
-                                    onclick: {
-                                        let id = acc.account_id.clone();
-                                        move |_| {
-                                            if id_copied() { return; }
-                                            crate::ui::clipboard::copy_text(&id);
-                                            id_copied.set(true);
-                                            spawn(async move {
-                                                futures_timer::Delay::new(
-                                                    std::time::Duration::from_millis(1500),
-                                                )
-                                                .await;
-                                                id_copied.set(false);
-                                            });
-                                        }
-                                    },
-                                    if id_copied() {
-                                        IconCheck { size: 16 }
-                                    } else {
-                                        IconCopy { size: 16 }
-                                    }
-                                }
-                            }
-                        }
+                    label { class: "block text-xs font-medium text-stone-400 mb-1.5",
+                        {t(&lang, "account-plan-title")}
+                    }
+                    div { class: "flex items-center gap-2 mb-1.5",
                         if acc.premium {
-                            span { class: "shrink-0 inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-ios-orange/10 text-ios-orange-dark text-[11px] font-semibold border border-ios-orange/20",
-                                IconCheck { size: 12 }
+                            span { class: "text-ios-orange-dark", IconShieldCheck { size: 20 } }
+                            span { class: "text-xl font-semibold text-stone-800",
                                 {t(&lang, "account-premium")}
                             }
                         } else {
-                            span { class: "shrink-0 inline-flex items-center px-2.5 py-1 rounded-full bg-stone-100 text-stone-500 text-[11px] font-medium border border-stone-200",
+                            span { class: "text-xl font-semibold text-stone-800",
                                 {t(&lang, "account-free")}
                             }
                         }
                     }
-
-                    div { class: "h-px bg-stone-100 -mx-5 mb-4" }
-
-                    div {
-                        div { class: "flex justify-between items-center mb-2.5",
-                            span { class: "text-[13px] font-medium text-stone-700",
-                                {t(&lang, "account-capacity-label")}
-                            }
-                            span { class: "font-mono text-[13px] text-stone-400 tabular-nums",
-                                {format!("{} / {}", acc.devices.len(), acc.device_cap)}
-                            }
-                        }
-                        div { class: "flex gap-1.5 h-1.5",
-                            for i in 0..acc.device_cap {
-                                div {
-                                    key: "{i}",
-                                    class: if (i as usize) < acc.devices.len() {
-                                        "flex-1 rounded-full bg-ios-orange"
-                                    } else {
-                                        "flex-1 rounded-full bg-stone-200"
-                                    },
-                                }
-                            }
+                    p { class: "text-xs text-stone-500 leading-relaxed mb-3",
+                        {t(&lang, "account-plan-hint")}
+                    }
+                    if !acc.premium {
+                        button {
+                            class: "w-full min-h-[44px] flex items-center justify-center gap-2 rounded-xl bg-ios-orange text-white text-sm font-medium active:opacity-80 transition-opacity",
+                            onclick: move |_| {
+                                crate::infrastructure::platform::open_url(ACCOUNT_SITE_URL)
+                            },
+                            {t(&lang, "account-plan-upgrade")}
+                            IconArrowUpRight { size: 16 }
                         }
                     }
                 }
 
-                div {
-                    h3 { class: "text-[11px] font-medium text-stone-400 uppercase tracking-wide px-1 mb-2.5",
-                        {t(&lang, "account-members-label")}
+                if let Some(err) = db()
+                    .get_setting(crate::application::account_heal::HEAL_ERROR_KEY)
+                    .filter(|v| !v.is_empty())
+                {
+                    div { class: "rounded-xl border border-ios-orange/40 bg-ios-orange/5 p-3",
+                        p { class: "text-xs text-stone-700 break-words", "{err}" }
                     }
-                    div { class: "bg-warm-white rounded-xl border border-stone-200 divide-y divide-stone-100 overflow-hidden",
-                        for d in acc.devices.clone() {
-                            div {
-                                key: "{d.device_id}",
-                                class: "flex items-center gap-3.5 p-4",
-                                div { class: "w-9 h-9 rounded-full bg-ios-orange/10 text-ios-orange-dark flex items-center justify-center font-semibold text-[13px] shrink-0",
-                                    {monogram(&d.device_id)}
-                                }
-                                div { class: "flex-1 min-w-0",
-                                    code { class: "block font-mono text-[13px] text-stone-700 truncate",
-                                        {short_id(&d.device_id)}
+                }
+
+                div {
+                    div { class: "flex items-baseline px-1 mb-2.5",
+                        h3 { class: "text-[11px] font-medium text-stone-400 uppercase tracking-wide",
+                            {t(&lang, "account-members-label")}
+                        }
+                        span { class: "ml-auto text-xs text-stone-400",
+                            {t_args(&lang, "account-count", &[
+                                ("n", &acc.devices.len().to_string()),
+                                ("cap", &acc.device_cap.to_string()),
+                            ])}
+                        }
+                    }
+                    if acc.premium {
+                        if let Some(name) = heal_event() {
+                            p { class: "flex items-center gap-1.5 text-xs text-stone-400 px-1 mb-2.5",
+                                span { class: "text-ios-orange-dark", IconShieldCheck { size: 12 } }
+                                {t_args(&lang, "account-heal-event", &[("name", &name)])}
+                            }
+                        }
+                    }
+                    div { class: "bg-warm-white rounded-xl border border-stone-200 overflow-hidden",
+                        div { class: "divide-y divide-stone-100",
+                            for d in acc.devices.clone() {
+                                div {
+                                    key: "{d.device_id}",
+                                    class: "flex items-center gap-4 px-4 py-3.5 min-h-[64px]",
+                                    span { class: "text-stone-400 shrink-0",
+                                        if d.device_id == this_device() {
+                                            if cfg!(target_os = "ios") {
+                                                IconDevicePhone { size: 34 }
+                                            } else {
+                                                IconDeviceLaptop { size: 34 }
+                                            }
+                                        } else {
+                                            // Platform of a sibling is unknown; with two
+                                            // devices the other one is almost always the
+                                            // other form factor. A glyph, never an identity.
+                                            if cfg!(target_os = "ios") {
+                                                IconDeviceLaptop { size: 34 }
+                                            } else {
+                                                IconDevicePhone { size: 34 }
+                                            }
+                                        }
                                     }
-                                    if d.device_id == this_device() {
-                                        span { class: "inline-block mt-1 text-[10px] font-medium text-ios-orange-dark bg-ios-orange/10 px-1.5 py-0.5 rounded",
-                                            {t(&lang, "account-this-device")}
+                                    div { class: "flex-1 min-w-0",
+                                        div { class: "text-[15px] font-semibold tracking-tight text-stone-800 truncate",
+                                            {device_label(&d, &this_device(), &my_device_name, peer_name_fallback.as_deref())}
+                                        }
+                                        div { class: "flex items-center gap-1.5 text-xs text-stone-400 mt-0.5",
+                                            if d.device_id == this_device() {
+                                                span { class: "text-ios-orange-dark font-medium",
+                                                    {t(&lang, "account-this-device")}
+                                                }
+                                                span { "·" }
+                                                span {
+                                                    if cfg!(target_os = "ios") { "iPhone" } else { "Mac" }
+                                                }
+                                            } else {
+                                                if acc.premium {
+                                                    span { class: "inline-flex items-center gap-1 text-ios-orange-dark font-medium",
+                                                        IconShieldCheck { size: 12 }
+                                                        {t(&lang, "account-premium")}
+                                                    }
+                                                    span { "·" }
+                                                }
+                                                span {
+                                                    {t_args(&lang, "account-last-seen", &[("time", &seen_label(&d.last_seen))])}
+                                                }
+                                            }
+                                        }
+                                    }
+                                    if d.device_id != this_device() {
+                                        if confirm_remove().as_deref() == Some(d.device_id.as_str()) {
+                                            div { class: "flex items-center gap-2 shrink-0",
+                                                button {
+                                                    class: "h-8 px-3 rounded-lg bg-stone-100 text-stone-900 text-xs font-medium active:bg-stone-200 transition-colors",
+                                                    onclick: move |_| confirm_remove.set(None),
+                                                    {t(&lang, "account-cancel")}
+                                                }
+                                                button {
+                                                    class: "h-8 px-3 rounded-lg bg-ios-red text-white text-xs font-medium active:opacity-80 transition-opacity disabled:opacity-45",
+                                                    disabled: busy(),
+                                                    onclick: {
+                                                        let target = d.device_id.clone();
+                                                        move |_| {
+                                                            if busy() { return; }
+                                                            busy.set(true);
+                                                            status.set(None);
+                                                            confirm_remove.set(None);
+                                                            let target = target.clone();
+                                                            spawn(async move {
+                                                                let database = db();
+                                                                if let Some(client) =
+                                                                    BackendClient::from_db(&database)
+                                                                {
+                                                                    if let Err(e) = client
+                                                                        .remove_device(&database, &target)
+                                                                        .await
+                                                                    {
+                                                                        status.set(Some(e.to_string()));
+                                                                    }
+                                                                }
+                                                                busy.set(false);
+                                                                reload.set(reload() + 1);
+                                                            });
+                                                        }
+                                                    },
+                                                    {t(&lang, "account-remove-device")}
+                                                }
+                                            }
+                                        } else {
+                                            button {
+                                                class: "shrink-0 px-2 py-1.5 text-xs font-medium text-stone-400 hover:text-ios-red-dark active:text-ios-red-dark transition-colors disabled:opacity-45",
+                                                disabled: busy() || !has_backend,
+                                                onclick: {
+                                                    let target = d.device_id.clone();
+                                                    move |_| confirm_remove.set(Some(target.clone()))
+                                                },
+                                                {t(&lang, "account-remove-device")}
+                                            }
                                         }
                                     }
                                 }
+                            }
+                        }
+                        div { class: "flex items-center gap-2 px-4 py-2.5 bg-stone-100/50 border-t border-stone-100",
+                            span { class: "text-[10px] font-medium text-stone-400 uppercase tracking-wide shrink-0",
+                                {t(&lang, "account-id-label")}
+                            }
+                            code { class: "flex-1 font-mono text-[11px] text-stone-400 truncate",
+                                "{acc.account_id}"
+                            }
+                            button {
+                                class: if id_copied() {
+                                    "shrink-0 p-1.5 rounded-md text-ios-green transition-colors"
+                                } else {
+                                    "shrink-0 p-1.5 rounded-md text-stone-400 hover:bg-stone-100 active:bg-stone-100 transition-colors"
+                                },
+                                onclick: {
+                                    let id = acc.account_id.clone();
+                                    move |_| {
+                                        if id_copied() { return; }
+                                        crate::ui::clipboard::copy_text(&id);
+                                        id_copied.set(true);
+                                        spawn(async move {
+                                            futures_timer::Delay::new(
+                                                std::time::Duration::from_millis(1500),
+                                            )
+                                            .await;
+                                            id_copied.set(false);
+                                        });
+                                    }
+                                },
+                                if id_copied() {
+                                    IconCheck { size: 16 }
+                                } else {
+                                    IconCopy { size: 16 }
+                                }
+                            }
+                        }
+                    }
+                    if !acc.premium && has_sync_peer {
+                        div { class: "mt-3",
+                            p { class: "text-xs text-stone-500 leading-relaxed mb-2.5 px-1",
+                                {t(&lang, "account-join-hint")}
+                            }
+                            button {
+                                class: "w-full min-h-[44px] flex items-center justify-center gap-2 rounded-xl bg-ios-orange/10 text-ios-orange-dark text-sm font-medium active:bg-ios-orange/25 transition-colors",
+                                onclick: move |_| app.view.set(View::SyncPairing),
+                                IconArrowsClockwise { size: 16 }
+                                {t(&lang, "account-join")}
                             }
                         }
                     }
@@ -370,9 +526,34 @@ fn short_id(id: &str) -> String {
     }
 }
 
-// Two-letter monogram for the device avatar.
-fn monogram(id: &str) -> String {
-    id.chars().take(2).collect()
+// What a member row displays: my own local name for this device, the name the
+// peer pushed to the backend, else the truncated id.
+fn device_label(
+    d: &crate::infrastructure::backend::MemberDevice,
+    my_id: &str,
+    my_name: &str,
+    peer_fallback: Option<&str>,
+) -> String {
+    if d.device_id == my_id {
+        return my_name.to_string();
+    }
+    d.name
+        .clone()
+        .filter(|n| !n.trim().is_empty())
+        .or_else(|| peer_fallback.map(str::to_string))
+        .unwrap_or_else(|| short_id(&d.device_id))
+}
+
+// Local wall-clock label for a member's last_seen; raw prefix if it ever
+// fails to parse.
+fn seen_label(iso: &str) -> String {
+    chrono::DateTime::parse_from_rfc3339(iso)
+        .map(|dt| {
+            dt.with_timezone(&chrono::Local)
+                .format("%d/%m %H:%M")
+                .to_string()
+        })
+        .unwrap_or_else(|_| iso.chars().take(10).collect())
 }
 
 // Hard local wipe + leave the cluster (RFC 0009 Q1.6). Local content first (so the data is gone even

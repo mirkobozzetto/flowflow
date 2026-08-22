@@ -115,6 +115,16 @@ struct InviteResp {
     join_token: String,
 }
 
+#[derive(serde::Serialize)]
+struct RemoveDeviceReq<'a> {
+    device_id: &'a str,
+}
+
+#[derive(serde::Serialize)]
+struct SetNameReq<'a> {
+    name: &'a str,
+}
+
 #[derive(serde::Deserialize)]
 struct LinkBeginResp {
     link_token: String,
@@ -131,6 +141,9 @@ pub struct MemberDevice {
     pub device_id: String,
     pub created_at: String,
     pub last_seen: String,
+    // Display name the device pushed (RFC 0026); absent on older backends.
+    #[serde(default)]
+    pub name: Option<String>,
 }
 
 #[derive(Clone, Debug, serde::Deserialize)]
@@ -212,6 +225,20 @@ impl BackendClient {
         Self::ensure_identity(db)
             .ok()
             .map(|sk| B64.encode(sk.verifying_key().to_bytes()))
+    }
+
+    /// Sign `msg` with the device's backend Ed25519 key. Returns
+    /// (pubkey_b64, signature_b64); None when no key can be loaded.
+    pub fn sign_with_device_key(
+        db: &Database,
+        msg: &[u8],
+    ) -> Option<(String, String)> {
+        let sk = Self::ensure_identity(db).ok()?;
+        let sig = sk.sign(msg);
+        Some((
+            B64.encode(sk.verifying_key().to_bytes()),
+            B64.encode(sig.to_bytes()),
+        ))
     }
 
     /// Load the persisted Ed25519 key, or generate + persist one on first use.
@@ -594,6 +621,35 @@ impl BackendClient {
         let url = format!("{}/v1/account", self.base_url);
         let resp = self.authed(db, |c, t| c.get(&url).bearer_auth(t)).await?;
         Self::read_json(resp).await
+    }
+
+    /// Push this device's display name; the account view shows it on every member's screen.
+    pub async fn set_device_name(
+        &self,
+        db: &Database,
+        name: &str,
+    ) -> Result<(), BackendError> {
+        let url = format!("{}/v1/device/name", self.base_url);
+        let body = SetNameReq { name };
+        let resp = self
+            .authed(db, |c, t| c.post(&url).bearer_auth(t).json(&body))
+            .await?;
+        Self::expect_success(resp).await
+    }
+
+    /// Evict another member device from this device's account. Self-eviction stays `leave`;
+    /// the backend enforces same-account membership and rejects removing yourself.
+    pub async fn remove_device(
+        &self,
+        db: &Database,
+        device_id: &str,
+    ) -> Result<(), BackendError> {
+        let url = format!("{}/v1/account/remove-device", self.base_url);
+        let body = RemoveDeviceReq { device_id };
+        let resp = self
+            .authed(db, |c, t| c.post(&url).bearer_auth(t).json(&body))
+            .await?;
+        Self::expect_success(resp).await
     }
 
     /// Leave the account: the backend nulls this device's account_id (it drops to a fresh solo, free

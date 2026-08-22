@@ -102,11 +102,18 @@ fn verify_remote_static(
 pub struct SecureChannel<S> {
     stream: S,
     noise: TransportState,
+    // Noise handshake hash, kept for channel binding: a signature over it
+    // proves the signer sits on THIS session, not a replayed transcript.
+    handshake_hash: Vec<u8>,
 }
 
 impl<S: Read + Write> SecureChannel<S> {
     pub fn remote_static(&self) -> Option<Vec<u8>> {
         self.noise.get_remote_static().map(|k| k.to_vec())
+    }
+
+    pub fn handshake_hash(&self) -> &[u8] {
+        &self.handshake_hash
     }
 
     pub fn send(&mut self, msg: &[u8]) -> Result<(), SyncError> {
@@ -195,10 +202,15 @@ pub fn initiator_handshake<S: Read + Write>(
         .map_err(|e| SyncError::Handshake(format!("msg3 write: {e}")))?;
     write_frame(&mut stream, &buf[..n])?;
 
+    let handshake_hash = hs.get_handshake_hash().to_vec();
     let noise = hs
         .into_transport_mode()
         .map_err(|e| SyncError::Transport(format!("init transport: {e}")))?;
-    Ok(SecureChannel { stream, noise })
+    Ok(SecureChannel {
+        stream,
+        noise,
+        handshake_hash,
+    })
 }
 
 pub fn responder_handshake<S: Read + Write>(
@@ -225,10 +237,15 @@ pub fn responder_handshake<S: Read + Write>(
         .map_err(|e| SyncError::Handshake(format!("msg3 read: {e}")))?;
 
     verify_remote_static(hs.get_remote_static(), expected_remote_static)?;
+    let handshake_hash = hs.get_handshake_hash().to_vec();
     let noise = hs
         .into_transport_mode()
         .map_err(|e| SyncError::Transport(format!("resp transport: {e}")))?;
-    Ok(SecureChannel { stream, noise })
+    Ok(SecureChannel {
+        stream,
+        noise,
+        handshake_hash,
+    })
 }
 
 pub fn connect_tcp(host: &str, port: u16) -> Result<TcpStream, SyncError> {

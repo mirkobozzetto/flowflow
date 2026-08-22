@@ -495,3 +495,34 @@ pub fn IconPushPin(#[props(default = 20)] size: u32) -> Element {
         }
     }
 }
+
+#[component]
+pub fn IconDeviceLaptop(#[props(default = 32)] size: u32) -> Element {
+    rsx! {
+        svg {
+            width: "{size}", height: "{size}", view_box: "0 0 64 64", fill: "none",
+            rect {
+                x: "12", y: "16", width: "40", height: "26", rx: "3.5",
+                stroke: "currentColor", stroke_width: "3",
+            }
+            path {
+                d: "M8 47h48c0 2.8-2.2 5-5 5H13c-2.8 0-5-2.2-5-5Z",
+                fill: "currentColor",
+            }
+        }
+    }
+}
+
+#[component]
+pub fn IconDevicePhone(#[props(default = 32)] size: u32) -> Element {
+    rsx! {
+        svg {
+            width: "{size}", height: "{size}", view_box: "0 0 64 64", fill: "none",
+            rect {
+                x: "20", y: "10", width: "24", height: "44", rx: "6",
+                stroke: "currentColor", stroke_width: "3",
+            }
+            circle { cx: "32", cy: "46", r: "2.4", fill: "currentColor" }
+        }
+    }
+}

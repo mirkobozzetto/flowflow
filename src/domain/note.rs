@@ -112,6 +112,10 @@ pub struct Note {
     pub sources_json: Option<String>,
     #[serde(default)]
     pub thread_id: Option<String>,
+    // sync_device_id of the device that created the note; None on pre-V23 rows
+    // that never got backfilled and on notes from peers running older schemas.
+    #[serde(default)]
+    pub author_device: Option<String>,
     pub created_at: String,
     pub modified_at: String,
 }

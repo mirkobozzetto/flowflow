@@ -59,6 +59,9 @@ pub fn NoteCard(note: Note) -> Element {
         .ok()
         .and_then(|f| f.first().map(|f| f.name.clone()));
 
+    let author =
+        crate::application::authorship::author_label(&db.peek(), &note);
+
     // The pressed card stays lit above the dimming veil the list draws.
     let picked = (app.row_menu)() == Some(RowMenu::Note(note.id.clone()));
 
@@ -153,6 +156,11 @@ pub fn NoteCard(note: Note) -> Element {
                 if let Some(ref fname) = folder_name {
                     span { class: "text-xs text-stone-400", "·" }
                     span { class: "text-xs text-ios-orange-dark", "{fname}" }
+                }
+                if let Some(ref author) = author {
+                    span { class: "px-1.5 py-0.5 rounded-full bg-warm-white border border-stone-200 text-stone-500 text-xs font-medium truncate max-w-[10rem]",
+                        "{author}"
+                    }
                 }
             }
             if let Some(ref due) = reminder_due {
