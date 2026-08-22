@@ -1,0 +1,11 @@
+services:
+  web:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: flowflow-account:latest
+    restart: unless-stopped
+    environment:
+      - BACKEND_URL=${BACKEND_URL:-https://api.flowflow.be}
+    expose:
+      - "4321"
