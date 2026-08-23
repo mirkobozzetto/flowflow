@@ -4,31 +4,35 @@ import {
   fmtDate,
   fmtDateTime,
   type Me,
+  type ProfileData,
   shortId,
 } from "../lib/api";
 import { useTranslations } from "../lib/i18n";
 import Avatar from "./Avatar.astro";
 import BrandIcon from "./BrandIcon.astro";
+import Profile from "./Profile.astro";
 
 interface Props {
   lang: string;
   me: Me;
   data: AccountData;
+  profile: ProfileData;
 }
 
-const { lang, me, data } = Astro.props;
+const { lang, me, data, profile } = Astro.props;
 const t = useTranslations(lang, "account");
 const n = t<Record<string, string>>("nav");
 
 const panes = [
   { key: "overview", label: n.overview },
+  { key: "profile", label: n.profile },
   { key: "devices", label: n.devices },
   { key: "services", label: n.services },
   { key: "billing", label: n.billing },
   { key: "security", label: n.security },
 ] as const;
 
-const meName = me.display_name ?? me.email;
+const meName = profile.display_name?.value ?? me.display_name ?? me.email;
 const plan = data.plans[0] ?? null;
 const planLabel = plan
   ? plan.plan.charAt(0).toUpperCase() + plan.plan.slice(1)
@@ -55,7 +59,7 @@ const freeSlots = Math.max(0, DEVICE_CAP - data.devices.length);
     {
       panes.map((p, i) => (
         <>
-          {p.key === "devices" && <div class="grp">{n.groupAccount}</div>}
+          {p.key === "profile" && <div class="grp">{n.groupAccount}</div>}
           {p.key === "billing" && <div class="grp">{n.groupSettings}</div>}
           <button
             class={`b-item${i === 0 ? " on" : ""}`}
@@ -68,7 +72,7 @@ const freeSlots = Math.max(0, DEVICE_CAP - data.devices.length);
       ))
     }
     <div class="me">
-      <Avatar name={meName} size={34} />
+      <Avatar name={meName} size={34} photo={true} />
       <div><b>{meName}</b><small>{me.email}</small></div>
     </div>
   </aside>
@@ -168,6 +172,11 @@ const freeSlots = Math.max(0, DEVICE_CAP - data.devices.length);
       }
     </div>
 
+    <div class="b-pane" data-pane="profile">
+      <div class="b-ph"><h3>{n.profile}</h3></div>
+      <Profile lang={lang} me={me} profile={profile} />
+    </div>
+
     <div class="b-pane" data-pane="devices">
       <div class="b-ph">
         <h3>{n.devices}</h3>
@@ -232,7 +241,7 @@ const freeSlots = Math.max(0, DEVICE_CAP - data.devices.length);
               <div class="b-row">
                 {brandFor(c.provider) ? (
                   <span class="b-svc">
-                    <BrandIcon name={brandFor(c.provider)} />
+                    <BrandIcon name={brandFor(c.provider)!} />
                   </span>
                 ) : (
                   <span class="b-dot" />

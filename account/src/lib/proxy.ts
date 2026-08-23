@@ -34,7 +34,16 @@ export async function forward(
     init.body = await request.arrayBuffer();
   }
 
-  const res = await fetch(target, init);
+  // An unreachable backend must answer 502, never crash the SSR route.
+  let res: Response;
+  try {
+    res = await fetch(target, init);
+  } catch {
+    return new Response(JSON.stringify({ error: "backend unreachable" }), {
+      status: 502,
+      headers: { "content-type": "application/json" },
+    });
+  }
 
   const out = new Headers();
   const contentType = res.headers.get("content-type");

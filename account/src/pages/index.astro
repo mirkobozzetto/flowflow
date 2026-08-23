@@ -1,7 +1,7 @@
 ---
 import Dashboard from "../components/Dashboard.astro";
 import Layout from "../layouts/Layout.astro";
-import { fetchAccountData, fetchMe } from "../lib/api";
+import { fetchAccountData, fetchMe, fetchProfile } from "../lib/api";
 
 export const prerender = false;
 
@@ -9,10 +9,11 @@ const cookie = Astro.request.headers.get("cookie") ?? "";
 const me = await fetchMe(cookie);
 if (!me) return Astro.redirect("/login");
 const data = await fetchAccountData(cookie);
+const profile = await fetchProfile(cookie);
 ---
 
 <Layout lang="en">
   <main class="container py-10">
-    <Dashboard lang="en" me={me} data={data} />
+    <Dashboard lang="en" me={me} data={data} profile={profile} />
   </main>
 </Layout>

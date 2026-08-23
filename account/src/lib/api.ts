@@ -93,6 +93,28 @@ export async function fetchMe(cookie: string): Promise<Me | null> {
   return backendJson<Me>("/v1/auth/me", cookie);
 }
 
+// Profile KV (proposal 0001): field -> value + per-field visibility.
+export interface ProfileField {
+  value: string;
+  visibility: "private" | "groups" | "public";
+}
+
+export type ProfileData = Record<string, ProfileField>;
+
+export async function fetchProfile(cookie: string): Promise<ProfileData> {
+  if (PREVIEW) {
+    return {
+      display_name: { value: "Mirko Bozzetto", visibility: "public" },
+      bio: {
+        value: "Full-stack developer, Brussels. Rust, voice notes, local-first.",
+        visibility: "groups",
+      },
+      website: { value: "https://mirkobozzetto.com", visibility: "public" },
+    };
+  }
+  return (await backendJson<ProfileData>("/v1/me/profile", cookie)) ?? {};
+}
+
 export async function fetchAccountData(cookie: string): Promise<AccountData> {
   if (PREVIEW) return previewData();
   const [devices, entitlements, connections, requests, loginEvents] =
