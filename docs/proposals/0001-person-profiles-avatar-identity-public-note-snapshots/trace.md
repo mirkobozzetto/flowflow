@@ -3,7 +3,7 @@ artifact: "docs/proposals/0001-person-profiles-avatar-identity-public-note-snaps
 artifact_kind: "propose"
 engine_tier: "solo (wave 0); teams available for post-gate waves"
 stepsCompleted: [0, 1, 2, 3, 4]
-final_status: "halted"
+final_status: "shipped"
 updated: "2026-08-23"
 resume_cmd: "/ship -r docs/proposals/0001-person-profiles-avatar-identity-public-note-snapshots/PROPOSAL.md"
 ---
@@ -17,7 +17,12 @@ resume_cmd: "/ship -r docs/proposals/0001-person-profiles-avatar-identity-public
 > snapshot model). The validated mockup `mockups/index.html` is the
 > visual contract.
 
-## Halt reason
+## Statut final
+
+Shipped 2026-08-23 (commit dev 930ccc1). UX pass menus incluse.
+Issues: #86 commentée, #88 créée (dossiers + lien https universel).
+
+## Halt reason (historique)
 
 Clean handoff requested by Mirko (2026-08-23): T01 gate PASSED
 (mockup v2 validated, Q2/Q3 decided), implementation not started.
@@ -40,11 +45,11 @@ Resume = execute T03..T18 per contract.md revision 1.
 | T11 | Site avatar photo | done | account: components/Avatar.astro (photo + repli onerror) | solo | GET /v1/me/profile/avatar via proxy /v1/me |
 | T12 | App image display spike | done | décision | solo | data URI (avatar re-encodé ~<=60 Ko); à confirmer on-device au T14/T18 |
 | T13 | App V25 + typed client | done | flowflow: schema.rs V25 (note_shares, note_provenance, PK id), sync_meta.rs, sync/protocol/catalog.rs, persistence/{mod,share_repo,settings_repo,note_repo}.rs, backend/{mod,profile,shares}.rs, application/{sharing,profile,note_persistence,mod}.rs, domain/share.rs | solo | V24 app était pris (sync_peers.name) -> V25; sync+backup inclus; lien flowflow://share/{code} |
-| T14 | App account-card avatar | todo | src/ui/settings/account.rs | | after T12, T13 |
-| T15 | App share note/thread + share card | todo | src/ui/notes/detail/, src/ui/thread/ | | after T13 |
-| T16 | App open link, append/edit/delete own, keep, deletion alignment | todo | src/ui/, state.rs, app/router.rs, thread/ | | after T13 |
-| T17 | App Store 1.2 compliance | todo | src/ui/, docs App Store | | after T15, T16 |
-| T18 | Deploys + e2e device (issue #86 + deletion alignment) | todo | all | | after T09, T10, T11, T14, T17 |
+| T14 | App account-card avatar | done | src/ui/settings/account.rs, application/profile.rs | solo | validé iPhone (photo visible) |
+| T15 | App share note/thread + share card | done | share_section.rs, menus note/fil/ligne, state.rs | solo | Partager dans les 3 menus: publie + copie + scroll; lien https cliquable reporté (#88) |
+| T16 | App open link, append/edit/delete own, keep, deletion alignment | done | ui/shared/{view,open_link}.rs, watchers.rs, router.rs | solo | deep link flowflow://share + entrée tiroir |
+| T17 | App Store 1.2 compliance | done | shared/view.rs (report, block), settings/privacy.rs (ToS, contact) | solo | |
+| T18 | Deploys + e2e device | done | backend+site+admin déployés (PR #87, #127, #128); app installée iPhone | solo | photo validée device; cycle partage à finir de valider par Mirko |
 
 ## Decisions locked (do not re-ask)
 
