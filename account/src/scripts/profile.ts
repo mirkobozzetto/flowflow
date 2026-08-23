@@ -3,6 +3,25 @@
 // avatar upload (bounded client-side, re-checked server-side).
 
 const MAX_AVATAR_BYTES = 256 * 1024;
+// Client-side recompress: any photo shrinks to a 512px JPEG before upload
+// (the server re-encodes to 512 anyway), so real-world photos never hit the
+// 256 KB refusal.
+const AVATAR_MAX_DIM = 512;
+const JPEG_QUALITY = 0.85;
+
+async function compressToJpegBase64(file: File): Promise<string> {
+  const bmp = await createImageBitmap(file);
+  const scale = Math.min(1, AVATAR_MAX_DIM / Math.max(bmp.width, bmp.height));
+  const canvas = document.createElement("canvas");
+  canvas.width = Math.max(1, Math.round(bmp.width * scale));
+  canvas.height = Math.max(1, Math.round(bmp.height * scale));
+  const ctx = canvas.getContext("2d");
+  if (!ctx) throw new Error("canvas unavailable");
+  ctx.drawImage(bmp, 0, 0, canvas.width, canvas.height);
+  bmp.close();
+  const url = canvas.toDataURL("image/jpeg", JPEG_QUALITY);
+  return url.slice(url.indexOf(",") + 1);
+}
 
 async function csrf(): Promise<string | null> {
   const me = await fetch("/v1/auth/me").then((r) =>
@@ -91,19 +110,18 @@ function initAvatar(): void {
       const picked = file.files?.[0];
       file.value = "";
       if (!picked) return;
-      if (picked.size > MAX_AVATAR_BYTES) {
+      let data: string;
+      try {
+        data = await compressToJpegBase64(picked);
+      } catch {
+        show(err, "Could not read this image.");
+        return;
+      }
+      // post-compression backstop; a 512px JPEG never gets near it
+      if (data.length > (MAX_AVATAR_BYTES * 4) / 3) {
         show(err, "256 KB max.");
         return;
       }
-      const data = await new Promise<string>((resolve, reject) => {
-        const reader = new FileReader();
-        reader.onload = () => {
-          const url = reader.result as string;
-          resolve(url.slice(url.indexOf(",") + 1));
-        };
-        reader.onerror = () => reject(reader.error);
-        reader.readAsDataURL(picked);
-      });
       const token = await csrf();
       if (!token) {
         show(err, "Session expired - reload the page.");
@@ -115,7 +133,7 @@ function initAvatar(): void {
           "content-type": "application/json",
           "x-csrf-token": token,
         },
-        body: JSON.stringify({ data_base64: data, mime: picked.type }),
+        body: JSON.stringify({ data_base64: data, mime: "image/jpeg" }),
       });
       if (!res.ok) {
         const detail = (await res.json().catch(() => null)) as {
