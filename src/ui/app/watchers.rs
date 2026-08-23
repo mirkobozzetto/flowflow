@@ -171,6 +171,57 @@ pub fn use_record_deeplink_watcher(
     });
 }
 
+/// A tapped share link (flowflow://share/{code}) opens the read-only view.
+/// Same mailbox as the record deep link, scoped by prefix.
+pub fn use_share_deeplink_watcher(app: AppState) {
+    use crate::domain::share::{parse_share_link, SHARE_LINK_PREFIX};
+    use_future(move || {
+        let mut app = app;
+        async move {
+            loop {
+                if let Some(uri) =
+                    crate::infrastructure::sync::deeplink::take_matching(
+                        SHARE_LINK_PREFIX,
+                    )
+                {
+                    if let Some(code) = parse_share_link(&uri) {
+                        app.previous_view.set(Some(View::NotesList));
+                        app.view.set(View::SharedView {
+                            code: code.to_string(),
+                        });
+                    }
+                }
+                futures_timer::Delay::new(std::time::Duration::from_millis(
+                    500,
+                ))
+                .await;
+            }
+        }
+    });
+}
+
+/// One deletion-alignment pass at boot (proposal 0001, lifecycle rule 3):
+/// kept notes whose author deleted the original are removed (note +
+/// embeddings); dead shares grey their provenance out. Cheap when the device
+/// holds no kept content; network errors change nothing.
+pub fn use_share_align_watcher(app: AppState, db: Signal<Arc<Database>>) {
+    use_future(move || {
+        let mut app = app;
+        async move {
+            let database = db();
+            if database.all_provenance_codes().is_empty() {
+                return;
+            }
+            let events =
+                crate::application::sharing::align_kept_content(&database)
+                    .await;
+            if !events.is_empty() {
+                app.notes_version.set((app.notes_version)() + 1);
+            }
+        }
+    });
+}
+
 /// Drain the share-extension inbox (app group): shared text/URLs become
 /// notes, shared documents ride the attachment pipeline. Cheap poll - the
 /// directory is empty or absent almost always.

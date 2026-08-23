@@ -2,6 +2,7 @@
   "nav": {
     "overview": "Overview",
     "groupAccount": "Account",
+    "profile": "Profile",
     "devices": "Devices",
     "services": "Services",
     "groupSettings": "Settings",
@@ -83,5 +84,25 @@
     "signin": "Sign-in",
     "register": "Registration",
     "none": "No sign-in recorded."
+  },
+  "profile": {
+    "identity": "Identity",
+    "display_name": "Display name",
+    "bio": "Bio",
+    "public_email": "Public email",
+    "website": "Website",
+    "x": "X",
+    "linkedin": "LinkedIn",
+    "instagram": "Instagram",
+    "private": "Private",
+    "groups": "Groups",
+    "public": "Public",
+    "soon": "soon",
+    "changePhoto": "Change photo",
+    "tapHint": "Tap the avatar to change the photo.",
+    "photoSpec": "JPEG, PNG or WebP · 256 KB max · shown with your name on shared notes.",
+    "notSet": "Not set",
+    "save": "Save changes",
+    "saved": "Saved."
   }
 }

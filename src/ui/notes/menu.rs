@@ -150,25 +150,46 @@ pub fn NoteMenu(
         }
         div { class: "absolute right-4 top-1 {kit::MENU_PANEL}",
             if confirm_delete() {
-                DeleteConfirm {
-                    title: t(&lang, "note-menu-delete-title"),
-                    warning: t(&lang, "note-menu-delete-warning"),
-                    cancel_label: t(&lang, "chat-menu-cancel"),
-                    confirm_label: t(&lang, "chat-menu-delete"),
-                    on_cancel: move |_| {
-                        confirm_delete.set(false);
-                        app.show_note_menu.set(false);
-                    },
-                    on_confirm: {
-                        let note_id = note_id.clone();
-                        move |_| {
-                            app.show_note_menu.set(false);
-                            deleted.set(true);
-                            crate::application::note_persistence::delete_note(&db(), &note_id);
-                            engine.peek().schedule_debounced();
-                            app.current_note_id.set(None);
+                {
+                    // A shared note's link dies with it (proposal 0001 T15): the
+                    // confirm says so, and the revoke rides the delete.
+                    let is_shared = db().get_share(&note_id).is_some();
+                    rsx! {
+                        DeleteConfirm {
+                            title: t(&lang, "note-menu-delete-title"),
+                            warning: if is_shared {
+                                t(&lang, "share-delete-offers-revoke")
+                            } else {
+                                t(&lang, "note-menu-delete-warning")
+                            },
+                            cancel_label: t(&lang, "chat-menu-cancel"),
+                            confirm_label: if is_shared {
+                                t(&lang, "share-revoke-and-delete")
+                            } else {
+                                t(&lang, "chat-menu-delete")
+                            },
+                            on_cancel: move |_| {
+                                confirm_delete.set(false);
+                                app.show_note_menu.set(false);
+                            },
+                            on_confirm: {
+                                let note_id = note_id.clone();
+                                move |_| {
+                                    app.show_note_menu.set(false);
+                                    deleted.set(true);
+                                    let note_id = note_id.clone();
+                                    spawn(async move {
+                                        let database = db();
+                                        // best-effort revoke first, while the share row still exists
+                                        let _ = crate::application::sharing::revoke(&database, &note_id).await;
+                                        crate::application::note_persistence::delete_note(&database, &note_id);
+                                        engine.peek().schedule_debounced();
+                                        app.current_note_id.set(None);
+                                    });
+                                }
+                            },
                         }
-                    },
+                    }
                 }
             } else {
                 button {
@@ -188,6 +209,19 @@ pub fn NoteMenu(
                     },
                     IconMic { size: 16 }
                     "{import_audio_label}"
+                }
+                div { class: kit::MENU_SEP }
+                button {
+                    class: kit::MENU_ITEM,
+                    onclick: {
+                        let note_id = note_id.clone();
+                        move |_| {
+                            app.share_request.set(Some(note_id.clone()));
+                            app.show_note_menu.set(false);
+                        }
+                    },
+                    IconArrowUpRight { size: 16 }
+                    {t(&lang, "share-publish-note")}
                 }
                 div { class: kit::MENU_SEP }
                 if in_thread {

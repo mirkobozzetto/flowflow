@@ -151,6 +151,7 @@ pub fn SidebarOverlay() -> Element {
                                 IconFiles { size: 20 }
                                 {t(&lang, "sidebar-all-notes")}
                             }
+                            crate::ui::shared::open_link::OpenShareLink {}
                         }
                         div { class: "h-px bg-stone-200 mb-3" }
                         FolderSection {}

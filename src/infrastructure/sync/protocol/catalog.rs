@@ -126,6 +126,37 @@ pub(super) const KINDS: &[KindSpec] = &[
         composite_link: false,
         chunk_owner: false,
     },
+    // Shared publications + kept-content provenance (proposal 0001): the whole
+    // cluster sees the same live shares and the same provenance cards.
+    KindSpec {
+        kind: "note_share",
+        table: "note_shares",
+        cols: &[
+            "id",
+            "kind",
+            "code",
+            "expires_at",
+            "created_at",
+            "modified_at",
+        ],
+        composite_link: false,
+        chunk_owner: false,
+    },
+    KindSpec {
+        kind: "note_provenance",
+        table: "note_provenance",
+        cols: &[
+            "id",
+            "share_code",
+            "remote_note_id",
+            "author_name",
+            "captured_at",
+            "state",
+            "modified_at",
+        ],
+        composite_link: false,
+        chunk_owner: false,
+    },
 ];
 
 pub(super) fn spec_for(kind: &str) -> Option<&'static KindSpec> {

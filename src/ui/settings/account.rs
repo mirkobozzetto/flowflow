@@ -44,6 +44,15 @@ pub fn AccountSettings() -> Element {
     let mut id_copied = use_signal(|| false);
     let mut code_copied = use_signal(|| false);
     let mut reload = use_signal(|| 0u32);
+    // Identity card (proposal 0001 T14): cached name + avatar shown at once
+    // (offline fallback), refreshed from the backend in the effect below.
+    let mut profile_name =
+        use_signal(|| crate::application::profile::cached_display_name(&db()));
+    let mut avatar_uri =
+        use_signal(crate::application::profile::avatar_data_uri);
+    let mut profile_linked = use_signal(|| true);
+    let mut confirm_purge_shared = use_signal(|| false);
+    let mut purge_shared_done = use_signal(|| false);
 
     use_effect(move || {
         let _trigger = reload();
@@ -61,6 +70,25 @@ pub fn AccountSettings() -> Element {
                     }
                     Err(e) => status.set(Some(e.to_string())),
                 },
+            }
+            use crate::application::profile::ProfileStatus;
+            match crate::application::profile::refresh(&database).await {
+                ProfileStatus::Refreshed => {
+                    profile_linked.set(true);
+                    profile_name.set(
+                        crate::application::profile::cached_display_name(
+                            &database,
+                        ),
+                    );
+                    avatar_uri
+                        .set(crate::application::profile::avatar_data_uri());
+                }
+                ProfileStatus::NotLinked => {
+                    profile_linked.set(false);
+                    profile_name.set(None);
+                    avatar_uri.set(None);
+                }
+                ProfileStatus::Unavailable => {}
             }
         });
     });
@@ -106,6 +134,49 @@ pub fn AccountSettings() -> Element {
             }
 
             if let Some(acc) = account() {
+                // Identity card (mockup section 2): photo replaces the monogram,
+                // orange ring kept; unlinked cluster shows the link path instead.
+                if profile_linked() {
+                    div { class: "bg-warm-white rounded-xl border border-stone-200 p-4",
+                        div { class: "flex items-center gap-3",
+                            span { class: "shrink-0 w-11 h-11 rounded-full ring-[1.5px] ring-ios-orange ring-offset-2 ring-offset-warm-white overflow-hidden flex items-center justify-center bg-ios-orange/10",
+                                if let Some(uri) = avatar_uri() {
+                                    img {
+                                        class: "w-full h-full object-cover",
+                                        src: "{uri}",
+                                    }
+                                } else {
+                                    span { class: "text-lg font-semibold text-ios-orange-dark",
+                                        {profile_initial(&profile_name())}
+                                    }
+                                }
+                            }
+                            div { class: "flex-1 min-w-0",
+                                div { class: "text-[15px] font-semibold tracking-tight text-stone-800 truncate",
+                                    {profile_name().unwrap_or_else(|| my_device_name.clone())}
+                                }
+                                div { class: "text-xs text-stone-400 mt-0.5",
+                                    {t(&lang, "account-profile-hint")}
+                                }
+                            }
+                            if acc.premium {
+                                span { class: "shrink-0 px-2 py-0.5 rounded-full bg-ios-orange/10 text-[10px] font-semibold uppercase tracking-wide text-ios-orange-dark",
+                                    {t(&lang, "account-premium")}
+                                }
+                            }
+                        }
+                    }
+                } else {
+                    div { class: "rounded-xl border border-dashed border-stone-300 p-4",
+                        p { class: "text-xs text-stone-500",
+                            {t(&lang, "account-profile-none")}
+                            span { class: "text-ios-orange-dark font-semibold",
+                                {t(&lang, "account-profile-link-cta")}
+                            }
+                        }
+                    }
+                }
+
                 // Plan hero: the status first; the upgrade path goes through the web site.
                 div { class: "bg-warm-white rounded-xl border border-stone-200 p-5",
                     label { class: "block text-xs font-medium text-stone-400 mb-1.5",
@@ -415,6 +486,54 @@ pub fn AccountSettings() -> Element {
                     {t(&lang, "account-danger-title")}
                 }
                 div { class: "space-y-5",
+                    // Lifecycle rule 5: purge my shared notes EVERYWHERE, to run
+                    // before leaving/deleting the account (which keeps them).
+                    div {
+                        if confirm_purge_shared() {
+                            div { class: "flex items-center gap-2",
+                                button {
+                                    class: crate::ui::kit::CONFIRM_BTN_GHOST,
+                                    onclick: move |_| confirm_purge_shared.set(false),
+                                    {t(&lang, "account-cancel")}
+                                }
+                                button {
+                                    class: crate::ui::kit::CONFIRM_BTN_DANGER,
+                                    disabled: busy(),
+                                    onclick: move |_| {
+                                        if busy() { return; }
+                                        busy.set(true);
+                                        confirm_purge_shared.set(false);
+                                        status.set(None);
+                                        spawn(async move {
+                                            let database = db();
+                                            match crate::application::sharing::delete_my_notes(&database).await {
+                                                Ok(()) => purge_shared_done.set(true),
+                                                Err(e) => status.set(Some(e.to_string())),
+                                            }
+                                            busy.set(false);
+                                        });
+                                    },
+                                    {t(&lang, "account-purge-shared-confirm")}
+                                }
+                            }
+                        } else {
+                            button {
+                                class: "w-full min-h-[44px] flex items-center justify-center gap-2 rounded-xl bg-warm-white border border-stone-200 text-stone-800 text-sm font-medium hover:bg-stone-50 active:bg-stone-100 transition-colors disabled:opacity-45",
+                                disabled: busy() || !has_backend,
+                                onclick: move |_| confirm_purge_shared.set(true),
+                                IconTrash { size: 16 }
+                                {t(&lang, "account-purge-shared")}
+                            }
+                            p { class: "text-xs text-stone-500 mt-2 px-1 leading-relaxed",
+                                if purge_shared_done() {
+                                    {t(&lang, "account-purge-shared-done")}
+                                } else {
+                                    {t(&lang, "account-purge-shared-hint")}
+                                }
+                            }
+                        }
+                    }
+
                     div {
                         if confirm_leave() {
                             div { class: "flex items-center gap-2",
@@ -507,6 +626,14 @@ pub fn AccountSettings() -> Element {
             }
         }
     }
+}
+
+// Monogram fallback: first letter of the profile name, generic glyph without one.
+fn profile_initial(name: &Option<String>) -> String {
+    name.as_deref()
+        .and_then(|n| n.trim().chars().next())
+        .map(|c| c.to_uppercase().to_string())
+        .unwrap_or_else(|| "•".to_string())
 }
 
 // Render the server's ISO expiry as a local wall-clock time; fall back to the raw string if it

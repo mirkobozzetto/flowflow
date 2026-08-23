@@ -588,6 +588,8 @@ impl Database {
             // Ahead of note_audios: word timings are transcript content, and a
             // transcript surviving "delete my data" is a privacy defect.
             "note_audio_words",
+            "note_shares",
+            "note_provenance",
             "note_audios",
             "attachments",
             "note_reminders",

@@ -408,6 +408,13 @@ pub fn NoteDetail() -> Element {
                 content,
                 tags,
             }
+            crate::ui::notes::share_section::ProvenanceCard {
+                note_id: local_note_id(),
+            }
+            crate::ui::notes::share_section::ShareSection {
+                source_id: local_note_id(),
+                kind_thread: false,
+            }
             AudioSection { local_note_id, audios_version }
             AttachmentSection { attachments, confirm_delete_att }
             crate::ui::notes::related::RelatedSection { local_note_id }

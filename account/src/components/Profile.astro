@@ -1,0 +1,123 @@
+---
+import type { Me, ProfileData } from "../lib/api";
+import { useTranslations } from "../lib/i18n";
+import Avatar from "./Avatar.astro";
+
+interface Props {
+  lang: string;
+  me: Me;
+  profile: ProfileData;
+}
+
+const { lang, me, profile } = Astro.props;
+const t = useTranslations(lang, "account");
+const p = t<Record<string, string>>("profile");
+
+const meName = profile.display_name?.value ?? me.display_name ?? me.email;
+
+const FIELDS = [
+  "display_name",
+  "bio",
+  "public_email",
+  "website",
+  "x",
+  "linkedin",
+  "instagram",
+] as const;
+
+const VISIBILITIES = ["private", "groups", "public"] as const;
+
+const visibilityOf = (field: string): string =>
+  profile[field]?.visibility ?? "private";
+const valueOf = (field: string): string => profile[field]?.value ?? "";
+---
+
+<div class="b-cards">
+  <div class="b-c wide">
+    <div class="b-prof">
+      <button
+        class="b-shot"
+        type="button"
+        id="avatar-shot"
+        title={p.changePhoto}
+      >
+        <Avatar name={meName} size={72} photo={true} />
+        <span class="cam">
+          <svg
+            width="13"
+            height="13"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="#fff"
+            stroke-width="2.4"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+            ><path
+              d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"
+            ></path><circle cx="12" cy="13" r="4"></circle></svg
+          >
+        </span>
+      </button>
+      <div class="id">
+        <b>{meName}</b>
+        <span>{me.email}</span>
+      </div>
+      <input
+        type="file"
+        id="avatar-file"
+        accept="image/jpeg,image/png,image/webp"
+        hidden
+      />
+    </div>
+    <div class="b-note">
+      <b>{p.tapHint}</b>
+      {p.photoSpec}
+    </div>
+    <div class="b-note err" id="avatar-error" hidden></div>
+  </div>
+
+  <div class="b-c wide">
+    <h4><span class="t">{p.identity}</span></h4>
+
+    {
+      FIELDS.map((field) => (
+        <div class="b-pfield" data-field={field}>
+          <span class="lb">{p[field]}</span>
+          <input
+            class="val"
+            type="text"
+            value={valueOf(field)}
+            placeholder={p.notSet}
+            data-field-input={field}
+          />
+          <span class="b-pills" data-visibility={visibilityOf(field)}>
+            {VISIBILITIES.map((v) => (
+              <button
+                class={`b-pill${v === "groups" ? " soon" : ""}${
+                  visibilityOf(field) === v ? " on" : ""
+                }`}
+                type="button"
+                data-vis={v}
+              >
+                {p[v]}
+                {v === "groups" && <span class="tag">{p.soon}</span>}
+              </button>
+            ))}
+          </span>
+        </div>
+      ))
+    }
+
+    <div class="b-save">
+      <span class="b-note err" id="profile-error" hidden></span>
+      <span class="b-note ok" id="profile-saved" hidden>{p.saved}</span>
+      <button class="b-btn pri" type="button" id="profile-save"
+        >{p.save}</button
+      >
+    </div>
+  </div>
+</div>
+
+<script>
+  import "../scripts/profile.ts";
+</script>

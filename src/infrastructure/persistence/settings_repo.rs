@@ -26,6 +26,9 @@ pub const DEVICE_LOCAL_SETTINGS: &[&str] = &[
     "sync_restored_floor",
     "backend_base_url",
     "backend_session_expires_at",
+    // profile cache (proposal 0001): refetched from the backend, never backed up
+    "profile_display_name",
+    "profile_avatar_hash",
 ];
 
 pub const DEVICE_LOCAL_SETTING_PREFIXES: &[&str] = &[

@@ -117,6 +117,24 @@ const TRACKED: &[Tracked] = &[
         deleted_seed: "CASE WHEN t.state='tombstone' THEN 1 ELSE 0 END",
         update_trigger: true,
     },
+    Tracked {
+        table: "note_shares",
+        kind: "note_share",
+        new_id: "NEW.id",
+        seed_id: "t.id",
+        deleted_new: "0",
+        deleted_seed: "0",
+        update_trigger: true,
+    },
+    Tracked {
+        table: "note_provenance",
+        kind: "note_provenance",
+        new_id: "NEW.id",
+        seed_id: "t.id",
+        deleted_new: "0",
+        deleted_seed: "0",
+        update_trigger: true,
+    },
 ];
 
 // Body shared by AFTER INSERT and AFTER UPDATE triggers: allocate a local

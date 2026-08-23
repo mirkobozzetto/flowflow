@@ -4,6 +4,11 @@ use crate::ui::AppState;
 use dioxus::prelude::*;
 use std::sync::Arc;
 
+// App Store 1.2 (user-generated content): terms + a way to reach us,
+// one tap from Settings.
+const TERMS_URL: &str = "https://mirkobozzetto.github.io/flowflow-privacy/";
+const CONTACT_URL: &str = "mailto:mirko.prodev@gmail.com";
+
 #[component]
 pub fn PrivacySettings() -> Element {
     let db: Signal<Arc<Database>> = use_context();
@@ -26,6 +31,22 @@ pub fn PrivacySettings() -> Element {
                         app.ai_consent.set(None);
                     },
                     {t(&lang, "settings-revoke-consent")}
+                }
+            }
+            div { class: "flex items-center justify-center gap-4",
+                button {
+                    class: "text-xs text-stone-500 underline underline-offset-2 active:text-stone-700",
+                    onclick: move |_| {
+                        crate::infrastructure::platform::open_url(TERMS_URL)
+                    },
+                    {t(&lang, "settings-legal-terms")}
+                }
+                button {
+                    class: "text-xs text-stone-500 underline underline-offset-2 active:text-stone-700",
+                    onclick: move |_| {
+                        crate::infrastructure::platform::open_url(CONTACT_URL)
+                    },
+                    {t(&lang, "settings-legal-contact")}
                 }
             }
             p { class: "text-xs text-stone-400 text-center",

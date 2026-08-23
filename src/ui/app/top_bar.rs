@@ -16,8 +16,13 @@ pub fn TopBar() -> Element {
     let is_settings =
         matches!((app.view)(), View::Settings | View::SettingsSection(_));
     let is_sync_pairing = matches!((app.view)(), View::SyncPairing);
-    let is_inner =
-        is_detail || is_thread || is_chat || is_settings || is_sync_pairing;
+    let is_shared = matches!((app.view)(), View::SharedView { .. });
+    let is_inner = is_detail
+        || is_thread
+        || is_chat
+        || is_settings
+        || is_sync_pairing
+        || is_shared;
     let chat_from_detail = is_chat
         && matches!(
             (app.previous_view)(),
@@ -82,6 +87,7 @@ pub fn TopBar() -> Element {
             Some(ChatScope::Thread(ref tid)) => thread_title(tid),
             None => t(&lang, "top-bar-all-notes"),
         },
+        View::SharedView { .. } => t(&lang, "share-open-title"),
         View::Settings => t(&lang, "sidebar-settings"),
         View::SettingsSection(section) => t(&lang, section.title_key()),
         View::SyncPairing => t(&lang, "sync-pairing-title"),

@@ -12,6 +12,7 @@ pub mod peer_repo;
 pub mod pending_transcription_repo;
 mod schema;
 pub mod settings_repo;
+pub mod share_repo;
 pub mod sync_meta;
 pub mod thread_repo;
 
@@ -276,6 +277,10 @@ impl Database {
                 }
                 // The table rebuild dropped conversation_messages' sync triggers.
                 if version == 18 || version == 22 {
+                    sync_meta::install_sync_triggers(&conn)?;
+                }
+                // New synced tables (proposal 0001) need their triggers.
+                if version == 25 {
                     sync_meta::install_sync_triggers(&conn)?;
                 }
                 // Backfill under the apply guard: the notes AFTER UPDATE sync
