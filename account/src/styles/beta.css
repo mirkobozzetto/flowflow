@@ -853,6 +853,137 @@
   background: linear-gradient(180deg, var(--orange-bright), var(--orange));
 }
 
+/* ---------- pane Profile (proposal 0001) ---------- */
+button.b-shot {
+  border: 0;
+  padding: 0;
+  background: none;
+  cursor: pointer;
+}
+
+.b-pfield {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 8px 18px;
+  padding: 15px 0;
+  border-bottom: 1px solid var(--stone-200);
+  align-items: center;
+}
+
+.b-pfield:last-of-type {
+  border-bottom: 0;
+}
+
+.b-pfield .lb {
+  grid-column: 1 / -1;
+  font-size: 10.5px;
+  font-weight: 600;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--stone-400);
+}
+
+.b-pfield input.val {
+  width: 100%;
+  min-width: 0;
+  padding: 10px 13px;
+  border: 1px solid var(--stone-200);
+  border-radius: 11px;
+  background: var(--warm-white);
+  font-family: inherit;
+  font-size: 14.5px;
+  font-weight: 500;
+  color: var(--ink);
+}
+
+.b-pfield input.val::placeholder {
+  color: var(--stone-400);
+  font-weight: 400;
+}
+
+.b-pfield input.val:focus {
+  outline: none;
+  border-color: var(--stone-300);
+}
+
+.b-pills {
+  display: inline-flex;
+  gap: 4px;
+  padding: 3px;
+  border: 1px solid var(--stone-200);
+  border-radius: 99px;
+  background: var(--warm-white);
+}
+
+.b-pill {
+  padding: 5px 12px;
+  border: 0;
+  border-radius: 99px;
+  background: none;
+  font-family: inherit;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--stone-500);
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.b-pill.on {
+  background: var(--orange-50);
+  color: var(--orange-dark);
+  box-shadow: inset 0 0 0 1px var(--orange-100);
+}
+
+.b-pill.soon {
+  color: var(--stone-300);
+  cursor: default;
+}
+
+.b-pill.soon.on {
+  background: var(--stone-100);
+  color: var(--stone-400);
+  box-shadow: inset 0 0 0 1px var(--stone-200);
+}
+
+.b-pill.soon .tag {
+  margin-left: 5px;
+  font-size: 9px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--stone-400);
+}
+
+.b-note {
+  margin-top: 14px;
+  font-size: 13px;
+  color: var(--stone-500);
+}
+
+.b-note b {
+  color: var(--stone-700);
+}
+
+.b-note.err {
+  color: var(--orange-dark);
+}
+
+.b-note.ok {
+  color: var(--stone-700);
+}
+
+.b-save {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 14px;
+  margin-top: 20px;
+}
+
+.b-save .b-note {
+  margin-top: 0;
+}
+
 /* ---------- chapitre sombre ---------- */
 .b-dark {
   position: relative;

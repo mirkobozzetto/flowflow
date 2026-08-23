@@ -2,15 +2,29 @@
 interface Props {
   name: string;
   size: number;
+  // when true, try the profile photo first; the inline onerror falls back to
+  // the monogram, so a missing avatar (404) never leaves a broken image.
+  photo?: boolean;
 }
 
-const { name, size } = Astro.props;
+const { name, size, photo = false } = Astro.props;
 const initial = (name.trim()[0] ?? "?").toUpperCase();
 const fontSize = Math.round(size * 0.44);
 ---
 
 <span
   class="b-av me acct-av"
-  style={`width:${size}px;height:${size}px;font-size:${fontSize}px`}
-  >{initial}</span
+  style={`position:relative;width:${size}px;height:${size}px;font-size:${fontSize}px`}
 >
+  {initial}
+  {
+    photo && (
+      <img
+        src="/v1/me/profile/avatar"
+        alt=""
+        onerror="this.remove()"
+        style="position:absolute;inset:0"
+      />
+    )
+  }
+</span>
