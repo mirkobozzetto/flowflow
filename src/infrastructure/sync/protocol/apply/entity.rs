@@ -52,6 +52,17 @@ pub(super) fn delete_entity(
             rusqlite::params![entity_id, spec.kind],
         )
         .map_err(|e| sql_err("delete entity chunks", e))?;
+        // The SQLite chunks are only half of it: the vectors live in LanceDB,
+        // which this connection cannot reach from inside a sync transaction.
+        // Queue the intent instead - the drain at boot and after each pull
+        // finishes it. Without this a note deleted on one device and echoed
+        // here in P2P keeps answering in chat on this one.
+        conn.execute(
+            "INSERT OR IGNORE INTO pending_purge (note_id, kind)
+             VALUES (?1, ?2)",
+            rusqlite::params![entity_id, spec.kind],
+        )
+        .map_err(|e| sql_err("queue entity purge", e))?;
     }
     Ok(())
 }

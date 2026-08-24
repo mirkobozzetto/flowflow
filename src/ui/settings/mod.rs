@@ -5,6 +5,7 @@ mod general;
 mod intelligence;
 mod privacy;
 mod shortcuts;
+mod spaces;
 mod storage;
 mod tab_pins;
 mod transcription;
@@ -15,7 +16,7 @@ use crate::infrastructure::persistence::Database;
 use crate::ui::icons::{
     IconArrowsClockwise, IconFloppyDisk, IconGlobeSimple, IconHardDrives,
     IconHeadCircuit, IconKeyboard, IconMicrophone, IconPlugsConnected,
-    IconShieldCheck, IconUserCircle,
+    IconShieldCheck, IconUserCircle, IconUsersThree,
 };
 use crate::ui::kit::SECTION_LABEL;
 use crate::ui::{AppState, SettingsSection, View};
@@ -27,6 +28,7 @@ use general::GeneralSettings;
 use intelligence::IntelligenceSettings;
 use privacy::PrivacySettings;
 use shortcuts::ShortcutsSettings;
+use spaces::SpacesSettings;
 use std::sync::Arc;
 use storage::StorageSettings;
 use transcription::TranscriptionSettings;
@@ -103,6 +105,9 @@ pub fn SettingsView() -> Element {
                 }
                 IconRow { label: t(&lang, "settings-section-connections"), section: SettingsSection::Connections,
                     div { class: ICON_TILE, IconPlugsConnected { size: 17 } }
+                }
+                IconRow { label: t(&lang, "settings-section-spaces"), section: SettingsSection::Spaces,
+                    div { class: ICON_TILE, IconUsersThree { size: 17 } }
                 }
             }
 
@@ -236,6 +241,9 @@ pub fn SettingsSectionView() -> Element {
         },
         SettingsSection::Shortcuts => rsx! {
             ShortcutsSettings {}
+        },
+        SettingsSection::Spaces => rsx! {
+            SpacesSettings {}
         },
     }
 }

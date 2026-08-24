@@ -6,6 +6,16 @@ pub struct Folder {
     pub name: String,
     pub description: Option<String>,
     pub parent_id: Option<String>,
+    // Space plane (proposal 0002). `space_id` marks a folder mirrored from a
+    // collaborative space; `mode` is the mode it DECLARES there. The right to
+    // write is the effective mode, resolved by walking the ancestor chain, so
+    // never read `mode` on its own to decide anything.
+    #[serde(default)]
+    pub space_id: Option<String>,
+    #[serde(default)]
+    pub remote_id: Option<String>,
+    #[serde(default)]
+    pub mode: Option<String>,
     pub created_at: String,
     pub modified_at: String,
 }

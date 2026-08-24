@@ -144,6 +144,18 @@ pub fn ThreadHeaderMenu(thread_id: String) -> Element {
                     IconFolder { size: 16 }
                     {t(&lang, "thread-menu-theme")}
                 }
+                button {
+                    class: kit::MENU_ITEM,
+                    onclick: {
+                        let tid = thread_id.clone();
+                        move |_| {
+                            app.share_request.set(Some(tid.clone()));
+                            app.show_thread_menu.set(false);
+                        }
+                    },
+                    IconArrowUpRight { size: 16 }
+                    {t(&lang, "share-publish-thread")}
+                }
                 div { class: kit::MENU_SEP }
                 button {
                     class: kit::MENU_ITEM_DANGER,

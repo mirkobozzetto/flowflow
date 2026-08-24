@@ -2,7 +2,7 @@ use crate::application::i18n::t;
 use crate::domain::flatten_tree;
 use crate::infrastructure::persistence::Database;
 use crate::infrastructure::sync::engine::SyncEngine;
-use crate::ui::icons::{IconCopy, IconFolder, IconTrash};
+use crate::ui::icons::{IconArrowUpRight, IconCopy, IconFolder, IconTrash};
 use crate::ui::{kit, AppState, RowMenu};
 use dioxus::prelude::*;
 use std::sync::Arc;
@@ -177,6 +177,21 @@ pub fn NoteRowMenu() -> Element {
                     },
                     IconCopy { size: 16 }
                     {t(&lang, "note-menu-copy")}
+                }
+                button {
+                    class: kit::MENU_ITEM,
+                    onclick: {
+                        let nid = note_id.clone();
+                        move |_| {
+                            app.row_menu.set(None);
+                            app.share_request.set(Some(nid.clone()));
+                            app.view.set(crate::ui::View::NoteDetail {
+                                note_id: nid.clone(),
+                            });
+                        }
+                    },
+                    IconArrowUpRight { size: 16 }
+                    {t(&lang, "share-publish-note")}
                 }
                 div { class: kit::MENU_SEP }
                 button {

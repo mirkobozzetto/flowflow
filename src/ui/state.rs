@@ -23,6 +23,7 @@ pub enum SettingsSection {
     Connections,
     Privacy,
     Shortcuts,
+    Spaces,
 }
 
 impl SettingsSection {
@@ -37,6 +38,7 @@ impl SettingsSection {
             Self::Connections => "settings-section-connections",
             Self::Privacy => "settings-section-privacy",
             Self::Shortcuts => "settings-section-shortcuts",
+            Self::Spaces => "settings-section-spaces",
         }
     }
 }
@@ -82,6 +84,8 @@ pub enum View {
     NoteDetail { note_id: String },
     ThreadDetail { thread_id: String },
     Chat { conversation_id: Option<String> },
+    // Read-only view of someone else's share, opened from a link (0001)
+    SharedView { code: String },
     Settings,
     SettingsSection(SettingsSection),
     SyncPairing,
@@ -146,6 +150,9 @@ pub struct AppState {
     pub picker_kb_up: Signal<u32>,
     pub picker_kb_down: Signal<u32>,
     pub picker_kb_commit: Signal<u32>,
+    // Source id (note or thread) a menu asked to share; consumed by
+    // ShareSection, which scrolls into view, publishes and copies the link.
+    pub share_request: Signal<Option<String>>,
 }
 
 impl AppState {
@@ -202,6 +209,7 @@ impl AppState {
             picker_kb_up: Signal::new(0),
             picker_kb_down: Signal::new(0),
             picker_kb_commit: Signal::new(0),
+            share_request: Signal::new(None),
         }
     }
 }

@@ -175,7 +175,24 @@ pub fn NotesList() -> Element {
     };
     let narrowed = has_query || !filters.is_empty();
 
+    // A read-only theme inside a shared space says so here, next to its notes,
+    // rather than letting the user write one and lose it to a refusal.
+    let read_only = use_memo(move || {
+        let _v = (app.folders_version)();
+        matches!(
+            (app.selected_folder_id)().map(|fid| {
+                crate::application::space::folder_right(&db(), &fid)
+            }),
+            Some(crate::application::space::FolderRight::SpaceReadOnly)
+        )
+    });
+
     rsx! {
+        if read_only() {
+            div { class: "mb-3 px-3 py-2 rounded-xl bg-stone-100 text-xs text-stone-500",
+                {t(&lang, "space-cannot-write")}
+            }
+        }
         div { class: "mb-3",
             div { class: "relative",
                 div { class: "absolute left-3 top-1/2 -translate-y-1/2 text-stone-400",

@@ -4,6 +4,10 @@
 // session token. The feature is dark until `backend_base_url` is configured: with no
 // backend, `from_db` returns None and the agent behaves exactly as before.
 
+pub mod profile;
+pub mod shares;
+pub mod spaces;
+
 use crate::infrastructure::persistence::Database;
 use base64::engine::general_purpose::STANDARD as B64;
 use base64::Engine;

@@ -37,6 +37,9 @@ pub(crate) fn row_to_note(row: &rusqlite::Row) -> rusqlite::Result<Note> {
         sources_json: row.get("sources_json")?,
         thread_id: row.get("thread_id")?,
         author_device: row.get("author_device")?,
+        space_id: row.get("space_id")?,
+        remote_id: row.get("remote_id")?,
+        author_ref: row.get("author_ref")?,
         created_at: row.get("created_at")?,
         modified_at: row.get("modified_at")?,
     })
@@ -588,6 +591,8 @@ impl Database {
             // Ahead of note_audios: word timings are transcript content, and a
             // transcript surviving "delete my data" is a privacy defect.
             "note_audio_words",
+            "note_shares",
+            "note_provenance",
             "note_audios",
             "attachments",
             "note_reminders",
@@ -595,6 +600,11 @@ impl Database {
             "conversations",
             "notes_folders",
             "chunks",
+            // Space rows survive nothing: a pull cursor left behind would make
+            // the next pull skip everything the wiped device never received,
+            // and a queued purge would name notes that no longer exist.
+            "spaces",
+            "pending_purge",
             "pending_transcriptions",
             "notes",
             "threads",

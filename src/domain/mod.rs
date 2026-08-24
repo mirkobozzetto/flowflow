@@ -7,6 +7,8 @@ pub mod governance;
 pub mod note;
 pub mod orchestration;
 pub mod reminder;
+pub mod share;
+pub mod space;
 pub mod thread;
 pub mod transcript;
 

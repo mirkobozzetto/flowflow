@@ -1,0 +1,638 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Maquette 0001 — Profils + notes partagées</title>
+<style>
+/* Fonts réelles du SITE (chemins relatifs au repo). L'app, elle, est en
+   police système : les écrans téléphone n'utilisent PAS Clash Grotesk. */
+@font-face { font-family: "Clash Grotesk"; font-style: normal; font-weight: 400; font-display: swap;
+  src: url("../../../../account/public/fonts/clash-grotesk-400.woff2") format("woff2"); }
+@font-face { font-family: "Clash Grotesk"; font-style: normal; font-weight: 500; font-display: swap;
+  src: url("../../../../account/public/fonts/clash-grotesk-500.woff2") format("woff2"); }
+@font-face { font-family: "Clash Grotesk"; font-style: normal; font-weight: 600; font-display: swap;
+  src: url("../../../../account/public/fonts/clash-grotesk-600.woff2") format("woff2"); }
+@font-face { font-family: "Clash Grotesk"; font-style: normal; font-weight: 700; font-display: swap;
+  src: url("../../../../account/public/fonts/clash-grotesk-700.woff2") format("woff2"); }
+
+/* Tokens du site (tokens.css) + tokens de l'app (tailwind.css @theme).
+   Même accent orange oklch dans les deux systèmes. */
+:root {
+  --warm-white: #fdfcfb;
+  --stone-50: #fafaf9; --stone-100: #f5f5f4; --stone-200: #e7e5e4;
+  --stone-300: #d6d3d1; --stone-400: #a8a29e; --stone-500: #78716c;
+  --stone-600: #57534e; --stone-700: #44403c; --stone-900: #1c1917;
+  --ink: #161311;
+  --orange: oklch(0.6 0.22 50);
+  --orange-bright: oklch(0.68 0.21 50);
+  --orange-dark: oklch(0.48 0.16 50);
+  --orange-50: oklch(0.97 0.04 50);
+  --orange-100: oklch(0.92 0.07 50);
+  --ios-red: oklch(0.55 0.2 30);
+  --app-warm-white: oklch(0.99 0.005 50);
+  --sans: "Clash Grotesk", -apple-system, BlinkMacSystemFont, sans-serif;
+  --app-sans: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Helvetica Neue", sans-serif;
+}
+* { box-sizing: border-box; }
+body {
+  margin: 0; font-family: var(--sans); background: var(--warm-white);
+  color: var(--stone-900); line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+}
+::selection { background: var(--orange-100); }
+
+/* ===== classes réelles du site (beta.css, sous-ensemble) ===== */
+.b-av { flex: none; display: block; border-radius: 50%; overflow: hidden; }
+.b-av img, .b-av svg { display: block; width: 100%; height: 100%; object-fit: cover; }
+.b-av.me { box-shadow: 0 0 0 1.5px var(--orange), 0 0 0 3px var(--warm-white); }
+.acct-av { display: inline-flex; align-items: center; justify-content: center;
+  background: var(--orange-100); color: var(--orange-dark); font-weight: 600; overflow: hidden; }
+.b-app { display: grid; grid-template-columns: 250px 1fr; min-height: 632px;
+  border: 1px solid var(--stone-200); border-radius: 28px; overflow: hidden;
+  background: var(--warm-white);
+  box-shadow: 0 60px 120px -50px rgba(22,19,17,.4), 0 2px 0 rgba(255,255,255,.6) inset; }
+.b-side { display: flex; flex-direction: column; padding: 22px 14px;
+  border-right: 1px solid var(--stone-200); background: var(--stone-50); }
+.b-side .sb { display: flex; align-items: center; gap: 10px; padding: 4px 8px 24px;
+  font-size: 15px; font-weight: 700; letter-spacing: -0.01em; }
+.b-side .grp { padding: 20px 10px 8px; font-size: 10px; font-weight: 600;
+  letter-spacing: 0.16em; text-transform: uppercase; color: var(--stone-400); }
+.b-item { display: flex; align-items: center; width: 100%; padding: 11px 12px;
+  border: 0; border-radius: 11px; background: none; font-family: inherit;
+  font-size: 14.5px; font-weight: 500; color: var(--stone-600); text-align: left;
+  cursor: pointer; transition: .15s; }
+.b-item:hover { background: var(--stone-100); color: var(--ink); }
+.b-item.on { background: var(--warm-white); color: var(--ink); font-weight: 600;
+  box-shadow: 0 1px 2px rgba(22,19,17,.05), inset 0 0 0 1px var(--stone-200); }
+.b-side .me { display: flex; align-items: center; gap: 11px; margin-top: auto;
+  padding: 16px 10px 4px; border-top: 1px solid var(--stone-200); font-size: 13.5px; }
+.b-side .me b { display: block; font-weight: 600; line-height: 1.3; }
+.b-side .me small { font-size: 11.5px; color: var(--stone-400); }
+.b-pane { padding: 34px 38px 40px; }
+.b-ph { display: flex; align-items: baseline; gap: 16px; margin-bottom: 32px; flex-wrap: wrap; }
+.b-ph h3 { margin: 0; font-size: 29px; font-weight: 700; letter-spacing: -0.03em; line-height: 1; }
+.b-cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(266px, 1fr)); gap: 18px; }
+.b-c { padding: 24px; border: 1px solid var(--stone-200); border-radius: 22px; background: var(--stone-50); }
+.b-c.wide { grid-column: 1 / -1; }
+.b-c > h4 { display: flex; align-items: center; gap: 12px; margin: 0 0 18px;
+  font-size: 10.5px; font-weight: 600; letter-spacing: 0.16em; text-transform: uppercase;
+  color: var(--stone-400); }
+.b-c > h4 .t { flex: 1; }
+.b-btn { padding: 8px 15px; border: 1px solid var(--stone-200); border-radius: 11px;
+  background: var(--warm-white); font-family: inherit; font-size: 13px; font-weight: 600;
+  color: var(--ink); cursor: pointer; transition: .15s; }
+.b-btn:hover { border-color: var(--stone-300); background: var(--stone-100); }
+.b-btn.pri { border-color: transparent;
+  background: linear-gradient(180deg, var(--orange-bright), var(--orange));
+  color: #fff; box-shadow: inset 0 1px 0 rgba(255,255,255,.25); }
+.b-prof { display: flex; align-items: center; gap: 24px; flex-wrap: wrap; }
+.b-prof .id { flex: 1; min-width: 180px; }
+.b-prof .id b { display: block; font-size: 23px; font-weight: 700; letter-spacing: -0.024em; }
+.b-prof .id span { font-size: 14px; color: var(--stone-500); }
+.b-shot { position: relative; cursor: pointer; }
+.b-shot .cam { position: absolute; right: -1px; bottom: -1px; display: flex;
+  align-items: center; justify-content: center; width: 30px; height: 30px;
+  border: 3px solid var(--stone-50); border-radius: 50%;
+  background: linear-gradient(180deg, var(--orange-bright), var(--orange)); }
+.b-iph { position: relative; width: 234px; aspect-ratio: 9/19.5; flex-shrink: 0;
+  padding: 7px; border-radius: 30px;
+  background: linear-gradient(160deg, #3a3531, #161311);
+  box-shadow: 0 26px 50px -22px rgba(22,19,17,.45), inset 0 0 0 1.5px rgba(255,255,255,.14); }
+.b-iph::before { content: ""; position: absolute; top: 15px; left: 50%; z-index: 2;
+  width: 32%; height: 17px; transform: translateX(-50%); border-radius: 99px; background: #0b0908; }
+.b-scr { display: flex; flex-direction: column; width: 100%; height: 100%;
+  padding-top: 34px; border-radius: 23px; overflow: hidden;
+  background: var(--app-warm-white); font-family: var(--app-sans); }
+
+/* ===== système de l'app (tailwind.css : warm-white, stone, ios-orange,
+   cartes rounded-xl, boutons pill, timeline thread) — préfixe a- ===== */
+.a-top { display: flex; align-items: center; gap: 8px; padding: 2px 12px 9px;
+  border-bottom: 1px solid var(--stone-200); }
+.a-top .back { width: 7px; height: 7px; border-left: 2px solid var(--orange-dark);
+  border-bottom: 2px solid var(--orange-dark); transform: rotate(45deg); flex: none; }
+.a-top .ttl { flex: 1; min-width: 0; font-size: 13px; font-weight: 600;
+  letter-spacing: -0.01em; color: var(--stone-900); }
+.a-top .ro { font-size: 8px; font-weight: 600; letter-spacing: 0.1em;
+  text-transform: uppercase; color: var(--stone-400); }
+.a-bd { flex: 1; padding: 11px 12px; overflow: hidden; min-height: 0; }
+.a-bd * { min-width: 0; overflow-wrap: break-word; }
+.a-sect { font-size: 8.5px; font-weight: 600; letter-spacing: 0.12em;
+  text-transform: uppercase; color: var(--stone-400); margin: 0 0 7px; }
+.a-card { background: var(--app-warm-white); border: 1px solid var(--stone-200);
+  border-radius: 12px; padding: 11px; margin-bottom: 10px; }
+.a-card h4 { margin: 0 0 3px; font-size: 11.5px; font-weight: 600; color: var(--stone-900); }
+.a-card p { margin: 0; font-size: 10px; line-height: 1.45; color: var(--stone-700); }
+.a-meta { font-size: 8.5px; color: var(--stone-400); margin-top: 5px; }
+.a-row { display: flex; align-items: center; gap: 8px; }
+.a-row .b-av { width: 40px; height: 40px; font-size: 16px; }
+.a-row b { display: block; font-size: 11.5px; color: var(--stone-900); }
+.a-row small { font-size: 9px; color: var(--stone-400); }
+.a-badge { margin-left: auto; padding: 2.5px 8px; border-radius: 99px;
+  background: var(--orange-50); color: var(--orange-dark);
+  font-size: 8px; font-weight: 600; letter-spacing: 0.1em; text-transform: uppercase; }
+.a-dev { display: flex; align-items: center; gap: 7px; padding: 8px 0 0; font-size: 9.5px;
+  color: var(--stone-900); }
+.a-dev .dot { width: 5px; height: 5px; border-radius: 50%; background: var(--stone-900); }
+.a-dev small { margin-left: auto; color: var(--stone-400); font-size: 8.5px; }
+.a-pill { display: flex; align-items: center; justify-content: center; gap: 6px;
+  height: 34px; border-radius: 99px; background: var(--app-warm-white);
+  border: 1px solid oklch(0.6 0.22 50 / 0.25); color: var(--orange-dark);
+  font-size: 10px; font-weight: 500; }
+.a-pill.solid { background: linear-gradient(180deg, var(--orange-bright), var(--orange));
+  border-color: transparent; color: #fff; font-weight: 600; }
+.a-pill.danger { border-color: oklch(0.55 0.2 30 / 0.3); color: var(--ios-red); }
+.a-acts { display: flex; gap: 6px; margin-top: 9px; }
+.a-acts .a-pill { flex: 1; }
+/* timeline thread réelle : puce orange + trait vertical (detail.rs) */
+.a-node { display: flex; gap: 8px; padding-bottom: 10px; }
+.a-node .tl { display: flex; flex-direction: column; align-items: center; padding-top: 5px; }
+.a-node .tl .d { width: 8px; height: 8px; border-radius: 50%; background: var(--orange); }
+.a-node .tl .l { flex: 1; width: 1px; background: var(--stone-200); margin-top: 3px; }
+.a-node .c { flex: 1; min-width: 0; background: var(--app-warm-white);
+  border: 1px solid var(--stone-200); border-radius: 12px; padding: 9px;
+  overflow: hidden; }
+.a-node .hd { display: flex; justify-content: space-between; align-items: baseline;
+  gap: 6px; margin-bottom: 3px; }
+.a-node .hd h4 { margin: 0; font-size: 10.5px; font-weight: 500; color: var(--stone-900); }
+.a-node .hd span { font-size: 8.5px; color: var(--stone-400); flex: none; }
+.a-node .c p { margin: 0; font-size: 9.5px; line-height: 1.45; color: var(--stone-700); }
+.a-who { display: flex; align-items: center; gap: 5px; margin-top: 6px;
+  font-size: 8.5px; color: var(--stone-500); }
+.a-who .b-av { width: 15px; height: 15px; font-size: 7px; }
+.a-who b { color: var(--stone-700); font-weight: 600; font-size: 8.5px; }
+.a-who .mine { margin-left: auto; display: flex; gap: 8px; }
+.a-who .mine span { color: var(--orange-dark); font-weight: 600; }
+.a-who .mine .del { color: var(--ios-red); }
+.a-node.dead .c { background: var(--stone-50); border-style: dashed; }
+.a-node.dead .tl .d { background: var(--stone-300); }
+.a-tomb { display: flex; align-items: center; gap: 6px; font-size: 9.5px;
+  color: var(--stone-400); font-style: italic; }
+.a-sig { margin: 0 0 10px; padding: 8px 10px; border-radius: 12px;
+  background: var(--orange-50); border: 1px solid var(--orange-100);
+  font-size: 9px; line-height: 1.4; color: var(--orange-dark); }
+.a-prov { display: flex; align-items: center; gap: 7px; margin-top: 8px;
+  padding: 8px 9px; border: 1px solid var(--stone-200); border-radius: 12px;
+  background: var(--stone-50); font-size: 9px; color: var(--stone-600); }
+.a-prov .b-av { width: 18px; height: 18px; font-size: 8px; }
+.a-prov b { color: var(--stone-900); font-size: 9.5px; }
+.a-bar { margin-top: auto; display: flex; gap: 6px; padding: 8px 10px 12px;
+  border-top: 1px solid var(--stone-200); background: var(--app-warm-white); }
+.a-bar .a-pill { flex: 1; }
+.a-bar .a-pill.icon { flex: none; width: 34px; }
+
+/* ===== mise en page de la maquette (préfixe m-) ===== */
+.m-wrap { max-width: 1180px; margin: 0 auto; padding: 60px 28px 120px; }
+.m-hero { margin-bottom: 70px; }
+.m-hero h1 { margin: 0 0 10px; font-size: clamp(30px, 4vw, 44px); font-weight: 700;
+  letter-spacing: -0.03em; line-height: 1.05; }
+.m-hero p { margin: 0; max-width: 62ch; font-size: 15.5px; color: var(--stone-500); }
+.m-sec { margin: 90px 0 0; }
+.m-fig { display: flex; align-items: center; gap: 10px; margin-bottom: 8px;
+  font-size: 11px; font-weight: 600; letter-spacing: 0.16em; text-transform: uppercase;
+  color: var(--stone-400); }
+.m-fig::before { content: ""; width: 26px; height: 1px; background: var(--stone-300); }
+.m-sec h2 { margin: 0 0 8px; font-size: 26px; font-weight: 700; letter-spacing: -0.025em; }
+.m-sec > p.lead { margin: 0 0 30px; max-width: 68ch; font-size: 14.5px; color: var(--stone-500); }
+.m-note { margin-top: 14px; font-size: 13px; color: var(--stone-500); }
+.m-note b { color: var(--stone-700); }
+.m-field { display: grid; grid-template-columns: 1fr auto; gap: 8px 18px;
+  padding: 15px 0; border-bottom: 1px solid var(--stone-200); align-items: center; }
+.m-field:last-child { border-bottom: 0; padding-bottom: 4px; }
+.m-field .lb { font-size: 10.5px; font-weight: 600; letter-spacing: 0.14em;
+  text-transform: uppercase; color: var(--stone-400); grid-column: 1 / -1; }
+.m-field .val { font-size: 14.5px; font-weight: 500; color: var(--ink);
+  padding: 10px 13px; border: 1px solid var(--stone-200); border-radius: 11px;
+  background: var(--warm-white); min-width: 0; }
+.m-field .val.empty { color: var(--stone-400); font-weight: 400; }
+.m-pills { display: inline-flex; gap: 4px; padding: 3px; border: 1px solid var(--stone-200);
+  border-radius: 99px; background: var(--warm-white); }
+.m-pill { padding: 5px 12px; border: 0; border-radius: 99px; background: none;
+  font-family: inherit; font-size: 12px; font-weight: 600; color: var(--stone-500);
+  cursor: pointer; white-space: nowrap; }
+.m-pill.on { background: var(--orange-50); color: var(--orange-dark);
+  box-shadow: inset 0 0 0 1px var(--orange-100); }
+.m-pill.soon { color: var(--stone-300); cursor: default; }
+.m-pill.soon .tag { margin-left: 5px; font-size: 9px; font-weight: 600;
+  letter-spacing: 0.08em; text-transform: uppercase; color: var(--stone-400); }
+.m-legend { display: flex; gap: 22px; flex-wrap: wrap; margin-top: 18px;
+  font-size: 12.5px; color: var(--stone-500); }
+.m-legend b { color: var(--stone-700); font-weight: 600; }
+.m-phones { display: flex; gap: 40px; flex-wrap: wrap; align-items: flex-start; }
+.m-phone { display: flex; flex-direction: column; gap: 14px; }
+.m-phone .cap { max-width: 234px; font-size: 12.5px; color: var(--stone-500); }
+.m-phone .cap b { display: block; color: var(--stone-700); font-size: 13px; }
+.m-rules { margin: 26px 0 0; padding: 22px; border: 1px solid var(--stone-200);
+  border-radius: 18px; background: var(--stone-50); max-width: 640px; }
+.m-rules h5 { margin: 0 0 10px; font-size: 14.5px; font-weight: 700; }
+.m-rules ol { margin: 0; padding-left: 18px; font-size: 13.5px; color: var(--stone-600); }
+.m-rules li { margin: 5px 0; }
+.m-rules b { color: var(--stone-900); }
+</style>
+</head>
+<body>
+<div class="m-wrap">
+
+  <div class="m-hero">
+    <div class="m-fig">Maquette T01 v2 · proposal 0001 · à valider avant tout code</div>
+    <h1>Profils de personne &amp; notes partagées</h1>
+    <p>Site = tokens et classes réels d'account.flowflow.be. Écrans
+    téléphone = design system réel de l'app (police système, cartes
+    rounded-xl, timeline thread, boutons pill). Toutes les chaînes sont
+    i18n EN/FR : account.json côté site, t() côté app ; le site est
+    montré en EN, l'app en FR. Lecture web publique écartée en v1
+    (Q3 : app-only).</p>
+  </div>
+
+  <!-- ============ 1. PANE PROFILE ============ -->
+  <div class="m-sec">
+    <div class="m-fig">1 · account.flowflow.be · EN (i18n account.json)</div>
+    <h2>Pane Profile</h2>
+    <p class="lead">Sixième pane, groupe Account. La photo se change en
+    cliquant sur l'avatar (badge caméra), pas de champ dédié : elle est
+    servie avec le nom quand une note est partagée. Chaque champ texte
+    porte son pill de visibilité ; Groups est visible mais inerte en v1.</p>
+
+    <div class="b-app">
+      <aside class="b-side">
+        <div class="sb"><img src="../../../../account/public/logo.png" alt="" width="26" height="26" /> FlowFlow</div>
+        <button class="b-item" type="button">Overview</button>
+        <div class="grp">Account</div>
+        <button class="b-item on" type="button">Profile</button>
+        <button class="b-item" type="button">Devices</button>
+        <button class="b-item" type="button">Services</button>
+        <div class="grp">Settings</div>
+        <button class="b-item" type="button">Subscription</button>
+        <button class="b-item" type="button">Security</button>
+        <div class="me">
+          <span class="b-av me acct-av" style="width:34px;height:34px;font-size:15px">
+            <svg viewBox="0 0 40 40" xmlns="http://www.w3.org/2000/svg"><rect width="40" height="40" fill="oklch(0.92 0.07 50)"/><circle cx="20" cy="15" r="7" fill="oklch(0.48 0.16 50)"/><path d="M6 40c0-8 6-13 14-13s14 5 14 13" fill="oklch(0.48 0.16 50)"/></svg>
+          </span>
+          <div><b>Mirko Bozzetto</b><small>mirko@flowflow.be</small></div>
+        </div>
+      </aside>
+
+      <div>
+        <div class="b-pane">
+          <div class="b-ph"><h3>Profile</h3></div>
+          <div class="b-cards">
+
+            <div class="b-c wide">
+              <div class="b-prof">
+                <span class="b-shot" title="Change photo">
+                  <span class="b-av acct-av" style="width:72px;height:72px;font-size:30px">
+                    <svg viewBox="0 0 40 40" xmlns="http://www.w3.org/2000/svg"><rect width="40" height="40" fill="oklch(0.92 0.07 50)"/><circle cx="20" cy="15" r="7" fill="oklch(0.48 0.16 50)"/><path d="M6 40c0-8 6-13 14-13s14 5 14 13" fill="oklch(0.48 0.16 50)"/></svg>
+                  </span>
+                  <span class="cam">
+                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>
+                  </span>
+                </span>
+                <div class="id">
+                  <b>Mirko Bozzetto</b>
+                  <span>mirko@flowflow.be</span>
+                </div>
+              </div>
+              <div class="m-note"><b>Tap the avatar to change the photo.</b>
+              JPEG, PNG or WebP · 256 KB max · shown with your name on
+              shared notes.</div>
+            </div>
+
+            <div class="b-c wide">
+              <h4><span class="t">Identity</span></h4>
+
+              <div class="m-field">
+                <span class="lb">Display name</span>
+                <span class="val">Mirko Bozzetto</span>
+                <span class="m-pills">
+                  <button class="m-pill" type="button">Private</button>
+                  <button class="m-pill soon" type="button">Groups<span class="tag">soon</span></button>
+                  <button class="m-pill on" type="button">Public</button>
+                </span>
+              </div>
+
+              <div class="m-field">
+                <span class="lb">Bio</span>
+                <span class="val">Full-stack developer, Brussels. Rust,
+                voice notes, local-first.</span>
+                <span class="m-pills">
+                  <button class="m-pill" type="button">Private</button>
+                  <button class="m-pill soon on" type="button">Groups<span class="tag">soon</span></button>
+                  <button class="m-pill" type="button">Public</button>
+                </span>
+              </div>
+
+              <div class="m-field">
+                <span class="lb">Public email</span>
+                <span class="val">hello@flowflow.be</span>
+                <span class="m-pills">
+                  <button class="m-pill on" type="button">Private</button>
+                  <button class="m-pill soon" type="button">Groups<span class="tag">soon</span></button>
+                  <button class="m-pill" type="button">Public</button>
+                </span>
+              </div>
+
+              <div class="m-field">
+                <span class="lb">Website</span>
+                <span class="val">mirkobozzetto.com</span>
+                <span class="m-pills">
+                  <button class="m-pill" type="button">Private</button>
+                  <button class="m-pill soon" type="button">Groups<span class="tag">soon</span></button>
+                  <button class="m-pill on" type="button">Public</button>
+                </span>
+              </div>
+
+              <div class="m-field">
+                <span class="lb">X</span>
+                <span class="val">@mirkobzz</span>
+                <span class="m-pills">
+                  <button class="m-pill" type="button">Private</button>
+                  <button class="m-pill soon" type="button">Groups<span class="tag">soon</span></button>
+                  <button class="m-pill on" type="button">Public</button>
+                </span>
+              </div>
+
+              <div class="m-field">
+                <span class="lb">LinkedIn</span>
+                <span class="val">in/mirkobozzetto</span>
+                <span class="m-pills">
+                  <button class="m-pill on" type="button">Private</button>
+                  <button class="m-pill soon" type="button">Groups<span class="tag">soon</span></button>
+                  <button class="m-pill" type="button">Public</button>
+                </span>
+              </div>
+
+              <div class="m-field">
+                <span class="lb">Instagram</span>
+                <span class="val empty">Not set</span>
+                <span class="m-pills">
+                  <button class="m-pill on" type="button">Private</button>
+                  <button class="m-pill soon" type="button">Groups<span class="tag">soon</span></button>
+                  <button class="m-pill" type="button">Public</button>
+                </span>
+              </div>
+
+              <div style="display:flex;justify-content:flex-end;margin-top:20px">
+                <button class="b-btn pri" type="button">Save changes</button>
+              </div>
+            </div>
+
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="m-legend">
+      <span><b>Private</b> · visible par vous seul</span>
+      <span><b>Groups</b> · inerte en v1, s'allume avec les shared folders</span>
+      <span><b>Public</b> · servi avec vos notes partagées (nom + photo)</span>
+      <span><b>i18n</b> · toutes les chaînes dans account.json EN/FR</span>
+    </div>
+  </div>
+
+  <!-- ============ 2. AVATAR DANS L'APP ============ -->
+  <div class="m-sec">
+    <div class="m-fig">2 · app iOS · Réglages · FR (i18n t())</div>
+    <h2>La photo remplace le monogramme</h2>
+    <p class="lead">Carte compte des réglages, design system de l'app :
+    police système, cartes rounded-xl, bordures stone-200, fond
+    warm-white. Photo téléchargée par hash, cache local, repli
+    monogramme.</p>
+
+    <div class="m-phones">
+      <div class="m-phone">
+        <div class="b-iph"><div class="b-scr">
+          <div class="a-top"><span class="back"></span>
+            <span class="ttl">Réglages</span></div>
+          <div class="a-bd">
+            <div class="a-sect">Compte</div>
+            <div class="a-card">
+              <div class="a-row">
+                <span class="b-av me acct-av">
+                  <svg viewBox="0 0 40 40" xmlns="http://www.w3.org/2000/svg"><rect width="40" height="40" fill="oklch(0.92 0.07 50)"/><circle cx="20" cy="15" r="7" fill="oklch(0.48 0.16 50)"/><path d="M6 40c0-8 6-13 14-13s14 5 14 13" fill="oklch(0.48 0.16 50)"/></svg>
+                </span>
+                <div><b>Mirko Bozzetto</b><small>mirko@flowflow.be</small></div>
+                <span class="a-badge">Premium</span>
+              </div>
+              <div class="a-dev"><span class="dot"></span> iPhone de Mirko <small>cet appareil</small></div>
+              <div class="a-dev"><span class="dot" style="background:var(--stone-300)"></span> MacBook Pro <small>il y a 2 h</small></div>
+            </div>
+            <div class="a-sect" style="margin-top:14px">Intelligence</div>
+            <div class="a-card" style="opacity:.45">
+              <div class="a-dev" style="padding-top:0"><span class="dot"></span> Fournisseur <small>OpenAI</small></div>
+              <div class="a-dev"><span class="dot"></span> Transcription <small>Whisper local</small></div>
+            </div>
+          </div>
+        </div></div>
+        <div class="cap"><b>Avec photo</b>Anneau orange conservé, photo
+        dans le cercle, zone tactile 44 px.</div>
+      </div>
+
+      <div class="m-phone">
+        <div class="b-iph"><div class="b-scr">
+          <div class="a-top"><span class="back"></span>
+            <span class="ttl">Réglages</span></div>
+          <div class="a-bd">
+            <div class="a-sect">Compte</div>
+            <div class="a-card">
+              <div class="a-row">
+                <span class="b-av me acct-av" style="font-size:16px">M</span>
+                <div><b>Mirko Bozzetto</b><small>mirko@flowflow.be</small></div>
+                <span class="a-badge">Premium</span>
+              </div>
+              <div class="a-dev"><span class="dot"></span> iPhone de Mirko <small>cet appareil</small></div>
+            </div>
+            <div class="a-sect" style="margin-top:14px">Compte non lié</div>
+            <div class="a-card" style="border-style:dashed">
+              <div class="a-dev" style="padding-top:0;color:var(--stone-500)">
+                Pas encore de profil · <span style="color:var(--orange-dark);font-weight:600">&nbsp;Lier mon compte →</span>
+              </div>
+            </div>
+          </div>
+        </div></div>
+        <div class="cap"><b>Replis</b>Monogramme sans photo ou hors
+        ligne ; compte non lié = chemin visible vers le link.</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============ 3. PARTAGER UNE NOTE ============ -->
+  <div class="m-sec">
+    <div class="m-fig">3 · app iOS · partage · FR</div>
+    <h2>Partager, lire, garder</h2>
+    <p class="lead">Partager rend un lien à copier : le code n'est jamais
+    montré, il vit dans le lien. Le lecteur ouvre le lien dans FlowFlow,
+    lit, et peut garder une copie avec provenance.</p>
+
+    <div class="m-phones">
+      <div class="m-phone">
+        <div class="b-iph"><div class="b-scr">
+          <div class="a-top"><span class="back"></span>
+            <span class="ttl">Note</span></div>
+          <div class="a-bd">
+            <div class="a-card" style="border:0;padding:0 0 4px">
+              <h4>Recette du levain maison</h4>
+              <p>Rafraîchir le levain matin et soir pendant cinq
+              jours. Farine T65, hydratation 80 %…</p>
+              <div class="a-meta">Note vocale · 21 août 2026</div>
+            </div>
+            <div class="a-card" style="background:var(--stone-50)">
+              <div class="a-sect" style="color:var(--orange-dark)">Partage actif · Premium</div>
+              <p style="font-size:9.5px;color:var(--stone-600)">Toute
+              personne avec le lien peut lire cette note dans FlowFlow.
+              Expire le 22 sept. 2026.</p>
+              <div class="a-acts">
+                <span class="a-pill solid">Copier le lien</span>
+                <span class="a-pill danger">Révoquer</span>
+              </div>
+            </div>
+          </div>
+        </div></div>
+        <div class="cap"><b>Auteur</b>Carte de partage sous la note.
+        Repartager remplace le lien ; supprimer la note propose la
+        révocation.</div>
+      </div>
+
+      <div class="m-phone">
+        <div class="b-iph"><div class="b-scr">
+          <div class="a-top"><span class="back"></span>
+            <span class="ttl">Note partagée</span>
+            <span class="ro">lecture seule</span></div>
+          <div class="a-bd">
+            <div class="a-card" style="border:0;padding:0 0 4px">
+              <h4>Recette du levain maison</h4>
+              <p>Rafraîchir le levain matin et soir pendant cinq
+              jours. Farine T65, hydratation 80 %…</p>
+            </div>
+            <div class="a-prov">
+              <span class="b-av acct-av">
+                <svg viewBox="0 0 40 40" xmlns="http://www.w3.org/2000/svg"><rect width="40" height="40" fill="oklch(0.92 0.07 50)"/><circle cx="20" cy="15" r="7" fill="oklch(0.48 0.16 50)"/><path d="M6 40c0-8 6-13 14-13s14 5 14 13" fill="oklch(0.48 0.16 50)"/></svg>
+              </span>
+              <span><b>Mirko Bozzetto</b> · partagée le 23 août 2026</span>
+            </div>
+            <div class="a-acts">
+              <span class="a-pill solid">Garder dans ma base</span>
+            </div>
+          </div>
+        </div></div>
+        <div class="cap"><b>Lecteur</b>L'auteur n'apparaît que via ses
+        champs marqués Public, sinon anonyme.</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============ 4. THREAD PARTAGÉ ============ -->
+  <div class="m-sec">
+    <div class="m-fig">4 · app iOS · thread partagé · FR</div>
+    <h2>Threads à plusieurs</h2>
+    <p class="lead">Le partage s'applique aussi aux threads de l'app :
+    chacun ajoute ses notes au fil, timeline réelle de l'app (puce
+    orange + trait). Chacun ne modifie et ne supprime que les siennes.
+    La suppression voyage par le backend : les téléphones s'alignent.</p>
+
+    <div class="m-phones">
+      <div class="m-phone">
+        <div class="b-iph"><div class="b-scr">
+          <div class="a-top"><span class="back"></span>
+            <span class="ttl">Levain &amp; fournées</span>
+            <span class="ro">partagé</span></div>
+          <div class="a-bd">
+            <div class="a-node">
+              <div class="tl"><span class="d"></span><span class="l"></span></div>
+              <div class="c">
+                <div class="hd"><h4>Recette du levain</h4><span>21 août</span></div>
+                <p>Rafraîchir matin et soir pendant cinq jours. Farine
+                T65, hydratation 80 %…</p>
+                <div class="a-who">
+                  <span class="b-av acct-av">
+                    <svg viewBox="0 0 40 40" xmlns="http://www.w3.org/2000/svg"><rect width="40" height="40" fill="oklch(0.92 0.07 50)"/><circle cx="20" cy="15" r="7" fill="oklch(0.48 0.16 50)"/><path d="M6 40c0-8 6-13 14-13s14 5 14 13" fill="oklch(0.48 0.16 50)"/></svg>
+                  </span>
+                  <b>Moi</b>
+                  <span class="mine"><span>Modifier</span><span class="del">Supprimer</span></span>
+                </div>
+              </div>
+            </div>
+            <div class="a-node">
+              <div class="tl"><span class="d"></span><span class="l"></span></div>
+              <div class="c">
+                <div class="hd"><h4>Première fournée</h4><span>22 août</span></div>
+                <p>Testé avec 20 % de seigle : la mie est plus serrée
+                mais le goût est superbe.</p>
+                <div class="a-who">
+                  <span class="b-av acct-av" style="background:var(--stone-100);color:var(--stone-500)">S</span>
+                  <b>Sophie</b>
+                </div>
+              </div>
+            </div>
+            <div class="a-node dead">
+              <div class="tl"><span class="d"></span><span class="l"></span></div>
+              <div class="c">
+                <div class="a-tomb">
+                  <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M3 6h18M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2m3 0v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"/></svg>
+                  Note supprimée par son auteur
+                </div>
+              </div>
+            </div>
+          </div>
+          <div class="a-bar">
+            <span class="a-pill">+ Ajouter une note</span>
+            <span class="a-pill icon">🎙</span>
+          </div>
+        </div></div>
+        <div class="cap"><b>Fil partagé</b>Mes notes portent Modifier /
+        Supprimer ; celles de Sophie sont en lecture. La note supprimée
+        laisse un signal dans le fil.</div>
+      </div>
+
+      <div class="m-phone">
+        <div class="b-iph"><div class="b-scr">
+          <div class="a-top"><span class="back"></span>
+            <span class="ttl">Levain &amp; fournées</span>
+            <span class="ro">partagé</span></div>
+          <div class="a-bd">
+            <div class="a-sig">Une note de ce fil a été supprimée par son
+            auteur. Elle vient d'être retirée de votre base de
+            connaissance.</div>
+            <div class="a-node">
+              <div class="tl"><span class="d"></span><span class="l"></span></div>
+              <div class="c">
+                <div class="hd"><h4>Recette du levain</h4><span>21 août</span></div>
+                <p>Rafraîchir matin et soir pendant cinq jours…</p>
+                <div class="a-who">
+                  <span class="b-av acct-av">
+                    <svg viewBox="0 0 40 40" xmlns="http://www.w3.org/2000/svg"><rect width="40" height="40" fill="oklch(0.92 0.07 50)"/><circle cx="20" cy="15" r="7" fill="oklch(0.48 0.16 50)"/><path d="M6 40c0-8 6-13 14-13s14 5 14 13" fill="oklch(0.48 0.16 50)"/></svg>
+                  </span>
+                  <b>Mirko</b>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div></div>
+        <div class="cap"><b>Côté lecteur</b>Le backend signale la
+        suppression ; le téléphone retire la note (et son embedding)
+        pour rester aligné.</div>
+      </div>
+    </div>
+
+    <div class="m-rules">
+      <h5>Règles de vie du contenu partagé</h5>
+      <ol>
+        <li>Chacun ne <b>modifie ou supprime que ses propres notes</b>
+        dans un fil partagé.</li>
+        <li>Supprimer sa note émet un <b>signal via le backend</b> :
+        chaque téléphone la retire de sa base de connaissance
+        (embeddings compris) pour s'aligner.</li>
+        <li>Supprimer son <b>compte</b> ne supprime pas ses notes
+        partagées : elles restent dans les fils.</li>
+        <li>« <b>Supprimer mes notes</b> » les efface partout, chez tous
+        les lecteurs ; à faire <b>avant</b> de supprimer le compte.</li>
+      </ol>
+    </div>
+
+    <div class="m-note"><b>Lecture web publique : écartée en v1</b>
+    (Q3 = app-only). Le lien ne s'ouvre que dans FlowFlow tant que le
+    cadrage n'est pas mûr.</div>
+  </div>
+
+</div>
+</body>
+</html>

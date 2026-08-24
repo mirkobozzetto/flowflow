@@ -171,6 +171,78 @@ pub fn use_record_deeplink_watcher(
     });
 }
 
+/// A tapped share link (flowflow://share/{code}) opens the read-only view.
+/// Same mailbox as the record deep link, scoped by prefix.
+pub fn use_share_deeplink_watcher(app: AppState, db: Signal<Arc<Database>>) {
+    use crate::domain::share::{parse_share_link, SHARE_LINK_PREFIX};
+    use crate::domain::space::{parse_space_link, SPACE_LINK_PREFIX};
+    use_future(move || {
+        let mut app = app;
+        async move {
+            loop {
+                if let Some(uri) =
+                    crate::infrastructure::sync::deeplink::take_matching(
+                        SHARE_LINK_PREFIX,
+                    )
+                {
+                    if let Some(code) = parse_share_link(&uri) {
+                        app.previous_view.set(Some(View::NotesList));
+                        app.view.set(View::SharedView {
+                            code: code.to_string(),
+                        });
+                    }
+                }
+                // A space link JOINS instead of opening a snapshot: tapping an
+                // invite in a message is the whole onboarding path.
+                if let Some(uri) =
+                    crate::infrastructure::sync::deeplink::take_matching(
+                        SPACE_LINK_PREFIX,
+                    )
+                {
+                    if let Some(code) = parse_space_link(&uri) {
+                        match crate::application::space::join(&db(), code).await
+                        {
+                            Ok(_) => {
+                                app.folders_version
+                                    .set((app.folders_version)() + 1);
+                                app.notes_version
+                                    .set((app.notes_version)() + 1);
+                            }
+                            Err(e) => eprintln!("[space] join deeplink: {e}"),
+                        }
+                    }
+                }
+                futures_timer::Delay::new(std::time::Duration::from_millis(
+                    500,
+                ))
+                .await;
+            }
+        }
+    });
+}
+
+/// One deletion-alignment pass at boot (proposal 0001, lifecycle rule 3):
+/// kept notes whose author deleted the original are removed (note +
+/// embeddings); dead shares grey their provenance out. Cheap when the device
+/// holds no kept content; network errors change nothing.
+pub fn use_share_align_watcher(app: AppState, db: Signal<Arc<Database>>) {
+    use_future(move || {
+        let mut app = app;
+        async move {
+            let database = db();
+            if database.all_provenance_codes().is_empty() {
+                return;
+            }
+            let events =
+                crate::application::sharing::align_kept_content(&database)
+                    .await;
+            if !events.is_empty() {
+                app.notes_version.set((app.notes_version)() + 1);
+            }
+        }
+    });
+}
+
 /// Drain the share-extension inbox (app group): shared text/URLs become
 /// notes, shared documents ride the attachment pipeline. Cheap poll - the
 /// directory is empty or absent almost always.
@@ -214,6 +286,32 @@ pub fn use_share_inbox_watcher(app: AppState, db: Signal<Arc<Database>>) {
                     2000,
                 ))
                 .await;
+            }
+        }
+    });
+}
+
+/// Keep joined spaces fresh (proposal 0002 T13). The 30 s floor lives in
+/// `pull_all_due`, so this loop only decides how often to ASK; a device with no
+/// space does no work at all, and a pull with nothing to report costs one round
+/// trip, not a transfer.
+pub fn use_space_pull_watcher(app: AppState, db: Signal<Arc<Database>>) {
+    use_future(move || {
+        let mut app = app;
+        async move {
+            loop {
+                let database = db();
+                if !database.list_spaces().unwrap_or_default().is_empty() {
+                    let changed =
+                        crate::application::space::pull_all_due(&database)
+                            .await;
+                    if changed > 0 {
+                        app.notes_version.set((app.notes_version)() + 1);
+                        app.folders_version.set((app.folders_version)() + 1);
+                    }
+                }
+                futures_timer::Delay::new(std::time::Duration::from_secs(30))
+                    .await;
             }
         }
     });

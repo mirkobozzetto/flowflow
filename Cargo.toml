@@ -75,3 +75,17 @@ mobile = ["dioxus/mobile"]
 
 [dev-dependencies]
 tempfile = "3.27.0"
+
+# Two settings that cut the tail of every debug build, where it drags the
+# longest. line-tables-only keeps backtraces readable while handing the linker
+# far fewer symbols, and unpacked debuginfo skips dsymutil, the single-threaded
+# macOS step that keeps one core pinned long after the rest are done.
+[profile.dev]
+debug = "line-tables-only"
+split-debuginfo = "unpacked"
+
+# Dependencies compile once and stay cached, so optimising them costs a single
+# build and speeds every debug run afterwards. The crate itself stays at
+# opt-level 0, which is what keeps the edit-compile loop short.
+[profile.dev.package."*"]
+opt-level = 2

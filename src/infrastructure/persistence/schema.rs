@@ -23,7 +23,92 @@ pub const MIGRATIONS: &[(i64, &str)] = &[
     (22, V22_SCHEMA),
     (23, V23_SCHEMA),
     (24, V24_SCHEMA),
+    (25, V25_SCHEMA),
+    (26, V26_SCHEMA),
 ];
+
+// Collaborative spaces (proposal 0002). `spaces` is the per-device pull cursor
+// for a space the user joined, `pending_purge` the replayable intent to drop a
+// note's vectors from LanceDB. Both are DEVICE-LOCAL: absent from
+// sync/protocol/catalog.rs, so no trigger is generated and they never reach the
+// wire. A cursor is meaningless on another device, and a purge intent belongs to
+// whichever device still holds the vector.
+//
+// The columns added to `folders` and `notes` DO travel (declared in catalog.rs):
+// a space folder must look the same on every device of one account. `mode` is
+// the DECLARED mode; the effective mode is resolved by walking the ancestor
+// chain, never stored. NO foreign key to `spaces`, same trap as V20/V25: the
+// sync applier upserts with INSERT OR REPLACE and a cascade would wipe the rows
+// on every peer echo. Cleanup is manual in the delete path.
+const V26_SCHEMA: &str = "
+CREATE TABLE IF NOT EXISTS spaces (
+    id TEXT PRIMARY KEY,
+    name TEXT NOT NULL,
+    is_owner INTEGER NOT NULL DEFAULT 0,
+    joined_at TEXT NOT NULL
+        DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')),
+    cursor INTEGER NOT NULL DEFAULT 0,
+    last_pull_at TEXT
+);
+
+CREATE TABLE IF NOT EXISTS pending_purge (
+    note_id TEXT NOT NULL,
+    kind TEXT NOT NULL DEFAULT 'note'
+        CHECK (kind IN ('note', 'attachment')),
+    queued_at TEXT NOT NULL
+        DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')),
+    PRIMARY KEY (note_id, kind)
+);
+
+ALTER TABLE folders ADD COLUMN space_id TEXT;
+ALTER TABLE folders ADD COLUMN remote_id TEXT;
+ALTER TABLE folders ADD COLUMN mode TEXT;
+
+ALTER TABLE notes ADD COLUMN space_id TEXT;
+ALTER TABLE notes ADD COLUMN remote_id TEXT;
+ALTER TABLE notes ADD COLUMN author_ref TEXT;
+
+CREATE INDEX IF NOT EXISTS idx_folders_space ON folders(space_id);
+CREATE INDEX IF NOT EXISTS idx_notes_space ON notes(space_id);
+CREATE INDEX IF NOT EXISTS idx_notes_remote ON notes(remote_id);
+CREATE INDEX IF NOT EXISTS idx_folders_remote ON folders(remote_id);
+";
+
+// Shared notes/threads (proposal 0001). note_shares = MY live publications,
+// keyed by the LOCAL source id (note or thread; republish replaces the row);
+// note_provenance = the frozen origin of a note KEPT from someone else's
+// share, keyed by the local note id, plus its alignment state ('live' aligns
+// with the backend, 'gone' greys the author out). Both travel in sync
+// (cluster devices see the same shares) and in backup. NO foreign key on
+// notes: the sync applier upserts notes with INSERT OR REPLACE, and an FK
+// cascade would wipe these rows every time a peer echoed a note update (same
+// trap documented on V20). Cleanup is manual in the note delete path. The PK
+// is named `id` because the sync catalog locates every non-link row by it.
+const V25_SCHEMA: &str = "
+CREATE TABLE IF NOT EXISTS note_shares (
+    id TEXT PRIMARY KEY,
+    kind TEXT NOT NULL CHECK (kind IN ('note', 'thread')),
+    code TEXT NOT NULL,
+    expires_at TEXT NOT NULL,
+    created_at TEXT NOT NULL
+        DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')),
+    modified_at TEXT NOT NULL
+        DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now'))
+);
+
+CREATE TABLE IF NOT EXISTS note_provenance (
+    id TEXT PRIMARY KEY,
+    share_code TEXT NOT NULL,
+    remote_note_id TEXT NOT NULL,
+    author_name TEXT,
+    captured_at TEXT NOT NULL
+        DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')),
+    state TEXT NOT NULL DEFAULT 'live'
+        CHECK (state IN ('live', 'gone')),
+    modified_at TEXT NOT NULL
+        DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now'))
+);
+";
 
 // Human-readable peer label exchanged in the sync HELLO (protocol v4). A
 // label for the pairing UI and author chips, never an identity: authorization

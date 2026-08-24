@@ -75,6 +75,30 @@ pub fn use_save_on_drop(
                     saved_created_at,
                 );
                 engine.peek().schedule_debounced();
+                // A note saved into a shared theme has to reach the space too,
+                // otherwise it stays local and no member ever sees it. Detached
+                // because this runs on unmount: no async context survives here.
+                let space_note = id.clone();
+                std::thread::spawn(move || {
+                    let rt = tokio::runtime::Runtime::new().unwrap();
+                    rt.block_on(async move {
+                        let Ok(database) =
+                            crate::infrastructure::persistence::Database::open(
+                            )
+                        else {
+                            return;
+                        };
+                        if let Err(e) =
+                            crate::application::space::publish_local_note(
+                                &database,
+                                &space_note,
+                            )
+                            .await
+                        {
+                            eprintln!("[space] publish {space_note}: {e}");
+                        }
+                    });
+                });
             }
         }
     });

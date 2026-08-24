@@ -8,6 +8,7 @@ mod note_actions;
 pub(crate) mod note_tools_menu;
 mod related;
 mod reminders;
+pub(crate) mod share_section;
 mod tags;
 mod transcript_view;
 

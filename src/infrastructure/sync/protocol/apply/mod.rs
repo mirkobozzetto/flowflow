@@ -15,6 +15,15 @@ use std::collections::BTreeMap;
 
 mod archive;
 mod entity;
+
+pub(super) fn delete_entity_for_test(
+    conn: &Connection,
+    spec: &KindSpec,
+    entity_id: &str,
+) -> Result<(), SyncError> {
+    entity::delete_entity(conn, spec, entity_id, None)
+}
+
 mod hlc_guard;
 mod meta;
 mod reminders;

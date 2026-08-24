@@ -33,9 +33,11 @@ pub fn create_note(
     Some((created, audio_id))
 }
 
-/// Removes the note and everything only it owns: its audio files on disk and
-/// its vector chunks. Rows that cascade (attachments, reminders) are left to
-/// SQLite. Sync scheduling stays with the caller, which owns the session.
+/// Removes the note and everything only it owns: its audio files on disk, its
+/// vector chunks, and its share/provenance rows (FK-free by design, so they
+/// need explicit cleanup). Rows that cascade (attachments, reminders) are
+/// left to SQLite. Sync scheduling stays with the caller, which owns the
+/// session; proposing a share revoke is the UI's job before calling this.
 pub fn delete_note(db: &Database, id: &str) {
     for audio in db.list_audios(id).unwrap_or_default() {
         let path =
@@ -43,7 +45,11 @@ pub fn delete_note(db: &Database, id: &str) {
         let _ = std::fs::remove_file(path);
     }
     let _ = db.delete_note(id);
-    crate::application::embed::delete_note_embeddings(id.to_string());
+    let _ = db.delete_provenance(id);
+    if db.get_share(id).is_some() {
+        let _ = db.delete_share(id);
+    }
+    crate::application::embed::delete_note_embeddings(db, id);
 }
 
 pub fn update_note(

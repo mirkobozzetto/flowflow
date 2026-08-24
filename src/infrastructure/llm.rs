@@ -115,7 +115,7 @@ impl LlmClient {
         let openai_key = db
             .get_setting("openai_api_key")
             .or_else(|| std::env::var("OPENAI_API_KEY").ok())
-            .or_else(|| option_env!("OPENAI_API_KEY").map(String::from))
+            .or_else(|| crate::baked_key!("OPENAI_API_KEY"))
             .unwrap_or_default();
         if openai_key.is_empty() || openai_key == "your_key_here" {
             return Err(LlmError::NotConfigured(crate::application::i18n::t(
@@ -135,7 +135,7 @@ impl LlmClient {
             let key = db
                 .get_setting("anthropic_api_key")
                 .or_else(|| std::env::var("ANTHROPIC_API_KEY").ok())
-                .or_else(|| option_env!("ANTHROPIC_API_KEY").map(String::from))
+                .or_else(|| crate::baked_key!("ANTHROPIC_API_KEY"))
                 .unwrap_or_default();
             if key.is_empty() || key == "your_key_here" {
                 return Err(LlmError::NotConfigured(
