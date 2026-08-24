@@ -59,6 +59,9 @@ pub async fn pull_space(
         outcome.removed += applied.removed;
         db.set_space_cursor(space_id, next)
             .map_err(SpaceError::Other)?;
+        // A pull is where deletions land, so it is where the vector purge has
+        // to be finished, not merely started.
+        crate::application::embed::drain_purges().await;
         if !more {
             return Ok(outcome);
         }

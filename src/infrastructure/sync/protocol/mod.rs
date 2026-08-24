@@ -19,6 +19,19 @@ pub const DEFAULT_BATCH_ROWS: usize = 100;
 // an unknown column, so the gate moves again.
 pub const PROTOCOL_VERSION: i64 = 5;
 
+/// The applier's entity delete, exposed for the test that guards the vector
+/// purge it queues. Nothing in the app calls it directly: a real deletion
+/// arrives inside a session, wrapped in meta and conflict handling.
+pub fn apply_entity_delete_for_test(
+    conn: &rusqlite::Connection,
+    kind: &str,
+    entity_id: &str,
+) -> Result<(), SyncError> {
+    let spec = catalog::spec_for(kind)
+        .ok_or_else(|| proto_err(format!("unknown kind {kind}")))?;
+    apply::delete_entity_for_test(conn, spec, entity_id)
+}
+
 // Catalog columns per entity kind, for the tests that guard what travels: a
 // column absent from the fixed `cols` list never reaches another device.
 pub fn synced_columns(

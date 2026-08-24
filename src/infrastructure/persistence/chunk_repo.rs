@@ -185,4 +185,61 @@ impl Database {
         }
         Ok(out)
     }
+
+    // ---- vector purge queue (proposal 0002 T11) ----
+    //
+    // SQLite and LanceDB are two stores with no shared transaction. Deleting a
+    // note removes the SQLite row instantly, while the vector delete can fail
+    // (store closed, busy, mid-restore) - and a vector without its note is a
+    // note that still answers in chat after being deleted. The queue holds the
+    // INTENT until the vector store confirms, so the purge is replayable
+    // instead of best-effort.
+
+    pub fn queue_purge(
+        &self,
+        owner_id: &str,
+        kind: &str,
+    ) -> Result<(), String> {
+        self.conn()
+            .execute(
+                "INSERT OR IGNORE INTO pending_purge (note_id, kind)
+                 VALUES (?1, ?2)",
+                rusqlite::params![owner_id, kind],
+            )
+            .map_err(|e| format!("Queue purge: {e}"))?;
+        Ok(())
+    }
+
+    pub fn pending_purges(&self) -> Result<Vec<(String, String)>, String> {
+        let conn = self.conn();
+        let mut stmt = conn
+            .prepare(
+                "SELECT note_id, kind FROM pending_purge
+                 ORDER BY queued_at ASC",
+            )
+            .map_err(|e| format!("Prepare: {e}"))?;
+        let rows = stmt
+            .query_map([], |r| Ok((r.get(0)?, r.get(1)?)))
+            .map_err(|e| format!("Query purges: {e}"))?;
+        let mut out = Vec::new();
+        for r in rows {
+            out.push(r.map_err(|e| format!("Purge row: {e}"))?);
+        }
+        Ok(out)
+    }
+
+    /// Only ever called after the vector store confirmed the delete.
+    pub fn clear_purge(
+        &self,
+        owner_id: &str,
+        kind: &str,
+    ) -> Result<(), String> {
+        self.conn()
+            .execute(
+                "DELETE FROM pending_purge WHERE note_id = ?1 AND kind = ?2",
+                rusqlite::params![owner_id, kind],
+            )
+            .map_err(|e| format!("Clear purge: {e}"))?;
+        Ok(())
+    }
 }
