@@ -2,13 +2,13 @@
 proposal_id: "0001"
 slug: "person-profiles-avatar-identity-public-note-snapshots"
 title: "Person profiles: avatar, identity fields, public note snapshots"
-status: Accepted
+status: shipped
 format: full
 author: "Mirko Bozzetto"
 created: "2026-08-23"
 updated: "2026-08-23"
 finalized: "2026-08-23"
-next_action: "Maquette HTML (T01, porte) puis profils + snapshots v1 sur les 2 repos"
+next_action: "Shipped 2026-08-23: profiles + shared notes/threads on backend, site, admin and app (dev 559f3f0). Follow-ups: marketplace-flowflow#88 (shared folders + universal https link)."
 resume_cmd: "/ship docs/proposals/0001-person-profiles-avatar-identity-public-note-snapshots/PROPOSAL.md"
 stepsCompleted: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9]
 tasks_count: 18
