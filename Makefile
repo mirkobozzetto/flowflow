@@ -116,6 +116,12 @@ desktop-build: js desktop-toml
 	$(call patch-desktop-plist,target/dx/flowflow/debug/macos/Flowflow.app/Contents/Info.plist)
 	codesign --force --deep --sign - target/dx/flowflow/debug/macos/Flowflow.app
 
+# Second Mac instance on its own store, so it registers as a different device
+# on a different account. What two-account testing needs, without erasing the
+# real one. Build with desktop-app first.
+tester:
+	bash scripts/tester-app.sh
+
 # Standalone Mac app: release build installed in /Applications, runs without
 # any dev server. Data lives in ~/Library/Application Support/FlowFlow.
 desktop-app: js desktop-toml
