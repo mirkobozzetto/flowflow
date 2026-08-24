@@ -55,7 +55,7 @@ pub fn App() -> Element {
     use_share_inbox_watcher(app, db);
     use_share_align_watcher(app, db);
     use_space_pull_watcher(app, db);
-    use_share_deeplink_watcher(app);
+    use_share_deeplink_watcher(app, db);
 
     #[cfg(target_os = "macos")]
     keyboard::use_macos_shortcuts(app);

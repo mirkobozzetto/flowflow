@@ -20,6 +20,28 @@ pub struct Space {
     pub last_pull_at: Option<String>,
 }
 
+// The deep-link scheme a space invite travels in: flowflow://space/{code}.
+// Same shape as a share link, a different verb: opening one JOINS a live
+// space, it does not open a read-only snapshot.
+pub const SPACE_LINK_PREFIX: &str = "flowflow://space/";
+
+pub fn space_link(code: &str) -> String {
+    format!("{SPACE_LINK_PREFIX}{code}")
+}
+
+/// Accept the full link OR the bare code: a code pasted from a chat message
+/// without its prefix is the same intent, and refusing it teaches nothing.
+pub fn parse_space_link(link: &str) -> Option<&str> {
+    let raw = link.trim();
+    let code = raw.strip_prefix(SPACE_LINK_PREFIX).unwrap_or(raw);
+    let plausible = !code.is_empty()
+        && code.len() <= 64
+        && code
+            .chars()
+            .all(|c| c.is_ascii_alphanumeric() || c == '-' || c == '_');
+    plausible.then_some(code)
+}
+
 /// Shortest gap between two pulls of the same space. Freshness is paid in
 /// deltas, not in polling: a pull with nothing to report still costs a round
 /// trip, and the server refuses a faster caller anyway.

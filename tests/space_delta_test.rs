@@ -317,3 +317,23 @@ fn the_ui_reads_the_same_right_the_server_enforces() {
         .unwrap();
     assert_eq!(folder_right(&db, &plain.id), FolderRight::Local);
 }
+
+// ---- invite links ----
+
+#[test]
+fn a_space_link_is_accepted_with_or_without_its_prefix() {
+    use flowflow::domain::space::{parse_space_link, space_link};
+
+    let code = "Ab3-_xYz01234567";
+    let link = space_link(code);
+    assert_eq!(link, format!("flowflow://space/{code}"));
+    assert_eq!(parse_space_link(&link), Some(code));
+    // pasted bare out of a chat message: same intent, refusing it teaches
+    // nothing
+    assert_eq!(parse_space_link(code), Some(code));
+    assert_eq!(parse_space_link(&format!("  {link}  ")), Some(code));
+
+    // a share link is NOT a space link: it opens a snapshot, it does not join
+    assert_eq!(parse_space_link("flowflow://share/abc"), None);
+    assert_eq!(parse_space_link(""), None);
+}

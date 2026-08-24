@@ -4,12 +4,16 @@
 
 use crate::application::i18n::t;
 use crate::domain::share::parse_share_link;
+use crate::domain::space::parse_space_link;
+use crate::infrastructure::persistence::Database;
 use crate::ui::{AppState, View};
 use dioxus::prelude::*;
+use std::sync::Arc;
 
 #[component]
 pub fn OpenShareLink() -> Element {
     let mut app: AppState = use_context();
+    let db: Signal<Arc<Database>> = use_context();
     let lang = (app.current_lang)();
 
     let mut open = use_signal(|| false);
@@ -47,16 +51,37 @@ pub fn OpenShareLink() -> Element {
                         button {
                             class: "h-7 px-2.5 rounded-lg bg-ios-orange text-white text-[11px] font-medium",
                             onclick: move |_| {
-                                match parse_share_link(&input()) {
-                                    Some(code) => {
-                                        let code = code.to_string();
-                                        open.set(false);
-                                        input.set(String::new());
-                                        app.sidebar_open.set(false);
-                                        app.previous_view.set(Some(View::NotesList));
-                                        app.view.set(View::SharedView { code });
-                                    }
-                                    None => invalid.set(true),
+                                let raw = input();
+                                // A share link opens a read-only snapshot; a
+                                // space link JOINS a live space. Same field,
+                                // because the user pastes whatever they were
+                                // sent and should not have to know which.
+                                if let Some(code) = parse_share_link(&raw) {
+                                    let code = code.to_string();
+                                    open.set(false);
+                                    input.set(String::new());
+                                    app.sidebar_open.set(false);
+                                    app.previous_view.set(Some(View::NotesList));
+                                    app.view.set(View::SharedView { code });
+                                } else if let Some(code) = parse_space_link(&raw) {
+                                    let code = code.to_string();
+                                    open.set(false);
+                                    input.set(String::new());
+                                    app.sidebar_open.set(false);
+                                    spawn(async move {
+                                        match crate::application::space::join(&db(), &code).await {
+                                            Ok(_) => {
+                                                app.folders_version.set((app.folders_version)() + 1);
+                                                app.notes_version.set((app.notes_version)() + 1);
+                                            }
+                                            Err(e) => {
+                                                eprintln!("[space] join: {e}");
+                                                invalid.set(true);
+                                            }
+                                        }
+                                    });
+                                } else {
+                                    invalid.set(true);
                                 }
                             },
                             {t(&lang, "share-open-link")}

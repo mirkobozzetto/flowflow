@@ -173,8 +173,9 @@ pub fn use_record_deeplink_watcher(
 
 /// A tapped share link (flowflow://share/{code}) opens the read-only view.
 /// Same mailbox as the record deep link, scoped by prefix.
-pub fn use_share_deeplink_watcher(app: AppState) {
+pub fn use_share_deeplink_watcher(app: AppState, db: Signal<Arc<Database>>) {
     use crate::domain::share::{parse_share_link, SHARE_LINK_PREFIX};
+    use crate::domain::space::{parse_space_link, SPACE_LINK_PREFIX};
     use_future(move || {
         let mut app = app;
         async move {
@@ -189,6 +190,26 @@ pub fn use_share_deeplink_watcher(app: AppState) {
                         app.view.set(View::SharedView {
                             code: code.to_string(),
                         });
+                    }
+                }
+                // A space link JOINS instead of opening a snapshot: tapping an
+                // invite in a message is the whole onboarding path.
+                if let Some(uri) =
+                    crate::infrastructure::sync::deeplink::take_matching(
+                        SPACE_LINK_PREFIX,
+                    )
+                {
+                    if let Some(code) = parse_space_link(&uri) {
+                        match crate::application::space::join(&db(), code).await
+                        {
+                            Ok(_) => {
+                                app.folders_version
+                                    .set((app.folders_version)() + 1);
+                                app.notes_version
+                                    .set((app.notes_version)() + 1);
+                            }
+                            Err(e) => eprintln!("[space] join deeplink: {e}"),
+                        }
                     }
                 }
                 futures_timer::Delay::new(std::time::Duration::from_millis(

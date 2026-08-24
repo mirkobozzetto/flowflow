@@ -223,7 +223,11 @@ fn SpaceCard(
                             spawn(async move {
                                 let database = db();
                                 match space::invite(&database, &id).await {
-                                    Ok(code) => invite.set(Some(code)),
+                                    // the LINK, not the bare code: what gets
+                                    // pasted into a message has to be tappable
+                                    Ok(code) => invite.set(Some(
+                                        crate::domain::space::space_link(&code),
+                                    )),
                                     Err(e) => status.set(Some(e.to_string())),
                                 }
                             });
