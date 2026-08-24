@@ -599,6 +599,11 @@ impl Database {
             "conversations",
             "notes_folders",
             "chunks",
+            // Space rows survive nothing: a pull cursor left behind would make
+            // the next pull skip everything the wiped device never received,
+            // and a queued purge would name notes that no longer exist.
+            "spaces",
+            "pending_purge",
             "pending_transcriptions",
             "notes",
             "threads",
