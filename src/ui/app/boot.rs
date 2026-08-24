@@ -8,6 +8,10 @@ pub fn run_boot_effects(db: &std::sync::Arc<Database>) {
     }
     crate::application::backup::finalize_restore_bak();
     crate::infrastructure::sync::reconcile::run_boot_reconcile();
+    // Vectors whose note is already gone: a purge that failed on the last run
+    // (store closed, app killed mid-delete) finishes here, before anything can
+    // query the index.
+    crate::application::embed::drain_purges_detached();
     // Warm the plan cache off the boot path so the sync Hello can advertise
     // premium (RFC 0026) even before the account page was ever opened.
     let heal_db = db.clone();

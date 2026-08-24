@@ -49,7 +49,7 @@ pub fn delete_note(db: &Database, id: &str) {
     if db.get_share(id).is_some() {
         let _ = db.delete_share(id);
     }
-    crate::application::embed::delete_note_embeddings(id.to_string());
+    crate::application::embed::delete_note_embeddings(db, id);
 }
 
 pub fn update_note(

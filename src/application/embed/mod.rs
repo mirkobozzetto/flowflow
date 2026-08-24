@@ -210,17 +210,98 @@ pub(crate) async fn embed_missing_notes(
     embedded
 }
 
-pub fn delete_note_embeddings(note_id: String) {
+pub const PURGE_KIND_NOTE: &str = "note";
+pub const PURGE_KIND_ATTACHMENT: &str = "attachment";
+
+/// Queue a note's vectors for deletion and try to run the queue now.
+///
+/// Queueing FIRST is the whole point: the SQLite row is already gone by the
+/// time this runs, and a vector that outlives its note keeps answering in
+/// chat. If LanceDB is closed, busy or failing, the intent survives in
+/// `pending_purge` and the next drain finishes the job.
+pub fn delete_note_embeddings(
+    db: &crate::infrastructure::persistence::Database,
+    note_id: &str,
+) {
     log(&format!("embed delete for {note_id}"));
+    if let Err(e) = db.queue_purge(note_id, PURGE_KIND_NOTE) {
+        log(&format!("purge queue {note_id}: {e}"));
+    }
+    purge_vectors_now(note_id.to_string(), PURGE_KIND_NOTE);
+}
+
+/// Run the purge queue: at boot, and after every space pull. Returns how many
+/// entries the vector store confirmed, so a caller can log a stuck queue.
+pub async fn drain_purges() -> usize {
+    let Ok(db) = crate::infrastructure::persistence::Database::open() else {
+        return 0;
+    };
+    let pending = db.pending_purges().unwrap_or_default();
+    if pending.is_empty() {
+        return 0;
+    }
+    let store = match VectorStore::open().await {
+        Ok(s) => s,
+        // the queue is the point: leave every row, retry next drain
+        Err(e) => {
+            log(&format!("purge drain: store unavailable ({e})"));
+            return 0;
+        }
+    };
+    let mut done = 0usize;
+    for (owner_id, kind) in pending {
+        let res = if kind == PURGE_KIND_ATTACHMENT {
+            store.delete_attachment_chunks(&owner_id).await
+        } else {
+            store.delete_note_chunks(&owner_id).await
+        };
+        match res {
+            Ok(_) => {
+                let _ = db.clear_purge(&owner_id, &kind);
+                done += 1;
+            }
+            // NOT swallowed: the row stays queued and the failure is visible
+            Err(e) => log(&format!("purge {kind} {owner_id} failed: {e}")),
+        }
+    }
+    if done > 0 {
+        log(&format!("purge drain: {done} cleared"));
+    }
+    done
+}
+
+/// Fire-and-forget drain for callers with no async context. The QUEUE is what
+/// guarantees the work happens, not this call.
+pub fn drain_purges_detached() {
+    std::thread::spawn(move || {
+        let rt = tokio::runtime::Runtime::new().unwrap();
+        rt.block_on(drain_purges());
+    });
+}
+
+/// Best-effort immediate vector delete on the delete path, so a note stops
+/// answering in chat right away instead of at the next drain.
+///
+/// It deliberately does NOT open the database: a detached thread taking the
+/// app-wide connection on every deletion contends for the WAL with whatever
+/// the user is doing. The queued row is therefore left in place and cleared by
+/// the next real drain (boot, pull, reconcile), which re-runs a delete that is
+/// idempotent anyway.
+fn purge_vectors_now(owner_id: String, kind: &'static str) {
     std::thread::spawn(move || {
         let rt = tokio::runtime::Runtime::new().unwrap();
         rt.block_on(async move {
-            match VectorStore::open().await {
-                Ok(store) => {
-                    let _ = store.delete_note_chunks(&note_id).await;
-                    log(&format!("embed deleted {note_id}"));
-                }
-                Err(e) => log(&format!("embed delete error: {e}")),
+            let Ok(store) = VectorStore::open().await else {
+                return;
+            };
+            let res = if kind == PURGE_KIND_ATTACHMENT {
+                store.delete_attachment_chunks(&owner_id).await
+            } else {
+                store.delete_note_chunks(&owner_id).await
+            };
+            match res {
+                Ok(_) => log(&format!("embed deleted {owner_id}")),
+                Err(e) => log(&format!("embed delete {owner_id}: {e}")),
             }
         });
     });
@@ -297,19 +378,15 @@ pub fn embed_attachment(
     });
 }
 
-pub fn delete_attachment_embeddings(attachment_id: String) {
+/// Same replayable path as a note: an attachment's vectors outliving its row
+/// is the same defect, and it rides the same queue.
+pub fn delete_attachment_embeddings(
+    db: &crate::infrastructure::persistence::Database,
+    attachment_id: &str,
+) {
     log(&format!("embed delete attachment {attachment_id}"));
-    std::thread::spawn(move || {
-        let rt = tokio::runtime::Runtime::new().unwrap();
-        rt.block_on(async move {
-            match VectorStore::open().await {
-                Ok(store) => {
-                    let _ =
-                        store.delete_attachment_chunks(&attachment_id).await;
-                    log(&format!("embed deleted attachment {attachment_id}"));
-                }
-                Err(e) => log(&format!("embed delete attachment error: {e}")),
-            }
-        });
-    });
+    if let Err(e) = db.queue_purge(attachment_id, PURGE_KIND_ATTACHMENT) {
+        log(&format!("purge queue attachment {attachment_id}: {e}"));
+    }
+    purge_vectors_now(attachment_id.to_string(), PURGE_KIND_ATTACHMENT);
 }

@@ -1,11 +1,29 @@
+use crate::infrastructure::persistence::Database;
 use crate::ui::{AppState, View};
 use dioxus::prelude::*;
+use std::sync::Arc;
 
 #[component]
 pub fn FloatingActionButton() -> Element {
     let mut app: AppState = use_context();
+    let db: Signal<Arc<Database>> = use_context();
     let mut clicked = use_signal(|| false);
     let mut pressing = use_signal(|| false);
+
+    // No compose button on a theme this user cannot write to. The notes list
+    // says why, right above; an inert button with no reason would be worse.
+    let read_only = use_memo(move || {
+        let _v = (app.folders_version)();
+        matches!(
+            (app.selected_folder_id)().map(|fid| {
+                crate::application::space::folder_right(&db(), &fid)
+            }),
+            Some(crate::application::space::FolderRight::SpaceReadOnly)
+        )
+    });
+    if read_only() {
+        return rsx! {};
+    }
 
     rsx! {
         div { class: "fixed safe-bottom-6 right-4 z-20",

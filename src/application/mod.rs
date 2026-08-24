@@ -25,6 +25,7 @@ pub mod reminders;
 pub mod reminders_extract;
 pub mod share_inbox;
 pub mod sharing;
+pub mod space;
 pub mod tagging;
 pub mod titling;
 pub mod tools;
@@ -34,8 +35,8 @@ pub mod transcription_manager;
 pub mod web_search;
 
 pub use embed::{
-    delete_attachment_embeddings, delete_note_embeddings, embed_attachment,
-    embed_note,
+    delete_attachment_embeddings, delete_note_embeddings, drain_purges,
+    drain_purges_detached, embed_attachment, embed_note,
 };
 pub use error::LlmError;
 pub use rag::{RagResponse, RagSource};

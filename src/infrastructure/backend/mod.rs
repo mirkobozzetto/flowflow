@@ -6,6 +6,7 @@
 
 pub mod profile;
 pub mod shares;
+pub mod spaces;
 
 use crate::infrastructure::persistence::Database;
 use base64::engine::general_purpose::STANDARD as B64;

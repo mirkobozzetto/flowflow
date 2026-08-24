@@ -80,7 +80,7 @@ pub fn AttachmentSection(
                                             let db = db();
                                             let id = att_id_del.clone();
                                             let _ = db.delete_attachment(&id);
-                                            delete_attachment_embeddings(id);
+                                            delete_attachment_embeddings(&db, &id);
                                             confirm_delete_att.set(None);
                                             app.attachments_version.set((app.attachments_version)() + 1);
                                         },

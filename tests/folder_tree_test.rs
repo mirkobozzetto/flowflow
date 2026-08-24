@@ -13,6 +13,9 @@ fn folder(id: &str, name: &str, parent: Option<&str>) -> Folder {
         name: name.into(),
         description: None,
         parent_id: parent.map(String::from),
+        space_id: None,
+        remote_id: None,
+        mode: None,
         created_at: "2026-01-01T00:00:00Z".into(),
         modified_at: "2026-01-01T00:00:00Z".into(),
     }

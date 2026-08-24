@@ -262,6 +262,10 @@ pub fn spawn_reconcile_pass() {
             if let Err(e) = backfill_legacy_chunks(&db, &store).await {
                 eprintln!("[reconcile] backfill: {e}");
             }
+            // Deletions echoed by a peer only queued their vector purge (the
+            // applier has no LanceDB handle); clear the queue before
+            // reconciling, so nothing is re-embedded and then dropped.
+            crate::application::embed::drain_purges().await;
             crate::application::embed::embed_missing_notes(&db, &store).await;
             if let Err(e) = reconcile_once(&db, &store).await {
                 eprintln!("[reconcile] reconcile: {e}");

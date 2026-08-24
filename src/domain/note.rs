@@ -116,6 +116,16 @@ pub struct Note {
     // that never got backfilled and on notes from peers running older schemas.
     #[serde(default)]
     pub author_device: Option<String>,
+    // Space plane (proposal 0002). `space_id` is set on a note mirrored from a
+    // space, `author_ref` is the opaque handle of whoever wrote it there:
+    // enough to group and grey out an author, never enough to learn who they
+    // are. Both None on an ordinary local note.
+    #[serde(default)]
+    pub space_id: Option<String>,
+    #[serde(default)]
+    pub remote_id: Option<String>,
+    #[serde(default)]
+    pub author_ref: Option<String>,
     pub created_at: String,
     pub modified_at: String,
 }

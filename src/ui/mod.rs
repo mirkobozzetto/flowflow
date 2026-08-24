@@ -27,8 +27,8 @@ use app::{
     load_consent, load_lang, use_app_contexts, use_history_tracker,
     use_picker_reset_on_view, use_record_deeplink_watcher,
     use_share_align_watcher, use_share_deeplink_watcher,
-    use_share_inbox_watcher, use_sync_watcher, use_transcription_watcher,
-    AppContexts, AppRouter,
+    use_share_inbox_watcher, use_space_pull_watcher, use_sync_watcher,
+    use_transcription_watcher, AppContexts, AppRouter,
 };
 
 #[component]
@@ -54,7 +54,8 @@ pub fn App() -> Element {
     use_record_deeplink_watcher(app, recorder);
     use_share_inbox_watcher(app, db);
     use_share_align_watcher(app, db);
-    use_share_deeplink_watcher(app);
+    use_space_pull_watcher(app, db);
+    use_share_deeplink_watcher(app, db);
 
     #[cfg(target_os = "macos")]
     keyboard::use_macos_shortcuts(app);
