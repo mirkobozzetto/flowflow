@@ -13,6 +13,7 @@ pub mod pending_transcription_repo;
 mod schema;
 pub mod settings_repo;
 pub mod share_repo;
+pub mod space_repo;
 pub mod sync_meta;
 pub mod thread_repo;
 

@@ -44,9 +44,7 @@ const V26_SCHEMA: &str = "
 CREATE TABLE IF NOT EXISTS spaces (
     id TEXT PRIMARY KEY,
     name TEXT NOT NULL,
-    owner_ref TEXT,
-    mode TEXT NOT NULL DEFAULT 'collab'
-        CHECK (mode IN ('read', 'collab')),
+    is_owner INTEGER NOT NULL DEFAULT 0,
     joined_at TEXT NOT NULL
         DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')),
     cursor INTEGER NOT NULL DEFAULT 0,

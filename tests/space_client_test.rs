@@ -38,7 +38,10 @@ fn pull_response_carries_the_tree_the_cursor_and_the_tombstones() {
     assert_eq!(n.title, None, "a tombstone keeps its row, not its content");
     assert!(!n.own);
     assert_eq!(pull.next_seq, 5);
-    assert!(pull.more, "still catching up: pull again, skip the 30 s floor");
+    assert!(
+        pull.more,
+        "still catching up: pull again, skip the 30 s floor"
+    );
 }
 
 #[test]

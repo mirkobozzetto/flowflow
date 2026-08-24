@@ -81,7 +81,10 @@ fn space_columns_travel_and_cursors_do_not() {
     }
     let note = synced.get("note").expect("note kind");
     for col in ["space_id", "remote_id", "author_ref"] {
-        assert!(note.contains(&col), "note.{col} absent from the sync catalog");
+        assert!(
+            note.contains(&col),
+            "note.{col} absent from the sync catalog"
+        );
     }
 
     for kind in ["space", "spaces", "pending_purge"] {

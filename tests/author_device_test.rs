@@ -29,9 +29,24 @@ fn snapshot_meta(db: &Database) -> Vec<(String, String, String, String, i64)> {
 // pre-upgrade file.
 fn rewind_to_v22(db: &Database) {
     let conn = db.conn();
+    // Every migration from 23 up has to be undone, not just V23's column:
+    // deleting the records replays all of them, and an ALTER that re-adds an
+    // existing column fails the whole batch.
     conn.execute_batch(
         "ALTER TABLE notes DROP COLUMN author_device;
          ALTER TABLE sync_peers DROP COLUMN name;
+         DROP INDEX IF EXISTS idx_folders_space;
+         DROP INDEX IF EXISTS idx_notes_space;
+         DROP INDEX IF EXISTS idx_notes_remote;
+         DROP INDEX IF EXISTS idx_folders_remote;
+         ALTER TABLE folders DROP COLUMN space_id;
+         ALTER TABLE folders DROP COLUMN remote_id;
+         ALTER TABLE folders DROP COLUMN mode;
+         ALTER TABLE notes DROP COLUMN space_id;
+         ALTER TABLE notes DROP COLUMN remote_id;
+         ALTER TABLE notes DROP COLUMN author_ref;
+         DROP TABLE IF EXISTS spaces;
+         DROP TABLE IF EXISTS pending_purge;
          DELETE FROM _migrations WHERE version >= 23;",
     )
     .unwrap();
