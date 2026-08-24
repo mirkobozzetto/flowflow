@@ -11,8 +11,11 @@
 //     and the same embed pipeline, so it is searchable and usable in chat with
 //     no code of its own.
 
+mod adopt;
 mod pull;
 mod write;
+
+pub use adopt::share_existing_folder;
 
 pub use pull::{
     apply_delta, my_author_ref, pull_all_due, pull_if_due, pull_space,

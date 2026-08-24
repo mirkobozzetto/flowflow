@@ -523,3 +523,4 @@ space-leave-withdraw = Leave, withdraw my notes
 space-refresh = Refresh
 space-no-spaces = No space
 space-owner = Owner
+folder-menu-share = Share this theme

@@ -142,6 +142,8 @@ fn FolderItem(folder: Folder, depth: u32) -> Element {
     let folder_id_move_root = folder.id.clone();
     let folder_id_move_self = folder.id.clone();
     let folder_id_for_badge = folder.id.clone();
+    let folder_id_for_share = folder.id.clone();
+    let mut sharing = use_signal(|| false);
 
     // Whether this theme lives in a shared space, and whether the user may add
     // notes to it. Same call the compose button uses, so the badge never
@@ -402,6 +404,35 @@ fn FolderItem(folder: Folder, depth: u32) -> Element {
                                     onclick: move |_| moving.set(true),
                                     IconArrowUpRight { size: 16 }
                                     {t(&lang, "folder-menu-move")}
+                                }
+                                // Only for a theme that is not already in a space:
+                                // sharing takes the whole subtree with it, so it is
+                                // offered once and never on a mirrored theme.
+                                if space_badge().is_none() {
+                                    button {
+                                        class: kit::MENU_ITEM,
+                                        disabled: sharing(),
+                                        onclick: move |_| {
+                                            let fid = folder_id_for_share.clone();
+                                            sharing.set(true);
+                                            app.row_menu.set(None);
+                                            spawn(async move {
+                                                let database = db();
+                                                let res = crate::application::space::share_existing_folder(
+                                                    &database, &fid,
+                                                )
+                                                .await;
+                                                if let Err(e) = res {
+                                                    eprintln!("[space] share theme: {e}");
+                                                }
+                                                sharing.set(false);
+                                                app.folders_version.set((app.folders_version)() + 1);
+                                                app.notes_version.set((app.notes_version)() + 1);
+                                            });
+                                        },
+                                        IconUsersThree { size: 16 }
+                                        {t(&lang, "folder-menu-share")}
+                                    }
                                 }
                                 div { class: kit::MENU_SEP }
                                 button {
