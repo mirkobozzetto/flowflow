@@ -8,6 +8,9 @@ fn row_to_folder(row: &rusqlite::Row) -> rusqlite::Result<Folder> {
         name: row.get("name")?,
         description: row.get("description")?,
         parent_id: row.get("parent_id")?,
+        space_id: row.get("space_id")?,
+        remote_id: row.get("remote_id")?,
+        mode: row.get("mode")?,
         created_at: row.get("created_at")?,
         modified_at: row.get("modified_at")?,
     })

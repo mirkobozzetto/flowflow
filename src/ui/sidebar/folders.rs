@@ -1,4 +1,5 @@
 use crate::application::i18n::t;
+use crate::application::space::FolderRight;
 use crate::domain::{
     flatten_tree, subtree_ids, Folder, NewFolder, UpdateFolder,
 };
@@ -140,6 +141,22 @@ fn FolderItem(folder: Folder, depth: u32) -> Element {
     let folder_id_for_move = folder.id.clone();
     let folder_id_move_root = folder.id.clone();
     let folder_id_move_self = folder.id.clone();
+    let folder_id_for_badge = folder.id.clone();
+
+    // Whether this theme lives in a shared space, and whether the user may add
+    // notes to it. Same call the compose button uses, so the badge never
+    // promises a write that would be refused.
+    let space_badge = use_memo(move || {
+        let _v = (app.folders_version)();
+        match crate::application::space::folder_right(
+            &db(),
+            &folder_id_for_badge,
+        ) {
+            FolderRight::Local => None,
+            FolderRight::SpaceWritable => Some("space-badge-collab"),
+            FolderRight::SpaceReadOnly => Some("space-badge-readonly"),
+        }
+    });
 
     let children = use_memo(move || {
         let _v = (app.folders_version)();
@@ -260,6 +277,11 @@ fn FolderItem(folder: Folder, depth: u32) -> Element {
                         },
                         IconFolder { size: 16 }
                         span { class: "flex-1 min-w-0 truncate", "{folder.name}" }
+                        if let Some(badge) = space_badge() {
+                            span { class: "shrink-0 text-[10px] px-1.5 py-0.5 rounded-md bg-stone-100 text-stone-500",
+                                {t(&lang, badge)}
+                            }
+                        }
                         if note_count() > 0 {
                             span { class: "shrink-0 text-xs text-stone-400", "{note_count}" }
                         }

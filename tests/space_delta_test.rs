@@ -270,3 +270,50 @@ fn the_thirty_second_floor_holds_between_two_pulls() {
     // a stamp we cannot read is not a reason to stop refreshing
     assert!(due_for_pull(Some("not a date"), now));
 }
+
+// ---- the write right the UI reads (T12) ----
+
+#[test]
+fn the_ui_reads_the_same_right_the_server_enforces() {
+    use flowflow::application::space::{folder_right, FolderRight};
+
+    let (_dir, db) = db_with_space();
+    apply_delta(
+        &db,
+        SPACE,
+        &page(
+            vec![
+                remote_folder("open", None, "Open", MODE_COLLAB),
+                remote_folder("locked", None, "Locked", MODE_READ),
+                remote_folder("under", Some("locked"), "Under", MODE_COLLAB),
+            ],
+            vec![],
+        ),
+    );
+    let local = |r: &str| db.local_folder_for_remote(SPACE, r).unwrap();
+
+    assert_eq!(
+        folder_right(&db, &local("open")),
+        FolderRight::SpaceWritable
+    );
+    assert_eq!(
+        folder_right(&db, &local("locked")),
+        FolderRight::SpaceReadOnly
+    );
+    // declares collab, sits under a read-only parent: the badge and the
+    // compose button must both say no
+    assert_eq!(
+        folder_right(&db, &local("under")),
+        FolderRight::SpaceReadOnly
+    );
+
+    // an ordinary theme is never touched by any of this
+    let plain = db
+        .create_folder(&flowflow::domain::NewFolder {
+            name: "Mine".into(),
+            description: None,
+            parent_id: None,
+        })
+        .unwrap();
+    assert_eq!(folder_right(&db, &plain.id), FolderRight::Local);
+}

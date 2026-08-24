@@ -498,3 +498,10 @@ share-revoke-and-delete = Révoquer et supprimer
 share-delete-only = Supprimer seulement
 settings-legal-terms = Conditions d'utilisation
 settings-legal-contact = Nous contacter
+
+# Espaces collaboratifs (proposal 0002)
+space-badge-collab = Partagé
+space-badge-readonly = Lecture seule
+space-cannot-write = Ce thème est en lecture seule dans l'espace partagé.
+space-last-pull = Actualisé { $when }
+space-never-pulled = Jamais actualisé

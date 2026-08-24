@@ -39,6 +39,37 @@ pub fn can_write(
     guard(db, space_id, folder_remote_id).is_ok()
 }
 
+/// What a LOCAL folder is, from the writer's point of view. Ordinary folders
+/// are the overwhelming majority and answer `Local` without touching the space
+/// tables at all.
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub enum FolderRight {
+    /// not in a space: always writable, no badge
+    Local,
+    /// in a space, and this user may add notes here
+    SpaceWritable,
+    /// in a space, read-only for this user (its own mode, or an ancestor's)
+    SpaceReadOnly,
+}
+
+/// Resolve a local folder's write right. The UI calls this to show the badge
+/// AND to decide whether to offer a compose button, so both always agree.
+pub fn folder_right(db: &Database, local_folder_id: &str) -> FolderRight {
+    let Ok(Some(folder)) = db.get_folder(local_folder_id) else {
+        return FolderRight::Local;
+    };
+    let (Some(space_id), Some(remote_id)) =
+        (folder.space_id.as_deref(), folder.remote_id.as_deref())
+    else {
+        return FolderRight::Local;
+    };
+    if can_write(db, space_id, Some(remote_id)) {
+        FolderRight::SpaceWritable
+    } else {
+        FolderRight::SpaceReadOnly
+    }
+}
+
 /// Create a folder in the space. `collab` lets other members add notes to it,
 /// `read` makes it (and everything under it) read-only for them.
 pub async fn create_folder(
