@@ -17,10 +17,23 @@ APPLE_ID := $(shell sed -n 's/^APPLE_ID=//p' .env 2>/dev/null)
 
 VERSION := $(shell sed -n 's/^version = "\(.*\)"/\1/p' Cargo.toml | head -1)
 
+# This machine reports 15 logical cores, 5 performance and 10 efficiency. Cargo
+# defaults to one job per core, so a build pins all 15 flat out for its whole
+# duration and drives the chassis past 95 C. The efficiency cores contribute
+# the least throughput for the most heat, so capping the jobs keeps the
+# performance cores busy and stops cooking the laptop.
+#
+# 8 is a starting point, not a proven optimum: nobody has published a measured
+# P-versus-E comparison for Rust builds on Apple Silicon. Raise it if builds
+# feel slow, lower it if the fans still scream. Override per run with
+# `make JOBS=4 build`.
+JOBS ?= 8
+CARGO_JOBS := -j$(JOBS)
+
 APPSTORE_VERSION := $(shell echo $(VERSION) | awk -F. '{printf "%d.%d.%d", $$1, $$2, $$3+1}')
 
 build: js
-	cargo build --features mobile
+	cargo build $(CARGO_JOBS) --features mobile
 
 format:
 	cargo fmt
@@ -35,7 +48,7 @@ js:
 	@find src -name '*.ts' ! -name '*.d.ts' | while read -r f; do bun build "$$f" --outfile "$${f%.ts}.js"; done
 
 check:
-	cargo fmt --check && cargo clippy --features mobile
+	cargo fmt --check && cargo clippy $(CARGO_JOBS) --features mobile
 
 dev:
 	set -a && . ./.env && IPHONEOS_DEPLOYMENT_TARGET=16.0 dx serve --ios
@@ -62,9 +75,12 @@ restore-ios-toml:
 	@[ ! -f .Dioxus.toml.ios ] || { mv .Dioxus.toml.ios Dioxus.toml; echo ">> restored Dioxus.toml from orphaned desktop backup"; }
 
 # Scratch dirs no device build reads: dx serve output, flycheck, temp. `target/dx`
-# is where this build writes its bundle, so it must survive; `target/debug` holds
-# the host build-script artifacts this build itself produces, hence the purge at
-# the end of the recipe rather than here.
+# holds this build's bundle, so it must survive.
+#
+# `target/debug` used to be wiped at the end of `all`, which threw away the
+# whole 19 GB host cache: every `cargo check` or `cargo test` afterwards then
+# recompiled 700 crates from nothing, at full CPU. Disk is cheap, that heat was
+# not. Reclaim it deliberately with `cargo clean` when space actually runs low.
 clean-stale:
 	rm -rf target/ios-dev target/desktop-dev target/flycheck0 target/tmp
 
@@ -74,7 +90,6 @@ all: clean-stale js restore-ios-toml ensure-profiles
 	bash scripts/sign-widget.sh debug
 	bash scripts/inject-url-scheme.sh || true
 	bash scripts/inject-icon.sh || true
-	rm -rf target/debug
 
 check-profiles:
 	@bash scripts/check-profiles.sh
