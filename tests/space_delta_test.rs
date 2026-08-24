@@ -248,3 +248,25 @@ fn a_deleted_folder_leaves_no_local_mirror() {
     assert!(db.get_folder(&local).unwrap().is_none());
     assert!(db.local_folder_for_remote(SPACE, "rf1").is_none());
 }
+
+// ---- pull cadence (T13) ----
+
+#[test]
+fn the_thirty_second_floor_holds_between_two_pulls() {
+    use chrono::{Duration, Utc};
+    use flowflow::domain::space::due_for_pull;
+
+    let now = Utc::now();
+    // never pulled: always due, or a joined space would show empty until the
+    // floor elapsed
+    assert!(due_for_pull(None, now));
+
+    let just_now = (now - Duration::seconds(5)).to_rfc3339();
+    assert!(!due_for_pull(Some(&just_now), now));
+
+    let stale = (now - Duration::seconds(31)).to_rfc3339();
+    assert!(due_for_pull(Some(&stale), now));
+
+    // a stamp we cannot read is not a reason to stop refreshing
+    assert!(due_for_pull(Some("not a date"), now));
+}

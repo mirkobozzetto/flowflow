@@ -14,7 +14,10 @@
 mod pull;
 mod write;
 
-pub use pull::{apply_delta, my_author_ref, pull_space, PullOutcome};
+pub use pull::{
+    apply_delta, my_author_ref, pull_all_due, pull_if_due, pull_space,
+    PullOutcome,
+};
 pub use write::{
     can_write, create_folder, create_note, delete_folder, delete_note,
     move_folder, update_folder, update_note,

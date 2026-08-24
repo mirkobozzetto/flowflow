@@ -19,5 +19,6 @@ pub use router::AppRouter;
 pub use watchers::{
     use_history_tracker, use_picker_reset_on_view, use_record_deeplink_watcher,
     use_share_align_watcher, use_share_deeplink_watcher,
-    use_share_inbox_watcher, use_sync_watcher, use_transcription_watcher,
+    use_share_inbox_watcher, use_space_pull_watcher, use_sync_watcher,
+    use_transcription_watcher,
 };

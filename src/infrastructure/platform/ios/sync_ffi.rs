@@ -133,6 +133,18 @@ pub fn observe_restore_foreground() {
                     crate::application::backup::activate_restore_lock();
                 }
                 crate::infrastructure::sync::engine::sync_now_if_live();
+                // Coming back to the app is the moment a space is most likely
+                // stale; the 30 s floor keeps a fast app-switcher cheap.
+                std::thread::spawn(|| {
+                    let rt = tokio::runtime::Runtime::new().unwrap();
+                    rt.block_on(async {
+                        if let Ok(db) =
+                            crate::infrastructure::persistence::Database::open()
+                        {
+                            crate::application::space::pull_all_due(&db).await;
+                        }
+                    });
+                });
             },
         );
         let center = NSNotificationCenter::defaultCenter();

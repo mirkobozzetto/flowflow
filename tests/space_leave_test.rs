@@ -7,9 +7,7 @@
 // again.
 
 use flowflow::application::space::{detach_locally, Departure};
-use flowflow::infrastructure::backend::spaces::{
-    PullResp, RemoteSpaceNote,
-};
+use flowflow::infrastructure::backend::spaces::{PullResp, RemoteSpaceNote};
 use flowflow::infrastructure::persistence::Database;
 
 const SPACE: &str = "space-1";

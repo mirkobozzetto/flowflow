@@ -6,6 +6,7 @@
 // instead of to the size of the corpus.
 
 use super::{client, map_err, SpaceError};
+use crate::domain::space::due_for_pull;
 use crate::domain::{NewFolder, UpdateFolder, UpdateNote};
 use crate::infrastructure::backend::spaces::PullResp;
 use crate::infrastructure::persistence::Database;
@@ -66,6 +67,40 @@ pub async fn pull_space(
             return Ok(outcome);
         }
     }
+}
+
+/// Pull unless the 30 s floor says it is too soon. This is what the UI calls:
+/// opening a space folder twice in a row must not cost two round trips.
+pub async fn pull_if_due(
+    db: &Database,
+    space_id: &str,
+) -> Result<PullOutcome, SpaceError> {
+    let space = db
+        .get_space(space_id)
+        .map_err(SpaceError::Other)?
+        .ok_or(SpaceError::Gone)?;
+    if !due_for_pull(space.last_pull_at.as_deref(), chrono::Utc::now()) {
+        return Ok(PullOutcome::default());
+    }
+    pull_space(db, space_id).await
+}
+
+/// Refresh every joined space that is due. Runs when the app comes to the
+/// foreground; a device with no space does no work at all.
+pub async fn pull_all_due(db: &Database) -> usize {
+    let mut changed = 0usize;
+    for space in db.list_spaces().unwrap_or_default() {
+        if !due_for_pull(space.last_pull_at.as_deref(), chrono::Utc::now()) {
+            continue;
+        }
+        match pull_space(db, &space.id).await {
+            Ok(o) => changed += o.folders + o.notes + o.removed,
+            // offline, revoked, frozen: nothing to do here, the screens that
+            // care report it. A failed refresh never blocks the app.
+            Err(_) => continue,
+        }
+    }
+    changed
 }
 
 /// Apply one page of delta to the local mirror.

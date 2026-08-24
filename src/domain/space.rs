@@ -20,6 +20,30 @@ pub struct Space {
     pub last_pull_at: Option<String>,
 }
 
+/// Shortest gap between two pulls of the same space. Freshness is paid in
+/// deltas, not in polling: a pull with nothing to report still costs a round
+/// trip, and the server refuses a faster caller anyway.
+pub const PULL_FLOOR_SECS: i64 = 30;
+
+/// Has the floor elapsed since the last successful pull? A space never pulled
+/// is always due.
+pub fn due_for_pull(
+    last_pull_at: Option<&str>,
+    now: chrono::DateTime<chrono::Utc>,
+) -> bool {
+    let Some(stamp) = last_pull_at else {
+        return true;
+    };
+    match chrono::DateTime::parse_from_rfc3339(stamp) {
+        Ok(t) => {
+            (now - t.with_timezone(&chrono::Utc)).num_seconds()
+                >= PULL_FLOOR_SECS
+        }
+        // an unparseable stamp is not a reason to stop refreshing
+        Err(_) => true,
+    }
+}
+
 /// A folder as it exists inside a space: the DECLARED mode plus the parent
 /// link. The effective mode is never stored, it is resolved.
 #[derive(Debug, Clone, PartialEq)]
