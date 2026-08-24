@@ -23,6 +23,7 @@ pub enum SettingsSection {
     Connections,
     Privacy,
     Shortcuts,
+    Spaces,
 }
 
 impl SettingsSection {
@@ -37,6 +38,7 @@ impl SettingsSection {
             Self::Connections => "settings-section-connections",
             Self::Privacy => "settings-section-privacy",
             Self::Shortcuts => "settings-section-shortcuts",
+            Self::Spaces => "settings-section-spaces",
         }
     }
 }

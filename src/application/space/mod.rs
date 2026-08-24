@@ -20,7 +20,8 @@ pub use pull::{
 };
 pub use write::{
     can_write, create_folder, create_note, delete_folder, delete_note,
-    folder_right, move_folder, update_folder, update_note, FolderRight,
+    folder_right, move_folder, publish_local_note, update_folder, update_note,
+    FolderRight,
 };
 
 use crate::infrastructure::backend::{BackendClient, BackendError};

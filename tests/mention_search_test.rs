@@ -16,6 +16,7 @@ fn note(id: &str, title: Option<&str>, content: &str, tags: &[&str]) -> Note {
         thread_id: None,
         author_device: None,
         space_id: None,
+        remote_id: None,
         author_ref: None,
         created_at: format!("2026-06-0{}T10:00:00Z", id.len().min(9)),
         modified_at: "2026-06-01T10:00:00Z".into(),

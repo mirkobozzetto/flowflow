@@ -123,6 +123,8 @@ pub struct Note {
     #[serde(default)]
     pub space_id: Option<String>,
     #[serde(default)]
+    pub remote_id: Option<String>,
+    #[serde(default)]
     pub author_ref: Option<String>,
     pub created_at: String,
     pub modified_at: String,

@@ -200,6 +200,64 @@ pub async fn update_note(
     Ok(())
 }
 
+/// Push a note the user just saved locally up to its space.
+///
+/// The editor saves the same way for every note, space or not; this runs after
+/// it and only when the note landed in a space theme. The remote id is written
+/// back onto the local row, so the next pull recognises the note instead of
+/// creating a second copy of it.
+///
+/// A voice note contributes its TRANSCRIPTION, which is already its content by
+/// the time it is saved. The audio file never leaves the device.
+pub async fn publish_local_note(
+    db: &Database,
+    local_note_id: &str,
+) -> Result<(), SpaceError> {
+    let Ok(Some(note)) = db.get_note(local_note_id) else {
+        return Ok(());
+    };
+    if note.content.trim().is_empty() {
+        return Ok(());
+    }
+    // Which space theme is it in? An ordinary note is in none, and leaves here.
+    let Some(folder) = db
+        .folders_for_note(local_note_id)
+        .unwrap_or_default()
+        .into_iter()
+        .find(|f| f.space_id.is_some())
+    else {
+        return Ok(());
+    };
+    let (Some(space_id), Some(folder_remote)) =
+        (folder.space_id.as_deref(), folder.remote_id.as_deref())
+    else {
+        return Ok(());
+    };
+    guard(db, space_id, Some(folder_remote))?;
+
+    let c = client(db)?;
+    let title = note.title.as_deref();
+    let resp = c
+        .put_space_note(
+            db,
+            space_id,
+            note.remote_id.as_deref(),
+            Some(folder_remote),
+            title,
+            &note.content,
+        )
+        .await
+        .map_err(map_err)?;
+    db.mark_note_in_space(
+        local_note_id,
+        space_id,
+        &resp.id,
+        note.author_ref.as_deref(),
+    )
+    .map_err(SpaceError::Other)?;
+    Ok(())
+}
+
 /// Tombstone one's OWN note. This is the signal that removes it from every
 /// other member's device, index included.
 pub async fn delete_note(

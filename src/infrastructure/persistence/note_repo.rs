@@ -38,6 +38,7 @@ pub(crate) fn row_to_note(row: &rusqlite::Row) -> rusqlite::Result<Note> {
         thread_id: row.get("thread_id")?,
         author_device: row.get("author_device")?,
         space_id: row.get("space_id")?,
+        remote_id: row.get("remote_id")?,
         author_ref: row.get("author_ref")?,
         created_at: row.get("created_at")?,
         modified_at: row.get("modified_at")?,
