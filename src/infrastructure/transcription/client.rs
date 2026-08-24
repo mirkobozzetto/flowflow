@@ -187,7 +187,7 @@ impl SonioxClient {
         let key = db
             .get_setting("soniox_api_key")
             .or_else(|| std::env::var("SONIOX_API_KEY").ok())
-            .or_else(|| option_env!("SONIOX_API_KEY").map(String::from))
+            .or_else(|| crate::baked_key!("SONIOX_API_KEY"))
             .unwrap_or_default();
         if key.is_empty() || key == "your_key_here" {
             return Err(crate::application::i18n::t(

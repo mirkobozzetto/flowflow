@@ -9,7 +9,7 @@ pub fn exa_api_key(
     db.get_setting("exa_api_key")
         .filter(|v| !v.trim().is_empty())
         .or_else(|| std::env::var("EXA_API_KEY").ok())
-        .or_else(|| option_env!("EXA_API_KEY").map(String::from))
+        .or_else(|| crate::baked_key!("EXA_API_KEY"))
         .unwrap_or_default()
 }
 
