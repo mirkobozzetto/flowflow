@@ -30,9 +30,6 @@ pub async fn share_existing_folder(
         .get_folder(local_folder_id)
         .map_err(SpaceError::Other)?
         .ok_or_else(|| SpaceError::Other("theme not found".into()))?;
-    if root.space_id.is_some() {
-        return Err(SpaceError::Other("theme already shared".into()));
-    }
 
     let all = db.list_all_folders().map_err(SpaceError::Other)?;
     let in_subtree: HashSet<String> =
@@ -45,11 +42,26 @@ pub async fn share_existing_folder(
         .filter(|f| in_subtree.contains(&f.id))
         .collect();
 
-    let space_id = super::create_space(db, &root.name).await?;
+    // Resuming a run that died halfway (network, a cap, the app killed): the
+    // theme already carries its space, so reuse it and push only what is not
+    // marked yet. Retrying is the recovery path, not a second space.
+    let space_id = match root.space_id.clone() {
+        Some(existing) => existing,
+        None => super::create_space(db, &root.name).await?,
+    };
     let c = client(db)?;
     let mut remote_of: HashMap<String, String> = HashMap::new();
 
     for folder in &ordered {
+        if let Some(remote) = folder.remote_id.clone() {
+            remote_of.insert(folder.id.clone(), remote);
+        }
+    }
+
+    for folder in &ordered {
+        if remote_of.contains_key(&folder.id) {
+            continue;
+        }
         // the root of the shared subtree hangs at the space root, whatever its
         // local parent was
         let parent_remote = if folder.id == local_folder_id {
@@ -85,7 +97,11 @@ pub async fn share_existing_folder(
             continue;
         };
         for note in db.list_notes_in_folder(&folder.id).unwrap_or_default() {
-            if note.content.trim().is_empty() || !pushed.insert(note.id.clone())
+            // already up there (a resumed run), empty, or claimed by an
+            // earlier theme of the same subtree
+            if note.remote_id.is_some()
+                || note.content.trim().is_empty()
+                || !pushed.insert(note.id.clone())
             {
                 continue;
             }

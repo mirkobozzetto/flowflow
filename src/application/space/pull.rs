@@ -46,8 +46,12 @@ pub async fn pull_space(
             .cursor;
         let page = match c.pull_space(db, space_id, since).await {
             Ok(p) => p,
+            // Revoked, or the space is gone. Left alone, the mirror would sit
+            // there forever pretending to be live. Nothing is destroyed: the
+            // content becomes ordinary local notes.
             Err(e) if e.is_not_found() => {
                 outcome.gone = true;
+                super::detach_locally(db, space_id, super::Departure::Revoked);
                 return Ok(outcome);
             }
             Err(e) => return Err(map_err(e)),

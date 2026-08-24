@@ -92,3 +92,20 @@ fn my_author_handle_is_learned_from_my_own_pulled_notes() {
         Some(ME)
     );
 }
+
+// Revoked owner-side: the pull answers the uniform 404 and the mirror must go.
+// Nothing is destroyed though - proposal §6.6, only the departing author may
+// ever withdraw content, and this device did not choose to leave.
+#[test]
+fn being_revoked_keeps_every_note_as_an_ordinary_one() {
+    let (_d, db, mine, theirs) = joined_space_with_two_notes();
+
+    detach_locally(&db, SPACE, Departure::Revoked);
+
+    for id in [&mine, &theirs] {
+        let note = db.get_note(id).unwrap().expect("nothing is destroyed");
+        assert_eq!(note.space_id, None, "it waits for no pull any more");
+    }
+    assert!(db.pending_purges().unwrap().is_empty(), "no vector purged");
+    assert!(db.list_spaces().unwrap().is_empty(), "the mirror is gone");
+}

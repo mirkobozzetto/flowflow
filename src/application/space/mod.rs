@@ -122,6 +122,11 @@ pub async fn join(db: &Database, code: &str) -> Result<String, SpaceError> {
 /// What happens to the notes of someone walking out.
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub enum Departure {
+    /// Revoked, or the space was deleted. Nothing is destroyed: everything
+    /// already on this device becomes an ordinary local note, authors included
+    /// (proposal §6.6 - only the departing author may ever withdraw content,
+    /// and this device did not choose to leave).
+    Revoked,
     /// Copy my notes into ordinary local ones and drop the space mirror. The
     /// copies wait for no pull; their local ids do not change, so their
     /// embeddings stay valid and nothing needs re-purging.
@@ -159,7 +164,8 @@ pub async fn leave(
 /// Local half of leaving, also used when a pull discovers the membership is
 /// gone (revoked owner-side, no leave call of ours).
 pub fn detach_locally(db: &Database, space_id: &str, departure: Departure) {
-    let mine_stay = departure == Departure::KeepMine;
+    let keep_all = departure == Departure::Revoked;
+    let mine_stay = keep_all || departure == Departure::KeepMine;
     let me = my_author_ref(db);
     for note_id in db.space_note_ids(space_id).unwrap_or_default() {
         let own = db
@@ -168,7 +174,7 @@ pub fn detach_locally(db: &Database, space_id: &str, departure: Departure) {
             .flatten()
             .map(|n| n.author_ref.is_some() && n.author_ref == me)
             .unwrap_or(false);
-        if own && mine_stay {
+        if keep_all || (own && mine_stay) {
             let _ = db.detach_note_from_space(&note_id);
         } else {
             crate::application::note_persistence::delete_note(db, &note_id);

@@ -10,6 +10,21 @@ use crate::ui::{AppState, View};
 use dioxus::prelude::*;
 use std::sync::Arc;
 
+// Say what actually went wrong. Every one of these sends the user somewhere
+// different, and a single generic line sends them nowhere.
+fn join_error(lang: &str, e: &crate::application::space::SpaceError) -> String {
+    use crate::application::space::SpaceError as E;
+    let key = match e {
+        E::Gone => "space-join-dead-code",
+        E::Offline => "space-join-offline",
+        E::Refused => "space-join-no-account",
+        E::NoBackend => "space-join-no-backend",
+        E::Limit(_) => "space-join-full",
+        E::ReadOnly | E::Other(_) => "space-join-failed",
+    };
+    t(lang, key)
+}
+
 #[component]
 pub fn OpenShareLink() -> Element {
     let mut app: AppState = use_context();
@@ -18,7 +33,11 @@ pub fn OpenShareLink() -> Element {
 
     let mut open = use_signal(|| false);
     let mut input = use_signal(String::new);
-    let mut invalid = use_signal(|| false);
+    // The reason the link did not open, in the user's words. A join can fail
+    // for half a dozen reasons that have nothing to do with the link being
+    // malformed, and telling them "this is not a link" sends them hunting for
+    // a problem that is not theirs.
+    let mut error: Signal<Option<String>> = use_signal(|| None);
 
     rsx! {
         div {
@@ -29,14 +48,12 @@ pub fn OpenShareLink() -> Element {
                         placeholder: t(&lang, "share-open-link-placeholder"),
                         value: "{input}",
                         oninput: move |evt| {
-                            invalid.set(false);
+                            error.set(None);
                             input.set(evt.value());
                         },
                     }
-                    if invalid() {
-                        p { class: "text-[11px] text-ios-red mt-1",
-                            {t(&lang, "share-open-invalid")}
-                        }
+                    if let Some(ref msg) = error() {
+                        p { class: "text-[11px] text-ios-red mt-1", "{msg}" }
                     }
                     div { class: "flex justify-end gap-2 mt-1.5",
                         button {
@@ -44,7 +61,7 @@ pub fn OpenShareLink() -> Element {
                             onclick: move |_| {
                                 open.set(false);
                                 input.set(String::new());
-                                invalid.set(false);
+                                error.set(None);
                             },
                             {t(&lang, "share-cancel")}
                         }
@@ -65,23 +82,22 @@ pub fn OpenShareLink() -> Element {
                                     app.view.set(View::SharedView { code });
                                 } else if let Some(code) = parse_space_link(&raw) {
                                     let code = code.to_string();
-                                    open.set(false);
-                                    input.set(String::new());
-                                    app.sidebar_open.set(false);
+                                    let lang = lang.clone();
                                     spawn(async move {
                                         match crate::application::space::join(&db(), &code).await {
                                             Ok(_) => {
+                                                open.set(false);
+                                                input.set(String::new());
+                                                error.set(None);
+                                                app.sidebar_open.set(false);
                                                 app.folders_version.set((app.folders_version)() + 1);
                                                 app.notes_version.set((app.notes_version)() + 1);
                                             }
-                                            Err(e) => {
-                                                eprintln!("[space] join: {e}");
-                                                invalid.set(true);
-                                            }
+                                            Err(e) => error.set(Some(join_error(&lang, &e))),
                                         }
                                     });
                                 } else {
-                                    invalid.set(true);
+                                    error.set(Some(t(&lang, "share-open-invalid")));
                                 }
                             },
                             {t(&lang, "share-open-link")}
