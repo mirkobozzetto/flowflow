@@ -14,8 +14,17 @@ pub const DEFAULT_BATCH_ROWS: usize = 100;
 // those semantics could resurrect deleted rows, so the version gate stays
 // hard. v4: notes carry author_device in the catalog and HELLO exchanges
 // device_name; an older peer would silently drop the author column, so the
-// same strict gate applies.
-pub const PROTOCOL_VERSION: i64 = 4;
+// same strict gate applies. v5: notes and folders carry the space columns
+// (proposal 0002), which a v4 peer has no schema for - its apply would fail on
+// an unknown column, so the gate moves again.
+pub const PROTOCOL_VERSION: i64 = 5;
+
+// Catalog columns per entity kind, for the tests that guard what travels: a
+// column absent from the fixed `cols` list never reaches another device.
+pub fn synced_columns(
+) -> std::collections::HashMap<&'static str, &'static [&'static str]> {
+    catalog::KINDS.iter().map(|s| (s.kind, s.cols)).collect()
+}
 
 use super::SyncError;
 
