@@ -4,7 +4,7 @@
 // tombstone_entity like every synced table.
 
 use crate::domain::share::{LocalShare, Provenance, ShareKind};
-use crate::infrastructure::persistence::{now_iso, sync_meta, Database};
+use crate::infrastructure::persistence::{now_iso, sync_meta, Database, DbTx};
 
 impl Database {
     // Record (or replace) my live share for a source. One row per source:
@@ -33,40 +33,6 @@ impl Database {
             ],
         )
         .map_err(|e| format!("upsert share: {e}"))?;
-        Ok(())
-    }
-
-    pub fn get_share(&self, source_id: &str) -> Option<LocalShare> {
-        let conn = self.conn();
-        conn.query_row(
-            "SELECT id, kind, code, expires_at, created_at
-             FROM note_shares WHERE id = ?1",
-            [source_id],
-            |row| {
-                Ok(LocalShare {
-                    source_id: row.get(0)?,
-                    kind: ShareKind::parse(&row.get::<_, String>(1)?)
-                        .unwrap_or(ShareKind::Note),
-                    code: row.get(2)?,
-                    expires_at: row.get(3)?,
-                    created_at: row.get(4)?,
-                })
-            },
-        )
-        .ok()
-    }
-
-    // Drop my share record (after a revoke, or when the source is deleted).
-    pub fn delete_share(&self, source_id: &str) -> Result<(), String> {
-        let conn = self.conn();
-        let tx = conn
-            .unchecked_transaction()
-            .map_err(|e| format!("delete share tx: {e}"))?;
-        sync_meta::tombstone_entity(&tx, "note_share", source_id)?;
-        tx.execute("DELETE FROM note_shares WHERE id = ?1", [source_id])
-            .map_err(|e| format!("delete share: {e}"))?;
-        tx.commit()
-            .map_err(|e| format!("delete share commit: {e}"))?;
         Ok(())
     }
 
@@ -166,17 +132,59 @@ impl Database {
         .map_err(|e| format!("provenance state: {e}"))?;
         Ok(())
     }
+}
+
+impl DbTx<'_> {
+    pub fn get_share(&self, source_id: &str) -> Option<LocalShare> {
+        let conn = self.0;
+        conn.query_row(
+            "SELECT id, kind, code, expires_at, created_at
+             FROM note_shares WHERE id = ?1",
+            [source_id],
+            |row| {
+                Ok(LocalShare {
+                    source_id: row.get(0)?,
+                    kind: ShareKind::parse(&row.get::<_, String>(1)?)
+                        .unwrap_or(ShareKind::Note),
+                    code: row.get(2)?,
+                    expires_at: row.get(3)?,
+                    created_at: row.get(4)?,
+                })
+            },
+        )
+        .ok()
+    }
+
+    // Drop my share record (after a revoke, or when the source is deleted).
+    pub fn delete_share(&self, source_id: &str) -> Result<(), String> {
+        self.savepoint("delete_share", |tx| {
+            sync_meta::tombstone_entity(tx, "note_share", source_id)?;
+            tx.execute("DELETE FROM note_shares WHERE id = ?1", [source_id])
+                .map_err(|e| format!("delete share: {e}"))?;
+            Ok(())
+        })
+    }
 
     pub fn delete_provenance(&self, note_id: &str) -> Result<(), String> {
-        let conn = self.conn();
-        let tx = conn
-            .unchecked_transaction()
-            .map_err(|e| format!("delete provenance tx: {e}"))?;
-        sync_meta::tombstone_entity(&tx, "note_provenance", note_id)?;
-        tx.execute("DELETE FROM note_provenance WHERE id = ?1", [note_id])
-            .map_err(|e| format!("delete provenance: {e}"))?;
-        tx.commit()
-            .map_err(|e| format!("delete provenance commit: {e}"))?;
-        Ok(())
+        self.savepoint("delete_provenance", |tx| {
+            sync_meta::tombstone_entity(tx, "note_provenance", note_id)?;
+            tx.execute("DELETE FROM note_provenance WHERE id = ?1", [note_id])
+                .map_err(|e| format!("delete provenance: {e}"))?;
+            Ok(())
+        })
+    }
+}
+
+impl Database {
+    pub fn get_share(&self, source_id: &str) -> Option<LocalShare> {
+        DbTx(&self.conn()).get_share(source_id)
+    }
+
+    pub fn delete_share(&self, source_id: &str) -> Result<(), String> {
+        DbTx(&self.conn()).delete_share(source_id)
+    }
+
+    pub fn delete_provenance(&self, note_id: &str) -> Result<(), String> {
+        DbTx(&self.conn()).delete_provenance(note_id)
     }
 }
