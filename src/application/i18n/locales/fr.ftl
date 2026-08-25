@@ -547,7 +547,6 @@ space-stop-warning = Les membres perdent l'accès. Les thèmes restent chez vous
 space-stop-confirm = Arrêter
 space-leave-warning = Les thèmes disparaissent de votre sidebar.
 space-member-you = Vous
-space-member-anonymous = Membre
 space-member-remove = Retirer
 space-error-no-backend = Aucun serveur configuré : les espaces sont indisponibles.
 space-error-offline = Hors ligne : rien n'a été envoyé.

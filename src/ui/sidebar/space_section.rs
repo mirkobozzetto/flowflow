@@ -36,7 +36,7 @@ pub fn SpaceSection(space: Space) -> Element {
     let lang = (app.current_lang)();
     let mut panel = use_signal(|| Panel::None);
     let mut invite_link = use_signal(|| None::<String>);
-    let mut copied = use_signal(|| false);
+    let mut status = use_signal(|| None::<String>);
     let mut theme_name = use_signal(String::new);
     let mut theme_collab = use_signal(|| true);
     let mut new_name = use_signal(|| space.name.clone());
@@ -75,6 +75,13 @@ pub fn SpaceSection(space: Space) -> Element {
         app.folders_version.set((app.folders_version)() + 1);
         app.notes_version.set((app.notes_version)() + 1);
     };
+    // Any panel change or menu opening ends the previous gesture: its error
+    // and its "link copied" line go with it.
+    let mut open = move |p: Panel| {
+        panel.set(p);
+        status.set(None);
+        error.set(None);
+    };
     let mut show = move |e: SpaceError| {
         error.set(Some(t(&(app.current_lang)(), space::error_key(&e))))
     };
@@ -89,9 +96,7 @@ pub fn SpaceSection(space: Space) -> Element {
     let id_remove = space_id.clone();
 
     let open_invite = use_callback(move |_: ()| {
-        panel.set(Panel::Invite);
-        copied.set(false);
-        error.set(None);
+        open(Panel::Invite);
         let id = id_invite.clone();
         spawn(async move {
             match space::invite_link(&db(), &id).await {
@@ -112,7 +117,7 @@ pub fn SpaceSection(space: Space) -> Element {
         let id = id_theme.clone();
         let collab = theme_collab();
         theme_name.set(String::new());
-        panel.set(Panel::None);
+        open(Panel::None);
         spawn(async move {
             match space::create_folder(&db(), &id, None, &name, collab).await {
                 Ok(_) => bump(),
@@ -144,7 +149,7 @@ pub fn SpaceSection(space: Space) -> Element {
                             onclick: move |_| {
                                 app.row_menu.set(None);
                                 if panel() == Panel::Invite {
-                                    panel.set(Panel::None);
+                                    open(Panel::None);
                                 } else {
                                     open_invite(());
                                 }
@@ -157,6 +162,7 @@ pub fn SpaceSection(space: Space) -> Element {
                         class: if menu_open { "text-stone-600" } else { "text-stone-400 hover:text-stone-600" },
                         onclick: move |evt| {
                             evt.stop_propagation();
+                            status.set(None);
                             app.row_menu.set(if menu_open {
                                 None
                             } else {
@@ -190,7 +196,7 @@ pub fn SpaceSection(space: Space) -> Element {
                         class: kit::MENU_ITEM,
                         onclick: move |_| {
                             app.row_menu.set(None);
-                            panel.set(Panel::Members);
+                            open(Panel::Members);
                         },
                         IconUsersThree { size: 16 }
                         {t(&lang, "space-menu-members")}
@@ -204,7 +210,7 @@ pub fn SpaceSection(space: Space) -> Element {
                             onclick: move |_| {
                                 app.row_menu.set(None);
                                 new_name.set(space.name.clone());
-                                panel.set(Panel::Rename);
+                                open(Panel::Rename);
                             },
                             IconPencil { size: 16 }
                             {t(&lang, "space-menu-rename")}
@@ -213,7 +219,7 @@ pub fn SpaceSection(space: Space) -> Element {
                             class: kit::MENU_ITEM,
                             onclick: move |_| {
                                 app.row_menu.set(None);
-                                panel.set(Panel::NewTheme);
+                                open(Panel::NewTheme);
                             },
                             IconFolderPlus { size: 16 }
                             {t(&lang, "space-menu-new-theme")}
@@ -223,7 +229,7 @@ pub fn SpaceSection(space: Space) -> Element {
                             class: kit::MENU_ITEM_DANGER,
                             onclick: move |_| {
                                 app.row_menu.set(None);
-                                panel.set(Panel::Stop);
+                                open(Panel::Stop);
                             },
                             IconLockSimple { size: 16 }
                             {t(&lang, "space-menu-stop")}
@@ -234,7 +240,7 @@ pub fn SpaceSection(space: Space) -> Element {
                             class: kit::MENU_ITEM_DANGER,
                             onclick: move |_| {
                                 app.row_menu.set(None);
-                                panel.set(Panel::Leave);
+                                open(Panel::Leave);
                             },
                             IconArrowUpRight { size: 16 }
                             {t(&lang, "space-menu-leave")}
@@ -247,6 +253,9 @@ pub fn SpaceSection(space: Space) -> Element {
         if let Some(e) = error() {
             p { class: "text-xs text-ios-red-dark px-2 pb-1", "{e}" }
         }
+        if let Some(s) = status() {
+            p { class: "text-xs text-stone-500 px-2 pb-1", "{s}" }
+        }
 
         match panel() {
             Panel::Invite => rsx! {
@@ -257,11 +266,12 @@ pub fn SpaceSection(space: Space) -> Element {
                         onclick: move |_| {
                             if let Some(link) = invite_link() {
                                 copy_text(&link);
-                                copied.set(true);
+                                open(Panel::None);
+                                status.set(Some(t(&(app.current_lang)(), "space-invite-link-copied")));
                             }
                         },
-                        if copied() { IconCheck { size: 16 } } else { IconLink { size: 16 } }
-                        {t(&lang, if copied() { "space-invite-link-copied" } else { "space-invite-copy" })}
+                        IconLink { size: 16 }
+                        {t(&lang, "space-invite-copy")}
                     }
                     button {
                         class: kit::MENU_ITEM,
@@ -269,7 +279,7 @@ pub fn SpaceSection(space: Space) -> Element {
                         onclick: move |_| {
                             if let Some(link) = invite_link() {
                                 send_link(&link);
-                                panel.set(Panel::None);
+                                open(Panel::None);
                             }
                         },
                         IconExport { size: 16 }
@@ -315,7 +325,7 @@ pub fn SpaceSection(space: Space) -> Element {
                         oninput: move |evt| theme_name.set(evt.value()),
                         onkeydown: move |evt| {
                             if evt.key() == Key::Escape {
-                                panel.set(Panel::None);
+                                open(Panel::None);
                             }
                         },
                         onkeypress: move |evt| {
@@ -361,7 +371,7 @@ pub fn SpaceSection(space: Space) -> Element {
                         oninput: move |evt| new_name.set(evt.value()),
                         onkeydown: move |evt| {
                             if evt.key() == Key::Escape {
-                                panel.set(Panel::None);
+                                open(Panel::None);
                             }
                         },
                     }
@@ -373,7 +383,7 @@ pub fn SpaceSection(space: Space) -> Element {
                                 return;
                             }
                             let id = id_rename.clone();
-                            panel.set(Panel::None);
+                            open(Panel::None);
                             spawn(async move {
                                 match space::rename(&db(), &id, &name).await {
                                     Ok(()) => bump(),
@@ -393,7 +403,7 @@ pub fn SpaceSection(space: Space) -> Element {
                         class: "h-9 flex items-center justify-center rounded-lg bg-warm-white text-stone-900 text-sm font-medium",
                         onclick: move |_| {
                             let id = id_keep.clone();
-                            panel.set(Panel::None);
+                            open(Panel::None);
                             spawn(async move {
                                 match space::leave(&db(), &id, Departure::KeepMine).await {
                                     Ok(()) => bump(),
@@ -407,7 +417,7 @@ pub fn SpaceSection(space: Space) -> Element {
                         class: "h-9 flex items-center justify-center rounded-lg bg-ios-red text-white text-sm font-medium",
                         onclick: move |_| {
                             let id = id_withdraw.clone();
-                            panel.set(Panel::None);
+                            open(Panel::None);
                             spawn(async move {
                                 match space::leave(&db(), &id, Departure::WithdrawMine).await {
                                     Ok(()) => bump(),
@@ -426,14 +436,14 @@ pub fn SpaceSection(space: Space) -> Element {
                     div { class: "flex gap-2",
                         button {
                             class: kit::CONFIRM_BTN_GHOST,
-                            onclick: move |_| panel.set(Panel::None),
+                            onclick: move |_| open(Panel::None),
                             {t(&lang, "chat-menu-cancel")}
                         }
                         button {
                             class: kit::CONFIRM_BTN_DANGER,
                             onclick: move |_| {
                                 let id = id_stop.clone();
-                                panel.set(Panel::None);
+                                open(Panel::None);
                                 spawn(async move {
                                     match space::stop_sharing(&db(), &id).await {
                                         Ok(()) => bump(),
@@ -463,24 +473,33 @@ fn MemberRow(
 ) -> Element {
     let app: AppState = use_context();
     let lang = (app.current_lang)();
+    // No public name: a short handle keeps two anonymous members apart, so
+    // "Remove" still knows who it targets.
     let name = if member.me {
-        t(&lang, "space-member-you")
+        Some(t(&lang, "space-member-you"))
     } else {
-        member
-            .display_name
-            .clone()
-            .unwrap_or_else(|| t(&lang, "space-member-anonymous"))
+        member.display_name.clone()
     };
-    let initials: String =
-        name.chars().take(2).collect::<String>().to_uppercase();
+    let handle: String = member.author_ref.chars().take(6).collect();
+    let initials: String = name
+        .as_deref()
+        .unwrap_or_default()
+        .chars()
+        .take(2)
+        .collect::<String>()
+        .to_uppercase();
     rsx! {
         div { class: "flex items-center min-h-[44px] px-2 gap-2 text-sm text-stone-900",
             span {
                 class: "w-7 h-7 rounded-full text-[11px] font-semibold flex items-center justify-center",
                 class: if member.is_owner { "bg-ios-orange-50 text-ios-orange-dark" } else { "bg-warm-white text-stone-600" },
-                "{initials}"
+                if name.is_some() { "{initials}" } else { IconUserCircle { size: 18 } }
             }
-            span { class: "flex-1 truncate", "{name}" }
+            if let Some(n) = name {
+                span { class: "flex-1 truncate", "{n}" }
+            } else {
+                span { class: "flex-1 truncate text-stone-400", "{handle}" }
+            }
             if member.is_owner {
                 span { class: "text-[10px] px-1.5 py-0.5 rounded-md bg-warm-white text-stone-500",
                     {t(&lang, "space-owner")}
