@@ -127,14 +127,12 @@ pub fn SpaceSection(space: Space) -> Element {
     });
 
     rsx! {
-        div { class: "h-px bg-stone-200 my-3" }
         div { class: "relative",
-            div { class: "flex items-center justify-between px-2 mb-1",
-                span { class: "flex items-center gap-1.5 min-w-0 {kit::SECTION_LABEL}",
-                    IconUsersThree { size: 14 }
+            div { class: "flex items-center justify-between pl-2 mb-1",
+                span { class: "flex items-center gap-1.5 min-w-0 text-sm font-semibold text-stone-700",
                     span { class: "truncate", "{space.name}" }
                     if member_count > 0 {
-                        span { class: "normal-case tracking-normal", "· {member_count}" }
+                        span { class: "text-xs font-normal text-stone-400", "· {member_count}" }
                     }
                 }
                 div { class: "flex items-center shrink-0",
@@ -290,6 +288,17 @@ pub fn SpaceSection(space: Space) -> Element {
             },
             Panel::Members => rsx! {
                 div { class: "bg-stone-100 rounded-xl p-2 ml-7 my-1 flex flex-col",
+                    if member_list.iter().all(|m| m.me) {
+                        p { class: "px-2 py-2 text-xs text-stone-400", {t(&lang, "space-members-alone")} }
+                        if is_owner {
+                            button {
+                                class: kit::MENU_ITEM,
+                                onclick: move |_| open_invite(()),
+                                IconLink { size: 16 }
+                                {t(&lang, "space-menu-invite")}
+                            }
+                        }
+                    }
                     for m in member_list.clone() {
                         MemberRow {
                             key: "{m.web_user_id}",

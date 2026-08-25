@@ -140,7 +140,7 @@ pub fn SidebarOverlay() -> Element {
                 }
             }
 
-            div { class: "flex-1 overflow-y-auto p-4",
+            div { class: "flex-1 overflow-y-auto p-4 pb-32",
                 match (app.sidebar_tab)() {
                     SidebarTab::Notes => rsx! {
                         div { class: "py-2 pb-3",
