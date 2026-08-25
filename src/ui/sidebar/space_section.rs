@@ -153,7 +153,8 @@ pub fn SpaceSection(space: Space) -> Element {
                     button {
                         class: "w-9 h-11 flex items-center justify-center transition-colors duration-150",
                         class: if menu_open { "text-stone-600" } else { "text-stone-400 hover:text-stone-600" },
-                        onclick: move |_| {
+                        onclick: move |evt| {
+                            evt.stop_propagation();
                             app.row_menu.set(if menu_open {
                                 None
                             } else {
@@ -165,7 +166,10 @@ pub fn SpaceSection(space: Space) -> Element {
                 }
             }
             if menu_open {
-                div { class: "absolute right-2 top-full {kit::MENU_PANEL}",
+                div {
+                        id: "row-menu",
+                        class: "absolute right-2 top-full {kit::MENU_PANEL}",
+                        onclick: move |evt| evt.stop_propagation(),
                     if is_owner {
                         div { class: "px-3 pt-2 pb-1 text-[11px] text-stone-400",
                             {t(&lang, "space-menu-owner")}

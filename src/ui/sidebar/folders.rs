@@ -121,6 +121,7 @@ pub fn FolderSection() -> Element {
         for space in spaces() {
             super::space_section::SpaceSection { key: "{space.id}", space: space }
         }
+        super::join_link::JoinLink {}
     }
 }
 
@@ -341,7 +342,8 @@ pub(super) fn FolderItem(folder: Folder, depth: u32) -> Element {
                         } else {
                             "lg:opacity-0 lg:group-hover:opacity-100"
                         },
-                        onclick: move |_| {
+                        onclick: move |evt| {
+                            evt.stop_propagation();
                             confirm_delete.set(false);
                             moving.set(false);
                             app.row_menu.set(if menu_open {
@@ -353,7 +355,10 @@ pub(super) fn FolderItem(folder: Folder, depth: u32) -> Element {
                         IconDotsThree { size: 20 }
                     }
                     if menu_open {
-                        div { class: "absolute right-2 top-full max-h-64 overflow-y-auto {kit::MENU_PANEL}",
+                        div {
+                            id: "row-menu",
+                            class: "absolute right-2 top-full max-h-64 overflow-y-auto {kit::MENU_PANEL}",
+                            onclick: move |evt| evt.stop_propagation(),
                             if moving() {
                                 if folder.parent_id.is_some() {
                                     button {

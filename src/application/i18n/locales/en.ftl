@@ -486,7 +486,6 @@ share-tombstone = Note deleted by its author
 share-align-banner = A note in this thread was deleted by its author. It was removed from your knowledge base.
 share-source-gone = This share is no longer available.
 share-open-link = Open a share link
-share-open-link-placeholder = flowflow://share/...
 share-open-invalid = That does not look like a FlowFlow share link.
 share-not-found = This share does not exist or is no longer available.
 share-report = Report
@@ -550,3 +549,6 @@ space-leave-warning = The themes leave your sidebar.
 space-member-you = You
 space-member-anonymous = Member
 space-member-remove = Remove
+
+share-join-link = Join with a link
+share-join-placeholder = Paste the link here

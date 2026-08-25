@@ -486,7 +486,6 @@ share-tombstone = Note supprimée par son auteur
 share-align-banner = Une note de ce fil a été supprimée par son auteur. Elle vient d'être retirée de ta base de connaissance.
 share-source-gone = Ce partage n'est plus disponible.
 share-open-link = Ouvrir un lien de partage
-share-open-link-placeholder = flowflow://share/...
 share-open-invalid = Ceci ne ressemble pas à un lien de partage FlowFlow.
 share-not-found = Ce partage n'existe pas ou n'est plus disponible.
 share-report = Signaler
@@ -550,3 +549,6 @@ space-leave-warning = Les thèmes disparaissent de votre sidebar.
 space-member-you = Vous
 space-member-anonymous = Membre
 space-member-remove = Retirer
+
+share-join-link = Rejoindre avec un lien
+share-join-placeholder = Colle le lien ici
