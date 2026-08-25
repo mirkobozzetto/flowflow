@@ -5,7 +5,7 @@
 // overwrites the local copy, a tombstone deletes it" is a branch nobody sees
 // fail until a member finds a ghost note in their chat.
 
-use flowflow::application::space::apply_delta;
+use flowflow::application::space::{apply_delta, PullOutcome};
 use flowflow::domain::space::{
     can_write_in, effective_mode, SpaceFolder, MODE_COLLAB, MODE_READ,
 };
@@ -71,6 +71,17 @@ fn page(folders: Vec<RemoteFolder>, notes: Vec<RemoteSpaceNote>) -> PullResp {
     }
 }
 
+// The real path: one page = one transaction, cursor included.
+fn apply(db: &Database, p: &PullResp) -> PullOutcome {
+    db.apply_space_page(SPACE, p.next_seq, |tx| apply_delta(tx, SPACE, p))
+        .expect("page applies")
+        .0
+}
+
+fn cursor(db: &Database) -> i64 {
+    db.get_space(SPACE).unwrap().unwrap().cursor
+}
+
 fn db_with_space() -> (tempfile::TempDir, Database) {
     let dir = tempfile::tempdir().unwrap();
     let db = Database::open_at(dir.path().join("flowflow.db")).unwrap();
@@ -127,9 +138,8 @@ fn the_owner_writes_anywhere_and_a_member_never_at_the_root() {
 #[test]
 fn a_pulled_note_becomes_an_ordinary_local_note_in_its_folder() {
     let (_dir, db) = db_with_space();
-    let out = apply_delta(
+    let out = apply(
         &db,
-        SPACE,
         &page(
             vec![remote_folder("rf1", None, "Design", MODE_COLLAB)],
             vec![remote_note("rn1", Some("rf1"), "Brief", "the brief body")],
@@ -153,16 +163,15 @@ fn a_pulled_note_becomes_an_ordinary_local_note_in_its_folder() {
 #[test]
 fn the_server_copy_overwrites_the_local_one() {
     let (_dir, db) = db_with_space();
-    apply_delta(
+    apply(
         &db,
-        SPACE,
         &page(vec![], vec![remote_note("rn1", None, "v1", "first body")]),
     );
     let local = db.local_note_for_remote(SPACE, "rn1").unwrap();
 
     let mut edited = remote_note("rn1", None, "v2", "second body");
     edited.seq = 7;
-    apply_delta(&db, SPACE, &page(vec![], vec![edited]));
+    apply(&db, &page(vec![], vec![edited]));
 
     // same local row, server content, no second note
     assert_eq!(
@@ -177,9 +186,8 @@ fn the_server_copy_overwrites_the_local_one() {
 #[test]
 fn a_tombstone_removes_the_local_note() {
     let (_dir, db) = db_with_space();
-    apply_delta(
+    apply(
         &db,
-        SPACE,
         &page(
             vec![],
             vec![remote_note("rn1", None, "doomed", "body here")],
@@ -192,7 +200,7 @@ fn a_tombstone_removes_the_local_note() {
     // a tombstone keeps its row, not its content
     dead.title = None;
     dead.content = None;
-    let out = apply_delta(&db, SPACE, &page(vec![], vec![dead]));
+    let out = apply(&db, &page(vec![], vec![dead]));
 
     assert_eq!(out.removed, 1);
     assert!(db.get_note(&local).unwrap().is_none());
@@ -203,9 +211,8 @@ fn a_tombstone_removes_the_local_note() {
 fn a_child_folder_finds_its_parent_in_the_same_page() {
     let (_dir, db) = db_with_space();
     // child FIRST: a single pass would hang it at the root and show a wrong tree
-    apply_delta(
+    apply(
         &db,
-        SPACE,
         &page(
             vec![
                 remote_folder("child", Some("parent"), "Sub", MODE_COLLAB),
@@ -231,9 +238,8 @@ fn a_child_folder_finds_its_parent_in_the_same_page() {
 #[test]
 fn a_deleted_folder_leaves_no_local_mirror() {
     let (_dir, db) = db_with_space();
-    apply_delta(
+    apply(
         &db,
-        SPACE,
         &page(
             vec![remote_folder("rf1", None, "Gone soon", MODE_COLLAB)],
             vec![],
@@ -243,7 +249,7 @@ fn a_deleted_folder_leaves_no_local_mirror() {
 
     let mut dead = remote_folder("rf1", None, "Gone soon", MODE_COLLAB);
     dead.deleted = true;
-    apply_delta(&db, SPACE, &page(vec![dead], vec![]));
+    apply(&db, &page(vec![dead], vec![]));
 
     assert!(db.get_folder(&local).unwrap().is_none());
     assert!(db.local_folder_for_remote(SPACE, "rf1").is_none());
@@ -278,9 +284,8 @@ fn the_ui_reads_the_same_right_the_server_enforces() {
     use flowflow::application::space::{folder_right, FolderRight};
 
     let (_dir, db) = db_with_space();
-    apply_delta(
+    apply(
         &db,
-        SPACE,
         &page(
             vec![
                 remote_folder("open", None, "Open", MODE_COLLAB),
@@ -336,4 +341,110 @@ fn a_space_link_is_accepted_with_or_without_its_prefix() {
     // a share link is NOT a space link: it opens a snapshot, it does not join
     assert_eq!(parse_space_link("flowflow://share/abc"), None);
     assert_eq!(parse_space_link(""), None);
+}
+
+// ---- a page is atomic, and so is its cursor (proposal 0003) ----
+
+// The rows the server sends are valid; what fails mid-page is the disk, an FK,
+// a busy lock. A trigger stands in for that: it aborts the second note of the
+// page, and nothing of the page may survive, the cursor least of all.
+#[test]
+fn a_page_that_fails_midway_leaves_no_row_and_no_cursor() {
+    let (_dir, db) = db_with_space();
+    apply(
+        &db,
+        &page(
+            vec![remote_folder("keep", None, "Kept", MODE_COLLAB)],
+            vec![],
+        ),
+    );
+    assert_eq!(cursor(&db), 9);
+    db.conn()
+        .execute_batch(
+            "CREATE TRIGGER abort_boom BEFORE INSERT ON notes
+             WHEN NEW.title = 'boom'
+             BEGIN SELECT RAISE(ABORT, 'disk said no'); END;",
+        )
+        .unwrap();
+
+    let mut p = page(
+        vec![remote_folder("rf1", None, "Design", MODE_COLLAB)],
+        vec![
+            remote_note("rn1", Some("rf1"), "fine", "lands first"),
+            remote_note("rn2", Some("rf1"), "boom", "aborts the page"),
+        ],
+    );
+    p.next_seq = 42;
+    let err = db
+        .apply_space_page(SPACE, p.next_seq, |tx| apply_delta(tx, SPACE, &p))
+        .expect_err("the page must fail");
+    assert!(err.contains("disk said no"), "the cause surfaces: {err}");
+
+    // nothing of the page landed: not the folder, not the note that had
+    // already been inserted before the abort
+    assert!(db.local_folder_for_remote(SPACE, "rf1").is_none());
+    assert!(db.local_note_for_remote(SPACE, "rn1").is_none());
+    assert_eq!(db.list_notes().unwrap().len(), 0);
+    // and the cursor still points at the page, so the server replays it
+    assert_eq!(cursor(&db), 9);
+    // the earlier page is untouched
+    assert!(db.local_folder_for_remote(SPACE, "keep").is_some());
+
+    // once the cause is gone, the same page applies whole
+    db.conn().execute_batch("DROP TRIGGER abort_boom").unwrap();
+    let out = apply(&db, &p);
+    assert_eq!((out.folders, out.notes), (1, 2));
+    assert_eq!(cursor(&db), 42);
+}
+
+// Every repo call a page can make runs under the page transaction, including
+// the ones that used to open a transaction of their own: a delete, an unlink.
+// A BEGIN inside a BEGIN fails, and this is the test that would catch it.
+#[test]
+fn a_full_page_with_deletes_and_moves_commits_as_one() {
+    let (_dir, db) = db_with_space();
+    apply(
+        &db,
+        &page(
+            vec![
+                remote_folder("a", None, "A", MODE_COLLAB),
+                remote_folder("b", None, "B", MODE_COLLAB),
+                remote_folder("gone", None, "Gone", MODE_COLLAB),
+            ],
+            vec![
+                remote_note("n1", Some("a"), "one", "moves to b"),
+                remote_note("n2", Some("a"), "two", "gets deleted"),
+            ],
+        ),
+    );
+    let n1 = db.local_note_for_remote(SPACE, "n1").unwrap();
+    let a = db.local_folder_for_remote(SPACE, "a").unwrap();
+    let b = db.local_folder_for_remote(SPACE, "b").unwrap();
+
+    let mut dead_note = remote_note("n2", None, "", "");
+    dead_note.deleted = true;
+    dead_note.title = None;
+    dead_note.content = None;
+    let mut dead_folder = remote_folder("gone", None, "Gone", MODE_COLLAB);
+    dead_folder.deleted = true;
+    let mut p = page(
+        vec![dead_folder],
+        vec![remote_note("n1", Some("b"), "one", "moved"), dead_note],
+    );
+    p.next_seq = 20;
+    let out = apply(&db, &p);
+    assert_eq!((out.folders, out.notes, out.removed), (1, 1, 1));
+    assert_eq!(cursor(&db), 20);
+
+    assert!(db.local_folder_for_remote(SPACE, "gone").is_none());
+    assert!(db.local_note_for_remote(SPACE, "n2").is_none());
+    let folders: Vec<String> = db
+        .folders_for_note(&n1)
+        .unwrap()
+        .into_iter()
+        .map(|f| f.id)
+        .collect();
+    assert_eq!(folders, vec![b.clone()], "relinked from {a} to {b}");
+    // and the connection is free again: an ordinary call after the page
+    assert!(db.get_note(&n1).unwrap().is_some());
 }

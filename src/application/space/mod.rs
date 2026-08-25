@@ -7,6 +7,9 @@
 //     is never merged with it.
 //   - A write while offline is REFUSED, never queued. A queue would reopen the
 //     question of who decides, which is exactly what server authority closes.
+//     One bounded exception: a note the editor already saved into a space
+//     folder is retried until the server has it (`space_publish_pending`),
+//     because the alternative is a note that silently never leaves the device.
 //   - A space note is an ORDINARY local note. It goes through the same repos
 //     and the same embed pipeline, so it is searchable and usable in chat with
 //     no code of its own.
@@ -19,7 +22,7 @@ pub use adopt::share_existing_folder;
 
 pub use pull::{
     apply_delta, my_author_ref, pull_all_due, pull_if_due, pull_space,
-    PullOutcome,
+    republish_pending, PageEffects, PullOutcome,
 };
 pub use write::{
     can_write, create_folder, create_note, delete_folder, delete_note,
