@@ -201,7 +201,7 @@ pub use player::{
     current_time_secs, is_playing, play_audio, play_audio_at, seek_to,
     stop_audio,
 };
-pub use share::{open_url, share_file};
+pub use share::{open_url, share_file, share_text};
 
 pub fn hide_keyboard_accessory() {
     unsafe {

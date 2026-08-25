@@ -1,5 +1,6 @@
 mod conversations;
 mod folders;
+mod space_section;
 
 pub use conversations::*;
 pub use folders::*;

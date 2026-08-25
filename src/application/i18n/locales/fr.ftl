@@ -530,3 +530,23 @@ space-join-no-account = Il faut un compte FlowFlow lié pour rejoindre un espace
 space-join-no-backend = Aucun serveur configuré sur cet appareil.
 space-join-full = Cet espace a atteint son nombre maximum de membres.
 space-join-failed = Impossible de rejoindre cet espace pour le moment.
+
+# Shared space section in the sidebar
+space-menu-owner = Vous êtes propriétaire
+space-menu-invite = Inviter quelqu'un
+space-menu-members = Membres
+space-menu-rename = Renommer l'espace
+space-menu-new-theme = Nouveau thème
+space-menu-stop = Arrêter le partage
+space-menu-leave = Quitter l'espace
+space-invite-copy = Copier le lien
+space-invite-send = Envoyer le lien…
+space-invite-validity = Valable une fois, 7 jours.
+space-invite-link-copied = Lien copié
+space-stop-title = Arrêter le partage ?
+space-stop-warning = Les membres perdent l'accès. Les thèmes restent chez vous.
+space-stop-confirm = Arrêter
+space-leave-warning = Les thèmes disparaissent de votre sidebar.
+space-member-you = Vous
+space-member-anonymous = Membre
+space-member-remove = Retirer

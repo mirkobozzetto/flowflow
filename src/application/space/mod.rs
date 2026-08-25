@@ -30,6 +30,7 @@ pub use write::{
     FolderRight,
 };
 
+use crate::infrastructure::backend::spaces::MemberResp;
 use crate::infrastructure::backend::{BackendClient, BackendError};
 use crate::infrastructure::persistence::Database;
 
@@ -109,6 +110,56 @@ pub async fn invite(
         .await
         .map(|r| r.code)
         .map_err(map_err)
+}
+
+/// The invite as the LINK to hand over: what gets pasted into a message has
+/// to be tappable.
+pub async fn invite_link(
+    db: &Database,
+    space_id: &str,
+) -> Result<String, SpaceError> {
+    invite(db, space_id)
+        .await
+        .map(|code| crate::domain::space::space_link(&code))
+}
+
+/// Who is in the space.
+pub async fn members(
+    db: &Database,
+    space_id: &str,
+) -> Result<Vec<MemberResp>, SpaceError> {
+    let c = client(db)?;
+    c.list_space_members(db, space_id).await.map_err(map_err)
+}
+
+/// Owner renames the space, server first, then the local row.
+pub async fn rename(
+    db: &Database,
+    space_id: &str,
+    name: &str,
+) -> Result<(), SpaceError> {
+    let c = client(db)?;
+    c.rename_space(db, space_id, name).await.map_err(map_err)?;
+    db.upsert_space(space_id, name, true)
+        .map_err(SpaceError::Other)
+}
+
+/// Owner stops sharing. Server first; then, like a member who finds the
+/// space gone, this device keeps everything as ordinary local notes and
+/// themes: nothing the owner wrote or received is destroyed.
+pub async fn stop_sharing(
+    db: &Database,
+    space_id: &str,
+) -> Result<(), SpaceError> {
+    let c = client(db)?;
+    match c.delete_space(db, space_id).await {
+        Ok(()) => {}
+        // already gone server-side: the local outcome is the same
+        Err(e) if e.is_not_found() => {}
+        Err(e) => return Err(map_err(e)),
+    }
+    detach_locally(db, space_id, Departure::Revoked);
+    Ok(())
 }
 
 /// Consume an invite code, then pull the whole space in: joining with an empty

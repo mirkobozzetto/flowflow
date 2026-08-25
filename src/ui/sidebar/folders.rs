@@ -19,9 +19,18 @@ pub fn FolderSection() -> Element {
     let mut new_name = use_signal(String::new);
     let lang = (app.current_lang)();
 
+    // My own themes only: a shared theme is listed under its space, below.
     let folders = use_memo(move || {
         let _v = (app.folders_version)();
-        db().list_root_folders().unwrap_or_default()
+        db().list_root_folders()
+            .unwrap_or_default()
+            .into_iter()
+            .filter(|f| f.space_id.is_none())
+            .collect::<Vec<_>>()
+    });
+    let spaces = use_memo(move || {
+        let _v = (app.folders_version)();
+        db().list_spaces().unwrap_or_default()
     });
 
     rsx! {
@@ -109,11 +118,14 @@ pub fn FolderSection() -> Element {
         for folder in folders() {
             FolderItem { key: "{folder.id}", folder: folder, depth: 0 }
         }
+        for space in spaces() {
+            super::space_section::SpaceSection { key: "{space.id}", space: space }
+        }
     }
 }
 
 #[component]
-fn FolderItem(folder: Folder, depth: u32) -> Element {
+pub(super) fn FolderItem(folder: Folder, depth: u32) -> Element {
     let mut app: AppState = use_context();
     let db: Signal<Arc<Database>> = use_context();
     let mut creating_sub = use_signal(|| false);
@@ -144,20 +156,54 @@ fn FolderItem(folder: Folder, depth: u32) -> Element {
     let folder_id_for_badge = folder.id.clone();
     let folder_id_for_share = folder.id.clone();
     let mut sharing = use_signal(|| false);
+    // A sub-theme of a shared theme is created in the space, never as a local
+    // folder that the next pull would not know.
+    let space_parent = folder.space_id.clone().zip(folder.remote_id.clone());
+    let space_parent2 = space_parent.clone();
+    let mut create_sub =
+        move |name: String,
+              parent_local: String,
+              parent: Option<(String, String)>| {
+            match parent {
+                Some((space_id, remote_id)) => {
+                    spawn(async move {
+                        let database = db();
+                        if let Err(e) =
+                            crate::application::space::create_folder(
+                                &database,
+                                &space_id,
+                                Some(&remote_id),
+                                &name,
+                                true,
+                            )
+                            .await
+                        {
+                            eprintln!("[space] sub-theme: {e}");
+                        }
+                        app.folders_version.set((app.folders_version)() + 1);
+                    });
+                }
+                None => {
+                    let folder = NewFolder {
+                        name,
+                        description: None,
+                        parent_id: Some(parent_local.clone()),
+                    };
+                    let _ = db().create_folder(&folder);
+                    app.folders_version.set((app.folders_version)() + 1);
+                }
+            }
+            let mut set = (app.expanded_folders)();
+            set.insert(parent_local);
+            app.expanded_folders.set(set);
+        };
 
     // Whether this theme lives in a shared space, and whether the user may add
     // notes to it. Same call the compose button uses, so the badge never
     // promises a write that would be refused.
-    let space_badge = use_memo(move || {
+    let right = use_memo(move || {
         let _v = (app.folders_version)();
-        match crate::application::space::folder_right(
-            &db(),
-            &folder_id_for_badge,
-        ) {
-            FolderRight::Local => None,
-            FolderRight::SpaceWritable => Some("space-badge-collab"),
-            FolderRight::SpaceReadOnly => Some("space-badge-readonly"),
-        }
+        crate::application::space::folder_right(&db(), &folder_id_for_badge)
     });
 
     let children = use_memo(move || {
@@ -279,9 +325,9 @@ fn FolderItem(folder: Folder, depth: u32) -> Element {
                         },
                         IconFolder { size: 16 }
                         span { class: "flex-1 min-w-0 truncate", "{folder.name}" }
-                        if let Some(badge) = space_badge() {
-                            span { class: "shrink-0 text-[10px] px-1.5 py-0.5 rounded-md bg-stone-100 text-stone-500",
-                                {t(&lang, badge)}
+                        if right() == FolderRight::SpaceReadOnly {
+                            span { class: "shrink-0 text-stone-400", title: t(&lang, "space-badge-readonly"),
+                                IconLockSimple { size: 14 }
                             }
                         }
                         if note_count() > 0 {
@@ -408,7 +454,7 @@ fn FolderItem(folder: Folder, depth: u32) -> Element {
                                 // Only for a theme that is not already in a space:
                                 // sharing takes the whole subtree with it, so it is
                                 // offered once and never on a mirrored theme.
-                                if space_badge().is_none() {
+                                if right() == FolderRight::Local {
                                     button {
                                         class: kit::MENU_ITEM,
                                         disabled: sharing(),
@@ -462,18 +508,10 @@ fn FolderItem(folder: Folder, depth: u32) -> Element {
                         },
                         onkeypress: move |evt| {
                             if evt.key() == Key::Enter && !sub_name().trim().is_empty() {
-                                let folder = NewFolder {
-                                    name: sub_name().trim().to_string(),
-                                    description: None,
-                                    parent_id: Some(folder_id_for_sub.clone()),
-                                };
-                                let _ = db().create_folder(&folder);
+                                let name = sub_name().trim().to_string();
                                 sub_name.set(String::new());
                                 creating_sub.set(false);
-                                let mut set = (app.expanded_folders)();
-                                set.insert(folder_id_for_sub.clone());
-                                app.expanded_folders.set(set);
-                                app.folders_version.set((app.folders_version)() + 1);
+                                create_sub(name, folder_id_for_sub.clone(), space_parent.clone());
                             }
                         },
                     }
@@ -486,18 +524,10 @@ fn FolderItem(folder: Folder, depth: u32) -> Element {
                         },
                         onclick: move |_| {
                             if !sub_name().trim().is_empty() {
-                                let folder = NewFolder {
-                                    name: sub_name().trim().to_string(),
-                                    description: None,
-                                    parent_id: Some(folder_id_for_sub2.clone()),
-                                };
-                                let _ = db().create_folder(&folder);
+                                let name = sub_name().trim().to_string();
                                 sub_name.set(String::new());
                                 creating_sub.set(false);
-                                let mut set = (app.expanded_folders)();
-                                set.insert(folder_id_for_sub2.clone());
-                                app.expanded_folders.set(set);
-                                app.folders_version.set((app.folders_version)() + 1);
+                                create_sub(name, folder_id_for_sub2.clone(), space_parent2.clone());
                             }
                         },
                         IconCheck { size: 16 }
