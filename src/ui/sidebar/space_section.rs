@@ -75,7 +75,9 @@ pub fn SpaceSection(space: Space) -> Element {
         app.folders_version.set((app.folders_version)() + 1);
         app.notes_version.set((app.notes_version)() + 1);
     };
-    let mut show = move |e: SpaceError| error.set(Some(e.to_string()));
+    let mut show = move |e: SpaceError| {
+        error.set(Some(t(&(app.current_lang)(), space::error_key(&e))))
+    };
 
     let id_invite = space_id.clone();
     let id_menu = space_id.clone();

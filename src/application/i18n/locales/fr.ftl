@@ -549,6 +549,13 @@ space-leave-warning = Les thèmes disparaissent de votre sidebar.
 space-member-you = Vous
 space-member-anonymous = Membre
 space-member-remove = Retirer
+space-error-no-backend = Aucun serveur configuré : les espaces sont indisponibles.
+space-error-offline = Hors ligne : rien n'a été envoyé.
+space-error-refused = Il faut un abonnement et un compte lié pour partager.
+space-error-gone = Cet espace n'existe plus, ou le serveur ne connaît pas encore cette action.
+space-error-read-only = Cet espace est en lecture seule : l'abonnement du propriétaire a expiré.
+space-error-limit = Limite atteinte pour cet espace.
+space-error-other = Le serveur a répondu par une erreur. Réessayez plus tard.
 
 share-join-link = Rejoindre avec un lien
 share-join-placeholder = Colle le lien ici

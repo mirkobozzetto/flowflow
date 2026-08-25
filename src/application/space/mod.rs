@@ -70,6 +70,20 @@ impl std::fmt::Display for SpaceError {
     }
 }
 
+/// The i18n key a screen shows for an error. One key per variant and no
+/// wildcard arm, so a new variant cannot silently fall back to "-other".
+pub fn error_key(e: &SpaceError) -> &'static str {
+    match e {
+        SpaceError::NoBackend => "space-error-no-backend",
+        SpaceError::Offline => "space-error-offline",
+        SpaceError::Refused => "space-error-refused",
+        SpaceError::Gone => "space-error-gone",
+        SpaceError::ReadOnly => "space-error-read-only",
+        SpaceError::Limit(_) => "space-error-limit",
+        SpaceError::Other(_) => "space-error-other",
+    }
+}
+
 pub(super) fn map_err(e: BackendError) -> SpaceError {
     match e {
         BackendError::Network(_) => SpaceError::Offline,

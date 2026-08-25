@@ -549,6 +549,13 @@ space-leave-warning = The themes leave your sidebar.
 space-member-you = You
 space-member-anonymous = Member
 space-member-remove = Remove
+space-error-no-backend = No server configured: spaces are unavailable.
+space-error-offline = Offline: nothing was sent.
+space-error-refused = Sharing needs a subscription and a linked account.
+space-error-gone = This space no longer exists, or the server does not know this action yet.
+space-error-read-only = This space is read-only: the owner's subscription lapsed.
+space-error-limit = This space hit a limit.
+space-error-other = The server answered with an error. Try again later.
 
 share-join-link = Join with a link
 share-join-placeholder = Paste the link here

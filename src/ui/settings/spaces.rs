@@ -24,6 +24,9 @@ pub fn SpacesSettings() -> Element {
 
     let mut version = use_signal(|| 0u32);
     let mut status: Signal<Option<String>> = use_signal(|| None);
+    let mut fail = move |e: SpaceError| {
+        status.set(Some(t(&(app.current_lang)(), space::error_key(&e))))
+    };
     let mut new_name = use_signal(String::new);
     let mut join_code = use_signal(String::new);
 
@@ -67,7 +70,7 @@ pub fn SpacesSettings() -> Element {
                                         version.set(version() + 1);
                                         status.set(None);
                                     }
-                                    Err(e) => status.set(Some(e.to_string())),
+                                    Err(e) => fail(e),
                                 }
                             });
                         },
@@ -104,7 +107,7 @@ pub fn SpacesSettings() -> Element {
                                         app.notes_version
                                             .set((app.notes_version)() + 1);
                                     }
-                                    Err(e) => status.set(Some(e.to_string())),
+                                    Err(e) => fail(e),
                                 }
                             });
                         },
@@ -143,6 +146,9 @@ fn SpaceCard(
     let mut app: AppState = use_context();
     let lang = (app.current_lang)();
 
+    let mut fail = move |e: SpaceError| {
+        status.set(Some(t(&(app.current_lang)(), space::error_key(&e))))
+    };
     let mut invite = use_signal(|| None::<String>);
     let mut leaving = use_signal(|| false);
     let mut theme_name = use_signal(String::new);
@@ -209,7 +215,7 @@ fn SpaceCard(
                                     app.notes_version
                                         .set((app.notes_version)() + 1);
                                 }
-                                Err(e) => status.set(Some(e.to_string())),
+                                Err(e) => fail(e),
                             }
                         });
                     },
@@ -228,7 +234,7 @@ fn SpaceCard(
                                     Ok(code) => invite.set(Some(
                                         crate::domain::space::space_link(&code),
                                     )),
-                                    Err(e) => status.set(Some(e.to_string())),
+                                    Err(e) => fail(e),
                                 }
                             });
                         },
@@ -304,7 +310,7 @@ fn SpaceCard(
                                     app.folders_version
                                         .set((app.folders_version)() + 1);
                                 }
-                                Err(e) => status.set(Some(e.to_string())),
+                                Err(e) => fail(e),
                             }
                         });
                     },
@@ -322,7 +328,7 @@ fn SpaceCard(
                             onclick: move |_| {
                                 let id = id_keep.clone();
                                 spawn(async move {
-                                    leave(db(), &id, Departure::KeepMine, status)
+                                    leave(db(), &id, Departure::KeepMine, fail)
                                         .await;
                                     leaving.set(false);
                                     version.set(version() + 1);
@@ -343,7 +349,7 @@ fn SpaceCard(
                                         db(),
                                         &id,
                                         Departure::WithdrawMine,
-                                        status,
+                                        fail,
                                     )
                                     .await;
                                     leaving.set(false);
@@ -373,13 +379,13 @@ async fn leave(
     db: Arc<Database>,
     space_id: &str,
     departure: Departure,
-    mut status: Signal<Option<String>>,
+    mut fail: impl FnMut(SpaceError),
 ) {
     if let Err(e) = space::leave(&db, space_id, departure).await {
         // Gone means the membership was already revoked server-side; the local
         // cleanup ran anyway, which is the outcome the user asked for.
         if e != SpaceError::Gone {
-            status.set(Some(e.to_string()));
+            fail(e);
         }
     }
 }
