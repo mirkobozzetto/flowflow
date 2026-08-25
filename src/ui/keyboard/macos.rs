@@ -179,6 +179,7 @@ pub fn use_macos_shortcuts(app: AppState) {
                         }
                     }
                     "escape" => {
+                        app.row_menu.set(None);
                         app.show_folder_picker.set(false);
                         app.show_note_menu.set(false);
                         app.show_chat_menu.set(false);

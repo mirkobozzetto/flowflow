@@ -37,6 +37,33 @@ pub fn share_file(path: &Path) -> Result<(), String> {
     Ok(())
 }
 
+/// Hand a piece of text (an invite link) to the iOS share sheet.
+#[allow(deprecated)]
+pub fn share_text(text: &str) -> Result<(), String> {
+    let mtm = MainThreadMarker::new()
+        .ok_or_else(|| "share_text must run on the main thread".to_string())?;
+    unsafe {
+        let ns = NSString::from_str(text);
+        let item: &AnyObject = ns.as_ref();
+        let items = NSArray::from_slice(&[item]);
+        let controller =
+            UIActivityViewController::initWithActivityItems_applicationActivities(
+                UIActivityViewController::alloc(mtm),
+                &items,
+                None,
+            );
+        let app = UIApplication::sharedApplication(mtm);
+        let window = app
+            .keyWindow()
+            .ok_or_else(|| "share_text: no key window".to_string())?;
+        let root = window
+            .rootViewController()
+            .ok_or_else(|| "share_text: no root view controller".to_string())?;
+        root.presentViewController_animated_completion(&controller, true, None);
+    }
+    Ok(())
+}
+
 pub fn open_url(url: &str) {
     let url = url.trim();
     let Some(mtm) = MainThreadMarker::new() else {

@@ -1,9 +1,10 @@
-// V26 spaces schema (proposal 0002, T07). Three things must hold together, and
-// only a test holds them: the migration applies on a real V25 file, the space
-// columns of `folders` and `notes` are declared in the sync catalog (a column
-// missing from that fixed list never travels between the devices of one
-// account), and `spaces` / `pending_purge` stay OUT of it (a pull cursor and a
-// purge intent are device-local).
+// V26 + V27 spaces schema (proposals 0002 T07, 0003 T06). Three things must
+// hold together, and only a test holds them: the migrations apply on a real
+// V25 file, the space columns of `folders` and `notes` are declared in the
+// sync catalog (a column missing from that fixed list never travels between
+// the devices of one account), and `spaces` / `pending_purge` /
+// `space_publish_pending` stay OUT of it (a pull cursor, a purge intent and a
+// publication owed are device-local).
 
 use flowflow::infrastructure::persistence::Database;
 
@@ -16,8 +17,8 @@ fn table_columns(db: &Database, table: &str) -> Vec<String> {
     rows.map(Result::unwrap).collect()
 }
 
-// Rewind to schema 25: drop the V26 columns and tables, forget the record, so
-// the next open re-runs V26 against a realistic pre-upgrade file. Same shape as
+// Rewind to schema 25: drop the V26/V27 columns and tables, forget the record,
+// so the next open re-runs both against a realistic pre-upgrade file. Same shape as
 // the V23 rewind in author_device_test.
 fn rewind_to_v25(db: &Database) {
     let conn = db.conn();
@@ -34,13 +35,14 @@ fn rewind_to_v25(db: &Database) {
          ALTER TABLE notes DROP COLUMN author_ref;
          DROP TABLE spaces;
          DROP TABLE pending_purge;
+         DROP TABLE space_publish_pending;
          DELETE FROM _migrations WHERE version >= 26;",
     )
     .unwrap();
 }
 
 #[test]
-fn v26_applies_on_a_v25_file() {
+fn v26_and_v27_apply_on_a_v25_file() {
     let dir = tempfile::tempdir().unwrap();
     let path = dir.path().join("flowflow.db");
     {
@@ -59,12 +61,25 @@ fn v26_applies_on_a_v25_file() {
     }
     assert!(!table_columns(&db, "spaces").is_empty());
     assert!(!table_columns(&db, "pending_purge").is_empty());
+    let pending = table_columns(&db, "space_publish_pending");
+    for col in [
+        "note_id",
+        "space_id",
+        "attempts",
+        "next_try_at",
+        "last_error",
+    ] {
+        assert!(
+            pending.contains(&col.to_string()),
+            "space_publish_pending.{col} missing"
+        );
+    }
 
     let head: i64 = db
         .conn()
         .query_row("SELECT MAX(version) FROM _migrations", [], |r| r.get(0))
         .unwrap();
-    assert_eq!(head, 26);
+    assert_eq!(head, 27);
 }
 
 #[test]
@@ -87,11 +102,11 @@ fn space_columns_travel_and_cursors_do_not() {
         );
     }
 
-    for kind in ["space", "spaces", "pending_purge"] {
+    for kind in ["space", "spaces", "pending_purge", "space_publish_pending"] {
         assert!(
             !synced.contains_key(kind),
-            "{kind} must stay device-local: a pull cursor and a purge intent \
-             are meaningless on another device"
+            "{kind} must stay device-local: a pull cursor, a purge intent and \
+             a publication owed are meaningless on another device"
         );
     }
 }

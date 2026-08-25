@@ -1,70 +1,108 @@
-// Share an EXISTING local theme, subtree and notes included (proposal 0002
-// listed this as a non-goal; it is the natural gesture, so it lives here as a
-// deliberate extension).
+// Share an EXISTING local theme, subtree and notes included, into a space.
+// A space is a team: it is named by the user, never after a theme, and takes
+// as many themes as the owner drops in.
 //
-// The whole point is that the user does not rebuild their tree by hand: the
-// theme they already have becomes the space. Every local row is then MARKED
-// with its remote id, so the next pull recognises it instead of creating a
-// duplicate of everything.
+// The whole point is that the user does not rebuild their tree by hand. Every
+// local row is MARKED with its remote id, so the next pull recognises it
+// instead of creating a duplicate of everything.
 //
 // One-way on purpose: this hands the content to a server-authoritative plane.
-// Nothing here deletes or moves a local row, so a failure halfway leaves a
-// partially-shared tree that a retry finishes rather than corrupts.
+// Nothing here deletes a local row, so a failure halfway leaves a partially
+// shared tree that the next pull finishes rather than corrupts.
 
 use super::{client, map_err, pull::pull_space, SpaceError};
-use crate::domain::space::MODE_COLLAB;
-use crate::domain::{flatten_tree, subtree_ids};
+use crate::domain::space::{MODE_COLLAB, MODE_READ};
+use crate::domain::{flatten_tree, subtree_ids, UpdateFolder};
+use crate::infrastructure::backend::BackendClient;
 use crate::infrastructure::persistence::Database;
 use std::collections::{HashMap, HashSet};
 
-/// Turn a local theme into a shared space. Returns the space id.
-///
-/// The space takes the theme's own name. Every folder in the subtree is
-/// created collaborative: the owner can lock any of them afterwards, and
-/// starting locked would make an invited member unable to do anything.
+/// Where a theme goes: a team the user already owns, or a new one.
+#[derive(Debug, Clone, PartialEq)]
+pub enum ShareTarget {
+    Existing(String),
+    New(String),
+}
+
+/// Share a local theme into a space. Returns the space id. `collaborative`
+/// applies to the whole subtree; the owner can flip any folder afterwards.
 pub async fn share_existing_folder(
     db: &Database,
     local_folder_id: &str,
+    target: ShareTarget,
+    collaborative: bool,
 ) -> Result<String, SpaceError> {
     let root = db
         .get_folder(local_folder_id)
         .map_err(SpaceError::Other)?
         .ok_or_else(|| SpaceError::Other("theme not found".into()))?;
+    // a theme already carrying its space is a run that died halfway: finish
+    // it there, never in a second space
+    let space_id = match root.space_id.clone() {
+        Some(existing) => existing,
+        None => match target {
+            ShareTarget::Existing(id) => id,
+            ShareTarget::New(name) => super::create_space(db, &name).await?,
+        },
+    };
+    let mode = if collaborative {
+        MODE_COLLAB
+    } else {
+        MODE_READ
+    };
+    let c = client(db)?;
+    push_subtree(db, &c, &space_id, local_folder_id, mode).await?;
+    pull_space(db, &space_id).await?;
+    Ok(space_id)
+}
 
+/// Finish every share of this space that died halfway: push the rows of its
+/// themes that carry no remote id yet. Runs at the head of a pull; a failure
+/// waits for the next one.
+pub async fn resume_adoptions(db: &Database, space_id: &str) {
+    let Ok(c) = client(db) else { return };
+    let roots = db.list_root_folders().unwrap_or_default();
+    for root in roots
+        .iter()
+        .filter(|f| f.space_id.as_deref() == Some(space_id))
+    {
+        let mode = root.mode.as_deref().unwrap_or(MODE_COLLAB);
+        if let Err(e) = push_subtree(db, &c, space_id, &root.id, mode).await {
+            eprintln!("[space] resume share {}: {e}", root.id);
+        }
+    }
+}
+
+// Push what is not marked yet under `local_root`, parent before child. The
+// root hangs at the space root whatever its local parent was: a nested theme
+// left under its old parent would never show under its space section.
+async fn push_subtree(
+    db: &Database,
+    c: &BackendClient,
+    space_id: &str,
+    local_root: &str,
+    mode: &str,
+) -> Result<(), SpaceError> {
     let all = db.list_all_folders().map_err(SpaceError::Other)?;
     let in_subtree: HashSet<String> =
-        subtree_ids(&all, local_folder_id).into_iter().collect();
-    // flatten_tree is parent-before-child, which is exactly the order the
-    // server needs: a folder cannot be created under a parent it has not seen.
+        subtree_ids(&all, local_root).into_iter().collect();
     let ordered: Vec<_> = flatten_tree(&all)
         .into_iter()
         .map(|(f, _)| f)
         .filter(|f| in_subtree.contains(&f.id))
         .collect();
 
-    // Resuming a run that died halfway (network, a cap, the app killed): the
-    // theme already carries its space, so reuse it and push only what is not
-    // marked yet. Retrying is the recovery path, not a second space.
-    let space_id = match root.space_id.clone() {
-        Some(existing) => existing,
-        None => super::create_space(db, &root.name).await?,
-    };
-    let c = client(db)?;
-    let mut remote_of: HashMap<String, String> = HashMap::new();
-
-    for folder in &ordered {
-        if let Some(remote) = folder.remote_id.clone() {
-            remote_of.insert(folder.id.clone(), remote);
-        }
-    }
+    let mut remote_of: HashMap<String, String> = ordered
+        .iter()
+        .filter_map(|f| Some((f.id.clone(), f.remote_id.clone()?)))
+        .collect();
 
     for folder in &ordered {
         if remote_of.contains_key(&folder.id) {
             continue;
         }
-        // the root of the shared subtree hangs at the space root, whatever its
-        // local parent was
-        let parent_remote = if folder.id == local_folder_id {
+        let is_root = folder.id == local_root;
+        let parent_remote = if is_root {
             None
         } else {
             folder
@@ -76,16 +114,27 @@ pub async fn share_existing_folder(
         let resp = c
             .put_space_folder(
                 db,
-                &space_id,
+                space_id,
                 None,
                 parent_remote.as_deref(),
                 &folder.name,
-                MODE_COLLAB,
+                mode,
             )
             .await
             .map_err(map_err)?;
-        db.mark_folder_in_space(&folder.id, &space_id, &resp.id, MODE_COLLAB)
+        db.mark_folder_in_space(&folder.id, space_id, &resp.id, mode)
             .map_err(SpaceError::Other)?;
+        if is_root && folder.parent_id.is_some() {
+            db.update_folder(
+                &folder.id,
+                &UpdateFolder {
+                    name: None,
+                    description: None,
+                    parent_id: Some(None),
+                },
+            )
+            .map_err(SpaceError::Other)?;
+        }
         remote_of.insert(folder.id.clone(), resp.id);
     }
 
@@ -97,8 +146,6 @@ pub async fn share_existing_folder(
             continue;
         };
         for note in db.list_notes_in_folder(&folder.id).unwrap_or_default() {
-            // already up there (a resumed run), empty, or claimed by an
-            // earlier theme of the same subtree
             if note.remote_id.is_some()
                 || note.content.trim().is_empty()
                 || !pushed.insert(note.id.clone())
@@ -108,7 +155,7 @@ pub async fn share_existing_folder(
             let resp = c
                 .put_space_note(
                     db,
-                    &space_id,
+                    space_id,
                     None,
                     Some(folder_remote),
                     note.title.as_deref(),
@@ -118,14 +165,12 @@ pub async fn share_existing_folder(
                 .map_err(map_err)?;
             db.mark_note_in_space(
                 &note.id,
-                &space_id,
+                space_id,
                 &resp.id,
                 note.author_ref.as_deref(),
             )
             .map_err(SpaceError::Other)?;
         }
     }
-
-    pull_space(db, &space_id).await?;
-    Ok(space_id)
+    Ok(())
 }

@@ -1,4 +1,4 @@
-.PHONY: build format js check dev ddev deploy desktop desktop-build desktop-app desktop-toml restore-ios-toml icon all appstore clean clean-stale check-profiles renew ensure-profiles dmg release account
+.PHONY: ship-ios asc build format js check dev ddev deploy desktop desktop-build desktop-app desktop-toml restore-ios-toml icon all appstore clean clean-stale check-profiles renew ensure-profiles dmg release account
 
 # Homebrew's rust (no iOS targets) shadows rustup's toolchain when
 # /opt/homebrew/bin comes first in PATH; force the rustup one.
@@ -322,6 +322,21 @@ appstore:
 	@sed -i '' 's/^version = ".*"/version = "$(APPSTORE_VERSION)"/' Cargo.toml
 	@echo ">> Cargo.toml version bumped to $(APPSTORE_VERSION) (next release base)."
 	@echo ">> FlowFlow.ipa ready (v$(APPSTORE_VERSION), build $(APPSTORE_BUILD)). Run 'make upload' or use Transporter.app."
+
+# Build, validate, upload: the whole App Store trip in one command. Stops at
+# the first failure, so a rejected IPA never reaches Apple.
+ship-ios: appstore upload
+	@echo ">> Now: attach the build on the version page, then Submit for Review."
+	@echo ">>   $(ASC_TESTFLIGHT)"
+
+# Where a freshly uploaded build shows up. It appears under TestFlight while it
+# processes (5-30 min) and only reaches the version page's build picker once
+# Apple is done with it. altool cannot report that state - listing builds needs
+# an App Store Connect API key, which this repo does not carry.
+ASC_TESTFLIGHT := https://appstoreconnect.apple.com/apps/6773033233/testflight/ios
+
+asc:
+	@open $(ASC_TESTFLIGHT)
 
 upload:
 	@[ -f FlowFlow.ipa ] || { echo "ERROR: FlowFlow.ipa not found. Run 'make appstore' first."; exit 1; }

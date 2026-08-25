@@ -1,5 +1,9 @@
 use crate::application::i18n::t;
-use crate::application::space::FolderRight;
+use crate::application::space::{self, FolderRight, ShareTarget};
+use crate::domain::space::MODE_READ;
+
+// the server caps a space name at this length
+const MAX_TEAM_NAME_CHARS: usize = 100;
 use crate::domain::{
     flatten_tree, subtree_ids, Folder, NewFolder, UpdateFolder,
 };
@@ -19,9 +23,18 @@ pub fn FolderSection() -> Element {
     let mut new_name = use_signal(String::new);
     let lang = (app.current_lang)();
 
+    // My own themes only: a shared theme is listed under its space, below.
     let folders = use_memo(move || {
         let _v = (app.folders_version)();
-        db().list_root_folders().unwrap_or_default()
+        db().list_root_folders()
+            .unwrap_or_default()
+            .into_iter()
+            .filter(|f| f.space_id.is_none())
+            .collect::<Vec<_>>()
+    });
+    let spaces = use_memo(move || {
+        let _v = (app.folders_version)();
+        db().list_spaces().unwrap_or_default()
     });
 
     rsx! {
@@ -109,11 +122,27 @@ pub fn FolderSection() -> Element {
         for folder in folders() {
             FolderItem { key: "{folder.id}", folder: folder, depth: 0 }
         }
+        if !spaces().is_empty() {
+            div { class: "h-px bg-stone-200 my-3" }
+            div { class: "flex items-center gap-1.5 px-2 mb-1 {kit::SECTION_LABEL}",
+                IconUsersThree { size: 14 }
+                {t(&lang, "sidebar-collab-title")}
+            }
+        }
+        for (i, space) in spaces().into_iter().enumerate() {
+            div { key: "{space.id}",
+                if i > 0 {
+                    div { class: "h-px bg-stone-200 my-2 ml-7" }
+                }
+                super::space_section::SpaceSection { space: space }
+            }
+        }
+        super::join_link::JoinLink {}
     }
 }
 
 #[component]
-fn FolderItem(folder: Folder, depth: u32) -> Element {
+pub(super) fn FolderItem(folder: Folder, depth: u32) -> Element {
     let mut app: AppState = use_context();
     let db: Signal<Arc<Database>> = use_context();
     let mut creating_sub = use_signal(|| false);
@@ -144,20 +173,130 @@ fn FolderItem(folder: Folder, depth: u32) -> Element {
     let folder_id_for_badge = folder.id.clone();
     let folder_id_for_share = folder.id.clone();
     let mut sharing = use_signal(|| false);
+    let mut share_open = use_signal(|| false);
+    let mut share_name = use_signal(String::new);
+    // lock by default: dropping a theme into a team opens its notes to every
+    // member at once, writing is the choice to make explicit
+    let mut share_collab = use_signal(|| false);
+    let mut share_error = use_signal(|| None::<String>);
+    let owned_spaces = use_memo(move || {
+        let _v = (app.folders_version)();
+        db().list_spaces()
+            .unwrap_or_default()
+            .into_iter()
+            .filter(|s| s.is_owner)
+            .collect::<Vec<_>>()
+    });
+    let mut fail = move |e: space::SpaceError| {
+        eprintln!("[space] {e}");
+        share_error.set(Some(t(&(app.current_lang)(), space::error_key(&e))))
+    };
+    let share = use_callback(move |target: ShareTarget| {
+        let fid = folder_id_for_share.clone();
+        let collab = share_collab();
+        sharing.set(true);
+        share_open.set(false);
+        share_error.set(None);
+        spawn(async move {
+            if let Err(e) =
+                space::share_existing_folder(&db(), &fid, target, collab).await
+            {
+                fail(e);
+            }
+            sharing.set(false);
+            app.folders_version.set((app.folders_version)() + 1);
+            app.notes_version.set((app.notes_version)() + 1);
+        });
+    });
+    // A shared theme is renamed and deleted through its space: a local-only
+    // change is overwritten by the next pull.
+    let space_ref = folder.space_id.clone().zip(folder.remote_id.clone());
+    let space_ref_delete = space_ref.clone();
+    let folder_collab = folder.mode.as_deref() != Some(MODE_READ);
+    let parent_local = folder.parent_id.clone();
+    let rename =
+        use_callback(move |(local_id, name): (String, String)| match space_ref
+            .clone()
+        {
+            Some((space_id, remote_id)) => {
+                let parent_remote = parent_local
+                    .as_deref()
+                    .and_then(|p| db().get_folder(p).ok().flatten())
+                    .and_then(|f| f.remote_id);
+                spawn(async move {
+                    if let Err(e) = space::update_folder(
+                        &db(),
+                        &space_id,
+                        &remote_id,
+                        parent_remote.as_deref(),
+                        &name,
+                        folder_collab,
+                    )
+                    .await
+                    {
+                        fail(e);
+                    }
+                    app.folders_version.set((app.folders_version)() + 1);
+                });
+            }
+            None => {
+                let upd = UpdateFolder {
+                    name: Some(name),
+                    description: None,
+                    parent_id: None,
+                };
+                let _ = db().update_folder(&local_id, &upd);
+                app.folders_version.set((app.folders_version)() + 1);
+            }
+        });
+    // A sub-theme of a shared theme is created in the space, never as a local
+    // folder that the next pull would not know.
+    let space_parent = folder.space_id.clone().zip(folder.remote_id.clone());
+    let space_parent2 = space_parent.clone();
+    let mut create_sub =
+        move |name: String,
+              parent_local: String,
+              parent: Option<(String, String)>| {
+            match parent {
+                Some((space_id, remote_id)) => {
+                    spawn(async move {
+                        let database = db();
+                        if let Err(e) =
+                            crate::application::space::create_folder(
+                                &database,
+                                &space_id,
+                                Some(&remote_id),
+                                &name,
+                                true,
+                            )
+                            .await
+                        {
+                            eprintln!("[space] sub-theme: {e}");
+                        }
+                        app.folders_version.set((app.folders_version)() + 1);
+                    });
+                }
+                None => {
+                    let folder = NewFolder {
+                        name,
+                        description: None,
+                        parent_id: Some(parent_local.clone()),
+                    };
+                    let _ = db().create_folder(&folder);
+                    app.folders_version.set((app.folders_version)() + 1);
+                }
+            }
+            let mut set = (app.expanded_folders)();
+            set.insert(parent_local);
+            app.expanded_folders.set(set);
+        };
 
     // Whether this theme lives in a shared space, and whether the user may add
     // notes to it. Same call the compose button uses, so the badge never
     // promises a write that would be refused.
-    let space_badge = use_memo(move || {
+    let right = use_memo(move || {
         let _v = (app.folders_version)();
-        match crate::application::space::folder_right(
-            &db(),
-            &folder_id_for_badge,
-        ) {
-            FolderRight::Local => None,
-            FolderRight::SpaceWritable => Some("space-badge-collab"),
-            FolderRight::SpaceReadOnly => Some("space-badge-readonly"),
-        }
+        crate::application::space::folder_right(&db(), &folder_id_for_badge)
     });
 
     let children = use_memo(move || {
@@ -217,14 +356,8 @@ fn FolderItem(folder: Folder, depth: u32) -> Element {
                         },
                         onkeypress: move |evt| {
                             if evt.key() == Key::Enter && !edit_name().trim().is_empty() {
-                                let upd = UpdateFolder {
-                                    name: Some(edit_name().trim().to_string()),
-                                    description: None,
-                                    parent_id: None,
-                                };
-                                let _ = db().update_folder(&folder_id_for_rename, &upd);
+                                rename((folder_id_for_rename.clone(), edit_name().trim().to_string()));
                                 editing.set(false);
-                                app.folders_version.set((app.folders_version)() + 1);
                             }
                         },
                     }
@@ -237,14 +370,8 @@ fn FolderItem(folder: Folder, depth: u32) -> Element {
                         },
                         onclick: move |_| {
                             if !edit_name().trim().is_empty() {
-                                let upd = UpdateFolder {
-                                    name: Some(edit_name().trim().to_string()),
-                                    description: None,
-                                    parent_id: None,
-                                };
-                                let _ = db().update_folder(&folder_id_for_rename2, &upd);
+                                rename((folder_id_for_rename2.clone(), edit_name().trim().to_string()));
                                 editing.set(false);
-                                app.folders_version.set((app.folders_version)() + 1);
                             }
                         },
                         IconCheck { size: 16 }
@@ -279,9 +406,9 @@ fn FolderItem(folder: Folder, depth: u32) -> Element {
                         },
                         IconFolder { size: 16 }
                         span { class: "flex-1 min-w-0 truncate", "{folder.name}" }
-                        if let Some(badge) = space_badge() {
-                            span { class: "shrink-0 text-[10px] px-1.5 py-0.5 rounded-md bg-stone-100 text-stone-500",
-                                {t(&lang, badge)}
+                        if right() == FolderRight::SpaceReadOnly {
+                            span { class: "shrink-0 text-stone-400", title: t(&lang, "space-badge-readonly"),
+                                IconLockSimple { size: 14 }
                             }
                         }
                         if note_count() > 0 {
@@ -295,7 +422,8 @@ fn FolderItem(folder: Folder, depth: u32) -> Element {
                         } else {
                             "lg:opacity-0 lg:group-hover:opacity-100"
                         },
-                        onclick: move |_| {
+                        onclick: move |evt| {
+                            evt.stop_propagation();
                             confirm_delete.set(false);
                             moving.set(false);
                             app.row_menu.set(if menu_open {
@@ -307,7 +435,10 @@ fn FolderItem(folder: Folder, depth: u32) -> Element {
                         IconDotsThree { size: 20 }
                     }
                     if menu_open {
-                        div { class: "absolute right-2 top-full max-h-64 overflow-y-auto {kit::MENU_PANEL}",
+                        div {
+                            id: "row-menu",
+                            class: "absolute right-2 top-full max-h-64 overflow-y-auto {kit::MENU_PANEL}",
+                            onclick: move |evt| evt.stop_propagation(),
                             if moving() {
                                 if folder.parent_id.is_some() {
                                     button {
@@ -371,8 +502,18 @@ fn FolderItem(folder: Folder, depth: u32) -> Element {
                                         confirm_delete.set(false);
                                         app.row_menu.set(None);
                                         let fid = folder_id_for_delete.clone();
+                                        let space_ref = space_ref_delete.clone();
                                         spawn(async move {
-                                            let _ = db().delete_folder(&fid);
+                                            match space_ref {
+                                                Some((space_id, remote_id)) => {
+                                                    if let Err(e) = space::delete_folder(&db(), &space_id, &remote_id).await {
+                                                        fail(e);
+                                                    }
+                                                }
+                                                None => {
+                                                    let _ = db().delete_folder(&fid);
+                                                }
+                                            }
                                             if (app.selected_folder_id)().as_deref() == Some(fid.as_str()) {
                                                 app.selected_folder_id.set(None);
                                             }
@@ -408,27 +549,15 @@ fn FolderItem(folder: Folder, depth: u32) -> Element {
                                 // Only for a theme that is not already in a space:
                                 // sharing takes the whole subtree with it, so it is
                                 // offered once and never on a mirrored theme.
-                                if space_badge().is_none() {
+                                if right() == FolderRight::Local {
                                     button {
                                         class: kit::MENU_ITEM,
                                         disabled: sharing(),
                                         onclick: move |_| {
-                                            let fid = folder_id_for_share.clone();
-                                            sharing.set(true);
                                             app.row_menu.set(None);
-                                            spawn(async move {
-                                                let database = db();
-                                                let res = crate::application::space::share_existing_folder(
-                                                    &database, &fid,
-                                                )
-                                                .await;
-                                                if let Err(e) = res {
-                                                    eprintln!("[space] share theme: {e}");
-                                                }
-                                                sharing.set(false);
-                                                app.folders_version.set((app.folders_version)() + 1);
-                                                app.notes_version.set((app.notes_version)() + 1);
-                                            });
+                                            share_name.set(String::new());
+                                            share_collab.set(owned_spaces().is_empty());
+                                            share_open.set(true);
                                         },
                                         IconUsersThree { size: 16 }
                                         {t(&lang, "folder-menu-share")}
@@ -442,6 +571,77 @@ fn FolderItem(folder: Folder, depth: u32) -> Element {
                                     {t(&lang, "folder-menu-delete")}
                                 }
                             }
+                        }
+                    }
+                }
+            }
+            if let Some(e) = share_error() {
+                p { class: "text-xs text-ios-red-dark px-2 pb-1 ml-7", "{e}" }
+            }
+            if share_open() {
+                div {
+                    class: "bg-stone-100 rounded-xl p-1 ml-7 my-1 flex flex-col",
+                    style: "animation: popIn 0.16s ease-out;",
+                    for s in owned_spaces() {
+                        {
+                            let sid = s.id.clone();
+                            rsx! {
+                                button {
+                                    key: "{s.id}",
+                                    class: kit::MENU_ITEM,
+                                    disabled: sharing(),
+                                    onclick: move |_| share(ShareTarget::Existing(sid.clone())),
+                                    IconUsersThree { size: 16 }
+                                    span { class: "truncate", "{s.name}" }
+                                }
+                            }
+                        }
+                    }
+                    div { class: "flex items-center gap-1 pl-3 pr-0",
+                        input {
+                            class: "flex-1 min-w-0 bg-transparent text-sm outline-none py-1.5 text-stone-900 placeholder-stone-400",
+                            placeholder: t(&lang, "space-share-new-team"),
+                            value: "{share_name}",
+                            maxlength: "{MAX_TEAM_NAME_CHARS}",
+                            oninput: move |evt| share_name.set(evt.value()),
+                            onkeydown: move |evt| {
+                                if evt.key() == Key::Escape {
+                                    share_open.set(false);
+                                }
+                            },
+                            onkeypress: move |evt| {
+                                if evt.key() == Key::Enter && !share_name().trim().is_empty() {
+                                    share(ShareTarget::New(share_name().trim().to_string()));
+                                }
+                            },
+                        }
+                        button {
+                            class: "shrink-0 w-8 h-7 flex items-center justify-center rounded-md transition-colors duration-150",
+                            class: if share_collab() { "bg-ios-orange-50 text-ios-orange-dark" } else { "text-stone-400" },
+                            title: t(&lang, "space-mode-collab"),
+                            onclick: move |_| share_collab.set(true),
+                            IconPencil { size: 14 }
+                        }
+                        button {
+                            class: "shrink-0 w-8 h-7 flex items-center justify-center rounded-md transition-colors duration-150",
+                            class: if share_collab() { "text-stone-400" } else { "bg-ios-orange-50 text-ios-orange-dark" },
+                            title: t(&lang, "space-mode-read"),
+                            onclick: move |_| share_collab.set(false),
+                            IconLockSimple { size: 14 }
+                        }
+                        button {
+                            class: "w-10 h-10 flex items-center justify-center rounded-lg transition-colors duration-150",
+                            class: if share_name().trim().is_empty() || sharing() {
+                                "text-stone-300"
+                            } else {
+                                "text-ios-orange-dark bg-ios-orange-50 active:opacity-70 hover:opacity-80"
+                            },
+                            onclick: move |_| {
+                                if !share_name().trim().is_empty() && !sharing() {
+                                    share(ShareTarget::New(share_name().trim().to_string()));
+                                }
+                            },
+                            IconCheck { size: 16 }
                         }
                     }
                 }
@@ -462,18 +662,10 @@ fn FolderItem(folder: Folder, depth: u32) -> Element {
                         },
                         onkeypress: move |evt| {
                             if evt.key() == Key::Enter && !sub_name().trim().is_empty() {
-                                let folder = NewFolder {
-                                    name: sub_name().trim().to_string(),
-                                    description: None,
-                                    parent_id: Some(folder_id_for_sub.clone()),
-                                };
-                                let _ = db().create_folder(&folder);
+                                let name = sub_name().trim().to_string();
                                 sub_name.set(String::new());
                                 creating_sub.set(false);
-                                let mut set = (app.expanded_folders)();
-                                set.insert(folder_id_for_sub.clone());
-                                app.expanded_folders.set(set);
-                                app.folders_version.set((app.folders_version)() + 1);
+                                create_sub(name, folder_id_for_sub.clone(), space_parent.clone());
                             }
                         },
                     }
@@ -486,18 +678,10 @@ fn FolderItem(folder: Folder, depth: u32) -> Element {
                         },
                         onclick: move |_| {
                             if !sub_name().trim().is_empty() {
-                                let folder = NewFolder {
-                                    name: sub_name().trim().to_string(),
-                                    description: None,
-                                    parent_id: Some(folder_id_for_sub2.clone()),
-                                };
-                                let _ = db().create_folder(&folder);
+                                let name = sub_name().trim().to_string();
                                 sub_name.set(String::new());
                                 creating_sub.set(false);
-                                let mut set = (app.expanded_folders)();
-                                set.insert(folder_id_for_sub2.clone());
-                                app.expanded_folders.set(set);
-                                app.folders_version.set((app.folders_version)() + 1);
+                                create_sub(name, folder_id_for_sub2.clone(), space_parent2.clone());
                             }
                         },
                         IconCheck { size: 16 }

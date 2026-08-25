@@ -1,4 +1,4 @@
-use crate::infrastructure::persistence::Database;
+use crate::infrastructure::persistence::{Database, DbTx};
 
 pub const LANGUAGE_KEY: &str = "language";
 pub const DEVICE_NAME_KEY: &str = "device_name";
@@ -52,8 +52,17 @@ pub fn is_excluded_from_backup(key: &str) -> bool {
 }
 
 impl Database {
-    pub fn get_setting(&self, key: &str) -> Option<String> {
+    pub fn delete_setting(&self, key: &str) -> Result<(), String> {
         let conn = self.conn();
+        conn.execute("DELETE FROM settings WHERE key = ?1", [key])
+            .map_err(|e| format!("Delete setting: {e}"))?;
+        Ok(())
+    }
+}
+
+impl DbTx<'_> {
+    pub fn get_setting(&self, key: &str) -> Option<String> {
+        let conn = self.0;
         conn.query_row(
             "SELECT value FROM settings WHERE key = ?1",
             [key],
@@ -63,7 +72,7 @@ impl Database {
     }
 
     pub fn set_setting(&self, key: &str, value: &str) -> Result<(), String> {
-        let conn = self.conn();
+        let conn = self.0;
         conn.execute(
             "INSERT INTO settings (key, value) VALUES (?1, ?2)
              ON CONFLICT(key) DO UPDATE SET value = excluded.value",
@@ -72,11 +81,14 @@ impl Database {
         .map_err(|e| format!("Set setting: {e}"))?;
         Ok(())
     }
+}
 
-    pub fn delete_setting(&self, key: &str) -> Result<(), String> {
-        let conn = self.conn();
-        conn.execute("DELETE FROM settings WHERE key = ?1", [key])
-            .map_err(|e| format!("Delete setting: {e}"))?;
-        Ok(())
+impl Database {
+    pub fn get_setting(&self, key: &str) -> Option<String> {
+        DbTx(&self.conn()).get_setting(key)
+    }
+
+    pub fn set_setting(&self, key: &str, value: &str) -> Result<(), String> {
+        DbTx(&self.conn()).set_setting(key, value)
     }
 }

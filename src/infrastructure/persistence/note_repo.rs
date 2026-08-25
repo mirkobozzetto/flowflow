@@ -2,7 +2,7 @@ use crate::domain::{
     NewTextNote, Note, NoteAudio, NoteType, Transcript, UpdateNote,
 };
 use crate::infrastructure::persistence::{
-    chunk_repo, now_iso, sync_meta, Database,
+    chunk_repo, now_iso, sync_meta, Database, DbTx,
 };
 use std::collections::HashSet;
 use std::str::FromStr;
@@ -57,33 +57,6 @@ fn row_to_note_audio(row: &rusqlite::Row) -> rusqlite::Result<NoteAudio> {
 }
 
 impl Database {
-    pub fn create_text_note(&self, note: &NewTextNote) -> Result<Note, String> {
-        let id = Uuid::new_v4().to_string();
-        let now = now_iso();
-        let tags_json = serde_json::to_string(&note.tags)
-            .unwrap_or_else(|_| "[]".to_string());
-        self.conn()
-            .execute(
-                "INSERT INTO notes
-                 (id, note_type, title, content, tags, created_at, modified_at,
-                  author_device)
-                 VALUES (?1,?2,?3,?4,?5,?6,?7,
-                  (SELECT value FROM settings WHERE key = 'sync_device_id'))",
-                rusqlite::params![
-                    id,
-                    "text",
-                    note.title,
-                    note.content,
-                    tags_json,
-                    now,
-                    now
-                ],
-            )
-            .map_err(|e| format!("Insert note: {e}"))?;
-        self.get_note(&id)?
-            .ok_or_else(|| "Note not found after insert".into())
-    }
-
     pub fn create_text_note_in_thread(
         &self,
         note: &NewTextNote,
@@ -128,21 +101,6 @@ impl Database {
             )
             .map_err(|e| format!("Set note sources: {e}"))?;
         Ok(())
-    }
-
-    pub fn get_note(&self, id: &str) -> Result<Option<Note>, String> {
-        let conn = self.conn();
-        let mut stmt = conn
-            .prepare("SELECT * FROM notes WHERE id = ?1")
-            .map_err(|e| format!("Prepare: {e}"))?;
-        let mut rows = stmt
-            .query_map([id], row_to_note)
-            .map_err(|e| format!("Query: {e}"))?;
-        match rows.next() {
-            Some(Ok(note)) => Ok(Some(note)),
-            Some(Err(e)) => Err(format!("Row: {e}")),
-            None => Ok(None),
-        }
     }
 
     pub fn list_notes(&self) -> Result<Vec<Note>, String> {
@@ -279,138 +237,6 @@ impl Database {
         Ok(notes)
     }
 
-    pub fn update_note(
-        &self,
-        id: &str,
-        update: &UpdateNote,
-    ) -> Result<(), String> {
-        let conn = self.conn();
-        let now = now_iso();
-        if let Some(ref title) = update.title {
-            conn.execute(
-                "UPDATE notes SET title = ?1, modified_at = ?2 WHERE id = ?3",
-                rusqlite::params![title, now, id],
-            )
-            .map_err(|e| format!("Update title: {e}"))?;
-        }
-        if let Some(ref content) = update.content {
-            conn.execute(
-                "UPDATE notes SET content = ?1, modified_at = ?2 WHERE id = ?3",
-                rusqlite::params![content, now, id],
-            )
-            .map_err(|e| format!("Update content: {e}"))?;
-        }
-        if let Some(ref tags) = update.tags {
-            let tags_json = serde_json::to_string(tags)
-                .unwrap_or_else(|_| "[]".to_string());
-            conn.execute(
-                "UPDATE notes SET tags = ?1, modified_at = ?2 WHERE id = ?3",
-                rusqlite::params![tags_json, now, id],
-            )
-            .map_err(|e| format!("Update tags: {e}"))?;
-        }
-        Ok(())
-    }
-
-    pub fn delete_note(&self, id: &str) -> Result<(), String> {
-        let conn = self.conn();
-        let tx = conn
-            .unchecked_transaction()
-            .map_err(|e| format!("Delete note tx: {e}"))?;
-        let exists: bool = tx
-            .query_row(
-                "SELECT EXISTS(SELECT 1 FROM notes WHERE id = ?1)",
-                [id],
-                |r| r.get(0),
-            )
-            .map_err(|e| format!("Delete note check: {e}"))?;
-        if !exists {
-            return Ok(());
-        }
-        // Tombstone the note + every CASCADE child BEFORE the physical delete,
-        // so a deletion propagates and never resurrects on the peer. CASCADE
-        // still does the physical cleanup.
-        for child in sync_meta::collect_ids(
-            &tx,
-            "SELECT id FROM attachments WHERE note_id = ?1",
-            id,
-        ) {
-            sync_meta::tombstone_entity(&tx, "attachment", &child)?;
-            chunk_repo::delete_chunks_for_owner(&tx, &child, "attachment")
-                .map_err(|e| format!("Delete attachment chunks: {e}"))?;
-        }
-        for child in sync_meta::collect_ids(
-            &tx,
-            "SELECT id FROM note_audios WHERE note_id = ?1",
-            id,
-        ) {
-            sync_meta::tombstone_entity(&tx, "note_audio", &child)?;
-            delete_words_for_audio(&tx, &child)?;
-        }
-        for child in sync_meta::collect_ids(
-            &tx,
-            "SELECT id FROM note_reminders WHERE note_id = ?1",
-            id,
-        ) {
-            sync_meta::tombstone_entity(&tx, "note_reminder", &child)?;
-        }
-        for link in sync_meta::collect_links(
-            &tx,
-            "SELECT folder_id, note_id FROM notes_folders WHERE note_id = ?1",
-            id,
-        ) {
-            sync_meta::tombstone_entity(&tx, "notes_folders", &link)?;
-        }
-        sync_meta::tombstone_entity(&tx, "note", id)?;
-        chunk_repo::delete_chunks_for_owner(&tx, id, "note")
-            .map_err(|e| format!("Delete note chunks: {e}"))?;
-        tx.execute("DELETE FROM notes WHERE id = ?1", [id])
-            .map_err(|e| format!("Delete note: {e}"))?;
-        tx.commit()
-            .map_err(|e| format!("Delete note commit: {e}"))?;
-        Ok(())
-    }
-
-    pub fn add_audio(
-        &self,
-        note_id: &str,
-        file_path: &str,
-        duration_secs: f64,
-    ) -> Result<NoteAudio, String> {
-        let id = Uuid::new_v4().to_string();
-        let now = now_iso();
-        self.conn()
-            .execute(
-                "INSERT INTO note_audios (id, note_id, file_path, duration_secs, created_at)
-                 VALUES (?1, ?2, ?3, ?4, ?5)",
-                rusqlite::params![id, note_id, file_path, duration_secs, now],
-            )
-            .map_err(|e| format!("Insert audio: {e}"))?;
-        Ok(NoteAudio {
-            id,
-            note_id: note_id.to_string(),
-            file_path: file_path.to_string(),
-            duration_secs: Some(duration_secs),
-            transcription: None,
-            created_at: now,
-        })
-    }
-
-    pub fn list_audios(&self, note_id: &str) -> Result<Vec<NoteAudio>, String> {
-        let conn = self.conn();
-        let mut stmt = conn
-            .prepare("SELECT * FROM note_audios WHERE note_id = ?1 ORDER BY created_at ASC")
-            .map_err(|e| format!("Prepare: {e}"))?;
-        let rows = stmt
-            .query_map([note_id], row_to_note_audio)
-            .map_err(|e| format!("Query: {e}"))?;
-        let mut audios = Vec::new();
-        for row in rows {
-            audios.push(row.map_err(|e| format!("Row: {e}"))?);
-        }
-        Ok(audios)
-    }
-
     pub fn set_audio_transcription(
         &self,
         audio_id: &str,
@@ -486,23 +312,6 @@ impl Database {
                 |row| row.get::<_, bool>(0),
             )
             .unwrap_or(false)
-    }
-
-    pub fn delete_audio(&self, id: &str) -> Result<(), String> {
-        let conn = self.conn();
-        let tx = conn
-            .unchecked_transaction()
-            .map_err(|e| format!("Delete audio tx: {e}"))?;
-        let n = tx
-            .execute("DELETE FROM note_audios WHERE id = ?1", [id])
-            .map_err(|e| format!("Delete audio: {e}"))?;
-        if n > 0 {
-            sync_meta::tombstone_entity(&tx, "note_audio", id)?;
-            delete_words_for_audio(&tx, id)?;
-        }
-        tx.commit()
-            .map_err(|e| format!("Delete audio commit: {e}"))?;
-        Ok(())
     }
 
     pub fn all_audio_paths(&self) -> Result<Vec<String>, String> {
@@ -656,5 +465,234 @@ impl Database {
         tags.sort();
         tags.dedup();
         tags
+    }
+}
+
+impl DbTx<'_> {
+    pub fn create_text_note(&self, note: &NewTextNote) -> Result<Note, String> {
+        let id = Uuid::new_v4().to_string();
+        let now = now_iso();
+        let tags_json = serde_json::to_string(&note.tags)
+            .unwrap_or_else(|_| "[]".to_string());
+        self.0
+            .execute(
+                "INSERT INTO notes
+                 (id, note_type, title, content, tags, created_at, modified_at,
+                  author_device)
+                 VALUES (?1,?2,?3,?4,?5,?6,?7,
+                  (SELECT value FROM settings WHERE key = 'sync_device_id'))",
+                rusqlite::params![
+                    id,
+                    "text",
+                    note.title,
+                    note.content,
+                    tags_json,
+                    now,
+                    now
+                ],
+            )
+            .map_err(|e| format!("Insert note: {e}"))?;
+        self.get_note(&id)?
+            .ok_or_else(|| "Note not found after insert".into())
+    }
+
+    pub fn get_note(&self, id: &str) -> Result<Option<Note>, String> {
+        let conn = self.0;
+        let mut stmt = conn
+            .prepare("SELECT * FROM notes WHERE id = ?1")
+            .map_err(|e| format!("Prepare: {e}"))?;
+        let mut rows = stmt
+            .query_map([id], row_to_note)
+            .map_err(|e| format!("Query: {e}"))?;
+        match rows.next() {
+            Some(Ok(note)) => Ok(Some(note)),
+            Some(Err(e)) => Err(format!("Row: {e}")),
+            None => Ok(None),
+        }
+    }
+
+    pub fn update_note(
+        &self,
+        id: &str,
+        update: &UpdateNote,
+    ) -> Result<(), String> {
+        let conn = self.0;
+        let now = now_iso();
+        if let Some(ref title) = update.title {
+            conn.execute(
+                "UPDATE notes SET title = ?1, modified_at = ?2 WHERE id = ?3",
+                rusqlite::params![title, now, id],
+            )
+            .map_err(|e| format!("Update title: {e}"))?;
+        }
+        if let Some(ref content) = update.content {
+            conn.execute(
+                "UPDATE notes SET content = ?1, modified_at = ?2 WHERE id = ?3",
+                rusqlite::params![content, now, id],
+            )
+            .map_err(|e| format!("Update content: {e}"))?;
+        }
+        if let Some(ref tags) = update.tags {
+            let tags_json = serde_json::to_string(tags)
+                .unwrap_or_else(|_| "[]".to_string());
+            conn.execute(
+                "UPDATE notes SET tags = ?1, modified_at = ?2 WHERE id = ?3",
+                rusqlite::params![tags_json, now, id],
+            )
+            .map_err(|e| format!("Update tags: {e}"))?;
+        }
+        Ok(())
+    }
+
+    pub fn delete_note(&self, id: &str) -> Result<(), String> {
+        self.savepoint("delete_note", |tx| {
+            let exists: bool = tx
+                .query_row(
+                    "SELECT EXISTS(SELECT 1 FROM notes WHERE id = ?1)",
+                    [id],
+                    |r| r.get(0),
+                )
+                .map_err(|e| format!("Delete note check: {e}"))?;
+            if !exists {
+                return Ok(());
+            }
+            // Tombstone the note + every CASCADE child BEFORE the physical delete,
+            // so a deletion propagates and never resurrects on the peer. CASCADE
+            // still does the physical cleanup.
+            for child in sync_meta::collect_ids(
+                tx,
+                "SELECT id FROM attachments WHERE note_id = ?1",
+                id,
+            ) {
+                sync_meta::tombstone_entity(tx, "attachment", &child)?;
+                chunk_repo::delete_chunks_for_owner(tx, &child, "attachment")
+                    .map_err(|e| format!("Delete attachment chunks: {e}"))?;
+            }
+            for child in sync_meta::collect_ids(
+                tx,
+                "SELECT id FROM note_audios WHERE note_id = ?1",
+                id,
+            ) {
+                sync_meta::tombstone_entity(tx, "note_audio", &child)?;
+                delete_words_for_audio(tx, &child)?;
+            }
+            for child in sync_meta::collect_ids(
+                tx,
+                "SELECT id FROM note_reminders WHERE note_id = ?1",
+                id,
+            ) {
+                sync_meta::tombstone_entity(tx, "note_reminder", &child)?;
+            }
+            for link in sync_meta::collect_links(
+                tx,
+                "SELECT folder_id, note_id FROM notes_folders WHERE note_id = ?1",
+                id,
+            ) {
+                sync_meta::tombstone_entity(tx, "notes_folders", &link)?;
+            }
+            sync_meta::tombstone_entity(tx, "note", id)?;
+            chunk_repo::delete_chunks_for_owner(tx, id, "note")
+                .map_err(|e| format!("Delete note chunks: {e}"))?;
+            tx.execute("DELETE FROM notes WHERE id = ?1", [id])
+                .map_err(|e| format!("Delete note: {e}"))?;
+            tx.execute(
+                "DELETE FROM space_publish_pending WHERE note_id = ?1",
+                [id],
+            )
+            .map_err(|e| format!("Delete note publish row: {e}"))?;
+            Ok(())
+        })
+    }
+
+    pub fn add_audio(
+        &self,
+        note_id: &str,
+        file_path: &str,
+        duration_secs: f64,
+    ) -> Result<NoteAudio, String> {
+        let id = Uuid::new_v4().to_string();
+        let now = now_iso();
+        self.0
+            .execute(
+                "INSERT INTO note_audios (id, note_id, file_path, duration_secs, created_at)
+                 VALUES (?1, ?2, ?3, ?4, ?5)",
+                rusqlite::params![id, note_id, file_path, duration_secs, now],
+            )
+            .map_err(|e| format!("Insert audio: {e}"))?;
+        Ok(NoteAudio {
+            id,
+            note_id: note_id.to_string(),
+            file_path: file_path.to_string(),
+            duration_secs: Some(duration_secs),
+            transcription: None,
+            created_at: now,
+        })
+    }
+
+    pub fn list_audios(&self, note_id: &str) -> Result<Vec<NoteAudio>, String> {
+        let conn = self.0;
+        let mut stmt = conn
+            .prepare("SELECT * FROM note_audios WHERE note_id = ?1 ORDER BY created_at ASC")
+            .map_err(|e| format!("Prepare: {e}"))?;
+        let rows = stmt
+            .query_map([note_id], row_to_note_audio)
+            .map_err(|e| format!("Query: {e}"))?;
+        let mut audios = Vec::new();
+        for row in rows {
+            audios.push(row.map_err(|e| format!("Row: {e}"))?);
+        }
+        Ok(audios)
+    }
+
+    pub fn delete_audio(&self, id: &str) -> Result<(), String> {
+        self.savepoint("delete_audio", |tx| {
+            let n = tx
+                .execute("DELETE FROM note_audios WHERE id = ?1", [id])
+                .map_err(|e| format!("Delete audio: {e}"))?;
+            if n > 0 {
+                sync_meta::tombstone_entity(tx, "note_audio", id)?;
+                delete_words_for_audio(tx, id)?;
+            }
+            Ok(())
+        })
+    }
+}
+
+impl Database {
+    pub fn create_text_note(&self, note: &NewTextNote) -> Result<Note, String> {
+        DbTx(&self.conn()).create_text_note(note)
+    }
+
+    pub fn get_note(&self, id: &str) -> Result<Option<Note>, String> {
+        DbTx(&self.conn()).get_note(id)
+    }
+
+    pub fn update_note(
+        &self,
+        id: &str,
+        update: &UpdateNote,
+    ) -> Result<(), String> {
+        DbTx(&self.conn()).update_note(id, update)
+    }
+
+    pub fn delete_note(&self, id: &str) -> Result<(), String> {
+        DbTx(&self.conn()).delete_note(id)
+    }
+
+    pub fn add_audio(
+        &self,
+        note_id: &str,
+        file_path: &str,
+        duration_secs: f64,
+    ) -> Result<NoteAudio, String> {
+        DbTx(&self.conn()).add_audio(note_id, file_path, duration_secs)
+    }
+
+    pub fn list_audios(&self, note_id: &str) -> Result<Vec<NoteAudio>, String> {
+        DbTx(&self.conn()).list_audios(note_id)
+    }
+
+    pub fn delete_audio(&self, id: &str) -> Result<(), String> {
+        DbTx(&self.conn()).delete_audio(id)
     }
 }

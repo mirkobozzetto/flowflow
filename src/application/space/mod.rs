@@ -7,6 +7,9 @@
 //     is never merged with it.
 //   - A write while offline is REFUSED, never queued. A queue would reopen the
 //     question of who decides, which is exactly what server authority closes.
+//     One bounded exception: a note the editor already saved into a space
+//     folder is retried until the server has it (`space_publish_pending`),
+//     because the alternative is a note that silently never leaves the device.
 //   - A space note is an ORDINARY local note. It goes through the same repos
 //     and the same embed pipeline, so it is searchable and usable in chat with
 //     no code of its own.
@@ -15,11 +18,11 @@ mod adopt;
 mod pull;
 mod write;
 
-pub use adopt::share_existing_folder;
+pub use adopt::{resume_adoptions, share_existing_folder, ShareTarget};
 
 pub use pull::{
     apply_delta, my_author_ref, pull_all_due, pull_if_due, pull_space,
-    PullOutcome,
+    republish_pending, PageEffects, PullOutcome,
 };
 pub use write::{
     can_write, create_folder, create_note, delete_folder, delete_note,
@@ -27,6 +30,7 @@ pub use write::{
     FolderRight,
 };
 
+use crate::infrastructure::backend::spaces::MemberResp;
 use crate::infrastructure::backend::{BackendClient, BackendError};
 use crate::infrastructure::persistence::Database;
 
@@ -63,6 +67,20 @@ impl std::fmt::Display for SpaceError {
             SpaceError::Limit(w) => write!(f, "limit reached: {w}"),
             SpaceError::Other(e) => write!(f, "{e}"),
         }
+    }
+}
+
+/// The i18n key a screen shows for an error. One key per variant and no
+/// wildcard arm, so a new variant cannot silently fall back to "-other".
+pub fn error_key(e: &SpaceError) -> &'static str {
+    match e {
+        SpaceError::NoBackend => "space-error-no-backend",
+        SpaceError::Offline => "space-error-offline",
+        SpaceError::Refused => "space-error-refused",
+        SpaceError::Gone => "space-error-gone",
+        SpaceError::ReadOnly => "space-error-read-only",
+        SpaceError::Limit(_) => "space-error-limit",
+        SpaceError::Other(_) => "space-error-other",
     }
 }
 
@@ -106,6 +124,56 @@ pub async fn invite(
         .await
         .map(|r| r.code)
         .map_err(map_err)
+}
+
+/// The invite as the LINK to hand over: what gets pasted into a message has
+/// to be tappable.
+pub async fn invite_link(
+    db: &Database,
+    space_id: &str,
+) -> Result<String, SpaceError> {
+    invite(db, space_id)
+        .await
+        .map(|code| crate::domain::space::space_link(&code))
+}
+
+/// Who is in the space.
+pub async fn members(
+    db: &Database,
+    space_id: &str,
+) -> Result<Vec<MemberResp>, SpaceError> {
+    let c = client(db)?;
+    c.list_space_members(db, space_id).await.map_err(map_err)
+}
+
+/// Owner renames the space, server first, then the local row.
+pub async fn rename(
+    db: &Database,
+    space_id: &str,
+    name: &str,
+) -> Result<(), SpaceError> {
+    let c = client(db)?;
+    c.rename_space(db, space_id, name).await.map_err(map_err)?;
+    db.upsert_space(space_id, name, true)
+        .map_err(SpaceError::Other)
+}
+
+/// Owner stops sharing. Server first; then, like a member who finds the
+/// space gone, this device keeps everything as ordinary local notes and
+/// themes: nothing the owner wrote or received is destroyed.
+pub async fn stop_sharing(
+    db: &Database,
+    space_id: &str,
+) -> Result<(), SpaceError> {
+    let c = client(db)?;
+    match c.delete_space(db, space_id).await {
+        Ok(()) => {}
+        // already gone server-side: the local outcome is the same
+        Err(e) if e.is_not_found() => {}
+        Err(e) => return Err(map_err(e)),
+    }
+    detach_locally(db, space_id, Departure::Revoked);
+    Ok(())
 }
 
 /// Consume an invite code, then pull the whole space in: joining with an empty

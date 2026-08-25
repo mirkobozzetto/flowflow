@@ -73,6 +73,16 @@ pub struct PullResp {
 }
 
 #[derive(Clone, Debug, PartialEq, serde::Deserialize)]
+pub struct MemberResp {
+    pub web_user_id: String,
+    #[serde(default)]
+    pub display_name: Option<String>,
+    pub author_ref: String,
+    pub is_owner: bool,
+    pub me: bool,
+}
+
+#[derive(Clone, Debug, PartialEq, serde::Deserialize)]
 pub struct IdResp {
     pub id: String,
     pub seq: i64,
@@ -86,6 +96,12 @@ struct CreateReq<'a> {
 #[derive(serde::Serialize)]
 struct SpaceReq<'a> {
     space_id: &'a str,
+}
+
+#[derive(serde::Serialize)]
+struct RenameReq<'a> {
+    space_id: &'a str,
+    name: &'a str,
 }
 
 #[derive(serde::Serialize)]
@@ -313,6 +329,49 @@ impl BackendClient {
     ) -> Result<(), BackendError> {
         let url = format!("{}/v1/spaces/note/delete", self.base_url);
         let body = IdReq { space_id, id };
+        let resp = self
+            .authed(db, |c, t| c.post(&url).bearer_auth(t).json(&body))
+            .await?;
+        Self::expect_success(resp).await
+    }
+
+    /// Who is in the space, as any member may ask.
+    pub async fn list_space_members(
+        &self,
+        db: &Database,
+        space_id: &str,
+    ) -> Result<Vec<MemberResp>, BackendError> {
+        let url = format!("{}/v1/spaces/members", self.base_url);
+        let body = SpaceReq { space_id };
+        let resp = self
+            .authed(db, |c, t| c.post(&url).bearer_auth(t).json(&body))
+            .await?;
+        Self::read_json(resp).await
+    }
+
+    /// Owner renames the space.
+    pub async fn rename_space(
+        &self,
+        db: &Database,
+        space_id: &str,
+        name: &str,
+    ) -> Result<(), BackendError> {
+        let url = format!("{}/v1/spaces/rename", self.base_url);
+        let body = RenameReq { space_id, name };
+        let resp = self
+            .authed(db, |c, t| c.post(&url).bearer_auth(t).json(&body))
+            .await?;
+        Self::expect_success(resp).await
+    }
+
+    /// Owner stops sharing: the space answers 404 to everyone from here on.
+    pub async fn delete_space(
+        &self,
+        db: &Database,
+        space_id: &str,
+    ) -> Result<(), BackendError> {
+        let url = format!("{}/v1/spaces/delete", self.base_url);
+        let body = SpaceReq { space_id };
         let resp = self
             .authed(db, |c, t| c.post(&url).bearer_auth(t).json(&body))
             .await?;
