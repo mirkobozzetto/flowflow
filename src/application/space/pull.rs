@@ -53,6 +53,7 @@ pub async fn pull_space(
     space_id: &str,
 ) -> Result<PullOutcome, SpaceError> {
     let c = client(db)?;
+    super::resume_adoptions(db, space_id).await;
     republish_pending(db, space_id).await;
     let mut outcome = PullOutcome::default();
     loop {

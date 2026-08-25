@@ -18,7 +18,7 @@ mod adopt;
 mod pull;
 mod write;
 
-pub use adopt::share_existing_folder;
+pub use adopt::{resume_adoptions, share_existing_folder, ShareTarget};
 
 pub use pull::{
     apply_delta, my_author_ref, pull_all_due, pull_if_due, pull_space,
