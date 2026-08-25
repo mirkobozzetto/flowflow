@@ -188,6 +188,7 @@ pub(super) fn FolderItem(folder: Folder, depth: u32) -> Element {
             .collect::<Vec<_>>()
     });
     let mut fail = move |e: space::SpaceError| {
+        eprintln!("[space] {e}");
         share_error.set(Some(t(&(app.current_lang)(), space::error_key(&e))))
     };
     let share = use_callback(move |target: ShareTarget| {

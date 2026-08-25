@@ -25,6 +25,7 @@ pub fn SpacesSettings() -> Element {
     let mut version = use_signal(|| 0u32);
     let mut status: Signal<Option<String>> = use_signal(|| None);
     let mut fail = move |e: SpaceError| {
+        eprintln!("[space] {e}");
         status.set(Some(t(&(app.current_lang)(), space::error_key(&e))))
     };
     let mut new_name = use_signal(String::new);
@@ -147,6 +148,7 @@ fn SpaceCard(
     let lang = (app.current_lang)();
 
     let mut fail = move |e: SpaceError| {
+        eprintln!("[space] {e}");
         status.set(Some(t(&(app.current_lang)(), space::error_key(&e))))
     };
     let mut invite = use_signal(|| None::<String>);

@@ -9,6 +9,7 @@ use super::{client, map_err, SpaceError};
 use crate::domain::space::due_for_pull;
 use crate::domain::{NewFolder, UpdateFolder, UpdateNote};
 use crate::infrastructure::backend::spaces::PullResp;
+use crate::infrastructure::backend::BackendError;
 use crate::infrastructure::persistence::{now_iso, Database, DbTx};
 
 // My own opaque author handle, learned from the first pulled note flagged
@@ -72,6 +73,9 @@ pub async fn pull_space(
                 super::detach_locally(db, space_id, super::Departure::Revoked);
                 return Ok(outcome);
             }
+            // Too soon after the last pull: the server's freshness floor, not a
+            // failure. The next scheduled pull reads what this one could not.
+            Err(BackendError::Status(429, _)) => return Ok(outcome),
             Err(e) => return Err(map_err(e)),
         };
         let more = page.more;

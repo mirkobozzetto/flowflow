@@ -83,6 +83,7 @@ pub fn SpaceSection(space: Space) -> Element {
         error.set(None);
     };
     let mut show = move |e: SpaceError| {
+        eprintln!("[space] {e}");
         error.set(Some(t(&(app.current_lang)(), space::error_key(&e))))
     };
 
