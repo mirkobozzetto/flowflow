@@ -1,8 +1,24 @@
 // Collaborative spaces (proposal 0002). Pure rules, no IO.
 
+use chrono::Duration;
 use serde::{Deserialize, Serialize};
 
 pub const MODE_READ: &str = "read";
+
+// Republication of a note the server has not confirmed: doubling from one
+// minute, capped at one hour, so a long outage costs one call an hour and a
+// blip costs one minute.
+pub const PUBLISH_RETRY_BASE_SECS: i64 = 60;
+pub const PUBLISH_RETRY_MAX_SECS: i64 = 3600;
+
+/// How long to wait after the `attempts`-th failed publication.
+pub fn publish_backoff(attempts: i64) -> Duration {
+    let shift = attempts.clamp(0, 30) as u32;
+    let secs = PUBLISH_RETRY_BASE_SECS
+        .saturating_mul(1i64 << shift)
+        .min(PUBLISH_RETRY_MAX_SECS);
+    Duration::seconds(secs)
+}
 pub const MODE_COLLAB: &str = "collab";
 
 /// A space this device joined, with its pull cursor. Device-local: a cursor is

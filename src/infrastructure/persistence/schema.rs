@@ -25,7 +25,26 @@ pub const MIGRATIONS: &[(i64, &str)] = &[
     (24, V24_SCHEMA),
     (25, V25_SCHEMA),
     (26, V26_SCHEMA),
+    (27, V27_SCHEMA),
 ];
+
+// A note saved into a space folder is bound to its remote id and queued here
+// until the server has it; the queue is drained, bounded, at the head of every
+// pull. DEVICE-LOCAL like `spaces` (absent from sync/protocol/catalog.rs): a
+// publication is owed by the device that wrote the note, and a peer's
+// INSERT OR REPLACE must never rewrite its retry state.
+const V27_SCHEMA: &str = "
+CREATE TABLE IF NOT EXISTS space_publish_pending (
+    note_id TEXT PRIMARY KEY,
+    space_id TEXT NOT NULL,
+    attempts INTEGER NOT NULL DEFAULT 0,
+    next_try_at TEXT NOT NULL
+        DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')),
+    last_error TEXT
+);
+CREATE INDEX IF NOT EXISTS idx_publish_pending_due
+    ON space_publish_pending(space_id, next_try_at);
+";
 
 // Collaborative spaces (proposal 0002). `spaces` is the per-device pull cursor
 // for a space the user joined, `pending_purge` the replayable intent to drop a

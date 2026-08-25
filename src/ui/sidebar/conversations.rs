@@ -173,7 +173,8 @@ fn ConversationItem(
                     } else {
                         "lg:opacity-0 lg:group-hover:opacity-100"
                     },
-                    onclick: move |_| {
+                    onclick: move |evt| {
+                        evt.stop_propagation();
                         confirm_delete.set(false);
                         app.row_menu.set(if menu_open {
                             None
@@ -184,7 +185,10 @@ fn ConversationItem(
                     IconDotsThree { size: 20 }
                 }
                 if menu_open {
-                    div { class: "absolute right-2 top-full {kit::MENU_PANEL}",
+                    div {
+                        id: "row-menu",
+                        class: "absolute right-2 top-full {kit::MENU_PANEL}",
+                        onclick: move |evt| evt.stop_propagation(),
                         if confirm_delete() {
                             DeleteConfirm {
                                 title: t(&lang, "chat-menu-delete-title"),

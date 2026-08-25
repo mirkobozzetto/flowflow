@@ -1,0 +1,330 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<title>Sidebar espaces</title>
+<link rel="stylesheet" href="../../assets/tailwind.css">
+<style>
+  body { background: #e7e5e4; font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Helvetica Neue", sans-serif; }
+  .frame { width: 340px; height: 640px; overflow: hidden; }
+  .label { font-size: 12px; color: #78716c; margin: 0 0 8px 4px; }
+  svg { flex: none; }
+</style>
+</head>
+<body class="p-8">
+
+<svg style="display:none">
+  <symbol id="folder" viewBox="0 0 256 256"><path fill="currentColor" d="M216,72H130.67L102.93,51.2a16.12,16.12,0,0,0-9.6-3.2H40A16,16,0,0,0,24,64V200a16,16,0,0,0,16,16H216.89A15.13,15.13,0,0,0,232,200.89V88A16,16,0,0,0,216,72Zm0,128H40V64H93.33L123.2,86.4A8,8,0,0,0,128,88h88Z"/></symbol>
+  <symbol id="dots" viewBox="0 0 256 256"><path fill="currentColor" d="M140,128a12,12,0,1,1-12-12A12,12,0,0,1,140,128Zm56-12a12,12,0,1,0,12,12A12,12,0,0,0,196,116ZM60,116a12,12,0,1,0,12,12A12,12,0,0,0,60,116Z"/></symbol>
+  <symbol id="plus" viewBox="0 0 256 256"><path fill="currentColor" d="M224,128a8,8,0,0,1-8,8H136v80a8,8,0,0,1-16,0V136H40a8,8,0,0,1,0-16h80V40a8,8,0,0,1,16,0v80h80A8,8,0,0,1,224,128Z"/></symbol>
+  <symbol id="pencil" viewBox="0 0 256 256"><path fill="currentColor" d="M227.31,73.37,182.63,28.68a16,16,0,0,0-22.63,0L36.69,152A15.86,15.86,0,0,0,32,163.31V208a16,16,0,0,0,16,16H92.69A15.86,15.86,0,0,0,104,219.31L227.31,96a16,16,0,0,0,0-22.63ZM92.69,208H48V163.31l88-88L180.69,120ZM192,108.68,147.31,64l24-24L216,84.68Z"/></symbol>
+  <symbol id="folderplus" viewBox="0 0 256 256"><path fill="currentColor" d="M216,72H131.31L104,44.69A15.86,15.86,0,0,0,92.69,40H40A16,16,0,0,0,24,56V200.62A15.4,15.4,0,0,0,39.38,216H216.89A15.13,15.13,0,0,0,232,200.89V88A16,16,0,0,0,216,72ZM92.69,56l16,16H40V56ZM216,200H40V88H216Zm-88-88a8,8,0,0,1,8,8v16h16a8,8,0,0,1,0,16H136v16a8,8,0,0,1-16,0V152H104a8,8,0,0,1,0-16h16V120A8,8,0,0,1,128,112Z"/></symbol>
+  <symbol id="arrowupright" viewBox="0 0 256 256"><path fill="currentColor" d="M200,64V168a8,8,0,0,1-16,0V83.31L69.66,197.66a8,8,0,0,1-11.32-11.32L172.69,72H88a8,8,0,0,1,0-16H192A8,8,0,0,1,200,64Z"/></symbol>
+  <symbol id="trash" viewBox="0 0 256 256"><path fill="currentColor" d="M216,48H176V40a24,24,0,0,0-24-24H104A24,24,0,0,0,80,40v8H40a8,8,0,0,0,0,16h8V208a16,16,0,0,0,16,16H192a16,16,0,0,0,16-16V64h8a8,8,0,0,0,0-16ZM96,40a8,8,0,0,1,8-8h48a8,8,0,0,1,8,8v8H96Zm96,168H64V64H192ZM112,104v64a8,8,0,0,1-16,0V104a8,8,0,0,1,16,0Zm48,0v64a8,8,0,0,1-16,0V104a8,8,0,0,1,16,0Z"/></symbol>
+  <symbol id="check" viewBox="0 0 256 256"><path fill="currentColor" d="M229.66,77.66l-128,128a8,8,0,0,1-11.32,0l-56-56a8,8,0,0,1,11.32-11.32L96,188.69,218.34,66.34a8,8,0,0,1,11.32,11.32Z"/></symbol>
+  <symbol id="copy" viewBox="0 0 256 256"><path fill="currentColor" d="M216,32H88a8,8,0,0,0-8,8V80H40a8,8,0,0,0-8,8V216a8,8,0,0,0,8,8H168a8,8,0,0,0,8-8V176h40a8,8,0,0,0,8-8V40A8,8,0,0,0,216,32ZM160,208H48V96H160Zm48-48H176V88a8,8,0,0,0-8-8H96V48H208Z"/></symbol>
+  <symbol id="users" viewBox="0 0 256 256"><path fill="currentColor" d="M244.8,150.4a8,8,0,0,1-11.2-1.6A51.6,51.6,0,0,0,192,128a8,8,0,0,1,0-16,24,24,0,1,0-23.24-30,8,8,0,1,1-15.5-4A40,40,0,1,1,219,117.51a67.94,67.94,0,0,1,27.43,21.68A8,8,0,0,1,244.8,150.4ZM190.92,212a8,8,0,1,1-13.85,8,57,57,0,0,0-98.15,0,8,8,0,1,1-13.85-8,72.06,72.06,0,0,1,33.29-30.29,48,48,0,1,1,59.27,0A72.06,72.06,0,0,1,190.92,212ZM128,176a32,32,0,1,0-32-32A32,32,0,0,0,128,176ZM72,120a8,8,0,0,0-8-8A24,24,0,1,1,87.24,82a8,8,0,1,0,15.5-4A40,40,0,1,0,37,117.51,67.94,67.94,0,0,0,9.6,139.19a8,8,0,1,0,12.8,9.61A51.6,51.6,0,0,1,64,128,8,8,0,0,0,72,120Z"/></symbol>
+  <symbol id="lock" viewBox="0 0 256 256"><path fill="currentColor" d="M208,80H176V56a48,48,0,0,0-96,0V80H48A16,16,0,0,0,32,96V208a16,16,0,0,0,16,16H208a16,16,0,0,0,16-16V96A16,16,0,0,0,208,80ZM96,56a32,32,0,0,1,64,0V80H96ZM208,208H48V96H208V208Z"/></symbol>
+  <symbol id="export" viewBox="0 0 256 256"><path fill="currentColor" d="M224,144v64a8,8,0,0,1-8,8H40a8,8,0,0,1-8-8V144a8,8,0,0,1,16,0v56H208V144a8,8,0,0,1,16,0ZM93.66,77.66,120,51.31V144a8,8,0,0,0,16,0V51.31l26.34,26.35a8,8,0,0,0,11.32-11.32l-40-40a8,8,0,0,0-11.32,0l-40,40A8,8,0,0,0,93.66,77.66Z"/></symbol>
+  <symbol id="link" viewBox="0 0 256 256"><path fill="currentColor" d="M137.54,186.36a8,8,0,0,1,0,11.31l-9.94,10A56,56,0,0,1,48.38,128.4L72.5,104.28A56,56,0,0,1,149.31,102a8,8,0,1,1-10.64,12,40,40,0,0,0-54.85,1.63L59.7,139.72a40,40,0,0,0,56.58,56.58l9.94-9.94A8,8,0,0,1,137.54,186.36Zm70.08-138a56.08,56.08,0,0,0-79.22,0l-9.94,9.95a8,8,0,0,0,11.32,11.31l9.94-9.94a40,40,0,0,1,56.58,56.58L172.18,140.4A40,40,0,0,1,117.33,142,8,8,0,1,0,106.69,154a56,56,0,0,0,76.81-2.26l24.12-24.12A56.08,56.08,0,0,0,207.62,48.38Z"/></symbol>
+  <symbol id="notepencil" viewBox="0 0 256 256"><path fill="currentColor" d="M229.66,58.34l-32-32a8,8,0,0,0-11.32,0l-96,96A8,8,0,0,0,88,128v32a8,8,0,0,0,8,8h32a8,8,0,0,0,5.66-2.34l96-96A8,8,0,0,0,229.66,58.34ZM124.69,152H104V131.31l64-64L188.69,88ZM200,76.69,179.31,56,192,43.31,212.69,64ZM224,128v80a16,16,0,0,1-16,16H48a16,16,0,0,1-16-16V48A16,16,0,0,1,48,32h80a8,8,0,0,1,0,16H48V208H208V128a8,8,0,0,1,16,0Z"/></symbol>
+  <symbol id="chats" viewBox="0 0 256 256"><path fill="currentColor" d="M232,96a16,16,0,0,0-16-16H184V48a16,16,0,0,0-16-16H40A16,16,0,0,0,24,48V176a8,8,0,0,0,13,6.22L72,154V176a16,16,0,0,0,16,16h93.59L219,222.22A8,8,0,0,0,232,216Zm-16,0V196L202.41,176H88V80H216Z"/></symbol>
+  <symbol id="files" viewBox="0 0 256 256"><path fill="currentColor" d="M213.66,66.34l-40-40A8,8,0,0,0,168,24H88A16,16,0,0,0,72,40V56H56A16,16,0,0,0,40,72V216a16,16,0,0,0,16,16H168a16,16,0,0,0,16-16V200h16a16,16,0,0,0,16-16V72A8,8,0,0,0,213.66,66.34ZM168,216H56V72h76.69L168,107.31v84.53c0,.06,0,.11,0,.16s0,.1,0,.16V216Zm32-32H184V104a8,8,0,0,0-2.34-5.66l-40-40A8,8,0,0,0,136,56H88V40h76.69L200,75.31Zm-56-32a8,8,0,0,1-8,8H88a8,8,0,0,1,0-16h48A8,8,0,0,1,144,152Zm0,32a8,8,0,0,1-8,8H88a8,8,0,0,1,0-16h48A8,8,0,0,1,144,184Z"/></symbol>
+</svg>
+
+<div class="flex gap-8 items-start flex-wrap">
+
+<!-- ===================== A ===================== -->
+<div>
+<p class="label">A · menu du thème enrichi</p>
+<div class="frame bg-warm-white border border-stone-200 flex flex-col">
+  <div class="relative flex border-b border-stone-200">
+    <div class="flex-1 flex items-center justify-center py-3 text-sm font-semibold text-ios-orange-dark"><div class="flex items-center gap-1.5"><svg width="16" height="16"><use href="#notepencil"/></svg>Notes</div></div>
+    <div class="flex-1 flex items-center justify-center py-3 text-sm font-medium text-stone-400"><div class="flex items-center gap-1.5"><svg width="16" height="16"><use href="#chats"/></svg>Chats</div></div>
+    <div class="absolute bottom-0 left-0 w-1/2 h-0.5 bg-ios-orange-dark"></div>
+  </div>
+  <div class="flex-1 overflow-y-auto p-4">
+    <div class="py-2 pb-3">
+      <div class="flex items-center gap-2.5 w-full px-2 py-3 text-sm font-medium text-ios-orange-dark rounded-lg min-h-[44px]"><svg width="16" height="16"><use href="#plus"/></svg>Nouvelle note</div>
+      <div class="flex items-center gap-2.5 w-full px-2 py-3 text-base text-stone-900 font-semibold rounded-lg min-h-[44px]"><svg width="20" height="20"><use href="#files"/></svg>Toutes mes notes</div>
+    </div>
+    <div class="h-px bg-stone-200 mb-3"></div>
+    <div class="flex items-center justify-between px-2 mb-2">
+      <span class="text-xs font-medium text-stone-400 uppercase tracking-wide">Thèmes</span>
+      <div class="w-11 h-11 flex items-center justify-center rounded-full text-stone-500"><svg width="18" height="18"><use href="#plus"/></svg></div>
+    </div>
+
+    <div class="flex items-center min-h-[44px]">
+      <div class="w-7 min-w-[28px]"></div>
+      <div class="flex-1 flex items-center gap-2 px-2 py-2.5 text-sm text-stone-900 rounded-lg min-h-[44px]"><svg width="16" height="16"><use href="#folder"/></svg><span class="flex-1 min-w-0 truncate">Clients</span><span class="shrink-0 text-xs text-stone-400">12</span></div>
+      <div class="w-9 h-11 flex items-center justify-center text-stone-400"><svg width="20" height="20"><use href="#dots"/></svg></div>
+    </div>
+
+    <div class="relative">
+      <div class="flex items-center min-h-[44px]">
+        <div class="min-w-[28px] min-h-[44px] flex items-center justify-center"><div class="w-1.5 h-1.5 border-r-2 border-b-2 border-stone-400 rotate-45"></div></div>
+        <div class="flex-1 flex items-center gap-2 px-2 py-2.5 text-sm text-stone-900 rounded-lg min-h-[44px] bg-stone-100"><svg width="16" height="16"><use href="#folder"/></svg><span class="flex-1 min-w-0 truncate">Projet Atlas</span><span class="shrink-0 flex items-center gap-1 text-[10px] px-1.5 py-0.5 rounded-md bg-stone-100 text-stone-500"><svg width="12" height="12"><use href="#users"/></svg>3</span><span class="shrink-0 text-xs text-stone-400">8</span></div>
+        <div class="w-9 h-11 flex items-center justify-center text-stone-600"><svg width="20" height="20"><use href="#dots"/></svg></div>
+      </div>
+      <div class="absolute right-2 top-full z-50 min-w-[200px] bg-warm-white border border-stone-200 rounded-xl shadow-lg p-1">
+        <div class="w-full flex items-center gap-2.5 px-3 py-2.5 min-h-[40px] rounded-lg text-sm text-stone-800"><svg width="16" height="16"><use href="#pencil"/></svg>Renommer</div>
+        <div class="w-full flex items-center gap-2.5 px-3 py-2.5 min-h-[40px] rounded-lg text-sm text-stone-800"><svg width="16" height="16"><use href="#folderplus"/></svg>Nouveau sous-thème</div>
+        <div class="w-full flex items-center gap-2.5 px-3 py-2.5 min-h-[40px] rounded-lg text-sm text-stone-800"><svg width="16" height="16"><use href="#arrowupright"/></svg>Déplacer vers…</div>
+        <div class="h-px bg-stone-100 my-1 mx-2"></div>
+        <div class="w-full flex items-center gap-2.5 px-3 py-2.5 min-h-[40px] rounded-lg text-sm text-stone-800"><svg width="16" height="16"><use href="#link"/></svg>Inviter quelqu'un</div>
+        <div class="w-full flex items-center gap-2.5 px-3 py-2.5 min-h-[40px] rounded-lg text-sm text-stone-800"><svg width="16" height="16"><use href="#users"/></svg>Membres<span class="ml-auto text-xs text-stone-400">3</span></div>
+        <div class="h-px bg-stone-100 my-1 mx-2"></div>
+        <div class="w-full flex items-center gap-2.5 px-3 py-2.5 min-h-[40px] rounded-lg text-sm text-ios-red-dark"><svg width="16" height="16"><use href="#lock"/></svg>Arrêter le partage</div>
+        <div class="w-full flex items-center gap-2.5 px-3 py-2.5 min-h-[40px] rounded-lg text-sm text-ios-red-dark"><svg width="16" height="16"><use href="#trash"/></svg>Supprimer</div>
+      </div>
+    </div>
+
+    <div class="flex items-center min-h-[44px]">
+      <div class="w-7 min-w-[28px]"></div>
+      <div class="w-7 min-w-[28px]"></div>
+      <div class="flex-1 flex items-center gap-2 px-2 py-2.5 text-sm text-stone-900 rounded-lg min-h-[44px]"><svg width="16" height="16"><use href="#folder"/></svg><span class="flex-1 min-w-0 truncate">Réunions</span><svg width="14" height="14" class="text-stone-400"><use href="#lock"/></svg><span class="shrink-0 text-xs text-stone-400">3</span></div>
+      <div class="w-9 h-11"></div>
+    </div>
+    <div class="flex items-center min-h-[44px]">
+      <div class="w-7 min-w-[28px]"></div>
+      <div class="w-7 min-w-[28px]"></div>
+      <div class="flex-1 flex items-center gap-2 px-2 py-2.5 text-sm text-stone-900 rounded-lg min-h-[44px]"><svg width="16" height="16"><use href="#folder"/></svg><span class="flex-1 min-w-0 truncate">Idées</span><span class="shrink-0 text-xs text-stone-400">5</span></div>
+      <div class="w-9 h-11"></div>
+    </div>
+    <div class="flex items-center min-h-[44px]">
+      <div class="w-7 min-w-[28px]"></div>
+      <div class="flex-1 flex items-center gap-2 px-2 py-2.5 text-sm text-stone-900 rounded-lg min-h-[44px]"><svg width="16" height="16"><use href="#folder"/></svg><span class="flex-1 min-w-0 truncate">Perso</span><span class="shrink-0 text-xs text-stone-400">40</span></div>
+      <div class="w-9 h-11"></div>
+    </div>
+  </div>
+  <div class="border-t border-stone-200 p-4">
+    <div class="flex items-center gap-2.5 w-full px-2 py-3 text-sm text-stone-500 rounded-lg min-h-[44px]">Réglages</div>
+  </div>
+</div>
+</div>
+
+<!-- ===================== B ===================== -->
+<div>
+<p class="label">B · section par espace</p>
+<div class="frame bg-warm-white border border-stone-200 flex flex-col">
+  <div class="relative flex border-b border-stone-200">
+    <div class="flex-1 flex items-center justify-center py-3 text-sm font-semibold text-ios-orange-dark"><div class="flex items-center gap-1.5"><svg width="16" height="16"><use href="#notepencil"/></svg>Notes</div></div>
+    <div class="flex-1 flex items-center justify-center py-3 text-sm font-medium text-stone-400"><div class="flex items-center gap-1.5"><svg width="16" height="16"><use href="#chats"/></svg>Chats</div></div>
+    <div class="absolute bottom-0 left-0 w-1/2 h-0.5 bg-ios-orange-dark"></div>
+  </div>
+  <div class="flex-1 overflow-y-auto p-4">
+    <div class="py-2 pb-3">
+      <div class="flex items-center gap-2.5 w-full px-2 py-3 text-sm font-medium text-ios-orange-dark rounded-lg min-h-[44px]"><svg width="16" height="16"><use href="#plus"/></svg>Nouvelle note</div>
+      <div class="flex items-center gap-2.5 w-full px-2 py-3 text-base text-stone-900 font-semibold rounded-lg min-h-[44px]"><svg width="20" height="20"><use href="#files"/></svg>Toutes mes notes</div>
+    </div>
+    <div class="h-px bg-stone-200 mb-3"></div>
+    <div class="flex items-center justify-between px-2 mb-2">
+      <span class="text-xs font-medium text-stone-400 uppercase tracking-wide">Thèmes</span>
+      <div class="w-11 h-11 flex items-center justify-center rounded-full text-stone-500"><svg width="18" height="18"><use href="#plus"/></svg></div>
+    </div>
+    <div class="flex items-center min-h-[44px]">
+      <div class="w-7 min-w-[28px]"></div>
+      <div class="flex-1 flex items-center gap-2 px-2 py-2.5 text-sm text-stone-900 rounded-lg min-h-[44px]"><svg width="16" height="16"><use href="#folder"/></svg><span class="flex-1 min-w-0 truncate">Clients</span><span class="shrink-0 text-xs text-stone-400">12</span></div>
+      <div class="w-9 h-11"></div>
+    </div>
+    <div class="flex items-center min-h-[44px]">
+      <div class="w-7 min-w-[28px]"></div>
+      <div class="flex-1 flex items-center gap-2 px-2 py-2.5 text-sm text-stone-900 rounded-lg min-h-[44px]"><svg width="16" height="16"><use href="#folder"/></svg><span class="flex-1 min-w-0 truncate">Perso</span><span class="shrink-0 text-xs text-stone-400">40</span></div>
+      <div class="w-9 h-11"></div>
+    </div>
+
+    <div class="h-px bg-stone-200 my-3"></div>
+    <div class="flex items-center justify-between px-2 mb-1">
+      <span class="flex items-center gap-1.5 text-xs font-medium text-stone-400 uppercase tracking-wide"><svg width="14" height="14"><use href="#users"/></svg>Projet Atlas<span class="normal-case tracking-normal text-stone-400">· 3</span></span>
+      <div class="flex items-center">
+        <div class="w-11 h-11 flex items-center justify-center rounded-full text-ios-orange-dark"><svg width="18" height="18"><use href="#plus"/></svg></div>
+        <div class="w-9 h-11 flex items-center justify-center text-stone-400"><svg width="20" height="20"><use href="#dots"/></svg></div>
+      </div>
+    </div>
+    <div class="flex items-center min-h-[44px]">
+      <div class="w-7 min-w-[28px]"></div>
+      <div class="flex-1 flex items-center gap-2 px-2 py-2.5 text-sm text-stone-900 rounded-lg min-h-[44px] bg-stone-100"><svg width="16" height="16"><use href="#folder"/></svg><span class="flex-1 min-w-0 truncate">Réunions</span><svg width="14" height="14" class="text-stone-400"><use href="#lock"/></svg><span class="shrink-0 text-xs text-stone-400">3</span></div>
+      <div class="w-9 h-11 flex items-center justify-center text-stone-400"><svg width="20" height="20"><use href="#dots"/></svg></div>
+    </div>
+    <div class="flex items-center min-h-[44px]">
+      <div class="w-7 min-w-[28px]"></div>
+      <div class="flex-1 flex items-center gap-2 px-2 py-2.5 text-sm text-stone-900 rounded-lg min-h-[44px]"><svg width="16" height="16"><use href="#folder"/></svg><span class="flex-1 min-w-0 truncate">Idées</span><span class="shrink-0 text-xs text-stone-400">5</span></div>
+      <div class="w-9 h-11"></div>
+    </div>
+    <div class="flex items-center gap-1 bg-stone-100 rounded-xl pl-3 pr-1 py-1 ml-7 my-1">
+      <span class="flex-1 min-w-0 text-sm py-1.5 text-stone-400">Nouveau thème</span>
+      <span class="shrink-0 w-8 h-7 flex items-center justify-center rounded-md bg-ios-orange-50 text-ios-orange-dark"><svg width="14" height="14"><use href="#pencil"/></svg></span>
+      <span class="shrink-0 w-8 h-7 flex items-center justify-center rounded-md text-stone-400"><svg width="14" height="14"><use href="#lock"/></svg></span>
+      <div class="w-10 h-10 flex items-center justify-center rounded-lg text-stone-300"><svg width="16" height="16"><use href="#check"/></svg></div>
+    </div>
+
+    <div class="flex items-center justify-between px-2 mb-1 mt-3">
+      <span class="flex items-center gap-1.5 text-xs font-medium text-stone-400 uppercase tracking-wide"><svg width="14" height="14"><use href="#users"/></svg>Famille<span class="normal-case tracking-normal">· 2</span></span>
+      <div class="w-9 h-11 flex items-center justify-center text-stone-400"><svg width="20" height="20"><use href="#dots"/></svg></div>
+    </div>
+    <div class="flex items-center min-h-[44px]">
+      <div class="w-7 min-w-[28px]"></div>
+      <div class="flex-1 flex items-center gap-2 px-2 py-2.5 text-sm text-stone-900 rounded-lg min-h-[44px]"><svg width="16" height="16"><use href="#folder"/></svg><span class="flex-1 min-w-0 truncate">Courses</span><span class="shrink-0 text-xs text-stone-400">2</span></div>
+      <div class="w-9 h-11"></div>
+    </div>
+  </div>
+  <div class="border-t border-stone-200 p-4">
+    <div class="flex items-center gap-2.5 w-full px-2 py-3 text-sm text-stone-500 rounded-lg min-h-[44px]">Réglages</div>
+  </div>
+</div>
+</div>
+
+<!-- ===================== B, menu de l'espace ===================== -->
+<div>
+<p class="label">B · menu « … » de l'en-tête</p>
+<div class="frame bg-warm-white border border-stone-200 flex flex-col">
+  <div class="relative flex border-b border-stone-200">
+    <div class="flex-1 flex items-center justify-center py-3 text-sm font-semibold text-ios-orange-dark"><div class="flex items-center gap-1.5"><svg width="16" height="16"><use href="#notepencil"/></svg>Notes</div></div>
+    <div class="flex-1 flex items-center justify-center py-3 text-sm font-medium text-stone-400"><div class="flex items-center gap-1.5"><svg width="16" height="16"><use href="#chats"/></svg>Chats</div></div>
+    <div class="absolute bottom-0 left-0 w-1/2 h-0.5 bg-ios-orange-dark"></div>
+  </div>
+  <div class="flex-1 overflow-y-auto p-4">
+    <div class="flex items-center justify-between px-2 mb-2">
+      <span class="text-xs font-medium text-stone-400 uppercase tracking-wide">Thèmes</span>
+      <div class="w-11 h-11 flex items-center justify-center rounded-full text-stone-500"><svg width="18" height="18"><use href="#plus"/></svg></div>
+    </div>
+    <div class="flex items-center min-h-[44px]">
+      <div class="w-7 min-w-[28px]"></div>
+      <div class="flex-1 flex items-center gap-2 px-2 py-2.5 text-sm text-stone-900 rounded-lg min-h-[44px]"><svg width="16" height="16"><use href="#folder"/></svg><span class="flex-1 min-w-0 truncate">Clients</span><span class="shrink-0 text-xs text-stone-400">12</span></div>
+      <div class="w-9 h-11"></div>
+    </div>
+    <div class="h-px bg-stone-200 my-3"></div>
+    <div class="relative">
+      <div class="flex items-center justify-between px-2 mb-1">
+        <span class="flex items-center gap-1.5 text-xs font-medium text-stone-400 uppercase tracking-wide"><svg width="14" height="14"><use href="#users"/></svg>Projet Atlas<span class="normal-case tracking-normal">· 3</span></span>
+        <div class="flex items-center">
+          <div class="w-11 h-11 flex items-center justify-center rounded-full text-ios-orange-dark"><svg width="18" height="18"><use href="#plus"/></svg></div>
+          <div class="w-9 h-11 flex items-center justify-center text-stone-600"><svg width="20" height="20"><use href="#dots"/></svg></div>
+        </div>
+      </div>
+      <div class="absolute right-2 top-full z-50 min-w-[200px] bg-warm-white border border-stone-200 rounded-xl shadow-lg p-1">
+        <div class="px-3 pt-2 pb-1 text-[11px] text-stone-400">Vous êtes propriétaire</div>
+        <div class="w-full flex items-center gap-2.5 px-3 py-2.5 min-h-[40px] rounded-lg text-sm text-stone-800"><svg width="16" height="16"><use href="#link"/></svg>Inviter quelqu'un</div>
+        <div class="w-full flex items-center gap-2.5 px-3 py-2.5 min-h-[40px] rounded-lg text-sm text-stone-800"><svg width="16" height="16"><use href="#users"/></svg>Membres<span class="ml-auto text-xs text-stone-400">3</span></div>
+        <div class="w-full flex items-center gap-2.5 px-3 py-2.5 min-h-[40px] rounded-lg text-sm text-stone-800"><svg width="16" height="16"><use href="#pencil"/></svg>Renommer l'espace</div>
+        <div class="w-full flex items-center gap-2.5 px-3 py-2.5 min-h-[40px] rounded-lg text-sm text-stone-800"><svg width="16" height="16"><use href="#folderplus"/></svg>Nouveau thème</div>
+        <div class="h-px bg-stone-100 my-1 mx-2"></div>
+        <div class="w-full flex items-center gap-2.5 px-3 py-2.5 min-h-[40px] rounded-lg text-sm text-ios-red-dark"><svg width="16" height="16"><use href="#lock"/></svg>Arrêter le partage</div>
+      </div>
+    </div>
+    <div class="flex items-center min-h-[44px]">
+      <div class="w-7 min-w-[28px]"></div>
+      <div class="flex-1 flex items-center gap-2 px-2 py-2.5 text-sm text-stone-900 rounded-lg min-h-[44px]"><svg width="16" height="16"><use href="#folder"/></svg><span class="flex-1 min-w-0 truncate">Réunions</span><svg width="14" height="14" class="text-stone-400"><use href="#lock"/></svg></div>
+      <div class="w-9 h-11"></div>
+    </div>
+    <div class="flex items-center min-h-[44px]">
+      <div class="w-7 min-w-[28px]"></div>
+      <div class="flex-1 flex items-center gap-2 px-2 py-2.5 text-sm text-stone-900 rounded-lg min-h-[44px]"><svg width="16" height="16"><use href="#folder"/></svg><span class="flex-1 min-w-0 truncate">Idées</span></div>
+      <div class="w-9 h-11"></div>
+    </div>
+
+    <div class="h-px bg-stone-200 my-3"></div>
+    <div class="min-w-[200px] bg-warm-white border border-stone-200 rounded-xl shadow-lg p-1 ml-auto w-60">
+      <div class="px-3 pt-2 pb-1 text-[11px] text-stone-400">Espace de Mirko</div>
+      <div class="w-full flex items-center gap-2.5 px-3 py-2.5 min-h-[40px] rounded-lg text-sm text-stone-800"><svg width="16" height="16"><use href="#users"/></svg>Membres<span class="ml-auto text-xs text-stone-400">3</span></div>
+      <div class="h-px bg-stone-100 my-1 mx-2"></div>
+      <div class="w-full flex items-center gap-2.5 px-3 py-2.5 min-h-[40px] rounded-lg text-sm text-ios-red-dark"><svg width="16" height="16"><use href="#arrowupright"/></svg>Quitter l'espace</div>
+    </div>
+  </div>
+  <div class="border-t border-stone-200 p-4">
+    <div class="flex items-center gap-2.5 w-full px-2 py-3 text-sm text-stone-500 rounded-lg min-h-[44px]">Réglages</div>
+  </div>
+</div>
+</div>
+
+<!-- ===================== Inviter ===================== -->
+<div>
+<p class="label">Inviter (A et B, même panneau)</p>
+<div class="frame bg-warm-white border border-stone-200 flex flex-col">
+  <div class="relative flex border-b border-stone-200">
+    <div class="flex-1 flex items-center justify-center py-3 text-sm font-semibold text-ios-orange-dark"><div class="flex items-center gap-1.5"><svg width="16" height="16"><use href="#notepencil"/></svg>Notes</div></div>
+    <div class="flex-1 flex items-center justify-center py-3 text-sm font-medium text-stone-400"><div class="flex items-center gap-1.5"><svg width="16" height="16"><use href="#chats"/></svg>Chats</div></div>
+    <div class="absolute bottom-0 left-0 w-1/2 h-0.5 bg-ios-orange-dark"></div>
+  </div>
+  <div class="flex-1 overflow-y-auto p-4">
+    <div class="flex items-center justify-between px-2 mb-1">
+      <span class="flex items-center gap-1.5 text-xs font-medium text-stone-400 uppercase tracking-wide"><svg width="14" height="14"><use href="#users"/></svg>Projet Atlas<span class="normal-case tracking-normal">· 3</span></span>
+      <div class="flex items-center">
+        <div class="w-11 h-11 flex items-center justify-center rounded-full rotate-45 text-ios-orange-dark bg-ios-orange-50"><svg width="18" height="18"><use href="#plus"/></svg></div>
+        <div class="w-9 h-11 flex items-center justify-center text-stone-400"><svg width="20" height="20"><use href="#dots"/></svg></div>
+      </div>
+    </div>
+    <div class="bg-stone-100 rounded-xl p-2 ml-7 my-1 flex flex-col gap-1">
+      <div class="flex items-center gap-2.5 px-3 py-2.5 min-h-[40px] rounded-lg text-sm text-stone-800"><svg width="16" height="16"><use href="#link"/></svg>Copier le lien</div>
+      <div class="flex items-center gap-2.5 px-3 py-2.5 min-h-[40px] rounded-lg text-sm text-stone-800"><svg width="16" height="16"><use href="#export"/></svg>Envoyer le lien…</div>
+      <div class="px-3 pb-1 text-[11px] text-stone-400">Valable une fois, 7 jours.</div>
+    </div>
+    <div class="flex items-center min-h-[44px]">
+      <div class="w-7 min-w-[28px]"></div>
+      <div class="flex-1 flex items-center gap-2 px-2 py-2.5 text-sm text-stone-900 rounded-lg min-h-[44px]"><svg width="16" height="16"><use href="#folder"/></svg><span class="flex-1 min-w-0 truncate">Réunions</span><svg width="14" height="14" class="text-stone-400"><use href="#lock"/></svg></div>
+      <div class="w-9 h-11"></div>
+    </div>
+    <div class="flex items-center min-h-[44px]">
+      <div class="w-7 min-w-[28px]"></div>
+      <div class="flex-1 flex items-center gap-2 px-2 py-2.5 text-sm text-stone-900 rounded-lg min-h-[44px]"><svg width="16" height="16"><use href="#folder"/></svg><span class="flex-1 min-w-0 truncate">Idées</span></div>
+      <div class="w-9 h-11"></div>
+    </div>
+
+    <div class="h-px bg-stone-200 my-3"></div>
+    <div class="flex items-center min-h-[44px] px-2 gap-2 text-sm text-stone-900"><span class="w-7 h-7 rounded-full bg-ios-orange-50 text-ios-orange-dark text-[11px] font-semibold flex items-center justify-center">MB</span><span class="flex-1">Mirko</span><span class="text-[10px] px-1.5 py-0.5 rounded-md bg-stone-100 text-stone-500">Propriétaire</span></div>
+    <div class="flex items-center min-h-[44px] px-2 gap-2 text-sm text-stone-900"><span class="w-7 h-7 rounded-full bg-stone-100 text-stone-600 text-[11px] font-semibold flex items-center justify-center">JL</span><span class="flex-1">Jean</span><span class="shrink-0 h-9 px-3 flex items-center justify-center rounded-lg bg-stone-100 text-stone-900 text-xs font-medium">Retirer</span></div>
+    <div class="flex items-center min-h-[44px] px-2 gap-2 text-sm text-stone-900"><span class="w-7 h-7 rounded-full bg-stone-100 text-stone-600 text-[11px] font-semibold flex items-center justify-center">SO</span><span class="flex-1">Sophie</span><span class="shrink-0 h-9 px-3 flex items-center justify-center rounded-lg bg-stone-100 text-stone-900 text-xs font-medium">Retirer</span></div>
+  </div>
+  <div class="border-t border-stone-200 p-4">
+    <div class="flex items-center gap-2.5 w-full px-2 py-3 text-sm text-stone-500 rounded-lg min-h-[44px]">Réglages</div>
+  </div>
+</div>
+</div>
+
+<!-- ===================== Quitter / arrêter ===================== -->
+<div>
+<p class="label">Quitter (invité) · Arrêter le partage (propriétaire)</p>
+<div class="frame bg-warm-white border border-stone-200 flex flex-col">
+  <div class="relative flex border-b border-stone-200">
+    <div class="flex-1 flex items-center justify-center py-3 text-sm font-semibold text-ios-orange-dark"><div class="flex items-center gap-1.5"><svg width="16" height="16"><use href="#notepencil"/></svg>Notes</div></div>
+    <div class="flex-1 flex items-center justify-center py-3 text-sm font-medium text-stone-400"><div class="flex items-center gap-1.5"><svg width="16" height="16"><use href="#chats"/></svg>Chats</div></div>
+    <div class="absolute bottom-0 left-0 w-1/2 h-0.5 bg-ios-orange-dark"></div>
+  </div>
+  <div class="flex-1 overflow-y-auto p-4">
+    <div class="flex items-center justify-between px-2 mb-1">
+      <span class="flex items-center gap-1.5 text-xs font-medium text-stone-400 uppercase tracking-wide"><svg width="14" height="14"><use href="#users"/></svg>Projet Atlas<span class="normal-case tracking-normal">· 3</span></span>
+      <div class="w-9 h-11 flex items-center justify-center text-stone-600"><svg width="20" height="20"><use href="#dots"/></svg></div>
+    </div>
+    <div class="min-w-[200px] bg-warm-white border border-stone-200 rounded-xl shadow-lg p-1 ml-auto w-64">
+      <div class="px-3 pt-2 text-sm font-medium text-stone-900">Quitter Atlas ?</div>
+      <div class="px-3 pb-2 text-xs text-stone-500">Les thèmes disparaissent de votre sidebar.</div>
+      <div class="flex flex-col gap-1.5 px-2 pb-2">
+        <div class="h-9 flex items-center justify-center rounded-lg bg-stone-100 text-stone-900 text-sm font-medium">Quitter, garder mes notes</div>
+        <div class="h-9 flex items-center justify-center rounded-lg bg-ios-red text-white text-sm font-medium">Quitter et retirer mes notes</div>
+      </div>
+    </div>
+
+    <div class="h-px bg-stone-200 my-4"></div>
+
+    <div class="flex items-center justify-between px-2 mb-1">
+      <span class="flex items-center gap-1.5 text-xs font-medium text-stone-400 uppercase tracking-wide"><svg width="14" height="14"><use href="#users"/></svg>Projet Atlas<span class="normal-case tracking-normal">· 3</span></span>
+      <div class="w-9 h-11 flex items-center justify-center text-stone-600"><svg width="20" height="20"><use href="#dots"/></svg></div>
+    </div>
+    <div class="min-w-[200px] bg-warm-white border border-stone-200 rounded-xl shadow-lg p-1 ml-auto w-64">
+      <div class="px-3 pt-2 text-sm font-medium text-stone-900">Arrêter le partage d'Atlas ?</div>
+      <div class="px-3 pb-2 text-xs text-stone-500">Jean et Sophie n'y auront plus accès. Les thèmes restent chez vous.</div>
+      <div class="flex gap-2 px-2 pb-2">
+        <div class="flex-1 h-9 flex items-center justify-center rounded-lg bg-stone-100 text-stone-900 text-sm font-medium">Annuler</div>
+        <div class="flex-1 h-9 flex items-center justify-center rounded-lg bg-ios-red text-white text-sm font-medium">Arrêter</div>
+      </div>
+    </div>
+  </div>
+  <div class="border-t border-stone-200 p-4">
+    <div class="flex items-center gap-2.5 w-full px-2 py-3 text-sm text-stone-500 rounded-lg min-h-[44px]">Réglages</div>
+  </div>
+</div>
+</div>
+
+</div>
+</body>
+</html>

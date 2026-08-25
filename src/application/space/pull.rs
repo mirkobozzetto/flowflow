@@ -9,12 +9,17 @@ use super::{client, map_err, SpaceError};
 use crate::domain::space::due_for_pull;
 use crate::domain::{NewFolder, UpdateFolder, UpdateNote};
 use crate::infrastructure::backend::spaces::PullResp;
-use crate::infrastructure::persistence::Database;
+use crate::infrastructure::backend::BackendError;
+use crate::infrastructure::persistence::{now_iso, Database, DbTx};
 
 // My own opaque author handle, learned from the first pulled note flagged
 // `own`. The pull payload never states it outright, and it is the same handle
 // across every space (it hashes the web identity), so one setting holds it.
 const MY_AUTHOR_REF_KEY: &str = "space_author_ref";
+
+// How many staged notes one pull pushes before reading: enough to drain a
+// day offline, small enough that a stuck one never delays the pull for long.
+const REPUBLISH_CAP: usize = 20;
 
 /// What one pull changed, for the UI banner and the tests.
 #[derive(Debug, Clone, Default, PartialEq)]
@@ -27,16 +32,30 @@ pub struct PullOutcome {
     pub gone: bool,
 }
 
+/// What a committed page still owes outside SQLite. Files and vectors do not
+/// roll back, so they wait for the commit; a crash in between leaves orphans
+/// the replayable purge and the next embed pick up.
+#[derive(Debug, Clone, Default, PartialEq)]
+pub struct PageEffects {
+    /// (local note id, audio files) of every note a tombstone removed
+    pub removed_notes: Vec<(String, Vec<String>)>,
+    /// (local note id, title, content, updated_at) of every note applied
+    pub embed: Vec<(String, String, String, String)>,
+}
+
 /// Pull everything changed since the stored cursor, page by page, and apply it.
 ///
-/// The cursor only advances once a page is fully applied: a cursor moved past
-/// rows that failed to land would lose them for good, since the server has no
-/// way to replay what the client claims to already hold.
+/// A page and its cursor commit together: a cursor moved past rows that failed
+/// to land would lose them for good, since the server has no way to replay
+/// what the client claims to already hold. A page that fails stops the pull,
+/// cursor intact, and is replayed next time.
 pub async fn pull_space(
     db: &Database,
     space_id: &str,
 ) -> Result<PullOutcome, SpaceError> {
     let c = client(db)?;
+    super::resume_adoptions(db, space_id).await;
+    republish_pending(db, space_id).await;
     let mut outcome = PullOutcome::default();
     loop {
         let since = db
@@ -54,23 +73,64 @@ pub async fn pull_space(
                 super::detach_locally(db, space_id, super::Departure::Revoked);
                 return Ok(outcome);
             }
+            // Too soon after the last pull: the server's freshness floor, not a
+            // failure. The next scheduled pull reads what this one could not.
+            Err(BackendError::Status(429, _)) => return Ok(outcome),
             Err(e) => return Err(map_err(e)),
         };
         let more = page.more;
-        let next = page.next_seq;
-        let applied = apply_delta(db, space_id, &page);
+        let (applied, effects) = db
+            .apply_space_page(space_id, page.next_seq, |tx| {
+                apply_delta(tx, space_id, &page)
+            })
+            .map_err(SpaceError::Other)?;
         outcome.folders += applied.folders;
         outcome.notes += applied.notes;
         outcome.removed += applied.removed;
-        db.set_space_cursor(space_id, next)
-            .map_err(SpaceError::Other)?;
-        // A pull is where deletions land, so it is where the vector purge has
-        // to be finished, not merely started.
-        crate::application::embed::drain_purges().await;
+        run_effects(db, effects).await;
         if !more {
             return Ok(outcome);
         }
     }
+}
+
+async fn run_effects(db: &Database, effects: PageEffects) {
+    for (id, audio_paths) in &effects.removed_notes {
+        crate::application::note_persistence::finish_note_delete(
+            db,
+            id,
+            audio_paths,
+        );
+    }
+    for (id, title, content, updated_at) in effects.embed {
+        // An ordinary note from here on: same embed pipeline, so it is
+        // searchable and usable in chat with no code of its own.
+        crate::application::embed::embed_note(
+            id,
+            title,
+            content,
+            vec![],
+            updated_at,
+        );
+    }
+    // A pull is where deletions land, so it is where the vector purge has to
+    // be finished, not merely started.
+    crate::application::embed::drain_purges().await;
+}
+
+/// Push the notes saved into this space that the server has not confirmed
+/// yet, at most `REPUBLISH_CAP` of them, those whose retry time has come.
+/// Whatever happens to them, the pull goes on. Returns how many were tried.
+pub async fn republish_pending(db: &Database, space_id: &str) -> usize {
+    let due = db
+        .due_note_publishes(space_id, &now_iso(), REPUBLISH_CAP)
+        .unwrap_or_default();
+    for note_id in &due {
+        if let Err(e) = super::write::publish_local_note(db, note_id).await {
+            eprintln!("[space] republish {note_id}: {e}");
+        }
+    }
+    due.len()
 }
 
 /// Pull unless the 30 s floor says it is too soon. This is what the UI calls:
@@ -107,91 +167,87 @@ pub async fn pull_all_due(db: &Database) -> usize {
     changed
 }
 
-/// Apply one page of delta to the local mirror.
+/// Apply one page of delta to the local mirror, inside the caller's
+/// transaction. Any SQL failure is returned, not skipped: a row the server
+/// will never replay must not be dropped on the floor. A tombstone for a row
+/// this device never had is a no-op.
 ///
 /// Folders land in two passes: create and rename first, reparent second. A
 /// child can arrive in the same page as a parent it does not yet resolve, and
 /// hanging it at the root "for now" would show the user a tree that is briefly
 /// wrong.
 pub fn apply_delta(
-    db: &Database,
+    tx: &DbTx,
     space_id: &str,
     page: &PullResp,
-) -> PullOutcome {
+) -> Result<(PullOutcome, PageEffects), String> {
     let mut outcome = PullOutcome::default();
+    let mut effects = PageEffects::default();
 
     for f in &page.folders {
-        let local = db.local_folder_for_remote(space_id, &f.id);
+        let local = tx.local_folder_for_remote(space_id, &f.id);
         match (f.deleted, local) {
             (true, Some(local_id)) => {
-                let _ = db.delete_folder(&local_id);
+                tx.delete_folder(&local_id)?;
                 outcome.folders += 1;
             }
             (true, None) => {}
             (false, Some(local_id)) => {
-                let _ = db.update_folder(
+                tx.update_folder(
                     &local_id,
                     &UpdateFolder {
                         name: Some(f.name.clone()),
                         description: None,
                         parent_id: None,
                     },
-                );
-                let _ = db
-                    .mark_folder_in_space(&local_id, space_id, &f.id, &f.mode);
+                )?;
+                tx.mark_folder_in_space(&local_id, space_id, &f.id, &f.mode)?;
                 outcome.folders += 1;
             }
             (false, None) => {
-                let Ok(created) = db.create_folder(&NewFolder {
+                let created = tx.create_folder(&NewFolder {
                     name: f.name.clone(),
                     description: None,
                     parent_id: None,
-                }) else {
-                    continue;
-                };
-                let _ = db.mark_folder_in_space(
-                    &created.id,
-                    space_id,
-                    &f.id,
-                    &f.mode,
-                );
+                })?;
+                tx.mark_folder_in_space(&created.id, space_id, &f.id, &f.mode)?;
                 outcome.folders += 1;
             }
         }
     }
 
     for f in page.folders.iter().filter(|f| !f.deleted) {
-        let Some(local_id) = db.local_folder_for_remote(space_id, &f.id) else {
+        let Some(local_id) = tx.local_folder_for_remote(space_id, &f.id) else {
             continue;
         };
         let parent_local = f
             .parent_id
             .as_deref()
-            .and_then(|p| db.local_folder_for_remote(space_id, p));
-        let _ = db.update_folder(
+            .and_then(|p| tx.local_folder_for_remote(space_id, p));
+        tx.update_folder(
             &local_id,
             &UpdateFolder {
                 name: None,
                 description: None,
                 parent_id: Some(parent_local),
             },
-        );
+        )?;
     }
 
     for n in &page.notes {
         if n.own {
             if let Some(r) = n.author_ref.as_deref() {
-                remember_my_author_ref(db, r);
+                remember_my_author_ref(tx, r)?;
             }
         }
-        let local = db.local_note_for_remote(space_id, &n.id);
+        let local = tx.local_note_for_remote(space_id, &n.id);
         match (n.deleted, local) {
             (true, Some(local_id)) => {
-                // the full local delete: audio, chunks, share/provenance rows,
-                // then the vector purge (queued so a LanceDB failure retries)
-                crate::application::note_persistence::delete_note(
-                    db, &local_id,
-                );
+                let audio =
+                    crate::application::note_persistence::delete_note_rows(
+                        tx, &local_id,
+                    )?;
+                effects.removed_notes.push((local_id, audio));
                 outcome.removed += 1;
             }
             (true, None) => {}
@@ -203,66 +259,63 @@ pub fn apply_delta(
                 let folder_local = n
                     .folder_id
                     .as_deref()
-                    .and_then(|f| db.local_folder_for_remote(space_id, f));
+                    .and_then(|f| tx.local_folder_for_remote(space_id, f));
                 let local_id = match local {
                     Some(id) => {
                         // the server copy wins outright. A local edit by a
                         // non-author was never legitimate, and merging would
                         // reopen the authority question the design closes.
-                        let _ = db.update_note(
+                        tx.update_note(
                             &id,
                             &UpdateNote {
                                 title: Some(title.clone()),
                                 content: Some(content.clone()),
                                 tags: None,
                             },
-                        );
-                        relink_folder(db, &id, folder_local.as_deref());
+                        )?;
+                        relink_folder(tx, &id, folder_local.as_deref())?;
                         id
                     }
                     None => {
-                        let Some((created, _)) =
-                            crate::application::note_persistence::create_note(
-                                db,
-                                &title,
-                                &content,
-                                vec![],
-                                folder_local.as_deref(),
-                                None,
-                            )
-                        else {
-                            continue;
-                        };
-                        created.id
+                        crate::application::note_persistence::create_note_in(
+                            tx,
+                            &title,
+                            &content,
+                            vec![],
+                            folder_local.as_deref(),
+                            None,
+                        )?
+                        .0
+                        .id
                     }
                 };
-                let _ = db.mark_note_in_space(
+                tx.mark_note_in_space(
                     &local_id,
                     space_id,
                     &n.id,
                     n.author_ref.as_deref(),
-                );
-                // An ordinary note from here on: same embed pipeline, so it is
-                // searchable and usable in chat with no code of its own.
-                crate::application::embed::embed_note(
+                )?;
+                effects.embed.push((
                     local_id,
                     title,
                     content,
-                    vec![],
                     n.updated_at.clone(),
-                );
+                ));
                 outcome.notes += 1;
             }
         }
     }
 
-    outcome
+    Ok((outcome, effects))
 }
 
-fn relink_folder(db: &Database, note_id: &str, folder_id: Option<&str>) {
-    let current: Vec<String> = db
-        .folders_for_note(note_id)
-        .unwrap_or_default()
+fn relink_folder(
+    tx: &DbTx,
+    note_id: &str,
+    folder_id: Option<&str>,
+) -> Result<(), String> {
+    let current: Vec<String> = tx
+        .folders_for_note(note_id)?
         .into_iter()
         .map(|f| f.id)
         .collect();
@@ -271,20 +324,22 @@ fn relink_folder(db: &Database, note_id: &str, folder_id: Option<&str>) {
         None => current.is_empty(),
     };
     if unchanged {
-        return;
+        return Ok(());
     }
     for old in &current {
-        let _ = db.remove_note_from_folder(note_id, old);
+        tx.remove_note_from_folder(note_id, old)?;
     }
     if let Some(f) = folder_id {
-        let _ = db.add_note_to_folder(note_id, f);
+        tx.add_note_to_folder(note_id, f)?;
     }
+    Ok(())
 }
 
-fn remember_my_author_ref(db: &Database, author_ref: &str) {
-    if db.get_setting(MY_AUTHOR_REF_KEY).as_deref() != Some(author_ref) {
-        let _ = db.set_setting(MY_AUTHOR_REF_KEY, author_ref);
+fn remember_my_author_ref(tx: &DbTx, author_ref: &str) -> Result<(), String> {
+    if tx.get_setting(MY_AUTHOR_REF_KEY).as_deref() != Some(author_ref) {
+        tx.set_setting(MY_AUTHOR_REF_KEY, author_ref)?;
     }
+    Ok(())
 }
 
 /// My own author handle, once a pull has taught it. None on a device that has

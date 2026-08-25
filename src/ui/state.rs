@@ -52,6 +52,7 @@ pub enum RowMenu {
     Conversation(String),
     Folder(String),
     Note(String),
+    Space(String),
 }
 
 // The attribute toggles sitting in the notes search field. Additive: a note has

@@ -1,5 +1,5 @@
 use crate::domain::{Folder, NewFolder, UpdateFolder};
-use crate::infrastructure::persistence::{now_iso, sync_meta, Database};
+use crate::infrastructure::persistence::{now_iso, sync_meta, Database, DbTx};
 use uuid::Uuid;
 
 fn row_to_folder(row: &rusqlite::Row) -> rusqlite::Result<Folder> {
@@ -17,35 +17,6 @@ fn row_to_folder(row: &rusqlite::Row) -> rusqlite::Result<Folder> {
 }
 
 impl Database {
-    pub fn create_folder(&self, folder: &NewFolder) -> Result<Folder, String> {
-        let id = Uuid::new_v4().to_string();
-        let now = now_iso();
-        self.conn()
-            .execute(
-                "INSERT INTO folders (id, name, description, parent_id, created_at, modified_at)
-                 VALUES (?1,?2,?3,?4,?5,?6)",
-                rusqlite::params![id, folder.name, folder.description, folder.parent_id, now, now],
-            )
-            .map_err(|e| format!("Insert folder: {e}"))?;
-        self.get_folder(&id)?
-            .ok_or_else(|| "Folder not found after insert".into())
-    }
-
-    pub fn get_folder(&self, id: &str) -> Result<Option<Folder>, String> {
-        let conn = self.conn();
-        let mut stmt = conn
-            .prepare("SELECT * FROM folders WHERE id = ?1")
-            .map_err(|e| format!("Prepare: {e}"))?;
-        let mut rows = stmt
-            .query_map([id], row_to_folder)
-            .map_err(|e| format!("Query: {e}"))?;
-        match rows.next() {
-            Some(Ok(f)) => Ok(Some(f)),
-            Some(Err(e)) => Err(format!("Row: {e}")),
-            None => Ok(None),
-        }
-    }
-
     pub fn list_all_folders(&self) -> Result<Vec<Folder>, String> {
         let conn = self.conn();
         let mut stmt = conn
@@ -95,13 +66,44 @@ impl Database {
         }
         Ok(folders)
     }
+}
+
+impl DbTx<'_> {
+    pub fn create_folder(&self, folder: &NewFolder) -> Result<Folder, String> {
+        let id = Uuid::new_v4().to_string();
+        let now = now_iso();
+        self.0
+            .execute(
+                "INSERT INTO folders (id, name, description, parent_id, created_at, modified_at)
+                 VALUES (?1,?2,?3,?4,?5,?6)",
+                rusqlite::params![id, folder.name, folder.description, folder.parent_id, now, now],
+            )
+            .map_err(|e| format!("Insert folder: {e}"))?;
+        self.get_folder(&id)?
+            .ok_or_else(|| "Folder not found after insert".into())
+    }
+
+    pub fn get_folder(&self, id: &str) -> Result<Option<Folder>, String> {
+        let conn = self.0;
+        let mut stmt = conn
+            .prepare("SELECT * FROM folders WHERE id = ?1")
+            .map_err(|e| format!("Prepare: {e}"))?;
+        let mut rows = stmt
+            .query_map([id], row_to_folder)
+            .map_err(|e| format!("Query: {e}"))?;
+        match rows.next() {
+            Some(Ok(f)) => Ok(Some(f)),
+            Some(Err(e)) => Err(format!("Row: {e}")),
+            None => Ok(None),
+        }
+    }
 
     pub fn update_folder(
         &self,
         id: &str,
         update: &UpdateFolder,
     ) -> Result<(), String> {
-        let conn = self.conn();
+        let conn = self.0;
         let now = now_iso();
         if let Some(ref name) = update.name {
             conn.execute(
@@ -128,37 +130,33 @@ impl Database {
     }
 
     pub fn delete_folder(&self, id: &str) -> Result<(), String> {
-        let conn = self.conn();
-        let tx = conn
-            .unchecked_transaction()
-            .map_err(|e| format!("Delete folder tx: {e}"))?;
-        let exists: bool = tx
-            .query_row(
-                "SELECT EXISTS(SELECT 1 FROM folders WHERE id = ?1)",
-                [id],
-                |r| r.get(0),
-            )
-            .map_err(|e| format!("Delete folder check: {e}"))?;
-        if !exists {
-            return Ok(());
-        }
-        // notes_folders links are CASCADE-deleted: tombstone them before the row.
-        for link in sync_meta::collect_links(
-            &tx,
-            "SELECT folder_id, note_id FROM notes_folders WHERE folder_id = ?1",
-            id,
-        ) {
-            sync_meta::tombstone_entity(&tx, "notes_folders", &link)?;
-        }
-        sync_meta::tombstone_entity(&tx, "folder", id)?;
-        // Subfolders are reparented to NULL by ON DELETE SET NULL; with
-        // recursive_triggers=ON that fires the folders AFTER UPDATE trigger, which
-        // records the reparent automatically (no manual mark; covered by a test).
-        tx.execute("DELETE FROM folders WHERE id = ?1", [id])
-            .map_err(|e| format!("Delete folder: {e}"))?;
-        tx.commit()
-            .map_err(|e| format!("Delete folder commit: {e}"))?;
-        Ok(())
+        self.savepoint("delete_folder", |tx| {
+            let exists: bool = tx
+                .query_row(
+                    "SELECT EXISTS(SELECT 1 FROM folders WHERE id = ?1)",
+                    [id],
+                    |r| r.get(0),
+                )
+                .map_err(|e| format!("Delete folder check: {e}"))?;
+            if !exists {
+                return Ok(());
+            }
+            // notes_folders links are CASCADE-deleted: tombstone them before the row.
+            for link in sync_meta::collect_links(
+                tx,
+                "SELECT folder_id, note_id FROM notes_folders WHERE folder_id = ?1",
+                id,
+            ) {
+                sync_meta::tombstone_entity(tx, "notes_folders", &link)?;
+            }
+            sync_meta::tombstone_entity(tx, "folder", id)?;
+            // Subfolders are reparented to NULL by ON DELETE SET NULL; with
+            // recursive_triggers=ON that fires the folders AFTER UPDATE trigger, which
+            // records the reparent automatically (no manual mark; covered by a test).
+            tx.execute("DELETE FROM folders WHERE id = ?1", [id])
+                .map_err(|e| format!("Delete folder: {e}"))?;
+            Ok(())
+        })
     }
 
     pub fn add_note_to_folder(
@@ -166,7 +164,7 @@ impl Database {
         note_id: &str,
         folder_id: &str,
     ) -> Result<(), String> {
-        self.conn()
+        self.0
             .execute(
                 "INSERT OR IGNORE INTO notes_folders (note_id, folder_id) VALUES (?1, ?2)",
                 rusqlite::params![note_id, folder_id],
@@ -180,32 +178,29 @@ impl Database {
         note_id: &str,
         folder_id: &str,
     ) -> Result<(), String> {
-        let conn = self.conn();
-        let tx = conn
-            .unchecked_transaction()
-            .map_err(|e| format!("Unlink tx: {e}"))?;
-        let n = tx
-            .execute(
-                "DELETE FROM notes_folders WHERE note_id = ?1 AND folder_id = ?2",
-                rusqlite::params![note_id, folder_id],
-            )
-            .map_err(|e| format!("Unlink note-folder: {e}"))?;
-        if n > 0 {
-            sync_meta::tombstone_entity(
-                &tx,
-                "notes_folders",
-                &format!("{folder_id}:{note_id}"),
-            )?;
-        }
-        tx.commit().map_err(|e| format!("Unlink commit: {e}"))?;
-        Ok(())
+        self.savepoint("unlink_note", |tx| {
+            let n = tx
+                .execute(
+                    "DELETE FROM notes_folders WHERE note_id = ?1 AND folder_id = ?2",
+                    rusqlite::params![note_id, folder_id],
+                )
+                .map_err(|e| format!("Unlink note-folder: {e}"))?;
+            if n > 0 {
+                sync_meta::tombstone_entity(
+                    tx,
+                    "notes_folders",
+                    &format!("{folder_id}:{note_id}"),
+                )?;
+            }
+            Ok(())
+        })
     }
 
     pub fn folders_for_note(
         &self,
         note_id: &str,
     ) -> Result<Vec<Folder>, String> {
-        let conn = self.conn();
+        let conn = self.0;
         let mut stmt = conn
             .prepare(
                 "SELECT f.* FROM folders f
@@ -222,5 +217,50 @@ impl Database {
             folders.push(row.map_err(|e| format!("Row: {e}"))?);
         }
         Ok(folders)
+    }
+}
+
+impl Database {
+    pub fn create_folder(&self, folder: &NewFolder) -> Result<Folder, String> {
+        DbTx(&self.conn()).create_folder(folder)
+    }
+
+    pub fn get_folder(&self, id: &str) -> Result<Option<Folder>, String> {
+        DbTx(&self.conn()).get_folder(id)
+    }
+
+    pub fn update_folder(
+        &self,
+        id: &str,
+        update: &UpdateFolder,
+    ) -> Result<(), String> {
+        DbTx(&self.conn()).update_folder(id, update)
+    }
+
+    pub fn delete_folder(&self, id: &str) -> Result<(), String> {
+        DbTx(&self.conn()).delete_folder(id)
+    }
+
+    pub fn add_note_to_folder(
+        &self,
+        note_id: &str,
+        folder_id: &str,
+    ) -> Result<(), String> {
+        DbTx(&self.conn()).add_note_to_folder(note_id, folder_id)
+    }
+
+    pub fn remove_note_from_folder(
+        &self,
+        note_id: &str,
+        folder_id: &str,
+    ) -> Result<(), String> {
+        DbTx(&self.conn()).remove_note_from_folder(note_id, folder_id)
+    }
+
+    pub fn folders_for_note(
+        &self,
+        note_id: &str,
+    ) -> Result<Vec<Folder>, String> {
+        DbTx(&self.conn()).folders_for_note(note_id)
     }
 }

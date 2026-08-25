@@ -33,16 +33,16 @@ fn joined_space_with_two_notes() -> (tempfile::TempDir, Database, String, String
     let dir = tempfile::tempdir().unwrap();
     let db = Database::open_at(dir.path().join("flowflow.db")).unwrap();
     db.upsert_space(SPACE, "Team", false).unwrap();
-    flowflow::application::space::apply_delta(
-        &db,
-        SPACE,
-        &PullResp {
-            folders: vec![],
-            notes: vec![note("mine", ME, true), note("theirs", THEM, false)],
-            next_seq: 2,
-            more: false,
-        },
-    );
+    let page = PullResp {
+        folders: vec![],
+        notes: vec![note("mine", ME, true), note("theirs", THEM, false)],
+        next_seq: 2,
+        more: false,
+    };
+    db.apply_space_page(SPACE, page.next_seq, |tx| {
+        flowflow::application::space::apply_delta(tx, SPACE, &page)
+    })
+    .unwrap();
     let mine = db.local_note_for_remote(SPACE, "mine").unwrap();
     let theirs = db.local_note_for_remote(SPACE, "theirs").unwrap();
     (dir, db, mine, theirs)

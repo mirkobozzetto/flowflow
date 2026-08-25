@@ -14,6 +14,7 @@ mod schema;
 pub mod settings_repo;
 pub mod share_repo;
 pub mod space_repo;
+pub use space_repo::{DbTx, PublishPending};
 pub mod sync_meta;
 pub mod thread_repo;
 
@@ -156,9 +157,12 @@ pub fn raw_db_path() -> PathBuf {
 }
 
 pub fn now_iso() -> String {
-    chrono::Utc::now()
-        .format("%Y-%m-%dT%H:%M:%S%.3fZ")
-        .to_string()
+    iso_at(chrono::Utc::now())
+}
+
+/// The one timestamp format every row and every comparison uses.
+pub fn iso_at(at: chrono::DateTime<chrono::Utc>) -> String {
+    at.format("%Y-%m-%dT%H:%M:%S%.3fZ").to_string()
 }
 
 impl Database {

@@ -1,5 +1,7 @@
 mod conversations;
 mod folders;
+mod join_link;
+mod space_section;
 
 pub use conversations::*;
 pub use folders::*;
@@ -11,6 +13,21 @@ use crate::ui::icons::*;
 use crate::ui::{AppState, SidebarTab, View};
 use dioxus::prelude::*;
 use std::sync::Arc;
+
+// A menu opened at the bottom of the drawer would sit below the fold: bring
+// it into view once it is in the DOM.
+fn use_menu_scroll(app: AppState) {
+    use_effect(move || {
+        if (app.row_menu)().is_some() {
+            dioxus::document::eval(
+                "requestAnimationFrame(function() {
+                    var el = document.getElementById('row-menu');
+                    if (el) el.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+                });",
+            );
+        }
+    });
+}
 
 pub(crate) fn navigate_with_slide(mut app: AppState, target: View) {
     if (app.view)() == target {
@@ -38,6 +55,8 @@ pub(crate) fn navigate_with_slide(mut app: AppState, target: View) {
 
 #[component]
 pub fn SidebarOverlay() -> Element {
+    let app_for_menu: AppState = use_context();
+    use_menu_scroll(app_for_menu);
     let mut app: AppState = use_context();
     let _db: Signal<Arc<Database>> = use_context();
     let is_open = (app.sidebar_open)();
@@ -83,7 +102,12 @@ pub fn SidebarOverlay() -> Element {
             "data-open": if is_open { "1" } else { "0" },
             class: "fixed left-0 top-0 w-[85vw] max-w-[340px] h-full bg-warm-white z-50 flex flex-col border-r border-stone-200 transition-transform duration-200 safe-pt lg:static lg:translate-x-0 lg:w-72 lg:shrink-0 lg:h-screen",
             class: if is_open { "translate-x-0" } else { "-translate-x-full" },
-            onclick: move |evt| evt.stop_propagation(),
+            // A tap anywhere in the drawer that is not on a menu closes the
+            // open menu; menus and their buttons stop the bubble themselves.
+            onclick: move |evt| {
+                evt.stop_propagation();
+                app.row_menu.set(None);
+            },
 
             div { class: "relative flex border-b border-stone-200 lg:h-[68px]",
                 button {
@@ -116,7 +140,7 @@ pub fn SidebarOverlay() -> Element {
                 }
             }
 
-            div { class: "flex-1 overflow-y-auto p-4",
+            div { class: "flex-1 overflow-y-auto p-4 pb-32",
                 match (app.sidebar_tab)() {
                     SidebarTab::Notes => rsx! {
                         div { class: "py-2 pb-3",
