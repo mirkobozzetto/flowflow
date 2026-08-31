@@ -1,8 +1,16 @@
 use crate::application::i18n::t;
+use crate::infrastructure::chatgpt_auth::{self, DeviceLogin};
 use crate::infrastructure::persistence::Database;
 use crate::ui::AppState;
 use dioxus::prelude::*;
 use std::sync::Arc;
+
+#[derive(Clone)]
+enum ConnectionState {
+    Disconnected,
+    Pending(DeviceLogin),
+    Connected,
+}
 
 #[component]
 pub fn IntelligenceSettings() -> Element {
@@ -20,11 +28,121 @@ pub fn IntelligenceSettings() -> Element {
     let mut saved = use_signal(|| false);
     let mut debug_trace =
         use_signal(|| db().get_setting("debug_trace").as_deref() == Some("1"));
+    let mut chatgpt_selected = use_signal(|| {
+        db().get_setting("llm_provider").as_deref() == Some("chatgpt")
+    });
+    let mut connection = use_signal(|| {
+        if chatgpt_auth::is_connected() {
+            ConnectionState::Connected
+        } else {
+            ConnectionState::Disconnected
+        }
+    });
+    let mut connection_error: Signal<Option<String>> = use_signal(|| None);
     let lang = (app.current_lang)();
 
     rsx! {
         div { class: "space-y-6 pb-20",
-            h2 { class: "text-lg font-semibold text-stone-900", {t(&lang, "settings-api-keys-title")} }
+            h2 { class: "text-lg font-semibold text-stone-900",
+                {t(&lang, "settings-chat-auth-title")}
+            }
+            div { class: "grid grid-cols-2 gap-1 rounded-xl bg-stone-100 p-1",
+                button {
+                    class: if !chatgpt_selected() {
+                        "min-h-[40px] rounded-lg bg-white text-sm font-medium text-stone-900 shadow-sm"
+                    } else {
+                        "min-h-[40px] rounded-lg text-sm font-medium text-stone-500"
+                    },
+                    onclick: move |_| {
+                        chatgpt_selected.set(false);
+                        let _ = db().set_setting("llm_provider", "openai");
+                    },
+                    {t(&lang, "settings-chat-auth-api-key")}
+                }
+                button {
+                    class: if chatgpt_selected() {
+                        "min-h-[40px] rounded-lg bg-white text-sm font-medium text-stone-900 shadow-sm"
+                    } else {
+                        "min-h-[40px] rounded-lg text-sm font-medium text-stone-500"
+                    },
+                    onclick: move |_| {
+                        chatgpt_selected.set(true);
+                        let _ = db().set_setting("llm_provider", "chatgpt");
+                    },
+                    {t(&lang, "settings-chat-auth-chatgpt")}
+                }
+            }
+
+            if chatgpt_selected() {
+                div { class: "rounded-xl border border-stone-200 p-4 space-y-3",
+                    match connection() {
+                        ConnectionState::Disconnected => rsx! {
+                            button {
+                                class: crate::ui::kit::BTN_PRIMARY,
+                                onclick: move |_| {
+                                    connection_error.set(None);
+                                    spawn(async move {
+                                        match chatgpt_auth::begin_device_login().await {
+                                            Ok(login) => {
+                                                connection.set(ConnectionState::Pending(login.clone()));
+                                                match chatgpt_auth::poll_device_login(&login).await {
+                                                    Ok(()) => connection.set(ConnectionState::Connected),
+                                                    Err(error) => {
+                                                        connection_error.set(Some(error));
+                                                        connection.set(ConnectionState::Disconnected);
+                                                    }
+                                                }
+                                            }
+                                            Err(error) => {
+                                                connection_error.set(Some(error));
+                                                connection.set(ConnectionState::Disconnected);
+                                            }
+                                        }
+                                    });
+                                },
+                                {t(&lang, "settings-chatgpt-connect")}
+                            }
+                        },
+                        ConnectionState::Pending(login) => rsx! {
+                            p { class: "text-sm text-stone-600",
+                                {t(&lang, "settings-chatgpt-code-hint")}
+                            }
+                            a {
+                                class: "block break-all text-sm font-medium text-ios-orange underline",
+                                href: login.verify_url.clone(),
+                                target: "_blank",
+                                "{login.verify_url}"
+                            }
+                            code { class: "block select-all rounded-lg bg-stone-100 px-3 py-2 text-center text-base font-semibold text-stone-900",
+                                "{login.user_code}"
+                            }
+                        },
+                        ConnectionState::Connected => rsx! {
+                            div { class: "flex items-center justify-between gap-3",
+                                p { class: "text-sm font-medium text-stone-700",
+                                    {t(&lang, "settings-chatgpt-connected")}
+                                }
+                                button {
+                                    class: "min-h-[36px] rounded-lg border border-stone-200 px-3 text-sm font-medium text-stone-700 active:bg-stone-100",
+                                    onclick: move |_| {
+                                        chatgpt_auth::disconnect();
+                                        connection_error.set(None);
+                                        connection.set(ConnectionState::Disconnected);
+                                    },
+                                    {t(&lang, "settings-chatgpt-disconnect")}
+                                }
+                            }
+                        },
+                    }
+                    if let Some(error) = connection_error() {
+                        p { class: "text-xs text-red-600", "{error}" }
+                    }
+                }
+            }
+
+            h2 { class: "text-lg font-semibold text-stone-900 pt-2",
+                {t(&lang, "settings-api-keys-title")}
+            }
             div {
                 label { class: "block text-sm font-medium text-stone-700 mb-1", {t(&lang, "settings-openai-label")} }
                 input {
@@ -39,7 +157,14 @@ pub fn IntelligenceSettings() -> Element {
                 }
             }
 
-            h2 { class: "text-lg font-semibold text-stone-900 pt-2", {t(&lang, "settings-search-title")} }
+            if chatgpt_selected() {
+                p { class: "text-xs text-stone-400",
+                    {t(&lang, "settings-chatgpt-embed-hint")}
+                }
+            }
+            h2 { class: "text-lg font-semibold text-stone-900 pt-2",
+                {t(&lang, "settings-search-title")}
+            }
             div {
                 label { class: "block text-sm font-medium text-stone-700 mb-1", {t(&lang, "settings-exa-label")} }
                 input {
