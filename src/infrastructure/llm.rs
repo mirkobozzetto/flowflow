@@ -1,6 +1,6 @@
 use crate::application::constants::{
-    ANTHROPIC_CHAT_MODEL, ANTHROPIC_MAX_TOKENS, CHAT_MODEL, EMBEDDING_DIMS,
-    EMBEDDING_MODEL,
+    ANTHROPIC_CHAT_MODEL, ANTHROPIC_MAX_TOKENS, CHATGPT_CHAT_MODEL, CHAT_MODEL,
+    EMBEDDING_DIMS, EMBEDDING_MODEL,
 };
 use crate::application::error::LlmError;
 use crate::application::tools::{
@@ -10,7 +10,7 @@ use crate::application::tools::{
 use rig::client::{CompletionClient, EmbeddingsClient};
 use rig::completion::Prompt;
 use rig::embeddings::EmbeddingModel;
-use rig::providers::{anthropic, openai};
+use rig::providers::{anthropic, chatgpt, openai};
 use std::str::FromStr;
 use std::sync::Arc;
 
@@ -19,6 +19,7 @@ pub enum Provider {
     #[default]
     OpenAi,
     Anthropic,
+    ChatGpt,
 }
 
 impl Provider {
@@ -26,6 +27,7 @@ impl Provider {
         match self {
             Provider::OpenAi => "openai",
             Provider::Anthropic => "anthropic",
+            Provider::ChatGpt => "chatgpt",
         }
     }
 }
@@ -43,6 +45,7 @@ impl FromStr for Provider {
         match s.trim().to_ascii_lowercase().as_str() {
             "openai" | "open_ai" | "open-ai" => Ok(Provider::OpenAi),
             "anthropic" | "claude" => Ok(Provider::Anthropic),
+            "chatgpt" | "chat_gpt" | "subscription" => Ok(Provider::ChatGpt),
             _ => Err(()),
         }
     }
@@ -86,9 +89,10 @@ impl NotesTools {
 }
 
 pub struct LlmClient {
-    openai: openai::Client,
+    openai: Option<openai::Client>,
     provider: Provider,
     anthropic: Option<anthropic::Client>,
+    lang: String,
 }
 
 impl LlmClient {
@@ -112,24 +116,26 @@ impl LlmClient {
                 "error-ai-consent",
             )));
         }
+        let provider = db
+            .get_setting("llm_provider")
+            .and_then(|v| Provider::from_str(&v).ok())
+            .unwrap_or_default();
+
         let openai_key = db
             .get_setting("openai_api_key")
             .or_else(|| std::env::var("OPENAI_API_KEY").ok())
             .or_else(|| crate::baked_key!("OPENAI_API_KEY"))
-            .unwrap_or_default();
-        if openai_key.is_empty() || openai_key == "your_key_here" {
+            .filter(|key| !key.is_empty() && key != "your_key_here");
+        if provider != Provider::ChatGpt && openai_key.is_none() {
             return Err(LlmError::NotConfigured(crate::application::i18n::t(
                 &lang,
                 "llm-error-openai-key",
             )));
         }
-        let openai = openai::Client::new(&openai_key)
+        let openai = openai_key
+            .map(|key| openai::Client::new(&key))
+            .transpose()
             .map_err(|e| LlmError::NotConfigured(e.to_string()))?;
-
-        let provider = db
-            .get_setting("llm_provider")
-            .and_then(|v| Provider::from_str(&v).ok())
-            .unwrap_or_default();
 
         let anthropic = if provider == Provider::Anthropic {
             let key = db
@@ -154,13 +160,19 @@ impl LlmClient {
             openai,
             provider,
             anthropic,
+            lang,
         })
     }
 
     pub async fn embed(&self, text: &str) -> Result<Vec<f32>, LlmError> {
-        let model = self
-            .openai
-            .embedding_model_with_ndims(EMBEDDING_MODEL, EMBEDDING_DIMS);
+        let client = self.openai.as_ref().ok_or_else(|| {
+            LlmError::NotConfigured(crate::application::i18n::t(
+                &self.lang,
+                "llm-error-openai-key",
+            ))
+        })?;
+        let model =
+            client.embedding_model_with_ndims(EMBEDDING_MODEL, EMBEDDING_DIMS);
         let embedding = model
             .embed_text(text)
             .await
@@ -186,8 +198,13 @@ impl LlmClient {
     ) -> Result<String, LlmError> {
         match self.provider {
             Provider::OpenAi => {
-                let agent = self
-                    .openai
+                let client = self.openai.as_ref().ok_or_else(|| {
+                    LlmError::NotConfigured(crate::application::i18n::t(
+                        &self.lang,
+                        "llm-error-openai-key",
+                    ))
+                })?;
+                let agent = client
                     .agent(openai_model)
                     .preamble(system)
                     .temperature(0.3)
@@ -214,6 +231,18 @@ impl LlmClient {
                     .await
                     .map_err(|e| LlmError::Completion(e.to_string()))
             }
+            Provider::ChatGpt => {
+                let client = self.chatgpt_client().await?;
+                let agent = client
+                    .agent(CHATGPT_CHAT_MODEL)
+                    .preamble(system)
+                    .temperature(0.3)
+                    .build();
+                agent
+                    .prompt(user_message)
+                    .await
+                    .map_err(|e| LlmError::Completion(e.to_string()))
+            }
         }
     }
 
@@ -222,7 +251,27 @@ impl LlmClient {
         match self.provider {
             Provider::OpenAi => CHAT_MODEL,
             Provider::Anthropic => ANTHROPIC_CHAT_MODEL,
+            Provider::ChatGpt => CHATGPT_CHAT_MODEL,
         }
+    }
+
+    async fn chatgpt_client(&self) -> Result<chatgpt::Client, LlmError> {
+        let (access_token, account_id) =
+            crate::infrastructure::chatgpt_auth::access_context()
+                .await
+                .map_err(|_| {
+                    LlmError::NotConfigured(crate::application::i18n::t(
+                        &self.lang,
+                        "llm-error-chatgpt-auth",
+                    ))
+                })?;
+        chatgpt::Client::builder()
+            .api_key(chatgpt::ChatGPTAuth::AccessToken {
+                access_token,
+                account_id,
+            })
+            .build()
+            .map_err(|e| LlmError::NotConfigured(e.to_string()))
     }
 
     /// The single agent primitive: one prompt run over an explicit tool surface.
@@ -282,8 +331,13 @@ impl LlmClient {
         let tool_events = hook.events();
         match self.provider {
             Provider::OpenAi => {
-                let base = self
-                    .openai
+                let client = self.openai.as_ref().ok_or_else(|| {
+                    LlmError::NotConfigured(crate::application::i18n::t(
+                        &self.lang,
+                        "llm-error-openai-key",
+                    ))
+                })?;
+                let base = client
                     .agent(openai_model)
                     .preamble(preamble)
                     .temperature(temperature);
@@ -320,6 +374,34 @@ impl LlmClient {
                     .preamble(preamble)
                     .temperature(temperature)
                     .max_tokens(ANTHROPIC_MAX_TOKENS);
+                match (notes_tools.scope(), web_key) {
+                    (Some(scope), web) => {
+                        let b = base
+                            .tool(SearchNotes::new(self.clone(), scope))
+                            .tool(CreateNote::new())
+                            .tool(SummarizeFolder::new(self.clone()))
+                            .tool(ScheduleReminder::new(
+                                self.clone(),
+                                tool_events.clone(),
+                            ));
+                        let b = match web {
+                            Some(key) => b.tool(SearchWeb::new(key)),
+                            None => b,
+                        };
+                        mount!(b, mcp)
+                    }
+                    (None, Some(key)) => {
+                        mount!(base.tool(SearchWeb::new(key)), mcp)
+                    }
+                    (None, None) => mount!(base, mcp),
+                }
+            }
+            Provider::ChatGpt => {
+                let client = self.chatgpt_client().await?;
+                let base = client
+                    .agent(CHATGPT_CHAT_MODEL)
+                    .preamble(preamble)
+                    .temperature(temperature);
                 match (notes_tools.scope(), web_key) {
                     (Some(scope), web) => {
                         let b = base
