@@ -399,7 +399,9 @@ impl Database {
         for (table, class) in TABLES {
             if !matches!(
                 class,
-                TableClass::Content | TableClass::SyncState | TableClass::DeviceLocal
+                TableClass::Content
+                    | TableClass::SyncState
+                    | TableClass::DeviceLocal
             ) {
                 continue;
             }

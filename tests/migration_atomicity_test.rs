@@ -101,9 +101,12 @@ fn assert_pending_rebuild_recovers(temporary_only: bool) {
         .expect("seed original table");
     }
 
-    apply_migrations(&conn, &[(11, PENDING_REBUILD)]).expect("repair migration");
+    apply_migrations(&conn, &[(11, PENDING_REBUILD)])
+        .expect("repair migration");
     let count: i64 = conn
-        .query_row("SELECT COUNT(*) FROM pending_transcriptions", [], |row| row.get(0))
+        .query_row("SELECT COUNT(*) FROM pending_transcriptions", [], |row| {
+            row.get(0)
+        })
         .expect("count pending transcriptions");
     assert_eq!(count, 1);
 }

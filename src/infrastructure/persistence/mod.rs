@@ -290,7 +290,10 @@ const REBUILDS: &[(i64, &str, &str)] = &[
     (22, "conversation_messages_new", "conversation_messages"),
 ];
 
-fn repair_interrupted_rebuild(tx: &Transaction<'_>, version: i64) -> Result<(), String> {
+fn repair_interrupted_rebuild(
+    tx: &Transaction<'_>,
+    version: i64,
+) -> Result<(), String> {
     let Some(&(_, temporary, original)) = REBUILDS
         .iter()
         .find(|&&(rebuild_version, _, _)| rebuild_version == version)
