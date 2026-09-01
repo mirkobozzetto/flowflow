@@ -109,7 +109,8 @@ async fn select_relevant(
             .iter()
             .map(|c| estimate_tokens(&c.chunk_text))
             .sum::<u32>();
-    let timer = StepTimer::start("judge", Some(CHEAP_MODEL));
+    let timer =
+        StepTimer::start("judge", Some(ai.effective_model(CHEAP_MODEL)));
     let judged: HashSet<usize> =
         llm_relevance_filter(ai, question, &candidates, RAG_FINAL_K)
             .await
@@ -220,7 +221,8 @@ pub async fn query(
                 .iter()
                 .map(|t| estimate_tokens(&t.content))
                 .sum::<u32>();
-        let timer = StepTimer::start("prep", Some(CHEAP_MODEL));
+        let timer =
+            StepTimer::start("prep", Some(ai.effective_model(CHEAP_MODEL)));
         let (q, range) = prep_query(&ai, &history, question).await;
         timer.finish(
             &mut rag_trace,
@@ -267,7 +269,8 @@ pub async fn query(
         tokio::join!(temporal_fut, embed_fut);
     rag_trace.push(TraceStep {
         step: "temporal".to_string(),
-        model: needs_temporal_llm.then(|| CHEAP_MODEL.to_string()),
+        model: needs_temporal_llm
+            .then(|| ai.effective_model(CHEAP_MODEL).to_string()),
         tokens_in: needs_temporal_llm.then(|| estimate_tokens(retrieval_q)),
         tokens_out: None,
         approx: true,

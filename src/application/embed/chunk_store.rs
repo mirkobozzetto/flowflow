@@ -73,6 +73,8 @@ pub(crate) fn persist_chunk_blobs(
             owner_id: owner_id.to_string(),
             owner_kind: owner_kind.to_string(),
             chunk_index: c.chunk_index,
+            embed_profile: crate::application::constants::EMBEDDING_PROFILE
+                .to_string(),
             vector: c.vector.clone(),
             content_hash: content_hash(&c.chunk_text),
             chunk_text: c.chunk_text.clone(),

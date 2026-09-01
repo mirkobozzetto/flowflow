@@ -201,6 +201,14 @@ impl VectorStore {
         Ok(Self { db })
     }
 
+    pub async fn reset_table(&self) -> Result<(), String> {
+        match self.db.drop_table(VECTOR_TABLE_NAME, &[]).await {
+            Ok(()) => Ok(()),
+            Err(e) if e.to_string().contains("was not found") => Ok(()),
+            Err(e) => Err(format!("VectorDB reset: {e}")),
+        }
+    }
+
     pub async fn store_chunks(&self, chunks: Vec<Chunk>) -> Result<(), String> {
         if chunks.is_empty() {
             return Ok(());

@@ -18,6 +18,8 @@ fn rec(id: &str, owner: &str, kind: &str, idx: i32, dim: usize) -> ChunkRecord {
         owner_id: owner.to_string(),
         owner_kind: kind.to_string(),
         chunk_index: idx,
+        embed_profile: flowflow::application::constants::EMBEDDING_PROFILE
+            .to_string(),
         vector: vec![0.25_f32; dim],
         content_hash: "hash".to_string(),
         chunk_text: "text".to_string(),

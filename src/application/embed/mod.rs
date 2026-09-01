@@ -154,10 +154,68 @@ pub fn embed_note(
     });
 }
 
+pub fn purge_stale_embeddings(
+    db: &crate::infrastructure::persistence::Database,
+) -> Result<usize, String> {
+    db.delete_chunks_not_matching_profile(
+        crate::application::constants::EMBEDDING_PROFILE,
+    )
+}
+
+async fn embed_attachment_core(
+    store: &VectorStore,
+    ai: &LlmClient,
+    attachment_id: &str,
+    parent_note_id: &str,
+    filename: &str,
+    content: &str,
+) -> Result<usize, String> {
+    let chunks_text = chunk_text(content);
+    let now = crate::infrastructure::persistence::now_iso();
+    let mut entries = Vec::with_capacity(chunks_text.len());
+    for (i, text) in chunks_text.iter().enumerate() {
+        let vector = ai
+            .embed(text)
+            .await
+            .map_err(|e| format!("embed attachment chunk {i}: {e}"))?;
+        entries.push(Chunk {
+            id: format!("att:{attachment_id}:{i}"),
+            note_id: parent_note_id.to_string(),
+            chunk_text: text.clone(),
+            chunk_index: i as i32,
+            vector,
+            title: filename.to_string(),
+            tags: "[]".to_string(),
+            created_at: now.clone(),
+        });
+    }
+    let count = entries.len();
+    persist_chunk_blobs(attachment_id, "attachment", &entries);
+    store
+        .store_chunks(entries)
+        .await
+        .map_err(|e| format!("embed attachment store: {e}"))?;
+    Ok(count)
+}
+
 pub(crate) async fn embed_missing_notes(
     db: &crate::infrastructure::persistence::Database,
     store: &VectorStore,
 ) -> usize {
+    let purged = match purge_stale_embeddings(db) {
+        Ok(count) => count,
+        Err(e) => {
+            log(&format!("embed profile purge: {e}"));
+            return 0;
+        }
+    };
+    if purged > 0 {
+        log(&format!("embed profile purge: {purged} stale chunks"));
+        if let Err(e) = store.reset_table().await {
+            log(&format!("embed profile reset: {e}"));
+            return 0;
+        }
+    }
     if !ai_consent_granted() {
         return 0;
     }
@@ -174,38 +232,85 @@ pub(crate) async fn embed_missing_notes(
     };
     let mut embedded = 0usize;
     for note in &notes {
-        if too_short_to_embed(&note.content) {
-            continue;
+        if !too_short_to_embed(&note.content) {
+            match db.count_chunks_for_owner(&note.id, "note") {
+                Ok(0) => {
+                    let title = note.title.clone().unwrap_or_default();
+                    match embed_note_core(
+                        store,
+                        &ai,
+                        &note.id,
+                        &title,
+                        &note.content,
+                        &note.tags,
+                        &note.created_at,
+                    )
+                    .await
+                    {
+                        Ok(n) => {
+                            embedded += 1;
+                            log(&format!(
+                                "embed missing: {} (+{n} chunks)",
+                                note.id
+                            ));
+                        }
+                        Err(e) => {
+                            log(&format!("embed missing: {} {e}", note.id))
+                        }
+                    }
+                }
+                Ok(_) => {}
+                Err(e) => log(&format!("embed missing: count {} {e}", note.id)),
+            }
         }
-        match db.count_chunks_for_owner(&note.id, "note") {
-            Ok(0) => {}
-            Ok(_) => continue,
+        let attachments = match db.list_attachments_for_note(&note.id) {
+            Ok(items) => items,
             Err(e) => {
-                log(&format!("embed missing: count {} {e}", note.id));
+                log(&format!("embed missing: attachments {} {e}", note.id));
                 continue;
             }
-        }
-        let title = note.title.clone().unwrap_or_default();
-        match embed_note_core(
-            store,
-            &ai,
-            &note.id,
-            &title,
-            &note.content,
-            &note.tags,
-            &note.created_at,
-        )
-        .await
-        {
-            Ok(n) => {
-                embedded += 1;
-                log(&format!("embed missing: {} (+{n} chunks)", note.id));
+        };
+        for attachment in attachments {
+            if too_short_to_embed(&attachment.content_text) {
+                continue;
             }
-            Err(e) => log(&format!("embed missing: {} {e}", note.id)),
+            match db.count_chunks_for_owner(&attachment.id, "attachment") {
+                Ok(0) => {}
+                Ok(_) => continue,
+                Err(e) => {
+                    log(&format!(
+                        "embed missing: attachment count {} {e}",
+                        attachment.id
+                    ));
+                    continue;
+                }
+            }
+            match embed_attachment_core(
+                store,
+                &ai,
+                &attachment.id,
+                &attachment.note_id,
+                &attachment.filename,
+                &attachment.content_text,
+            )
+            .await
+            {
+                Ok(n) => {
+                    embedded += 1;
+                    log(&format!(
+                        "embed missing: attachment {} (+{n} chunks)",
+                        attachment.id
+                    ));
+                }
+                Err(e) => log(&format!(
+                    "embed missing: attachment {} {e}",
+                    attachment.id
+                )),
+            }
         }
     }
     if embedded > 0 {
-        log(&format!("embed missing: {embedded} notes embedded"));
+        log(&format!("embed missing: {embedded} owners embedded"));
     }
     embedded
 }
@@ -343,36 +448,20 @@ pub fn embed_attachment(
                     return;
                 }
             };
-            let chunks_text = chunk_text(&content);
-            log(&format!("embed attachment: {} chunks", chunks_text.len()));
-            let now = crate::infrastructure::persistence::now_iso();
-            let mut entries = Vec::new();
-            for (i, text) in chunks_text.iter().enumerate() {
-                match ai.embed(text).await {
-                    Ok(vector) => {
-                        entries.push(Chunk {
-                            id: format!("att:{attachment_id}:{i}"),
-                            note_id: parent_note_id.clone(),
-                            chunk_text: text.clone(),
-                            chunk_index: i as i32,
-                            vector,
-                            title: filename.clone(),
-                            tags: "[]".to_string(),
-                            created_at: now.clone(),
-                        });
-                    }
-                    Err(e) => {
-                        log(&format!("embed attachment chunk {i}: {e}"));
-                        return;
-                    }
-                }
-            }
-            persist_chunk_blobs(&attachment_id, "attachment", &entries);
-            match store.store_chunks(entries).await {
-                Ok(()) => {
-                    log(&format!("embed attachment done for {attachment_id}"))
-                }
-                Err(e) => log(&format!("embed attachment store: {e}")),
+            match embed_attachment_core(
+                &store,
+                &ai,
+                &attachment_id,
+                &parent_note_id,
+                &filename,
+                &content,
+            )
+            .await
+            {
+                Ok(n) => log(&format!(
+                    "embed attachment done for {attachment_id} ({n} chunks)"
+                )),
+                Err(e) => log(&format!("embed attachment: {e}")),
             }
         });
     });

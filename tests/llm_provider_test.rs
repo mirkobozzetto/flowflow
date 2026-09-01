@@ -1,3 +1,4 @@
+use flowflow::application::constants::CHEAP_MODEL;
 use flowflow::application::error::LlmError;
 use flowflow::infrastructure::persistence::Database;
 use flowflow::infrastructure::{LlmClient, Provider};
@@ -13,14 +14,18 @@ struct OpenAiEnv {
 }
 
 impl OpenAiEnv {
-    fn without_key() -> Self {
+    fn with_env(value: &str) -> Self {
         let lock = OPENAI_ENV_LOCK.lock().expect("OpenAI env lock");
         let previous = std::env::var_os("OPENAI_API_KEY");
-        std::env::set_var("OPENAI_API_KEY", "");
+        std::env::set_var("OPENAI_API_KEY", value);
         Self {
             previous,
             _lock: lock,
         }
+    }
+
+    fn without_key() -> Self {
+        Self::with_env("")
     }
 }
 
@@ -65,6 +70,7 @@ async fn chatgpt_mode_allows_chat_without_openai_key_but_not_embeddings() {
     let client = LlmClient::from_db(&db).expect("build ChatGPT client");
     assert_eq!(client.provider(), Provider::ChatGpt);
     assert_eq!(client.chat_model_name(), "gpt-5.6-terra");
+    assert_eq!(client.effective_model(CHEAP_MODEL), "gpt-5.6-terra");
 
     match client.embed("test").await {
         Err(LlmError::NotConfigured(message)) => {
@@ -87,4 +93,15 @@ fn openai_mode_still_requires_openai_key() {
         }
         _ => panic!("OpenAI mode must reject a missing key"),
     }
+}
+
+#[test]
+fn openai_mode_reports_requested_models_as_effective() {
+    let _env = OpenAiEnv::with_env("sk-test");
+    let (db, _dir) = open_test_db();
+
+    let client = LlmClient::from_db(&db).expect("build OpenAI client");
+    assert_eq!(client.provider(), Provider::OpenAi);
+    assert_eq!(client.effective_model(CHEAP_MODEL), "gpt-5.4-nano");
+    assert_eq!(client.chat_model_name(), "gpt-5.4-mini");
 }

@@ -327,6 +327,8 @@ fn restore_chunks(db: &Database, note_id: &str, chunks: &[ArchivedChunk]) {
             owner_id: note_id.to_string(),
             owner_kind: "note".to_string(),
             chunk_index: c.chunk_index as i32,
+            embed_profile: crate::application::constants::EMBEDDING_PROFILE
+                .to_string(),
             vector: blob_to_vector(&blob),
             content_hash: c.content_hash.clone().unwrap_or_default(),
             chunk_text: c.chunk_text.clone().unwrap_or_default(),

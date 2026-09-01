@@ -249,13 +249,19 @@ impl LlmClient {
         }
     }
 
-    /// Model id the chat/agent path actually uses under the configured provider.
-    pub fn chat_model_name(&self) -> &'static str {
+    /// Model actually executed when `openai_model` is requested: the OpenAI
+    /// path honors it; Anthropic and ChatGPT substitute their own model.
+    pub fn effective_model(&self, openai_model: &'static str) -> &'static str {
         match self.provider {
-            Provider::OpenAi => CHAT_MODEL,
+            Provider::OpenAi => openai_model,
             Provider::Anthropic => ANTHROPIC_CHAT_MODEL,
             Provider::ChatGpt => CHATGPT_CHAT_MODEL,
         }
+    }
+
+    /// Model id the chat/agent path actually uses under the configured provider.
+    pub fn chat_model_name(&self) -> &'static str {
+        self.effective_model(CHAT_MODEL)
     }
 
     async fn chatgpt_client(&self) -> Result<chatgpt::Client, LlmError> {

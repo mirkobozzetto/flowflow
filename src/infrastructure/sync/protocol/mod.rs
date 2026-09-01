@@ -31,6 +31,19 @@ pub fn apply_entity_delete_for_test(
         .ok_or_else(|| proto_err(format!("unknown kind {kind}")))?;
     apply::delete_entity_for_test(conn, spec, entity_id)
 }
+/// Apply serialized chunks through the production decoder and guards.
+/// This is a narrow integration-test seam for wire compatibility.
+#[doc(hidden)]
+pub fn apply_chunks_for_test(
+    conn: &rusqlite::Connection,
+    owner_id: &str,
+    owner_kind: &str,
+    chunks_json: &str,
+) -> Result<(), SyncError> {
+    let chunks: Vec<wire::ChunkPayload> = serde_json::from_str(chunks_json)
+        .map_err(|e| proto_err(format!("decode test chunks: {e}")))?;
+    apply::replace_chunks_for_test(conn, owner_id, owner_kind, &chunks)
+}
 
 // Catalog columns per entity kind, for the tests that guard what travels: a
 // column absent from the fixed `cols` list never reaches another device.

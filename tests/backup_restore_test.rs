@@ -427,6 +427,8 @@ fn chunk_record(note_id: &str, text: &str) -> ChunkRecord {
         owner_id: note_id.to_string(),
         owner_kind: "note".to_string(),
         chunk_index: 0,
+        embed_profile: flowflow::application::constants::EMBEDDING_PROFILE
+            .to_string(),
         vector,
         content_hash: "h".to_string(),
         chunk_text: text.to_string(),

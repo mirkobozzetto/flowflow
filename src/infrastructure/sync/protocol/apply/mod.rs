@@ -23,6 +23,14 @@ pub(super) fn delete_entity_for_test(
 ) -> Result<(), SyncError> {
     entity::delete_entity(conn, spec, entity_id, None)
 }
+pub(super) fn replace_chunks_for_test(
+    conn: &Connection,
+    owner_id: &str,
+    owner_kind: &str,
+    chunks: &[super::wire::ChunkPayload],
+) -> Result<(), SyncError> {
+    entity::replace_chunks_from_payload(conn, owner_id, owner_kind, chunks)
+}
 
 mod hlc_guard;
 mod meta;
