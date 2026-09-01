@@ -29,7 +29,7 @@ fn rec(id: &str, owner: &str, kind: &str, idx: i32, dim: usize) -> ChunkRecord {
 
 #[test]
 fn blob_roundtrips_f32_little_endian() {
-    let v = vec![1.0_f32, -2.5, 3.14159, 0.0, f32::MIN, f32::MAX];
+    let v = vec![1.0_f32, -2.5, std::f32::consts::PI, 0.0, f32::MIN, f32::MAX];
     let blob = vector_to_blob(&v);
     assert_eq!(blob.len(), v.len() * 4);
     assert_eq!(blob_to_vector(&blob), v);
