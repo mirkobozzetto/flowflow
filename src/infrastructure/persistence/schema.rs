@@ -65,7 +65,6 @@ pub const TABLES: &[(&str, TableClass)] = &[
     ("installed_connectors", TableClass::Config),
     ("_migrations", TableClass::Internal),
 ];
-
 const V28_SCHEMA: &str = "
 ALTER TABLE chunks ADD COLUMN embed_profile TEXT NOT NULL
     DEFAULT 'openai:text-embedding-3-small:1536';
