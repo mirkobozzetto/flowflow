@@ -23,6 +23,13 @@ impl AsRef<Path> for ScrubbedSnapshot {
         &self.path
     }
 }
+impl std::ops::Deref for ScrubbedSnapshot {
+    type Target = Path;
+
+    fn deref(&self) -> &Self::Target {
+        &self.path
+    }
+}
 
 impl ScrubbedSnapshot {
     pub(crate) fn external_imports_dropped(&self) -> i64 {
