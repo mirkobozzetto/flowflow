@@ -34,6 +34,8 @@ No manual searching. No folders to dig through. Just talk, and find it later.
 **Ask your notes**
 
 - RAG chat with tappable sources: hybrid search (BM25 + vector + rerank)
+- Chat through an OpenAI API key or a ChatGPT subscription; embeddings still
+  use the OpenAI API
 - Optional web search ([Exa](https://exa.ai)) fused into the same answer
 - Save any answer or thread back as a note
 
@@ -92,7 +94,7 @@ Activity, and the web sites in Astro.
 | Account site (`account/`) | Astro - passkeys, plan and devices at account.flowflow.be |
 | Landing (`landing-page/`) | Astro - flowflow.be |
 | Backend | Rust (separate repo) - accounts, entitlements, governed connector proxy |
-| AI services | OpenAI (embeddings + chat), Anthropic (chat), Soniox (cloud STT), Exa (web search) |
+| AI services | OpenAI (embeddings + API-key chat), ChatGPT subscription (chat), Anthropic (chat), Soniox (cloud STT), Exa (web search) |
 | Targets | iOS 16+ (aarch64-apple-ios), macOS (Apple Silicon) |
 
 ## Build
@@ -103,7 +105,11 @@ cargo install dioxus-cli
 cp .env.example .env   # add your API keys (or set them in-app)
 ```
 
-API keys can be set in-app via Settings (stored in SQLite, no recompile). OpenAI is required for AI features; transcription works either with a Soniox key (cloud) or a downloaded local Whisper model (offline, no account).
+API keys can be set in-app via Settings and are stored in SQLite. ChatGPT
+subscription tokens are stored in Apple Keychain. Chat can use either an
+OpenAI API key or a ChatGPT subscription. An OpenAI API key remains required
+for semantic search and embeddings. Transcription works with a Soniox key or a
+downloaded local Whisper model.
 
 ```bash
 make all          # build + sign + icon + install on iPhone
