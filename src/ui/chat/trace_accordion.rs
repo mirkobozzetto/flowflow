@@ -32,7 +32,7 @@ pub fn TraceAccordion(trace: RagTrace) -> Element {
             if open() {
                 div { class: "mt-1 space-y-0.5",
                     for step in trace.steps.iter() {
-                        div { class: "flex items-baseline gap-2 text-xs font-mono",
+                        div { class: "flex flex-wrap items-baseline gap-x-2 gap-y-0.5 text-xs font-mono",
                             span { class: "w-16 shrink-0 text-stone-600", "{step.step}" }
                             span {
                                 class: match step.outcome {
@@ -48,7 +48,7 @@ pub fn TraceAccordion(trace: RagTrace) -> Element {
                             }
                             span { class: "text-stone-500", "{step.latency_ms}ms" }
                             if let Some(ref model) = step.model {
-                                span { class: "text-stone-400 truncate", "{model}" }
+                                span { class: "text-stone-400 break-all", "{model}" }
                             }
                             if let Some(tin) = step.tokens_in {
                                 span { class: "text-stone-400", "~{tin}t in" }
