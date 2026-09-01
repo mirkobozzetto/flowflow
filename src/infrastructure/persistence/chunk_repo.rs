@@ -43,8 +43,19 @@ pub(crate) fn delete_chunks_for_owner(
         rusqlite::params![owner_id, owner_kind],
     )
 }
-
 impl Database {
+    pub fn delete_chunks_not_matching_profile(
+        &self,
+        embed_profile: &str,
+    ) -> Result<usize, String> {
+        self.conn()
+            .execute(
+                "DELETE FROM chunks WHERE embed_profile IS NOT ?1",
+                [embed_profile],
+            )
+            .map_err(|e| format!("Delete stale chunks: {e}"))
+    }
+
     pub fn delete_owner_chunks(
         &self,
         owner_id: &str,
