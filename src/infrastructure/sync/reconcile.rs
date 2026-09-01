@@ -1,4 +1,4 @@
-use crate::application::constants::EMBEDDING_DIMS;
+use crate::application::constants::{EMBEDDING_DIMS, EMBEDDING_PROFILE};
 use crate::infrastructure::persistence::chunk_repo::{
     content_hash, ChunkRecord,
 };
@@ -42,6 +42,7 @@ fn row_to_record(
         owner_id: owner_id.to_string(),
         owner_kind: owner_kind.to_string(),
         chunk_index: row.chunk_index,
+        embed_profile: EMBEDDING_PROFILE.to_string(),
         vector: row.vector.clone(),
         content_hash: content_hash(&row.chunk_text),
         chunk_text: row.chunk_text.clone(),
@@ -67,6 +68,13 @@ fn owner_note_id(
 }
 
 fn record_to_chunk(note_id: &str, r: ChunkRecord) -> Option<Chunk> {
+    if r.embed_profile != EMBEDDING_PROFILE {
+        eprintln!(
+            "[reconcile] skip foreign-profile chunk {} ({})",
+            r.id, r.embed_profile
+        );
+        return None;
+    }
     if r.vector.len() != EMBEDDING_DIMS {
         eprintln!(
             "[reconcile] skip malformed chunk {} (dim {} != {EMBEDDING_DIMS})",

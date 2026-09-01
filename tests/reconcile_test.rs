@@ -50,6 +50,8 @@ fn det_record(owner_id: &str, kind: &str, id: &str, idx: i32) -> ChunkRecord {
         owner_id: owner_id.to_string(),
         owner_kind: kind.to_string(),
         chunk_index: idx,
+        embed_profile: flowflow::application::constants::EMBEDDING_PROFILE
+            .to_string(),
         vector: vec_dims(idx as usize),
         content_hash: "h".to_string(),
         chunk_text: format!("text {idx}"),

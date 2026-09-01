@@ -66,6 +66,8 @@ fn seed_chunks(db: &Database, note_id: &str, fill: f32) {
             owner_id: note_id.to_string(),
             owner_kind: "note".to_string(),
             chunk_index: i,
+            embed_profile: flowflow::application::constants::EMBEDDING_PROFILE
+                .to_string(),
             vector: vec![fill; 1536],
             content_hash: format!("hash-{fill}-{i}"),
             chunk_text: format!("chunk {fill} {i}"),

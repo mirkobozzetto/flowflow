@@ -120,6 +120,17 @@ pub(super) fn replace_chunks_from_payload(
     )
     .map_err(|e| sql_err("clear chunks", e))?;
     for c in chunks {
+        let embed_profile = c
+            .embed_profile
+            .as_deref()
+            .unwrap_or(crate::application::constants::EMBEDDING_PROFILE);
+        if embed_profile != crate::application::constants::EMBEDDING_PROFILE {
+            log(&format!(
+                "skip foreign-profile chunk {} ({embed_profile})",
+                c.id
+            ));
+            continue;
+        }
         let blob = URL_SAFE_NO_PAD
             .decode(&c.vector_b64)
             .map_err(|e| proto_err(format!("decode chunk blob: {e}")))?;
@@ -136,8 +147,9 @@ pub(super) fn replace_chunks_from_payload(
         conn.execute(
             "INSERT OR REPLACE INTO chunks
                 (id, owner_id, owner_kind, chunk_index, dim, vector,
-                 content_hash, chunk_text, title, tags, created_at)
-             VALUES (?1,?2,?3,?4,?5,?6,?7,?8,?9,?10,?11)",
+                 content_hash, chunk_text, title, tags, created_at,
+                 embed_profile)
+             VALUES (?1,?2,?3,?4,?5,?6,?7,?8,?9,?10,?11,?12)",
             rusqlite::params![
                 c.id,
                 owner_id,
@@ -150,6 +162,7 @@ pub(super) fn replace_chunks_from_payload(
                 c.title,
                 c.tags,
                 c.created_at,
+                embed_profile,
             ],
         )
         .map_err(|e| sql_err("insert chunk", e))?;
