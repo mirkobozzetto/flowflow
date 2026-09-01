@@ -18,7 +18,7 @@ pub use space_repo::{DbTx, PublishPending};
 pub mod sync_meta;
 pub mod thread_repo;
 
-use rusqlite::Connection;
+use rusqlite::{Connection, Transaction, TransactionBehavior};
 use schema::MIGRATIONS;
 use std::path::PathBuf;
 use std::sync::atomic::{AtomicBool, Ordering};
@@ -244,92 +244,116 @@ impl Database {
 
     fn migrate(&self) -> Result<(), String> {
         let conn = self.conn.lock().unwrap();
-        conn.execute_batch(
-            "CREATE TABLE IF NOT EXISTS _migrations (
-                version INTEGER PRIMARY KEY,
-                applied_at TEXT NOT NULL
-                    DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now'))
-            );",
-        )
-        .map_err(|e| format!("Migration table: {e}"))?;
+        apply_migrations_with_effects(&conn, MIGRATIONS, |tx, version| {
+            self.run_migration_side_effects(tx, version)
+        })
+    }
 
-        let current: i64 = conn
-            .query_row(
-                "SELECT COALESCE(MAX(version), 0) FROM _migrations",
-                [],
-                |row| row.get(0),
-            )
-            .map_err(|e| format!("Version check: {e}"))?;
-
-        for &(version, sql) in MIGRATIONS {
-            if version > current {
-                eprintln!("[db] applying migration v{version}");
-                if !sql.is_empty() {
-                    conn.execute_batch(sql)
-                        .map_err(|e| format!("Migration v{version}: {e}"))?;
-                }
-                if version == 4 {
-                    self.migrate_audio_paths_to_relative(&conn);
-                }
-                if version == 10 {
-                    sync_meta::install_sync_triggers(&conn)?;
-                }
-                if version == 13 {
-                    sync_meta::install_sync_triggers(&conn)?;
-                }
-                if version == 17 {
-                    installed_connector_repo::backfill_sheets_pin(&conn)?;
-                }
-                // The table rebuild dropped conversation_messages' sync triggers.
-                if version == 18 || version == 22 {
-                    sync_meta::install_sync_triggers(&conn)?;
-                }
-                // New synced tables (proposal 0001) need their triggers.
-                if version == 25 {
-                    sync_meta::install_sync_triggers(&conn)?;
-                }
-                // Backfill under the apply guard: the notes AFTER UPDATE sync
-                // trigger must not re-author the corpus or burn sync_seq rows.
-                if version == 23 {
-                    self.applying.store(true, Ordering::Relaxed);
-                    let res = backfill_author_device(&conn);
-                    self.applying.store(false, Ordering::Relaxed);
-                    res?;
-                }
-                conn.execute(
-                    "INSERT OR IGNORE INTO _migrations (version) VALUES (?1)",
-                    [version],
-                )
-                .map_err(|e| format!("Record v{version}: {e}"))?;
-            }
+    fn run_migration_side_effects(
+        &self,
+        conn: &Connection,
+        version: i64,
+    ) -> Result<(), String> {
+        if version == 4 {
+            migrate_audio_paths_to_relative(conn);
+        }
+        if version == 10 || version == 13 || version == 25 {
+            sync_meta::install_sync_triggers(conn)?;
+        }
+        if version == 17 {
+            installed_connector_repo::backfill_sheets_pin(conn)?;
+        }
+        if version == 18 || version == 22 {
+            sync_meta::install_sync_triggers(conn)?;
+        }
+        if version == 23 {
+            let was_applying = self.applying.swap(true, Ordering::Relaxed);
+            let result = backfill_author_device(conn);
+            self.applying.store(was_applying, Ordering::Relaxed);
+            result?;
         }
         Ok(())
     }
+}
 
-    fn migrate_audio_paths_to_relative(&self, conn: &Connection) {
-        let mut stmt = match conn
-            .prepare("SELECT id, audio_file_path FROM notes WHERE audio_file_path IS NOT NULL")
-        {
-            Ok(s) => s,
-            Err(_) => return,
-        };
-        let rows: Vec<(String, String)> = stmt
-            .query_map([], |row| Ok((row.get(0)?, row.get(1)?)))
-            .ok()
-            .map(|r| r.flatten().collect())
-            .unwrap_or_default();
-        for (id, path) in rows {
-            if path.contains('/') {
-                let filename = std::path::Path::new(&path)
-                    .file_name()
-                    .and_then(|n| n.to_str())
-                    .unwrap_or(&path);
-                let _ = conn.execute(
-                    "UPDATE notes SET audio_file_path = ?1 WHERE id = ?2",
-                    rusqlite::params![filename, id],
-                );
-                eprintln!("[db] v4 migrated audio path: {path} -> {filename}");
-            }
+pub fn apply_migrations(
+    conn: &Connection,
+    migrations: &[(i64, &str)],
+) -> Result<(), String> {
+    apply_migrations_with_effects(conn, migrations, |_, _| Ok(()))
+}
+
+fn apply_migrations_with_effects<F>(
+    conn: &Connection,
+    migrations: &[(i64, &str)],
+    mut run_side_effects: F,
+) -> Result<(), String>
+where
+    F: FnMut(&Transaction<'_>, i64) -> Result<(), String>,
+{
+    conn.execute_batch(
+        "CREATE TABLE IF NOT EXISTS _migrations (
+            version INTEGER PRIMARY KEY,
+            applied_at TEXT NOT NULL
+                DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now'))
+        );",
+    )
+    .map_err(|e| format!("Migration table: {e}"))?;
+
+    let current: i64 = conn
+        .query_row(
+            "SELECT COALESCE(MAX(version), 0) FROM _migrations",
+            [],
+            |row| row.get(0),
+        )
+        .map_err(|e| format!("Version check: {e}"))?;
+
+    for &(version, sql) in migrations {
+        if version <= current {
+            continue;
+        }
+        eprintln!("[db] applying migration v{version}");
+        let tx = Transaction::new_unchecked(conn, TransactionBehavior::Immediate)
+            .map_err(|e| format!("Begin v{version}: {e}"))?;
+        if !sql.is_empty() {
+            tx.execute_batch(sql)
+                .map_err(|e| format!("Migration v{version}: {e}"))?;
+        }
+        run_side_effects(&tx, version)?;
+        tx.execute(
+            "INSERT OR IGNORE INTO _migrations (version) VALUES (?1)",
+            [version],
+        )
+        .map_err(|e| format!("Record v{version}: {e}"))?;
+        tx.commit()
+            .map_err(|e| format!("Commit v{version}: {e}"))?;
+    }
+    Ok(())
+}
+
+fn migrate_audio_paths_to_relative(conn: &Connection) {
+    let mut stmt = match conn
+        .prepare("SELECT id, audio_file_path FROM notes WHERE audio_file_path IS NOT NULL")
+    {
+        Ok(s) => s,
+        Err(_) => return,
+    };
+    let rows: Vec<(String, String)> = stmt
+        .query_map([], |row| Ok((row.get(0)?, row.get(1)?)))
+        .ok()
+        .map(|r| r.flatten().collect())
+        .unwrap_or_default();
+    for (id, path) in rows {
+        if path.contains('/') {
+            let filename = std::path::Path::new(&path)
+                .file_name()
+                .and_then(|n| n.to_str())
+                .unwrap_or(&path);
+            let _ = conn.execute(
+                "UPDATE notes SET audio_file_path = ?1 WHERE id = ?2",
+                rusqlite::params![filename, id],
+            );
+            eprintln!("[db] v4 migrated audio path: {path} -> {filename}");
         }
     }
 }
