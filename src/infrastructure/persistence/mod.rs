@@ -11,6 +11,7 @@ pub mod note_repo;
 pub mod peer_repo;
 pub mod pending_transcription_repo;
 mod schema;
+pub use schema::{TableClass, TABLES};
 pub mod settings_repo;
 pub mod share_repo;
 pub mod space_repo;
@@ -313,8 +314,9 @@ where
             continue;
         }
         eprintln!("[db] applying migration v{version}");
-        let tx = Transaction::new_unchecked(conn, TransactionBehavior::Immediate)
-            .map_err(|e| format!("Begin v{version}: {e}"))?;
+        let tx =
+            Transaction::new_unchecked(conn, TransactionBehavior::Immediate)
+                .map_err(|e| format!("Begin v{version}: {e}"))?;
         if !sql.is_empty() {
             tx.execute_batch(sql)
                 .map_err(|e| format!("Migration v{version}: {e}"))?;
@@ -325,8 +327,7 @@ where
             [version],
         )
         .map_err(|e| format!("Record v{version}: {e}"))?;
-        tx.commit()
-            .map_err(|e| format!("Commit v{version}: {e}"))?;
+        tx.commit().map_err(|e| format!("Commit v{version}: {e}"))?;
     }
     Ok(())
 }

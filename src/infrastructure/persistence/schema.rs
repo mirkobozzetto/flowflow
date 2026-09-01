@@ -29,6 +29,43 @@ pub const MIGRATIONS: &[(i64, &str)] = &[
     (28, V28_SCHEMA),
 ];
 
+pub enum TableClass {
+    Content,
+    SyncState,
+    DeviceLocal,
+    Config,
+    Internal,
+}
+
+pub const TABLES: &[(&str, TableClass)] = &[
+    ("note_audio_words", TableClass::Content),
+    ("note_shares", TableClass::Content),
+    ("note_provenance", TableClass::Content),
+    ("note_audios", TableClass::Content),
+    ("attachments", TableClass::Content),
+    ("note_reminders", TableClass::Content),
+    ("note_links", TableClass::Content),
+    ("conversation_messages", TableClass::Content),
+    ("conversations", TableClass::Content),
+    ("notes_folders", TableClass::Content),
+    ("chunks", TableClass::Content),
+    ("spaces", TableClass::Content),
+    ("pending_purge", TableClass::Content),
+    ("space_publish_pending", TableClass::Content),
+    ("pending_transcriptions", TableClass::Content),
+    ("notes", TableClass::Content),
+    ("threads", TableClass::Content),
+    ("folders", TableClass::Content),
+    ("sync_row_meta", TableClass::SyncState),
+    ("sync_seq", TableClass::SyncState),
+    ("sync_conflicts", TableClass::SyncState),
+    ("sync_peers", TableClass::DeviceLocal),
+    ("settings", TableClass::Config),
+    ("installed_agents", TableClass::Config),
+    ("installed_connectors", TableClass::Config),
+    ("_migrations", TableClass::Internal),
+];
+
 const V28_SCHEMA: &str = "
 ALTER TABLE chunks ADD COLUMN embed_profile TEXT NOT NULL
     DEFAULT 'openai:text-embedding-3-small:1536';

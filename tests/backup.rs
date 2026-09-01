@@ -79,6 +79,38 @@ mod manifest_tests {
 }
 
 #[cfg(not(target_os = "ios"))]
+mod table_classification_tests {
+    use flowflow::infrastructure::persistence::{Database, TABLES};
+
+    #[test]
+    fn table_classification_covers_the_migrated_schema() {
+        let temp_dir = tempfile::tempdir().unwrap();
+        let db = Database::open_at(temp_dir.path().join("flowflow.db"))
+            .expect("fully migrated database");
+        let mut classified: Vec<_> = TABLES
+            .iter()
+            .map(|(table, _)| (*table).to_owned())
+            .collect();
+        classified.sort_unstable();
+
+        let conn = db.conn();
+        let mut statement = conn
+            .prepare(
+                "SELECT name FROM sqlite_master
+                 WHERE type = 'table' AND name NOT LIKE 'sqlite_%'",
+            )
+            .unwrap();
+        let mut migrated: Vec<String> = statement
+            .query_map([], |row| row.get(0))
+            .unwrap()
+            .map(Result::unwrap)
+            .collect();
+        migrated.sort_unstable();
+
+        assert_eq!(classified, migrated);
+    }
+}
+#[cfg(not(target_os = "ios"))]
 mod snapshot_tests {
     use flowflow::application::backup::*;
     use flowflow::domain::note::NewTextNote;

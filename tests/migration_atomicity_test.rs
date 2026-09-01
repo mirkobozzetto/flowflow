@@ -14,8 +14,11 @@ fn failed_migration_rolls_back_data_and_version() {
 
     let result = apply_migrations(
         &conn,
-        &[(2, "DELETE FROM notes; INSERT INTO notes VALUES (2, 'lost');
-              SELECT * FROM missing_table;")],
+        &[(
+            2,
+            "DELETE FROM notes; INSERT INTO notes VALUES (2, 'lost');
+              SELECT * FROM missing_table;",
+        )],
     );
 
     assert!(result.is_err(), "migration must fail");
