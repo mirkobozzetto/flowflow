@@ -26,7 +26,13 @@ pub const MIGRATIONS: &[(i64, &str)] = &[
     (25, V25_SCHEMA),
     (26, V26_SCHEMA),
     (27, V27_SCHEMA),
+    (28, V28_SCHEMA),
 ];
+
+const V28_SCHEMA: &str = "
+ALTER TABLE chunks ADD COLUMN embed_profile TEXT NOT NULL
+    DEFAULT 'openai:text-embedding-3-small:1536';
+";
 
 // A note saved into a space folder is bound to its remote id and queued here
 // until the server has it; the queue is drained, bounded, at the head of every

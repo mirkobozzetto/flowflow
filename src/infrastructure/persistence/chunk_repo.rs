@@ -5,6 +5,7 @@ pub struct ChunkRecord {
     pub owner_id: String,
     pub owner_kind: String,
     pub chunk_index: i32,
+    pub embed_profile: String,
     pub vector: Vec<f32>,
     pub content_hash: String,
     pub chunk_text: String,
@@ -74,8 +75,9 @@ impl Database {
             tx.execute(
                 "INSERT OR REPLACE INTO chunks
                  (id, owner_id, owner_kind, chunk_index, dim, vector,
-                  content_hash, chunk_text, title, tags, created_at)
-                 VALUES (?1,?2,?3,?4,?5,?6,?7,?8,?9,?10,?11)",
+                  content_hash, chunk_text, title, tags, created_at,
+                  embed_profile)
+                 VALUES (?1,?2,?3,?4,?5,?6,?7,?8,?9,?10,?11,?12)",
                 rusqlite::params![
                     c.id,
                     c.owner_id,
@@ -88,6 +90,7 @@ impl Database {
                     c.title,
                     c.tags,
                     c.created_at,
+                    c.embed_profile,
                 ],
             )
             .map_err(|e| format!("Insert chunk: {e}"))?;
@@ -156,7 +159,8 @@ impl Database {
         let mut stmt = conn
             .prepare(
                 "SELECT id, owner_id, owner_kind, chunk_index, vector,
-                        content_hash, chunk_text, title, tags, created_at
+                        content_hash, chunk_text, title, tags, created_at,
+                        embed_profile
                  FROM chunks
                  WHERE owner_id = ?1 AND owner_kind = ?2
                  ORDER BY chunk_index ASC",
@@ -176,6 +180,7 @@ impl Database {
                     title: row.get(7)?,
                     tags: row.get(8)?,
                     created_at: row.get(9)?,
+                    embed_profile: row.get(10)?,
                 })
             })
             .map_err(|e| format!("Query chunks: {e}"))?;
