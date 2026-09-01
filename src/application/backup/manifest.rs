@@ -5,6 +5,7 @@ use crate::infrastructure::persistence::settings_repo::{
     SENSITIVE_SETTING_PREFIXES,
 };
 
+use crate::infrastructure::persistence::{TableClass, TABLES};
 pub const ARCHIVE_FORMAT: &str = "flowflow-backup";
 pub const ARCHIVE_VERSION: u32 = 1;
 pub const MIN_SCHEMA_VERSION: i64 = 10;
@@ -12,7 +13,6 @@ pub const ARCHIVE_EXTENSION: &str = "ffbak.zip";
 pub const MANIFEST_PATH: &str = "manifest.json";
 pub const DB_ENTRY_PATH: &str = "db/flowflow.db";
 pub const AUDIO_DIR_PREFIX: &str = "audio/";
-pub const EXCLUDED_TABLES: &[&str] = &["sync_peers", "pending_transcriptions"];
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub struct Manifest {
@@ -27,6 +27,8 @@ pub struct Manifest {
     pub audio_missing: Vec<String>,
     pub excluded_settings: Vec<String>,
     pub excluded_tables: Vec<String>,
+    #[serde(default)]
+    pub external_imports_dropped: i64,
     pub entries: Vec<ManifestEntry>,
 }
 
@@ -93,10 +95,12 @@ impl Manifest {
             counts,
             audio_missing: Vec::new(),
             excluded_settings: excluded_settings_description(),
-            excluded_tables: EXCLUDED_TABLES
+            excluded_tables: TABLES
                 .iter()
-                .map(|t| t.to_string())
+                .filter(|(_, class)| matches!(class, TableClass::DeviceLocal))
+                .map(|(table, _)| (*table).to_string())
                 .collect(),
+            external_imports_dropped: 0,
             entries: Vec::new(),
         }
     }

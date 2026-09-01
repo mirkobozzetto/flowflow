@@ -3,7 +3,8 @@ use std::path::{Path, PathBuf};
 use super::snapshot_db::snapshot_device_id;
 use super::{
     audio_paths_from_snapshot, snapshot_counts, Manifest, ManifestEntry,
-    ARCHIVE_EXTENSION, AUDIO_DIR_PREFIX, DB_ENTRY_PATH, MANIFEST_PATH,
+    ScrubbedSnapshot, ARCHIVE_EXTENSION, AUDIO_DIR_PREFIX, DB_ENTRY_PATH,
+    MANIFEST_PATH,
 };
 
 fn zip_file_entry(
@@ -34,18 +35,19 @@ fn zip_file_entry(
 }
 
 pub fn build_archive(
-    snapshot: &Path,
+    snapshot: &ScrubbedSnapshot,
     audio_dir: &Path,
     archive_path: &Path,
 ) -> Result<Manifest, String> {
     use std::io::Write;
 
-    let device_id = snapshot_device_id(snapshot)?;
-    let counts = snapshot_counts(snapshot)?;
+    let device_id = snapshot_device_id(snapshot.as_ref())?;
+    let counts = snapshot_counts(snapshot.as_ref())?;
     let mut manifest = Manifest::new(device_id, counts);
+    manifest.external_imports_dropped = snapshot.external_imports_dropped();
 
     let mut wav_sources: Vec<(String, PathBuf)> = Vec::new();
-    for filename in audio_paths_from_snapshot(snapshot)? {
+    for filename in audio_paths_from_snapshot(snapshot.as_ref())? {
         let source = audio_dir.join(&filename);
         if source.is_file() {
             wav_sources.push((filename, source));
@@ -63,7 +65,8 @@ pub fn build_archive(
     let options = zip::write::SimpleFileOptions::default()
         .compression_method(zip::CompressionMethod::Deflated);
 
-    let db_crc = zip_file_entry(&mut zip, options, DB_ENTRY_PATH, snapshot)?;
+    let db_crc =
+        zip_file_entry(&mut zip, options, DB_ENTRY_PATH, snapshot.as_ref())?;
     manifest.entries.push(ManifestEntry {
         path: DB_ENTRY_PATH.to_string(),
         crc32: db_crc,

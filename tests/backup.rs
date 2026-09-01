@@ -32,6 +32,18 @@ mod manifest_tests {
         let parsed = Manifest::from_json(&json).unwrap();
         assert_eq!(parsed, manifest);
     }
+    #[test]
+    fn manifest_without_drop_count_uses_zero() {
+        let manifest = Manifest::new("device-abc".into(), Counts::default());
+        let mut json = serde_json::to_value(&manifest).unwrap();
+        json.as_object_mut()
+            .unwrap()
+            .remove("external_imports_dropped");
+
+        let parsed = Manifest::from_json(&json.to_string()).unwrap();
+
+        assert_eq!(parsed.external_imports_dropped, 0);
+    }
 
     #[test]
     fn schema_version_tracks_migrations_max() {
@@ -161,8 +173,18 @@ mod snapshot_tests {
             )
             .unwrap();
             conn.execute(
-                "INSERT INTO pending_transcriptions (note_id, transcription_id)
-                 VALUES ('n1', 't1')",
+                "INSERT INTO pending_transcriptions
+                 (note_id, transcription_id, provider, file_path, audio_id)
+                 VALUES ('n1', 't1', 'whisper_local',
+                         '/private/audio/recording.wav', 'audio-1')",
+                [],
+            )
+            .unwrap();
+            conn.execute(
+                "INSERT INTO pending_transcriptions
+                 (note_id, transcription_id, provider, file_path, audio_id)
+                 VALUES ('n2', 't2', 'whisper_local',
+                         '/private/import.wav', NULL)",
                 [],
             )
             .unwrap();
@@ -189,7 +211,7 @@ mod snapshot_tests {
             );
         }
 
-        let conn = open_read_only(&snapshot).unwrap();
+        let conn = open_read_only(snapshot.as_ref()).unwrap();
         let excluded_count: i64 = conn
             .query_row(
                 "SELECT COUNT(*) FROM settings WHERE key IN
@@ -214,7 +236,16 @@ mod snapshot_tests {
                 r.get(0)
             })
             .unwrap();
-        assert_eq!(pending, 0);
+        assert_eq!(pending, 1);
+        let retained_path: String = conn
+            .query_row(
+                "SELECT file_path FROM pending_transcriptions
+                 WHERE note_id = 'n1'",
+                [],
+                |r| r.get(0),
+            )
+            .unwrap();
+        assert_eq!(retained_path, "recording.wav");
 
         let language: String = conn
             .query_row(
@@ -248,7 +279,8 @@ mod snapshot_tests {
         let snapshot =
             create_scrubbed_snapshot(&db_file, &staging).expect("snapshot");
 
-        assert_no_sidecars(&snapshot).expect("no sidecars next to snapshot");
+        assert_no_sidecars(snapshot.as_ref())
+            .expect("no sidecars next to snapshot");
         let entries: Vec<String> = std::fs::read_dir(&staging)
             .unwrap()
             .filter_map(|e| e.ok())
@@ -284,7 +316,7 @@ mod snapshot_tests {
         let snapshot =
             create_scrubbed_snapshot(&db_file, &staging).expect("snapshot");
 
-        assert_no_sidecars(&snapshot).unwrap();
+        assert_no_sidecars(snapshot.as_ref()).unwrap();
         assert!(!staging.join("flowflow.db-journal").exists());
     }
 
@@ -297,7 +329,7 @@ mod snapshot_tests {
 
         let snapshot =
             create_scrubbed_snapshot(&db_file, &staging).expect("snapshot");
-        let counts = snapshot_counts(&snapshot).unwrap();
+        let counts = snapshot_counts(snapshot.as_ref()).unwrap();
         assert_eq!(counts.notes, 1);
         assert_eq!(counts.folders, 0);
         assert_eq!(counts.audio_files, 0);

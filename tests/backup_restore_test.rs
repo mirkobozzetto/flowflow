@@ -1,5 +1,6 @@
 use flowflow::application::backup;
 use flowflow::application::constants::EMBEDDING_DIMS;
+use flowflow::application::transcription_manager::job_from_pending;
 use flowflow::domain::note::NewTextNote;
 use flowflow::domain::UpdateNote;
 use flowflow::infrastructure::persistence::chunk_repo::ChunkRecord;
@@ -525,5 +526,67 @@ fn rebind_clears_the_ack_book_and_requires_one_authorization_per_attempt() {
         db_a.get_setting(&format!("sync_rebind_at_{id_b}"))
             .is_some(),
         "the rotation timestamp must be recorded"
+    );
+}
+#[test]
+fn backup_restore_keeps_recorded_transcription_and_drops_import() {
+    let (db, dir) = open_db();
+    let recorded_note = make_note(&db, "recorded", "audio survives");
+    let imported_note = make_note(&db, "imported", "external audio");
+    let audio_dir = dir.path().join("audio");
+    std::fs::create_dir_all(&audio_dir).expect("audio dir");
+    std::fs::write(audio_dir.join("recording.wav"), b"recording")
+        .expect("recording");
+    db.conn()
+        .execute(
+            "INSERT INTO note_audios
+             (id, note_id, file_path, duration_secs)
+             VALUES ('audio-1', ?1, 'recording.wav', 1.0)",
+            [recorded_note.as_str()],
+        )
+        .expect("audio row");
+    db.add_pending_local_transcription(
+        &recorded_note,
+        "/private/var/mobile/recording.wav",
+        Some("audio-1"),
+    )
+    .expect("recorded pending");
+    db.add_pending_local_transcription(
+        &imported_note,
+        "/private/var/mobile/import.wav",
+        None,
+    )
+    .expect("imported pending");
+
+    let work = tempdir().expect("work");
+    let dirs = export_archive_of(dir.path(), work.path());
+    let mut archive = zip::ZipArchive::new(
+        std::fs::File::open(&dirs.archive).expect("archive file"),
+    )
+    .expect("zip");
+    let mut manifest_json = String::new();
+    use std::io::Read;
+    archive
+        .by_name(backup::MANIFEST_PATH)
+        .expect("manifest entry")
+        .read_to_string(&mut manifest_json)
+        .expect("manifest text");
+    let manifest =
+        backup::Manifest::from_json(&manifest_json).expect("manifest");
+    assert_eq!(manifest.external_imports_dropped, 1);
+    let restored = restore_device(db, &dirs);
+    let rows = restored.list_pending_transcriptions();
+
+    assert_eq!(rows.len(), 1);
+    assert_eq!(rows[0].note_id, recorded_note);
+    assert_eq!(rows[0].file_path.as_deref(), Some("recording.wav"));
+    assert_eq!(rows[0].audio_id.as_deref(), Some("audio-1"));
+    assert!(dirs.paths.audio_dir.join("recording.wav").is_file());
+    assert_eq!(
+        job_from_pending(&rows[0])
+            .expect("resumed job")
+            .audio_id
+            .as_deref(),
+        Some("audio-1"),
     );
 }

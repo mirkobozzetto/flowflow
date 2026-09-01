@@ -10,7 +10,25 @@ use crate::infrastructure::persistence::Database;
 use crate::infrastructure::sync::reconcile;
 use crate::infrastructure::vectordb::VectorStore;
 
-use super::{assert_no_sidecars, EXCLUDED_TABLES};
+use super::assert_no_sidecars;
+use crate::infrastructure::persistence::{TableClass, TABLES};
+
+pub struct ScrubbedSnapshot {
+    path: PathBuf,
+    external_imports_dropped: i64,
+}
+
+impl AsRef<Path> for ScrubbedSnapshot {
+    fn as_ref(&self) -> &Path {
+        &self.path
+    }
+}
+
+impl ScrubbedSnapshot {
+    pub(crate) fn external_imports_dropped(&self) -> i64 {
+        self.external_imports_dropped
+    }
+}
 
 pub async fn ensure_chunks_backfilled(
     db: &Database,
@@ -26,7 +44,7 @@ pub async fn ensure_chunks_backfilled(
 pub fn create_scrubbed_snapshot(
     source_db: &Path,
     staging_dir: &Path,
-) -> Result<PathBuf, String> {
+) -> Result<ScrubbedSnapshot, String> {
     if staging_dir.exists() {
         std::fs::remove_dir_all(staging_dir)
             .map_err(|e| format!("staging reset: {e}"))?;
@@ -51,12 +69,15 @@ pub fn create_scrubbed_snapshot(
         .map_err(|e| format!("vacuum into: {e}"))?;
     drop(source);
 
-    scrub_snapshot(&snapshot)?;
+    let external_imports_dropped = scrub_snapshot(&snapshot)?;
     assert_no_sidecars(&snapshot)?;
-    Ok(snapshot)
+    Ok(ScrubbedSnapshot {
+        path: snapshot,
+        external_imports_dropped,
+    })
 }
 
-fn scrub_snapshot(snapshot: &Path) -> Result<(), String> {
+fn scrub_snapshot(snapshot: &Path) -> Result<i64, String> {
     let conn =
         Connection::open(snapshot).map_err(|e| format!("scrub open: {e}"))?;
     conn.pragma_update(None, "journal_mode", "MEMORY")
@@ -80,12 +101,47 @@ fn scrub_snapshot(snapshot: &Path) -> Result<(), String> {
         )
         .map_err(|e| format!("scrub prefix {prefix}: {e}"))?;
     }
-    for table in EXCLUDED_TABLES {
+    for (table, class) in TABLES {
+        if !matches!(class, TableClass::DeviceLocal) {
+            continue;
+        }
         conn.execute(&format!("DELETE FROM {table}"), [])
             .map_err(|e| format!("scrub table {table}: {e}"))?;
+    }
+    let external_imports_dropped =
+        conn.execute(
+            "DELETE FROM pending_transcriptions
+             WHERE provider = 'whisper_local' AND audio_id IS NULL",
+            [],
+        )
+        .map_err(|e| format!("scrub external imports: {e}"))? as i64;
+    let paths = {
+        let mut statement = conn
+            .prepare(
+                "SELECT note_id, file_path FROM pending_transcriptions
+                 WHERE file_path IS NOT NULL",
+            )
+            .map_err(|e| format!("read transcription paths: {e}"))?;
+        let rows = statement
+            .query_map([], |row| {
+                Ok((row.get::<_, String>(0)?, row.get::<_, String>(1)?))
+            })
+            .map_err(|e| format!("query transcription paths: {e}"))?;
+        rows.collect::<Result<Vec<_>, _>>()
+            .map_err(|e| format!("collect transcription paths: {e}"))?
+    };
+    for (note_id, file_path) in paths {
+        let filename =
+            file_path.rsplit(['/', '\\']).next().unwrap_or(&file_path);
+        conn.execute(
+            "UPDATE pending_transcriptions SET file_path = ?1
+             WHERE note_id = ?2",
+            rusqlite::params![filename, note_id],
+        )
+        .map_err(|e| format!("scrub transcription path: {e}"))?;
     }
     conn.execute_batch("VACUUM;")
         .map_err(|e| format!("scrub vacuum: {e}"))?;
     drop(conn);
-    Ok(())
+    Ok(external_imports_dropped)
 }

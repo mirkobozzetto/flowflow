@@ -3,8 +3,7 @@ mod manifest;
 pub use manifest::{
     current_platform, excluded_settings_description, Counts, Manifest,
     ManifestEntry, ARCHIVE_EXTENSION, ARCHIVE_FORMAT, ARCHIVE_VERSION,
-    AUDIO_DIR_PREFIX, DB_ENTRY_PATH, EXCLUDED_TABLES, MANIFEST_PATH,
-    MIN_SCHEMA_VERSION,
+    AUDIO_DIR_PREFIX, DB_ENTRY_PATH, MANIFEST_PATH, MIN_SCHEMA_VERSION,
 };
 
 mod archive;
@@ -24,7 +23,9 @@ pub use paths::{
     activate_restore_lock, import_staging_dir, pending_restore_dir,
     restore_bak_dir, restore_lock_active, RestoreState, RESTORE_STATE_PATH,
 };
-pub use snapshot::{create_scrubbed_snapshot, ensure_chunks_backfilled};
+pub use snapshot::{
+    create_scrubbed_snapshot, ensure_chunks_backfilled, ScrubbedSnapshot,
+};
 pub use snapshot_db::{
     audio_paths_from_snapshot, open_read_only, snapshot_counts,
 };
