@@ -35,10 +35,8 @@ fn wipe_clears_notes_keeps_settings() {
     );
 }
 
-// The wipe list is hardcoded, so every new user-content table has to be added
-// to it by hand. A space row surviving "delete my data" means a stale cursor
-// that makes the next pull skip everything, and a purge queue naming notes that
-// no longer exist.
+// A space row surviving "delete my data" means a stale cursor that makes the
+// next pull skip everything, and a purge queue naming notes that no longer exist.
 #[test]
 fn wipe_clears_space_rows_and_the_purge_queue() {
     let (db, _dir) = open_test_db();
@@ -49,4 +47,33 @@ fn wipe_clears_space_rows_and_the_purge_queue() {
 
     assert!(db.list_spaces().unwrap().is_empty(), "spaces wiped");
     assert!(db.pending_purges().unwrap().is_empty(), "purge queue wiped");
+}
+
+#[test]
+fn wipe_clears_note_links_and_pending_publishes() {
+    let (db, _dir) = open_test_db();
+    let first = db
+        .create_text_note(&NewTextNote {
+            title: Some("first".into()),
+            content: String::new(),
+            tags: vec![],
+        })
+        .expect("create first note");
+    let second = db
+        .create_text_note(&NewTextNote {
+            title: Some("second".into()),
+            content: String::new(),
+            tags: vec![],
+        })
+        .expect("create second note");
+    db.replace_note_links(&first.id, &[(second.id, 1.0)])
+        .expect("link notes");
+    db.upsert_space("space-1", "Team", false).expect("space");
+    db.stage_note_publish(&first.id, "space-1", "remote-1", Some("author"))
+        .expect("stage publish");
+
+    db.wipe_local_content().expect("wipe");
+
+    assert!(!db.has_note_links(&first.id).expect("read links"));
+    assert!(db.note_publish_state(&first.id).is_none());
 }

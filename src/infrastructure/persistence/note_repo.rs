@@ -2,7 +2,7 @@ use crate::domain::{
     NewTextNote, Note, NoteAudio, NoteType, Transcript, UpdateNote,
 };
 use crate::infrastructure::persistence::{
-    chunk_repo, now_iso, sync_meta, Database, DbTx,
+    chunk_repo, now_iso, sync_meta, Database, DbTx, TableClass, TABLES,
 };
 use std::collections::HashSet;
 use std::str::FromStr;
@@ -396,33 +396,13 @@ impl Database {
         let tx = conn
             .unchecked_transaction()
             .map_err(|e| format!("wipe tx: {e}"))?;
-        for table in [
-            // Ahead of note_audios: word timings are transcript content, and a
-            // transcript surviving "delete my data" is a privacy defect.
-            "note_audio_words",
-            "note_shares",
-            "note_provenance",
-            "note_audios",
-            "attachments",
-            "note_reminders",
-            "conversation_messages",
-            "conversations",
-            "notes_folders",
-            "chunks",
-            // Space rows survive nothing: a pull cursor left behind would make
-            // the next pull skip everything the wiped device never received,
-            // and a queued purge would name notes that no longer exist.
-            "spaces",
-            "pending_purge",
-            "pending_transcriptions",
-            "notes",
-            "threads",
-            "folders",
-            "sync_row_meta",
-            "sync_seq",
-            "sync_conflicts",
-            "sync_peers",
-        ] {
+        for (table, class) in TABLES {
+            if !matches!(
+                class,
+                TableClass::Content | TableClass::SyncState | TableClass::DeviceLocal
+            ) {
+                continue;
+            }
             tx.execute(&format!("DELETE FROM {table}"), [])
                 .map_err(|e| format!("wipe {table}: {e}"))?;
         }
