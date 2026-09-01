@@ -284,6 +284,43 @@ pub fn apply_migrations(
     apply_migrations_with_effects(conn, migrations, |_, _| Ok(()))
 }
 
+const REBUILDS: &[(i64, &str, &str)] = &[
+    (11, "pending_transcriptions_v11", "pending_transcriptions"),
+    (18, "conversation_messages_new", "conversation_messages"),
+    (22, "conversation_messages_new", "conversation_messages"),
+];
+
+fn repair_interrupted_rebuild(tx: &Transaction<'_>, version: i64) -> Result<(), String> {
+    let Some(&(_, temporary, original)) = REBUILDS
+        .iter()
+        .find(|&&(rebuild_version, _, _)| rebuild_version == version)
+    else {
+        return Ok(());
+    };
+
+    let table_exists = |name| {
+        tx.query_row(
+            "SELECT EXISTS(SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = ?1)",
+            [name],
+            |row| row.get::<_, bool>(0),
+        )
+    };
+    let temporary_exists = table_exists(temporary)
+        .map_err(|e| format!("Check temporary table for v{version}: {e}"))?;
+    if !temporary_exists {
+        return Ok(());
+    }
+    let original_exists = table_exists(original)
+        .map_err(|e| format!("Check original table for v{version}: {e}"))?;
+    let sql = if original_exists {
+        format!("DROP TABLE {temporary}")
+    } else {
+        format!("ALTER TABLE {temporary} RENAME TO {original}")
+    };
+    tx.execute_batch(&sql)
+        .map_err(|e| format!("Repair interrupted v{version}: {e}"))
+}
+
 fn apply_migrations_with_effects<F>(
     conn: &Connection,
     migrations: &[(i64, &str)],
@@ -317,6 +354,7 @@ where
         let tx =
             Transaction::new_unchecked(conn, TransactionBehavior::Immediate)
                 .map_err(|e| format!("Begin v{version}: {e}"))?;
+        repair_interrupted_rebuild(&tx, version)?;
         if !sql.is_empty() {
             tx.execute_batch(sql)
                 .map_err(|e| format!("Migration v{version}: {e}"))?;
