@@ -92,6 +92,8 @@ pub(super) struct ChunkPayload {
     pub id: String,
     pub chunk_index: i64,
     pub vector_b64: String,
+    #[serde(default)]
+    pub embed_profile: Option<String>,
     pub content_hash: Option<String>,
     pub chunk_text: Option<String>,
     pub title: Option<String>,

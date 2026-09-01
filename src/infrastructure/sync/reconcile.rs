@@ -68,6 +68,13 @@ fn owner_note_id(
 }
 
 fn record_to_chunk(note_id: &str, r: ChunkRecord) -> Option<Chunk> {
+    if r.embed_profile != EMBEDDING_PROFILE {
+        eprintln!(
+            "[reconcile] skip foreign-profile chunk {} ({})",
+            r.id, r.embed_profile
+        );
+        return None;
+    }
     if r.vector.len() != EMBEDDING_DIMS {
         eprintln!(
             "[reconcile] skip malformed chunk {} (dim {} != {EMBEDDING_DIMS})",

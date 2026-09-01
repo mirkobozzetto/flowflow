@@ -55,7 +55,7 @@ pub(super) fn load_chunks(
     let mut stmt = conn
         .prepare(
             "SELECT id, chunk_index, vector, content_hash, chunk_text,
-                    title, tags, created_at
+                    title, tags, created_at, embed_profile
              FROM chunks WHERE owner_id = ?1 AND owner_kind = ?2
              ORDER BY chunk_index ASC",
         )
@@ -72,6 +72,7 @@ pub(super) fn load_chunks(
                 title: row.get(5)?,
                 tags: row.get(6)?,
                 created_at: row.get(7)?,
+                embed_profile: Some(row.get(8)?),
             })
         })
         .map_err(|e| sql_err("query chunks", e))?;
