@@ -64,7 +64,7 @@ async fn chatgpt_mode_allows_chat_without_openai_key_but_not_embeddings() {
 
     let client = LlmClient::from_db(&db).expect("build ChatGPT client");
     assert_eq!(client.provider(), Provider::ChatGpt);
-    assert_eq!(client.chat_model_name(), "gpt-5.4");
+    assert_eq!(client.chat_model_name(), "gpt-5.6-terra");
 
     match client.embed("test").await {
         Err(LlmError::NotConfigured(message)) => {

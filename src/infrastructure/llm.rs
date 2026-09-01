@@ -1,6 +1,6 @@
 use crate::application::constants::{
-    ANTHROPIC_CHAT_MODEL, ANTHROPIC_MAX_TOKENS, CHATGPT_CHAT_MODEL, CHAT_MODEL,
-    EMBEDDING_DIMS, EMBEDDING_MODEL,
+    ANTHROPIC_CHAT_MODEL, ANTHROPIC_MAX_TOKENS, CHATGPT_CHAT_MODEL,
+    CHATGPT_REASONING_EFFORT, CHAT_MODEL, EMBEDDING_DIMS, EMBEDDING_MODEL,
 };
 use crate::application::error::LlmError;
 use crate::application::tools::{
@@ -237,6 +237,9 @@ impl LlmClient {
                     .agent(CHATGPT_CHAT_MODEL)
                     .preamble(system)
                     .temperature(0.3)
+                    .additional_params(serde_json::json!({
+                        "reasoning": { "effort": CHATGPT_REASONING_EFFORT }
+                    }))
                     .build();
                 agent
                     .prompt(user_message)
@@ -401,7 +404,10 @@ impl LlmClient {
                 let base = client
                     .agent(CHATGPT_CHAT_MODEL)
                     .preamble(preamble)
-                    .temperature(temperature);
+                    .temperature(temperature)
+                    .additional_params(serde_json::json!({
+                        "reasoning": { "effort": CHATGPT_REASONING_EFFORT }
+                    }));
                 match (notes_tools.scope(), web_key) {
                     (Some(scope), web) => {
                         let b = base
