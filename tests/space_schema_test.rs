@@ -17,9 +17,10 @@ fn table_columns(db: &Database, table: &str) -> Vec<String> {
     rows.map(Result::unwrap).collect()
 }
 
-// Rewind to schema 25: drop the V26/V27 columns and tables, forget the record,
-// so the next open re-runs both against a realistic pre-upgrade file. Same shape as
-// the V23 rewind in author_device_test.
+// Rewind to schema 25: remove every later schema change and migration record.
+// The next open then runs all pending migrations against a real V25 shape.
+// Same pattern as the V22 rewind in author_device_test.
+
 fn rewind_to_v25(db: &Database) {
     let conn = db.conn();
     conn.execute_batch(
@@ -36,6 +37,7 @@ fn rewind_to_v25(db: &Database) {
          DROP TABLE spaces;
          DROP TABLE pending_purge;
          DROP TABLE space_publish_pending;
+         ALTER TABLE chunks DROP COLUMN embed_profile;
          DELETE FROM _migrations WHERE version >= 26;",
     )
     .unwrap();
@@ -79,7 +81,7 @@ fn v26_and_v27_apply_on_a_v25_file() {
         .conn()
         .query_row("SELECT MAX(version) FROM _migrations", [], |r| r.get(0))
         .unwrap();
-    assert_eq!(head, 27);
+    assert_eq!(head, 28);
 }
 
 #[test]
