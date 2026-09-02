@@ -10,7 +10,7 @@
 
 use super::{client, map_err, pull::pull_space, SpaceError};
 use crate::domain::space::{can_write_in, MODE_COLLAB, MODE_READ};
-use crate::infrastructure::backend::BackendError;
+use crate::infrastructure::backend::{BackendClient, BackendError};
 use crate::infrastructure::persistence::Database;
 use uuid::Uuid;
 
@@ -190,6 +190,7 @@ pub async fn create_note(
             space_id,
             Some(&id),
             folder_remote_id,
+            None,
             title,
             content,
         )
@@ -215,6 +216,7 @@ pub async fn update_note(
         space_id,
         Some(remote_id),
         folder_remote_id,
+        None,
         title,
         content,
     )
@@ -279,18 +281,28 @@ pub async fn publish_local_note(
 
     let pushed = match guard(db, space_id, Some(folder_remote)) {
         Ok(()) => match client(db) {
-            Ok(c) => c
-                .put_space_note(
+            Ok(c) => {
+                let thread_remote = ensure_remote_thread(
+                    db,
+                    &c,
+                    space_id,
+                    folder_remote,
+                    note.thread_id.as_deref(),
+                )
+                .await;
+                c.put_space_note(
                     db,
                     space_id,
                     Some(&remote_id),
                     Some(folder_remote),
+                    thread_remote.as_deref(),
                     note.title.as_deref(),
                     &note.content,
                 )
                 .await
                 .map(|_| ())
-                .map_err(Push::Backend),
+                .map_err(Push::Backend)
+            }
             Err(e) => Err(Push::Local(e)),
         },
         Err(e) => Err(Push::Local(e)),
@@ -323,6 +335,42 @@ pub async fn publish_local_note(
 enum Push {
     Backend(BackendError),
     Local(SpaceError),
+}
+
+/// Make sure the note's local thread exists in the space before the note
+/// points at it. Threads share ids across the two planes, so the local id is
+/// the remote id. A 404 means the thread exists but belongs to someone else:
+/// attaching to it is still allowed. Any other failure pushes the note
+/// unthreaded rather than not at all; the next publish retries the link.
+pub(super) async fn ensure_remote_thread(
+    db: &Database,
+    c: &BackendClient,
+    space_id: &str,
+    folder_remote: &str,
+    thread_id: Option<&str>,
+) -> Option<String> {
+    let thread_id = thread_id?;
+    let thread = db.get_thread(thread_id).ok().flatten()?;
+    let title = if thread.title.trim().is_empty() {
+        "Thread"
+    } else {
+        thread.title.as_str()
+    };
+    match c
+        .put_space_thread(
+            db,
+            space_id,
+            Some(thread_id),
+            Some(folder_remote),
+            title,
+        )
+        .await
+    {
+        Ok(_) | Err(BackendError::Status(404, _)) => {
+            Some(thread_id.to_string())
+        }
+        Err(_) => None,
+    }
 }
 
 /// Tombstone one's OWN note. This is the signal that removes it from every

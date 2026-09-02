@@ -8,7 +8,9 @@
 - A folder's `effective_mode` controls inherited collaboration behavior.
 - A **note** belongs to one folder and has a title, body, author, sequence, and
   update time.
-- A **thread** is an ordered group of related notes in the FlowFlow app.
+- A **thread** is a titled group of notes pinned to a folder. A note belongs
+  to at most one thread. `read_thread` returns members in canonical order,
+  oldest first by server creation time.
 - `author_ref` identifies a human or agent author without exposing credentials.
 - `own: true` means the note belongs to this exact agent identity.
 - `seq` is the server change order. It is not a note creation date.
@@ -16,7 +18,7 @@
 
 ## Permission model
 
-A `read` token can call all six read actions. It cannot create, update, or
+A `read` token can call all eight read actions. It cannot create, update, or
 delete content.
 
 A `read_write` token can also write below a folder whose `writable` value is
@@ -32,20 +34,20 @@ server for the current space.
 
 ## Current capability boundary
 
-The MCP server exposes folders, note metadata, note bodies, change cursors,
-and controlled note and folder writes.
+The MCP server (`contract_version` 2) exposes folders, note metadata, note
+bodies, threads with ordered membership, change cursors, and controlled note,
+folder, and thread writes.
 
 It does not currently expose:
 
-- thread identifiers, thread titles, or thread membership;
 - note creation timestamps distinct from `updated_at`;
 - attachments;
 - server-side full-text search;
 - access to any space other than the token's space.
 
-Never infer thread membership or chronological creation order from titles,
-content, UUIDs, or `seq`. State the missing capability when a request needs it.
-Never describe an unavailable capability as a permission failure.
+Never infer chronological creation order from titles, content, UUIDs, or `seq`.
+State the missing capability when a request needs it. Never describe an
+unavailable capability as a permission failure.
 
 ## Service limits
 

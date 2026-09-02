@@ -13,24 +13,25 @@ Hermes can:
 - list the folders visible through one space token;
 - list note metadata and read selected note bodies;
 - search titles, bodies, and update dates by reading visible notes;
+- list threads and read a thread's notes in canonical order;
 - summarize or analyze explicitly selected content;
 - create collaborative subfolders under writable parents;
 - create and update its own notes with idempotent UUIDs;
-- delete its own notes after explicit confirmation;
+- create its own threads from its own notes, and write notes inside threads;
+- delete its own notes and threads after explicit confirmation;
 - process and acknowledge changes with a server cursor.
 
 Hermes cannot:
 
 - access another space with the same token;
 - write at the space root or in a non-writable folder;
-- update or delete a human-authored note;
+- update or delete a human-authored note or thread;
+- attach a human-authored note to a thread;
 - recover a token after its one-time display;
-- inspect attachments;
-- identify FlowFlow threads through the current MCP response.
+- inspect attachments.
 
-The last limitation is explicit. The app stores thread identifiers, but the
-current space API and MCP tools do not expose them. Hermes must not guess thread
-membership or order from titles or note content.
+Thread order is the server creation time of the member notes. Hermes never
+infers membership or order from titles or bodies.
 
 ## Requirements
 
@@ -73,6 +74,26 @@ This copies the published skill to:
 
 An existing copy is moved to a timestamped backup first. Reload Hermes skills
 or restart Hermes after installation.
+
+### Keeping the skill and the backend in step
+
+`space_info` returns `contract_version`. The skill states the version it was
+written for. When the backend gains tools or fields, the version is bumped and
+the skill tells the user to update instead of guessing:
+
+```sh
+cd flowflow && git pull && ./scripts/install-flowflow-hermes-skill.sh
+```
+
+Hermes can also track the skill itself once it is installed from the
+repository URL, which enables `hermes skills check` and
+`hermes skills update flowflow-spaces`:
+
+```sh
+hermes skills install https://raw.githubusercontent.com/mirkobozzetto/flowflow/main/skills/flowflow-spaces/SKILL.md --category productivity
+```
+
+Both paths install the same files. Use one of them consistently.
 
 ## 3. Store the token outside the configuration
 

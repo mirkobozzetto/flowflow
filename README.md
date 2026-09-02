@@ -57,6 +57,14 @@ No manual searching. No folders to dig through. Just talk, and find it later.
 - Notes as actions: the assistant executes with your connected tools, every write holds for approval
 - Governed connectors (Google Sheets), groundwork for a signed-agent marketplace
 
+**Share a space with Hermes Agent**
+
+- Grant a [Hermes Agent](https://github.com/NousResearch/hermes-agent) scoped,
+  revocable access to one shared space from the space menu
+- Hermes reads folders, notes and threads, writes its own notes and threads,
+  and every change lands on your devices through the normal space pull
+- Everything is a plain note on arrival: searchable and chat-ready
+
 **Native feel**
 
 - A real Mac app: ⌘N, ⌘F, ⌘⌘, view history, native file dialogs
@@ -75,9 +83,37 @@ Ask    → Embed query → Hybrid search (BM25 + vector)  ∥  Web search (Exa, 
 
 Sync   → Save → debounced trigger → Noise-encrypted LAN session → version-vector merge → UI refresh < 1 s
 
+Hermes → mcps_ token (one space, read or read_write) → MCP tools on api.flowflow.be/v1/mcp-spaces
+         → notes and threads written by the agent → pulled by every member device
+
 Backup → Export scrubbed SQLite snapshot + WAV + manifest (zip) → share
          Import → read-only validation → atomic swap at next launch → vector index rebuilt offline
 ```
+
+## Hermes Agent
+
+FlowFlow ships a Hermes skill in [`skills/flowflow-spaces`](skills/flowflow-spaces/).
+Install it on the Hermes host, store the one-time token in `~/.hermes/.env`,
+and add one MCP server per shared space:
+
+```sh
+./scripts/install-flowflow-hermes-skill.sh
+```
+
+```yaml
+mcp_servers:
+  flowflow_projects:
+    url: "https://api.flowflow.be/v1/mcp-spaces"
+    headers:
+      Authorization: "Bearer ${FLOWFLOW_TOKEN_PROJECTS}"
+```
+
+The MCP server reports a `contract_version`; the skill states the version it
+was written for and asks for an update when they diverge. Update with
+`git pull && ./scripts/install-flowflow-hermes-skill.sh`, or track the skill
+with `hermes skills install <raw SKILL.md url>` and `hermes skills update`.
+Full walkthrough, safety rules, rotation and revocation:
+[docs/guides/hermes-flowflow.md](docs/guides/hermes-flowflow.md).
 
 ## Built with
 

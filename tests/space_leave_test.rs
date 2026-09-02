@@ -18,6 +18,7 @@ fn note(id: &str, author: &str, own: bool) -> RemoteSpaceNote {
     RemoteSpaceNote {
         id: id.into(),
         folder_id: None,
+        thread_id: None,
         author_ref: Some(author.into()),
         own,
         seq: 1,
@@ -36,6 +37,7 @@ fn joined_space_with_two_notes() -> (tempfile::TempDir, Database, String, String
     let page = PullResp {
         folders: vec![],
         notes: vec![note("mine", ME, true), note("theirs", THEM, false)],
+        threads: vec![],
         next_seq: 2,
         more: false,
     };
