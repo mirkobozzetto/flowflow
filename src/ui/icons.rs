@@ -186,6 +186,19 @@ pub fn IconHeadCircuit(#[props(default = 20)] size: u32) -> Element {
 }
 
 #[component]
+pub fn HermesAgentIcon(#[props(default = 20)] size: u32) -> Element {
+    rsx! {
+        img {
+            src: asset!("/assets/hermes-agent.png"),
+            width: "{size}",
+            height: "{size}",
+            class: "rounded-full object-cover",
+            alt: "Hermes Agent",
+        }
+    }
+}
+
+#[component]
 pub fn IconPaperPlaneRight(#[props(default = 20)] size: u32) -> Element {
     rsx! {
         svg {

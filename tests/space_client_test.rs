@@ -5,7 +5,10 @@
 // (marketplace-flowflow/src/features/spaces/routes.rs), and they are the only
 // thing that catches that drift.
 
-use flowflow::infrastructure::backend::spaces::{IdResp, PullResp, SpaceResp};
+use flowflow::infrastructure::backend::spaces::{
+    AgentCreateResp, AgentTokenResp, AgentView, IdResp, MemberResp, PullResp,
+    SpaceResp,
+};
 use flowflow::infrastructure::backend::BackendError;
 
 #[test]
@@ -52,6 +55,59 @@ fn write_responses_carry_the_new_cursor() {
     let sp: SpaceResp =
         serde_json::from_str(r#"{"id":"s1","name":"Équipe"}"#).unwrap();
     assert_eq!(sp.name, "Équipe");
+}
+
+#[test]
+fn member_response_keeps_old_servers_compatible_and_identifies_agents() {
+    let person: MemberResp = serde_json::from_str(
+        r#"{
+            "web_user_id":"u1","display_name":"Mirko",
+            "author_ref":"abc123","is_owner":true,"me":true
+        }"#,
+    )
+    .unwrap();
+    assert!(!person.is_agent);
+
+    let agent: MemberResp = serde_json::from_str(
+        r#"{
+            "web_user_id":"agent:a1","display_name":"Hermes",
+            "author_ref":"agent:a1","is_owner":false,
+            "is_agent":true,"me":false
+        }"#,
+    )
+    .unwrap();
+    assert!(agent.is_agent);
+}
+
+#[test]
+fn agent_responses_preserve_the_one_time_token_contract() {
+    let created: AgentCreateResp = serde_json::from_str(
+        r#"{
+            "agent_id":"a1","token_id":"t1","token":"mcps_secret",
+            "scope":"read_write","expires_at":"2027-09-03T00:00:00Z"
+        }"#,
+    )
+    .unwrap();
+    assert_eq!(created.token, "mcps_secret");
+
+    let rotated: AgentTokenResp = serde_json::from_str(
+        r#"{
+            "token_id":"t2","token":"mcps_rotated","scope":"read",
+            "expires_at":"2027-09-03T00:00:00Z"
+        }"#,
+    )
+    .unwrap();
+    assert_eq!(rotated.token, "mcps_rotated");
+
+    let agents: Vec<AgentView> = serde_json::from_str(
+        r#"[{
+            "agent_id":"a1","name":"Hermes","scope":"read_write",
+            "expires_at":"2027-09-03T00:00:00Z","revoked_at":null,
+            "last_used_at":null,"last_ack_seq":0
+        }]"#,
+    )
+    .unwrap();
+    assert_eq!(agents[0].name, "Hermes");
 }
 
 #[test]

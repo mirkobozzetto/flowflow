@@ -251,6 +251,34 @@ impl Database {
         }
         Ok(out)
     }
+
+    /// Spaces this device holds folders for, without a local `spaces` row:
+    /// the folders came from a paired device, the row never travels. One
+    /// entry per space, with the name of its root folder as the best local
+    /// guess for the space name.
+    pub fn unknown_spaces(&self) -> Result<Vec<(String, String)>, String> {
+        let conn = self.conn();
+        let mut stmt = conn
+            .prepare(
+                "SELECT f.space_id, MIN(f.name)
+                 FROM folders f
+                 WHERE f.space_id IS NOT NULL
+                   AND f.parent_id IS NULL
+                   AND NOT EXISTS (
+                       SELECT 1 FROM spaces s WHERE s.id = f.space_id
+                   )
+                 GROUP BY f.space_id",
+            )
+            .map_err(|e| format!("Prepare: {e}"))?;
+        let rows = stmt
+            .query_map([], |r| Ok((r.get(0)?, r.get(1)?)))
+            .map_err(|e| format!("Query: {e}"))?;
+        let mut out = Vec::new();
+        for row in rows {
+            out.push(row.map_err(|e| format!("Row: {e}"))?);
+        }
+        Ok(out)
+    }
 }
 
 impl DbTx<'_> {

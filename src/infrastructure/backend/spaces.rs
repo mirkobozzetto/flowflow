@@ -79,7 +79,39 @@ pub struct MemberResp {
     pub display_name: Option<String>,
     pub author_ref: String,
     pub is_owner: bool,
+    #[serde(default)]
+    pub is_agent: bool,
     pub me: bool,
+}
+
+#[derive(Clone, Debug, PartialEq, serde::Deserialize)]
+pub struct AgentView {
+    pub agent_id: String,
+    pub name: String,
+    pub scope: String,
+    pub expires_at: String,
+    #[serde(default)]
+    pub revoked_at: Option<String>,
+    #[serde(default)]
+    pub last_used_at: Option<String>,
+    pub last_ack_seq: i64,
+}
+
+#[derive(Clone, Debug, PartialEq, serde::Deserialize)]
+pub struct AgentCreateResp {
+    pub agent_id: String,
+    pub token_id: String,
+    pub token: String,
+    pub scope: String,
+    pub expires_at: String,
+}
+
+#[derive(Clone, Debug, PartialEq, serde::Deserialize)]
+pub struct AgentTokenResp {
+    pub token_id: String,
+    pub token: String,
+    pub scope: String,
+    pub expires_at: String,
 }
 
 #[derive(Clone, Debug, PartialEq, serde::Deserialize)]
@@ -150,6 +182,28 @@ struct NoteReq<'a> {
 struct MemberRemoveReq<'a> {
     space_id: &'a str,
     web_user_id: &'a str,
+}
+
+#[derive(serde::Serialize)]
+struct AgentCreateReq<'a> {
+    space_id: &'a str,
+    name: &'a str,
+    scope: &'a str,
+    ttl_days: Option<i64>,
+}
+
+#[derive(serde::Serialize)]
+struct AgentTokenReq<'a> {
+    space_id: &'a str,
+    agent_id: &'a str,
+    scope: &'a str,
+    ttl_days: Option<i64>,
+}
+
+#[derive(serde::Serialize)]
+struct AgentRevokeReq<'a> {
+    space_id: &'a str,
+    agent_id: &'a str,
 }
 
 #[derive(serde::Serialize)]
@@ -413,5 +467,82 @@ impl BackendClient {
             .authed(db, |c, t| c.post(&url).bearer_auth(t).json(&body))
             .await?;
         Self::expect_success(resp).await
+    }
+
+    pub async fn create_space_agent(
+        &self,
+        db: &Database,
+        space_id: &str,
+        name: &str,
+        scope: &str,
+        ttl_days: Option<i64>,
+    ) -> Result<AgentCreateResp, BackendError> {
+        let url = format!("{}/v1/spaces/agent", self.base_url);
+        let body = AgentCreateReq {
+            space_id,
+            name,
+            scope,
+            ttl_days,
+        };
+        let response = self
+            .authed(db, |client, token| {
+                client.post(&url).bearer_auth(token).json(&body)
+            })
+            .await?;
+        Self::read_json(response).await
+    }
+
+    pub async fn list_space_agents(
+        &self,
+        db: &Database,
+        space_id: &str,
+    ) -> Result<Vec<AgentView>, BackendError> {
+        let url = format!("{}/v1/spaces/agents", self.base_url);
+        let body = SpaceReq { space_id };
+        let response = self
+            .authed(db, |client, token| {
+                client.post(&url).bearer_auth(token).json(&body)
+            })
+            .await?;
+        Self::read_json(response).await
+    }
+
+    pub async fn rotate_space_agent_token(
+        &self,
+        db: &Database,
+        space_id: &str,
+        agent_id: &str,
+        scope: &str,
+        ttl_days: Option<i64>,
+    ) -> Result<AgentTokenResp, BackendError> {
+        let url = format!("{}/v1/spaces/agent/token", self.base_url);
+        let body = AgentTokenReq {
+            space_id,
+            agent_id,
+            scope,
+            ttl_days,
+        };
+        let response = self
+            .authed(db, |client, token| {
+                client.post(&url).bearer_auth(token).json(&body)
+            })
+            .await?;
+        Self::read_json(response).await
+    }
+
+    pub async fn revoke_space_agent(
+        &self,
+        db: &Database,
+        space_id: &str,
+        agent_id: &str,
+    ) -> Result<(), BackendError> {
+        let url = format!("{}/v1/spaces/agent/revoke", self.base_url);
+        let body = AgentRevokeReq { space_id, agent_id };
+        let response = self
+            .authed(db, |client, token| {
+                client.post(&url).bearer_auth(token).json(&body)
+            })
+            .await?;
+        Self::expect_success(response).await
     }
 }
