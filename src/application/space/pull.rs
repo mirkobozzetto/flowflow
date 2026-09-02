@@ -149,10 +149,37 @@ pub async fn pull_if_due(
     pull_space(db, space_id).await
 }
 
-/// Refresh every joined space that is due. Runs when the app comes to the
-/// foreground; a device with no space does no work at all.
+/// Claim the spaces another device of this account already joined.
+///
+/// `spaces` is device-local while a folder's `space_id` travels over P2P
+/// sync, so a paired device can hold a space's whole tree with no row to list
+/// it under: the sidebar then shows the folder nowhere. Membership is per
+/// account, so the server tells this device whether it belongs; if it does,
+/// the row is created at cursor 0 and the next pull replays the space onto
+/// rows already keyed by remote id, without duplicates. Any error leaves
+/// the folder as it is: a later session retries.
+pub async fn adopt_synced_spaces(db: &Database) -> usize {
+    let Ok(c) = client(db) else { return 0 };
+    let mut adopted = 0usize;
+    for (space_id, name) in db.unknown_spaces().unwrap_or_default() {
+        let Ok(members) = c.list_space_members(db, &space_id).await else {
+            continue;
+        };
+        let Some(me) = members.iter().find(|m| m.me) else {
+            continue;
+        };
+        if db.upsert_space(&space_id, &name, me.is_owner).is_ok() {
+            adopted += 1;
+        }
+    }
+    adopted
+}
+
+/// Refresh every joined space that is due, after claiming the spaces that
+/// reached this device through sync. Runs when the app comes to the
+/// foreground; a device with no space does one query and no round trip.
 pub async fn pull_all_due(db: &Database) -> usize {
-    let mut changed = 0usize;
+    let mut changed = adopt_synced_spaces(db).await;
     for space in db.list_spaces().unwrap_or_default() {
         if !due_for_pull(space.last_pull_at.as_deref(), chrono::Utc::now()) {
             continue;
