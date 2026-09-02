@@ -5,7 +5,7 @@
 use crate::application::i18n::t;
 use crate::application::space::{self, Departure, SpaceError};
 use crate::domain::space::Space;
-use crate::infrastructure::backend::spaces::MemberResp;
+use crate::infrastructure::backend::spaces::{AgentView, MemberResp};
 use crate::infrastructure::persistence::Database;
 use crate::ui::clipboard::copy_text;
 use crate::ui::icons::*;
@@ -23,6 +23,7 @@ enum Panel {
     None,
     Invite,
     Members,
+    Agent,
     NewTheme,
     Rename,
     Leave,
@@ -42,6 +43,10 @@ pub fn SpaceSection(space: Space) -> Element {
     let mut new_name = use_signal(|| space.name.clone());
     let mut error = use_signal(|| None::<String>);
     let mut members_version = use_signal(|| 0u32);
+    let mut agent_name = use_signal(|| "Hermes".to_string());
+    let mut agent_write = use_signal(|| true);
+    let mut agent_token = use_signal(|| None::<String>);
+    let mut agent_version = use_signal(|| 0u32);
 
     let space_id = space.id.clone();
     let is_owner = space.is_owner;
@@ -71,6 +76,36 @@ pub fn SpaceSection(space: Space) -> Element {
     let member_list: Vec<MemberResp> = members().flatten().unwrap_or_default();
     let member_count = member_list.len();
 
+    let agents = use_resource({
+        let space_id = space_id.clone();
+        move || {
+            let _v = agent_version();
+            let space_id = space_id.clone();
+            async move {
+                if !is_owner {
+                    return None;
+                }
+                match space::agents(&db(), &space_id).await {
+                    Ok(agents) => Some(agents),
+                    Err(e) => {
+                        eprintln!("[space] {e}");
+                        error.set(Some(t(
+                            &(app.current_lang)(),
+                            space::error_key(&e),
+                        )));
+                        None
+                    }
+                }
+            }
+        }
+    });
+    let agent_list: Vec<AgentView> = agents()
+        .flatten()
+        .unwrap_or_default()
+        .into_iter()
+        .filter(|agent| agent.revoked_at.is_none())
+        .collect();
+
     let mut bump = move || {
         app.folders_version.set((app.folders_version)() + 1);
         app.notes_version.set((app.notes_version)() + 1);
@@ -80,6 +115,10 @@ pub fn SpaceSection(space: Space) -> Element {
     let mut open = move |p: Panel| {
         panel.set(p);
         status.set(None);
+        agent_token.set(None);
+        if p == Panel::Agent {
+            agent_version.set(agent_version() + 1);
+        }
         error.set(None);
     };
     let mut show = move |e: SpaceError| {
@@ -95,6 +134,7 @@ pub fn SpaceSection(space: Space) -> Element {
     let id_keep = space_id.clone();
     let id_withdraw = space_id.clone();
     let id_remove = space_id.clone();
+    let id_agent_create = space_id.clone();
 
     let open_invite = use_callback(move |_: ()| {
         open(Panel::Invite);
@@ -122,6 +162,26 @@ pub fn SpaceSection(space: Space) -> Element {
         spawn(async move {
             match space::create_folder(&db(), &id, None, &name, collab).await {
                 Ok(_) => bump(),
+                Err(e) => show(e),
+            }
+        });
+    });
+
+    let create_space_agent = use_callback(move |_: ()| {
+        let name = agent_name().trim().to_string();
+        if name.is_empty() {
+            return;
+        }
+        let id = id_agent_create.clone();
+        let scope = if agent_write() { "read_write" } else { "read" };
+        spawn(async move {
+            match space::create_agent(&db(), &id, &name, scope).await {
+                Ok(created) => {
+                    agent_name.set("Hermes".to_string());
+                    agent_token.set(Some(created.token));
+                    agent_version.set(agent_version() + 1);
+                    members_version.set(members_version() + 1);
+                }
                 Err(e) => show(e),
             }
         });
@@ -189,6 +249,15 @@ pub fn SpaceSection(space: Space) -> Element {
                             },
                             IconLink { size: 16 }
                             {t(&lang, "space-menu-invite")}
+                        }
+                        button {
+                            class: kit::MENU_ITEM,
+                            onclick: move |_| {
+                                app.row_menu.set(None);
+                                open(Panel::Agent);
+                            },
+                            IconHeadCircuit { size: 16 }
+                            {t(&lang, "space-menu-agent")}
                         }
                     }
                     button {
@@ -319,6 +388,135 @@ pub fn SpaceSection(space: Space) -> Element {
                                     });
                                 }
                             },
+                        }
+                    }
+                }
+            },
+            Panel::Agent => rsx! {
+                div {
+                    class: "bg-stone-100 rounded-xl p-2 ml-7 my-1 flex flex-col gap-2",
+                    style: "animation: popIn 0.16s ease-out;",
+                    p { class: "px-1 text-sm font-medium text-stone-900",
+                        {t(&lang, "space-agent-title")}
+                    }
+                    p { class: "px-1 text-xs text-stone-500",
+                        {t(&lang, "space-agent-hint")}
+                    }
+                    if let Some(token) = agent_token() {
+                        div { class: "rounded-lg bg-warm-white p-2 flex flex-col gap-2",
+                            code {
+                                class: "text-[10px] leading-4 break-all select-all text-stone-700",
+                                "{token}"
+                            }
+                            button {
+                                class: kit::MENU_ITEM,
+                                onclick: {
+                                    let token = token.clone();
+                                    move |_| {
+                                        copy_text(&token);
+                                        status.set(Some(t(
+                                            &(app.current_lang)(),
+                                            "space-agent-token-copied",
+                                        )));
+                                    }
+                                },
+                                IconCopy { size: 16 }
+                                {t(&lang, "space-agent-copy-token")}
+                            }
+                        }
+                        p { class: "px-1 text-[11px] text-ios-red-dark",
+                            {t(&lang, "space-agent-token-once")}
+                        }
+                    }
+                    for agent in agent_list.clone() {
+                        AgentRow {
+                            key: "{agent.agent_id}",
+                            agent: agent.clone(),
+                            on_rotate: {
+                                let id = space_id.clone();
+                                let agent_id = agent.agent_id.clone();
+                                let scope = agent.scope.clone();
+                                move |_| {
+                                    let id = id.clone();
+                                    let agent_id = agent_id.clone();
+                                    let scope = scope.clone();
+                                    spawn(async move {
+                                        match space::rotate_agent_token(
+                                            &db(),
+                                            &id,
+                                            &agent_id,
+                                            &scope,
+                                        )
+                                        .await
+                                        {
+                                            Ok(rotated) => {
+                                                agent_token.set(Some(rotated.token));
+                                                agent_version.set(agent_version() + 1);
+                                            }
+                                            Err(e) => show(e),
+                                        }
+                                    });
+                                }
+                            },
+                            on_revoke: {
+                                let id = space_id.clone();
+                                let agent_id = agent.agent_id.clone();
+                                move |_| {
+                                    let id = id.clone();
+                                    let agent_id = agent_id.clone();
+                                    spawn(async move {
+                                        match space::revoke_agent(&db(), &id, &agent_id).await {
+                                            Ok(()) => {
+                                                agent_token.set(None);
+                                                agent_version.set(agent_version() + 1);
+                                                members_version.set(members_version() + 1);
+                                            }
+                                            Err(e) => show(e),
+                                        }
+                                    });
+                                }
+                            },
+                        }
+                    }
+                    div { class: "flex flex-col gap-1.5 pt-1",
+                        input {
+                            class: "h-9 rounded-lg bg-warm-white px-3 text-sm outline-none text-stone-900 placeholder-stone-400",
+                            placeholder: t(&lang, "space-agent-name"),
+                            value: "{agent_name}",
+                            oninput: move |evt| agent_name.set(evt.value()),
+                        }
+                        div { class: "grid grid-cols-2 gap-1",
+                            button {
+                                class: "h-8 rounded-lg text-xs transition-colors duration-150",
+                                class: if agent_write() {
+                                    "bg-warm-white text-stone-500"
+                                } else {
+                                    "bg-ios-orange-50 text-ios-orange-dark font-medium"
+                                },
+                                onclick: move |_| agent_write.set(false),
+                                {t(&lang, "space-agent-read")}
+                            }
+                            button {
+                                class: "h-8 rounded-lg text-xs transition-colors duration-150",
+                                class: if agent_write() {
+                                    "bg-ios-orange-50 text-ios-orange-dark font-medium"
+                                } else {
+                                    "bg-warm-white text-stone-500"
+                                },
+                                onclick: move |_| agent_write.set(true),
+                                {t(&lang, "space-agent-read-write")}
+                            }
+                        }
+                        button {
+                            class: "h-9 rounded-lg bg-ios-orange text-white text-sm font-medium transition-opacity duration-150",
+                            class: if agent_name().trim().is_empty() {
+                                "opacity-40"
+                            } else {
+                                "active:opacity-70 hover:opacity-90"
+                            },
+                            disabled: agent_name().trim().is_empty(),
+                            onclick: move |_| create_space_agent(()),
+                            {t(&lang, "space-agent-create")}
                         }
                     }
                 }
@@ -476,6 +674,48 @@ pub fn SpaceSection(space: Space) -> Element {
 }
 
 #[component]
+fn AgentRow(
+    agent: AgentView,
+    on_rotate: EventHandler<()>,
+    on_revoke: EventHandler<()>,
+) -> Element {
+    let app: AppState = use_context();
+    let lang = (app.current_lang)();
+    let scope_key = if agent.scope == "read_write" {
+        "space-agent-read-write"
+    } else {
+        "space-agent-read"
+    };
+    rsx! {
+        div { class: "rounded-lg bg-warm-white px-2 py-2 flex flex-col gap-1.5",
+            div { class: "flex items-center gap-2",
+                span { class: "w-7 h-7 rounded-full bg-ios-orange-50 text-ios-orange-dark flex items-center justify-center",
+                    IconHeadCircuit { size: 16 }
+                }
+                span { class: "flex-1 min-w-0 truncate text-sm text-stone-900",
+                    "{agent.name}"
+                }
+                span { class: "text-[10px] text-stone-400",
+                    {t(&lang, scope_key)}
+                }
+            }
+            div { class: "grid grid-cols-2 gap-1",
+                button {
+                    class: kit::PILL_GHOST,
+                    onclick: move |_| on_rotate.call(()),
+                    {t(&lang, "space-agent-rotate")}
+                }
+                button {
+                    class: "h-7 rounded-md text-xs text-ios-red-dark hover:bg-ios-red-50 active:opacity-70",
+                    onclick: move |_| on_revoke.call(()),
+                    {t(&lang, "space-agent-revoke")}
+                }
+            }
+        }
+    }
+}
+
+#[component]
 fn MemberRow(
     member: MemberResp,
     can_remove: bool,
@@ -502,8 +742,18 @@ fn MemberRow(
         div { class: "flex items-center min-h-[44px] px-2 gap-2 text-sm text-stone-900",
             span {
                 class: "w-7 h-7 rounded-full text-[11px] font-semibold flex items-center justify-center",
-                class: if member.is_owner { "bg-ios-orange-50 text-ios-orange-dark" } else { "bg-warm-white text-stone-600" },
-                if name.is_some() { "{initials}" } else { IconUserCircle { size: 18 } }
+                class: if member.is_owner || member.is_agent {
+                    "bg-ios-orange-50 text-ios-orange-dark"
+                } else {
+                    "bg-warm-white text-stone-600"
+                },
+                if member.is_agent {
+                    IconHeadCircuit { size: 16 }
+                } else if name.is_some() {
+                    "{initials}"
+                } else {
+                    IconUserCircle { size: 18 }
+                }
             }
             if let Some(n) = name {
                 span { class: "flex-1 truncate", "{n}" }
@@ -514,7 +764,12 @@ fn MemberRow(
                 span { class: "text-[10px] px-1.5 py-0.5 rounded-md bg-warm-white text-stone-500",
                     {t(&lang, "space-owner")}
                 }
-            } else if can_remove {
+            } else if member.is_agent {
+                span { class: "text-[10px] px-1.5 py-0.5 rounded-md bg-warm-white text-stone-500",
+                    {t(&lang, "space-agent-badge")}
+                }
+            }
+            if can_remove {
                 button {
                     class: kit::PILL_GHOST,
                     onclick: move |_| on_remove.call(()),
