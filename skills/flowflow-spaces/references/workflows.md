@@ -37,9 +37,42 @@ URLs.
 
 ## Threads
 
-The current MCP response does not contain thread topology. Do not group notes
-into a thread or claim an order. Explain that Hermes can search and read the
-individual notes, but cannot verify thread membership through this endpoint.
+A thread is a titled group of notes. A note belongs to at most one thread.
+Member order is the server creation time, oldest first, as returned by
+`read_thread`. Never reorder or infer membership from titles or bodies.
+
+### List and read a thread
+
+1. Call `list_threads`, optionally with a `folder_id`, to see live threads
+   with their title, author, update time, and `note_count`.
+2. If several threads match the request, ask the user to choose.
+3. Call `read_thread` on the chosen id. It returns the thread and its member
+   note metadata in canonical order.
+4. Call `read_note` only on the members whose bodies are needed.
+5. Present the thread title separately from the note titles.
+6. Report an empty thread (`note_count` 0) explicitly.
+
+### Create a thread from a note
+
+1. Confirm the user explicitly requested the thread.
+2. Resolve one writable folder and the notes to attach. Only notes with
+   `own: true` can be attached; refuse human-authored notes and explain.
+3. Normalize the title and derive a UUID v5 with the stored agent namespace:
+   `thread:<space_id>:<folder_id>:<normalized-title>:<operation-key>`.
+4. Call `create_thread` with that id, the folder id, the title, and
+   `note_ids`. Reuse the same id on every retry.
+5. Report the returned id and whether `created` is true or false.
+
+### Write a note inside a thread
+
+Follow "Create or update a note" and pass the thread id as `thread_id`. On an
+update, `put_note` replaces the whole note: omitting `thread_id` detaches it.
+
+### Rename or delete a thread
+
+Only threads with `own: true` can be changed. Rename by replaying
+`create_thread` with the same id and the new title. Delete with
+`delete_thread` after explicit confirmation; member notes survive detached.
 
 ## Stable agent namespace
 
