@@ -10,7 +10,7 @@ use flowflow::domain::space::{
     can_write_in, effective_mode, SpaceFolder, MODE_COLLAB, MODE_READ,
 };
 use flowflow::infrastructure::backend::spaces::{
-    PullResp, RemoteFolder, RemoteSpaceNote,
+    PullResp, RemoteFolder, RemoteSpaceNote, RemoteThread,
 };
 use flowflow::infrastructure::persistence::Database;
 
@@ -52,6 +52,7 @@ fn remote_note(
     RemoteSpaceNote {
         id: id.into(),
         folder_id: folder.map(String::from),
+        thread_id: None,
         author_ref: Some("author-a".into()),
         own: false,
         seq: 2,
@@ -66,6 +67,7 @@ fn page(folders: Vec<RemoteFolder>, notes: Vec<RemoteSpaceNote>) -> PullResp {
     PullResp {
         folders,
         notes,
+        threads: vec![],
         next_seq: 9,
         more: false,
     }
@@ -158,6 +160,37 @@ fn a_pulled_note_becomes_an_ordinary_local_note_in_its_folder() {
     let in_folder = db.list_notes_in_folder(&local_folder).unwrap();
     assert_eq!(in_folder.len(), 1);
     assert_eq!(in_folder[0].id, local_note);
+    // a pulled thread lands under its own id and its member note joins it;
+    // a tombstoned thread detaches the note without deleting it
+    let thread = |deleted: bool| RemoteThread {
+        id: "rt1".into(),
+        folder_id: Some("rf1".into()),
+        title: "Brief thread".into(),
+        author_ref: Some("author-a".into()),
+        own: false,
+        seq: 3,
+        updated_at: "2026-08-24T10:00:00Z".into(),
+        deleted,
+    };
+    let mut member = remote_note("rn1", Some("rf1"), "Brief", "the brief body");
+    member.thread_id = Some("rt1".into());
+    let mut p = page(vec![], vec![member.clone()]);
+    p.threads = vec![thread(false)];
+    p.next_seq = 10;
+    let out = apply(&db, &p);
+    assert_eq!(out.threads, 1);
+    let note = db.get_note(&local_note).unwrap().unwrap();
+    assert_eq!(note.thread_id.as_deref(), Some("rt1"));
+    assert_eq!(db.get_thread("rt1").unwrap().unwrap().title, "Brief thread");
+
+    member.thread_id = None;
+    let mut p = page(vec![], vec![member]);
+    p.threads = vec![thread(true)];
+    p.next_seq = 11;
+    apply(&db, &p);
+    let note = db.get_note(&local_note).unwrap().unwrap();
+    assert_eq!(note.thread_id, None);
+    assert!(db.get_thread("rt1").unwrap().is_none());
 }
 
 #[test]
