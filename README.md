@@ -130,6 +130,7 @@ Full command list in the [Makefile](Makefile).
 | [docs/INDEX.md](docs/INDEX.md) | Product, architecture, dev guides, App Store |
 | [docs/FEATURES.md](docs/FEATURES.md) | The full feature tour |
 | [docs/HISTORY.md](docs/HISTORY.md) | Every milestone, chronologically |
+| [Hermes Agent guide](docs/guides/hermes-flowflow.md) | Connect one FlowFlow space to Hermes through MCP |
 
 ## Tests
 

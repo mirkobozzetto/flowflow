@@ -291,9 +291,9 @@ pub fn use_share_inbox_watcher(app: AppState, db: Signal<Arc<Database>>) {
     });
 }
 
-/// Keep joined spaces fresh (proposal 0002 T13). The 30 s floor lives in
-/// `pull_all_due`, so this loop only decides how often to ASK; a device with no
-/// space does no work at all, and a pull with nothing to report costs one round
+/// Keep joined spaces fresh (proposal 0002 T13), and claim the ones a paired
+/// device joined. The 30 s floor lives in `pull_all_due`, so this loop only
+/// decides how often to ASK; a pull with nothing to report costs one round
 /// trip, not a transfer.
 pub fn use_space_pull_watcher(app: AppState, db: Signal<Arc<Database>>) {
     use_future(move || {
@@ -301,14 +301,11 @@ pub fn use_space_pull_watcher(app: AppState, db: Signal<Arc<Database>>) {
         async move {
             loop {
                 let database = db();
-                if !database.list_spaces().unwrap_or_default().is_empty() {
-                    let changed =
-                        crate::application::space::pull_all_due(&database)
-                            .await;
-                    if changed > 0 {
-                        app.notes_version.set((app.notes_version)() + 1);
-                        app.folders_version.set((app.folders_version)() + 1);
-                    }
+                let changed =
+                    crate::application::space::pull_all_due(&database).await;
+                if changed > 0 {
+                    app.notes_version.set((app.notes_version)() + 1);
+                    app.folders_version.set((app.folders_version)() + 1);
                 }
                 futures_timer::Delay::new(std::time::Duration::from_secs(30))
                     .await;

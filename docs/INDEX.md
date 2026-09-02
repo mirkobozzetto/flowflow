@@ -19,6 +19,7 @@
 - Build and run: see [README - Setup](../README.md#setup) and [README - Commands](../README.md#commands)
 - Physical device setup (one-time pairing, certificates): [CLAUDE.md - Physical Device Setup](../CLAUDE.md)
 - [Desktop release guide](guides/desktop-release.md) - `make dmg` / `make release`, Gatekeeper, Developer ID + notarization
+- [Hermes Agent](guides/hermes-flowflow.md) - connect one space through MCP
 - Tests: `cargo test` (364 tests), `cargo test -- --ignored` for API-key-gated ones
 
 ## 04 App Store
