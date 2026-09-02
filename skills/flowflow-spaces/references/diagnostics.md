@@ -11,6 +11,13 @@ configuration. Refer to the token only as `mcps_...`.
 4. If both succeed, call `list_folders`.
 5. Only then decide whether content is empty, absent, or inaccessible.
 
+If the loaded skill version differs from the installed version, inspect every
+`SKILL.md` below `~/.hermes/skills`. Move duplicate or backup copies outside
+that tree, then restart Hermes.
+
+If an advertised action reports that it is not deferrable, it was routed
+through generic `tool_call`. Call the advertised MCP action directly.
+
 ## Outcomes
 
 | Observation | Meaning | Next action |

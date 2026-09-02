@@ -1,7 +1,7 @@
 ---
 name: flowflow-spaces
 description: Use FlowFlow spaces safely through their scoped MCP server.
-version: 1.1.0
+version: 1.2.0
 platforms: [linux, macos]
 metadata:
   hermes:
@@ -24,6 +24,8 @@ FlowFlow space through a configured `flowflow_<slug>` MCP server.
 - Ask for clarification when several visible targets match.
 - Write only where `writable` is `true`.
 - Never update or delete a note whose `own` value is `false`.
+- The root of a new thread may have `own: false`. Linking it must not change
+  its title, body, or author.
 - Ask for explicit confirmation immediately before `delete_note` or
   `delete_thread`.
 - Use a stable UUID for every logical folder, note, or thread. Reuse it on
@@ -34,11 +36,13 @@ FlowFlow space through a configured `flowflow_<slug>` MCP server.
 ## Start every FlowFlow request
 
 1. Select the one `flowflow_<slug>` server named by the user or context.
-2. Call `space_info` before concluding that content is missing. If its
-   `contract_version` is not `2`, read the contract section below.
-3. Call `pull_changes`, waiting until 30 seconds since the previous pull.
-4. Call `list_folders` to resolve names, hierarchy, and writable locations.
-5. Continue with the smallest workflow that answers the request.
+2. Call advertised FlowFlow actions directly. Never route them through the
+   generic `tool_call` action.
+3. Call `space_info` before concluding that content is missing. If its
+   `contract_version` is not `3`, read the contract section below.
+4. Call `pull_changes`, waiting until 30 seconds since the previous pull.
+5. Call `list_folders` to resolve names, hierarchy, and writable locations.
+6. Continue with the smallest workflow that answers the request.
 
 If no FlowFlow MCP server is available, explain that the connection is not
 configured. Do not ask the user to paste a token into the conversation.
@@ -71,7 +75,7 @@ to personalize recurring FlowFlow work or create a routine.
 | `ack_changes` | Acknowledge a completely processed cursor. |
 | `put_note` | Create or update one agent-owned note, optionally in a thread. |
 | `create_folder` | Create or update one agent-owned collab folder. |
-| `create_thread` | Create or update one agent-owned thread, attaching own notes. |
+| `create_thread` | Start at one existing root or rename an owned thread. |
 | `delete_note` | Delete one agent-owned note after confirmation. |
 | `delete_thread` | Delete one agent-owned thread after confirmation. |
 
@@ -80,11 +84,11 @@ to personalize recurring FlowFlow work or create a routine.
 
 ## Contract version
 
-This skill was written for `contract_version` `2`.
+This skill was written for `contract_version` `3`.
 
 - A higher server value means the server has actions or fields this skill
   does not know. Say so and suggest `hermes skills update flowflow-spaces`.
-- A missing or lower value means the server predates threads. Treat every
-  thread action as unavailable and say that the backend must be updated.
+- A missing or lower value predates the required root-note invariant. Do not
+  write threads until the backend is updated.
 
 Never guess a tool or field that the connected server did not advertise.
