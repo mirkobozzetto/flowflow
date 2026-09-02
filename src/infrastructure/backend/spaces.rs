@@ -49,6 +49,8 @@ pub struct RemoteSpaceNote {
     #[serde(default)]
     pub folder_id: Option<String>,
     #[serde(default)]
+    pub thread_id: Option<String>,
+    #[serde(default)]
     pub author_ref: Option<String>,
     pub own: bool,
     pub seq: i64,
@@ -63,9 +65,26 @@ pub struct RemoteSpaceNote {
 }
 
 #[derive(Clone, Debug, PartialEq, serde::Deserialize)]
+pub struct RemoteThread {
+    pub id: String,
+    #[serde(default)]
+    pub folder_id: Option<String>,
+    pub title: String,
+    #[serde(default)]
+    pub author_ref: Option<String>,
+    pub own: bool,
+    pub seq: i64,
+    pub updated_at: String,
+    pub deleted: bool,
+}
+
+#[derive(Clone, Debug, PartialEq, serde::Deserialize)]
 pub struct PullResp {
     pub folders: Vec<RemoteFolder>,
     pub notes: Vec<RemoteSpaceNote>,
+    // absent from a backend that predates threads
+    #[serde(default)]
+    pub threads: Vec<RemoteThread>,
     pub next_seq: i64,
     // still catching up: pull again at once instead of waiting out the 30 s
     // floor, which only guards steady-state polling
@@ -174,8 +193,17 @@ struct NoteReq<'a> {
     space_id: &'a str,
     id: Option<&'a str>,
     folder_id: Option<&'a str>,
+    thread_id: Option<&'a str>,
     title: Option<&'a str>,
     content: &'a str,
+}
+
+#[derive(serde::Serialize)]
+struct ThreadReq<'a> {
+    space_id: &'a str,
+    id: Option<&'a str>,
+    folder_id: Option<&'a str>,
+    title: &'a str,
 }
 
 #[derive(serde::Serialize)]
@@ -350,12 +378,15 @@ impl BackendClient {
     }
 
     /// Create (`id` = None) or update one's OWN note (`id` = Some). Text only.
+    /// `thread_id` must name a live thread of the same space, or be None.
+    #[allow(clippy::too_many_arguments)]
     pub async fn put_space_note(
         &self,
         db: &Database,
         space_id: &str,
         id: Option<&str>,
         folder_id: Option<&str>,
+        thread_id: Option<&str>,
         title: Option<&str>,
         content: &str,
     ) -> Result<IdResp, BackendError> {
@@ -364,6 +395,7 @@ impl BackendClient {
             space_id,
             id,
             folder_id,
+            thread_id,
             title,
             content,
         };
@@ -371,6 +403,43 @@ impl BackendClient {
             .authed(db, |c, t| c.post(&url).bearer_auth(t).json(&body))
             .await?;
         Self::read_json(resp).await
+    }
+
+    /// Create (`id` = None) or update one's OWN thread (`id` = Some).
+    pub async fn put_space_thread(
+        &self,
+        db: &Database,
+        space_id: &str,
+        id: Option<&str>,
+        folder_id: Option<&str>,
+        title: &str,
+    ) -> Result<IdResp, BackendError> {
+        let url = format!("{}/v1/spaces/thread", self.base_url);
+        let body = ThreadReq {
+            space_id,
+            id,
+            folder_id,
+            title,
+        };
+        let resp = self
+            .authed(db, |c, t| c.post(&url).bearer_auth(t).json(&body))
+            .await?;
+        Self::read_json(resp).await
+    }
+
+    /// Tombstone one's OWN thread. Member notes survive, detached.
+    pub async fn delete_space_thread(
+        &self,
+        db: &Database,
+        space_id: &str,
+        id: &str,
+    ) -> Result<(), BackendError> {
+        let url = format!("{}/v1/spaces/thread/delete", self.base_url);
+        let body = IdReq { space_id, id };
+        let resp = self
+            .authed(db, |c, t| c.post(&url).bearer_auth(t).json(&body))
+            .await?;
+        Self::expect_success(resp).await
     }
 
     /// Tombstone one's OWN note: the deletion signal every other device applies

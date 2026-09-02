@@ -27,6 +27,7 @@ pub struct PullOutcome {
     pub folders: usize,
     pub notes: usize,
     pub removed: usize,
+    pub threads: usize,
     /// The membership is gone (revoked, or the space was deleted). The caller
     /// tears the local mirror down; the pull itself never deletes a space.
     pub gone: bool,
@@ -87,6 +88,7 @@ pub async fn pull_space(
         outcome.folders += applied.folders;
         outcome.notes += applied.notes;
         outcome.removed += applied.removed;
+        outcome.threads += applied.threads;
         run_effects(db, effects).await;
         if !more {
             return Ok(outcome);
@@ -185,7 +187,7 @@ pub async fn pull_all_due(db: &Database) -> usize {
             continue;
         }
         match pull_space(db, &space.id).await {
-            Ok(o) => changed += o.folders + o.notes + o.removed,
+            Ok(o) => changed += o.folders + o.notes + o.removed + o.threads,
             // offline, revoked, frozen: nothing to do here, the screens that
             // care report it. A failed refresh never blocks the app.
             Err(_) => continue,
@@ -261,6 +263,24 @@ pub fn apply_delta(
         )?;
     }
 
+    // Threads share ids with the server, so a page carries them without a
+    // mapping. Members arrive as ordinary note rows with a thread_id.
+    for t in &page.threads {
+        if t.deleted {
+            if tx.thread_exists(&t.id)? {
+                tx.delete_thread(&t.id)?;
+                outcome.threads += 1;
+            }
+            continue;
+        }
+        let folder_local = t
+            .folder_id
+            .as_deref()
+            .and_then(|f| tx.local_folder_for_remote(space_id, f));
+        tx.upsert_thread_with_id(&t.id, &t.title, folder_local.as_deref())?;
+        outcome.threads += 1;
+    }
+
     for n in &page.notes {
         if n.own {
             if let Some(r) = n.author_ref.as_deref() {
@@ -322,6 +342,13 @@ pub fn apply_delta(
                     &n.id,
                     n.author_ref.as_deref(),
                 )?;
+                // a thread this device has not mirrored yet leaves the note
+                // unthreaded until the thread row lands; the server replays it
+                let thread_local = match n.thread_id.as_deref() {
+                    Some(id) if tx.thread_exists(id)? => Some(id),
+                    _ => None,
+                };
+                tx.set_note_thread(&local_id, thread_local)?;
                 effects.embed.push((
                     local_id,
                     title,

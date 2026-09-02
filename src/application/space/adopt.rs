@@ -152,12 +152,21 @@ async fn push_subtree(
             {
                 continue;
             }
+            let thread_remote = super::write::ensure_remote_thread(
+                db,
+                &c,
+                space_id,
+                folder_remote,
+                note.thread_id.as_deref(),
+            )
+            .await;
             let resp = c
                 .put_space_note(
                     db,
                     space_id,
                     None,
                     Some(folder_remote),
+                    thread_remote.as_deref(),
                     note.title.as_deref(),
                     &note.content,
                 )

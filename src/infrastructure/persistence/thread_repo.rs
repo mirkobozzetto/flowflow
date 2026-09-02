@@ -256,3 +256,83 @@ impl Database {
         Ok(())
     }
 }
+
+impl crate::infrastructure::persistence::DbTx<'_> {
+    /// Mirror a remote thread under its own id: the space plane and the local
+    /// store share thread ids, so a pull never needs a mapping table.
+    pub fn upsert_thread_with_id(
+        &self,
+        id: &str,
+        title: &str,
+        folder_id: Option<&str>,
+    ) -> Result<(), String> {
+        let now = now_iso();
+        self.0
+            .execute(
+                "INSERT INTO threads (id, title, folder_id, created_at, modified_at)
+                 VALUES (?1, ?2, ?3, ?4, ?4)
+                 ON CONFLICT(id) DO UPDATE SET
+                   title = excluded.title,
+                   folder_id = excluded.folder_id,
+                   modified_at = excluded.modified_at",
+                rusqlite::params![id, title, folder_id, now],
+            )
+            .map_err(|e| format!("Upsert thread: {e}"))?;
+        Ok(())
+    }
+
+    pub fn thread_exists(&self, id: &str) -> Result<bool, String> {
+        self.0
+            .query_row(
+                "SELECT EXISTS(SELECT 1 FROM threads WHERE id = ?1)",
+                [id],
+                |r| r.get(0),
+            )
+            .map_err(|e| format!("Thread exists: {e}"))
+    }
+
+    /// Set or clear a note's thread without touching its content.
+    pub fn set_note_thread(
+        &self,
+        note_id: &str,
+        thread_id: Option<&str>,
+    ) -> Result<(), String> {
+        self.0
+            .execute(
+                "UPDATE notes SET thread_id = ?1 WHERE id = ?2",
+                rusqlite::params![thread_id, note_id],
+            )
+            .map_err(|e| format!("Set note thread: {e}"))?;
+        if let Some(thread_id) = thread_id {
+            self.0
+                .execute(
+                    "UPDATE threads SET modified_at = ?1 WHERE id = ?2",
+                    rusqlite::params![now_iso(), thread_id],
+                )
+                .map_err(|e| format!("Touch thread: {e}"))?;
+        }
+        Ok(())
+    }
+
+    /// Drop a thread the space tombstoned. Members are detached, never deleted.
+    pub fn delete_thread(&self, id: &str) -> Result<(), String> {
+        let now = now_iso();
+        self.0
+            .execute(
+                "UPDATE notes SET thread_id = NULL, modified_at = ?1 WHERE thread_id = ?2",
+                rusqlite::params![now, id],
+            )
+            .map_err(|e| format!("Orphan thread members: {e}"))?;
+        self.0
+            .execute(
+                "DELETE FROM settings WHERE key LIKE 'chat_scope:%' AND value = ?1",
+                [format!("thread:{id}")],
+            )
+            .map_err(|e| format!("Clear thread scope rows: {e}"))?;
+        sync_meta::tombstone_entity(self.0, "thread", id)?;
+        self.0
+            .execute("DELETE FROM threads WHERE id = ?1", [id])
+            .map_err(|e| format!("Delete thread: {e}"))?;
+        Ok(())
+    }
+}
