@@ -256,7 +256,7 @@ pub fn SpaceSection(space: Space) -> Element {
                                 app.row_menu.set(None);
                                 open(Panel::Agent);
                             },
-                            IconHeadCircuit { size: 16 }
+                            HermesAgentIcon { size: 16 }
                             {t(&lang, "space-menu-agent")}
                         }
                     }
@@ -396,7 +396,8 @@ pub fn SpaceSection(space: Space) -> Element {
                 div {
                     class: "bg-stone-100 rounded-xl p-2 ml-7 my-1 flex flex-col gap-2",
                     style: "animation: popIn 0.16s ease-out;",
-                    p { class: "px-1 text-sm font-medium text-stone-900",
+                    div { class: "px-1 flex items-center gap-2 text-sm font-medium text-stone-900",
+                        HermesAgentIcon { size: 24 }
                         {t(&lang, "space-agent-title")}
                     }
                     p { class: "px-1 text-xs text-stone-500",
@@ -690,7 +691,7 @@ fn AgentRow(
         div { class: "rounded-lg bg-warm-white px-2 py-2 flex flex-col gap-1.5",
             div { class: "flex items-center gap-2",
                 span { class: "w-7 h-7 rounded-full bg-ios-orange-50 text-ios-orange-dark flex items-center justify-center",
-                    IconHeadCircuit { size: 16 }
+                    HermesAgentIcon { size: 20 }
                 }
                 span { class: "flex-1 min-w-0 truncate text-sm text-stone-900",
                     "{agent.name}"
@@ -748,7 +749,7 @@ fn MemberRow(
                     "bg-warm-white text-stone-600"
                 },
                 if member.is_agent {
-                    IconHeadCircuit { size: 16 }
+                    HermesAgentIcon { size: 20 }
                 } else if name.is_some() {
                     "{initials}"
                 } else {
