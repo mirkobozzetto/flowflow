@@ -30,7 +30,9 @@ pub use write::{
     FolderRight,
 };
 
-use crate::infrastructure::backend::spaces::MemberResp;
+use crate::infrastructure::backend::spaces::{
+    AgentCreateResp, AgentTokenResp, AgentView, MemberResp,
+};
 use crate::infrastructure::backend::{BackendClient, BackendError};
 use crate::infrastructure::persistence::Database;
 
@@ -144,6 +146,55 @@ pub async fn members(
 ) -> Result<Vec<MemberResp>, SpaceError> {
     let c = client(db)?;
     c.list_space_members(db, space_id).await.map_err(map_err)
+}
+
+pub async fn create_agent(
+    db: &Database,
+    space_id: &str,
+    name: &str,
+    scope: &str,
+) -> Result<AgentCreateResp, SpaceError> {
+    let client = client(db)?;
+    client
+        .create_space_agent(db, space_id, name, scope, None)
+        .await
+        .map_err(map_err)
+}
+
+pub async fn agents(
+    db: &Database,
+    space_id: &str,
+) -> Result<Vec<AgentView>, SpaceError> {
+    let client = client(db)?;
+    client
+        .list_space_agents(db, space_id)
+        .await
+        .map_err(map_err)
+}
+
+pub async fn rotate_agent_token(
+    db: &Database,
+    space_id: &str,
+    agent_id: &str,
+    scope: &str,
+) -> Result<AgentTokenResp, SpaceError> {
+    let client = client(db)?;
+    client
+        .rotate_space_agent_token(db, space_id, agent_id, scope, None)
+        .await
+        .map_err(map_err)
+}
+
+pub async fn revoke_agent(
+    db: &Database,
+    space_id: &str,
+    agent_id: &str,
+) -> Result<(), SpaceError> {
+    let client = client(db)?;
+    client
+        .revoke_space_agent(db, space_id, agent_id)
+        .await
+        .map_err(map_err)
 }
 
 /// Owner renames the space, server first, then the local row.
@@ -264,8 +315,12 @@ pub async fn remove_member(
     space_id: &str,
     web_user_id: &str,
 ) -> Result<(), SpaceError> {
-    let c = client(db)?;
-    c.remove_space_member(db, space_id, web_user_id)
+    if let Some(agent_id) = web_user_id.strip_prefix("agent:") {
+        return revoke_agent(db, space_id, agent_id).await;
+    }
+    let client = client(db)?;
+    client
+        .remove_space_member(db, space_id, web_user_id)
         .await
         .map_err(map_err)
 }
