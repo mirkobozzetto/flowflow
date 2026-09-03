@@ -59,10 +59,10 @@ pub fn NoteCard(note: Note) -> Element {
 
     rsx! {
         div {
-            class: "bg-warm-white p-4 border border-stone-200 rounded-xl mb-2.5 lg:mb-0 lg:h-full cursor-pointer break-inside-avoid shadow-card hover:border-stone-300 hover:shadow-lift hover:-translate-y-px transition-[box-shadow,transform,border-color] duration-180",
-            // Sits between the veil and the menu: lit enough to read as selected,
-            // dimmer than the panel that owns the focus.
-            class: if picked { "relative z-20 ring-2 ring-ios-orange/30 shadow-lift border-stone-300" } else if pressed().is_some() { "scale-[0.99]" } else { "" },
+            class: "bg-warm-white p-4 border border-stone-200 rounded-xl mb-2.5 lg:mb-0 lg:h-full cursor-pointer break-inside-avoid",
+            // Keep the selected card above the veil without adding motion or an
+            // accent ring that competes with the contextual menu.
+            class: if picked { "relative z-20 border-stone-300" } else { "" },
             onpointerdown: move |evt| {
                 let p = evt.client_coordinates();
                 press_origin.set((p.x, p.y));

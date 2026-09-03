@@ -325,9 +325,9 @@ pub fn NoteDetail() -> Element {
             if editing() || is_transcribing {
                 textarea {
                     class: if is_transcribing {
-                        "w-full min-h-[300px] border border-ios-orange/20 rounded-xl p-3 mt-3 text-sm resize-none font-sans outline-none text-stone-900 bg-transparent placeholder:text-stone-300 focus-visible:outline-none shadow-none"
+                        "w-full min-h-[300px] border border-stone-200/60 rounded-xl p-3 mt-3 text-sm resize-none font-sans outline-none text-stone-900 bg-transparent placeholder:text-stone-300 focus-visible:outline-none shadow-none"
                     } else {
-                        "w-full min-h-[300px] border border-stone-200/60 rounded-xl p-3 mt-3 text-sm resize-none font-sans outline-none text-stone-900 bg-transparent placeholder:text-stone-300 focus:border-stone-300/70 focus-visible:outline-none shadow-none transition-colors duration-150"
+                        "w-full min-h-[300px] border border-stone-200/60 rounded-xl p-3 mt-3 text-sm resize-none font-sans outline-none text-stone-900 bg-transparent placeholder:text-stone-300 focus-visible:outline-none shadow-none"
                     },
                     placeholder: if is_transcribing { transcribing_placeholder.as_str() } else { content_placeholder.as_str() },
                     value: "{content}",
