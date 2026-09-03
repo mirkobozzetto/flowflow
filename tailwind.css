@@ -181,6 +181,23 @@
     --color-warm-white: oklch(0.99 0.005 50);
 }
 
+:where(button, a, input, textarea, select, [tabindex]:not([tabindex="-1"])):focus-visible {
+    outline: 3px solid var(--color-ios-orange-50);
+    outline-offset: 0;
+}
+
+@media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+        animation-duration: 0.01ms !important;
+        animation-iteration-count: 1 !important;
+        scroll-behavior: auto !important;
+        transition-property: color, background-color, border-color, opacity !important;
+        transition-duration: 0.01ms !important;
+    }
+}
+
 @layer base {
     * {
         -webkit-tap-highlight-color: transparent;
