@@ -1,6 +1,7 @@
 use crate::application::i18n::{t, t_args};
 use crate::infrastructure::persistence::Database;
 use crate::ui::chat::models::ChatSource;
+use crate::ui::icons::IconCaretRight;
 use crate::ui::state::View;
 use crate::ui::AppState;
 use dioxus::prelude::*;
@@ -34,38 +35,27 @@ pub fn SourcesAccordion(
 
     let mut web_open = use_signal(|| true);
     let mut notes_open = use_signal(|| false);
-    let web_arrow = format!(
-        "transition: transform 0.3s ease; transform: rotate({}deg);",
-        if web_open() { "180" } else { "0" }
-    );
-    let notes_arrow = format!(
-        "transition: transform 0.3s ease; transform: rotate({}deg);",
-        if notes_open() { "180" } else { "0" }
-    );
 
     rsx! {
-        div { class: "mt-2 pt-2 border-t border-stone-100 space-y-2",
+        div { class: "mt-2 pt-2 border-t border-stone-200/70 space-y-2",
             if !web.is_empty() {
                 div {
                     button {
-                        class: "w-full flex items-center justify-between py-1.5",
-                        onclick: move |_| {
-                            let v = !web_open();
-                            web_open.set(v);
-                        },
-                        span { class: "text-xs font-medium text-stone-500",
-                            "{web_label}"
-                        }
+                        class: "pressable w-full min-h-[40px] flex items-center justify-between",
+                        aria_expanded: "{web_open()}",
+                        onclick: move |_| web_open.set(!web_open()),
+                        span { class: "text-xs font-medium text-stone-500", "{web_label}" }
                         span {
-                            class: "text-xs text-stone-400 inline-block",
-                            style: "{web_arrow}",
-                            "▼"
+                            class: if web_open() { "text-stone-400 rotate-90 transition-transform duration-180" } else { "text-stone-400 transition-transform duration-180" },
+                            IconCaretRight { size: 14 }
                         }
                     }
-                    if web_open() {
-                        div { class: "flex flex-col gap-2 mt-1",
-                            for (j, src) in web.iter().enumerate() {
-                                WebSourceCard { key: "w{j}", source: src.clone() }
+                    div { class: if web_open() { "grid grid-rows-[1fr] transition-[grid-template-rows] duration-180" } else { "grid grid-rows-[0fr] transition-[grid-template-rows] duration-180" },
+                        div { class: "overflow-hidden",
+                            div { class: "flex flex-col gap-2 mt-1",
+                                for (j, src) in web.iter().enumerate() {
+                                    WebSourceCard { key: "w{j}", source: src.clone() }
+                                }
                             }
                         }
                     }
@@ -74,7 +64,8 @@ pub fn SourcesAccordion(
             if !notes.is_empty() {
                 div {
                     button {
-                        class: "w-full flex items-center justify-between py-1.5",
+                        class: "pressable w-full min-h-[40px] flex items-center justify-between",
+                        aria_expanded: "{notes_open()}",
                         onclick: move |_| {
                             let opening = !notes_open();
                             notes_open.set(opening);
@@ -86,22 +77,21 @@ pub fn SourcesAccordion(
                                 }}, 350);"#
                             ));
                         },
-                        span { class: "text-xs font-medium text-stone-500",
-                            "{notes_label}"
-                        }
+                        span { class: "text-xs font-medium text-stone-500", "{notes_label}" }
                         span {
-                            class: "text-xs text-stone-400 inline-block",
-                            style: "{notes_arrow}",
-                            "▼"
+                            class: if notes_open() { "text-stone-400 rotate-90 transition-transform duration-180" } else { "text-stone-400 transition-transform duration-180" },
+                            IconCaretRight { size: 14 }
                         }
                     }
-                    if notes_open() {
-                        div { class: "flex flex-col gap-1.5 mt-1",
-                            for (j, src) in notes.iter().enumerate() {
-                                SourceCard {
-                                    key: "n{j}",
-                                    source: src.clone(),
-                                    conversation_id: conversation_id.clone(),
+                    div { class: if notes_open() { "grid grid-rows-[1fr] transition-[grid-template-rows] duration-180" } else { "grid grid-rows-[0fr] transition-[grid-template-rows] duration-180" },
+                        div { class: "overflow-hidden",
+                            div { class: "flex flex-col gap-1.5 mt-1",
+                                for (j, src) in notes.iter().enumerate() {
+                                    SourceCard {
+                                        key: "n{j}",
+                                        source: src.clone(),
+                                        conversation_id: conversation_id.clone(),
+                                    }
                                 }
                             }
                         }
