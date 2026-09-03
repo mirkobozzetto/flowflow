@@ -94,10 +94,10 @@ pub fn TopBar() -> Element {
     };
 
     rsx! {
-        div { class: "flex items-center px-4 py-3 bg-warm-white border-b border-stone-200 sticky top-0 z-30 gap-3 min-h-[44px]",
+        div { class: "flex items-center px-4 py-3 bg-warm-white border-b border-stone-200 sticky top-0 z-30 gap-3 min-h-[44px] shadow-card",
             if show_back {
                 button {
-                    class: "min-w-[44px] min-h-[44px] flex items-center justify-center text-stone-700 hover:text-stone-900 transition-colors duration-150",
+                    class: "min-w-[44px] min-h-[44px] flex items-center justify-center rounded-[10px] text-stone-700 hover:text-stone-900 hover:bg-stone-100 transition-colors duration-150",
                     onclick: move |_| {
                         app.show_folder_picker.set(false);
                         let target = (app.previous_view)()
@@ -141,7 +141,7 @@ pub fn TopBar() -> Element {
                 }
             } else {
                 button {
-                    class: "relative min-w-[44px] min-h-[44px] flex items-center justify-center text-stone-700 lg:hidden",
+                    class: "relative min-w-[44px] min-h-[44px] flex items-center justify-center rounded-[10px] text-stone-700 hover:bg-stone-100 lg:hidden",
                     onclick: move |_| {
                         app.show_folder_picker.set(false);
                         app.sidebar_tab.set(if is_chat {
@@ -196,7 +196,7 @@ pub fn TopBar() -> Element {
             }
             if is_detail {
                 button {
-                    class: "min-w-[44px] min-h-[44px] flex items-center justify-center text-stone-700 hover:text-stone-900 transition-colors duration-150",
+                    class: "min-w-[44px] min-h-[44px] flex items-center justify-center rounded-[10px] text-stone-700 hover:text-stone-900 hover:bg-stone-100 transition-colors duration-150",
                     onclick: move |_| {
                         app.show_folder_picker.set(false);
                         let cur = (app.show_note_menu)();
@@ -206,7 +206,7 @@ pub fn TopBar() -> Element {
                 }
             } else if is_thread {
                 button {
-                    class: "min-w-[44px] min-h-[44px] flex items-center justify-center text-stone-700 hover:text-stone-900 transition-colors duration-150",
+                    class: "min-w-[44px] min-h-[44px] flex items-center justify-center rounded-[10px] text-stone-700 hover:text-stone-900 hover:bg-stone-100 transition-colors duration-150",
                     onclick: move |_| {
                         app.show_folder_picker.set(false);
                         let cur = (app.show_thread_menu)();
@@ -216,7 +216,7 @@ pub fn TopBar() -> Element {
                 }
             } else if is_chat {
                 button {
-                    class: "min-w-[44px] min-h-[44px] flex items-center justify-center text-stone-700 hover:text-stone-900 transition-colors duration-150",
+                    class: "min-w-[44px] min-h-[44px] flex items-center justify-center rounded-[10px] text-stone-700 hover:text-stone-900 hover:bg-stone-100 transition-colors duration-150",
                     onclick: move |_| {
                         app.show_folder_picker.set(false);
                         let cur = (app.show_chat_menu)();
@@ -226,7 +226,7 @@ pub fn TopBar() -> Element {
                 }
             } else if !is_inner {
                 button {
-                    class: "min-w-[44px] min-h-[44px] flex items-center justify-center text-ios-orange-dark hover:opacity-70 transition-opacity duration-150",
+                    class: "min-w-[44px] min-h-[44px] flex items-center justify-center rounded-[10px] text-ios-orange-dark hover:bg-stone-100 transition-colors duration-150",
                     onclick: move |_| {
                         app.show_folder_picker.set(false);
                         app.sidebar_tab.set(SidebarTab::Chats);
