@@ -93,7 +93,7 @@ pub fn ChatInputBar(
                     }
                     div { class: "relative shrink-0",
                         button {
-                            class: "w-10 h-10 lg:w-12 lg:h-12 rounded-full bg-warm-white border border-stone-200 flex items-center justify-center text-stone-600 hover:bg-stone-100 transition-colors duration-150",
+                            class: "pressable w-11 h-11 lg:w-12 lg:h-12 rounded-full bg-warm-white border border-stone-200 flex items-center justify-center text-stone-600 hover:bg-stone-100",
                             disabled: disabled,
                             onmouseenter: move |_| plus_hover.set(true),
                             onmouseleave: move |_| plus_hover.set(false),
@@ -119,13 +119,13 @@ pub fn ChatInputBar(
                         }
                     }
                     button {
-                        class: "w-10 h-10 lg:w-12 lg:h-12 shrink-0 rounded-full bg-warm-white border border-ios-orange/15 flex items-center justify-center text-ios-orange-dark hover:bg-ios-orange-50 transition-colors duration-150",
+                        class: "pressable w-11 h-11 lg:w-12 lg:h-12 shrink-0 rounded-full bg-warm-white border border-ios-orange/15 flex items-center justify-center text-ios-orange-dark hover:bg-ios-orange-50",
                         disabled: disabled,
                         onclick: move |_| start_recording(recorder, app),
                         IconMic { size: 18 }
                     }
                     textarea {
-                        class: "chat-textarea flex-1 bg-stone-100 rounded-2xl px-4 py-2.5 lg:py-3.5 text-sm outline-none text-stone-900 placeholder-stone-400 resize-none overflow-y-auto min-h-[40px] lg:min-h-[48px]",
+                        class: "chat-textarea flex-1 min-h-[44px] lg:min-h-[48px] bg-stone-100 border border-transparent rounded-2xl px-4 py-3 lg:py-3.5 text-sm outline-none text-stone-900 placeholder:text-stone-400 resize-none overflow-y-auto focus:bg-warm-white focus:ring-[3px] focus:ring-ios-orange-50 focus:border-ios-orange-dark transition-[background-color,border-color,box-shadow] duration-150",
                         style: "max-height: 120px;",
                         rows: "1",
                         placeholder: "{placeholder}",
@@ -167,9 +167,9 @@ pub fn ChatInputBar(
                     }
                     button {
                         class: if disabled || input().trim().is_empty() {
-                            "w-10 h-10 lg:w-12 lg:h-12 shrink-0 rounded-full bg-stone-200 flex items-center justify-center text-stone-400 transition-colors duration-150"
+                            "pressable w-11 h-11 lg:w-12 lg:h-12 shrink-0 rounded-full bg-stone-200 flex items-center justify-center text-stone-400"
                         } else {
-                            "w-10 h-10 lg:w-12 lg:h-12 shrink-0 rounded-full bg-ios-orange flex items-center justify-center text-white hover:opacity-85 transition-opacity duration-150"
+                            "pressable w-11 h-11 lg:w-12 lg:h-12 shrink-0 rounded-full bg-ios-orange flex items-center justify-center text-white hover:bg-ios-orange-dark active:scale-[0.98]"
                         },
                         disabled: disabled || input().trim().is_empty(),
                         onclick: move |_| do_send(),
