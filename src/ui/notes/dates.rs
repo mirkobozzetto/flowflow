@@ -84,7 +84,9 @@ pub fn feed_group_label(iso: &str, lang: &str) -> String {
         0 => t(lang, "reminder-today"),
         1 => t(lang, "note-group-yesterday"),
         2..=6 => t(lang, "note-group-this-week"),
-        _ if date.year() == today.year() => month_abbr(lang, date.month()).to_string(),
+        _ if date.year() == today.year() => {
+            month_abbr(lang, date.month()).to_string()
+        }
         _ => format!("{} {}", month_abbr(lang, date.month()), date.year()),
     }
 }
