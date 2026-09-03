@@ -325,9 +325,9 @@ pub fn NoteDetail() -> Element {
             if editing() || is_transcribing {
                 textarea {
                     class: if is_transcribing {
-                        "w-full min-h-[300px] border-0 bg-transparent p-0 mt-3 text-sm resize-none font-sans outline-none text-stone-900 placeholder:text-stone-300"
+                        "w-full min-h-[300px] border border-ios-orange/30 rounded-xl p-3 mt-3 text-sm resize-none font-sans outline-none text-stone-900 bg-warm-white placeholder:text-stone-300 focus-visible:outline-none"
                     } else {
-                        "w-full min-h-[300px] border-0 bg-transparent p-0 mt-3 text-sm resize-none font-sans outline-none text-stone-900 placeholder:text-stone-300"
+                        "w-full min-h-[300px] border border-stone-200 rounded-xl p-3 mt-3 text-sm resize-none font-sans outline-none text-stone-900 bg-warm-white placeholder:text-stone-300 focus:border-stone-300 focus-visible:outline-none transition-colors duration-150"
                     },
                     placeholder: if is_transcribing { transcribing_placeholder.as_str() } else { content_placeholder.as_str() },
                     value: "{content}",
@@ -335,7 +335,7 @@ pub fn NoteDetail() -> Element {
                 }
             } else {
                 div {
-                    class: "w-full min-h-[300px] py-3 text-sm prose prose-sm max-w-none text-stone-900 break-words overflow-x-hidden [&_*]:[overflow-wrap:anywhere] [&_pre]:whitespace-pre-wrap [&_pre]:break-words",
+                    class: "w-full min-h-[300px] p-3 mt-3 rounded-xl border border-stone-200 bg-warm-white text-sm prose prose-sm max-w-none text-stone-900 break-words overflow-x-hidden [&_*]:[overflow-wrap:anywhere] [&_pre]:whitespace-pre-wrap [&_pre]:break-words",
                     onclick: move |_| editing.set(true),
                     if content().trim().is_empty() {
                         span { class: "text-stone-400", "{content_placeholder}" }
