@@ -36,8 +36,8 @@ pub fn RelatedSection(local_note_id: Signal<String>) -> Element {
     }
 
     rsx! {
-        div { class: "border-t border-stone-100 mt-4 pt-3",
-            p { class: "text-xs font-medium text-stone-400 uppercase tracking-wide px-1 mb-2",
+        div { class: "border-t border-stone-200/70 mt-4 pt-3",
+            p { class: "text-xs font-medium text-stone-400 uppercase tracking-[0.08em] px-1 mb-2",
                 {t(&lang, "note-related-title")}
             }
             for item in links {

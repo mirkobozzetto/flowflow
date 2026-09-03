@@ -292,7 +292,7 @@ pub fn NoteDetail() -> Element {
             div { class: "pt-2 pb-3",
                 div { class: "relative w-full",
                     span {
-                        class: "block w-full text-xl font-semibold invisible whitespace-pre-wrap break-words py-1.5 px-3 border border-transparent",
+                        class: "block w-full text-xl font-semibold invisible whitespace-pre-wrap break-words py-1.5 border-b border-transparent",
                         {
                             let t_disp = if title().is_empty() { title_placeholder.clone() } else { title() };
                             rsx! { "{t_disp} " }
@@ -300,9 +300,9 @@ pub fn NoteDetail() -> Element {
                     }
                     textarea {
                         class: if generating_title() {
-                            "absolute inset-0 w-full h-full resize-none overflow-hidden whitespace-pre-wrap break-words text-xl font-semibold outline-none py-1.5 px-3 border border-stone-200/60 rounded-xl text-stone-400 bg-white/25 animate-pulse"
+                            "absolute inset-0 w-full h-full resize-none overflow-hidden whitespace-pre-wrap break-words text-xl font-semibold outline-none py-1.5 border-b border-transparent text-stone-400 bg-transparent animate-pulse"
                         } else {
-                            "absolute inset-0 w-full h-full resize-none overflow-hidden whitespace-pre-wrap break-words text-xl font-semibold outline-none py-1.5 px-3 border border-stone-200/60 rounded-xl text-stone-900 bg-white/25 focus:border-ios-orange-dark/40 transition-colors duration-150"
+                            "absolute inset-0 w-full h-full resize-none overflow-hidden whitespace-pre-wrap break-words text-xl font-semibold outline-none py-1.5 border-b border-transparent text-stone-900 bg-transparent placeholder:text-stone-300 focus:border-ios-orange/40 transition-colors duration-150"
                         },
                         placeholder: "{title_placeholder}",
                         value: "{title}",
@@ -319,15 +319,15 @@ pub fn NoteDetail() -> Element {
                 }
                 ActiveReminders { local_note_id }
             }
-            div { class: "border-t border-stone-100 pt-3 pb-2",
+            div { class: "border-t border-stone-200/70 pt-3 pb-2",
                 TagsSection { tags, tag_input, tagging, content }
             }
             if editing() || is_transcribing {
                 textarea {
                     class: if is_transcribing {
-                        "w-full min-h-[300px] border border-ios-orange/30 rounded-xl p-3 mt-3 text-sm resize-none font-sans outline-none text-stone-900"
+                        "w-full min-h-[300px] border-0 bg-transparent p-0 mt-3 text-sm resize-none font-sans outline-none text-stone-900 placeholder:text-stone-300"
                     } else {
-                        "w-full min-h-[300px] border border-stone-200 rounded-xl p-3 mt-3 text-sm resize-none font-sans outline-none text-stone-900 focus:border-stone-300 transition-colors duration-150"
+                        "w-full min-h-[300px] border-0 bg-transparent p-0 mt-3 text-sm resize-none font-sans outline-none text-stone-900 placeholder:text-stone-300"
                     },
                     placeholder: if is_transcribing { transcribing_placeholder.as_str() } else { content_placeholder.as_str() },
                     value: "{content}",
@@ -335,7 +335,7 @@ pub fn NoteDetail() -> Element {
                 }
             } else {
                 div {
-                    class: "w-full min-h-[300px] p-3 mt-3 text-sm prose prose-sm max-w-none text-stone-900 break-words overflow-x-hidden [&_*]:[overflow-wrap:anywhere] [&_pre]:whitespace-pre-wrap [&_pre]:break-words",
+                    class: "w-full min-h-[300px] py-3 text-sm prose prose-sm max-w-none text-stone-900 break-words overflow-x-hidden [&_*]:[overflow-wrap:anywhere] [&_pre]:whitespace-pre-wrap [&_pre]:break-words",
                     onclick: move |_| editing.set(true),
                     if content().trim().is_empty() {
                         span { class: "text-stone-400", "{content_placeholder}" }
@@ -344,9 +344,9 @@ pub fn NoteDetail() -> Element {
                     }
                 }
             }
-            div { class: "flex justify-end gap-3 mt-1",
+            div { class: "sticky bottom-3 z-10 flex justify-end gap-1 mt-1 ml-auto w-fit h-10 px-1 rounded-full bg-warm-white border border-stone-200 shadow-card",
                 button {
-                    class: "flex items-center gap-1 text-xs text-stone-400 active:text-stone-600 hover:text-stone-600 transition-colors duration-150",
+                    class: "pressable flex items-center gap-1 min-h-[32px] px-2 rounded-full text-xs text-stone-400 hover:text-stone-600 hover:bg-stone-100 transition-colors duration-150",
                     onclick: move |_| editing.set(!editing()),
                     if editing() {
                         IconCheck { size: 12 }
@@ -358,9 +358,9 @@ pub fn NoteDetail() -> Element {
                 }
                 button {
                     class: if note_copied() {
-                        "flex items-center gap-1 text-xs text-ios-green transition-colors duration-150"
+                        "pressable flex items-center gap-1 min-h-[32px] px-2 rounded-full text-xs text-ios-green transition-colors duration-150"
                     } else {
-                        "flex items-center gap-1 text-xs text-stone-400 active:text-stone-600 hover:text-stone-600 transition-colors duration-150"
+                        "pressable flex items-center gap-1 min-h-[32px] px-2 rounded-full text-xs text-stone-400 hover:text-stone-600 hover:bg-stone-100 transition-colors duration-150"
                     },
                     onclick: move |_| {
                         if note_copied() {
