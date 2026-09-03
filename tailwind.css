@@ -103,16 +103,30 @@
 
 .fab-btn {
     position: relative;
-    width: 96px;
-    height: 96px;
+    width: 72px;
+    height: 72px;
     border-radius: 9999px;
     background: var(--color-warm-white);
     border: 1.5px solid var(--color-ios-orange-100);
-    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.07);
+    box-shadow: var(--shadow-lift);
     display: flex;
     align-items: center;
     justify-content: center;
-    transition: transform 0.25s cubic-bezier(0.2, 0.8, 0.2, 1);
+    gap: 8px;
+    transition: transform 0.25s var(--ease-soft);
+}
+.fab-label {
+    display: none;
+}
+@media (width >= 64rem) {
+    .fab-btn {
+        width: auto;
+        height: 48px;
+        padding-inline: 20px;
+    }
+    .fab-label {
+        display: inline;
+    }
 }
 .fab-btn:active,
 .fab-pressing {
@@ -124,7 +138,7 @@
 }
 .fab-btn line {
     stroke: var(--color-ios-orange);
-    stroke-width: 4.5;
+    stroke-width: 4;
     stroke-linecap: round;
 }
 .fab-plus-h,
