@@ -31,15 +31,7 @@ pub fn NoteCard(note: Note) -> Element {
         .clone()
         .unwrap_or_else(|| t(&lang, "note-card-untitled"));
 
-    let cleaned_preview = crate::application::ai::plain_preview(&note.content);
-    let preview = if cleaned_preview.chars().count() > 120 {
-        format!(
-            "{}...",
-            crate::application::ai::char_prefix(&cleaned_preview, 120)
-        )
-    } else {
-        cleaned_preview
-    };
+    let preview = crate::application::ai::plain_preview(&note.content);
 
     let date = &note.created_at[..10];
     let _ = (app.notes_version)();
@@ -70,7 +62,7 @@ pub fn NoteCard(note: Note) -> Element {
             class: "bg-warm-white p-4 border border-stone-200 rounded-xl mb-2.5 lg:mb-0 lg:h-full cursor-pointer break-inside-avoid shadow-card hover:border-stone-300 hover:shadow-lift hover:-translate-y-px transition-[box-shadow,transform,border-color] duration-180",
             // Sits between the veil and the menu: lit enough to read as selected,
             // dimmer than the panel that owns the focus.
-            class: if picked { "relative z-20 shadow-lift border-stone-300 brightness-90" } else { "" },
+            class: if picked { "relative z-20 ring-2 ring-ios-orange/30 shadow-lift border-stone-300" } else if pressed().is_some() { "scale-[0.99]" } else { "" },
             onpointerdown: move |evt| {
                 let p = evt.client_coordinates();
                 press_origin.set((p.x, p.y));
@@ -125,8 +117,8 @@ pub fn NoteCard(note: Note) -> Element {
                 app.show_folder_picker.set(false);
                 app.view.set(View::NoteDetail { note_id: note_id.clone() });
             },
-            div { class: "flex justify-between items-center mb-2",
-                h3 { class: "font-semibold text-base tracking-[-0.01em] text-stone-900", "{title}" }
+            div { class: "flex items-center gap-2 mb-2",
+                h3 { class: "min-w-0 flex-1 truncate font-semibold text-base tracking-[-0.01em] text-stone-900", "{title}" }
                 div { class: "flex items-center gap-1.5 shrink-0",
                     if note.sources_json.is_some() {
                         span { class: "text-ios-orange-dark", IconArrowUpRight { size: 14 } }
@@ -145,7 +137,7 @@ pub fn NoteCard(note: Note) -> Element {
             if !note.tags.is_empty() {
                 div { class: "flex flex-wrap gap-1 mb-1.5",
                     for tag in note.tags.iter() {
-                        span { class: "px-2 py-0.5 rounded-full bg-warm-white border border-ios-orange/25 text-ios-orange-dark text-xs font-medium",
+                        span { class: "px-2 py-1 rounded-full bg-warm-white border border-ios-orange/25 text-ios-orange-dark text-xs font-medium",
                             "{tag}"
                         }
                     }
@@ -154,7 +146,7 @@ pub fn NoteCard(note: Note) -> Element {
             div { class: "flex items-center gap-2",
                 span { class: "text-stone-500 text-xs tabular-nums", "{date}" }
                 if let Some(ref fname) = folder_name {
-                    span { class: "text-xs text-stone-400", "·" }
+                    span { class: "w-1 h-1 rounded-full bg-stone-300", aria_hidden: "true" }
                     span { class: "text-xs text-ios-orange-dark", "{fname}" }
                 }
                 if let Some(ref author) = author {
