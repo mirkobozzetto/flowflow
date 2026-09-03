@@ -137,7 +137,7 @@ pub fn SyncPairingView() -> Element {
                         let uri_for_copy = h.uri.clone();
                         rsx! {
                             div { class: "bg-white rounded-xl border border-stone-200 p-5 flex flex-col items-center",
-                                div { class: "relative w-[200px] h-[200px] bg-white border border-stone-200 rounded-2xl p-3 mb-4",
+                                div { class: "relative w-[200px] h-[200px] bg-white border border-stone-200 rounded-xl p-3 mb-4",
                                     div { class: "absolute top-2 left-2 w-4 h-4 border-t-2 border-l-2 border-ios-orange rounded-tl" }
                                     div { class: "absolute top-2 right-2 w-4 h-4 border-t-2 border-r-2 border-ios-orange rounded-tr" }
                                     div { class: "absolute bottom-2 left-2 w-4 h-4 border-b-2 border-l-2 border-ios-orange rounded-bl" }

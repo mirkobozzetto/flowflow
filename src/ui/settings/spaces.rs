@@ -195,7 +195,7 @@ fn SpaceCard(
                     "{space.name}"
                 }
                 if space.is_owner {
-                    span { class: "text-[10px] px-1.5 py-0.5 rounded-md bg-stone-100 text-stone-500",
+                    span { class: "text-[10px] px-1.5 py-0.5 rounded-full bg-stone-100 text-stone-500",
                         {t(&lang, "space-owner")}
                     }
                 }
@@ -265,7 +265,7 @@ fn SpaceCard(
                     for (name, _remote, right) in themes() {
                         div { class: "flex items-center gap-2 text-sm text-stone-700",
                             span { class: "flex-1 truncate", "{name}" }
-                            span { class: "text-[10px] px-1.5 py-0.5 rounded-md bg-stone-100 text-stone-500",
+                            span { class: "text-[10px] px-1.5 py-0.5 rounded-full bg-stone-100 text-stone-500",
                                 {t(&lang, match right {
                                     FolderRight::SpaceReadOnly => "space-badge-readonly",
                                     _ => "space-badge-collab",

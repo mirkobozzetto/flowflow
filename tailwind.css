@@ -151,6 +151,10 @@
 }
 
 @theme {
+    --radius-md: 0.625rem;
+    --radius-lg: 0.625rem;
+    --radius-xl: 0.75rem;
+    --radius-2xl: 1rem;
     --color-ios-green: #34c759;
     --color-ios-red: oklch(0.55 0.2 30);
     --color-ios-red-dark: oklch(0.46 0.16 30);

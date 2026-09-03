@@ -139,7 +139,7 @@ fn SourceCard(source: ChatSource, conversation_id: Option<String>) -> Element {
 
     rsx! {
         button {
-            class: "w-full text-left px-2.5 py-1.5 rounded-lg bg-warm-white border border-ios-orange/20 active:bg-ios-orange/10 hover:bg-ios-orange/5 transition-colors duration-150",
+            class: "w-full text-left px-2.5 py-1.5 rounded-xl bg-warm-white border border-ios-orange/20 active:bg-ios-orange/10 hover:bg-ios-orange/5 transition-colors duration-150",
             onclick: move |_| {
                 let folder = db()
                     .folders_for_note(&nid)
@@ -221,9 +221,9 @@ fn WebSourceCard(source: ChatSource) -> Element {
     rsx! {
         div {
             class: if expanded() {
-                "w-full rounded-lg bg-warm-white border border-ios-orange/30 overflow-hidden flex flex-col shadow-sm"
+                "w-full rounded-xl bg-warm-white border border-ios-orange/30 overflow-hidden flex flex-col shadow-sm"
             } else {
-                "w-full rounded-lg bg-warm-white border border-ios-orange/20 overflow-hidden flex flex-col"
+                "w-full rounded-xl bg-warm-white border border-ios-orange/20 overflow-hidden flex flex-col"
             },
             button {
                 class: "w-full text-left px-3 py-2.5 min-h-[44px] active:bg-ios-orange/10 hover:bg-ios-orange/5 transition-colors duration-150 flex items-start gap-2",

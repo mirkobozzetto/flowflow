@@ -762,11 +762,11 @@ fn MemberRow(
                 span { class: "flex-1 truncate text-stone-400", "{handle}" }
             }
             if member.is_owner {
-                span { class: "text-[10px] px-1.5 py-0.5 rounded-md bg-warm-white text-stone-500",
+                span { class: "text-[10px] px-1.5 py-0.5 rounded-full bg-warm-white text-stone-500",
                     {t(&lang, "space-owner")}
                 }
             } else if member.is_agent {
-                span { class: "text-[10px] px-1.5 py-0.5 rounded-md bg-warm-white text-stone-500",
+                span { class: "text-[10px] px-1.5 py-0.5 rounded-full bg-warm-white text-stone-500",
                     {t(&lang, "space-agent-badge")}
                 }
             }

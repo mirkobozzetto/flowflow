@@ -300,9 +300,9 @@ pub fn NoteDetail() -> Element {
                     }
                     textarea {
                         class: if generating_title() {
-                            "absolute inset-0 w-full h-full resize-none overflow-hidden whitespace-pre-wrap break-words text-xl font-semibold outline-none py-1.5 px-3 border border-stone-200/60 rounded-lg text-stone-400 bg-white/25 animate-pulse"
+                            "absolute inset-0 w-full h-full resize-none overflow-hidden whitespace-pre-wrap break-words text-xl font-semibold outline-none py-1.5 px-3 border border-stone-200/60 rounded-xl text-stone-400 bg-white/25 animate-pulse"
                         } else {
-                            "absolute inset-0 w-full h-full resize-none overflow-hidden whitespace-pre-wrap break-words text-xl font-semibold outline-none py-1.5 px-3 border border-stone-200/60 rounded-lg text-stone-900 bg-white/25 focus:border-ios-orange-dark/40 transition-colors duration-150"
+                            "absolute inset-0 w-full h-full resize-none overflow-hidden whitespace-pre-wrap break-words text-xl font-semibold outline-none py-1.5 px-3 border border-stone-200/60 rounded-xl text-stone-900 bg-white/25 focus:border-ios-orange-dark/40 transition-colors duration-150"
                         },
                         placeholder: "{title_placeholder}",
                         value: "{title}",

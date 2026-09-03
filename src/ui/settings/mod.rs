@@ -165,9 +165,9 @@ const ROW: &str =
 const CHEVRON: &str =
     "inline-block w-1.5 h-1.5 border-r-2 border-t-2 border-stone-400 rotate-45 shrink-0";
 const PREMIUM_PILL: &str =
-    "text-[11px] font-semibold text-ios-orange-dark bg-ios-orange-50 border border-ios-orange-100 px-2 py-0.5 rounded-md mr-2";
+    "text-[11px] font-semibold text-ios-orange-dark bg-ios-orange-50 border border-ios-orange-100 px-2 py-0.5 rounded-full mr-2";
 const FREE_PILL: &str =
-    "text-[11px] font-medium text-stone-500 bg-stone-100 px-2 py-0.5 rounded-md mr-2";
+    "text-[11px] font-medium text-stone-500 bg-stone-100 px-2 py-0.5 rounded-full mr-2";
 
 #[component]
 fn SettingsGroup(
