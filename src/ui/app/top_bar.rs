@@ -166,8 +166,9 @@ pub fn TopBar() -> Element {
                     },
                     span { class: "text-lg font-semibold tracking-[-0.01em] text-stone-900", "{title}" }
                     span {
-                        class: "inline-block w-1.5 h-1.5 border-r-2 border-b-2 border-stone-400 chevron-pivot",
-                        class: if (app.show_folder_picker)() { "-rotate-[135deg]" } else { "rotate-45" },
+                        class: "text-stone-400 transition-transform duration-150",
+                        class: if (app.show_folder_picker)() { "rotate-90" } else { "rotate-0" },
+                        IconCaretRight { size: 14 }
                     }
                 }
             } else if is_thread {

@@ -77,8 +77,24 @@ pub fn IconFolder(#[props(default = 20)] size: u32) -> Element {
         }
     }
 }
+#[component]
+pub fn IconCaretRight(#[props(default = 20)] size: u32) -> Element {
+    rsx! {
+        svg {
+            width: "{size}", height: "{size}", view_box: "0 0 256 256", fill: "none",
+            polyline {
+                points: "96 48 176 128 96 208",
+                stroke: "currentColor",
+                stroke_width: "16",
+                stroke_linecap: "round",
+                stroke_linejoin: "round",
+            }
+        }
+    }
+}
 
 #[component]
+
 pub fn IconDotsThree(#[props(default = 20)] size: u32) -> Element {
     rsx! {
         svg {
