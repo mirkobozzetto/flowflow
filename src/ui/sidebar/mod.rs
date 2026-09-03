@@ -109,7 +109,14 @@ pub fn SidebarOverlay() -> Element {
                 app.row_menu.set(None);
             },
 
-            div { class: "h-[68px] shrink-0 flex items-center gap-2.5 px-5 border-b border-stone-200",
+            button {
+                class: "h-[68px] shrink-0 flex items-center gap-2.5 px-5 border-b border-stone-200 text-left hover:bg-stone-50 transition-colors duration-150",
+                onclick: move |_| {
+                    app.sidebar_tab.set(SidebarTab::Notes);
+                    app.selected_folder_id.set(None);
+                    app.sidebar_open.set(false);
+                    navigate_with_slide(app, View::NotesList);
+                },
                 img {
                     src: asset!("/assets/flowflow-icon-300.png"),
                     class: "w-6 h-6 object-contain",
@@ -117,7 +124,6 @@ pub fn SidebarOverlay() -> Element {
                 }
                 span { class: "text-[15px] font-semibold tracking-[-0.01em] text-stone-900", "FlowFlow" }
             }
-
             div { class: "relative flex border-b border-stone-200 lg:h-[68px]",
 
                 button {
