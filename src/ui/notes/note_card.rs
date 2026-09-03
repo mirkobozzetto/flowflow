@@ -67,10 +67,10 @@ pub fn NoteCard(note: Note) -> Element {
 
     rsx! {
         div {
-            class: "bg-warm-white p-4 border border-stone-200 rounded-xl mb-2.5 lg:mb-0 lg:h-full cursor-pointer break-inside-avoid hover:border-stone-300 hover:shadow-sm transition-all duration-150",
+            class: "bg-warm-white p-4 border border-stone-200 rounded-xl mb-2.5 lg:mb-0 lg:h-full cursor-pointer break-inside-avoid shadow-card hover:border-stone-300 hover:shadow-lift hover:-translate-y-px transition-[box-shadow,transform,border-color] duration-180",
             // Sits between the veil and the menu: lit enough to read as selected,
             // dimmer than the panel that owns the focus.
-            class: if picked { "relative z-20 shadow-xl border-stone-300 brightness-90" } else { "" },
+            class: if picked { "relative z-20 shadow-lift border-stone-300 brightness-90" } else { "" },
             onpointerdown: move |evt| {
                 let p = evt.client_coordinates();
                 press_origin.set((p.x, p.y));

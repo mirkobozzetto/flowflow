@@ -221,7 +221,7 @@ fn WebSourceCard(source: ChatSource) -> Element {
     rsx! {
         div {
             class: if expanded() {
-                "w-full rounded-xl bg-warm-white border border-ios-orange/30 overflow-hidden flex flex-col shadow-sm"
+                "w-full rounded-xl bg-warm-white border border-ios-orange/30 overflow-hidden flex flex-col shadow-card"
             } else {
                 "w-full rounded-xl bg-warm-white border border-ios-orange/20 overflow-hidden flex flex-col"
             },

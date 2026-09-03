@@ -50,10 +50,10 @@ pub fn ThreadCard(thread: Thread) -> Element {
 
     rsx! {
         div { class: "relative mb-3 break-inside-avoid lg:mb-0 lg:h-full lg:flex lg:flex-col",
-            div { class: "absolute inset-x-0 top-3 h-full bg-warm-white border border-stone-200 rounded-xl scale-x-[0.90] opacity-30 shadow-sm" }
-            div { class: "absolute inset-x-0 top-1.5 h-full bg-warm-white border border-stone-200 rounded-xl scale-x-[0.95] opacity-60 shadow-sm" }
+            div { class: "absolute inset-x-0 top-3 h-full bg-warm-white border border-stone-200 rounded-xl scale-x-[0.90] opacity-30 shadow-card" }
+            div { class: "absolute inset-x-0 top-1.5 h-full bg-warm-white border border-stone-200 rounded-xl scale-x-[0.95] opacity-60 shadow-card" }
             div {
-                class: "relative lg:flex-1 bg-warm-white p-4 border border-stone-200 rounded-xl cursor-pointer break-inside-avoid hover:border-stone-300 hover:shadow-sm transition-all duration-150",
+                class: "relative lg:flex-1 bg-warm-white p-4 border border-stone-200 rounded-xl cursor-pointer break-inside-avoid shadow-card hover:border-stone-300 hover:shadow-lift hover:-translate-y-px transition-[box-shadow,transform,border-color] duration-180",
                 onclick: move |_| {
                     app.show_folder_picker.set(false);
                     app.previous_view.set(Some(View::NotesList));

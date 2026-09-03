@@ -6,7 +6,7 @@ pub fn TypingIndicator(tool_status: Option<String>) -> Element {
         div {
             class: "flex justify-start",
             style: "animation: fadeInUp 0.15s ease-out;",
-            div { class: "bg-warm-white border border-ios-orange/10 rounded-2xl rounded-bl-md px-5 py-3.5 shadow-sm",
+            div { class: "bg-warm-white border border-ios-orange/10 rounded-2xl rounded-bl-md px-5 py-3.5 shadow-card",
                 if let Some(ref status) = tool_status {
                     div { class: "flex items-center gap-2",
                         span {

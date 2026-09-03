@@ -49,7 +49,7 @@ pub fn IntelligenceSettings() -> Element {
             }
             div {
                 class: if chatgpt_selected() {
-                    "rounded-xl border border-ios-orange-100 bg-warm-white p-4 shadow-sm"
+                    "rounded-xl border border-ios-orange-100 bg-warm-white p-4 shadow-card"
                 } else {
                     "rounded-xl border border-stone-200 bg-warm-white p-4"
                 },

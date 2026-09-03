@@ -14,7 +14,7 @@ pub const PILL_PRIMARY: &str = "shrink-0 h-9 px-3 flex items-center justify-cent
 
 pub const PILL_GHOST: &str = "shrink-0 h-9 px-3 flex items-center justify-center rounded-lg bg-stone-100 text-stone-900 text-xs font-medium hover:bg-stone-200 active:bg-stone-200 disabled:opacity-45 transition-colors duration-150";
 
-pub const MENU_PANEL: &str = "z-50 min-w-[200px] bg-warm-white border border-stone-200 rounded-xl shadow-lg p-1 menu-pop";
+pub const MENU_PANEL: &str = "z-50 min-w-[200px] bg-warm-white border border-stone-200 rounded-xl shadow-menu p-1 menu-pop";
 
 pub const MENU_PANEL_ANCHORED: &str = "z-50 w-60 bg-warm-white border border-stone-200 rounded-xl p-1 menu-anchor";
 
