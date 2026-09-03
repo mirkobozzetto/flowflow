@@ -117,7 +117,13 @@ pub fn FolderSection() -> Element {
             }
         }
         if folders().is_empty() && !creating() {
-            p { class: "text-xs text-stone-400 px-2 py-3", {t(&lang, "sidebar-no-folders")} }
+            div { class: "mx-2 py-4 flex flex-col items-center text-center",
+                div { class: "w-12 h-12 rounded-xl bg-ios-orange-50 text-ios-orange flex items-center justify-center mb-2",
+                    IconFolder { size: 22 }
+                }
+                p { class: "text-[13px] text-stone-500", {t(&lang, "sidebar-no-folders")} }
+            }
+
         }
         for folder in folders() {
             FolderItem { key: "{folder.id}", folder: folder, depth: 0 }

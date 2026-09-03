@@ -229,8 +229,12 @@ pub fn NotesList() -> Element {
         if notes().is_empty() {
             div { class: "flex-1 flex flex-col items-center justify-center gap-2 h-[60vh]",
                 if narrowed {
-                    p { class: "text-lg text-stone-400", {t(&lang, "note-list-no-results")} }
-                    p { class: "text-sm text-stone-400", {t(&lang, "note-list-no-results-hint")} }
+                    div { class: "w-12 h-12 rounded-xl bg-ios-orange-50 text-ios-orange flex items-center justify-center mb-1",
+                        IconMagnifyingGlass { size: 22 }
+                    }
+                    p { class: "text-[15px] font-semibold text-stone-900", {t(&lang, "note-list-no-results")} }
+                    p { class: "text-[13px] text-stone-500 text-center", {t(&lang, "note-list-no-results-hint")} }
+
                 } else {
                     img { src: asset!("/assets/flowflow-icon-300.png"), width: "120", height: "120", class: "mb-6 object-contain" }
                     p { class: "text-lg font-semibold text-stone-900", {t(&lang, "note-list-welcome")} }
