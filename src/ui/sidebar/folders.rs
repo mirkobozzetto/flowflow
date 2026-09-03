@@ -314,13 +314,13 @@ pub(super) fn FolderItem(folder: Folder, depth: u32) -> Element {
 
     // Expansion lives in AppState so the tree survives drawer close/reopen.
     let is_expanded = (app.expanded_folders)().contains(&folder.id);
-    let mut toggle_expanded = move || {
+    let toggle_expanded = use_callback(move |_: ()| {
         let mut set = (app.expanded_folders)();
         if !set.remove(&folder_id_for_toggle) {
             set.insert(folder_id_for_toggle.clone());
         }
         app.expanded_folders.set(set);
-    };
+    });
 
     let note_count = use_memo(move || {
         let _f = (app.folders_version)();
@@ -394,7 +394,10 @@ pub(super) fn FolderItem(folder: Folder, depth: u32) -> Element {
                     if has_children {
                         button {
                             class: "min-w-[28px] min-h-[44px] flex items-center justify-center hover:opacity-70 transition-opacity duration-150",
-                            onclick: move |_| toggle_expanded(),
+                            onclick: move |evt| {
+                                evt.stop_propagation();
+                                toggle_expanded(());
+                            },
                             span {
                                 class: "text-stone-400 transition-transform duration-150",
                                 class: if is_expanded { "rotate-90" } else { "rotate-0" },
@@ -409,11 +412,7 @@ pub(super) fn FolderItem(folder: Folder, depth: u32) -> Element {
                         class: if is_selected { "bg-stone-100" },
                         onclick: move |_| {
                             if has_children {
-                                let mut set = (app.expanded_folders)();
-                                if !set.remove(&folder_id_for_open) {
-                                    set.insert(folder_id_for_open.clone());
-                                }
-                                app.expanded_folders.set(set);
+                                toggle_expanded(());
                             }
                             app.selected_folder_id.set(Some(folder_id_nav.clone()));
                             app.sidebar_open.set(false);
