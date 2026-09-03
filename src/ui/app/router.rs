@@ -18,8 +18,32 @@ use dioxus::prelude::*;
 #[component]
 pub fn AppRouter(index_rebuilding: Signal<bool>) -> Element {
     let app = use_context::<AppState>();
+    let mut splash_visible = use_signal(|| true);
+    let mut splash_fading = use_signal(|| false);
+    use_effect(move || {
+        spawn(async move {
+            futures_timer::Delay::new(std::time::Duration::from_millis(200))
+                .await;
+            splash_fading.set(true);
+            futures_timer::Delay::new(std::time::Duration::from_millis(200))
+                .await;
+            splash_visible.set(false);
+        });
+    });
+
     rsx! {
         div { class: "h-screen w-full overflow-hidden font-sans bg-stone-100 lg:flex lg:flex-row",
+            if splash_visible() {
+                div {
+                    class: "fixed inset-0 z-[100] bg-warm-white flex items-center justify-center transition-opacity duration-200",
+                    class: if splash_fading() { "opacity-0" } else { "opacity-100" },
+                    img {
+                        src: asset!("/assets/flowflow-icon-300.png"),
+                        class: "w-24 h-24 object-contain",
+                        alt: "FlowFlow",
+                    }
+                }
+            }
             SidebarOverlay {}
             RightNav {}
             AttachmentModal {}

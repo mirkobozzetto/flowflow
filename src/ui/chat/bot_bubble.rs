@@ -53,8 +53,13 @@ pub fn BotBubble(
     if crate::application::intent::looks_like_action(&text) {
         return rsx! {
             div {
-                class: "flex justify-start",
+                class: "flex justify-start items-start gap-2",
                 style: "animation: fadeInUp 0.15s ease-out;",
+                img {
+                    src: asset!("/assets/flowflow-icon-300.png"),
+                    class: "w-5 h-5 mt-1 object-contain rounded-full shrink-0",
+                    alt: "FlowFlow",
+                }
                 div { class: "max-w-[85%]",
                     ActionResultCard { text: text.clone() }
                 }
@@ -64,9 +69,15 @@ pub fn BotBubble(
 
     rsx! {
         div {
-            class: "flex justify-start",
+            class: "flex justify-start items-start gap-2",
             style: "animation: fadeInUp 0.15s ease-out;",
+            img {
+                src: asset!("/assets/flowflow-icon-300.png"),
+                class: "w-5 h-5 mt-1 object-contain rounded-full shrink-0",
+                alt: "FlowFlow",
+            }
             div { class: "bg-warm-white border border-ios-orange/10 rounded-2xl rounded-bl-md px-4 py-2.5 max-w-[85%] shadow-card",
+
                 div {
                     class: "text-sm text-stone-900 leading-relaxed break-words prose prose-sm",
                     dangerous_inner_html: md_to_html(&text),
