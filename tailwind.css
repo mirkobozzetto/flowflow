@@ -53,6 +53,15 @@
         transform 0.2s ease;
 }
 
+.pressable {
+    transition-property: color, background-color, border-color, opacity, transform;
+    transition-duration: 120ms;
+    transition-timing-function: var(--ease-soft);
+}
+.pressable:not(:disabled):active {
+    transform: scale(0.98);
+}
+
 .menu-pop {
     animation: popIn 0.16s ease-out;
     transform-origin: top right;
@@ -153,6 +162,7 @@
     --radius-lg: 0.625rem;
     --radius-xl: 0.75rem;
     --radius-2xl: 1rem;
+    --ease-soft: cubic-bezier(0.2, 0.8, 0.2, 1);
     --shadow-card: 0 1px 2px rgba(28, 25, 23, 0.06);
     --shadow-lift:
         0 1px 2px rgba(28, 25, 23, 0.06),
