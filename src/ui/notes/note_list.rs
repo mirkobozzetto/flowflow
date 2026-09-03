@@ -222,7 +222,7 @@ pub fn NotesList() -> Element {
                     p { class: "text-lg text-stone-400", {t(&lang, "note-list-no-results")} }
                     p { class: "text-sm text-stone-400", {t(&lang, "note-list-no-results-hint")} }
                 } else {
-                    img { src: asset!("/assets/flowflow-icon-300.png"), width: "200", height: "200", class: "mb-6 rounded-2xl" }
+                    img { src: asset!("/assets/flowflow-icon-300.png"), width: "120", height: "120", class: "mb-6 object-contain" }
                     p { class: "text-lg font-semibold text-stone-900", {t(&lang, "note-list-welcome")} }
                     p { class: "text-sm text-stone-400 mt-1", {t(&lang, "note-list-first-note-hint")} }
                 }

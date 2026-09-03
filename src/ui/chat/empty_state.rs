@@ -11,9 +11,10 @@ pub fn ChatEmptyState() -> Element {
             class: "flex flex-col items-center justify-center px-6 h-full",
             img {
                 src: asset!("/assets/flowflow-icon-300.png"),
-                width: "150",
-                height: "150",
-                class: "mb-6 rounded-2xl",
+                width: "96",
+                height: "96",
+                class: "mb-6 object-contain",
+
             }
             p { class: "text-stone-900 font-semibold text-base mb-1",
                 {t(&lang, "chat-empty-title")}
