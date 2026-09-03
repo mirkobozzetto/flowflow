@@ -89,7 +89,7 @@ pub fn ApprovalCard(
     };
 
     rsx! {
-        div { class: "mt-2 p-3 bg-warm-white border border-ios-orange/30 rounded-xl",
+        div { class: "mt-2 p-3 bg-warm-white border border-stone-200 rounded-xl",
             div { class: "flex items-center gap-2 text-ios-orange-dark",
                 IconShieldCheck { size: 18 }
                 span { class: "text-sm font-semibold text-stone-800",
@@ -130,12 +130,12 @@ pub fn ApprovalCard(
                     }
                     div { class: "mt-2 flex gap-2",
                         button {
-                            class: "flex-1 min-h-[44px] rounded-lg bg-ios-orange text-white font-medium text-sm active:opacity-80",
+                            class: "pressable flex-1 min-h-[44px] rounded-xl bg-ios-orange text-white font-medium text-sm hover:bg-ios-orange-dark active:scale-[0.98]",
                             onclick: submit_edit,
                             {t(&lang, "approval-confirm")}
                         }
                         button {
-                            class: "flex-1 min-h-[44px] rounded-lg bg-stone-100 text-stone-600 font-medium text-sm active:opacity-80",
+                            class: "pressable flex-1 min-h-[44px] rounded-xl bg-stone-100 text-stone-600 font-medium text-sm hover:bg-stone-200 active:bg-stone-300",
                             onclick: move |_| editing.set(false),
                             {t(&lang, "approval-cancel")}
                         }
@@ -144,19 +144,19 @@ pub fn ApprovalCard(
             } else if pending {
                 div { class: "mt-3 flex gap-2",
                     button {
-                        class: "flex-1 min-h-[44px] rounded-lg bg-ios-orange text-white font-medium text-sm active:opacity-80",
+                        class: "pressable flex-1 min-h-[44px] rounded-xl bg-ios-orange text-white font-medium text-sm hover:bg-ios-orange-dark active:scale-[0.98]",
                         onclick: approve,
                         {t(&lang, "approval-approve")}
                     }
                     if has_value {
                         button {
-                            class: "flex-1 min-h-[44px] rounded-lg bg-stone-100 text-stone-700 font-medium text-sm active:opacity-80",
+                            class: "pressable flex-1 min-h-[44px] rounded-xl bg-stone-100 text-stone-700 font-medium text-sm hover:bg-stone-200 active:bg-stone-300",
                             onclick: open_edit,
                             {t(&lang, "approval-edit")}
                         }
                     }
                     button {
-                        class: "flex-1 min-h-[44px] rounded-lg bg-ios-red/10 text-ios-red font-medium text-sm active:opacity-80",
+                        class: "pressable flex-1 min-h-[44px] rounded-xl bg-ios-red/10 text-ios-red font-medium text-sm hover:bg-ios-red/15 active:scale-[0.98]",
                         onclick: reject,
                         {t(&lang, "approval-reject")}
                     }

@@ -61,7 +61,7 @@ pub fn ReminderCard(
     }
 
     rsx! {
-        div { class: "mt-2 p-3 bg-warm-white border border-ios-orange/30 rounded-xl",
+        div { class: "mt-2 p-3 bg-warm-white border border-stone-200 rounded-xl",
             div { class: "flex items-start gap-2.5",
                 span { class: "shrink-0 mt-0.5 text-ios-orange-dark", IconBell { size: 18 } }
                 div { class: "min-w-0",
@@ -71,7 +71,7 @@ pub fn ReminderCard(
             }
             div { class: "mt-2.5 flex gap-2",
                 button {
-                    class: "flex-1 min-h-[44px] flex items-center justify-center gap-1.5 rounded-lg bg-ios-orange/10 text-ios-orange-dark text-xs font-medium active:bg-ios-orange/25",
+                    class: "pressable flex-1 min-h-[44px] flex items-center justify-center gap-1.5 rounded-xl bg-ios-orange/10 text-ios-orange-dark text-xs font-medium hover:bg-ios-orange/15 active:scale-[0.98]",
                     onclick: move |_| {
                         #[cfg(target_os = "ios")]
                         {
@@ -93,7 +93,7 @@ pub fn ReminderCard(
                     IconArrowUpRight { size: 14 }
                 }
                 button {
-                    class: "shrink-0 min-h-[44px] px-4 rounded-lg bg-ios-red/10 text-ios-red text-xs font-medium active:opacity-70",
+                    class: "pressable shrink-0 min-h-[44px] px-4 rounded-xl bg-ios-red/10 text-ios-red text-xs font-medium hover:bg-ios-red/15 active:scale-[0.98]",
                     onclick: move |_| on_cancel.call(()),
                     {t(&lang, "reminder-card-undo")}
                 }
