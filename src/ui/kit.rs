@@ -25,6 +25,6 @@ pub const MENU_ITEM_DANGER: &str = "w-full flex items-center gap-2.5 px-3 py-2.5
 pub const MENU_SEP: &str = "h-px bg-stone-100 my-1 mx-2";
 
 pub const SECTION_LABEL: &str =
-    "text-xs font-medium text-stone-400 uppercase tracking-wide";
+    "text-xs font-medium text-stone-400 uppercase tracking-[0.08em]";
 
 pub const INPUT: &str = "w-full bg-warm-white border border-stone-200 rounded-lg px-3 py-2.5 text-sm outline-none text-stone-900 placeholder-stone-400 focus:border-ios-orange-dark focus:ring-[3px] focus:ring-ios-orange-50 transition-colors duration-150";

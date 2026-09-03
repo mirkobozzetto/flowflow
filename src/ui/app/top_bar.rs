@@ -164,7 +164,7 @@ pub fn TopBar() -> Element {
                         let cur = (app.show_folder_picker)();
                         app.show_folder_picker.set(!cur);
                     },
-                    span { class: "text-lg font-semibold text-stone-900", "{title}" }
+                    span { class: "text-lg font-semibold tracking-[-0.01em] text-stone-900", "{title}" }
                     span {
                         class: "inline-block w-1.5 h-1.5 border-r-2 border-b-2 border-stone-400 chevron-pivot",
                         class: if (app.show_folder_picker)() { "-rotate-[135deg]" } else { "rotate-45" },
@@ -178,7 +178,7 @@ pub fn TopBar() -> Element {
                         app.show_thread_theme.set(true);
                         app.show_thread_menu.set(true);
                     },
-                    span { class: "text-lg font-semibold text-stone-900 leading-tight truncate", "{title}" }
+                    span { class: "text-lg font-semibold tracking-[-0.01em] text-stone-900 leading-tight truncate", "{title}" }
                     span {
                         class: "text-xs leading-tight truncate",
                         class: if thread_theme.is_some() { "text-ios-orange-dark" } else { "text-stone-400" },
@@ -186,7 +186,7 @@ pub fn TopBar() -> Element {
                     }
                 }
             } else {
-                span { class: "text-lg font-semibold text-stone-900 flex-1", "{title}" }
+                span { class: "text-lg font-semibold tracking-[-0.01em] text-stone-900 flex-1", "{title}" }
             }
             if is_detail {
                 button {

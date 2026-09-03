@@ -60,7 +60,7 @@ pub fn ThreadCard(thread: Thread) -> Element {
                     app.view.set(View::ThreadDetail { thread_id: tid.clone() });
                 },
                 div { class: "flex justify-between items-center mb-2",
-                    h3 { class: "font-semibold text-base text-stone-900", "{title}" }
+                    h3 { class: "font-semibold text-base tracking-[-0.01em] text-stone-900", "{title}" }
                     div { class: "flex items-center gap-1.5 shrink-0",
                         if has_web {
                             span { class: "text-ios-orange-dark", IconArrowUpRight { size: 14 } }
@@ -74,10 +74,10 @@ pub fn ThreadCard(thread: Thread) -> Element {
                     }
                 }
                 if !preview.is_empty() {
-                    p { class: "text-stone-600 text-sm mb-2 line-clamp-2", "{preview}" }
+                    p { class: "text-stone-600 text-sm lg:text-[15px] mb-2 line-clamp-2", "{preview}" }
                 }
                 div { class: "flex items-center gap-2",
-                    span { class: "text-stone-500 text-xs", "{date}" }
+                    span { class: "text-stone-500 text-xs tabular-nums", "{date}" }
                     if let Some(ref tname) = theme {
                         span { class: "text-xs text-stone-400", "·" }
                         span { class: "text-xs text-ios-orange-dark", "{tname}" }

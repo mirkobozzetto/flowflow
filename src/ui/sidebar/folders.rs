@@ -412,7 +412,7 @@ pub(super) fn FolderItem(folder: Folder, depth: u32) -> Element {
                             }
                         }
                         if note_count() > 0 {
-                            span { class: "shrink-0 text-xs text-stone-400", "{note_count}" }
+                            span { class: "shrink-0 text-xs text-stone-400 tabular-nums", "{note_count}" }
                         }
                     }
                     button {

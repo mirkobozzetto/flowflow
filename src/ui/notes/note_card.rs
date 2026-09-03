@@ -126,7 +126,7 @@ pub fn NoteCard(note: Note) -> Element {
                 app.view.set(View::NoteDetail { note_id: note_id.clone() });
             },
             div { class: "flex justify-between items-center mb-2",
-                h3 { class: "font-semibold text-base text-stone-900", "{title}" }
+                h3 { class: "font-semibold text-base tracking-[-0.01em] text-stone-900", "{title}" }
                 div { class: "flex items-center gap-1.5 shrink-0",
                     if note.sources_json.is_some() {
                         span { class: "text-ios-orange-dark", IconArrowUpRight { size: 14 } }
@@ -140,7 +140,7 @@ pub fn NoteCard(note: Note) -> Element {
                 }
             }
             if !preview.is_empty() {
-                p { class: "text-stone-600 text-sm mb-2 line-clamp-2", "{preview}" }
+                p { class: "text-stone-600 text-sm lg:text-[15px] mb-2 line-clamp-2", "{preview}" }
             }
             if !note.tags.is_empty() {
                 div { class: "flex flex-wrap gap-1 mb-1.5",
@@ -152,7 +152,7 @@ pub fn NoteCard(note: Note) -> Element {
                 }
             }
             div { class: "flex items-center gap-2",
-                span { class: "text-stone-500 text-xs", "{date}" }
+                span { class: "text-stone-500 text-xs tabular-nums", "{date}" }
                 if let Some(ref fname) = folder_name {
                     span { class: "text-xs text-stone-400", "·" }
                     span { class: "text-xs text-ios-orange-dark", "{fname}" }
