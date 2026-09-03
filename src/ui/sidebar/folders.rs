@@ -407,8 +407,11 @@ pub(super) fn FolderItem(folder: Folder, depth: u32) -> Element {
                         div { class: "w-7 min-w-[28px]" }
                     }
                     button {
-                        class: "flex-1 flex items-center gap-2 text-left px-2 py-2.5 text-sm text-stone-900 rounded-lg min-h-[44px] hover:bg-stone-100 transition-colors duration-150",
-                        class: if is_selected { "bg-stone-100" },
+                        class: if is_selected {
+                            "flex-1 flex items-center gap-2 text-left px-2 py-2.5 text-sm font-medium text-ios-orange-dark bg-ios-orange-50 rounded-lg min-h-[44px]"
+                        } else {
+                            "flex-1 flex items-center gap-2 text-left px-2 py-2.5 text-sm text-stone-900 rounded-lg min-h-[44px] hover:bg-stone-100 transition-colors duration-150"
+                        },
                         onclick: move |_| {
                             if has_children {
                                 toggle_expanded(());

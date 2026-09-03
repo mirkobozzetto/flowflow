@@ -91,6 +91,10 @@ fn ConversationItem(
     let menu_open =
         (app.row_menu)() == Some(RowMenu::Conversation(conv.id.clone()));
 
+    let is_selected = matches!(
+        (app.view)(),
+        View::Chat { conversation_id: Some(ref id) } if id == &conv.id
+    );
     let conv_id_nav = conv.id.clone();
     let conv_id_menu = conv.id.clone();
     let conv_id_rename = conv.id.clone();
@@ -154,7 +158,11 @@ fn ConversationItem(
         } else {
             div { class: "flex items-center group relative",
                 button {
-                    class: "flex-1 text-left px-2 py-2.5 rounded-lg min-h-[44px] hover:bg-stone-100 transition-colors duration-150",
+                    class: if is_selected {
+                        "flex-1 text-left px-2 py-2.5 rounded-lg min-h-[44px] bg-ios-orange-50 text-ios-orange-dark font-medium"
+                    } else {
+                        "flex-1 text-left px-2 py-2.5 rounded-lg min-h-[44px] text-stone-900 hover:bg-stone-100 transition-colors duration-150"
+                    },
                     onclick: move |_| {
                         app.row_menu.set(None);
                         app.sidebar_open.set(false);
@@ -163,7 +171,7 @@ fn ConversationItem(
                             View::Chat { conversation_id: Some(conv_id_nav.clone()) },
                         );
                     },
-                    p { class: "text-sm text-stone-900 line-clamp-1", "{title}" }
+                    p { class: "text-sm line-clamp-1", "{title}" }
                     p { class: "text-xs text-stone-500 mt-0.5", "{date}" }
                 }
                 button {

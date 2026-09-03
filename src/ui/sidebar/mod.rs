@@ -182,7 +182,11 @@ pub fn SidebarOverlay() -> Element {
                                 {t(&lang, "sidebar-new-note")}
                             }
                             button {
-                                class: "flex items-center gap-2.5 w-full px-2 py-3 text-base text-stone-900 font-semibold rounded-lg min-h-[44px] hover:bg-stone-100 transition-colors duration-150",
+                                class: if (app.selected_folder_id)().is_none() && matches!((app.view)(), View::NotesList) {
+                                    "flex items-center gap-2.5 w-full px-2 py-3 text-base font-semibold text-ios-orange-dark bg-ios-orange-50 rounded-lg min-h-[44px]"
+                                } else {
+                                    "flex items-center gap-2.5 w-full px-2 py-3 text-base text-stone-900 font-semibold rounded-lg min-h-[44px] hover:bg-stone-100 transition-colors duration-150"
+                                },
                                 onclick: move |_| {
                                     app.selected_folder_id.set(None);
                                     app.sidebar_open.set(false);
