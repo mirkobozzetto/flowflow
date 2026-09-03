@@ -172,7 +172,6 @@ pub(super) fn FolderItem(folder: Folder, depth: u32) -> Element {
     let folder_id_for_rename = folder.id.clone();
     let folder_id_for_rename2 = folder.id.clone();
     let folder_id_for_toggle = folder.id.clone();
-    let folder_id_for_open = folder.id.clone();
     let folder_id_for_count = folder.id.clone();
     let folder_id_for_move = folder.id.clone();
     let folder_id_move_root = folder.id.clone();
