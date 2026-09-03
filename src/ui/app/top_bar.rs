@@ -152,6 +152,11 @@ pub fn TopBar() -> Element {
                         app.sidebar_open.set(true);
                     },
                     IconList { size: 22 }
+                    img {
+                        src: asset!("/assets/flowflow-icon-300.png"),
+                        class: "absolute bottom-1 right-1 w-2.5 h-2.5 object-contain",
+                        alt: "",
+                    }
                     if (app.transcription_done_badge)() > 0 {
                         span { class: "absolute top-2 right-2 w-2 h-2 rounded-full bg-ios-orange" }
                     }
