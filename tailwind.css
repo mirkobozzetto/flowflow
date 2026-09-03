@@ -199,6 +199,24 @@
     outline: 3px solid var(--color-ios-orange-50);
     outline-offset: 0;
 }
+.note-title-field:focus-visible,
+.note-content-field:focus-visible {
+    outline: none;
+}
+.splash-mark {
+    animation: splash-mark-enter 650ms var(--ease-soft) both;
+}
+
+@keyframes splash-mark-enter {
+    from {
+        opacity: 0;
+        transform: scale(0.2);
+    }
+    to {
+        opacity: 1;
+        transform: scale(2.5);
+    }
+}
 
 @media (prefers-reduced-motion: reduce) {
     *,
@@ -225,6 +243,7 @@
     textarea {
         -webkit-user-select: text;
         user-select: text;
+        caret-color: var(--color-ios-orange);
     }
     /* Opt back into text selection + the native long-press Copy menu, which the global
        reset above disables app-wide. For debug/log blocks the user needs to copy. */

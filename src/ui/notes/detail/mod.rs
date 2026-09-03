@@ -300,9 +300,9 @@ pub fn NoteDetail() -> Element {
                     }
                     textarea {
                         class: if generating_title() {
-                            "absolute inset-0 w-full h-full resize-none overflow-hidden whitespace-pre-wrap break-words text-xl font-semibold outline-none py-1.5 border-b border-transparent text-stone-400 bg-transparent animate-pulse focus-visible:outline-none"
+                            "note-title-field absolute inset-0 w-full h-full resize-none overflow-hidden whitespace-pre-wrap break-words text-xl font-semibold outline-none py-1.5 border-b border-transparent text-stone-400 bg-transparent animate-pulse focus-visible:outline-none"
                         } else {
-                            "absolute inset-0 w-full h-full resize-none overflow-hidden whitespace-pre-wrap break-words text-xl font-semibold outline-none py-1.5 border-b border-transparent text-stone-900 bg-transparent placeholder:text-stone-300 focus:border-ios-orange/40 focus-visible:outline-none transition-colors duration-150"
+                            "note-title-field absolute inset-0 w-full h-full resize-none overflow-hidden whitespace-pre-wrap break-words text-xl font-semibold outline-none py-1.5 border-b border-transparent text-stone-900 bg-transparent placeholder:text-stone-300 focus:border-ios-orange/40 focus-visible:outline-none transition-colors duration-150"
                         },
                         placeholder: "{title_placeholder}",
                         value: "{title}",
@@ -324,14 +324,14 @@ pub fn NoteDetail() -> Element {
             }
             if editing() || is_transcribing {
                 textarea {
-                    class: "w-full min-h-[300px] border border-stone-200/60 rounded-xl p-3 mt-3 text-sm resize-none font-sans outline-none text-stone-900 bg-transparent placeholder:text-stone-300 focus-visible:outline-none shadow-none",
+                    class: "note-content-field w-full min-h-[300px] border border-stone-300/60 rounded-xl p-3 mt-3 text-sm resize-none font-sans outline-none text-stone-900 bg-transparent placeholder:text-stone-300 focus:border-stone-400/60 focus-visible:outline-none shadow-none",
                     placeholder: if is_transcribing { transcribing_placeholder.as_str() } else { content_placeholder.as_str() },
                     value: "{content}",
                     oninput: move |evt| content.set(evt.value()),
                 }
             } else {
                 div {
-                    class: "w-full min-h-[300px] p-3 mt-3 rounded-xl border border-stone-200/60 bg-transparent shadow-none text-sm prose prose-sm max-w-none text-stone-900 break-words overflow-x-hidden [&_*]:[overflow-wrap:anywhere] [&_pre]:whitespace-pre-wrap [&_pre]:break-words",
+                    class: "w-full min-h-[300px] p-3 mt-3 rounded-xl border border-stone-300/60 bg-transparent shadow-none text-sm prose prose-sm max-w-none text-stone-900 break-words overflow-x-hidden [&_*]:[overflow-wrap:anywhere] [&_pre]:whitespace-pre-wrap [&_pre]:break-words",
                     onclick: move |_| editing.set(true),
                     if content().trim().is_empty() {
                         span { class: "text-stone-400", "{content_placeholder}" }
