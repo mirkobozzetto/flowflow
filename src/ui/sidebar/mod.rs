@@ -196,7 +196,7 @@ pub fn SidebarOverlay() -> Element {
                                 {t(&lang, "sidebar-all-notes")}
                             }
                         }
-                        div { class: "h-px bg-stone-200 mb-3" }
+                        div { class: "border-t border-stone-200/70 mb-3" }
                         FolderSection {}
                     },
                     SidebarTab::Chats => rsx! {

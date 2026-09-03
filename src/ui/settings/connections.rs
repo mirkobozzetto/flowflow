@@ -455,7 +455,7 @@ pub fn ConnectionsSettings() -> Element {
 
                                             }
 
-                                            div { class: "pt-1 border-t border-stone-100 space-y-2",
+                                            div { class: "pt-1 border-t border-stone-200/70 space-y-2",
                                                 button {
                                                     class: crate::ui::kit::PILL_GHOST,
                                                     disabled: listing(),

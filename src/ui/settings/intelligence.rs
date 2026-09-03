@@ -152,7 +152,7 @@ pub fn IntelligenceSettings() -> Element {
                 }
 
                 if let ConnectionState::Pending(login) = connection() {
-                    div { class: "mt-3 space-y-2 border-t border-stone-100 pt-3",
+                    div { class: "mt-3 space-y-2 border-t border-stone-200/70 pt-3",
                         p { class: "text-sm text-stone-600",
                             {t(&lang, "settings-chatgpt-code-hint")}
                         }

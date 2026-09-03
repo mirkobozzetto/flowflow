@@ -129,7 +129,7 @@ pub fn FolderSection() -> Element {
             FolderItem { key: "{folder.id}", folder: folder, depth: 0 }
         }
         if !spaces().is_empty() {
-            div { class: "h-px bg-stone-200 my-3" }
+            div { class: "border-t border-stone-200/70 my-3" }
             div { class: "flex items-center gap-1.5 px-2 mb-1 {kit::SECTION_LABEL}",
                 IconUsersThree { size: 14 }
                 {t(&lang, "sidebar-collab-title")}
@@ -138,7 +138,7 @@ pub fn FolderSection() -> Element {
         for (i, space) in spaces().into_iter().enumerate() {
             div { key: "{space.id}",
                 if i > 0 {
-                    div { class: "h-px bg-stone-200 my-2 ml-7" }
+                    div { class: "border-t border-stone-200/70 my-2 ml-7" }
                 }
                 super::space_section::SpaceSection { space: space }
             }
