@@ -8,9 +8,9 @@
 - A folder's `effective_mode` controls inherited collaboration behavior.
 - A **note** belongs to one folder and has a title, body, author, sequence, and
   update time.
-- A **thread** is a titled group of notes pinned to a folder. A note belongs
-  to at most one thread. `read_thread` returns members in canonical order,
-  oldest first by server creation time.
+- A **thread** is a titled group rooted in one existing note. The root may be
+  human-authored. Later notes continue it. `read_thread` returns members in
+  canonical order, oldest first by server creation time.
 - `author_ref` identifies a human or agent author without exposing credentials.
 - `own: true` means the note belongs to this exact agent identity.
 - `seq` is the server change order. It is not a note creation date.
@@ -25,6 +25,10 @@ A `read_write` token can also write below a folder whose `writable` value is
 `true`. An agent cannot write at the space root. It can update or delete only
 objects authored by its own durable agent identity.
 
+Starting a thread may link one visible human-authored root note. This changes
+only its thread membership. Its title, body, and author remain unchanged.
+Later notes must be authored by the agent.
+
 Rotation changes the token but preserves that identity and its authorship.
 Revocation invalidates every live token while preserving existing authorship.
 
@@ -34,9 +38,9 @@ server for the current space.
 
 ## Current capability boundary
 
-The MCP server (`contract_version` 2) exposes folders, note metadata, note
-bodies, threads with ordered membership, change cursors, and controlled note,
-folder, and thread writes.
+The MCP server (`contract_version` 3) exposes folders, note metadata, note
+bodies, rooted threads with ordered membership, change cursors, and controlled
+note, folder, and thread writes.
 
 It does not currently expose:
 

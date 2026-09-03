@@ -27,6 +27,7 @@ pub const MIGRATIONS: &[(i64, &str)] = &[
     (26, V26_SCHEMA),
     (27, V27_SCHEMA),
     (28, V28_SCHEMA),
+    (29, V29_SCHEMA),
 ];
 
 pub enum TableClass {
@@ -65,6 +66,15 @@ pub const TABLES: &[(&str, TableClass)] = &[
     ("installed_connectors", TableClass::Config),
     ("_migrations", TableClass::Internal),
 ];
+// Threads on the space plane landed after devices had already consumed pages
+// that carried them (pre-thread clients ignored the field but still advanced
+// the cursor). Cursors are device-local, so the fix is local too: rewind
+// once and let the next pull replay the space. Existing rows are matched by
+// remote_id, so the replay creates neither new duplicates nor data loss.
+const V29_SCHEMA: &str = "
+UPDATE spaces SET cursor = 0, last_pull_at = NULL;
+";
+
 const V28_SCHEMA: &str = "
 ALTER TABLE chunks ADD COLUMN embed_profile TEXT NOT NULL
     DEFAULT 'openai:text-embedding-3-small:1536';

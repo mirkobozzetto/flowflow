@@ -160,8 +160,8 @@ fn a_pulled_note_becomes_an_ordinary_local_note_in_its_folder() {
     let in_folder = db.list_notes_in_folder(&local_folder).unwrap();
     assert_eq!(in_folder.len(), 1);
     assert_eq!(in_folder[0].id, local_note);
-    // a pulled thread lands under its own id and its member note joins it;
-    // a tombstoned thread detaches the note without deleting it
+    // Mobile and desktop share this pull path. A remote root and continuation
+    // must surface as one visible thread in both apps.
     let thread = |deleted: bool| RemoteThread {
         id: "rt1".into(),
         folder_id: Some("rf1".into()),
@@ -172,24 +172,33 @@ fn a_pulled_note_becomes_an_ordinary_local_note_in_its_folder() {
         updated_at: "2026-08-24T10:00:00Z".into(),
         deleted,
     };
-    let mut member = remote_note("rn1", Some("rf1"), "Brief", "the brief body");
-    member.thread_id = Some("rt1".into());
-    let mut p = page(vec![], vec![member.clone()]);
+    let mut root = remote_note("rn1", Some("rf1"), "Brief", "the brief body");
+    root.thread_id = Some("rt1".into());
+    let mut continuation =
+        remote_note("rn2", Some("rf1"), "Follow-up", "the continuation body");
+    continuation.thread_id = Some("rt1".into());
+    continuation.seq = 4;
+    let mut p = page(vec![], vec![root.clone(), continuation.clone()]);
     p.threads = vec![thread(false)];
     p.next_seq = 10;
     let out = apply(&db, &p);
     assert_eq!(out.threads, 1);
-    let note = db.get_note(&local_note).unwrap().unwrap();
-    assert_eq!(note.thread_id.as_deref(), Some("rt1"));
+    let local_reply = db.local_note_for_remote(SPACE, "rn2").unwrap();
+    let notes = db.list_thread_notes("rt1").unwrap();
+    assert_eq!(notes.len(), 2);
+    assert_eq!(notes[0].id, local_note);
+    assert_eq!(notes[1].id, local_reply);
+    assert_eq!(db.list_feed_threads().unwrap().len(), 1);
     assert_eq!(db.get_thread("rt1").unwrap().unwrap().title, "Brief thread");
 
-    member.thread_id = None;
-    let mut p = page(vec![], vec![member]);
+    root.thread_id = None;
+    continuation.thread_id = None;
+    let mut p = page(vec![], vec![root, continuation]);
     p.threads = vec![thread(true)];
     p.next_seq = 11;
     apply(&db, &p);
-    let note = db.get_note(&local_note).unwrap().unwrap();
-    assert_eq!(note.thread_id, None);
+    assert_eq!(db.get_note(&local_note).unwrap().unwrap().thread_id, None);
+    assert_eq!(db.get_note(&local_reply).unwrap().unwrap().thread_id, None);
     assert!(db.get_thread("rt1").unwrap().is_none());
 }
 

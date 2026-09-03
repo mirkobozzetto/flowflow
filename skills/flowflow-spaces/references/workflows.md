@@ -37,43 +37,42 @@ URLs.
 
 ## Threads
 
-A thread is a titled group of notes. A note belongs to at most one thread.
-Member order is the server creation time, oldest first, as returned by
-`read_thread`. Never reorder or infer membership from titles or bodies.
+A thread starts from exactly one existing note. That note is the root and may
+be human-authored. Later notes continue the root. A note belongs to at most one
+thread. `read_thread` returns members oldest first.
 
 ### List and read a thread
 
-1. Call `list_threads`, optionally with a `folder_id`, to see live threads
-   with their title, author, update time, and `note_count`.
-2. If several threads match the request, ask the user to choose.
-3. Call `read_thread` on the chosen id. It returns the thread and its member
-   note metadata in canonical order.
-4. Call `read_note` only on the members whose bodies are needed.
+1. Call `list_threads`, optionally with a `folder_id`.
+2. If several threads match, ask the user to choose.
+3. Call `read_thread` on the chosen id.
+4. Call `read_note` only for member bodies needed by the request.
 5. Present the thread title separately from the note titles.
-6. Report an empty thread (`note_count` 0) explicitly.
+6. Treat a zero-member thread as legacy data and do not create another one.
 
-### Create a thread from a note
+### Continue from a selected note
 
-1. Confirm the user explicitly requested the thread.
-2. Resolve one writable folder and the notes to attach. Only notes with
-   `own: true` can be attached; refuse human-authored notes and explain.
-3. Normalize the title and derive a UUID v5 with the stored agent namespace:
-   `thread:<space_id>:<folder_id>:<normalized-title>:<operation-key>`.
-4. Call `create_thread` with that id, the folder id, the title, and
-   `note_ids`. Reuse the same id on every retry.
-5. Report the returned id and whether `created` is true or false.
+1. Resolve exactly one existing note and its writable folder.
+2. If the note has a `thread_id`, call `read_thread` and use that thread.
+3. If it has no `thread_id`, derive a stable thread UUID v5:
+   `thread:<space_id>:<folder_id>:<root_id>`.
+4. Call `create_thread` with that id and `note_ids: [root_id]`.
+5. The root may have `own: false`. Linking it must not change its title,
+   body, or author.
+6. Derive a stable continuation note UUID using the normal note workflow.
+7. Call `put_note` with the thread id and the complete continuation body.
+8. Call `read_thread`. Require the root first and the new note last before
+   reporting success.
 
-### Write a note inside a thread
-
-Follow "Create or update a note" and pass the thread id as `thread_id`. On an
-update, `put_note` replaces the whole note: omitting `thread_id` detaches it.
+Never append a later human-authored note. Later notes must be created by this
+agent through `put_note` with the existing `thread_id`.
 
 ### Rename or delete a thread
 
 Only threads with `own: true` can be changed. Rename by replaying
-`create_thread` with the same id and the new title. Delete with
-`delete_thread` after explicit confirmation; member notes survive detached.
-
+`create_thread` with the same id, the new title, and no `note_ids`. Delete
+with `delete_thread` after explicit confirmation. Member notes survive
+without a thread.
 ## Stable agent namespace
 
 Before the first write through a server:

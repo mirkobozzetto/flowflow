@@ -44,7 +44,7 @@ fn rewind_to_v25(db: &Database) {
 }
 
 #[test]
-fn v26_and_v27_apply_on_a_v25_file() {
+fn recent_space_migrations_apply_on_a_v25_file() {
     let dir = tempfile::tempdir().unwrap();
     let path = dir.path().join("flowflow.db");
     {
@@ -81,7 +81,44 @@ fn v26_and_v27_apply_on_a_v25_file() {
         .conn()
         .query_row("SELECT MAX(version) FROM _migrations", [], |r| r.get(0))
         .unwrap();
-    assert_eq!(head, 28);
+    assert_eq!(head, 29);
+}
+
+// A device that consumed space pages before threads existed holds a cursor
+// past rows it never applied. V29 rewinds every space once so the next pull
+// replays them; only the device-local cursor moves, never the content.
+#[test]
+fn v29_rewinds_every_space_cursor_once() {
+    let dir = tempfile::tempdir().unwrap();
+    let path = dir.path().join("flowflow.db");
+    {
+        let db = Database::open_at(path.clone()).unwrap();
+        db.upsert_space("space-1", "Team", false).unwrap();
+        db.conn()
+            .execute_batch(
+                "UPDATE spaces SET cursor = 27, last_pull_at = 'earlier';
+                 DELETE FROM _migrations WHERE version >= 29;",
+            )
+            .unwrap();
+    }
+
+    let db = Database::open_at(path.clone()).unwrap();
+    let space = db.get_space("space-1").unwrap().unwrap();
+    assert_eq!(space.cursor, 0);
+    assert_eq!(space.last_pull_at, None);
+    assert_eq!(space.name, "Team");
+
+    db.conn()
+        .execute("UPDATE spaces SET cursor = 12", [])
+        .unwrap();
+    drop(db);
+
+    let reopened = Database::open_at(path).unwrap();
+    assert_eq!(
+        reopened.get_space("space-1").unwrap().unwrap().cursor,
+        12,
+        "the migration must never rewind an upgraded device twice"
+    );
 }
 
 #[test]
