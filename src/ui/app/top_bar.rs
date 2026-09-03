@@ -151,16 +151,7 @@ pub fn TopBar() -> Element {
                         });
                         app.sidebar_open.set(true);
                     },
-                    if matches!((app.view)(), View::NotesList) {
-                        img {
-                            src: asset!("/assets/flowflow-icon-300.png"),
-                            class: "w-[22px] h-[22px] object-contain",
-                            alt: "FlowFlow",
-                        }
-                    } else {
-                        IconList { size: 22 }
-                    }
-
+                    IconList { size: 22 }
                     if (app.transcription_done_badge)() > 0 {
                         span { class: "absolute top-2 right-2 w-2 h-2 rounded-full bg-ios-orange" }
                     }
