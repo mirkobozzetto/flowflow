@@ -402,9 +402,11 @@ pub(super) fn FolderItem(folder: Folder, depth: u32) -> Element {
                         class: "flex-1 flex items-center gap-2 text-left px-2 py-2.5 text-sm text-stone-900 rounded-lg min-h-[44px] hover:bg-stone-100 transition-colors duration-150",
                         class: if is_selected { "bg-stone-100" },
                         onclick: move |_| {
-                            if has_children && !is_expanded {
+                            if has_children {
                                 let mut set = (app.expanded_folders)();
-                                set.insert(folder_id_for_open.clone());
+                                if !set.remove(&folder_id_for_open) {
+                                    set.insert(folder_id_for_open.clone());
+                                }
                                 app.expanded_folders.set(set);
                             }
                             app.selected_folder_id.set(Some(folder_id_nav.clone()));
