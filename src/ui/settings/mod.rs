@@ -14,9 +14,9 @@ use crate::application::backup as backup_service;
 use crate::application::i18n::t;
 use crate::infrastructure::persistence::Database;
 use crate::ui::icons::{
-    IconArrowsClockwise, IconFloppyDisk, IconGlobeSimple, IconHardDrives,
-    IconHeadCircuit, IconKeyboard, IconMicrophone, IconPlugsConnected,
-    IconShieldCheck, IconUserCircle, IconUsersThree,
+    IconArrowsClockwise, IconCaretRight, IconFloppyDisk, IconGlobeSimple,
+    IconHardDrives, IconHeadCircuit, IconKeyboard, IconMicrophone,
+    IconPlugsConnected, IconShieldCheck, IconUserCircle, IconUsersThree,
 };
 use crate::ui::kit::SECTION_LABEL;
 use crate::ui::{AppState, SettingsSection, View};
@@ -101,7 +101,7 @@ pub fn SettingsView() -> Element {
                             {t(&lang, if is_premium { "account-premium" } else { "account-free" })}
                         }
                     }
-                    span { class: CHEVRON }
+                    span { class: "shrink-0 text-stone-400", IconCaretRight { size: 14 } }
                 }
                 IconRow { label: t(&lang, "settings-section-connections"), section: SettingsSection::Connections,
                     div { class: ICON_TILE, IconPlugsConnected { size: 17 } }
@@ -131,7 +131,7 @@ pub fn SettingsView() -> Element {
                     span { class: "flex-1 text-sm font-medium text-stone-800",
                         {t(&lang, "settings-sync-title")}
                     }
-                    span { class: CHEVRON }
+                    span { class: "shrink-0 text-stone-400", IconCaretRight { size: 14 } }
                 }
                 IconRow { label: t(&lang, "settings-storage-title"), section: SettingsSection::Storage,
                     div { class: ICON_TILE, IconHardDrives { size: 17 } }
@@ -159,15 +159,13 @@ pub fn SettingsView() -> Element {
 }
 
 const ICON_TILE: &str =
-    "w-7 h-7 rounded-lg bg-ios-orange-50 text-ios-orange flex items-center justify-center shrink-0";
+    "w-8 h-8 rounded-[10px] bg-ios-orange-50 text-ios-orange flex items-center justify-center shrink-0";
 const ROW: &str =
-    "w-full min-h-[44px] flex items-center gap-3 px-4 py-3 text-left active:bg-stone-100 transition-colors";
-const CHEVRON: &str =
-    "inline-block w-1.5 h-1.5 border-r-2 border-t-2 border-stone-400 rotate-45 shrink-0";
+    "pressable w-full min-h-[44px] flex items-center gap-3 px-4 py-3 text-left hover:bg-stone-50 active:bg-stone-100 transition-colors duration-150";
 const PREMIUM_PILL: &str =
-    "text-[11px] font-semibold text-ios-orange-dark bg-ios-orange-50 border border-ios-orange-100 px-2 py-0.5 rounded-md mr-2";
+    "text-[11px] font-semibold text-ios-orange-dark bg-ios-orange-50 border border-ios-orange-100 px-2 py-0.5 rounded-full mr-2";
 const FREE_PILL: &str =
-    "text-[11px] font-medium text-stone-500 bg-stone-100 px-2 py-0.5 rounded-md mr-2";
+    "text-[11px] font-medium text-stone-500 bg-stone-100 px-2 py-0.5 rounded-full mr-2";
 
 #[component]
 fn SettingsGroup(
@@ -203,7 +201,7 @@ fn IconRow(
             },
             {children}
             span { class: "flex-1 text-sm font-medium text-stone-800", "{label}" }
-            span { class: CHEVRON }
+            span { class: "shrink-0 text-stone-400", IconCaretRight { size: 14 } }
         }
     }
 }

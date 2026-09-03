@@ -160,7 +160,7 @@ pub fn RecordingControls(
                         class: if is_paused {
                             "flex items-center gap-3 h-12 px-4 rounded-full bg-stone-800 text-white text-sm overflow-hidden"
                         } else {
-                            "flex items-center gap-3 h-12 px-4 rounded-full bg-stone-900 text-white text-sm shadow-lg overflow-hidden"
+                            "flex items-center gap-3 h-12 px-4 rounded-full bg-stone-900 text-white text-sm shadow-lift overflow-hidden"
                         },
                         onclick: move |_| {
                             let now = now_ms();

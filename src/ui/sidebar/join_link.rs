@@ -94,7 +94,7 @@ pub fn JoinLink() -> Element {
     });
 
     rsx! {
-        div { class: "h-px bg-stone-200 my-3" }
+        div { class: "border-t border-stone-200/70 my-3" }
         if open() {
             div {
                 class: "flex items-center gap-1 bg-stone-100 rounded-xl pl-3 pr-1 py-1 my-1",

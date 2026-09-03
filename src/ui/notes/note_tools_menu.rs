@@ -44,7 +44,7 @@ pub fn NoteToolsMenu() -> Element {
     } else {
         rsx! {
             div { class: "fixed inset-0 z-30", onclick: close }
-            div { class: "absolute bottom-full left-0 mb-2 w-80 z-40 bg-warm-white border border-stone-200 rounded-xl shadow-lg p-2 popover-pop",
+            div { class: "absolute bottom-full left-0 mb-2 w-80 z-40 bg-warm-white border border-stone-200 rounded-xl shadow-menu p-2 popover-pop",
                 NoteToolsMenuBody {}
             }
         }

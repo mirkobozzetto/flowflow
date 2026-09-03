@@ -94,10 +94,10 @@ pub fn TopBar() -> Element {
     };
 
     rsx! {
-        div { class: "flex items-center px-4 py-3 bg-warm-white border-b border-stone-200 sticky top-0 z-30 gap-3 min-h-[44px]",
+        div { class: "flex items-center px-4 py-3 bg-warm-white border-b border-stone-200 sticky top-0 z-30 gap-3 min-h-[44px] shadow-card",
             if show_back {
                 button {
-                    class: "min-w-[44px] min-h-[44px] flex items-center justify-center text-stone-700 hover:text-stone-900 transition-colors duration-150",
+                    class: "min-w-[44px] min-h-[44px] flex items-center justify-center rounded-[10px] text-stone-700 hover:text-stone-900 hover:bg-stone-100 transition-colors duration-150",
                     onclick: move |_| {
                         app.show_folder_picker.set(false);
                         let target = (app.previous_view)()
@@ -141,7 +141,7 @@ pub fn TopBar() -> Element {
                 }
             } else {
                 button {
-                    class: "relative min-w-[44px] min-h-[44px] flex items-center justify-center text-stone-700 lg:hidden",
+                    class: "relative min-w-[44px] min-h-[44px] flex items-center justify-center rounded-[10px] text-stone-700 hover:bg-stone-100 lg:hidden",
                     onclick: move |_| {
                         app.show_folder_picker.set(false);
                         app.sidebar_tab.set(if is_chat {
@@ -152,6 +152,11 @@ pub fn TopBar() -> Element {
                         app.sidebar_open.set(true);
                     },
                     IconList { size: 22 }
+                    img {
+                        src: asset!("/assets/flowflow-icon-300.png"),
+                        class: "absolute bottom-1 right-1 w-2.5 h-2.5 object-contain",
+                        alt: "",
+                    }
                     if (app.transcription_done_badge)() > 0 {
                         span { class: "absolute top-2 right-2 w-2 h-2 rounded-full bg-ios-orange" }
                     }
@@ -164,10 +169,11 @@ pub fn TopBar() -> Element {
                         let cur = (app.show_folder_picker)();
                         app.show_folder_picker.set(!cur);
                     },
-                    span { class: "text-lg font-semibold text-stone-900", "{title}" }
+                    span { class: "text-lg font-semibold tracking-[-0.01em] text-stone-900", "{title}" }
                     span {
-                        class: "inline-block w-1.5 h-1.5 border-r-2 border-b-2 border-stone-400 chevron-pivot",
-                        class: if (app.show_folder_picker)() { "-rotate-[135deg]" } else { "rotate-45" },
+                        class: "text-stone-400 transition-transform duration-150",
+                        class: if (app.show_folder_picker)() { "rotate-90" } else { "rotate-0" },
+                        IconCaretRight { size: 14 }
                     }
                 }
             } else if is_thread {
@@ -178,7 +184,7 @@ pub fn TopBar() -> Element {
                         app.show_thread_theme.set(true);
                         app.show_thread_menu.set(true);
                     },
-                    span { class: "text-lg font-semibold text-stone-900 leading-tight truncate", "{title}" }
+                    span { class: "text-lg font-semibold tracking-[-0.01em] text-stone-900 leading-tight truncate", "{title}" }
                     span {
                         class: "text-xs leading-tight truncate",
                         class: if thread_theme.is_some() { "text-ios-orange-dark" } else { "text-stone-400" },
@@ -186,11 +192,11 @@ pub fn TopBar() -> Element {
                     }
                 }
             } else {
-                span { class: "text-lg font-semibold text-stone-900 flex-1", "{title}" }
+                span { class: "text-lg font-semibold tracking-[-0.01em] text-stone-900 flex-1", "{title}" }
             }
             if is_detail {
                 button {
-                    class: "min-w-[44px] min-h-[44px] flex items-center justify-center text-stone-700 hover:text-stone-900 transition-colors duration-150",
+                    class: "min-w-[44px] min-h-[44px] flex items-center justify-center rounded-[10px] text-stone-700 hover:text-stone-900 hover:bg-stone-100 transition-colors duration-150",
                     onclick: move |_| {
                         app.show_folder_picker.set(false);
                         let cur = (app.show_note_menu)();
@@ -200,7 +206,7 @@ pub fn TopBar() -> Element {
                 }
             } else if is_thread {
                 button {
-                    class: "min-w-[44px] min-h-[44px] flex items-center justify-center text-stone-700 hover:text-stone-900 transition-colors duration-150",
+                    class: "min-w-[44px] min-h-[44px] flex items-center justify-center rounded-[10px] text-stone-700 hover:text-stone-900 hover:bg-stone-100 transition-colors duration-150",
                     onclick: move |_| {
                         app.show_folder_picker.set(false);
                         let cur = (app.show_thread_menu)();
@@ -210,7 +216,7 @@ pub fn TopBar() -> Element {
                 }
             } else if is_chat {
                 button {
-                    class: "min-w-[44px] min-h-[44px] flex items-center justify-center text-stone-700 hover:text-stone-900 transition-colors duration-150",
+                    class: "min-w-[44px] min-h-[44px] flex items-center justify-center rounded-[10px] text-stone-700 hover:text-stone-900 hover:bg-stone-100 transition-colors duration-150",
                     onclick: move |_| {
                         app.show_folder_picker.set(false);
                         let cur = (app.show_chat_menu)();
@@ -220,7 +226,7 @@ pub fn TopBar() -> Element {
                 }
             } else if !is_inner {
                 button {
-                    class: "min-w-[44px] min-h-[44px] flex items-center justify-center text-ios-orange-dark hover:opacity-70 transition-opacity duration-150",
+                    class: "min-w-[44px] min-h-[44px] flex items-center justify-center rounded-[10px] text-ios-orange-dark hover:bg-stone-100 transition-colors duration-150",
                     onclick: move |_| {
                         app.show_folder_picker.set(false);
                         app.sidebar_tab.set(SidebarTab::Chats);

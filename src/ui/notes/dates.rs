@@ -70,3 +70,23 @@ pub fn format_absolute_short(iso: &str, lang: &str) -> String {
         format!("{} {} {}", d.day(), m, d.year())
     }
 }
+
+pub fn feed_group_label(iso: &str, lang: &str) -> String {
+    let Ok(dt) = NaiveDateTime::parse_from_str(
+        &iso.replace('T', " ").replace('Z', ""),
+        "%Y-%m-%d %H:%M:%S%.f",
+    ) else {
+        return iso.get(..10).unwrap_or(iso).to_string();
+    };
+    let date = dt.date();
+    let today = Utc::now().naive_utc().date();
+    match today.signed_duration_since(date).num_days() {
+        0 => t(lang, "reminder-today"),
+        1 => t(lang, "note-group-yesterday"),
+        2..=6 => t(lang, "note-group-this-week"),
+        _ if date.year() == today.year() => {
+            month_abbr(lang, date.month()).to_string()
+        }
+        _ => format!("{} {}", month_abbr(lang, date.month()), date.year()),
+    }
+}

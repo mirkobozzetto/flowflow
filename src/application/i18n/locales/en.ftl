@@ -398,6 +398,9 @@ date-mins-ago = { $mins } min ago
 date-hours-ago = { $hours }h ago
 date-yesterday = Yesterday, { $time }
 
+note-group-yesterday = Yesterday
+note-group-this-week = This week
+
 reminder-detected-title = Reminders detected
 reminder-recurring = ↻ recurring
 reminder-confirm = Confirm

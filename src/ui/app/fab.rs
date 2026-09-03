@@ -1,3 +1,4 @@
+use crate::application::i18n::t;
 use crate::infrastructure::persistence::Database;
 use crate::ui::{AppState, View};
 use dioxus::prelude::*;
@@ -9,6 +10,7 @@ pub fn FloatingActionButton() -> Element {
     let db: Signal<Arc<Database>> = use_context();
     let mut clicked = use_signal(|| false);
     let mut pressing = use_signal(|| false);
+    let lang = (app.current_lang)();
 
     // No compose button on a theme this user cannot write to. The notes list
     // says why, right above; an inert button with no reason would be worse.
@@ -50,8 +52,8 @@ pub fn FloatingActionButton() -> Element {
                     });
                 },
                 svg {
-                    width: "52",
-                    height: "52",
+                    width: "32",
+                    height: "32",
                     view_box: "0 0 100 100",
                     line {
                         class: "fab-plus-h",
@@ -67,6 +69,9 @@ pub fn FloatingActionButton() -> Element {
                         x2: "50",
                         y2: "70",
                     }
+                }
+                span { class: "fab-label text-sm font-medium text-ios-orange-dark",
+                    {t(&lang, "sidebar-new-note")}
                 }
             }
         }

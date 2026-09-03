@@ -6,7 +6,7 @@ use crate::ui::chat::models::ChatSource;
 use crate::ui::chat::sources_accordion::SourcesAccordion;
 use crate::ui::chat::trace_accordion::TraceAccordion;
 use crate::ui::clipboard::copy_text;
-use crate::ui::icons::{IconCheck, IconCopy, IconFloppyDisk};
+use crate::ui::icons::{IconCheck, IconCopy, IconDotsThree, IconFloppyDisk};
 use crate::ui::state::View;
 use crate::ui::AppState;
 use dioxus::prelude::*;
@@ -23,6 +23,7 @@ pub fn BotBubble(
     let db: Signal<Arc<Database>> = use_context();
     let lang = (app.current_lang)();
     let mut copied = use_signal(|| false);
+    let mut actions_open = use_signal(|| false);
     let text_for_lookup = text.clone();
     let saved_id = use_memo(move || {
         let _ = (app.notes_version)();
@@ -53,8 +54,13 @@ pub fn BotBubble(
     if crate::application::intent::looks_like_action(&text) {
         return rsx! {
             div {
-                class: "flex justify-start",
+                class: "flex justify-start items-start gap-2",
                 style: "animation: fadeInUp 0.15s ease-out;",
+                img {
+                    src: asset!("/assets/flowflow-icon-300.png"),
+                    class: "w-5 h-5 mt-1 object-contain rounded-full shrink-0",
+                    alt: "FlowFlow",
+                }
                 div { class: "max-w-[85%]",
                     ActionResultCard { text: text.clone() }
                 }
@@ -64,21 +70,37 @@ pub fn BotBubble(
 
     rsx! {
         div {
-            class: "flex justify-start",
+            class: "group flex justify-start items-start gap-2",
             style: "animation: fadeInUp 0.15s ease-out;",
-            div { class: "bg-warm-white border border-ios-orange/10 rounded-2xl rounded-bl-md px-4 py-2.5 max-w-[85%] shadow-sm",
+            img {
+                src: asset!("/assets/flowflow-icon-300.png"),
+                class: "w-5 h-5 mt-1 object-contain rounded-full shrink-0",
+                alt: "FlowFlow",
+            }
+            div { class: "min-w-0 max-w-[85%] py-1",
+
                 div {
                     class: "text-sm text-stone-900 leading-relaxed break-words prose prose-sm",
                     dangerous_inner_html: md_to_html(&text),
                 }
-                div { class: "flex justify-end gap-3 mt-1.5",
+                div { class: "relative flex justify-end mt-1.5",
+                    button {
+                        class: "pressable w-8 h-8 flex items-center justify-center rounded-full text-stone-400 hover:text-stone-600 hover:bg-stone-100",
+                        aria_label: "Actions",
+                        aria_expanded: "{actions_open()}",
+                        onclick: move |_| actions_open.set(!actions_open()),
+                        IconDotsThree { size: 18 }
+                    }
+                    if actions_open() {
+                        div { class: "absolute right-0 top-9 z-50 min-w-[180px] bg-warm-white border border-stone-200 rounded-xl shadow-menu p-1 menu-anchor",
                     button {
                         class: if saved_id().is_some() {
-                            "flex items-center gap-1 text-xs text-ios-green transition-colors duration-150"
+                            "w-full flex items-center gap-2.5 px-3 py-2.5 min-h-[40px] rounded-lg text-sm text-ios-green text-left"
                         } else {
-                            "flex items-center gap-1 text-xs text-stone-400 active:text-stone-600 hover:text-stone-600 transition-colors duration-150"
+                            "w-full flex items-center gap-2.5 px-3 py-2.5 min-h-[40px] rounded-lg text-sm text-stone-800 text-left hover:bg-stone-100 active:bg-stone-100"
                         },
                         onclick: move |_| {
+                            actions_open.set(false);
                             if let Some(nid) = saved_id() {
                                 let folder = db()
                                     .folders_for_note(&nid)
@@ -120,11 +142,12 @@ pub fn BotBubble(
                     }
                     button {
                         class: if copied() {
-                            "flex items-center gap-1 text-xs text-ios-green transition-colors duration-150"
+                            "w-full flex items-center gap-2.5 px-3 py-2.5 min-h-[40px] rounded-lg text-sm text-ios-green text-left"
                         } else {
-                            "flex items-center gap-1 text-xs text-stone-400 active:text-stone-600 hover:text-stone-600 transition-colors duration-150"
+                            "w-full flex items-center gap-2.5 px-3 py-2.5 min-h-[40px] rounded-lg text-sm text-stone-800 text-left hover:bg-stone-100 active:bg-stone-100"
                         },
                         onclick: move |_| {
+                            actions_open.set(false);
                             if copied() {
                                 return;
                             }
@@ -144,6 +167,8 @@ pub fn BotBubble(
                         } else {
                             IconCopy { size: 12 }
                             "{copy_label}"
+                        }
+                    }
                         }
                     }
                 }

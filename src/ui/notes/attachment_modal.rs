@@ -19,7 +19,7 @@ pub fn AttachmentModal() -> Element {
             onclick: move |_| app.attachment_modal.set(None),
         }
         div {
-            class: "fixed inset-x-0 bottom-0 z-50 bg-warm-white rounded-t-2xl shadow-lg flex flex-col",
+            class: "fixed inset-x-0 bottom-0 z-50 bg-warm-white rounded-t-2xl shadow-menu flex flex-col",
             style: "max-height: 85vh; animation: slideInUp 0.2s ease-out;",
             div { class: "flex items-center justify-between px-4 py-3 border-b border-stone-100",
                 div { class: "flex-1 min-w-0",

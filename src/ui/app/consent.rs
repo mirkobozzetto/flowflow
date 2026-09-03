@@ -26,7 +26,7 @@ pub fn ConsentScreen() -> Element {
                     alt: "FlowFlow",
                 }
 
-                div { class: "relative bg-warm-white rounded-2xl border border-stone-200/60 p-5 mt-8 max-w-[320px] w-full",
+                div { class: "relative bg-warm-white rounded-xl border border-stone-200/60 p-5 mt-8 max-w-[320px] w-full",
                     svg {
                         class: "absolute -top-2 -right-2 text-ios-orange opacity-40",
                         width: "24",

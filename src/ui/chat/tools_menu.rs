@@ -16,7 +16,7 @@ const LEAD_TILE: &str = "w-7 h-7 shrink-0 flex items-center justify-center round
 pub(crate) const ROW_TITLE: &str = "text-sm font-medium text-stone-800";
 pub(crate) const ROW_SUB: &str = "text-xs text-stone-400";
 pub(crate) const SECTION: &str =
-    "px-3 py-2 text-xs font-medium text-stone-400 uppercase tracking-wide";
+    "px-3 py-2 text-xs font-medium text-stone-400 uppercase tracking-[0.08em]";
 pub(crate) const SEP: &str = "h-px bg-stone-200 mx-3 my-2";
 // Kept for the parked connector rows (Gmail, Calendar "Connect" pill).
 #[allow(dead_code)]
@@ -52,7 +52,7 @@ pub fn ToolsMenu() -> Element {
     } else {
         rsx! {
             div { class: "fixed inset-0 z-30", onclick: close }
-            div { class: "absolute bottom-full left-0 mb-2 w-80 z-40 bg-warm-white border border-stone-200 rounded-xl shadow-lg p-2 popover-pop",
+            div { class: "absolute bottom-full left-0 mb-2 w-80 z-40 bg-warm-white border border-stone-200 rounded-xl shadow-menu p-2 popover-pop",
                 ToolsMenuBody {}
             }
         }

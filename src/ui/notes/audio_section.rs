@@ -141,11 +141,11 @@ pub fn AudioSection(
                 let count = audios.len().to_string();
                 let audio_label = t_args(&lang, "note-audios-label", &[("count", &count)]);
                 rsx! {
-                    div { class: "mt-3",
+                    div { class: "border-t border-stone-200/70 mt-4 pt-3",
                         button {
-                            class: "flex items-center gap-2 w-full py-2 text-left active:opacity-70 hover:opacity-70 transition-opacity duration-150",
+                            class: "pressable flex items-center gap-2 w-full min-h-[44px] text-left",
                             onclick: move |_| audios_expanded.set(!audios_expanded()),
-                            span { class: "text-xs font-medium text-stone-500", "{audio_label}" }
+                            span { class: "text-xs font-medium text-stone-400 uppercase tracking-[0.08em]", "{audio_label}" }
                             span {
                                 class: "inline-block w-1.5 h-1.5 border-r-[1.5px] border-b-[1.5px] border-stone-400 chevron-pivot",
                                 class: if audios_expanded() { "-rotate-[135deg]" } else { "rotate-45" },

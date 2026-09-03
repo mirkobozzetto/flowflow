@@ -15,11 +15,43 @@ use crate::ui::thread::ThreadDetail;
 use crate::ui::{AppState, View};
 use dioxus::prelude::*;
 
+const SPLASH_HOLD_MS: u64 = 850;
+const SPLASH_FADE_MS: u64 = 350;
+
 #[component]
 pub fn AppRouter(index_rebuilding: Signal<bool>) -> Element {
     let app = use_context::<AppState>();
+    let mut splash_visible = use_signal(|| true);
+    let mut splash_fading = use_signal(|| false);
+    use_effect(move || {
+        spawn(async move {
+            futures_timer::Delay::new(std::time::Duration::from_millis(
+                SPLASH_HOLD_MS,
+            ))
+            .await;
+            splash_fading.set(true);
+            futures_timer::Delay::new(std::time::Duration::from_millis(
+                SPLASH_FADE_MS,
+            ))
+            .await;
+            splash_visible.set(false);
+        });
+    });
+
     rsx! {
         div { class: "h-screen w-full overflow-hidden font-sans bg-stone-100 lg:flex lg:flex-row",
+            if splash_visible() {
+                div {
+                    class: "splash-overlay fixed inset-0 z-[100] bg-warm-white flex items-center justify-center transition-opacity",
+                    class: if splash_fading() { "opacity-0" } else { "opacity-100" },
+                    style: format!("transition-duration: {SPLASH_FADE_MS}ms;"),
+                    img {
+                        src: asset!("/assets/flowflow-icon-300.png"),
+                        class: "splash-mark w-24 h-24 object-contain",
+                        alt: "FlowFlow",
+                    }
+                }
+            }
             SidebarOverlay {}
             RightNav {}
             AttachmentModal {}

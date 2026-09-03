@@ -2,6 +2,7 @@ use crate::application::i18n::{t, t_args};
 use crate::domain::{Note, NoteType, Thread};
 use crate::infrastructure::persistence::Database;
 use crate::ui::icons::*;
+use crate::ui::notes::dates::feed_group_label;
 use crate::ui::notes::note_card::NoteCard;
 use crate::ui::notes::search_filters::SearchFilters;
 use crate::ui::thread::ThreadCard;
@@ -187,6 +188,15 @@ pub fn NotesList() -> Element {
         )
     });
 
+    let mut grouped: Vec<(String, Vec<FeedItem>)> = Vec::new();
+    for item in notes().into_iter().take(visible_count()) {
+        let label = feed_group_label(item.recency(), &lang);
+        if grouped.last().is_none_or(|(current, _)| current != &label) {
+            grouped.push((label, Vec::new()));
+        }
+        grouped.last_mut().expect("group exists").1.push(item);
+    }
+
     rsx! {
         if read_only() {
             div { class: "mb-3 px-3 py-2 rounded-xl bg-stone-100 text-xs text-stone-500",
@@ -219,10 +229,14 @@ pub fn NotesList() -> Element {
         if notes().is_empty() {
             div { class: "flex-1 flex flex-col items-center justify-center gap-2 h-[60vh]",
                 if narrowed {
-                    p { class: "text-lg text-stone-400", {t(&lang, "note-list-no-results")} }
-                    p { class: "text-sm text-stone-400", {t(&lang, "note-list-no-results-hint")} }
+                    div { class: "w-12 h-12 rounded-xl bg-ios-orange-50 text-ios-orange flex items-center justify-center mb-1",
+                        IconMagnifyingGlass { size: 22 }
+                    }
+                    p { class: "text-[15px] font-semibold text-stone-900", {t(&lang, "note-list-no-results")} }
+                    p { class: "text-[13px] text-stone-500 text-center", {t(&lang, "note-list-no-results-hint")} }
+
                 } else {
-                    img { src: asset!("/assets/flowflow-icon-300.png"), width: "200", height: "200", class: "mb-6 rounded-2xl" }
+                    img { src: asset!("/assets/flowflow-icon-300.png"), width: "120", height: "120", class: "mb-6 object-contain" }
                     p { class: "text-lg font-semibold text-stone-900", {t(&lang, "note-list-welcome")} }
                     p { class: "text-sm text-stone-400 mt-1", {t(&lang, "note-list-first-note-hint")} }
                 }
@@ -232,13 +246,20 @@ pub fn NotesList() -> Element {
             // card reads as picked up. Visual only: the outside-click catcher is
             // the global row-menu backdrop.
             if matches!((app.row_menu)(), Some(RowMenu::Note(_))) {
-                div { class: "absolute inset-0 z-10 bg-black/35 pointer-events-none backdrop-fade" }
+                div { class: "absolute inset-0 z-10 bg-stone-900/20 pointer-events-none backdrop-fade" }
             }
-            div { class: "safe-pb-32 lg:grid lg:grid-cols-2 lg:gap-2.5",
-                for item in notes().into_iter().take(visible_count()) {
-                    match item {
-                        FeedItem::Note(note) => rsx! { NoteCard { key: "{note.id}", note: note } },
-                        FeedItem::Thread(thread) => rsx! { ThreadCard { key: "{thread.id}", thread: thread } },
+            div { class: "safe-pb-32",
+                for (label, items) in grouped {
+                    section { class: "mb-5 lg:grid lg:grid-cols-2 lg:gap-2.5",
+                        h2 { class: "col-span-full mb-2 px-1 text-xs font-medium text-stone-400 uppercase tracking-[0.08em]",
+                            "{label}"
+                        }
+                        for item in items {
+                            match item {
+                                FeedItem::Note(note) => rsx! { NoteCard { key: "{note.id}", note: note } },
+                                FeedItem::Thread(thread) => rsx! { ThreadCard { key: "{thread.id}", thread: thread } },
+                            }
+                        }
                     }
                 }
             }

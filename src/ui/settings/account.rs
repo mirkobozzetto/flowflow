@@ -343,7 +343,7 @@ pub fn AccountSettings() -> Element {
                                 }
                             }
                         }
-                        div { class: "flex items-center gap-2 px-4 py-2.5 bg-stone-100/50 border-t border-stone-100",
+                        div { class: "flex items-center gap-2 px-4 py-2.5 bg-stone-100/50 border-t border-stone-200/70",
                             span { class: "text-[10px] font-medium text-stone-400 uppercase tracking-wide shrink-0",
                                 {t(&lang, "account-id-label")}
                             }

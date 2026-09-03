@@ -49,9 +49,9 @@ pub fn IntelligenceSettings() -> Element {
             }
             div {
                 class: if chatgpt_selected() {
-                    "rounded-2xl border border-ios-orange-100 bg-warm-white p-4 shadow-sm"
+                    "rounded-xl border border-ios-orange-100 bg-warm-white p-4 shadow-card"
                 } else {
-                    "rounded-2xl border border-stone-200 bg-warm-white p-4"
+                    "rounded-xl border border-stone-200 bg-warm-white p-4"
                 },
                 div { class: "flex min-w-0 items-center gap-3",
                     div { class: "grid h-11 w-11 shrink-0 place-items-center rounded-xl border border-stone-200 bg-white text-stone-900",
@@ -152,7 +152,7 @@ pub fn IntelligenceSettings() -> Element {
                 }
 
                 if let ConnectionState::Pending(login) = connection() {
-                    div { class: "mt-3 space-y-2 border-t border-stone-100 pt-3",
+                    div { class: "mt-3 space-y-2 border-t border-stone-200/70 pt-3",
                         p { class: "text-sm text-stone-600",
                             {t(&lang, "settings-chatgpt-code-hint")}
                         }
@@ -187,7 +187,7 @@ pub fn IntelligenceSettings() -> Element {
             p { class: "pt-2 text-xs font-medium uppercase tracking-wide text-stone-400",
                 {t(&lang, "settings-memory-search-title")}
             }
-            div { class: "rounded-2xl border border-stone-200 bg-warm-white p-4",
+            div { class: "rounded-xl border border-stone-200 bg-warm-white p-4",
                 div { class: "flex min-w-0 items-center gap-3",
                     div { class: "grid h-11 w-11 shrink-0 place-items-center rounded-xl border border-stone-200 bg-white text-stone-900",
                         OpenAiLogo {}

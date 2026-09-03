@@ -2,7 +2,7 @@ use crate::application::i18n::t;
 use crate::domain::{generate_auto_title, ChatScope, NewTextNote, Note};
 use crate::infrastructure::audio::{AudioRecorder, RecordingState};
 use crate::infrastructure::persistence::Database;
-use crate::ui::icons::{IconChatAi, IconMic, IconPlus};
+use crate::ui::icons::{IconCardsThree, IconChatAi, IconMic, IconPlus};
 use crate::ui::thread::header_menu::ThreadHeaderMenu;
 use crate::ui::{AppState, SidebarTab, View};
 use dioxus::prelude::*;
@@ -113,8 +113,11 @@ pub fn ThreadDetail() -> Element {
         }
         div { class: "flex-1 overflow-y-auto px-4 pt-4 safe-pb-32 lg:px-[max(1rem,calc((100%-48rem)/2))]",
             if notes().is_empty() {
-                div { class: "flex flex-col items-center justify-center gap-2 h-[40vh]",
-                    p { class: "text-stone-400 text-sm", {t(&lang, "thread-empty")} }
+                div { class: "flex flex-col items-center justify-center gap-2 h-[40vh] text-center",
+                    div { class: "w-12 h-12 rounded-xl bg-ios-orange-50 text-ios-orange flex items-center justify-center mb-1",
+                        IconCardsThree { size: 22 }
+                    }
+                    p { class: "text-[15px] font-semibold text-stone-900", {t(&lang, "thread-empty")} }
                 }
             } else {
                 div {

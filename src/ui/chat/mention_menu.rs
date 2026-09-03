@@ -95,7 +95,7 @@ pub fn MentionMenu(
     let empty = results.in_scope.is_empty() && results.others.is_empty();
 
     rsx! {
-        div { class: "absolute bottom-full left-2 right-2 lg:left-0 lg:right-auto lg:w-80 mb-2 z-40 max-h-72 overflow-y-auto bg-warm-white border border-stone-200 rounded-xl shadow-lg p-2 popover-pop",
+        div { class: "absolute bottom-full left-2 right-2 lg:left-0 lg:right-auto lg:w-80 mb-2 z-40 max-h-72 overflow-y-auto bg-warm-white border border-stone-200 rounded-xl shadow-menu p-2 popover-pop",
             div { class: SECTION, {t(&lang, "chat-tools-section-tools")} }
             button {
                 class: ROW,

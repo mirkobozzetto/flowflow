@@ -17,17 +17,9 @@ pub fn ThreadCard(thread: Thread) -> Element {
     let members = db().list_thread_notes(&thread.id).unwrap_or_default();
     let preview = members
         .last()
-        .map(|n| {
-            if n.content.chars().count() > 120 {
-                format!(
-                    "{}...",
-                    crate::application::ai::char_prefix(&n.content, 120)
-                )
-            } else {
-                n.content.clone()
-            }
-        })
+        .map(|note| crate::application::ai::plain_preview(&note.content))
         .unwrap_or_default();
+    let member_count = members.len();
 
     let has_web = members.iter().any(|n| n.sources_json.is_some());
     let has_audio = members.iter().any(|n| db().has_any_audio(&n.id));
@@ -50,17 +42,17 @@ pub fn ThreadCard(thread: Thread) -> Element {
 
     rsx! {
         div { class: "relative mb-3 break-inside-avoid lg:mb-0 lg:h-full lg:flex lg:flex-col",
-            div { class: "absolute inset-x-0 top-3 h-full bg-warm-white border border-stone-200 rounded-xl scale-x-[0.90] opacity-30 shadow-sm" }
-            div { class: "absolute inset-x-0 top-1.5 h-full bg-warm-white border border-stone-200 rounded-xl scale-x-[0.95] opacity-60 shadow-sm" }
+            div { class: "absolute inset-x-0 top-3 h-full bg-stone-200/60 border border-stone-200 rounded-xl scale-x-[0.92] shadow-card" }
+            div { class: "absolute inset-x-0 top-1.5 h-full bg-stone-50 border border-stone-200 rounded-xl scale-x-[0.96] shadow-card" }
             div {
-                class: "relative lg:flex-1 bg-warm-white p-4 border border-stone-200 rounded-xl cursor-pointer break-inside-avoid hover:border-stone-300 hover:shadow-sm transition-all duration-150",
+                class: "relative lg:flex-1 bg-warm-white p-4 border border-stone-200 rounded-xl cursor-pointer break-inside-avoid shadow-card hover:border-stone-300 hover:shadow-lift hover:-translate-y-px transition-[box-shadow,transform,border-color] duration-180",
                 onclick: move |_| {
                     app.show_folder_picker.set(false);
                     app.previous_view.set(Some(View::NotesList));
                     app.view.set(View::ThreadDetail { thread_id: tid.clone() });
                 },
                 div { class: "flex justify-between items-center mb-2",
-                    h3 { class: "font-semibold text-base text-stone-900", "{title}" }
+                    h3 { class: "font-semibold text-base tracking-[-0.01em] text-stone-900", "{title}" }
                     div { class: "flex items-center gap-1.5 shrink-0",
                         if has_web {
                             span { class: "text-ios-orange-dark", IconArrowUpRight { size: 14 } }
@@ -74,13 +66,16 @@ pub fn ThreadCard(thread: Thread) -> Element {
                     }
                 }
                 if !preview.is_empty() {
-                    p { class: "text-stone-600 text-sm mb-2 line-clamp-2", "{preview}" }
+                    p { class: "text-stone-600 text-sm lg:text-[15px] mb-2 line-clamp-2", "{preview}" }
                 }
                 div { class: "flex items-center gap-2",
-                    span { class: "text-stone-500 text-xs", "{date}" }
+                    span { class: "text-stone-500 text-xs tabular-nums", "{date}" }
                     if let Some(ref tname) = theme {
-                        span { class: "text-xs text-stone-400", "·" }
+                        span { class: "w-1 h-1 rounded-full bg-stone-300", aria_hidden: "true" }
                         span { class: "text-xs text-ios-orange-dark", "{tname}" }
+                    }
+                    span { class: "ml-auto min-w-6 h-6 px-1.5 rounded-full bg-stone-100 text-stone-500 text-xs font-medium tabular-nums flex items-center justify-center",
+                        "{member_count}"
                     }
                 }
             }

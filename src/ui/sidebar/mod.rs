@@ -109,7 +109,23 @@ pub fn SidebarOverlay() -> Element {
                 app.row_menu.set(None);
             },
 
+            button {
+                class: "h-[68px] shrink-0 flex items-center gap-2.5 px-5 border-b border-stone-200 text-left hover:bg-stone-50 transition-colors duration-150",
+                onclick: move |_| {
+                    app.sidebar_tab.set(SidebarTab::Notes);
+                    app.selected_folder_id.set(None);
+                    app.sidebar_open.set(false);
+                    navigate_with_slide(app, View::NotesList);
+                },
+                img {
+                    src: asset!("/assets/flowflow-icon-300.png"),
+                    class: "w-6 h-6 object-contain",
+                    alt: "",
+                }
+                span { class: "text-[15px] font-semibold tracking-[-0.01em] text-stone-900", "FlowFlow" }
+            }
             div { class: "relative flex border-b border-stone-200 lg:h-[68px]",
+
                 button {
                     class: if (app.sidebar_tab)() == SidebarTab::Notes {
                         "flex-1 flex items-center justify-center py-3 text-sm font-semibold text-ios-orange-dark transition-colors duration-200"
@@ -166,7 +182,11 @@ pub fn SidebarOverlay() -> Element {
                                 {t(&lang, "sidebar-new-note")}
                             }
                             button {
-                                class: "flex items-center gap-2.5 w-full px-2 py-3 text-base text-stone-900 font-semibold rounded-lg min-h-[44px] hover:bg-stone-100 transition-colors duration-150",
+                                class: if (app.selected_folder_id)().is_none() && matches!((app.view)(), View::NotesList) {
+                                    "flex items-center gap-2.5 w-full px-2 py-3 text-base font-semibold text-ios-orange-dark bg-ios-orange-50 rounded-lg min-h-[44px]"
+                                } else {
+                                    "flex items-center gap-2.5 w-full px-2 py-3 text-base text-stone-900 font-semibold rounded-lg min-h-[44px] hover:bg-stone-100 transition-colors duration-150"
+                                },
                                 onclick: move |_| {
                                     app.selected_folder_id.set(None);
                                     app.sidebar_open.set(false);
@@ -176,7 +196,7 @@ pub fn SidebarOverlay() -> Element {
                                 {t(&lang, "sidebar-all-notes")}
                             }
                         }
-                        div { class: "h-px bg-stone-200 mb-3" }
+                        div { class: "border-t border-stone-200/70 mb-3" }
                         FolderSection {}
                     },
                     SidebarTab::Chats => rsx! {

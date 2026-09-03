@@ -11,7 +11,7 @@ use dioxus::prelude::*;
 pub fn ActionResultCard(text: String) -> Element {
     rsx! {
         div {
-            class: "mt-2 p-3 bg-warm-white border border-ios-orange/30 rounded-xl flex items-start gap-2.5",
+            class: "mt-2 p-3 bg-warm-white border border-stone-200 rounded-xl flex items-start gap-2.5",
             span { class: "shrink-0 mt-0.5 text-ios-orange-dark",
                 IconCheck { size: 18 }
             }

@@ -53,6 +53,15 @@
         transform 0.2s ease;
 }
 
+.pressable {
+    transition-property: color, background-color, border-color, opacity, transform;
+    transition-duration: 120ms;
+    transition-timing-function: var(--ease-soft);
+}
+.pressable:not(:disabled):active {
+    transform: scale(0.98);
+}
+
 .menu-pop {
     animation: popIn 0.16s ease-out;
     transform-origin: top right;
@@ -63,9 +72,7 @@
 .menu-anchor {
     animation: popAnchor 0.19s cubic-bezier(0.2, 0.9, 0.25, 1.15);
     transform-origin: top left;
-    box-shadow:
-        0 18px 40px -12px rgba(28, 25, 23, 0.28),
-        0 4px 10px -4px rgba(28, 25, 23, 0.14);
+    box-shadow: var(--shadow-menu);
 }
 @keyframes popAnchor {
     from {
@@ -96,16 +103,30 @@
 
 .fab-btn {
     position: relative;
-    width: 96px;
-    height: 96px;
+    width: 72px;
+    height: 72px;
     border-radius: 9999px;
     background: var(--color-warm-white);
     border: 1.5px solid var(--color-ios-orange-100);
-    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.07);
+    box-shadow: var(--shadow-lift);
     display: flex;
     align-items: center;
     justify-content: center;
-    transition: transform 0.25s cubic-bezier(0.2, 0.8, 0.2, 1);
+    gap: 8px;
+    transition: transform 0.25s var(--ease-soft);
+}
+.fab-label {
+    display: none;
+}
+@media (width >= 64rem) {
+    .fab-btn {
+        width: auto;
+        height: 48px;
+        padding-inline: 20px;
+    }
+    .fab-label {
+        display: inline;
+    }
 }
 .fab-btn:active,
 .fab-pressing {
@@ -117,7 +138,7 @@
 }
 .fab-btn line {
     stroke: var(--color-ios-orange);
-    stroke-width: 4.5;
+    stroke-width: 4;
     stroke-linecap: round;
 }
 .fab-plus-h,
@@ -151,6 +172,18 @@
 }
 
 @theme {
+    --radius-md: 0.625rem;
+    --radius-lg: 0.625rem;
+    --radius-xl: 0.75rem;
+    --radius-2xl: 1rem;
+    --ease-soft: cubic-bezier(0.2, 0.8, 0.2, 1);
+    --shadow-card: 0 1px 2px rgba(28, 25, 23, 0.06);
+    --shadow-lift:
+        0 1px 2px rgba(28, 25, 23, 0.06),
+        0 8px 24px -12px rgba(28, 25, 23, 0.18);
+    --shadow-menu:
+        0 18px 40px -12px rgba(28, 25, 23, 0.28),
+        0 4px 10px -4px rgba(28, 25, 23, 0.14);
     --color-ios-green: #34c759;
     --color-ios-red: oklch(0.55 0.2 30);
     --color-ios-red-dark: oklch(0.46 0.16 30);
@@ -160,6 +193,41 @@
     --color-ios-orange: oklch(0.60 0.22 50);
     --color-ios-orange-dark: oklch(0.48 0.16 50);
     --color-warm-white: oklch(0.99 0.005 50);
+}
+
+:where(button, a, input, textarea, select, [tabindex]:not([tabindex="-1"])):focus-visible {
+    outline: 3px solid var(--color-ios-orange-50);
+    outline-offset: 0;
+}
+.note-title-field:focus-visible,
+.note-content-field:focus-visible {
+    outline: none;
+}
+.splash-mark {
+    animation: splash-mark-enter 650ms var(--ease-soft) both;
+}
+
+@keyframes splash-mark-enter {
+    from {
+        opacity: 0;
+        transform: scale(0.2);
+    }
+    to {
+        opacity: 1;
+        transform: scale(2.5);
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+        animation-duration: 0.01ms !important;
+        animation-iteration-count: 1 !important;
+        scroll-behavior: auto !important;
+        transition-property: color, background-color, border-color, opacity !important;
+        transition-duration: 0.01ms !important;
+    }
 }
 
 @layer base {
@@ -175,6 +243,7 @@
     textarea {
         -webkit-user-select: text;
         user-select: text;
+        caret-color: var(--color-ios-orange);
     }
     /* Opt back into text selection + the native long-press Copy menu, which the global
        reset above disables app-wide. For debug/log blocks the user needs to copy. */

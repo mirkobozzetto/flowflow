@@ -117,13 +117,19 @@ pub fn FolderSection() -> Element {
             }
         }
         if folders().is_empty() && !creating() {
-            p { class: "text-xs text-stone-400 px-2 py-3", {t(&lang, "sidebar-no-folders")} }
+            div { class: "mx-2 py-4 flex flex-col items-center text-center",
+                div { class: "w-12 h-12 rounded-xl bg-ios-orange-50 text-ios-orange flex items-center justify-center mb-2",
+                    IconFolder { size: 22 }
+                }
+                p { class: "text-[13px] text-stone-500", {t(&lang, "sidebar-no-folders")} }
+            }
+
         }
         for folder in folders() {
             FolderItem { key: "{folder.id}", folder: folder, depth: 0 }
         }
         if !spaces().is_empty() {
-            div { class: "h-px bg-stone-200 my-3" }
+            div { class: "border-t border-stone-200/70 my-3" }
             div { class: "flex items-center gap-1.5 px-2 mb-1 {kit::SECTION_LABEL}",
                 IconUsersThree { size: 14 }
                 {t(&lang, "sidebar-collab-title")}
@@ -132,7 +138,7 @@ pub fn FolderSection() -> Element {
         for (i, space) in spaces().into_iter().enumerate() {
             div { key: "{space.id}",
                 if i > 0 {
-                    div { class: "h-px bg-stone-200 my-2 ml-7" }
+                    div { class: "border-t border-stone-200/70 my-2 ml-7" }
                 }
                 super::space_section::SpaceSection { space: space }
             }
@@ -307,13 +313,13 @@ pub(super) fn FolderItem(folder: Folder, depth: u32) -> Element {
 
     // Expansion lives in AppState so the tree survives drawer close/reopen.
     let is_expanded = (app.expanded_folders)().contains(&folder.id);
-    let mut toggle_expanded = move || {
+    let toggle_expanded = use_callback(move |_: ()| {
         let mut set = (app.expanded_folders)();
         if !set.remove(&folder_id_for_toggle) {
             set.insert(folder_id_for_toggle.clone());
         }
         app.expanded_folders.set(set);
-    };
+    });
 
     let note_count = use_memo(move || {
         let _f = (app.folders_version)();
@@ -387,19 +393,29 @@ pub(super) fn FolderItem(folder: Folder, depth: u32) -> Element {
                     if has_children {
                         button {
                             class: "min-w-[28px] min-h-[44px] flex items-center justify-center hover:opacity-70 transition-opacity duration-150",
-                            onclick: move |_| toggle_expanded(),
-                            div {
-                                class: "w-1.5 h-1.5 border-r-2 border-b-2 border-stone-400 chevron-pivot",
-                                class: if is_expanded { "rotate-45" } else { "-rotate-45" },
+                            onclick: move |evt| {
+                                evt.stop_propagation();
+                                toggle_expanded(());
+                            },
+                            span {
+                                class: "text-stone-400 transition-transform duration-150",
+                                class: if is_expanded { "rotate-90" } else { "rotate-0" },
+                                IconCaretRight { size: 14 }
                             }
                         }
                     } else {
                         div { class: "w-7 min-w-[28px]" }
                     }
                     button {
-                        class: "flex-1 flex items-center gap-2 text-left px-2 py-2.5 text-sm text-stone-900 rounded-lg min-h-[44px] hover:bg-stone-100 transition-colors duration-150",
-                        class: if is_selected { "bg-stone-100" },
+                        class: if is_selected {
+                            "flex-1 flex items-center gap-2 text-left px-2 py-2.5 text-sm font-medium text-ios-orange-dark bg-ios-orange-50 rounded-lg min-h-[44px]"
+                        } else {
+                            "flex-1 flex items-center gap-2 text-left px-2 py-2.5 text-sm text-stone-900 rounded-lg min-h-[44px] hover:bg-stone-100 transition-colors duration-150"
+                        },
                         onclick: move |_| {
+                            if has_children {
+                                toggle_expanded(());
+                            }
                             app.selected_folder_id.set(Some(folder_id_nav.clone()));
                             app.sidebar_open.set(false);
                             crate::ui::sidebar::navigate_with_slide(app, View::NotesList);
@@ -412,7 +428,7 @@ pub(super) fn FolderItem(folder: Folder, depth: u32) -> Element {
                             }
                         }
                         if note_count() > 0 {
-                            span { class: "shrink-0 text-xs text-stone-400", "{note_count}" }
+                            span { class: "shrink-0 text-xs text-stone-400 tabular-nums", "{note_count}" }
                         }
                     }
                     button {
