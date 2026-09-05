@@ -307,7 +307,7 @@ pub async fn query(
 
     // Set when a date range matched nothing and was waived, so the answer can say
     // the period was empty rather than present off-period notes as on-period.
-    let mut period_empty = false;
+    let period_empty;
     let results: Vec<SearchResult> = if web_on {
         if let Some(ref tx) = status_tx {
             let _ = tx.send(ToolEvent::Started("web_search".into()));

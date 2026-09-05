@@ -2,8 +2,6 @@ pub const BTN_PRIMARY: &str = "pressable w-full min-h-[44px] flex items-center j
 
 pub const BTN_HERO: &str = "pressable w-full min-h-[52px] flex items-center justify-center rounded-xl bg-ios-orange text-white text-[15px] font-semibold hover:bg-ios-orange-dark";
 
-pub const BTN_SUCCESS: &str = "pressable w-full min-h-[44px] flex items-center justify-center rounded-xl bg-ios-green text-white text-sm font-medium hover:opacity-90";
-
 pub const CONFIRM_BTN_PRIMARY: &str = "pressable flex-1 h-9 flex items-center justify-center rounded-lg bg-ios-orange text-white text-sm font-medium hover:bg-ios-orange-dark";
 
 pub const CONFIRM_BTN_GHOST: &str = "pressable flex-1 h-9 flex items-center justify-center rounded-lg bg-stone-100 text-stone-900 text-sm font-medium hover:bg-stone-200 active:bg-stone-300";
