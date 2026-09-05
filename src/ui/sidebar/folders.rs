@@ -23,7 +23,7 @@ pub fn FolderSection() -> Element {
     let mut new_name = use_signal(String::new);
     let lang = (app.current_lang)();
 
-    // My own themes only: a shared theme is listed under its space, below.
+    // Shared themes are listed under their space, not among personal themes.
     let folders = use_memo(move || {
         let _v = (app.folders_version)();
         db().list_root_folders()
@@ -38,6 +38,23 @@ pub fn FolderSection() -> Element {
     });
 
     rsx! {
+        if !spaces().is_empty() {
+            div { class: "flex items-center gap-1.5 px-2 mb-1 {kit::SECTION_LABEL}",
+                IconUsersThree { size: 14 }
+                {t(&lang, "sidebar-collab-title")}
+            }
+        }
+        for (i, space) in spaces().into_iter().enumerate() {
+            div { key: "{space.id}",
+                if i > 0 {
+                    div { class: "border-t border-stone-200/70 my-2 ml-7" }
+                }
+                super::space_section::SpaceSection { space: space }
+            }
+        }
+        if !spaces().is_empty() {
+            div { class: "border-t border-stone-200/70 my-3" }
+        }
         div { class: "flex items-center justify-between px-2 mb-2",
             span { class: kit::SECTION_LABEL, {t(&lang, "sidebar-folders-title")} }
             button {
@@ -127,21 +144,6 @@ pub fn FolderSection() -> Element {
         }
         for folder in folders() {
             FolderItem { key: "{folder.id}", folder: folder, depth: 0 }
-        }
-        if !spaces().is_empty() {
-            div { class: "border-t border-stone-200/70 my-3" }
-            div { class: "flex items-center gap-1.5 px-2 mb-1 {kit::SECTION_LABEL}",
-                IconUsersThree { size: 14 }
-                {t(&lang, "sidebar-collab-title")}
-            }
-        }
-        for (i, space) in spaces().into_iter().enumerate() {
-            div { key: "{space.id}",
-                if i > 0 {
-                    div { class: "border-t border-stone-200/70 my-2 ml-7" }
-                }
-                super::space_section::SpaceSection { space: space }
-            }
         }
         super::join_link::JoinLink {}
     }
