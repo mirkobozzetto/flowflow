@@ -268,7 +268,8 @@ pub fn NoteDetail() -> Element {
             }
         }
         div {
-            class: "relative overflow-y-auto safe-pb-40 px-4 pt-3 lg:px-[max(1rem,calc((100%-48rem)/2))]",
+            // Match the recording bar: 48px controls, vertical padding and its 1px border.
+            class: "relative overflow-y-auto pb-[calc(4rem+1px+env(safe-area-inset-bottom))] lg:pb-[calc(5rem+1px)] px-4 pt-3 lg:px-[max(1rem,calc((100%-48rem)/2))]",
             style: "height: calc(100% - var(--keyboard-inset, 0px));",
             if updated_from_peer() {
                 button {
@@ -340,7 +341,7 @@ pub fn NoteDetail() -> Element {
                     }
                 }
             }
-            div { class: "sticky bottom-3 z-10 flex justify-end gap-1 mt-1 ml-auto w-fit h-10 px-1 rounded-full bg-warm-white border border-stone-200 shadow-card",
+            div { class: "sticky bottom-1 z-10 flex justify-end gap-1 mt-1 ml-auto w-fit h-10 px-1 rounded-full bg-warm-white border border-stone-200 shadow-card",
                 button {
                     class: "pressable flex items-center gap-1 min-h-[32px] px-2 rounded-full text-xs text-stone-400 hover:text-stone-600 hover:bg-stone-100 transition-colors duration-150",
                     onclick: move |_| editing.set(!editing()),
