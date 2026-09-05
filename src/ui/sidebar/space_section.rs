@@ -191,9 +191,9 @@ pub fn SpaceSection(space: Space) -> Element {
         div { class: "relative",
             div { class: "flex items-center justify-between pl-2 mb-1",
                 span { class: "flex items-center gap-1.5 min-w-0 text-sm font-semibold text-stone-700",
-                    span { class: "truncate", "{space.name}" }
+                    span { class: "min-w-0 line-clamp-2 [overflow-wrap:anywhere] lg:line-clamp-none lg:truncate", "{space.name}" }
                     if member_count > 0 {
-                        span { class: "text-xs font-normal text-stone-400", "· {member_count}" }
+                        span { class: "shrink-0 text-xs font-normal text-stone-400", "· {member_count}" }
                     }
                 }
                 div { class: "flex items-center shrink-0",
