@@ -23,7 +23,7 @@ pub fn FolderSection() -> Element {
     let mut new_name = use_signal(String::new);
     let lang = (app.current_lang)();
 
-    // My own themes only: a shared theme is listed under its space, below.
+    // Shared themes are listed under their space, not among personal themes.
     let folders = use_memo(move || {
         let _v = (app.folders_version)();
         db().list_root_folders()
@@ -38,6 +38,23 @@ pub fn FolderSection() -> Element {
     });
 
     rsx! {
+        if !spaces().is_empty() {
+            div { class: "flex items-center gap-1.5 px-2 mb-1 {kit::SECTION_LABEL}",
+                IconUsersThree { size: 14 }
+                {t(&lang, "sidebar-collab-title")}
+            }
+        }
+        for (i, space) in spaces().into_iter().enumerate() {
+            div { key: "{space.id}",
+                if i > 0 {
+                    div { class: "border-t border-stone-200/70 my-2 ml-7" }
+                }
+                super::space_section::SpaceSection { space: space }
+            }
+        }
+        if !spaces().is_empty() {
+            div { class: "border-t border-stone-200/70 my-3" }
+        }
         div { class: "flex items-center justify-between px-2 mb-2",
             span { class: kit::SECTION_LABEL, {t(&lang, "sidebar-folders-title")} }
             button {
@@ -127,21 +144,6 @@ pub fn FolderSection() -> Element {
         }
         for folder in folders() {
             FolderItem { key: "{folder.id}", folder: folder, depth: 0 }
-        }
-        if !spaces().is_empty() {
-            div { class: "border-t border-stone-200/70 my-3" }
-            div { class: "flex items-center gap-1.5 px-2 mb-1 {kit::SECTION_LABEL}",
-                IconUsersThree { size: 14 }
-                {t(&lang, "sidebar-collab-title")}
-            }
-        }
-        for (i, space) in spaces().into_iter().enumerate() {
-            div { key: "{space.id}",
-                if i > 0 {
-                    div { class: "border-t border-stone-200/70 my-2 ml-7" }
-                }
-                super::space_section::SpaceSection { space: space }
-            }
         }
         super::join_link::JoinLink {}
     }
@@ -408,9 +410,9 @@ pub(super) fn FolderItem(folder: Folder, depth: u32) -> Element {
                     }
                     button {
                         class: if is_selected {
-                            "flex-1 flex items-center gap-2 text-left px-2 py-2.5 text-sm font-medium text-ios-orange-dark bg-ios-orange-50 rounded-lg min-h-[44px]"
+                            "flex-1 min-w-0 flex items-center gap-2 text-left px-2 py-2.5 text-sm font-medium text-ios-orange-dark bg-ios-orange-50 rounded-lg min-h-[44px]"
                         } else {
-                            "flex-1 flex items-center gap-2 text-left px-2 py-2.5 text-sm text-stone-900 rounded-lg min-h-[44px] hover:bg-stone-100 transition-colors duration-150"
+                            "flex-1 min-w-0 flex items-center gap-2 text-left px-2 py-2.5 text-sm text-stone-900 rounded-lg min-h-[44px] hover:bg-stone-100 transition-colors duration-150"
                         },
                         onclick: move |_| {
                             if has_children {
@@ -421,7 +423,7 @@ pub(super) fn FolderItem(folder: Folder, depth: u32) -> Element {
                             crate::ui::sidebar::navigate_with_slide(app, View::NotesList);
                         },
                         IconFolder { size: 16 }
-                        span { class: "flex-1 min-w-0 truncate", "{folder.name}" }
+                        span { class: "flex-1 min-w-0 line-clamp-2 [overflow-wrap:anywhere] lg:line-clamp-none lg:truncate", "{folder.name}" }
                         if right() == FolderRight::SpaceReadOnly {
                             span { class: "shrink-0 text-stone-400", title: t(&lang, "space-badge-readonly"),
                                 IconLockSimple { size: 14 }
@@ -432,7 +434,7 @@ pub(super) fn FolderItem(folder: Folder, depth: u32) -> Element {
                         }
                     }
                     button {
-                        class: "w-9 h-11 flex items-center justify-center text-stone-400 hover:text-stone-600 transition-all duration-150",
+                        class: "w-9 h-11 shrink-0 flex items-center justify-center text-stone-400 hover:text-stone-600 transition-all duration-150",
                         class: if menu_open {
                             "text-stone-600"
                         } else {

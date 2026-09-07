@@ -95,12 +95,13 @@ pub fn AppRouter(index_rebuilding: Signal<bool>) -> Element {
                     }
                     if let View::NoteDetail { note_id } = (app.view)() {
                         div {
+                            key: "{note_id}",
                             class: "absolute inset-0 flex flex-col min-h-0 bg-stone-100",
                             style: slide_style(Slide::Left, (app.sliding_out)()),
                             div { class: "w-full flex-1 flex flex-col min-h-0",
                                 // Keyed so note -> note navigation (related notes) remounts
                                 // the detail instead of keeping the previous note's state.
-                                NoteDetail { key: "{note_id}" }
+                                NoteDetail {}
                             }
                         }
                     }
