@@ -3,7 +3,7 @@ use crate::domain::flatten_tree;
 use crate::infrastructure::persistence::Database;
 use crate::infrastructure::sync::engine::SyncEngine;
 use crate::ui::icons::{IconArrowUpRight, IconCopy, IconFolder, IconTrash};
-use crate::ui::{kit, AppState, RowMenu};
+use crate::ui::{kit, AppState, NoteMenuPage, RowMenu};
 use dioxus::prelude::*;
 use std::sync::Arc;
 
@@ -73,11 +73,10 @@ pub fn NoteRowMenu() -> Element {
     let mut app: AppState = use_context();
     let db: Signal<Arc<Database>> = use_context();
     let engine: Signal<Arc<SyncEngine>> = use_context();
-    let mut confirm_delete = use_signal(|| false);
-    let mut moving = use_signal(|| false);
+
     let lang = (app.current_lang)();
 
-    let Some(RowMenu::Note(note_id)) = (app.row_menu)() else {
+    let Some(RowMenu::Note { note_id, page }) = (app.row_menu)() else {
         return rsx! {};
     };
 
@@ -115,13 +114,12 @@ pub fn NoteRowMenu() -> Element {
         div {
             class: "fixed overflow-y-auto {kit::MENU_PANEL_ANCHORED}",
             style: "{anchor}",
-            if moving() {
+            if page == NoteMenuPage::Move {
                 button {
                     class: kit::MENU_ITEM,
                     onclick: {
                         let id = id_root.clone();
                         move |_| {
-                            moving.set(false);
                             move_note(app, db, engine, id.clone(), None);
                         }
                     },
@@ -141,7 +139,6 @@ pub fn NoteRowMenu() -> Element {
                                 class: if is_current { "text-ios-orange-dark font-medium" } else { "" },
                                 style: "{indent}",
                                 onclick: move |_| {
-                                    moving.set(false);
                                     move_note(app, db, engine, nid.clone(), Some(fid.clone()));
                                 },
                                 IconFolder { size: 16 }
@@ -150,7 +147,7 @@ pub fn NoteRowMenu() -> Element {
                         }
                     }
                 }
-            } else if confirm_delete() {
+            } else if page == NoteMenuPage::ConfirmDelete {
                 div { class: "px-3 py-2.5",
                     p { class: "text-sm font-semibold text-stone-900 mb-0.5",
                         {t(&lang, "note-menu-delete-title")}
@@ -161,10 +158,7 @@ pub fn NoteRowMenu() -> Element {
                     div { class: "flex gap-2",
                         button {
                             class: kit::CONFIRM_BTN_GHOST,
-                            onclick: move |_| {
-                                confirm_delete.set(false);
-                                app.row_menu.set(None);
-                            },
+                            onclick: move |_| app.row_menu.set(None),
                             {t(&lang, "chat-menu-cancel")}
                         }
                         button {
@@ -177,7 +171,6 @@ pub fn NoteRowMenu() -> Element {
                                 let id = id_delete.clone();
                                 app.note_delete_pending.set(Some(id.clone()));
                                 app.note_delete_error.set(None);
-                                confirm_delete.set(false);
                                 app.row_menu.set(None);
                                 spawn(async move {
                                     let result = crate::application::note_persistence::delete_note(&db(), &id);
@@ -202,7 +195,10 @@ pub fn NoteRowMenu() -> Element {
                 p { class: "px-3 pt-1.5 pb-2 text-xs text-stone-400 truncate", "{title}" }
                 button {
                     class: kit::MENU_ITEM,
-                    onclick: move |_| moving.set(true),
+                    onclick: {
+                        let id = note_id.clone();
+                        move |_| app.row_menu.set(Some(RowMenu::Note { note_id: id.clone(), page: NoteMenuPage::Move }))
+                    },
                     IconFolder { size: 16 }
                     {t(&lang, "folder-menu-move")}
                 }
@@ -236,7 +232,7 @@ pub fn NoteRowMenu() -> Element {
                 div { class: kit::MENU_SEP }
                 button {
                     class: kit::MENU_ITEM_DANGER,
-                    onclick: move |_| confirm_delete.set(true),
+                    onclick: move |_| app.row_menu.set(Some(RowMenu::Note { note_id: id_delete.clone(), page: NoteMenuPage::ConfirmDelete })),
                     IconTrash { size: 16 }
                     {t(&lang, "note-menu-delete")}
                 }

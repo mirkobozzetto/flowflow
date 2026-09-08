@@ -51,8 +51,16 @@ impl SettingsSection {
 pub enum RowMenu {
     Conversation(String),
     Folder(String),
-    Note(String),
+    Note { note_id: String, page: NoteMenuPage },
     Space(String),
+}
+
+/// A note menu page belongs to the active selection and is discarded on close.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub enum NoteMenuPage {
+    Actions,
+    Move,
+    ConfirmDelete,
 }
 
 // The attribute toggles sitting in the notes search field. Additive: a note has

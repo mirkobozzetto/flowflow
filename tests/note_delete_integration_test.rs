@@ -10,7 +10,7 @@ pub mod delete_confirm;
 pub mod kit;
 mod ui {
     pub use super::{clipboard, delete_confirm, kit};
-    pub use flowflow::ui::{icons, AppState, RowMenu, View};
+    pub use flowflow::ui::{icons, AppState, NoteMenuPage, RowMenu, View};
 }
 #[path = "../src/ui/notes/menu.rs"]
 mod note_menu;
@@ -129,8 +129,10 @@ fn menu_host() -> Element {
             note_id: fixture.note_id.clone(),
         });
         app.show_note_menu.set(true);
-        app.row_menu
-            .set(Some(ui::RowMenu::Note(fixture.note_id.clone())));
+        app.row_menu.set(Some(ui::RowMenu::Note {
+            note_id: fixture.note_id.clone(),
+            page: ui::NoteMenuPage::Actions,
+        }));
         app
     });
     *fixture.state.borrow_mut() = Some(app);
@@ -387,10 +389,83 @@ async fn menu_confirmation_deletes_from_every_entry_point() {
     ui_failure_and_retry(&db, &engine).await;
     exit_animation_preserves_new_view(&db, &engine).await;
     sql_abort_and_retry(&db, &temp, &mut failures).await;
+    menu_reopens_cleanly(&db, &engine, &mut failures);
     assert!(
         failures.is_empty(),
         "Deletion contract violations: {failures:?}"
     );
+}
+
+fn menu_reopens_cleanly(
+    db: &Arc<Database>,
+    engine: &Arc<SyncEngine>,
+    failures: &mut Vec<String>,
+) {
+    let a = make_note(db);
+    let b = make_note(db);
+    let folder = db
+        .create_folder(&NewFolder {
+            name: "Retained folder".into(),
+            description: None,
+            parent_id: None,
+        })
+        .unwrap();
+    let thread = db
+        .create_thread(&NewThread {
+            title: "Unchanged thread".into(),
+            folder_id: Some(folder.id.clone()),
+        })
+        .unwrap();
+    for id in [&a, &b] {
+        db.add_note_to_folder(id, &folder.id).unwrap();
+        db.add_note_to_thread(id, &thread.id).unwrap();
+    }
+    for (page, button_index) in [("move", 0), ("delete", 3)] {
+        for target in [&a, &b] {
+            let mut setup = fixture(db, engine, &a);
+            setup.detail = false;
+            let observed = setup.state.clone();
+            let mut dom = mount(setup);
+            let initial = dom.rebuild_to_vec();
+            click(&dom, click_listeners(&initial)[button_index]);
+            dom.render_immediate_to_vec();
+            let mut app = observed.borrow().unwrap();
+            dom.in_runtime(|| app.row_menu.set(None));
+            dom.render_immediate_to_vec();
+            dom.in_runtime(|| {
+                app.row_menu.set(Some(ui::RowMenu::Note {
+                    note_id: target.clone(),
+                    page: ui::NoteMenuPage::Actions,
+                }))
+            });
+            let reopened = dom.render_immediate_to_vec();
+            let copy = application::i18n::t("en", "note-menu-copy");
+            let actions_visible = reopened.edits.iter().any(|edit| matches!(edit,
+                Mutation::CreateTextNode { value, .. } | Mutation::SetText { value, .. } if *value == copy
+            ));
+            println!("MENU RESET: abandoned={page}, same_note={}, actions_visible={actions_visible}", target == &a);
+            if !actions_visible {
+                failures.push(format!(
+                    "stale {page} page on reopen, same_note={}",
+                    target == &a
+                ));
+            }
+        }
+    }
+    for id in [&a, &b] {
+        assert_eq!(
+            db.get_note(id).unwrap().unwrap().thread_id.as_deref(),
+            Some(thread.id.as_str())
+        );
+        assert_eq!(
+            db.folders_for_note(id)
+                .unwrap()
+                .iter()
+                .map(|f| f.id.as_str())
+                .collect::<Vec<_>>(),
+            vec![folder.id.as_str()]
+        );
+    }
 }
 
 async fn delayed_revoke_navigation(
@@ -636,7 +711,10 @@ async fn ui_failure_and_retry(db: &Arc<Database>, engine: &Arc<SyncEngine>) {
             if detail {
                 app.show_note_menu.set(true);
             } else {
-                app.row_menu.set(Some(ui::RowMenu::Note(id.clone())));
+                app.row_menu.set(Some(ui::RowMenu::Note {
+                    note_id: id.clone(),
+                    page: ui::NoteMenuPage::Actions,
+                }));
             }
         });
         let opened = dom.render_immediate_to_vec();
