@@ -305,10 +305,15 @@ pub async fn align_kept_content(db: &Database) -> Vec<AlignmentEvent> {
                             .ok()
                             .flatten()
                             .and_then(|n| n.title);
-                        crate::application::note_persistence::delete_note(
-                            db, &p.note_id,
-                        );
-                        let _ = db.delete_provenance(&p.note_id);
+                        if let Err(error) =
+                            crate::application::note_persistence::delete_note(
+                                db, &p.note_id,
+                            )
+                        {
+                            // Keep provenance so the next alignment retries the deletion.
+                            eprintln!("[share] delete kept note: {error}");
+                            continue;
+                        }
                         events.push(AlignmentEvent::RemovedByAuthor {
                             note_title: title,
                         });

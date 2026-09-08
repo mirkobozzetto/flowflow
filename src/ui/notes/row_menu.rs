@@ -37,6 +37,33 @@ fn move_note(
     });
 }
 
+/// Root-owned feedback survives closing the menu that requested deletion.
+#[component]
+pub fn NoteDeleteStatus() -> Element {
+    let mut app: AppState = use_context();
+    let lang = (app.current_lang)();
+    rsx! {
+        if let Some(error) = (app.note_delete_error)() {
+            div {
+                role: "alert",
+                class: "flex items-center gap-3 border-b border-ios-red/40 bg-ios-red/5 px-4 py-2",
+                p { class: "flex-1 text-sm text-stone-900", "{error}" }
+                button {
+                    class: "min-h-[44px] px-2 text-sm text-ios-red-dark",
+                    onclick: move |_| app.note_delete_error.set(None),
+                    {t(&lang, "note-delete-dismiss")}
+                }
+            }
+        } else if (app.note_delete_pending)().is_some() {
+            p {
+                role: "status",
+                class: "px-4 py-2 text-sm text-stone-500",
+                {t(&lang, "note-delete-pending")}
+            }
+        }
+    }
+}
+
 /// Long-press sheet for a note in the list. Mounted ONCE at the app root, not
 /// per card: `#notes-scroll` carries a `transform`, which would contain a
 /// `fixed` child, and a menu living in the row's subtree gets orphaned when
@@ -143,15 +170,28 @@ pub fn NoteRowMenu() -> Element {
                         button {
                             class: kit::CONFIRM_BTN_DANGER,
                             onclick: move |_| {
-                                // Close this render pass, delete on the next task: the card
-                                // must never be torn down in the same patch as its own menu.
+                                if app.note_delete_pending.peek().is_some() {
+                                    return;
+                                }
+                                // Close this render pass; the root-mounted menu survives it.
                                 let id = id_delete.clone();
+                                app.note_delete_pending.set(Some(id.clone()));
+                                app.note_delete_error.set(None);
                                 confirm_delete.set(false);
                                 app.row_menu.set(None);
                                 spawn(async move {
-                                    crate::application::note_persistence::delete_note(&db(), &id);
-                                    engine.peek().schedule_debounced();
-                                    app.notes_version.set((app.notes_version)() + 1);
+                                    let result = crate::application::note_persistence::delete_note(&db(), &id);
+                                    app.note_delete_pending.set(None);
+                                    match result {
+                                        Ok(()) => {
+                                            engine.peek().schedule_debounced();
+                                            app.notes_version.set((app.notes_version)() + 1);
+                                        }
+                                        Err(error) => {
+                                            eprintln!("[note] delete: {error}");
+                                            app.note_delete_error.set(Some(t(&(app.current_lang)(), "note-delete-failed")));
+                                        }
+                                    }
                                 });
                             },
                             {t(&lang, "chat-menu-delete")}

@@ -19,8 +19,8 @@ use std::sync::Arc;
 
 mod hooks;
 use hooks::{
-    use_audio_import, use_auto_title, use_document_import, use_peer_merge,
-    use_save_on_drop, use_transcription_sink,
+    use_audio_import, use_auto_title, use_delete_exit, use_document_import,
+    use_peer_merge, use_save_on_drop, use_transcription_sink,
 };
 
 #[component]
@@ -115,22 +115,7 @@ pub fn NoteDetail() -> Element {
         updated_from_peer,
     );
 
-    use_effect(move || {
-        if deleted() {
-            app.sliding_out.set(true);
-            // spawn_forever: NoteDetail can unmount mid-delay (e.g. a sync-driven
-            // rerender); a cancelled scope task would leave sliding_out stuck true.
-            dioxus::core::spawn_forever(async move {
-                futures_timer::Delay::new(std::time::Duration::from_millis(
-                    150,
-                ))
-                .await;
-                app.sliding_out.set(false);
-                app.notes_version.set((app.notes_version)() + 1);
-                app.view.set(View::NotesList);
-            });
-        }
-    });
+    use_delete_exit(app, local_note_id, deleted);
 
     let attachments_version = (app.attachments_version)();
     let attachments: Vec<Attachment> = {

@@ -31,7 +31,7 @@ fn deleting_a_note_records_the_purge_intent() {
     let (_d, db) = db();
     let id = make_note(&db, "something worth embedding, long enough");
 
-    flowflow::application::note_persistence::delete_note(&db, &id);
+    flowflow::application::note_persistence::delete_note(&db, &id).unwrap();
 
     assert!(db.get_note(&id).unwrap().is_none());
     let pending = db.pending_purges().unwrap();
