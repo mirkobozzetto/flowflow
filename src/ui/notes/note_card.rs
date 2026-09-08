@@ -7,9 +7,9 @@ use dioxus::prelude::*;
 use std::sync::Arc;
 
 /// Finger travel, in CSS pixels, past which a press is a scroll, not a hold.
-const PRESS_SLOP: f64 = 10.0;
+pub(crate) const PRESS_SLOP: f64 = 10.0;
 /// How long a finger must stay down before the note action sheet opens.
-const LONG_PRESS_MS: u64 = 450;
+pub(crate) const LONG_PRESS_MS: u64 = 450;
 
 #[component]
 pub fn NoteCard(note: Note) -> Element {

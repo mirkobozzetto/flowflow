@@ -55,9 +55,7 @@ pub fn NoteDeleteStatus() -> Element {
                 }
             }
         } else if (app.note_delete_pending)().is_some() {
-            p {
-                role: "status",
-                class: "px-4 py-2 text-sm text-stone-500",
+            p { role: "status", class: "px-4 py-2 text-sm text-stone-500",
                 {t(&lang, "note-delete-pending")}
             }
         }
@@ -76,20 +74,31 @@ pub fn NoteRowMenu() -> Element {
 
     let lang = (app.current_lang)();
 
-    let Some(RowMenu::Note { note_id, page }) = (app.row_menu)() else {
-        return rsx! {};
+    let (note_id, page, source_thread) = match (app.row_menu)() {
+        Some(RowMenu::Note { note_id, page }) => (note_id, page, None),
+        Some(RowMenu::ThreadNote { note_id, thread_id }) => {
+            (note_id, NoteMenuPage::Actions, Some(thread_id))
+        }
+        _ => return rsx! {},
     };
+    let from_thread = source_thread.is_some();
 
     let _ = (app.notes_version)();
     let _ = (app.folders_version)();
     let Ok(Some(note)) = db().get_note(&note_id) else {
         return rsx! {};
     };
-    let folders = flatten_tree(&db().list_all_folders().unwrap_or_default());
-    let current_folder = db()
-        .folders_for_note(&note_id)
-        .ok()
-        .and_then(|f| f.first().map(|f| f.id.clone()));
+    let (folders, current_folder) = if page == NoteMenuPage::Move {
+        let folders =
+            flatten_tree(&db().list_all_folders().unwrap_or_default());
+        let current = db()
+            .folders_for_note(&note_id)
+            .ok()
+            .and_then(|f| f.first().map(|f| f.id.clone()));
+        (folders, current)
+    } else {
+        (Vec::new(), None)
+    };
 
     let title = note
         .title
@@ -182,7 +191,8 @@ pub fn NoteRowMenu() -> Element {
                                         }
                                         Err(error) => {
                                             eprintln!("[note] delete: {error}");
-                                            app.note_delete_error.set(Some(t(&(app.current_lang)(), "note-delete-failed")));
+                                            app.note_delete_error
+                                                .set(Some(t(&(app.current_lang)(), "note-delete-failed")));
                                         }
                                     }
                                 });
@@ -193,14 +203,25 @@ pub fn NoteRowMenu() -> Element {
                 }
             } else {
                 p { class: "px-3 pt-1.5 pb-2 text-xs text-stone-400 truncate", "{title}" }
-                button {
-                    class: kit::MENU_ITEM,
-                    onclick: {
-                        let id = note_id.clone();
-                        move |_| app.row_menu.set(Some(RowMenu::Note { note_id: id.clone(), page: NoteMenuPage::Move }))
-                    },
-                    IconFolder { size: 16 }
-                    {t(&lang, "folder-menu-move")}
+                if !from_thread {
+                    button {
+                        class: kit::MENU_ITEM,
+                        onclick: {
+                            let id = note_id.clone();
+                            move |_| {
+                                app
+                                    .row_menu
+                                    .set(
+                                        Some(RowMenu::Note {
+                                            note_id: id.clone(),
+                                            page: NoteMenuPage::Move,
+                                        }),
+                                    )
+                            }
+                        },
+                        IconFolder { size: 16 }
+                        {t(&lang, "folder-menu-move")}
+                    }
                 }
                 button {
                     class: kit::MENU_ITEM,
@@ -221,20 +242,40 @@ pub fn NoteRowMenu() -> Element {
                         move |_| {
                             app.row_menu.set(None);
                             app.share_request.set(Some(nid.clone()));
-                            app.view.set(crate::ui::View::NoteDetail {
-                                note_id: nid.clone(),
-                            });
+                            if let Some(thread_id) = source_thread.clone() {
+                                app.previous_view
+                                    .set(
+                                        Some(crate::ui::View::ThreadDetail {
+                                            thread_id,
+                                        }),
+                                    );
+                            }
+                            app.view
+                                .set(crate::ui::View::NoteDetail {
+                                    note_id: nid.clone(),
+                                });
                         }
                     },
                     IconArrowUpRight { size: 16 }
                     {t(&lang, "share-publish-note")}
                 }
-                div { class: kit::MENU_SEP }
-                button {
-                    class: kit::MENU_ITEM_DANGER,
-                    onclick: move |_| app.row_menu.set(Some(RowMenu::Note { note_id: id_delete.clone(), page: NoteMenuPage::ConfirmDelete })),
-                    IconTrash { size: 16 }
-                    {t(&lang, "note-menu-delete")}
+                if !from_thread {
+                    div { class: kit::MENU_SEP }
+                    button {
+                        class: kit::MENU_ITEM_DANGER,
+                        onclick: move |_| {
+                            app
+                                .row_menu
+                                .set(
+                                    Some(RowMenu::Note {
+                                        note_id: id_delete.clone(),
+                                        page: NoteMenuPage::ConfirmDelete,
+                                    }),
+                                )
+                        },
+                        IconTrash { size: 16 }
+                        {t(&lang, "note-menu-delete")}
+                    }
                 }
             }
         }

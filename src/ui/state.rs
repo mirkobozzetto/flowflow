@@ -52,6 +52,7 @@ pub enum RowMenu {
     Conversation(String),
     Folder(String),
     Note { note_id: String, page: NoteMenuPage },
+    ThreadNote { note_id: String, thread_id: String },
     Space(String),
 }
 

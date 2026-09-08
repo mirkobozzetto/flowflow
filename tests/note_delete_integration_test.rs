@@ -129,10 +129,13 @@ fn menu_host() -> Element {
             note_id: fixture.note_id.clone(),
         });
         app.show_note_menu.set(true);
-        app.row_menu.set(Some(ui::RowMenu::Note {
-            note_id: fixture.note_id.clone(),
-            page: ui::NoteMenuPage::Actions,
-        }));
+        app.row_menu
+            .set(try_consume_context::<ui::RowMenu>().or_else(|| {
+                Some(ui::RowMenu::Note {
+                    note_id: fixture.note_id.clone(),
+                    page: ui::NoteMenuPage::Actions,
+                })
+            }));
         app
     });
     *fixture.state.borrow_mut() = Some(app);
@@ -390,10 +393,110 @@ async fn menu_confirmation_deletes_from_every_entry_point() {
     exit_animation_preserves_new_view(&db, &engine).await;
     sql_abort_and_retry(&db, &temp, &mut failures).await;
     menu_reopens_cleanly(&db, &engine, &mut failures);
+    thread_menu_limits_actions_and_preserves_notes(&db, &engine);
     assert!(
         failures.is_empty(),
         "Deletion contract violations: {failures:?}"
     );
+}
+
+fn thread_menu_limits_actions_and_preserves_notes(
+    db: &Arc<Database>,
+    engine: &Arc<SyncEngine>,
+) {
+    let folder = db
+        .create_folder(&NewFolder {
+            name: "Context actions".into(),
+            description: None,
+            parent_id: None,
+        })
+        .unwrap();
+    let thread = db
+        .create_thread(&NewThread {
+            title: "Context actions".into(),
+            folder_id: Some(folder.id.clone()),
+        })
+        .unwrap();
+    let ids = ["First note", "Deuxième note"].map(|title| {
+        let note = db
+            .create_text_note(&NewTextNote {
+                title: Some(title.into()),
+                content:
+                    "Full Unicode body beyond the visible preview: éèàç中\n"
+                        .repeat(20),
+                tags: vec![],
+            })
+            .unwrap();
+        db.add_note_to_thread(&note.id, &thread.id).unwrap();
+        db.add_note_to_folder(&note.id, &folder.id).unwrap();
+        note.id
+    });
+    for id in &ids {
+        let before = db.get_note(id).unwrap().unwrap();
+        for action in 0..2 {
+            let observed = Rc::new(std::cell::RefCell::new(None));
+            let mut dom = VirtualDom::new(menu_host);
+            dom.insert_any_root_context(Box::new(Fixture {
+                db: db.clone(),
+                engine: engine.clone(),
+                note_id: id.clone(),
+                folder_id: Some(folder.id.clone()),
+                detail: false,
+                keep_mounted: true,
+                state: observed.clone(),
+                marked_deleted: Rc::new(std::cell::Cell::new(false)),
+                editor: Rc::new(std::cell::RefCell::new(None)),
+            }));
+            dom.insert_any_root_context(Box::new(ui::RowMenu::ThreadNote {
+                note_id: id.clone(),
+                thread_id: thread.id.clone(),
+            }));
+            let edits = dom.rebuild_to_vec();
+            let buttons = click_listeners(&edits);
+            assert_eq!(buttons.len(), 2, "only Copy and Share are available");
+            for key in ["note-menu-copy", "share-publish-note"] {
+                let expected = application::i18n::t("en", key);
+                assert!(edits.edits.iter().any(|edit| matches!(edit,
+                    Mutation::CreateTextNode { value, .. } | Mutation::SetText { value, .. } if *value == expected
+                )));
+            }
+            let mut app = observed.borrow().unwrap();
+            dom.in_runtime(|| {
+                app.view.set(ui::View::ThreadDetail {
+                    thread_id: thread.id.clone(),
+                })
+            });
+            click(&dom, buttons[action]);
+            assert_eq!(*app.row_menu.peek(), None);
+            if action == 0 {
+                assert_eq!(
+                    *app.view.peek(),
+                    ui::View::ThreadDetail {
+                        thread_id: thread.id.clone()
+                    }
+                );
+                assert_eq!(*app.share_request.peek(), None);
+            } else {
+                assert_eq!(*app.share_request.peek(), Some(id.clone()));
+                assert_eq!(
+                    *app.view.peek(),
+                    ui::View::NoteDetail {
+                        note_id: id.clone()
+                    }
+                );
+                assert_eq!(
+                    *app.previous_view.peek(),
+                    Some(ui::View::ThreadDetail {
+                        thread_id: thread.id.clone()
+                    })
+                );
+            }
+            assert_eq!(db.get_note(id).unwrap().unwrap(), before);
+            assert_eq!(db.folders_for_note(id).unwrap()[0].id, folder.id);
+        }
+    }
+    assert_eq!(db.list_thread_notes(&thread.id).unwrap().len(), 2);
+    println!("THREAD MENU: Copy/Share only, correct note targets, return thread retained, notes and memberships unchanged");
 }
 
 fn menu_reopens_cleanly(

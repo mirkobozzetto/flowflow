@@ -20,8 +20,8 @@ commit/push delivery. Solo execution. No public release or unrelated sync work.
 | --- | --- | --- |
 | P0: deletion prerequisite | Published: 487b803 | Isolated source: 37 tests pass across deletion, purge, space leave/publish, thread and sync suites. The extra local sync-repair test is deliberately excluded. |
 | T1: stale menu-page regression | Reproduced | Real NoteRowMenu: abandoned Move/Delete confirmation, same/different note, all four reopenings fail before T2. Target: 1 passed, 1 failed. Retain this test with T2 to keep published commits green. |
-| T2: session-owned note-menu page | Verified for commit/push | The same four cases pass in the isolated staged source. Deletion target: 2 passed, 0 failed, including all earlier rollback/retry/navigation scenarios. Permanent root owner retained. GitNexus staged analysis: high, 7 flows; compiler and real integration exercised affected menu paths. |
-| T3: thread Copy/Share gestures | Pending | No move/delete entry in this menu. |
+| T2: session-owned note-menu page | Published: 54bea8f | The same four cases pass in the isolated staged source. Deletion target: 2 passed, 0 failed, including all earlier rollback/retry/navigation scenarios. Permanent root owner retained. GitNexus staged analysis: high, 7 flows; compiler and real integration exercised affected menu paths. |
+| T3: thread Copy/Share gestures | Verified for commit/push | Isolated staged source: 3 real ThreadNode event tests and 2 deletion/menu integration tests pass. Covers right-click, mouse/touch hold, release-click suppression, subsequent normal click, scroll/cancel/leave/unmount, two targeted note menus, Copy/Share only, return thread and unchanged content/membership. Clipboard OS write and real share-link presentation require native checks; no personal-note publication performed. |
 | T4: targeted/native checks | Pending | No personal-note publication. |
 | T5: installed apps/manual handoff | Pending | make all and make desktop-app, no data reset. |
 
