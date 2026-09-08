@@ -23,7 +23,7 @@ commit/push delivery. Solo execution. No public release or unrelated sync work.
 | T2: session-owned note-menu page | Published: 54bea8f | The same four cases pass in the isolated staged source. Deletion target: 2 passed, 0 failed, including all earlier rollback/retry/navigation scenarios. Permanent root owner retained. GitNexus staged analysis: high, 7 flows; compiler and real integration exercised affected menu paths. |
 | T3: thread Copy/Share gestures | Published: 90a22ba | Isolated staged source: 3 real ThreadNode event tests and 2 deletion/menu integration tests pass. Covers right-click, mouse/touch hold, release-click suppression, subsequent normal click, scroll/cancel/leave/unmount, two targeted note menus, Copy/Share only, return thread and unchanged content/membership. Clipboard OS write and real share-link presentation require native checks; no personal-note publication performed. |
 | T4: targeted/non-regression checks | Passed: 45 tests | Clean published source 90a22ba: 3 gesture tests, 2 deletion/menu tests, 5 folder-tree, 4 pending-purge, 5 space-leave, 3 space-publish, 12 sync-protocol and 11 thread tests. No failures. No personal data used or published. Native checks accompany T5. |
-| T5: installed apps/manual handoff | Mac installed and verified; iPhone blocked | Both builds completed from 90a22ba. Mac installed in /Applications and signature verified. Native mouse/clipboard/navigation/deletion checks passed on disposable local data. iPhone installation returned DeviceLocked; the later lockState still reports passcodeRequired=true. No personal data reset. |
+| T5: installed apps/manual handoff | Completed | Mac native checks passed on isolated source 90a22ba. Initial iPhone installation was blocked by DeviceLocked; two later user-run make all commands installed successfully on 2026-09-08 at 14:06:13 and 14:06:51. Mirko reports the changes appear to work on mobile. These final phone builds include the regular checkout’s unrelated local changes; they are not clean release artifacts. |
 
 GitNexus detect-changes executed for all and staged scopes. Staged prerequisite
 reports critical (21 symbols, 67 processes), including deletion/space callers.
@@ -57,7 +57,7 @@ At the initial handoff, the iPhone build was **not installed**. `make all` maske
 installer’s failure with `|| true`; its zero exit is not installation proof.
 The actual installer reported `kAMDMobileImageMounterDeviceLocked`.
 At 13:21 on 2026-09-08, `devicectl device info lockState` still reported
-`passcodeRequired: true`. After Mirko unlocks the phone, run only:
+`passcodeRequired: true`. The initial install-only handoff was:
 
 ```sh
 xcrun devicectl device install app \
@@ -78,12 +78,86 @@ xcrun devicectl device install app \
   iOS device from devicectl JSON rather than its changing display status.
 - Actual make all from the regular checkout compiled successfully in 97.29 s;
   the next incremental build completed in 11.20 s. Signing and deep strict
-  codesign verification passed. Installation has NOT yet been verified:
-  CoreDevice returned Failed to acquire assertion, and the phone was locked.
+  codesign verification passed. Installation was still unverified at this
+  stage: CoreDevice returned Failed to acquire assertion with the phone locked.
+  The successful user-run installations below supersede that blocker.
 - Current prepared iPhone executable SHA-256:
   `a90ff5b4c081cd669071f125e5990e1de8861f5007ae4ea47577d2f2145d6517`.
 - Global rules now require explicit approval before each worktree, isolated
   or verified canonical build-output paths, and build/install evidence before
   announcing readiness. Dependency download caches are not prohibited.
+
+## Successful iPhone installation
+
+- Read Mirko’s actual Herdr command history, not just the Make exit status.
+  Both later runs reported `App installed:` for
+  `com.mirkobozzetto.flowflow`, followed by `>> Done.` and the shell prompt.
+- Installation times: 2026-09-08 at 14:06:13 and 14:06:51. Mirko reports the
+  changes appear to work. No additional build was launched to reconfirm him.
+- All six progressive commits through `2fcdd64` are present on origin/dev.
+  Personal data and unrelated sync/identity work remain untouched.
+
+## Release PR and App Store handoff
+
+Authorized scope: create the dev-to-main PR and prepare the following delivery
+steps. No merge, release publication, Apple upload or review submission.
+
+### Baseline and next version
+
+- Public iOS version verified through Apple’s Belgium lookup endpoint:
+  **2.0.2**, released **2026-09-07T21:29:34Z**.
+  <https://itunes.apple.com/lookup?id=6773033233&country=be>
+- Last previously verified upload: **build 16**, from source `527bd1a`. The
+  existing release worktree retains its generated 2.0.2/build-16 counters.
+  Restore those counters in version control, including Cargo.lock, so the
+  existing Makefile computes **2.0.3/build 17** instead of reusing 2.0.2/16.
+- Build 17 is provisional until App Store Connect confirms no newer upload.
+  Its current private state could not be read: Helium CDP on port 9222 was
+  unavailable. No browser session was closed or relaunched.
+- Public desktop baseline: **v2.0.1**, source `527bd1a`, published 2026-09-07.
+  Compare actual source content, not historical commit counts: previous squash
+  merges leave already-released commits in the dev-to-main ancestry.
+
+### Delivery sequence, not executed
+
+1. Review the PR and authorize its merge with a **merge commit**, not squash
+   or rebase. The current PR includes only committed work, not the local
+   sync/identity repair, portrait settings or screenshot-workflow edits.
+2. Confirm App Store Connect’s latest build, all existing localizations and
+   review state. Reconfirm the public build/source mapping before fixing the
+   final release baseline.
+3. Prepare a clean checkout of the approved candidate. Both existing
+   checkouts currently contain local changes; do not stash or reuse them
+   silently. Any new worktree needs Mirko’s explicit approval and its own
+   path-sensitive build outputs. Never share target through a symlink.
+4. Build and validate with `make appstore APPSTORE_VERSION=2.0.3
+   APPSTORE_BUILD=17` only after confirming those values. Unlike `make ship-ios`,
+   this target does not upload. Record the exact candidate, generated version
+   changes, IPA SHA-256, bundle/extension versions, distribution signatures
+   and the actual Apple validator result. No new distributable exists yet.
+5. Prepare the complete metadata and screenshot package before proposing an
+   upload: audit every current localization, descriptions, promotional text,
+   keywords, URLs, privacy, permissions and review instructions. Inventory the
+   current screenshots and convert the selected originals with the existing
+   `make appstore-screenshots` workflow, verifying every final dimension.
+6. Present that complete package for approval. Upload only after authorization;
+   verify processing and attach the new build. Review submission requires a
+   separate explicit approval.
+
+### Draft patch release notes
+
+English:
+- Copy or share an individual note directly from a thread with a long press.
+- Note menus reopen on their main actions after Move or Delete is dismissed.
+- More reliable note deletion, with clear errors and safe recovery on failure.
+
+French:
+- Copiez ou partagez une note d’un fil directement par un appui long.
+- Les menus reviennent aux actions principales après la fermeture des écrans
+  de déplacement ou de suppression.
+- La suppression des notes est plus fiable, avec des erreurs explicites et
+  une récupération sûre en cas d’échec.
+
+These are draft release notes, not an audited or submitted metadata package.
 
 
