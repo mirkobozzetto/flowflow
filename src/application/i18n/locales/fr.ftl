@@ -364,6 +364,10 @@ folder-menu-delete-warning = Les notes du thème ne seront pas supprimées.
 note-menu-import = Importer un document
 note-menu-import-audio = Importer un audio
 note-menu-delete = Supprimer la note
+note-delete-pending = Suppression de la note...
+note-delete-failed = Impossible de supprimer la note. Votre contenu est conservé. Réessayez.
+note-delete-revoke-failed = La note a été supprimée localement, mais son lien public n’a pas pu être révoqué.
+note-delete-dismiss = Fermer
 note-menu-copy = Copier le texte
 note-menu-no-folder = Aucun dossier
 

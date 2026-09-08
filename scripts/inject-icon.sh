@@ -15,7 +15,7 @@ xcrun actool --compile "$APP_PATH" \
   --minimum-deployment-target 16.0 \
   --app-icon AppIcon \
   --output-partial-info-plist /tmp/appicon-partial.plist \
-  "$XCASSETS" 2>&1 || true
+  "$XCASSETS" 2>&1
 
 if [ ! -f /tmp/appicon-partial.plist ]; then
   echo "ERROR: actool failed to produce icon plist."
@@ -46,10 +46,25 @@ IDENTITY=$(security find-identity -v -p codesigning | grep "Apple Development" |
 codesign --force --sign "$IDENTITY" --entitlements /tmp/ent.plist "$APP_PATH"
 
 echo ">> Installing on device..."
-DEVICE_ID=$(xcrun devicectl list devices 2>/dev/null | grep "available (paired)" | grep -oE '[0-9A-F]{8}-[0-9A-F]{4}-[0-9A-F]{4}-[0-9A-F]{4}-[0-9A-F]{12}')
-if [ -z "$DEVICE_ID" ]; then
-  echo "ERROR: No paired device found."
-  exit 1
+if [ -z "${DEVICE_ID:-}" ]; then
+  devices_json=$(mktemp)
+  trap 'rm -f "$devices_json"' EXIT
+  xcrun devicectl list devices --json-output "$devices_json"
+  DEVICE_ID=$(python3 - "$devices_json" <<'PY'
+import json
+import sys
+
+with open(sys.argv[1]) as source:
+    devices = json.load(source)["result"]["devices"]
+ids = [d["identifier"] for d in devices
+       if d.get("connectionProperties", {}).get("pairingState") == "paired"
+       and d.get("hardwareProperties", {}).get("platform") == "iOS"
+       and d.get("hardwareProperties", {}).get("reality") == "physical"]
+if len(ids) != 1:
+    sys.exit("ERROR: Expected one paired iOS device; set DEVICE_ID explicitly.")
+print(ids[0])
+PY
+  )
 fi
 xcrun devicectl device install app --device "$DEVICE_ID" "$APP_PATH" 2>&1
 

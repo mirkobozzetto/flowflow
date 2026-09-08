@@ -65,7 +65,7 @@ fn staging_binds_the_remote_id_and_queues_the_note_as_one() {
     assert_eq!(db.note_publish_state(&id).unwrap().attempts, 1);
 
     // a note that is gone owes nothing
-    flowflow::application::note_persistence::delete_note(&db, &id);
+    flowflow::application::note_persistence::delete_note(&db, &id).unwrap();
     assert!(db.note_publish_state(&id).is_none());
 }
 

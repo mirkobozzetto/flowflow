@@ -223,8 +223,7 @@ pub async fn stop_sharing(
         Err(e) if e.is_not_found() => {}
         Err(e) => return Err(map_err(e)),
     }
-    detach_locally(db, space_id, Departure::Revoked);
-    Ok(())
+    detach_locally(db, space_id, Departure::Revoked).map_err(SpaceError::Other)
 }
 
 /// Consume an invite code, then pull the whole space in: joining with an empty
@@ -276,37 +275,38 @@ pub async fn leave(
         Err(e) if e.is_not_found() => {}
         Err(e) => return Err(map_err(e)),
     }
-    detach_locally(db, space_id, departure);
-    Ok(())
+    detach_locally(db, space_id, departure).map_err(SpaceError::Other)
 }
 
 /// Local half of leaving, also used when a pull discovers the membership is
 /// gone (revoked owner-side, no leave call of ours).
-pub fn detach_locally(db: &Database, space_id: &str, departure: Departure) {
+pub fn detach_locally(
+    db: &Database,
+    space_id: &str,
+    departure: Departure,
+) -> Result<(), String> {
     let keep_all = departure == Departure::Revoked;
     let mine_stay = keep_all || departure == Departure::KeepMine;
     let me = my_author_ref(db);
-    for note_id in db.space_note_ids(space_id).unwrap_or_default() {
+    for note_id in db.space_note_ids(space_id)? {
         let own = db
-            .get_note(&note_id)
-            .ok()
-            .flatten()
+            .get_note(&note_id)?
             .map(|n| n.author_ref.is_some() && n.author_ref == me)
             .unwrap_or(false);
         if keep_all || (own && mine_stay) {
-            let _ = db.detach_note_from_space(&note_id);
+            db.detach_note_from_space(&note_id)?;
         } else {
-            crate::application::note_persistence::delete_note(db, &note_id);
+            crate::application::note_persistence::delete_note(db, &note_id)?;
         }
     }
-    for folder_id in db.space_folder_ids(space_id).unwrap_or_default() {
+    for folder_id in db.space_folder_ids(space_id)? {
         if mine_stay {
-            let _ = db.detach_folder_from_space(&folder_id);
+            db.detach_folder_from_space(&folder_id)?;
         } else {
-            let _ = db.delete_folder(&folder_id);
+            db.delete_folder(&folder_id)?;
         }
     }
-    let _ = db.delete_space(space_id);
+    db.delete_space(space_id)
 }
 
 /// Owner revokes a member.

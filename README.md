@@ -42,7 +42,8 @@ No manual searching. No folders to dig through. Just talk, and find it later.
 **Organized for you**
 
 - AI titles, tags and themes as you write; searchable chats
-- Threads: related notes as one chronological story
+- Threads: related notes as one chronological story; right-click or long-press
+  a note within a thread to copy its full text or share that note
 - Smart filters in the search bar: dictated, reminder, document, thread
 
 **Your devices, one brain**

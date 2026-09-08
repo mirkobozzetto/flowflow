@@ -71,7 +71,8 @@ pub async fn pull_space(
             // content becomes ordinary local notes.
             Err(e) if e.is_not_found() => {
                 outcome.gone = true;
-                super::detach_locally(db, space_id, super::Departure::Revoked);
+                super::detach_locally(db, space_id, super::Departure::Revoked)
+                    .map_err(SpaceError::Other)?;
                 return Ok(outcome);
             }
             // Too soon after the last pull: the server's freshness floor, not a

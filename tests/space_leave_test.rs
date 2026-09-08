@@ -54,7 +54,7 @@ fn joined_space_with_two_notes() -> (tempfile::TempDir, Database, String, String
 fn keeping_my_notes_turns_them_into_ordinary_local_ones() {
     let (_d, db, mine, theirs) = joined_space_with_two_notes();
 
-    detach_locally(&db, SPACE, Departure::KeepMine);
+    detach_locally(&db, SPACE, Departure::KeepMine).unwrap();
 
     let kept = db.get_note(&mine).unwrap().expect("my note stays");
     // no space, no remote id: it waits for no pull and will never be
@@ -74,7 +74,7 @@ fn keeping_my_notes_turns_them_into_ordinary_local_ones() {
 fn withdrawing_leaves_nothing_behind_locally() {
     let (_d, db, mine, theirs) = joined_space_with_two_notes();
 
-    detach_locally(&db, SPACE, Departure::WithdrawMine);
+    detach_locally(&db, SPACE, Departure::WithdrawMine).unwrap();
 
     assert!(db.get_note(&mine).unwrap().is_none());
     assert!(db.get_note(&theirs).unwrap().is_none());
@@ -102,7 +102,7 @@ fn my_author_handle_is_learned_from_my_own_pulled_notes() {
 fn being_revoked_keeps_every_note_as_an_ordinary_one() {
     let (_d, db, mine, theirs) = joined_space_with_two_notes();
 
-    detach_locally(&db, SPACE, Departure::Revoked);
+    detach_locally(&db, SPACE, Departure::Revoked).unwrap();
 
     for id in [&mine, &theirs] {
         let note = db.get_note(id).unwrap().expect("nothing is destroyed");
@@ -110,4 +110,41 @@ fn being_revoked_keeps_every_note_as_an_ordinary_one() {
     }
     assert!(db.pending_purges().unwrap().is_empty(), "no vector purged");
     assert!(db.list_spaces().unwrap().is_empty(), "the mirror is gone");
+}
+
+#[test]
+fn failed_withdrawal_preserves_retry_metadata() {
+    let (_dir, db, mine, theirs) = joined_space_with_two_notes();
+    // Refuse deletion of the last remaining note, regardless of query order.
+    db.conn()
+        .execute_batch(
+            "CREATE TEMP TRIGGER reject_last_note BEFORE DELETE ON notes
+         WHEN (SELECT COUNT(*) FROM notes WHERE space_id = OLD.space_id) = 1
+         BEGIN SELECT RAISE(ABORT, 'withdrawal interrupted'); END;",
+        )
+        .unwrap();
+    let error =
+        detach_locally(&db, SPACE, Departure::WithdrawMine).unwrap_err();
+    assert!(error.contains("withdrawal interrupted"));
+    let remaining = db.space_note_ids(SPACE).unwrap();
+    assert_eq!(remaining.len(), 1);
+    assert!(
+        db.get_space(SPACE).unwrap().is_some(),
+        "retry still needs the space"
+    );
+    assert!(!db
+        .pending_purges()
+        .unwrap()
+        .iter()
+        .any(|(id, _)| id == &remaining[0]));
+    db.conn()
+        .execute_batch("DROP TRIGGER reject_last_note")
+        .unwrap();
+    detach_locally(&db, SPACE, Departure::WithdrawMine).unwrap();
+    assert!(db.get_note(&mine).unwrap().is_none());
+    assert!(db.get_note(&theirs).unwrap().is_none());
+    assert!(db.get_space(SPACE).unwrap().is_none());
+    println!(
+        "SPACE RETRY: partial failure preserved metadata, retry completed"
+    );
 }

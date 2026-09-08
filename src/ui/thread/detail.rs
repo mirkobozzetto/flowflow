@@ -3,10 +3,15 @@ use crate::domain::{generate_auto_title, ChatScope, NewTextNote, Note};
 use crate::infrastructure::audio::{AudioRecorder, RecordingState};
 use crate::infrastructure::persistence::Database;
 use crate::ui::icons::{IconCardsThree, IconChatAi, IconMic, IconPlus};
+use crate::ui::notes::note_card::{LONG_PRESS_MS, PRESS_SLOP};
 use crate::ui::thread::header_menu::ThreadHeaderMenu;
-use crate::ui::{AppState, SidebarTab, View};
+use crate::ui::{AppState, RowMenu, SidebarTab, View};
 use dioxus::prelude::*;
 use std::sync::{Arc, Mutex};
+
+#[cfg(test)]
+#[path = "detail_tests.rs"]
+mod tests;
 
 #[component]
 pub fn ThreadDetail() -> Element {
@@ -117,19 +122,22 @@ pub fn ThreadDetail() -> Element {
                     div { class: "w-12 h-12 rounded-xl bg-ios-orange-50 text-ios-orange flex items-center justify-center mb-1",
                         IconCardsThree { size: 22 }
                     }
-                    p { class: "text-[15px] font-semibold text-stone-900", {t(&lang, "thread-empty")} }
+                    p { class: "text-[15px] font-semibold text-stone-900",
+                        {t(&lang, "thread-empty")}
+                    }
                 }
             } else {
                 div {
                     for note in notes() {
-                        ThreadNode { key: "{note.id}", thread_id: thread_id.clone(), note: note }
+                        ThreadNode {
+                            key: "{note.id}",
+                            thread_id: thread_id.clone(),
+                            note,
+                        }
                     }
                 }
             }
-            crate::ui::notes::share_section::ShareSection {
-                source_id: thread_id.clone(),
-                kind_thread: true,
-            }
+            crate::ui::notes::share_section::ShareSection { source_id: thread_id.clone(), kind_thread: true }
         }
         div { class: "fixed bottom-0 left-0 right-0 px-4 py-2 bg-warm-white border-t border-stone-200 z-30 keyboard-aware lg:left-72",
             div { class: "lg:max-w-3xl lg:mx-auto",
@@ -163,6 +171,16 @@ fn ThreadNode(thread_id: String, note: Note) -> Element {
     let mut app: AppState = use_context();
     let lang = (app.current_lang)();
     let nid = note.id.clone();
+    let mut press_seq = use_signal(|| 0u32);
+    let mut pressed = use_signal(|| None::<u32>);
+    let mut press_origin = use_signal(|| (0.0f64, 0.0f64));
+    let mut suppress_click = use_signal(|| false);
+    let press_target = RowMenu::ThreadNote {
+        note_id: note.id.clone(),
+        thread_id: thread_id.clone(),
+    };
+    let menu_target = press_target.clone();
+    let picked = (app.row_menu)().as_ref() == Some(&press_target);
     let date = note.created_at.get(..10).unwrap_or("").to_string();
     let time = note.created_at.get(11..16).unwrap_or("").to_string();
     let title = note
@@ -178,12 +196,67 @@ fn ThreadNode(thread_id: String, note: Note) -> Element {
             }
             div {
                 class: "flex-1 bg-warm-white border border-stone-200 rounded-xl p-3 cursor-pointer hover:border-stone-300 transition-colors duration-150",
+                class: if picked { "relative z-20 border-stone-300" } else { "" },
+                onpointerdown: move |evt| {
+                    // A new gesture must not inherit an unconsumed release click.
+                    suppress_click.set(false);
+                    let p = evt.client_coordinates();
+                    press_origin.set((p.x, p.y));
+                    let seq = press_seq() + 1;
+                    press_seq.set(seq);
+                    pressed.set(Some(seq));
+                    let target = press_target.clone();
+                    spawn(async move {
+                        futures_timer::Delay::new(std::time::Duration::from_millis(LONG_PRESS_MS))
+                            .await;
+                        if pressed() == Some(seq) {
+                            pressed.set(None);
+                            suppress_click.set(true);
+                            app.row_menu_at.set(press_origin());
+                            app.row_menu.set(Some(target));
+                        }
+                    });
+                },
+                oncontextmenu: move |evt| {
+                    evt.prevent_default();
+                    pressed.set(None);
+                    let p = evt.client_coordinates();
+                    app.row_menu_at.set((p.x, p.y));
+                    app.row_menu.set(Some(menu_target.clone()));
+                },
+                onpointerup: move |_| pressed.set(None),
+                onpointercancel: move |_| pressed.set(None),
+                onpointerleave: move |_| pressed.set(None),
+                onpointermove: move |evt| {
+                    if pressed().is_none() {
+                        return;
+                    }
+                    let p = evt.client_coordinates();
+                    let (ox, oy) = press_origin();
+                    if (p.x - ox).abs() > PRESS_SLOP || (p.y - oy).abs() > PRESS_SLOP {
+                        pressed.set(None);
+                    }
+                },
                 onclick: move |_| {
+                    if suppress_click() {
+                        suppress_click.set(false);
+                        return;
+                    }
+                    if (app.row_menu)().is_some() {
+                        app.row_menu.set(None);
+                        return;
+                    }
                     app.show_folder_picker.set(false);
-                    app.previous_view.set(Some(View::ThreadDetail {
-                        thread_id: thread_id.clone(),
-                    }));
-                    app.view.set(View::NoteDetail { note_id: nid.clone() });
+                    app.previous_view
+                        .set(
+                            Some(View::ThreadDetail {
+                                thread_id: thread_id.clone(),
+                            }),
+                        );
+                    app.view
+                        .set(View::NoteDetail {
+                            note_id: nid.clone(),
+                        });
                 },
                 div { class: "flex justify-between items-baseline mb-1 gap-2",
                     h4 { class: "font-medium text-sm text-stone-900", "{title}" }

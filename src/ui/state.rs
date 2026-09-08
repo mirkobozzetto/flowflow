@@ -51,8 +51,17 @@ impl SettingsSection {
 pub enum RowMenu {
     Conversation(String),
     Folder(String),
-    Note(String),
+    Note { note_id: String, page: NoteMenuPage },
+    ThreadNote { note_id: String, thread_id: String },
     Space(String),
+}
+
+/// A note menu page belongs to the active selection and is discarded on close.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub enum NoteMenuPage {
+    Actions,
+    Move,
+    ConfirmDelete,
 }
 
 // The attribute toggles sitting in the notes search field. Additive: a note has
@@ -110,6 +119,8 @@ pub struct AppState {
     pub search_query: Signal<String>,
     pub note_filters: Signal<NoteFilters>,
     pub show_note_menu: Signal<bool>,
+    pub note_delete_pending: Signal<Option<String>>,
+    pub note_delete_error: Signal<Option<String>>,
     pub attachments_version: Signal<u32>,
     pub attachment_modal: Signal<Option<Attachment>>,
     pub show_chat_menu: Signal<bool>,
@@ -180,6 +191,8 @@ impl AppState {
             search_query: Signal::new(String::new()),
             note_filters: Signal::new(NoteFilters::default()),
             show_note_menu: Signal::new(false),
+            note_delete_pending: Signal::new(None),
+            note_delete_error: Signal::new(None),
             attachments_version: Signal::new(0),
             attachment_modal: Signal::new(None),
             show_chat_menu: Signal::new(false),

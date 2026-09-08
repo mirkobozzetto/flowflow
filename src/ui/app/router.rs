@@ -6,7 +6,7 @@ use crate::ui::chat::ChatView;
 use crate::ui::notes::attachment_modal::AttachmentModal;
 use crate::ui::notes::folder_picker;
 use crate::ui::notes::note_list::NotesList;
-use crate::ui::notes::row_menu::NoteRowMenu;
+use crate::ui::notes::row_menu::{NoteDeleteStatus, NoteRowMenu};
 use crate::ui::notes::NoteDetail;
 use crate::ui::settings::{SettingsSectionView, SettingsView};
 use crate::ui::sidebar::SidebarOverlay;
@@ -58,6 +58,7 @@ pub fn AppRouter(index_rebuilding: Signal<bool>) -> Element {
             NoteRowMenu {}
             div { class: "flex flex-col h-screen safe-pt lg:flex-1 lg:min-w-0",
                 TopBar {}
+                NoteDeleteStatus {}
                 if index_rebuilding() {
                     div { class: "bg-ios-orange/10 border-b border-ios-orange/20 px-4 py-1.5",
                         p { class: "text-xs text-ios-orange text-center",

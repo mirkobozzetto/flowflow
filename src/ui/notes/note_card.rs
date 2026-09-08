@@ -2,14 +2,14 @@ use crate::application::i18n::t;
 use crate::domain::Note;
 use crate::infrastructure::persistence::Database;
 use crate::ui::icons::{IconArrowUpRight, IconBell};
-use crate::ui::{AppState, RowMenu, View};
+use crate::ui::{AppState, NoteMenuPage, RowMenu, View};
 use dioxus::prelude::*;
 use std::sync::Arc;
 
 /// Finger travel, in CSS pixels, past which a press is a scroll, not a hold.
-const PRESS_SLOP: f64 = 10.0;
+pub(crate) const PRESS_SLOP: f64 = 10.0;
 /// How long a finger must stay down before the note action sheet opens.
-const LONG_PRESS_MS: u64 = 450;
+pub(crate) const LONG_PRESS_MS: u64 = 450;
 
 #[component]
 pub fn NoteCard(note: Note) -> Element {
@@ -55,7 +55,7 @@ pub fn NoteCard(note: Note) -> Element {
         crate::application::authorship::author_label(&db.peek(), &note);
 
     // The pressed card stays lit above the dimming veil the list draws.
-    let picked = (app.row_menu)() == Some(RowMenu::Note(note.id.clone()));
+    let picked = matches!((app.row_menu)(), Some(RowMenu::Note { note_id, .. }) if note_id == note.id);
 
     rsx! {
         div {
@@ -79,7 +79,7 @@ pub fn NoteCard(note: Note) -> Element {
                         pressed.set(None);
                         suppress_click.set(true);
                         app.row_menu_at.set(press_origin());
-                        app.row_menu.set(Some(RowMenu::Note(id)));
+                        app.row_menu.set(Some(RowMenu::Note { note_id: id, page: NoteMenuPage::Actions }));
                     }
                 });
             },
@@ -89,7 +89,7 @@ pub fn NoteCard(note: Note) -> Element {
                 pressed.set(None);
                 let p = evt.client_coordinates();
                 app.row_menu_at.set((p.x, p.y));
-                app.row_menu.set(Some(RowMenu::Note(menu_id.clone())));
+                app.row_menu.set(Some(RowMenu::Note { note_id: menu_id.clone(), page: NoteMenuPage::Actions }));
             },
             onpointerup: move |_| pressed.set(None),
             onpointercancel: move |_| pressed.set(None),

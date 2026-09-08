@@ -52,11 +52,10 @@ pub fn create_note_in(
 /// need explicit cleanup). Rows that cascade (attachments, reminders) are
 /// left to SQLite. Sync scheduling stays with the caller, which owns the
 /// session; proposing a share revoke is the UI's job before calling this.
-pub fn delete_note(db: &Database, id: &str) {
-    let audio_paths = db
-        .with_tx(|tx| delete_note_rows(tx, id))
-        .unwrap_or_default();
+pub fn delete_note(db: &Database, id: &str) -> Result<(), String> {
+    let audio_paths = db.with_tx(|tx| delete_note_rows(tx, id))?;
     finish_note_delete(db, id, &audio_paths);
+    Ok(())
 }
 
 /// The SQL half of `delete_note`, for a caller's unit of work. Returns the

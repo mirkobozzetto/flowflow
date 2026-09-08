@@ -175,16 +175,42 @@ pub fn NoteMenu(
                             on_confirm: {
                                 let note_id = note_id.clone();
                                 move |_| {
-                                    app.show_note_menu.set(false);
-                                    deleted.set(true);
+                                    if app.note_delete_pending.peek().is_some() {
+                                        return;
+                                    }
                                     let note_id = note_id.clone();
-                                    spawn(async move {
-                                        let database = db();
-                                        // best-effort revoke first, while the share row still exists
-                                        let _ = crate::application::sharing::revoke(&database, &note_id).await;
-                                        crate::application::note_persistence::delete_note(&database, &note_id);
-                                        engine.peek().schedule_debounced();
-                                        app.current_note_id.set(None);
+                                    let database = db();
+                                    let engine = engine();
+                                    app.note_delete_pending.set(Some(note_id.clone()));
+                                    app.note_delete_error.set(None);
+                                    app.show_note_menu.set(false);
+                                    // The menu disappears now; only app-owned state may outlive it.
+                                    dioxus::core::spawn_forever(async move {
+                                        let revoke = crate::application::sharing::revoke(&database, &note_id).await;
+                                        let result = crate::application::note_persistence::delete_note(&database, &note_id);
+                                        app.note_delete_pending.set(None);
+                                        let lang = (app.current_lang)();
+                                        if let Err(error) = result {
+                                            eprintln!("[note] delete: {error}");
+                                            app.note_delete_error.set(Some(t(&lang, "note-delete-failed")));
+                                            return;
+                                        }
+                                        if revoke.is_err() {
+                                            app.note_delete_error.set(Some(t(&lang, "note-delete-revoke-failed")));
+                                        }
+                                        app.notes_version.set((app.notes_version)() + 1);
+                                        engine.schedule_debounced();
+                                        if (app.current_note_id)().as_deref() == Some(&note_id) {
+                                            app.current_note_id.set(None);
+                                        }
+                                        if matches!((app.view)(), crate::ui::View::NoteDetail { note_id: ref id } if id == &note_id) {
+                                            if let Ok(mut flag) = deleted.try_write() {
+                                                *flag = true;
+                                            } else {
+                                                // The user reopened this note in a new detail scope.
+                                                app.view.set(crate::ui::View::NotesList);
+                                            }
+                                        }
                                     });
                                 }
                             },
@@ -242,6 +268,7 @@ pub fn NoteMenu(
                 }
                 button {
                     class: kit::MENU_ITEM_DANGER,
+                    disabled: (app.note_delete_pending)().is_some(),
                     onclick: move |_| confirm_delete.set(true),
                     IconTrash { size: 16 }
                     "{delete_label}"

@@ -245,7 +245,7 @@ pub fn NotesList() -> Element {
             // Dims the rest of the list while a note menu is open, so the pressed
             // card reads as picked up. Visual only: the outside-click catcher is
             // the global row-menu backdrop.
-            if matches!((app.row_menu)(), Some(RowMenu::Note(_))) {
+            if matches!((app.row_menu)(), Some(RowMenu::Note { .. })) {
                 div { class: "absolute inset-0 z-10 bg-stone-900/20 pointer-events-none backdrop-fade" }
             }
             div { class: "safe-pb-32",
