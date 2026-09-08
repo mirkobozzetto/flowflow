@@ -23,9 +23,45 @@ commit/push delivery. Solo execution. No public release or unrelated sync work.
 | T2: session-owned note-menu page | Published: 54bea8f | The same four cases pass in the isolated staged source. Deletion target: 2 passed, 0 failed, including all earlier rollback/retry/navigation scenarios. Permanent root owner retained. GitNexus staged analysis: high, 7 flows; compiler and real integration exercised affected menu paths. |
 | T3: thread Copy/Share gestures | Published: 90a22ba | Isolated staged source: 3 real ThreadNode event tests and 2 deletion/menu integration tests pass. Covers right-click, mouse/touch hold, release-click suppression, subsequent normal click, scroll/cancel/leave/unmount, two targeted note menus, Copy/Share only, return thread and unchanged content/membership. Clipboard OS write and real share-link presentation require native checks; no personal-note publication performed. |
 | T4: targeted/non-regression checks | Passed: 45 tests | Clean published source 90a22ba: 3 gesture tests, 2 deletion/menu tests, 5 folder-tree, 4 pending-purge, 5 space-leave, 3 space-publish, 12 sync-protocol and 11 thread tests. No failures. No personal data used or published. Native checks accompany T5. |
-| T5: installed apps/manual handoff | Pending | make all and make desktop-app, no data reset. |
+| T5: installed apps/manual handoff | Mac installed and verified; iPhone blocked | Both builds completed from 90a22ba. Mac installed in /Applications and signature verified. Native mouse/clipboard/navigation/deletion checks passed on disposable local data. iPhone installation returned DeviceLocked; the later lockState still reports passcodeRequired=true. No personal data reset. |
 
 GitNexus detect-changes executed for all and staged scopes. Staged prerequisite
 reports critical (21 symbols, 67 processes), including deletion/space callers.
 Impact traversal remains degraded/UNKNOWN; no graph all-clear. Exact staged
 source and the targeted integration executions provide the behavioral evidence.
+
+## Native evidence and remaining installation
+
+- Binary source: `90a22ba` (unrelated local sync/identity work excluded).
+- The installed Mac binary was copied unchanged into a disposable native run.
+  Outbound Internet access was denied; no personal note was published.
+- Actual macOS right-click and long-press exposed only Copy text and Share this
+  note. Both abandoned Move and Delete confirmation reopened on the actions.
+- Native clipboard matched the full selected note, including Unicode and
+  newlines: 1,215 UTF-8 bytes, not the truncated card preview.
+- Sharing reused the selected note’s fixture link, not the other note or the
+  whole thread. Back returned to the thread; an ordinary click opened the
+  selected note editor. New remote publication was not performed.
+- Confirmed native deletion removed only the selected disposable root note.
+- The smoke app was closed. Original clipboard items and types were restored
+  and compared successfully. The user’s running Mac process was not closed;
+  quit and reopen FlowFlow from Applications to load the installed binary.
+
+Installed Mac executable SHA-256:
+`2d11c6ab1b2241f589ae6b5beb4c2052a6813d6b550d2646e3fb95de008d24be`
+
+Prepared iPhone executable SHA-256:
+`94fac52b4800f1112b9c928fa98ef067bbe347dbe1e43bde32844c07da14f0ea`
+
+The iPhone build is ready, but **not installed**. `make all` masks the final
+installer’s failure with `|| true`; its zero exit is not installation proof.
+The actual installer reported `kAMDMobileImageMounterDeviceLocked`.
+At 13:21 on 2026-09-08, `devicectl device info lockState` still reported
+`passcodeRequired: true`. After Mirko unlocks the phone, run only:
+
+```sh
+xcrun devicectl device install app \
+  --device 74506719-A175-5649-AAB8-7DDC1710664D \
+  /Users/mirkobozzetto/code/flowflow/target/dx/flowflow/debug/ios/Flowflow.app
+```
+
