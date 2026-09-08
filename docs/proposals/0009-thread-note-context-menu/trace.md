@@ -53,7 +53,7 @@ Installed Mac executable SHA-256:
 Prepared iPhone executable SHA-256:
 `94fac52b4800f1112b9c928fa98ef067bbe347dbe1e43bde32844c07da14f0ea`
 
-The iPhone build is ready, but **not installed**. `make all` masks the final
+At the initial handoff, the iPhone build was **not installed**. `make all` masked the final
 installer’s failure with `|| true`; its zero exit is not installation proof.
 The actual installer reported `kAMDMobileImageMounterDeviceLocked`.
 At 13:21 on 2026-09-08, `devicectl device info lockState` still reported
@@ -64,4 +64,26 @@ xcrun devicectl device install app \
   --device 74506719-A175-5649-AAB8-7DDC1710664D \
   /Users/mirkobozzetto/code/flowflow/target/dx/flowflow/debug/ios/Flowflow.app
 ```
+
+## Build recovery after the main-checkout failure
+
+- Root cause proved from the user’s terminal history: Whisper CMake failed
+  because its cache recorded the disposable worktree path, while the same
+  target directory was subsequently opened from the regular checkout.
+  This was caused by the agent sharing target through a worktree symlink.
+- Regenerated only the affected Whisper CMake build directory. No worktree
+  was created for the repair; unrelated working-tree changes were retained.
+- make all now preserves the ios-dev/desktop-dev Cargo profiles, propagates
+  URL-scheme/icon/signing/installation failures, and selects a paired physical
+  iOS device from devicectl JSON rather than its changing display status.
+- Actual make all from the regular checkout compiled successfully in 97.29 s;
+  the next incremental build completed in 11.20 s. Signing and deep strict
+  codesign verification passed. Installation has NOT yet been verified:
+  CoreDevice returned Failed to acquire assertion, and the phone was locked.
+- Current prepared iPhone executable SHA-256:
+  `a90ff5b4c081cd669071f125e5990e1de8861f5007ae4ea47577d2f2145d6517`.
+- Global rules now require explicit approval before each worktree, isolated
+  or verified canonical build-output paths, and build/install evidence before
+  announcing readiness. Dependency download caches are not prohibited.
+
 

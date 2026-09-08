@@ -74,22 +74,18 @@ deploy:
 restore-ios-toml:
 	@[ ! -f .Dioxus.toml.ios ] || { mv .Dioxus.toml.ios Dioxus.toml; echo ">> restored Dioxus.toml from orphaned desktop backup"; }
 
-# Scratch dirs no device build reads: dx serve output, flycheck, temp. `target/dx`
-# holds this build's bundle, so it must survive.
-#
-# `target/debug` used to be wiped at the end of `all`, which threw away the
-# whole 19 GB host cache: every `cargo check` or `cargo test` afterwards then
-# recompiled 700 crates from nothing, at full CPU. Disk is cheap, that heat was
-# not. Reclaim it deliberately with `cargo clean` when space actually runs low.
+# Dioxus uses ios-dev and desktop-dev as Cargo profiles, including host build
+# scripts. Preserve those caches just like target/debug and the target/dx bundle.
+# Reclaim compilation outputs deliberately with cargo clean, not before builds.
 clean-stale:
-	rm -rf target/ios-dev target/desktop-dev target/flycheck0 target/tmp
+	rm -rf target/flycheck0 target/tmp
 
 all: clean-stale js restore-ios-toml ensure-profiles
 	set -a && . ./.env && IPHONEOS_DEPLOYMENT_TARGET=16.0 dx build --platform ios --device true
 	bash scripts/build-share-ext.sh debug
 	bash scripts/sign-widget.sh debug
-	bash scripts/inject-url-scheme.sh || true
-	bash scripts/inject-icon.sh || true
+	bash scripts/inject-url-scheme.sh
+	bash scripts/inject-icon.sh
 
 check-profiles:
 	@bash scripts/check-profiles.sh
