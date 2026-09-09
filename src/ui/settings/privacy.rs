@@ -30,7 +30,7 @@ pub fn PrivacySettings() -> Element {
                         let _ = db().set_setting("ai_consent", "revoked");
                         app.ai_consent.set(None);
                     },
-                    {t(&lang, "settings-revoke-consent")}
+                    {t(&lang, if (app.ai_consent)() == Some(true) { "settings-revoke-consent" } else { "settings-enable-consent" })}
                 }
             }
             div { class: "flex items-center justify-center gap-4",

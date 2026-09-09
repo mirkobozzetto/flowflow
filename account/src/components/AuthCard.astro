@@ -1,5 +1,6 @@
 ---
 import { localizePath, useTranslations } from "../lib/i18n";
+import { continuation } from "../lib/browser-api";
 
 interface Props {
   lang: string;
@@ -8,7 +9,9 @@ interface Props {
 
 const { lang, mode } = Astro.props;
 const t = useTranslations(lang, "account");
-const home = localizePath("/", lang);
+const home = localizePath("/onboarding", lang);
+const next = continuation(Astro.url.searchParams.get("next"), home);
+const authPath = (path: string) => `${localizePath(path, lang)}?next=${encodeURIComponent(next)}`;
 
 const title =
   mode === "login"
@@ -30,16 +33,21 @@ const lead =
     id="auth-root"
     data-mode={mode}
     data-home={home}
+    data-login={localizePath("/login", lang)}
+    data-err-expired={t("onboarding.errors.linkExpired")}
+    data-err-linked={t("onboarding.errors.alreadyLinked")}
     data-err-nopasskey={t("auth.noPasskey")}
     data-err-taken={t("auth.emailTaken")}
     data-err-generic={t("auth.genericError")}
   >
     <h4><span class="t">{title}</span></h4>
     <p class="mt-1 mb-4 text-[14.5px] text-stone-500">{lead}</p>
-    <p class="b-err" id="auth-err"></p>
+    <p class="b-err" id="auth-err" role="alert"></p>
     {
       mode !== "link" && (
         <input
+          aria-label={t("auth.email")}
+          required
           class="b-field"
           id="auth-email"
           type="email"
@@ -51,6 +59,7 @@ const lead =
     {
       mode === "register" && (
         <input
+          aria-label={t("auth.displayName")}
           class="b-field"
           id="auth-name"
           type="text"
@@ -62,6 +71,8 @@ const lead =
     {
       mode === "link" && (
         <input
+          aria-label={t("link.code")}
+          required
           class="b-field"
           id="auth-code"
           type="text"
@@ -77,7 +88,7 @@ const lead =
       mode === "login" && (
         <p class="mt-4 mb-0 text-[14px] text-stone-500">
           {t("auth.needAccount")}{" "}
-          <a class="text-orange-dark" href={localizePath("/register", lang)}>
+          <a class="text-orange-dark" href={authPath("/register")}>
             {t("auth.register")}
           </a>
         </p>
@@ -87,7 +98,7 @@ const lead =
       mode === "register" && (
         <p class="mt-4 mb-0 text-[14px] text-stone-500">
           {t("auth.haveAccount")}{" "}
-          <a class="text-orange-dark" href={localizePath("/login", lang)}>
+          <a class="text-orange-dark" href={authPath("/login")}>
             {t("auth.signIn")}
           </a>
         </p>

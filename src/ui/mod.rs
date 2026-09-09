@@ -7,6 +7,7 @@ pub mod icons;
 mod keyboard;
 pub(crate) mod kit;
 mod notes;
+mod onboarding;
 mod recording;
 mod settings;
 mod shared;
@@ -67,7 +68,7 @@ pub fn App() -> Element {
 
         if restore_locked() {
             RestoreLockScreen {}
-        } else if (app.ai_consent)() != Some(true) {
+        } else if (app.ai_consent)().is_none() {
             ConsentScreen {}
         } else {
             AppRouter { index_rebuilding }

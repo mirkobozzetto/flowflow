@@ -10,8 +10,6 @@ use crate::ui::{AppState, View};
 use dioxus::prelude::*;
 use std::sync::Arc;
 
-const ACCOUNT_SITE_URL: &str = "https://account.flowflow.be";
-
 #[component]
 pub fn AccountSettings() -> Element {
     let db: Signal<Arc<Database>> = use_context();
@@ -40,9 +38,7 @@ pub fn AccountSettings() -> Element {
         }
         v
     });
-    let mut link_code: Signal<Option<(String, String)>> = use_signal(|| None);
     let mut id_copied = use_signal(|| false);
-    let mut code_copied = use_signal(|| false);
     let mut reload = use_signal(|| 0u32);
     // Identity card (proposal 0001 T14): cached name + avatar shown at once
     // (offline fallback), refreshed from the backend in the effect below.
@@ -50,7 +46,7 @@ pub fn AccountSettings() -> Element {
         use_signal(|| crate::application::profile::cached_display_name(&db()));
     let mut avatar_uri =
         use_signal(crate::application::profile::avatar_data_uri);
-    let mut profile_linked = use_signal(|| true);
+    let mut profile_linked = use_signal(|| None::<bool>);
     let mut confirm_purge_shared = use_signal(|| false);
     let mut purge_shared_done = use_signal(|| false);
 
@@ -74,7 +70,7 @@ pub fn AccountSettings() -> Element {
             use crate::application::profile::ProfileStatus;
             match crate::application::profile::refresh(&database).await {
                 ProfileStatus::Refreshed => {
-                    profile_linked.set(true);
+                    profile_linked.set(Some(true));
                     profile_name.set(
                         crate::application::profile::cached_display_name(
                             &database,
@@ -84,11 +80,15 @@ pub fn AccountSettings() -> Element {
                         .set(crate::application::profile::avatar_data_uri());
                 }
                 ProfileStatus::NotLinked => {
-                    profile_linked.set(false);
+                    profile_linked.set(Some(false));
                     profile_name.set(None);
                     avatar_uri.set(None);
                 }
-                ProfileStatus::Unavailable => {}
+                ProfileStatus::Unavailable => {
+                    if profile_linked() != Some(true) {
+                        profile_linked.set(None);
+                    }
+                }
             }
         });
     });
@@ -120,6 +120,7 @@ pub fn AccountSettings() -> Element {
             p { class: "text-xs text-stone-500 leading-relaxed px-0.5",
                 {t(&lang, "account-description")}
             }
+            crate::ui::onboarding::AccountOnboarding { reload, profile_linked }
 
             if !has_backend {
                 div { class: "rounded-xl border border-ios-orange/40 bg-ios-orange/5 p-3",
@@ -136,7 +137,7 @@ pub fn AccountSettings() -> Element {
             if let Some(acc) = account() {
                 // Identity card (mockup section 2): photo replaces the monogram,
                 // orange ring kept; unlinked cluster shows the link path instead.
-                if profile_linked() {
+                if profile_linked() == Some(true) {
                     div { class: "bg-warm-white rounded-xl border border-stone-200 p-4",
                         div { class: "flex items-center gap-3",
                             span { class: "shrink-0 w-11 h-11 rounded-full ring-[1.5px] ring-ios-orange ring-offset-2 ring-offset-warm-white overflow-hidden flex items-center justify-center bg-ios-orange/10",
@@ -166,48 +167,8 @@ pub fn AccountSettings() -> Element {
                             }
                         }
                     }
-                } else {
-                    div { class: "rounded-xl border border-dashed border-stone-300 p-4",
-                        p { class: "text-xs text-stone-500",
-                            {t(&lang, "account-profile-none")}
-                            span { class: "text-ios-orange-dark font-semibold",
-                                {t(&lang, "account-profile-link-cta")}
-                            }
-                        }
-                    }
                 }
 
-                // Plan hero: the status first; the upgrade path goes through the web site.
-                div { class: "bg-warm-white rounded-xl border border-stone-200 p-5",
-                    label { class: "block text-xs font-medium text-stone-400 mb-1.5",
-                        {t(&lang, "account-plan-title")}
-                    }
-                    div { class: "flex items-center gap-2 mb-1.5",
-                        if acc.premium {
-                            span { class: "text-ios-orange-dark", IconShieldCheck { size: 20 } }
-                            span { class: "text-xl font-semibold text-stone-800",
-                                {t(&lang, "account-premium")}
-                            }
-                        } else {
-                            span { class: "text-xl font-semibold text-stone-800",
-                                {t(&lang, "account-free")}
-                            }
-                        }
-                    }
-                    p { class: "text-xs text-stone-500 leading-relaxed mb-3",
-                        {t(&lang, "account-plan-hint")}
-                    }
-                    if !acc.premium {
-                        button {
-                            class: "w-full min-h-[44px] flex items-center justify-center gap-2 rounded-xl bg-ios-orange text-white text-sm font-medium active:opacity-80 transition-opacity",
-                            onclick: move |_| {
-                                crate::infrastructure::platform::open_url(ACCOUNT_SITE_URL)
-                            },
-                            {t(&lang, "account-plan-upgrade")}
-                            IconArrowUpRight { size: 16 }
-                        }
-                    }
-                }
 
                 if let Some(err) = db()
                     .get_setting(crate::application::account_heal::HEAL_ERROR_KEY)
@@ -394,88 +355,6 @@ pub fn AccountSettings() -> Element {
                     }
                 }
 
-                div {
-                    h3 { class: "text-[11px] font-medium text-stone-400 uppercase tracking-wide px-1 mb-2.5",
-                        {t(&lang, "account-link-title")}
-                    }
-                    div { class: "bg-warm-white rounded-xl border border-stone-200 p-5 space-y-3",
-                        if let Some((code, exp)) = link_code() {
-                            div {
-                                label { class: "block text-xs font-medium text-stone-400 mb-1.5",
-                                    {t(&lang, "account-link-code-label")}
-                                }
-                                div { class: "flex items-center gap-2",
-                                    code { class: "flex-1 font-mono text-[13px] text-stone-700 break-all",
-                                        "{code}"
-                                    }
-                                    button {
-                                        class: if code_copied() {
-                                            "shrink-0 p-1.5 rounded-md text-ios-green transition-colors"
-                                        } else {
-                                            "shrink-0 p-1.5 rounded-md text-stone-400 hover:bg-stone-100 active:bg-stone-100 transition-colors"
-                                        },
-                                        onclick: {
-                                            let c = code.clone();
-                                            move |_| {
-                                                if code_copied() { return; }
-                                                crate::ui::clipboard::copy_text(&c);
-                                                code_copied.set(true);
-                                                spawn(async move {
-                                                    futures_timer::Delay::new(
-                                                        std::time::Duration::from_millis(1500),
-                                                    )
-                                                    .await;
-                                                    code_copied.set(false);
-                                                });
-                                            }
-                                        },
-                                        if code_copied() {
-                                            IconCheck { size: 16 }
-                                        } else {
-                                            IconCopy { size: 16 }
-                                        }
-                                    }
-                                }
-                                p { class: "text-xs text-stone-500 mt-2",
-                                    {t_args(&lang, "account-link-expires", &[("time", &link_expiry_label(&exp))])}
-                                }
-                            }
-                        } else {
-                            p { class: "text-xs text-stone-500 leading-relaxed",
-                                {t(&lang, "account-link-hint")}
-                            }
-                        }
-                        button {
-                            class: "w-full min-h-[44px] flex items-center justify-center gap-2 rounded-xl bg-warm-white border border-stone-200 text-stone-800 text-sm font-medium hover:bg-stone-50 active:bg-stone-100 transition-colors disabled:opacity-45",
-                            disabled: busy() || !has_backend,
-                            onclick: move |_| {
-                                if busy() { return; }
-                                busy.set(true);
-                                status.set(None);
-                                spawn(async move {
-                                    let database = db();
-                                    if let Some(client) = BackendClient::from_db(&database) {
-                                        match client.link_begin(&database).await {
-                                            Ok(pair) => link_code.set(Some(pair)),
-                                            Err(e) => status.set(Some(e.to_string())),
-                                        }
-                                    }
-                                    busy.set(false);
-                                });
-                            },
-                            span { class: "text-stone-400", IconArrowUpRight { size: 16 } }
-                            {
-                                if busy() {
-                                    t(&lang, "account-link-generating")
-                                } else if link_code().is_some() {
-                                    t(&lang, "account-link-new")
-                                } else {
-                                    t(&lang, "account-link-button")
-                                }
-                            }
-                        }
-                    }
-                }
             } else if has_backend {
                 p { class: "text-xs text-stone-400", {t(&lang, "account-loading")} }
             }
@@ -634,14 +513,6 @@ fn profile_initial(name: &Option<String>) -> String {
         .and_then(|n| n.trim().chars().next())
         .map(|c| c.to_uppercase().to_string())
         .unwrap_or_else(|| "•".to_string())
-}
-
-// Render the server's ISO expiry as a local wall-clock time; fall back to the raw string if it
-// ever fails to parse, so the user always sees something.
-fn link_expiry_label(iso: &str) -> String {
-    chrono::DateTime::parse_from_rfc3339(iso)
-        .map(|dt| dt.with_timezone(&chrono::Local).format("%H:%M").to_string())
-        .unwrap_or_else(|_| iso.to_string())
 }
 
 fn short_id(id: &str) -> String {

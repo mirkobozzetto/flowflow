@@ -4,6 +4,7 @@
 // session token. The feature is dark until `backend_base_url` is configured: with no
 // backend, `from_db` returns None and the agent behaves exactly as before.
 
+pub mod onboarding;
 pub mod profile;
 pub mod shares;
 pub mod spaces;

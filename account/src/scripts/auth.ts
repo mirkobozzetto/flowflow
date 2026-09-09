@@ -2,6 +2,7 @@ import {
   startAuthentication,
   startRegistration,
 } from "@simplewebauthn/browser";
+import { api, ApiError, continuation } from "../lib/browser-api";
 
 interface BeginResp {
   ceremony_id: string;
@@ -14,46 +15,35 @@ function unwrapOptions<T>(begin: BeginResp): T {
   return (begin.options.publicKey ?? begin.options) as T;
 }
 
-class ApiError extends Error {
-  status: number;
-  constructor(status: number) {
-    super(`api ${status}`);
-    this.status = status;
-  }
-}
-
-async function api<T>(path: string, body?: unknown, csrf?: string): Promise<T> {
-  const headers: Record<string, string> = {};
-  const init: RequestInit = { method: body === undefined ? "GET" : "POST" };
-  if (body !== undefined) {
-    headers["content-type"] = "application/json";
-    init.body = JSON.stringify(body);
-  }
-  if (csrf) headers["x-csrf-token"] = csrf;
-  init.headers = headers;
-  const res = await fetch(path, init);
-  if (!res.ok) throw new ApiError(res.status);
-  if (res.status === 204) return undefined as T;
-  const text = await res.text();
-  return (text ? JSON.parse(text) : undefined) as T;
-}
 
 function initAuthPage(): void {
   const root = document.getElementById("auth-root");
   if (!root) return;
   const mode = root.dataset.mode ?? "login";
-  const home = root.dataset.home ?? "/";
+  const home = continuation(new URLSearchParams(location.search).get("next"), root.dataset.home ?? "/");
   const err = document.getElementById("auth-err");
   const button = document.getElementById(
     "auth-go",
   ) as HTMLButtonElement | null;
   if (!button) return;
+  if (mode === "link") {
+    void api("/v1/auth/me").catch((error) => {
+      if (error instanceof ApiError && error.status === 401) {
+        const login = root.dataset.login ?? "/login";
+        location.replace(`${login}?next=${encodeURIComponent(location.pathname)}`);
+      }
+    });
+  }
 
   const showError = (key: string): void => {
     if (err) err.textContent = root.dataset[key] ?? "";
   };
 
   const run = async (): Promise<void> => {
+    if (button.disabled) return;
+    const email = document.getElementById("auth-email") as HTMLInputElement | null;
+    if (email && !email.reportValidity()) return;
+    button.disabled = true;
     showError("none");
     try {
       if (mode === "login") {
@@ -96,6 +86,8 @@ function initAuthPage(): void {
     } catch (e) {
       if (e instanceof Error && e.name === "NotAllowedError") {
         showError("errNopasskey");
+      } else if (e instanceof ApiError && mode === "link") {
+        showError(e.status === 401 ? "errExpired" : e.status === 409 ? "errLinked" : "errGeneric");
       } else if (e instanceof ApiError && e.status === 409) {
         showError(mode === "register" ? "errTaken" : "errGeneric");
       } else if (e instanceof ApiError && e.status === 401) {
@@ -103,6 +95,9 @@ function initAuthPage(): void {
       } else {
         showError("errGeneric");
       }
+    }
+    finally {
+      button.disabled = false;
     }
   };
 
