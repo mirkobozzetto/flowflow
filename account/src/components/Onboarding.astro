@@ -1,0 +1,68 @@
+---
+import { localizePath, useTranslations } from "../lib/i18n";
+interface Props { lang: string; mode: "onboarding" | "invite" | "verify-email"; }
+const { lang, mode } = Astro.props;
+const t = useTranslations(lang, "account");
+const messages = t<Record<string, unknown>>("onboarding");
+const path = localizePath(`/${mode}`, lang);
+const title = mode === "invite" ? t("onboarding.inviteTitle") : mode === "verify-email" ? t("onboarding.verifyTitle") : t("onboarding.title");
+---
+<main class="container py-10">
+  <section class="mx-auto max-w-xl space-y-6" id="onboarding-root" data-mode={mode} data-lang={lang} data-messages={JSON.stringify(messages)}>
+    <a class="text-orange-dark text-sm" href={localizePath("/", lang)}>FlowFlow</a>
+    <header class="space-y-3">
+      <h1 class="text-3xl font-semibold tracking-tight">{title}</h1>
+      <p class="text-stone-500">{t("onboarding.lead")}</p>
+    </header>
+    <p role="status" aria-live="polite" id="onboarding-status">{t("onboarding.loading")}</p>
+    <button class="b-btn" id="onboarding-refresh" type="button">{t("onboarding.refresh")}</button>
+    <div id="onboarding-guest" hidden class="space-y-4">
+      <p>{t(mode === "onboarding" ? "onboarding.signInDefault" : "onboarding.signInFirst")}</p>
+      <div class="flex flex-wrap gap-3">
+        <a class="b-btn pri" href={`${localizePath("/login", lang)}?next=${encodeURIComponent(path)}`}>{t("auth.signIn")}</a>
+        <a class="b-btn" href={`${localizePath("/register", lang)}?next=${encodeURIComponent(path)}`}>{t("auth.register")}</a>
+      </div>
+    </div>
+    <div id="onboarding-account" hidden class="space-y-6">
+      <p id="onboarding-email" class="text-sm text-stone-500 break-all"></p>
+      {mode !== "onboarding" && <section class="b-c space-y-3">
+        <p>{t(mode === "invite" ? "onboarding.inviteHint" : "onboarding.verifyHint")}</p>
+        <button class="b-btn pri" id="onboarding-redeem" type="button">{t(mode === "invite" ? "onboarding.acceptInvite" : "onboarding.confirmEmail")}</button>
+        <a class="text-orange-dark block text-sm" href={localizePath("/onboarding", lang)}>{t("onboarding.back")}</a>
+      </section>}
+      <section class="b-c space-y-3">
+        <h2 class="text-lg font-semibold">{t("onboarding.emailTitle")}</h2>
+        <p id="onboarding-email-state"></p>
+        <button class="b-btn" id="onboarding-send-email" type="button">{t("onboarding.sendEmail")}</button>
+      </section>
+      <section class="b-c space-y-3">
+        <h2 class="text-lg font-semibold">{t("nav.devices")}</h2>
+        <p id="onboarding-link-state"></p>
+        <p id="onboarding-account-id" class="text-xs text-stone-500 break-all"></p>
+        <div id="onboarding-link-instructions" class="space-y-3">
+          <p>{t("onboarding.linkInstructions")}</p>
+          <a class="b-btn" href={localizePath("/link", lang)}>{t("onboarding.linkAction")}</a>
+          <p class="text-sm text-stone-500">{t("onboarding.installHint")}</p>
+          <a class="text-orange-dark" href="https://flowflow.be/">{t("onboarding.getApp")}</a>
+        </div>
+      </section>
+      <section class="b-c space-y-3">
+        <h2 class="text-lg font-semibold">{t("overview.premium")}</h2>
+        <p id="onboarding-premium-state"></p>
+        <p id="onboarding-expiry" class="text-sm text-stone-500"></p>
+        <p id="onboarding-request-state"></p>
+        <p id="onboarding-premium-hint" class="text-sm text-stone-500">{t("onboarding.premiumHint")}</p>
+        <button class="b-btn pri" id="onboarding-request" type="button">{t("onboarding.requestPremium")}</button>
+      </section>
+      <section class="b-c space-y-3">
+        <h2 class="text-lg font-semibold">{t("onboarding.optionalTitle")}</h2>
+        <p>{t("onboarding.optionalHint")}</p>
+        <a class="text-orange-dark" href="https://flowflow.be/hermes/">{t("onboarding.hermesGuide")}</a>
+      </section>
+      <button class="b-btn" id="onboarding-signout" type="button">{t("auth.signOut")}</button>
+    </div>
+  </section>
+</main>
+<script>
+  import "../scripts/onboarding";
+</script>

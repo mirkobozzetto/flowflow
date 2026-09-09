@@ -1,0 +1,9 @@
+---
+import Onboarding from "../components/Onboarding.astro";
+import Layout from "../layouts/Layout.astro";
+export const prerender = false;
+Astro.response.headers.set("Cache-Control", "no-store");
+---
+<Layout lang="en">
+  <Onboarding lang="en" mode="invite" />
+</Layout>

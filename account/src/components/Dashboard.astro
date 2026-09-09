@@ -7,7 +7,7 @@ import {
   type ProfileData,
   shortId,
 } from "../lib/api";
-import { useTranslations } from "../lib/i18n";
+import { localizePath, useTranslations } from "../lib/i18n";
 import Avatar from "./Avatar.astro";
 import BrandIcon from "./BrandIcon.astro";
 import Profile from "./Profile.astro";
@@ -56,6 +56,7 @@ const freeSlots = Math.max(0, DEVICE_CAP - data.devices.length);
       <img src="/logo.png" alt="" width="26" height="26" />
       FlowFlow
     </div>
+    <a class="b-item" href={localizePath("/onboarding", lang)}>{t("onboarding.title")}</a>
     {
       panes.map((p, i) => (
         <>

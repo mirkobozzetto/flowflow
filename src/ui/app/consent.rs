@@ -5,101 +5,77 @@ use crate::ui::AppState;
 use dioxus::prelude::*;
 use std::sync::Arc;
 
-const SPARKLE: &str =
-    "M12 0L14.59 9.41L24 12L14.59 14.59L12 24L9.41 14.59L0 12L9.41 9.41L12 0Z";
-
 #[component]
 pub fn ConsentScreen() -> Element {
     let db: Signal<Arc<Database>> = use_context();
     let mut app: AppState = use_context();
+    let mut save_failed = use_signal(|| false);
     let lang = (app.current_lang)();
 
     rsx! {
-        div {
-            class: "fixed inset-0 z-[60] bg-stone-100 flex flex-col px-6",
+        main {
+            class: "fixed inset-0 z-[60] overflow-y-auto bg-stone-100 text-stone-800",
             style: "padding-top: env(safe-area-inset-top); padding-bottom: env(safe-area-inset-bottom);",
-
-            div { class: "flex-1 flex flex-col items-center justify-center",
-                img {
-                    src: asset!("/assets/flowflow-icon-300.png"),
-                    class: "w-64 h-64 object-contain",
-                    alt: "FlowFlow",
+            div { class: "min-h-full w-full max-w-3xl mx-auto px-6 py-8 sm:py-12 flex flex-col justify-center",
+                header { class: "flex items-center justify-between gap-4",
+                    span { class: "text-sm font-semibold tracking-tight", "FlowFlow" }
+                    div { class: "flex items-center rounded-lg bg-stone-200/60 p-1",
+                        for locale in ["fr", "en"] {
+                            button {
+                                class: if lang == locale {
+                                    "min-h-[44px] px-3 rounded-md bg-warm-white text-sm font-medium text-stone-800"
+                                } else {
+                                    "min-h-[44px] px-3 rounded-md text-sm text-stone-600 hover:text-stone-900"
+                                },
+                                aria_pressed: lang == locale,
+                                onclick: move |_| {
+                                    if db().set_setting(LANGUAGE_KEY, locale).is_ok() {
+                                        app.current_lang.set(locale.to_string());
+                                    }
+                                },
+                                {t(&lang, if locale == "fr" { "language-fr" } else { "language-en" })}
+                            }
+                        }
+                    }
                 }
-
-                div { class: "relative bg-warm-white rounded-xl border border-stone-200/60 p-5 mt-8 max-w-[320px] w-full",
-                    svg {
-                        class: "absolute -top-2 -right-2 text-ios-orange opacity-40",
-                        width: "24",
-                        height: "24",
-                        view_box: "0 0 24 24",
-                        fill: "currentColor",
-                        path { d: SPARKLE }
+                section { class: "grid grid-cols-1 sm:grid-cols-[96px_minmax(0,1fr)] gap-7 sm:gap-8 py-8 sm:py-12",
+                    img {
+                        src: asset!("/assets/flowflow-icon-300.png"),
+                        class: "w-20 h-20 sm:w-24 sm:h-24 object-contain",
+                        alt: "",
                     }
-                    svg {
-                        class: "absolute top-6 -right-1 text-ios-orange opacity-20",
-                        width: "14",
-                        height: "14",
-                        view_box: "0 0 24 24",
-                        fill: "currentColor",
-                        path { d: SPARKLE }
-                    }
-
-                    h2 { class: "font-semibold text-base text-stone-800 mb-2",
+                    div {
+                    h1 { class: "text-3xl sm:text-4xl font-semibold tracking-tight leading-tight text-balance",
                         {t(&lang, "consent-title")}
                     }
-                    p { class: "text-sm text-stone-500 leading-relaxed",
+                    p { class: "text-base text-stone-600 leading-relaxed mt-5",
                         {t(&lang, "consent-description")}
                     }
                 }
-            }
-
-            div { class: "w-full pb-8",
-                div { class: "flex justify-center gap-2 mb-4",
-                    button {
-                        class: if lang == "en" {
-                            "min-h-[44px] px-5 rounded-full text-sm font-medium bg-ios-orange text-white"
-                        } else {
-                            "min-h-[44px] px-5 rounded-full text-sm font-medium bg-stone-200 text-stone-700"
-                        },
-                        onclick: move |_| {
-                            let _ = db().set_setting(LANGUAGE_KEY, "en");
-                            app.current_lang.set("en".to_string());
-                        },
-                        {t(&lang, "language-en")}
+                }
+                footer { class: "space-y-4 pb-4 sm:ml-32",
+                    p { class: "text-xs text-stone-600 leading-relaxed border-t border-stone-200 pt-5",
+                        {t(&lang, "consent-disclaimer")}
                     }
+                    if save_failed() {
+                        p { class: "text-sm text-ios-red", role: "alert",
+                            {t(&lang, "consent-save-error")}
+                        }
+                    }
+                    div { class: "w-full sm:max-w-[220px]",
                     button {
-                        class: if lang == "fr" {
-                            "min-h-[44px] px-5 rounded-full text-sm font-medium bg-ios-orange text-white"
-                        } else {
-                            "min-h-[44px] px-5 rounded-full text-sm font-medium bg-stone-200 text-stone-700"
-                        },
+                        class: crate::ui::kit::BTN_PRIMARY,
                         onclick: move |_| {
-                            let _ = db().set_setting(LANGUAGE_KEY, "fr");
-                            app.current_lang.set("fr".to_string());
+                            if db().set_setting("ai_consent", "true").is_ok() {
+                                app.ai_consent.set(Some(true));
+                            } else {
+                                save_failed.set(true);
+                            }
                         },
-                        {t(&lang, "language-fr")}
+                        {t(&lang, "consent-cta")}
+                    }
                     }
                 }
-                button {
-                    class: crate::ui::kit::BTN_HERO,
-                    onclick: move |_| {
-                        let _ = db().set_setting("ai_consent", "true");
-                        app.ai_consent.set(Some(true));
-                    },
-                    {t(&lang, "consent-cta")}
-                }
-                p { class: "text-xs text-stone-400/50 text-center mt-3 px-4 leading-relaxed",
-                    {t(&lang, "consent-disclaimer")}
-                }
-            }
-
-            svg {
-                class: "fixed bottom-28 left-8 text-ios-orange opacity-15 pointer-events-none",
-                width: "18",
-                height: "18",
-                view_box: "0 0 24 24",
-                fill: "currentColor",
-                path { d: SPARKLE }
             }
         }
     }
