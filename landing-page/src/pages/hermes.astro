@@ -1,0 +1,253 @@
+---
+import "../styles/global.css";
+import "../styles/hermes.css";
+---
+
+<!doctype html>
+<html lang="fr">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="robots" content="noindex,nofollow" />
+    <title>Hermes × FlowFlow - Guide de connexion</title>
+    <meta name="description" content="Connectez votre agent Hermes à un espace FlowFlow : compte lié, accès Premium, kit d’installation et vérification pas à pas." />
+    <link rel="canonical" href="https://flowflow.be/hermes" />
+    <link rel="icon" type="image/png" href="/logo.png" />
+  </head>
+  <body>
+<div class="container">
+<nav aria-label="Navigation principale">
+<a class="brand" href="https://flowflow.be/fr/">
+<img src="/logo.png" alt="" />FlowFlow</a>
+<div class="nav-right">
+<a href="#parcours">Le guide</a>
+<a href="#aide">Besoin d’aide ?</a>
+</div>
+</nav>
+</div>
+<header class="hero">
+<div class="duo">
+<img src="/logo.png" alt="FlowFlow" />
+<span aria-hidden="true">×</span>
+<img src="/images/hermes-agent.png" alt="Hermes" width="76" height="76" />
+</div>
+<div class="fig">Le guide de connexion</div>
+<h1>Vos notes.<br>Votre agent. <em>Ensemble.</em>
+</h1>
+<p class="lead">Connectez Hermes à votre espace FlowFlow pour lire, retrouver et enrichir vos notes. Vous choisissez l’espace. Vous gardez le contrôle.</p>
+<div class="ctas">
+<a class="btn-primary" href="/downloads/FlowFlow-Hermes-kit-2026-09-09.zip" download>Télécharger le kit Hermes ↓</a>
+<a class="btn-ghost" href="#parcours">Suivre les étapes →</a>
+</div>
+<p class="caption">ZIP · 19 Ko · Guide + skill + installation · Aucun jeton inclus</p>
+<div class="flow">
+<div>
+<b>01 · Votre espace</b>
+<small>Dans FlowFlow</small>
+</div>
+<span class="arrow">→</span>
+<div>
+<b>02 · Votre accès</b>
+<small>Un jeton privé</small>
+</div>
+<span class="arrow">→</span>
+<div>
+<b>03 · Votre Hermes</b>
+<small>Sur sa propre machine</small>
+</div>
+</div>
+</header>
+<main class="container">
+<div class="layout" id="parcours">
+<aside aria-label="Sommaire">
+<b>Votre parcours</b>
+<a href="#avant">Avant de commencer</a>
+<a href="#espace">01 · Préparer l’espace</a>
+<a href="#acces">02 · Créer l’accès</a>
+<a href="#kit">03 · Installer le kit</a>
+<a href="#secret">04 · Connecter Hermes</a>
+<a href="#verifier">05 · Vérifier et démarrer</a>
+<a href="#aide">Questions fréquentes</a>
+</aside>
+<div>
+<section class="section" id="avant">
+<div class="fig">Quelques prérequis, rien de caché</div>
+<h2>Un compte lié.<br>Un espace qui vous appartient.</h2>
+<div class="requirement">
+<div>
+<b>Côté FlowFlow</b>
+<p>L’app iPhone ou Mac, un compte web lié à l’app et un accès Premium actif pour créer l’accès Hermes.</p>
+</div>
+<div>
+<b>Côté Hermes</b>
+<p>Une instance Hermes déjà installée, sur Linux ou macOS, capable de joindre api.flowflow.be en HTTPS.</p>
+</div>
+</div>
+<p>Pas encore de compte ? <a class="body-link" href="https://account.flowflow.be/register" target="_blank" rel="noopener">Créez votre compte</a>, ou <a class="body-link" href="https://account.flowflow.be/login" target="_blank" rel="noopener">connectez-vous</a>.</p>
+<p>Dans l’app, ouvrez <b>Réglages → Compte → Générer un code de liaison</b>. Copiez ce code, puis saisissez-le sur <a class="body-link" href="https://account.flowflow.be/link" target="_blank" rel="noopener">la page de liaison</a>, connecté au même compte web.</p>
+<div class="note">
+<b>La connexion au site ne suffit pas.</b>
+<p>La liaison rattache votre application au compte web. Si Premium n’est pas actif, demandez son activation à l’administrateur FlowFlow. Cette page ne propose pas d’achat ni d’activation automatique.</p>
+</div>
+</section>
+<section class="section" id="espace">
+<div class="step">
+<span>1</span> Dans l’application FlowFlow</div>
+<h2>Choisissez ce qu’Hermes pourra voir.</h2>
+<ol>
+<li>Ouvrez la barre latérale et créez ou choisissez un <b>espace dont vous êtes propriétaire</b>.</li>
+<li>Placez-y les notes que vous voulez rendre accessibles.</li>
+<li>Pour autoriser l’écriture, préparez un <b>dossier collaboratif</b> dans cet espace.</li>
+</ol>
+<p>Un dossier local non partagé reste invisible à Hermes. Le jeton donne accès à un seul espace, pas à l’ensemble de vos notes.</p>
+</section>
+<section class="section" id="acces">
+<div class="step">
+<span>2</span> Toujours dans FlowFlow</div>
+<h2>Créez un accès, à votre mesure.</h2>
+<ol>
+<li>Ouvrez le menu <b>⋯</b> de l’espace, puis <b>Accès Hermes</b>.</li>
+<li>Choisissez <b>Lecture seule</b> ou <b>Lecture et écriture</b>.</li>
+<li>Sélectionnez <b>Créer l’accès</b> et copiez immédiatement le jeton : il n’est affiché qu’une fois.</li>
+</ol>
+<div class="note">
+<b>Votre jeton reste privé.</b>
+<p>Il commence par <span class="token">mcps_</span>. Ne le collez ni sur Discord, ni dans une conversation avec Hermes, ni dans vos notes ou une commande shell. Vous le saisirez dans un fichier privé à l’étape 4. Le code de liaison d’appareil et ce jeton sont deux choses différentes.</p>
+</div>
+<p>Un accès Hermes existe déjà pour cet espace ? Régénérez son jeton plutôt que de créer un doublon.</p>
+</section>
+<section class="section" id="kit">
+<div class="step">
+<span>3</span> Sur la machine qui exécute Hermes</div>
+<h2>Le kit fait le lien.</h2>
+<p>Téléchargez et décompressez le kit <b>sur la machine où tourne réellement Hermes</b>. S’il est sur un VPS, les fichiers doivent être accessibles sur ce VPS, pas seulement sur votre ordinateur.</p>
+<div class="contents">
+<span>LIRE-MOI.md</span>
+<span>POUR-HERMES.md</span>
+<span>Skill + 4 références</span>
+<span>Script d’installation</span>
+</div>
+<p>Donnez le dossier à votre agent, puis envoyez-lui cette instruction :</p>
+<div class="code">
+<div class="code-head">
+<span>À envoyer à Hermes · aucun secret</span>
+<button class="copy" data-copy="installation">Copier</button>
+</div>
+<div class="prompt" id="installation">Lis POUR-HERMES.md dans ce kit et suis les instructions pour configurer FlowFlow sur ton instance actuelle. Préserve la configuration existante. Guide-moi pour saisir mon jeton dans le fichier privé prévu, jamais dans cette conversation. Termine par une vérification en lecture seule, sans créer ni modifier de notes.</div>
+</div>
+<details>
+<summary>Installation manuelle du skill</summary>
+<p>Depuis la racine du dossier décompressé :</p>
+<div class="code">
+<pre>sh scripts/install-flowflow-hermes-skill.sh</pre>
+</div>
+<p>Le script installe le skill et ses références dans <code>~/.hermes/skills/productivity/flowflow-spaces/</code>. Il sauvegarde l’ancienne copie. Il ne configure pas le MCP et n’installe pas Hermes.</p>
+</details>
+</section>
+<section class="section" id="secret">
+<div class="step">
+<span>4</span> Une configuration, un secret privé</div>
+<h2>Branchez votre instance. Pas une autre.</h2>
+<p>Hermes vous guide pour compléter sa configuration existante. Sauvegardez-la d’abord et préservez les autres serveurs MCP.</p>
+<div class="code">
+<div class="code-head">
+<span>~/.hermes/config.yaml · exemple à fusionner</span>
+<button class="copy" data-copy="yaml">Copier</button>
+</div>
+<pre id="yaml">mcp_servers:
+  flowflow_mon_espace:
+    url: "https://api.flowflow.be/v1/mcp-spaces"
+    headers:
+      Authorization: "Bearer &#36;&#123;FLOWFLOW_TOKEN_MON_ESPACE&#125;"
+    timeout: 30</pre>
+</div>
+<p>Dans un <b>éditeur privé</b>, ajoutez la variable <code>FLOWFLOW_TOKEN_MON_ESPACE</code> avec votre vrai jeton dans <code>~/.hermes/.env</code>. Ne remplacez pas les autres variables et ne partagez pas ce fichier.</p>
+<div class="code">
+<div class="code-head">
+<span>Protéger le fichier sur Linux / macOS</span>
+<button class="copy" data-copy="chmod">Copier</button>
+</div>
+<pre id="chmod">chmod 600 ~/.hermes/.env</pre>
+</div>
+<p>Rechargez ou redémarrez <b>la même instance Hermes</b> pour qu’elle relise le skill, la configuration et l’environnement. La procédure dépend de son installation ; votre agent doit vous l’indiquer sans lancer une deuxième instance.</p>
+<p class="caption">Répertoire Hermes personnalisé : utilisez les chemins réels de cette instance. Sous Windows, suivez la procédure dans l’environnement Linux/WSL où Hermes est installé.</p>
+</section>
+<section class="section" id="verifier">
+<div class="step">
+<span>5</span> D’abord observer, ensuite agir</div>
+<h2>Vérifiez la connexion.<br>Puis donnez-lui une première mission.</h2>
+<div class="code">
+<div class="code-head">
+<span>Première vérification · lecture seule</span>
+<button class="copy" data-copy="verification">Copier</button>
+</div>
+<div class="prompt" id="verification">Utilise le skill flowflow-spaces et le serveur flowflow_mon_espace. Vérifie space_info, puis pull_changes et list_folders. Donne-moi le nom de l’espace, le contrat, tes permissions, la date d’expiration et les dossiers visibles. Ne crée, ne modifie et ne supprime aucune note.</div>
+</div>
+<ul>
+<li>Le nom retourné doit être celui de <b>votre espace</b>.</li>
+<li>Le contrat attendu par ce kit est <b>3</b>. En cas d’écart, Hermes doit suivre la procédure de compatibilité du skill.</li>
+<li>Un espace vide est valide. Une écriture exige <b>read_write</b> et un dossier <b>writable: true</b>.</li>
+</ul>
+<h3>Commencez par une lecture</h3>
+<div class="code">
+<div class="prompt">Liste les notes du dossier Projets, sans les modifier.</div>
+</div>
+<h3>Puis autorisez une création, si vous le souhaitez</h3>
+<div class="code">
+<div class="prompt">Crée une note intitulée « Première synthèse » dans le dossier collaboratif Projets, avec ce contenu : …</div>
+</div>
+<p>Remplacez « Projets » par un dossier réellement visible. Aucune surveillance ni routine n’est activée par défaut. Hermes ne doit pas modifier vos notes humaines.</p>
+</section>
+<section class="section" id="aide">
+<div class="fig">Si quelque chose bloque</div>
+<h2>Les réponses utiles.</h2>
+<details>
+<summary>Je suis connecté au site, mais mon compte est vide.</summary>
+<p>Il manque probablement la liaison d’appareil. Générez un code dans Réglages → Compte de l’app, puis saisissez-le sur <a href="https://account.flowflow.be/link" target="_blank" rel="noopener">account.flowflow.be/link</a>. La création du compte web et la liaison sont distinctes.</p>
+</details>
+<details>
+<summary>Hermes ne voit aucun serveur FlowFlow.</summary>
+<p>Le skill décrit la méthode, mais ne crée pas la connexion. Vérifiez l’entrée mcp_servers et la variable d’environnement sur la bonne machine, puis rechargez Hermes. Ne publiez pas votre configuration complète dans un message d’aide.</p>
+</details>
+<details>
+<summary>Le serveur répond 404 ou unauthorized.</summary>
+<p>Le jeton peut être invalide, expiré, régénéré ou révoqué. Vérifiez que vous avez utilisé le jeton de l’espace, pas le code de liaison. Régénérez l’accès si nécessaire et remplacez uniquement sa variable privée, puis rechargez Hermes.</p>
+</details>
+<details>
+<summary>Hermes peut lire, mais pas écrire.</summary>
+<p>Vérifiez le Premium du propriétaire, le scope read_write et un dossier collaboratif writable=true. Hermes n’écrit pas à la racine de l’espace et ne modifie pas les notes humaines. space_read_only signale que les écritures Premium sont indisponibles.</p>
+</details>
+<details>
+<summary>Quand faut-il renouveler l’accès ?</summary>
+<p>Le Premium et le jeton ont des expirations distinctes. Consultez expires_at renvoyé par space_info. Régénérez le jeton avant son expiration et remplacez sa valeur dans le fichier privé. Les jetons ont une durée maximale de 365 jours.</p>
+</details>
+<details>
+<summary>Comment couper l’accès d’Hermes ?</summary>
+<p>Dans le menu de l’espace → Accès Hermes → Révoquer. Retirez ensuite la configuration et la variable correspondantes sur la machine Hermes. Les notes déjà créées ne sont pas supprimées.</p>
+</details>
+<details>
+<summary>Puis-je partager ce kit ?</summary>
+<p>Oui. Il ne contient que de la documentation, le skill et son script d’installation. Chaque utilisateur génère son propre jeton pour son propre espace. Les empreintes SHA-256 servent à vérifier les fichiers ; elles ne donnent aucun accès.</p>
+</details>
+</section>
+<div class="closing">
+<h2>Un espace choisi.<br>Un agent sous votre contrôle.</h2>
+<p>Gardez le guide et transmettez le kit. Jamais le jeton.</p>
+<a class="btn-primary" href="/downloads/FlowFlow-Hermes-kit-2026-09-09.zip" download>Télécharger le kit complet ↓</a>
+<p class="caption" style="margin:14px 0 0">Skill 1.2.0 · Contrat 3 · Kit du 9 septembre 2026</p>
+</div>
+<p class="status" role="status" id="copy-status">
+</p>
+</div>
+</div>
+<footer>
+<a class="brand" href="https://flowflow.be/fr/">
+<img src="/logo.png" alt="" />FlowFlow</a>
+<span>Guide de connexion Hermes · Aucun accès administrateur requis</span>
+</footer>
+</main>
+    <script>
+      import "../scripts/hermes.ts";
+    </script>
+  </body>
+</html>
