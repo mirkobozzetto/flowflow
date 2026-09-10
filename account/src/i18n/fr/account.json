@@ -162,5 +162,21 @@
     "notSet": "Non renseigné",
     "save": "Enregistrer",
     "saved": "Enregistré."
+  },
+  "home": {
+    "title": "Mon compte",
+    "navigation": "Compte",
+    "finishSetup": "Terminer la configuration de mon compte",
+    "unavailable": "Ces informations sont momentanément indisponibles. Réessaie dans quelques instants.",
+    "unnamedDevice": "Appareil sans nom",
+    "lastActivity": "Dernière activité :",
+    "activityUnknown": "inconnue",
+    "deviceNamesHint": "Les noms sont définis dans les réglages de synchronisation de l’app FlowFlow.",
+    "linkDevice": "Lier un appareil",
+    "premiumDescription": "Ton compte bénéficie de l’accès Premium. Aucun paiement n’est demandé actuellement.",
+    "followRequest": "Suivre ma demande",
+    "collaborators": "Collaborateurs",
+    "collaborator": "Collaborateur",
+    "agentAccess": "Agent · accès à cet espace"
   }
 }

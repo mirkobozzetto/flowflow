@@ -91,7 +91,7 @@ const valueOf = (field: string): string => profile[field]?.value ?? "";
             data-field-input={field}
           />
           <span class="b-pills" data-visibility={visibilityOf(field)}>
-            {VISIBILITIES.map((v) => (
+            {VISIBILITIES.filter((v) => v !== "groups" || visibilityOf(field) === "groups").map((v) => (
               <button
                 class={`b-pill${v === "groups" ? " soon" : ""}${
                   visibilityOf(field) === v ? " on" : ""

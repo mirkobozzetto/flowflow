@@ -1,374 +1,81 @@
 ---
-import {
-  type AccountData,
-  fmtDate,
-  fmtDateTime,
-  type Me,
-  type ProfileData,
-  shortId,
-} from "../lib/api";
+import { type AccountData, fmtDate, fmtDateTime, type Me, type ProfileData } from "../lib/api";
 import { localizePath, useTranslations } from "../lib/i18n";
 import Avatar from "./Avatar.astro";
-import BrandIcon from "./BrandIcon.astro";
 import Profile from "./Profile.astro";
-
-interface Props {
-  lang: string;
-  me: Me;
-  data: AccountData;
-  profile: ProfileData;
-}
-
+interface Props { lang: string; me: Me; data: AccountData; profile: ProfileData; }
 const { lang, me, data, profile } = Astro.props;
 const t = useTranslations(lang, "account");
-const n = t<Record<string, string>>("nav");
-
-const panes = [
-  { key: "overview", label: n.overview },
-  { key: "profile", label: n.profile },
-  { key: "devices", label: n.devices },
-  { key: "services", label: n.services },
-  { key: "billing", label: n.billing },
-  { key: "security", label: n.security },
-] as const;
-
 const meName = profile.display_name?.value ?? me.display_name ?? me.email;
-const plan = data.plans[0] ?? null;
-const planLabel = plan
-  ? plan.plan.charAt(0).toUpperCase() + plan.plan.slice(1)
-  : t("overview.free");
-const pendingRequests = data.requests.filter((r) => r.status === "pending");
-
-const brandFor = (provider: string): "sheets" | "gmail" | "calendar" | null => {
-  if (provider.includes("sheet")) return "sheets";
-  if (provider.includes("gmail") || provider.includes("mail")) return "gmail";
-  if (provider.includes("calendar")) return "calendar";
-  return null;
-};
-
-const DEVICE_CAP = 3;
-const freeSlots = Math.max(0, DEVICE_CAP - data.devices.length);
+const access = data.onboarding;
+const panes = [
+  { key: "overview", label: t("home.title") },
+  { key: "billing", label: t("nav.billing") },
+  { key: "security", label: t("nav.security") },
+];
 ---
-
-<div class="b-app">
+<div class="b-app account-home">
   <aside class="b-side">
-    <div class="sb">
-      <img src="/logo.png" alt="" width="26" height="26" />
-      FlowFlow
-    </div>
-    <a class="b-item" href={localizePath("/onboarding", lang)}>{t("onboarding.title")}</a>
-    {
-      panes.map((p, i) => (
-        <>
-          {p.key === "profile" && <div class="grp">{n.groupAccount}</div>}
-          {p.key === "billing" && <div class="grp">{n.groupSettings}</div>}
-          <button
-            class={`b-item${i === 0 ? " on" : ""}`}
-            type="button"
-            data-pane={p.key}
-          >
-            {p.label}
-          </button>
-        </>
-      ))
-    }
-    <div class="me">
-      <Avatar name={meName} size={34} photo={true} />
-      <div><b>{meName}</b><small>{me.email}</small></div>
-    </div>
+    <div class="sb"><img src="/logo.png" alt="" width="26" height="26" />FlowFlow</div>
+    <nav class="account-nav" aria-label={t("home.navigation")}>
+      {panes.map((pane, i) => <button class={`b-item${i === 0 ? " on" : ""}`} type="button" data-pane={pane.key} aria-current={i === 0 ? "page" : undefined}>{pane.label}</button>)}
+    </nav>
+    <div class="me"><Avatar name={meName} size={34} photo={true} /><div><b>{meName}</b><small>{me.email}</small></div></div>
   </aside>
-
   <div>
-    <div class="b-pane on" data-pane="overview">
-      <div class="b-ph"><h3>{n.overview}</h3></div>
-      {
-        data.linked ? (
-          <div class="b-cards">
-            <div class="b-c">
-              <h4>
-                <span class="t">{t("overview.devices")}</span>
-                <span class="b-st">
-                  {data.devices.length} / {DEVICE_CAP}
-                </span>
-              </h4>
-              {data.devices.map((d) => (
-                <div class="b-row">
-                  <span class="b-dot" />
-                  <div class="g">
-                    <b>{shortId(d.device_id)}</b>
-                    <small>
-                      {t("devices.lastSeen")}{" "}
-                      {d.last_seen
-                        ? fmtDateTime(d.last_seen, lang)
-                        : t("devices.never")}
-                    </small>
-                  </div>
-                </div>
-              ))}
-            </div>
-
-            <div class="b-c">
-              <h4>
-                <span class="t">{t("overview.billing")}</span>
-                <span class="b-st">{planLabel}</span>
-              </h4>
-              <p class="b-big">
-                {plan ? t("overview.noLimit") : t("billing.noPlan")}
-              </p>
-              {plan && (
-                <div class="b-kv">
-                  <span class="k">{t("overview.origin")}</span>
-                  <span class="v">{t("overview.granted")}</span>
-                </div>
-              )}
-            </div>
-
-            <div class="b-c">
-              <h4>
-                <span class="t">{t("overview.services")}</span>
-              </h4>
-              {data.connections.length === 0 && (
-                <div class="b-kv">
-                  <span class="k">{t("services.none")}</span>
-                </div>
-              )}
-              {data.connections.slice(0, 4).map((c) => (
-                <div class="b-kv">
-                  <span class="k">{c.provider}</span>
-                  <span class="v">{t("overview.active")}</span>
-                </div>
-              ))}
-            </div>
-
-            <div class="b-c">
-              <h4>
-                <span class="t">{t("overview.requests")}</span>
-                {pendingRequests.length > 0 && (
-                  <span class="b-st">{pendingRequests.length}</span>
-                )}
-              </h4>
-              {data.requests.length === 0 && (
-                <div class="b-kv">
-                  <span class="k">{t("overview.noRequests")}</span>
-                </div>
-              )}
-              {data.requests.slice(0, 4).map((r) => (
-                <div class="b-kv">
-                  <span class="k">{r.item}</span>
-                  <span class="v">{t(`billing.${r.status}`) ?? r.status}</span>
-                </div>
-              ))}
-            </div>
-          </div>
-        ) : (
-          <div class="b-cards">
-            <div class="b-c wide">
-              <div class="b-empty">
-                <b>{t("overview.empty")}</b>
-                {t("overview.emptyLead")}
-              </div>
-            </div>
-          </div>
-        )
-      }
-    </div>
-
-    <div class="b-pane" data-pane="profile">
-      <div class="b-ph"><h3>{n.profile}</h3></div>
-      <Profile lang={lang} me={me} profile={profile} />
-    </div>
-
-    <div class="b-pane" data-pane="devices">
-      <div class="b-ph">
-        <h3>{n.devices}</h3>
-        <span class="b-st sp">{data.devices.length} / {DEVICE_CAP}</span>
-      </div>
-      <div class="b-cards">
-        <div class="b-c wide">
-          {
-            data.devices.length === 0 && (
-              <div class="b-empty">
-                <b>{t("devices.none")}</b>
-                {t("overview.emptyLead")}
-              </div>
-            )
-          }
-          {
-            data.devices.map((d) => (
-              <div class="b-row">
-                <span class="b-dot" />
-                <div class="g">
-                  <b>{shortId(d.device_id)}</b>
-                  <small>
-                    {t("devices.paired")} {fmtDate(d.created_at, lang)}
-                  </small>
-                </div>
-                <span class="r">
-                  {d.last_seen
-                    ? fmtDateTime(d.last_seen, lang)
-                    : t("devices.never")}
-                </span>
-              </div>
-            ))
-          }
-          {
-            freeSlots > 0 && (
-              <div class="b-row">
-                <span class="b-dot idle" />
-                <div class="g text-stone-400">
-                  <b>{t("devices.free")}</b>
-                  <small>{t("devices.qr")}</small>
-                </div>
-              </div>
-            )
-          }
+    <section class="b-pane on" data-pane="overview">
+      <div class="b-ph"><h1>{t("home.title")}</h1>{access?.premium && <span class="account-premium">{t("overview.premium")}</span>}</div>
+      {access && (!access.email_verified || !access.linked) && <p class="account-notice"><a href={localizePath("/onboarding", lang)}>{t("home.finishSetup")}</a></p>}
+      <div class="account-grid">
+        <div class="account-profile"><Profile lang={lang} me={me} profile={profile} /></div>
+        <div class="account-aside">
+          <section class="b-c">
+            <h2>{t("nav.devices")}</h2>
+            {!data.devicesAvailable ? <p role="status" class="b-note">{t("home.unavailable")}</p> : data.devices.length === 0 ? <p class="b-note">{t("devices.none")}</p> : data.devices.map((device) => <div class="b-row">
+              <svg class="account-device-icon" width="32" height="32" viewBox="0 0 64 64" fill="none" aria-hidden="true"><rect x="10" y="12" width="44" height="32" rx="4" stroke="currentColor" stroke-width="3"/><path d="M24 53h16M32 44v9" stroke="currentColor" stroke-width="3" stroke-linecap="round"/></svg>
+              <div class="g"><b>{device.name?.trim() || t("home.unnamedDevice")}</b><small>{t("home.lastActivity")} {device.last_seen ? fmtDateTime(device.last_seen, lang) : t("home.activityUnknown")}</small></div>
+            </div>)}
+            <p class="b-note">{t("home.deviceNamesHint")}</p>
+            <a class="b-btn account-link" href={localizePath("/link", lang)}>{t("home.linkDevice")}</a>
+          </section>
+          {data.collaborators === null ? <section class="b-c"><h2>{t("home.collaborators")}</h2><p class="b-note" role="status">{t("home.unavailable")}</p></section> : data.collaborators.map((space) => <section class="b-c">
+            <h2>{t("home.collaborators")}</h2><p class="b-note">{space.name}</p>
+            {space.members.map((member, index) => <div class="b-row">
+              <span class="account-person-photo">
+                <span>{member.name?.trim().slice(0, 1).toUpperCase() || String(index + 1)}</span>
+                {member.is_agent && member.name?.trim().toLowerCase() === "hermes" ? <img src="/hermes-agent.png" alt="" /> : member.has_avatar && <img src={`/v1/me/collaborators/${encodeURIComponent(space.id)}/${encodeURIComponent(member.id)}/avatar`} alt="" loading="lazy" onerror="this.remove()" />}
+              </span>
+              <div class="g"><b>{member.name?.trim() || `${t("home.collaborator")} ${index + 1}`}</b><small>{member.is_agent ? t("home.agentAccess") : t("home.collaborator")}</small></div>
+            </div>)}
+          </section>)}
         </div>
       </div>
-    </div>
-
-    <div class="b-pane" data-pane="services">
-      <div class="b-ph"><h3>{n.services}</h3></div>
-      <div class="b-cards">
-        <div class="b-c wide">
-          {
-            data.connections.length === 0 && (
-              <div class="b-empty">
-                <b>{t("services.none")}</b>
-              </div>
-            )
-          }
-          {
-            data.connections.map((c) => (
-              <div class="b-row">
-                {brandFor(c.provider) ? (
-                  <span class="b-svc">
-                    <BrandIcon name={brandFor(c.provider)!} />
-                  </span>
-                ) : (
-                  <span class="b-dot" />
-                )}
-                <div class="g">
-                  <b>{c.provider}</b>
-                  <small>
-                    {t("services.device")} {shortId(c.device_id)}
-                    {c.scopes ? ` · ${c.scopes}` : ""}
-                  </small>
-                </div>
-                <span class="r">
-                  {c.access_expires_at
-                    ? `${t("services.expires")} ${fmtDate(c.access_expires_at, lang)}`
-                    : t("services.active")}
-                </span>
-              </div>
-            ))
-          }
-        </div>
+    </section>
+    <section class="b-pane" data-pane="billing">
+      <div class="b-ph"><h1>{t("nav.billing")}</h1></div>
+      <div class="b-c">
+        {!access ? <p role="status">{t("home.unavailable")}</p> : <>
+          <h2 class="account-plan-title">{access.premium ? t("overview.premium") : t(`onboarding.premium_${access.premium_status}`)}</h2>
+          <p class="b-note">{access.premium ? t("home.premiumDescription") : t("onboarding.premiumHint")}</p>
+          {access.premium_expires_at && <div class="b-kv"><span class="k">{t("billing.due")}</span><span class="v">{fmtDate(access.premium_expires_at, lang)}</span></div>}
+          {!access.premium && <>
+            {access.request && <p class="b-note">{t(`onboarding.request_${access.request.status}`)}</p>}
+            <a class="b-btn pri account-link" href={localizePath("/onboarding", lang)}>{access.request?.status === "pending" ? t("home.followRequest") : t("onboarding.requestPremium")}</a>
+          </>}
+        </>}
       </div>
-    </div>
-
-    <div class="b-pane" data-pane="billing">
-      <div class="b-ph"><h3>{n.billing}</h3></div>
+    </section>
+    <section class="b-pane" data-pane="security">
+      <div class="b-ph"><h1>{t("nav.security")}</h1></div>
       <div class="b-cards">
-        {
-          data.plans.length === 0 && (
-            <div class="b-c wide">
-              <div class="b-empty">
-                <b>{t("billing.noPlan")}</b>
-              </div>
-            </div>
-          )
-        }
-        {
-          data.plans.map((e, i) => (
-            <div class="b-c">
-              <h4>
-                <span class="t">{t("billing.plan")}</span>
-                <span class="b-st">
-                  {e.plan.charAt(0).toUpperCase() + e.plan.slice(1)}
-                </span>
-              </h4>
-              <div class="b-kv">
-                <span class="k">{t("billing.status")}</span>
-                <span class="v">{e.status}</span>
-              </div>
-              <div class="b-kv">
-                <span class="k">{t("billing.due")}</span>
-                <span class="v">
-                  {e.expires_at
-                    ? fmtDate(e.expires_at, lang)
-                    : t("billing.none")}
-                </span>
-              </div>
-              {i === 0 && data.items.length > 0 && (
-                <div class="b-kv">
-                  <span class="k">{t("billing.items")}</span>
-                  <span class="v">{data.items.length}</span>
-                </div>
-              )}
-            </div>
-          ))
-        }
-        {
-          data.requests.length > 0 && (
-            <div class="b-c">
-              <h4>
-                <span class="t">{t("billing.requests")}</span>
-              </h4>
-              {data.requests.map((r) => (
-                <div class="b-kv">
-                  <span class="k">{r.item}</span>
-                  <span class="v">
-                    {t(`billing.${r.status}`) ?? r.status}
-                    {r.decided_at ? ` · ${fmtDate(r.decided_at, lang)}` : ""}
-                  </span>
-                </div>
-              ))}
-            </div>
-          )
-        }
-      </div>
-    </div>
-
-    <div class="b-pane" data-pane="security">
-      <div class="b-ph"><h3>{n.security}</h3></div>
-      <div class="b-cards">
-        <div class="b-c wide">
-          <h4><span class="t">{t("security.recent")}</span></h4>
-          {
-            data.loginEvents.length === 0 && (
-              <div class="b-kv">
-                <span class="k">{t("security.none")}</span>
-              </div>
-            )
-          }
-          {
-            data.loginEvents.slice(0, 8).map((e) => (
-              <div class="b-kv">
-                <span class="k">{fmtDateTime(e.at, lang)}</span>
-                <span class="v">
-                  {e.kind === "register"
-                    ? t("security.register")
-                    : t("security.signin")}
-                </span>
-              </div>
-            ))
-          }
+        <div class="b-c wide"><h2>{t("security.recent")}</h2>
+          {!data.loginsAvailable ? <p class="b-note">{t("home.unavailable")}</p> : data.loginEvents.length === 0 ? <p class="b-note">{t("security.none")}</p> : data.loginEvents.slice(0, 8).map((event) => <div class="b-kv"><span class="k">{fmtDateTime(event.at, lang)}</span><span class="v">{t(event.kind === "register" ? "security.register" : "security.signin")}</span></div>)}
         </div>
-        <div class="b-c wide">
-          <div class="b-row">
-            <div class="g">
-              <b>{meName}</b><small>{me.email}</small>
-            </div>
-            <button class="b-btn" type="button" id="sign-out"
-              >{t("auth.signOut")}</button
-            >
-          </div>
-        </div>
+        <div class="b-c wide"><div class="b-row"><div class="g"><b>{meName}</b><small>{me.email}</small></div><button class="b-btn" type="button" id="sign-out">{t("auth.signOut")}</button></div></div>
       </div>
-    </div>
+    </section>
   </div>
 </div>
-
 <script>
   import "../scripts/dashboard.ts";
   import "../scripts/session.ts";
