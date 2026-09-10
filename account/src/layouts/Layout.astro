@@ -8,6 +8,11 @@ interface Props {
 
 const { lang } = Astro.props;
 const m = getMeta(lang);
+const languageLink = (choice: string) => {
+  const params = new URLSearchParams(Astro.url.search);
+  params.set("lang", choice);
+  return `${Astro.url.pathname}?${params}`;
+};
 ---
 
 <!doctype html>
@@ -43,6 +48,11 @@ const m = getMeta(lang);
     />
   </head>
   <body>
+    <nav class="account-language container" aria-label={lang === "fr" ? "Langue" : "Language"}>
+      <a href={languageLink("fr")} lang="fr" aria-current={lang === "fr" ? "true" : undefined}>Français</a>
+      <span aria-hidden="true"> / </span>
+      <a href={languageLink("en")} lang="en" aria-current={lang === "en" ? "true" : undefined}>English</a>
+    </nav>
     <slot />
   </body>
 </html>
