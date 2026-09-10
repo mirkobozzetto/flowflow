@@ -6,7 +6,11 @@ function initDashboard(): void {
     item.addEventListener("click", () => {
       const key = item.dataset.pane;
       if (!key) return;
-      for (const other of items) other.classList.toggle("on", other === item);
+      for (const other of items) {
+        other.classList.toggle("on", other === item);
+        if (other === item) other.setAttribute("aria-current", "page");
+        else other.removeAttribute("aria-current");
+      }
       for (const pane of panes) pane.classList.toggle("on", pane.dataset.pane === key);
     });
   }

@@ -18,6 +18,7 @@ export interface Me {
 
 export interface DeviceRow {
   device_id: string;
+  name?: string | null;
   created_at: string;
   last_seen: string | null;
 }
@@ -28,27 +29,11 @@ export interface PlanRow {
   expires_at: string | null;
 }
 
-// GET /v1/me/entitlements: the raw plan rows plus the resolved catalog item
-// ids (account-level, not per plan row).
-interface EntitlementsResp {
-  plans: PlanRow[];
-  items: string[];
-}
-
 export interface ConnectionRow {
   device_id: string;
   provider: string;
   access_expires_at: string | null;
   scopes: string | null;
-}
-
-// Backend shape of GET /v1/me/requests; the UI shows target_id as the item.
-interface BackendRequestRow {
-  target_kind: string;
-  target_id: string;
-  status: string;
-  created_at: string;
-  decided_at: string | null;
 }
 
 export interface RequestRow {
@@ -62,7 +47,26 @@ export interface LoginEventRow {
   at: string;
 }
 
+export interface OnboardingState {
+  linked: boolean;
+  email_verified: boolean | null;
+  premium: boolean;
+  premium_status: "active" | "expired" | "inactive";
+  premium_expires_at: string | null;
+  request: { status: "pending" | "approved" | "denied" } | null;
+}
+
+export interface SharedSpace {
+  id: string;
+  name: string;
+  members: { id: string; name: string | null; is_agent: boolean; has_avatar: boolean }[];
+}
+
 export interface AccountData {
+  collaborators: SharedSpace[] | null;
+  onboarding: OnboardingState | null;
+  devicesAvailable: boolean;
+  loginsAvailable: boolean;
   linked: boolean;
   devices: DeviceRow[];
   plans: PlanRow[];
@@ -117,25 +121,25 @@ export async function fetchProfile(cookie: string): Promise<ProfileData> {
 
 export async function fetchAccountData(cookie: string): Promise<AccountData> {
   if (PREVIEW) return previewData();
-  const [devices, entitlements, connections, requests, loginEvents] =
-    await Promise.all([
-      backendJson<DeviceRow[]>("/v1/me/devices", cookie),
-      backendJson<EntitlementsResp>("/v1/me/entitlements", cookie),
-      backendJson<ConnectionRow[]>("/v1/me/connections", cookie),
-      backendJson<BackendRequestRow[]>("/v1/me/requests", cookie),
-      backendJson<LoginEventRow[]>("/v1/me/login-events", cookie),
-    ]);
+  // A failed section must not masquerade as an empty account.
+  const read = <T>(path: string) => backendJson<T>(path, cookie).catch(() => null);
+  const [devices, onboarding, loginEvents, collaborators] = await Promise.all([
+    read<DeviceRow[]>("/v1/me/devices"),
+    read<OnboardingState>("/v1/me/onboarding"),
+    read<LoginEventRow[]>("/v1/me/login-events"),
+    read<SharedSpace[]>("/v1/me/collaborators"),
+  ]);
   return {
-    linked: (devices ?? []).length > 0,
+    collaborators,
+    onboarding,
+    devicesAvailable: devices !== null,
+    loginsAvailable: loginEvents !== null,
+    linked: onboarding?.linked ?? false,
     devices: devices ?? [],
-    plans: entitlements?.plans ?? [],
-    items: entitlements?.items ?? [],
-    connections: connections ?? [],
-    requests: (requests ?? []).map((r) => ({
-      item: r.target_id,
-      status: r.status,
-      decided_at: r.decided_at,
-    })),
+    plans: [],
+    items: [],
+    connections: [],
+    requests: [],
     loginEvents: loginEvents ?? [],
   };
 }
@@ -173,15 +177,25 @@ function previewData(): AccountData {
   const daysAgo = (n: number) =>
     new Date(now.getTime() - n * 86400_000).toISOString();
   return {
+    collaborators: [{ id: "preview-space", name: "Studio", members: [
+      { id: "preview-person", name: "Alex Laurent", is_agent: false, has_avatar: false },
+      { id: "preview-agent", name: "Hermes", is_agent: true, has_avatar: false },
+    ] }],
+    onboarding: { linked: true, email_verified: true, premium: true,
+      premium_status: "active", premium_expires_at: null, request: null },
+    devicesAvailable: true,
+    loginsAvailable: true,
     linked: true,
     devices: [
       {
         device_id: "d4b17c02-91ce-4f7d-a2b8-33e05c1e7a02",
+        name: "iPhone de Mirko",
         created_at: daysAgo(107),
         last_seen: daysAgo(0),
       },
       {
         device_id: "91ce3f7d-55aa-4e21-9c47-8b12ef043f7d",
+        name: "MacBook de Mirko",
         created_at: daysAgo(107),
         last_seen: daysAgo(1),
       },

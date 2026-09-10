@@ -162,5 +162,21 @@
     "notSet": "Not set",
     "save": "Save changes",
     "saved": "Saved."
+  },
+  "home": {
+    "title": "My account",
+    "navigation": "Account",
+    "finishSetup": "Finish setting up my account",
+    "unavailable": "This information is temporarily unavailable. Please try again shortly.",
+    "unnamedDevice": "Unnamed device",
+    "lastActivity": "Last activity:",
+    "activityUnknown": "unknown",
+    "deviceNamesHint": "Names are set in the FlowFlow app’s sync settings.",
+    "linkDevice": "Link a device",
+    "premiumDescription": "Your account has Premium access. No payment is currently requested.",
+    "followRequest": "View my request",
+    "collaborators": "Collaborators",
+    "collaborator": "Collaborator",
+    "agentAccess": "Agent · access to this space"
   }
 }

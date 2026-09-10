@@ -9,7 +9,7 @@ const title = mode === "invite" ? t("onboarding.inviteTitle") : mode === "verify
 ---
 <main class="container py-10">
   <section class="mx-auto max-w-xl space-y-6" id="onboarding-root" data-mode={mode} data-lang={lang} data-messages={JSON.stringify(messages)}>
-    <a class="text-orange-dark text-sm" href={localizePath("/", lang)}>FlowFlow</a>
+    <a class="onboarding-brand" href={localizePath("/", lang)}><img src="/logo.png" alt="" width="32" height="32" />FlowFlow</a>
     <header class="space-y-3">
       <h1 class="text-3xl font-semibold tracking-tight">{title}</h1>
       <p class="text-stone-500">{t("onboarding.lead")}</p>
