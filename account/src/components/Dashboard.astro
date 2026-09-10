@@ -32,7 +32,11 @@ const panes = [
           <section class="b-c">
             <h2>{t("nav.devices")}</h2>
             {!data.devicesAvailable ? <p role="status" class="b-note">{t("home.unavailable")}</p> : data.devices.length === 0 ? <p class="b-note">{t("devices.none")}</p> : data.devices.map((device) => <div class="b-row">
-              <svg class="account-device-icon" width="32" height="32" viewBox="0 0 64 64" fill="none" aria-hidden="true"><rect x="10" y="12" width="44" height="32" rx="4" stroke="currentColor" stroke-width="3"/><path d="M24 53h16M32 44v9" stroke="currentColor" stroke-width="3" stroke-linecap="round"/></svg>
+              {/\b(?:ios|iphone|android|phone|mobile)\b/i.test(device.name ?? "") ? (
+                <svg class="account-device-icon" data-device-icon="phone" width="32" height="32" viewBox="0 0 64 64" fill="none" aria-hidden="true"><rect x="18" y="6" width="28" height="52" rx="5" stroke="currentColor" stroke-width="3"/><path d="M28 12h8M30 51h4" stroke="currentColor" stroke-width="3" stroke-linecap="round"/></svg>
+              ) : (
+                <svg class="account-device-icon" width="32" height="32" viewBox="0 0 64 64" fill="none" aria-hidden="true"><rect x="10" y="12" width="44" height="32" rx="4" stroke="currentColor" stroke-width="3"/><path d="M24 53h16M32 44v9" stroke="currentColor" stroke-width="3" stroke-linecap="round"/></svg>
+              )}
               <div class="g"><b>{device.name?.trim() || t("home.unnamedDevice")}</b><small>{t("home.lastActivity")} {device.last_seen ? fmtDateTime(device.last_seen, lang) : t("home.activityUnknown")}</small></div>
             </div>)}
             <p class="b-note">{t("home.deviceNamesHint")}</p>
