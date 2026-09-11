@@ -25,7 +25,7 @@ const panes = [
   <div>
     <section class="b-pane on" data-pane="overview">
       <div class="b-ph"><h1>{t("home.title")}</h1>{access?.premium && <span class="account-premium">{t("overview.premium")}</span>}</div>
-      {access && (!access.email_verified || !access.linked) && <p class="account-notice"><a href={localizePath("/onboarding", lang)}>{t("home.finishSetup")}</a></p>}
+      {access && !access.linked && <p class="account-notice"><a href={localizePath("/onboarding", lang)}>{t("home.finishSetup")}</a></p>}
       <div class="account-grid">
         <div class="account-profile"><Profile lang={lang} me={me} profile={profile} /></div>
         <div class="account-aside">

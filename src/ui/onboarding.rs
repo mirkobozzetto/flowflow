@@ -162,9 +162,6 @@ pub fn AccountOnboarding(
                             })}
                         }
                     }
-                    if !value.premium && value.email_verified == Some(false) {
-                        p { class: "text-sm text-stone-600", {t(&lang, "onboarding-email-unverified")} }
-                    }
                     button { class: crate::ui::kit::PILL_GHOST, onclick: move |_| open_url(&portal_url), {t(&lang, "onboarding-manage-access")} }
                 } else {
                     p { class: "text-sm text-stone-600", {t(&lang, "onboarding-link-confirmed")} }

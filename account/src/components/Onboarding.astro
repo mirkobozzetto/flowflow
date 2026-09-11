@@ -31,11 +31,6 @@ const title = mode === "invite" ? t("onboarding.inviteTitle") : mode === "verify
         <a class="text-orange-dark block text-sm" href={localizePath("/onboarding", lang)}>{t("onboarding.back")}</a>
       </section>}
       <section class="b-c space-y-3">
-        <h2 class="text-lg font-semibold">{t("onboarding.emailTitle")}</h2>
-        <p id="onboarding-email-state"></p>
-        <button class="b-btn" id="onboarding-send-email" type="button">{t("onboarding.sendEmail")}</button>
-      </section>
-      <section class="b-c space-y-3">
         <h2 class="text-lg font-semibold">{t("nav.devices")}</h2>
         <p id="onboarding-link-state"></p>
         <p id="onboarding-account-id" class="text-xs text-stone-500 break-all"></p>

@@ -67,10 +67,8 @@ if (root) {
     const request = button("request");
     if (request) {
       request.hidden = state?.premium === true;
-      request.disabled = unavailable || !state?.linked || !state.email_verified || state.premium || state.request?.status === "pending";
+      request.disabled = unavailable || !state?.linked || state.premium || state.request?.status === "pending";
     }
-    const send = button("send-email");
-    if (send) { send.hidden = state?.email_verified === true; send.disabled = unavailable; }
     const redeem = button("redeem");
     if (redeem) redeem.disabled = unavailable || !token;
     button("refresh")!.disabled = busy || loading;
@@ -79,7 +77,6 @@ if (root) {
 
   function render(value: Onboarding): void {
     state = value;
-    set("email-state", text(value.email_verified ? "emailVerified" : "emailUnverified"));
     set("link-state", text(value.linked ? "linked" : "unlinked"));
     set("account-id", value.account_id ?? "");
     set("premium-state", text(`premium_${value.premium_status}`));
@@ -119,7 +116,7 @@ if (root) {
     }
   }
 
-  async function action(kind: "request" | "send-email" | "redeem" | "signout"): Promise<void> {
+  async function action(kind: "request" | "redeem" | "signout"): Promise<void> {
     if (busy || loading || !session || !state) return;
     busy = true;
     controls();
@@ -135,10 +132,6 @@ if (root) {
       } else if (kind === "request") {
         render(await api<Onboarding>("/v1/me/premium-requests", {}, current.csrf));
         status.textContent = text("request_pending");
-      } else if (kind === "send-email") {
-        const result = await api<{ sent: boolean }>("/v1/me/email-verification", { locale: lang }, current.csrf);
-        if (!result.sent) await refresh();
-        status.textContent = text(result.sent ? "emailSent" : "emailVerified");
       } else if (token) {
         const endpoint = mode === "invite" ? "/v1/me/invitations/accept" : "/v1/me/email-verification/confirm";
         render(await api<Onboarding>(endpoint, { token }, current.csrf));
@@ -159,7 +152,7 @@ if (root) {
     }
   }
 
-  for (const kind of ["request", "send-email", "redeem", "signout"] as const) {
+  for (const kind of ["request", "redeem", "signout"] as const) {
     button(kind)?.addEventListener("click", () => { void action(kind); });
   }
   button("refresh")?.addEventListener("click", () => { void refresh(); });
