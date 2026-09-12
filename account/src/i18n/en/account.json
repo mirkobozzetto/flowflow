@@ -177,6 +177,7 @@
     "followRequest": "View my request",
     "collaborators": "Collaborators",
     "collaborator": "Collaborator",
-    "agentAccess": "Agent · access to this space"
+    "agentAccess": "Agent · access to this space",
+    "backToAccount": "Back to my account"
   }
 }

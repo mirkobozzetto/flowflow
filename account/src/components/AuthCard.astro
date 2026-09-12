@@ -9,7 +9,7 @@ interface Props {
 
 const { lang, mode } = Astro.props;
 const t = useTranslations(lang, "account");
-const home = localizePath("/onboarding", lang);
+const home = localizePath(mode === "link" ? "/onboarding" : "/", lang);
 const next = continuation(Astro.url.searchParams.get("next"), home);
 const authPath = (path: string) => `${localizePath(path, lang)}?next=${encodeURIComponent(next)}`;
 

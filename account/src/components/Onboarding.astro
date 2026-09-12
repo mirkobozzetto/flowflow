@@ -24,6 +24,7 @@ const title = mode === "invite" ? t("onboarding.inviteTitle") : mode === "verify
       </div>
     </div>
     <div id="onboarding-account" hidden class="space-y-6">
+      <a class="text-orange-dark inline-block text-sm" href={localizePath("/", lang)}>{t("home.backToAccount")}</a>
       <p id="onboarding-email" class="text-sm text-stone-500 break-all"></p>
       {mode !== "onboarding" && <section class="b-c space-y-3">
         <p>{t(mode === "invite" ? "onboarding.inviteHint" : "onboarding.verifyHint")}</p>
