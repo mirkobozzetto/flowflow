@@ -132,3 +132,22 @@ an available decision channel. Native-only reads need no external connector.
 Four focused tests passed. This checks admission, not that an actual decision
 was awaited; per-call native approval wiring and schema-2 execution remain off.
 The earlier isolated resource adapter was pushed in c30077e (8 tests passed).
+
+## Block B - opt-in native confirmation execution
+
+Added `execute_native_with_confirmation`: invokes an admitted typed native tool
+only after argument validation and, for writes, a real approval-registry decision.
+Approved edits are re-deserialized and only the edited payload executes. Rejection,
+expiry, invalid edits, dropped runs and a closed decision surface cause no call.
+No background mutation task is detached. Existing direct native tools are intact.
+
+Four targeted tests passed through the real approval registry and a recording
+Tool implementation: exact original/edited payload executes once; no mutation
+before approval or after refusal/expiry/cancel; pending decisions are removed;
+closed surface and malformed arguments fail closed. No database/calendar write
+was used to validate this seam.
+
+This is not yet mounted in the app. The schema-2 integration must enforce shared
+run budgets and route every declared native call through this path, never mount
+its raw tool alongside it. Wire-format admission and per-device persistence
+remain incomplete; schema-2 publication and deployment remain disabled.

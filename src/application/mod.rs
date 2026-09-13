@@ -4,6 +4,7 @@ pub mod agent_builder;
 pub mod agent_bindings;
 pub mod agent_directory;
 pub mod agent_native;
+pub mod agent_native_execution;
 pub mod ai;
 pub mod approvals;
 pub mod authorship;
