@@ -58,6 +58,13 @@ fn connector_entry(
         return None;
     }
     for t in &conn.tools {
+        if !t.tool.starts_with(&conn.mcp_prefix) {
+            eprintln!(
+                "[chat_surface] {}: tool outside its owner prefix, dropped",
+                pin.slug
+            );
+            return None;
+        }
         if NOTES_TOOL_NAMES.contains(&t.tool.as_str()) {
             eprintln!(
                 "[chat_surface] {}: tool `{}` collides with a reserved notes tool, connector dropped",
@@ -114,6 +121,24 @@ pub fn build_chat_surface(
         .iter()
         .filter_map(|pin| connector_entry(pin, armed.get(&pin.slug)))
         .collect();
+    for (index, (prefix, _, manifest)) in contracts.iter().enumerate() {
+        for (other_prefix, _, other_manifest) in &contracts[..index] {
+            if prefix.starts_with(other_prefix)
+                || other_prefix.starts_with(prefix)
+                || manifest.tools.iter().any(|tool| {
+                    other_manifest
+                        .tools
+                        .iter()
+                        .any(|other| other.tool == tool.tool)
+                })
+            {
+                return ChatSurface {
+                    contracts: Vec::new(),
+                    tool_names: BTreeSet::new(),
+                };
+            }
+        }
+    }
     let tool_names = contracts
         .iter()
         .flat_map(|(_, gov, _)| gov.tools.iter().map(|tp| tp.tool.clone()))
@@ -135,7 +160,7 @@ pub async fn prompt_chat_agent(
     notes_tools: NotesTools,
 ) -> Result<String, LlmError> {
     // No event channel = no card can render: notes-only surface, observe-only hook.
-    let Some(tx) = status_tx else {
+    let Some(tx) = status_tx.filter(|tx| !tx.is_closed()) else {
         let (dummy, _rx) = mpsc::unbounded_channel();
         return llm
             .run_agent(
@@ -152,76 +177,129 @@ pub async fn prompt_chat_agent(
             .await;
     };
 
-    // Connector tools are dark unless a backend is configured AND reachable. The registry
-    // is held in scope for the whole prompt so the tools' server sink stays valid.
-    let reg = connect_registry().await;
-    let surface = reg.as_ref().and_then(|reg| {
-        let db = crate::infrastructure::persistence::Database::open().ok()?;
-        let armed = crate::application::connector_module::armed_bounds(&db);
-        let surface = build_chat_surface(&db.list_pinned_connectors(), &armed);
-        let (mounted, dropped): (Vec<_>, Vec<_>) = reg
-            .tools()
-            .into_iter()
-            .partition(|t| surface.tool_names.contains(t.name.as_ref()));
-        if !dropped.is_empty() {
-            let names: Vec<_> =
-                dropped.iter().map(|t| t.name.as_ref()).collect();
-            eprintln!(
-                "[chat_surface] not mounted in chat (no manifest backing or chain-only): {}",
-                names.join(", ")
-            );
+    // The pool remains in this scope until the prompt finishes. Each mounted
+    // tool and approval execution path receives its own connector's peer.
+    let connection = connect_registry().await;
+    let unavailable = connection.is_err();
+    if let Err(reason) = &connection {
+        eprintln!("[chat_surface] connectors unavailable: {reason}");
+    }
+    let connected = connection.ok().flatten();
+    let (mounts, hook) = match connected.as_ref() {
+        Some((_pool, surface, mounts)) => {
+            let mounts = mounts.clone();
+            let peers = mounts
+                .iter()
+                .flat_map(|(tools, peer)| {
+                    tools
+                        .iter()
+                        .map(move |tool| (tool.name.to_string(), peer.clone()))
+                })
+                .collect();
+            let hook =
+                ContractHook::with_contracts(tx, surface.contracts.clone())
+                    .with_peers(peers);
+            (mounts, hook)
         }
-        if mounted.is_empty() {
-            return None;
-        }
-        Some((mounted, surface.contracts, reg.peer()))
-    });
-
-    match surface {
-        Some((mounted, contracts, peer)) => {
-            let hook = ContractHook::with_contracts(tx, contracts)
-                .with_peer(peer.clone());
-            llm.run_agent(
-                CHAT_MODEL,
-                preamble,
-                user_message,
-                notes_tools.clone(),
-                None,
-                vec![(mounted, peer)],
-                hook,
-                0.3,
-                4,
-            )
-            .await
-        }
-        None => {
-            llm.run_agent(
-                CHAT_MODEL,
-                preamble,
-                user_message,
-                notes_tools.clone(),
-                None,
-                Vec::new(),
-                ContractHook::new(tx),
-                0.3,
-                4,
-            )
-            .await
-        }
+        None => (Vec::new(), ContractHook::new(tx)),
+    };
+    let answer = llm
+        .run_agent(
+            CHAT_MODEL,
+            preamble,
+            user_message,
+            notes_tools,
+            None,
+            mounts,
+            hook,
+            0.3,
+            4,
+        )
+        .await?;
+    if unavailable {
+        Ok(format!("Connected services could not be loaded. This response used native tools only.\n\n{answer}"))
+    } else {
+        Ok(answer)
     }
 }
 
-// Connect to the backend MCP proxy if one is configured. None (notes-only agent) when no
-// backend is set or the connect fails.
-async fn connect_registry() -> Option<crate::infrastructure::mcp::McpRegistry> {
-    let db = crate::infrastructure::persistence::Database::open().ok()?;
-    let backend = crate::infrastructure::backend::BackendClient::from_db(&db)?;
-    match crate::infrastructure::mcp::McpRegistry::connect(&db, &backend).await
-    {
-        Ok(reg) => Some(reg),
-        Err(e) => {
-            eprintln!("MCP connect failed, notes tools only: {e}");
-            None
+type ChatConnection = (
+    crate::infrastructure::mcp::McpPool,
+    ChatSurface,
+    Vec<(Vec<rmcp::model::Tool>, rmcp::service::ServerSink)>,
+);
+
+async fn connect_registry() -> Result<Option<ChatConnection>, String> {
+    let db = crate::infrastructure::persistence::Database::open()
+        .map_err(|error| error.to_string())?;
+    let Some(backend) =
+        crate::infrastructure::backend::BackendClient::from_db(&db)
+    else {
+        return Ok(None);
+    };
+    let pins = db.list_pinned_connectors();
+    let armed = crate::application::connector_module::armed_bounds(&db);
+    let surface = build_chat_surface(&pins, &armed);
+    let entries: Vec<_> = pins
+        .iter()
+        .filter_map(|pin| {
+            connector_entry(pin, armed.get(&pin.slug)).map(|(_, gov, _)| {
+                (
+                    pin.slug.clone(),
+                    gov.tools
+                        .into_iter()
+                        .map(|tool| tool.tool)
+                        .collect::<BTreeSet<_>>(),
+                )
+            })
+        })
+        .collect();
+    if entries.is_empty() {
+        return Ok(None);
+    }
+    if surface.tool_names.is_empty() {
+        return Err("ambiguous pinned connector ownership".into());
+    }
+    let (slugs, allowed): (Vec<_>, Vec<_>) = entries.into_iter().unzip();
+    let pool = crate::infrastructure::mcp::McpPool::connect_chat(
+        &db, &backend, &slugs,
+    )
+    .await
+    .map_err(|error| error.to_string())?;
+    let mounts = select_chat_mounts(pool.mounts(), &allowed)?;
+    Ok(Some((pool, surface, mounts)))
+}
+
+/// Keep each descriptor attached to the peer that advertised it. Generic over
+/// the peer so owner routing can be tested without a provider or LLM connection.
+pub fn select_chat_mounts<P>(
+    mounts: Vec<(Vec<rmcp::model::Tool>, P)>,
+    allowed_by_owner: &[BTreeSet<String>],
+) -> Result<Vec<(Vec<rmcp::model::Tool>, P)>, String> {
+    if mounts.len() != allowed_by_owner.len() {
+        return Err("connector mount count mismatch".into());
+    }
+    let mut seen = BTreeSet::new();
+    let mut selected = Vec::new();
+    for ((tools, peer), expected) in mounts.into_iter().zip(allowed_by_owner) {
+        for tool in &tools {
+            if !seen.insert(tool.name.to_string()) {
+                return Err("ambiguous advertised tool ownership".into());
+            }
+        }
+        if !expected
+            .iter()
+            .all(|name| tools.iter().any(|tool| tool.name.as_ref() == name))
+        {
+            return Err("connector is missing expected tools".into());
+        }
+        let tools: Vec<_> = tools
+            .into_iter()
+            .filter(|tool| expected.contains(tool.name.as_ref()))
+            .collect();
+        if !tools.is_empty() {
+            selected.push((tools, peer));
         }
     }
+    Ok(selected)
 }

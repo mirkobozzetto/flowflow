@@ -245,3 +245,98 @@ fn armed_chat_read_is_bounded_and_search_without_scoping_is_refused() {
         Decision::Deny(DenyReason::UnscopedSearch { .. })
     ));
 }
+
+#[test]
+fn ambiguous_connector_prefixes_mount_nothing() {
+    let first = sheets_pin();
+    let mut second = sheets_pin();
+    second.slug = "another-google".into();
+    let surface = build_chat_surface(&[first, second], &Default::default());
+    assert!(surface.contracts.is_empty());
+    assert!(surface.tool_names.is_empty());
+}
+
+#[test]
+fn tool_outside_its_connector_prefix_mounts_nothing() {
+    let mut foreign = sheets_pin();
+    foreign.manifest_json = foreign
+        .manifest_json
+        .replace("google_sheets_get_spreadsheet", "foreign_get_spreadsheet");
+    let surface = build_chat_surface(&[foreign], &Default::default());
+    assert!(surface.tool_names.is_empty());
+}
+
+#[test]
+fn distinct_owners_keep_separate_contracts() {
+    let first = sheets_pin();
+    let mut second = sheets_pin();
+    second.slug = "documents".into();
+    second.manifest_json =
+        second.manifest_json.replace("google_sheets_", "documents_");
+    let surface = build_chat_surface(&[first, second], &Default::default());
+    assert_eq!(surface.contracts.len(), 2);
+    assert!(surface.tool_names.contains("google_sheets_get_spreadsheet"));
+    assert!(surface.tool_names.contains("documents_get_spreadsheet"));
+}
+
+fn advertised(name: &str) -> rmcp::model::Tool {
+    serde_json::from_value(serde_json::json!({
+        "name": name, "description": "test", "inputSchema": {"type": "object"}
+    }))
+    .unwrap()
+}
+
+#[test]
+fn routing_keeps_each_tool_with_its_own_peer() {
+    use flowflow::application::chat_surface::select_chat_mounts;
+    let allowed =
+        vec![["sheets_read".into()].into(), ["docs_read".into()].into()];
+    let mounts = select_chat_mounts(
+        vec![
+            (
+                vec![advertised("sheets_read"), advertised("untrusted_extra")],
+                "sheets-peer",
+            ),
+            (vec![advertised("docs_read")], "docs-peer"),
+        ],
+        &allowed,
+    )
+    .unwrap();
+    assert_eq!(mounts.len(), 2);
+    assert_eq!(mounts[0].0.len(), 1);
+    assert_eq!(mounts[0].0[0].name, "sheets_read");
+    assert_eq!(mounts[0].1, "sheets-peer");
+    assert_eq!(mounts[1].0[0].name, "docs_read");
+    assert_eq!(mounts[1].1, "docs-peer");
+}
+
+#[test]
+fn routing_refuses_wrong_missing_or_duplicate_owners() {
+    use flowflow::application::chat_surface::select_chat_mounts;
+    let allowed =
+        vec![["sheets_read".into()].into(), ["docs_read".into()].into()];
+    assert!(select_chat_mounts(
+        vec![
+            (vec![advertised("docs_read")], "sheets-peer"),
+            (vec![advertised("sheets_read")], "docs-peer"),
+        ],
+        &allowed
+    )
+    .is_err());
+    assert!(select_chat_mounts(
+        vec![
+            (vec![advertised("sheets_read")], "sheets-peer"),
+            (
+                vec![advertised("sheets_read"), advertised("docs_read")],
+                "docs-peer"
+            ),
+        ],
+        &allowed
+    )
+    .is_err());
+    assert!(select_chat_mounts(
+        vec![(vec![advertised("sheets_read")], "sheets-peer")],
+        &allowed
+    )
+    .is_err());
+}

@@ -126,6 +126,34 @@ pub struct McpPool {
 }
 
 impl McpPool {
+    /// Generic chat uses connector authorization, never an invented agent id.
+    /// Keep every session alive together; callers can safely fall back to native
+    /// tools if any service fails instead of mounting a partial connector set.
+    pub async fn connect_chat(
+        db: &Database,
+        backend: &BackendClient,
+        slugs: &[String],
+    ) -> Result<Self, BackendError> {
+        let mut registries = Vec::with_capacity(slugs.len());
+        for slug in slugs {
+            let url = format!(
+                "{}/v1/chat/connectors/{}/mcp",
+                backend.base_url(),
+                slug
+            );
+            registries.push(
+                McpRegistry::connect_inner(db, backend, url, None).await?,
+            );
+        }
+        let pool = Self { registries };
+        if !pool.duplicate_tools().is_empty() {
+            return Err(BackendError::Network(
+                "ambiguous connector tool ownership".into(),
+            ));
+        }
+        Ok(pool)
+    }
+
     /// Connect the agent-scoped proxy once per connector slug. A slug that fails to connect
     /// fails the whole pool: a partially connected agent would silently lose half its tools.
     pub async fn connect_agent(
