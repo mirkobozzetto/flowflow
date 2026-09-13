@@ -24,6 +24,19 @@ pub async fn execute_native_with_confirmation<T: Tool>(
     events: &UnboundedSender<ToolEvent>,
     timeout: Duration,
 ) -> Result<T::Output, ToolFailure> {
+    execute_native_guarded(tool, plan, args, events, timeout, |_| Ok(())).await
+}
+
+/// The shared-run adapter checks before proposing and atomically charges just
+/// before execution. Approval waiting must not reserve a reusable execution slot.
+pub(crate) async fn execute_native_guarded<T: Tool>(
+    tool: &T,
+    plan: &NativeCapabilityPlan,
+    args: Value,
+    events: &UnboundedSender<ToolEvent>,
+    timeout: Duration,
+    mut check_run: impl FnMut(bool) -> Result<(), ToolFailure>,
+) -> Result<T::Output, ToolFailure> {
     if !plan.policies().iter().any(|policy| policy.tool == T::NAME) {
         return Err(ToolFailure(format!(
             "native tool `{}` was not admitted",
@@ -41,6 +54,7 @@ pub async fn execute_native_with_confirmation<T: Tool>(
         .map_err(|error| {
             ToolFailure(format!("invalid native tool arguments: {error}"))
         })?;
+    check_run(false)?;
     if capability.action().is_write() {
         let registered = approvals::register(timeout);
         let id = registered.id();
@@ -67,38 +81,45 @@ pub async fn execute_native_with_confirmation<T: Tool>(
         events.send(ToolEvent::Proposal(view)).map_err(|_| {
             ToolFailure("native write has no live decision channel".into())
         })?;
-        let (status, refusal) = match approvals::await_decision(registered)
-            .await
-        {
-            Outcome::Approved => (ProposalStatus::Approved, None),
-            Outcome::Edited(edited) => {
-                if !edited.is_object() {
-                    (
-                        ProposalStatus::Rejected,
-                        Some("edited arguments must be an object".into()),
-                    )
-                } else {
-                    match serde_json::from_value(edited) {
-                        Ok(value) => {
-                            typed_args = value;
-                            (ProposalStatus::Edited, None)
-                        }
-                        Err(error) => (
+        let (mut status, mut refusal) =
+            match approvals::await_decision(registered).await {
+                Outcome::Approved => (ProposalStatus::Approved, None),
+                Outcome::Edited(edited) => {
+                    if !edited.is_object() {
+                        (
                             ProposalStatus::Rejected,
-                            Some(format!("invalid edited arguments: {error}")),
-                        ),
+                            Some("edited arguments must be an object".into()),
+                        )
+                    } else {
+                        match serde_json::from_value(edited) {
+                            Ok(value) => {
+                                typed_args = value;
+                                (ProposalStatus::Edited, None)
+                            }
+                            Err(error) => (
+                                ProposalStatus::Rejected,
+                                Some(format!(
+                                    "invalid edited arguments: {error}"
+                                )),
+                            ),
+                        }
                     }
                 }
+                Outcome::Rejected => (
+                    ProposalStatus::Rejected,
+                    Some("native write rejected".into()),
+                ),
+                Outcome::Expired => (
+                    ProposalStatus::Expired,
+                    Some("native write approval expired".into()),
+                ),
+            };
+        if refusal.is_none() {
+            if let Err(error) = check_run(true) {
+                status = ProposalStatus::Rejected;
+                refusal = Some(error.to_string());
             }
-            Outcome::Rejected => (
-                ProposalStatus::Rejected,
-                Some("native write rejected".into()),
-            ),
-            Outcome::Expired => (
-                ProposalStatus::Expired,
-                Some("native write approval expired".into()),
-            ),
-        };
+        }
         // If the surface disappeared after the decision, fail closed instead of
         // writing after the user left the approval flow.
         events
@@ -114,6 +135,8 @@ pub async fn execute_native_with_confirmation<T: Tool>(
         if let Some(reason) = refusal {
             return Err(ToolFailure(reason));
         }
+    } else {
+        check_run(true)?;
     }
     tool.call(typed_args)
         .await

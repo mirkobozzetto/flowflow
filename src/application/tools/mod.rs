@@ -293,6 +293,27 @@ impl ContractHook {
         }
     }
 
+    /// Opt-in accounting shared with declared native tools. Existing constructors
+    /// retain their fresh-run behavior. Only freshly constructed contracts mutate.
+    pub fn with_shared_run(
+        tx: mpsc::UnboundedSender<ToolEvent>,
+        entries: Vec<(String, Governance, ConnectorManifest)>,
+        run: Arc<Mutex<RunState>>,
+    ) -> Self {
+        let mut hook = Self::with_contracts(tx, entries);
+        for (_, contract) in &mut hook.contracts {
+            Arc::get_mut(contract).expect("fresh contract is unique").run = run.clone();
+        }
+        hook
+    }
+
+    /// Stop every external owner after a native decision ends this run.
+    pub fn abort_run(&self) {
+        for (_, contract) in &self.contracts {
+            contract.abort.store(true, Ordering::Relaxed);
+        }
+    }
+
     // Longest-prefix resolution of a tool call to its connector's contract.
     fn resolve(&self, tool_name: &str) -> Option<&Arc<Contract>> {
         self.contracts

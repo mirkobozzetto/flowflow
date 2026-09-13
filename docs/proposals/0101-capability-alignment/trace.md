@@ -151,3 +151,21 @@ This is not yet mounted in the app. The schema-2 integration must enforce shared
 run budgets and route every declared native call through this path, never mount
 its raw tool alongside it. Wire-format admission and per-device persistence
 remain incomplete; schema-2 publication and deployment remain disabled.
+
+## Block B - shared accounting and action stop
+
+ScopedAgentRun now shares the existing RunState with external ContractHook
+entries. Native calls check shared/per-tool limits before proposing and recheck
+atomically before mutation after approval. Step/time accounting also works for
+native-only runs. Rejection, cancellation and failed native execution stop later
+external and native calls. Existing ContractHook constructors remain unchanged;
+with_shared_run and abort_run are opt-in additions.
+
+Targeted checks: agent_run_test 4, agent_native_execution_test 4 and
+contract_hook_test 21 passed (29 total). Includes a budget consumed by an
+external call while native approval is pending: the native call does not execute
+and its card resolves Rejected. Legacy direct-note bypass tests still pass.
+
+These seams remain unmounted. Runtime integration must not expose raw native
+tools beside the confirmed path. Already-started provider mutations cannot be
+rolled back by an abort; no transactional cancellation guarantee is claimed.
