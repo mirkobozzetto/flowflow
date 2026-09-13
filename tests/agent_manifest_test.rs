@@ -92,3 +92,62 @@ fn digest_is_canonical_and_key_order_independent() {
     assert_eq!(canonical_json(&a), canonical_json(&b));
     assert_eq!(digest_of(&a), digest_of(&b));
 }
+
+#[test]
+fn unsupported_signed_schema_is_rejected_after_integrity_checks() {
+    let sk = SigningKey::from_bytes(&[11u8; 32]);
+    let key = format!("ed25519:{}", B64.encode(sk.verifying_key().to_bytes()));
+    for version in ["2", "999", "", "01"] {
+        let mut pkg: Value = serde_json::from_str(FIXTURE_PACKAGE).unwrap();
+        pkg["manifest"]["schema_version"] = version.into();
+        let digest = digest_of(&pkg["manifest"]);
+        pkg["content_digest"] = digest.clone().into();
+        pkg["signature"] = format!(
+            "ed25519:{}",
+            B64.encode(sk.sign(digest.as_bytes()).to_bytes())
+        )
+        .into();
+        assert!(
+            matches!(verify_package(&pkg.to_string(), &key), Err(AgentManifestError::UnsupportedSchemaVersion(v)) if v == version)
+        );
+    }
+}
+
+#[test]
+fn stored_unknown_schema_cannot_load_or_build() {
+    use flowflow::domain::agent_manifest::{parse_manifest, AgentManifest};
+    let mut pkg: Value = serde_json::from_str(FIXTURE_PACKAGE).unwrap();
+    pkg["manifest"]["schema_version"] = "2".into();
+    let raw = pkg["manifest"].to_string();
+    assert!(matches!(
+        parse_manifest(&raw),
+        Err(AgentManifestError::UnsupportedSchemaVersion(_))
+    ));
+    // Direct deserialization must not bypass the execution check.
+    let manifest: AgentManifest = serde_json::from_str(&raw).unwrap();
+    let error =
+        flowflow::application::agent_builder::build_agent_multi(&manifest, &[])
+            .err()
+            .unwrap();
+    assert!(error.contains("unsupported agent schema version"));
+}
+
+#[test]
+fn legacy_schema_retains_unknown_metadata_and_digest() {
+    use flowflow::domain::agent_manifest::parse_manifest;
+    let pkg: Value = serde_json::from_str(FIXTURE_PACKAGE).unwrap();
+    let raw = canonical_json(&pkg["manifest"]);
+    assert_eq!(parse_manifest(&raw).unwrap().schema_version, "1");
+    assert_eq!(
+        digest_of(&pkg["manifest"]),
+        pkg["content_digest"].as_str().unwrap()
+    );
+    let mut extended = pkg["manifest"].clone();
+    extended["display_metadata"] =
+        serde_json::json!({"future_label":"retained"});
+    assert!(parse_manifest(&extended.to_string()).is_ok());
+    assert_eq!(
+        serde_json::from_str::<Value>(&canonical_json(&extended)).unwrap(),
+        extended
+    );
+}

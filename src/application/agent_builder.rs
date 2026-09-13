@@ -119,6 +119,8 @@ pub fn build_agent_multi(
     manifest: &AgentManifest,
     resolved: &[(String, String)],
 ) -> Result<BuiltAgent, String> {
+    crate::domain::agent_manifest::ensure_supported_schema(manifest)
+        .map_err(|error| error.to_string())?;
     if resolved.is_empty() {
         return Err("no connector resolved for this agent".to_string());
     }

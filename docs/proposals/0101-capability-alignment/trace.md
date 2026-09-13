@@ -71,3 +71,23 @@ Manual release checks still needed: chat, note actions and RAG with a real test
 account; approve/reject/cancel an external write; disconnect/reconnect; one failed
 connector; return from settings and reopen both menus. No device installation
 or successful live service run is claimed by unit/integration tests.
+
+## Block B resumed - first reader protection
+
+User approved resuming block B and preserving existing assistants/direct native
+note/reminder actions. New native-write confirmation applies to new assistants.
+Marketplace draft contract: 656ed39, BLOCK-B-CONTRACT.md.
+
+FlowFlow now admits and executes only agent schema_version "1". Unknown versions
+are rejected after package integrity verification, on stored manifest loading and
+at build_agent_multi even if callers deserialize directly. Original canonical
+JSON, unknown metadata fields and signed bytes are not rewritten.
+
+Checks: agent_manifest_test 7 passed / 1 ignored (signature fixture generator),
+agent_builder_test 10 passed, agent_activation_test 10 passed,
+connector_module_test 37 passed. Total 64 passed. No production mutation.
+
+This is only the first fail-closed reader protection, not schema-2 support.
+Server distribution guard, precise new wire contract, scoped resource adapters
+and multi-owner/native validation remain. No deployment or new PR authorized
+for this incomplete block yet. Keep progress as small tested commits on dev.

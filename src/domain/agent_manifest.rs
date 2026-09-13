@@ -77,6 +77,8 @@ pub enum AgentManifestError {
     Parse(String),
     #[error("package is missing field `{0}`")]
     MissingField(&'static str),
+    #[error("unsupported agent schema version `{0}`; supported version: 1")]
+    UnsupportedSchemaVersion(String),
     #[error("content_digest mismatch: package claims {expected}, manifest hashes to {got}")]
     DigestMismatch { expected: String, got: String },
     #[error("admin public key is malformed")]
@@ -207,6 +209,7 @@ pub fn verify_package(
     let manifest_json = canonical_json(&manifest_value);
     let manifest: AgentManifest = serde_json::from_value(manifest_value)
         .map_err(|e| AgentManifestError::Parse(e.to_string()))?;
+    ensure_supported_schema(&manifest)?;
 
     Ok(VerifiedAgent {
         manifest,
@@ -227,6 +230,21 @@ pub fn digest_of_stored(
 pub fn parse_manifest(
     manifest_json: &str,
 ) -> Result<AgentManifest, AgentManifestError> {
-    serde_json::from_str(manifest_json)
-        .map_err(|e| AgentManifestError::Parse(e.to_string()))
+    let manifest: AgentManifest = serde_json::from_str(manifest_json)
+        .map_err(|e| AgentManifestError::Parse(e.to_string()))?;
+    ensure_supported_schema(&manifest)?;
+    Ok(manifest)
+}
+
+/// Execution compatibility is independent of signature integrity. Keep unknown
+/// JSON fields for canonical hashing, but never execute unknown schema rules.
+pub fn ensure_supported_schema(
+    manifest: &AgentManifest,
+) -> Result<(), AgentManifestError> {
+    if manifest.schema_version != "1" {
+        return Err(AgentManifestError::UnsupportedSchemaVersion(
+            manifest.schema_version.clone(),
+        ));
+    }
+    Ok(())
 }
