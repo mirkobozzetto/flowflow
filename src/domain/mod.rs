@@ -4,6 +4,7 @@ pub mod conversation;
 pub mod dictionary;
 pub mod folder;
 pub mod governance;
+pub mod capability_contract;
 pub mod note;
 pub mod orchestration;
 pub mod reminder;

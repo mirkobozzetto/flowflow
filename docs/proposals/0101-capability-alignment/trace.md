@@ -169,3 +169,19 @@ and its card resolves Rejected. Legacy direct-note bypass tests still pass.
 These seams remain unmounted. Runtime integration must not expose raw native
 tools beside the confirmed path. Already-started provider mutations cannot be
 rolled back by an abort; no transactional cancellation guarantee is claimed.
+
+## Block B - combined owner validation
+
+Added a pure capability_contract validator with matching backend/client test
+cases. Every logical requirement must resolve exactly once with the declared
+type and capabilities; all tool owners and routing prefixes are checked. Native
+and mixed declarations are supported without fake connector records. Unknown,
+ambiguous or ungranted tools and native writes lacking approval are refused.
+Shared legacy resources and ownerless column policies are rejected.
+
+Five targeted tests passed in each repository. An initial backend compile failure
+exposed a client-only GovernanceError variant; fixed by deferring the resource
+check on an ephemeral structural-validation copy, not matching enum variants.
+The original runtime policy is not modified; binding/availability validation
+remains mandatory before execution. Matching tests pass on both native builds.
+No network adapter or schema-2 publication is enabled by this pure validator.
