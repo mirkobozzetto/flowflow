@@ -1,0 +1,162 @@
+//! Installed native-only schema-2 dispatch. External requirements fail closed
+//! until isolated owner connections are integrated; legacy chains stay separate.
+use super::*;
+use crate::application::agent_native::{
+    validate_native_capabilities, NativeCapability,
+};
+use crate::application::agent_run::ScopedAgentRun;
+use std::sync::Arc;
+
+pub(crate) async fn run_installed_native_chain(
+    db: &Database,
+    agent_id: &str,
+    chain_name: &str,
+    goal: &str,
+    events: mpsc::UnboundedSender<crate::application::tools::ToolEvent>,
+) -> Result<ChainOutcome, String> {
+    let (manifest, check) = db.load_scoped_agent_for_run(agent_id)?;
+    if !manifest.execution.required_connectors.is_empty() {
+        return Err(
+            "schema-2 external owner connections are not integrated yet".into(),
+        );
+    }
+    let chain = manifest
+        .execution
+        .orchestration
+        .chains
+        .get(chain_name)
+        .ok_or_else(|| format!("manifest has no `{chain_name}` chain"))?;
+    chain.validate().map_err(|error| error.to_string())?;
+    // The existing native implementations open the application store themselves.
+    // Never let a pin loaded from a different database authorize those tools.
+    let store = db
+        .conn()
+        .path()
+        .map(std::path::PathBuf::from)
+        .ok_or("database path unavailable")?;
+    if store.canonicalize().map_err(|e| e.to_string())?
+        != crate::infrastructure::persistence::db_path()
+            .canonicalize()
+            .map_err(|e| e.to_string())?
+    {
+        return Err(
+            "native tools and installed package use different databases".into(),
+        );
+    }
+    let web_key = crate::application::web_search::exa_api_key(db);
+    let web_key = (!web_key.trim().is_empty()).then_some(web_key);
+    let mut available = vec![
+        NativeCapability::SearchNotes,
+        NativeCapability::CreateNote,
+        NativeCapability::SummarizeFolder,
+        NativeCapability::ScheduleReminder,
+    ];
+    if web_key.is_some() {
+        available.push(NativeCapability::SearchWeb);
+    }
+    let native = validate_native_capabilities(
+        &manifest.execution.governance.tools,
+        &available,
+        !events.is_closed(),
+    )?;
+    let run = Arc::new(
+        ScopedAgentRun::new(
+            events,
+            Vec::new(),
+            native,
+            manifest
+                .execution
+                .governance
+                .limits
+                .clone()
+                .unwrap_or_default(),
+        )
+        .with_admission_check(check.clone()),
+    );
+    let llm = Arc::new(LlmClient::from_db(db).map_err(|e| e.to_string())?);
+    let mut trace: Vec<ChainStep> = Vec::new();
+    let mut transcript = String::new();
+    let mut name = chain.initial.clone();
+    let mut steps = 0;
+    let mut skipped = false;
+    for _ in 0..=chain.states.len() {
+        check()?;
+        run.set_progress(steps, run.elapsed_seconds());
+        let state = chain.state(&name).expect("validated state");
+        if state.terminal {
+            let no_op =
+                !skipped && trace.iter().all(|step| step.tools.is_empty());
+            let preamble = with_mission(
+                &manifest.system_prompt,
+                if no_op {
+                    NO_OP_PREAMBLE
+                } else {
+                    ANSWER_PREAMBLE
+                }
+                .into(),
+            );
+            let answer = llm
+                .chat(
+                    &preamble,
+                    &format!(
+                        "User goal: {goal}\n\nChain context:\n{transcript}"
+                    ),
+                )
+                .await
+                .unwrap_or_else(|_| transcript.clone());
+            trace.push(ChainStep {
+                state: name,
+                outcome: answer.clone(),
+                tools: Vec::new(),
+            });
+            return Ok(ChainOutcome {
+                final_text: answer,
+                trace,
+            });
+        }
+        if matches!(state.guard, Some(Guard::ReadBeforeWrite)) {
+            // This guard refers to bound external resources, not any native read.
+            // No such resource exists on a native-only run, so do not enter it.
+            skipped = true;
+            trace.push(ChainStep { state: name.clone(), outcome:
+                "skipped: no bound external resource was read; no write performed".into(), tools: Vec::new() });
+        } else {
+            let preamble = with_mission(
+                &manifest.system_prompt,
+                state_preamble(&name, &state.allowed_tools, &transcript),
+            );
+            let reply = llm
+                .run_scoped_native(
+                    resolve_chat_model(&manifest.model),
+                    &preamble,
+                    &format!("Goal: {goal}"),
+                    run.clone(),
+                    &state.allowed_tools,
+                    web_key.clone(),
+                    f64::from(manifest.temperature.unwrap_or(0.0)),
+                )
+                .await
+                .map_err(|e| e.to_string())?;
+            steps += 1;
+            let mut tools = run.external_hook().drain_events();
+            tools.extend(run.drain_native_events());
+            transcript.push_str(&format!("\n[{name}] {reply}"));
+            trace.push(ChainStep {
+                state: name.clone(),
+                outcome: reply,
+                tools,
+            });
+        }
+        name = if run.aborted() {
+            chain
+                .states
+                .iter()
+                .find(|(_, state)| state.terminal)
+                .map(|(name, _)| name.clone())
+                .expect("validated terminal")
+        } else {
+            state.on_done.clone().expect("validated transition")
+        };
+    }
+    Err("native chain exceeded its validated state limit".into())
+}

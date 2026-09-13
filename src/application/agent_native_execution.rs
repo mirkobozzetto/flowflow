@@ -24,18 +24,20 @@ pub async fn execute_native_with_confirmation<T: Tool>(
     events: &UnboundedSender<ToolEvent>,
     timeout: Duration,
 ) -> Result<T::Output, ToolFailure> {
-    execute_native_guarded(tool, plan, args, events, timeout, |_| Ok(())).await
+    execute_native_guarded(tool, plan, args, events, timeout, |_| Ok(()), || ())
+        .await
 }
 
 /// The shared-run adapter checks before proposing and atomically charges just
 /// before execution. Approval waiting must not reserve a reusable execution slot.
-pub(crate) async fn execute_native_guarded<T: Tool>(
+pub(crate) async fn execute_native_guarded<T: Tool, W>(
     tool: &T,
     plan: &NativeCapabilityPlan,
     args: Value,
     events: &UnboundedSender<ToolEvent>,
     timeout: Duration,
     mut check_run: impl FnMut(bool) -> Result<(), ToolFailure>,
+    on_wait: impl FnOnce() -> W,
 ) -> Result<T::Output, ToolFailure> {
     if !plan.policies().iter().any(|policy| policy.tool == T::NAME) {
         return Err(ToolFailure(format!(
@@ -78,42 +80,42 @@ pub(crate) async fn execute_native_guarded<T: Tool>(
                 .collect(),
             raw_args: args,
         };
+        let waiting = on_wait();
         events.send(ToolEvent::Proposal(view)).map_err(|_| {
             ToolFailure("native write has no live decision channel".into())
         })?;
-        let (mut status, mut refusal) =
-            match approvals::await_decision(registered).await {
-                Outcome::Approved => (ProposalStatus::Approved, None),
-                Outcome::Edited(edited) => {
-                    if !edited.is_object() {
-                        (
-                            ProposalStatus::Rejected,
-                            Some("edited arguments must be an object".into()),
-                        )
-                    } else {
-                        match serde_json::from_value(edited) {
-                            Ok(value) => {
-                                typed_args = value;
-                                (ProposalStatus::Edited, None)
-                            }
-                            Err(error) => (
-                                ProposalStatus::Rejected,
-                                Some(format!(
-                                    "invalid edited arguments: {error}"
-                                )),
-                            ),
+        let decision = approvals::await_decision(registered).await;
+        drop(waiting);
+        let (mut status, mut refusal) = match decision {
+            Outcome::Approved => (ProposalStatus::Approved, None),
+            Outcome::Edited(edited) => {
+                if !edited.is_object() {
+                    (
+                        ProposalStatus::Rejected,
+                        Some("edited arguments must be an object".into()),
+                    )
+                } else {
+                    match serde_json::from_value(edited) {
+                        Ok(value) => {
+                            typed_args = value;
+                            (ProposalStatus::Edited, None)
                         }
+                        Err(error) => (
+                            ProposalStatus::Rejected,
+                            Some(format!("invalid edited arguments: {error}")),
+                        ),
                     }
                 }
-                Outcome::Rejected => (
-                    ProposalStatus::Rejected,
-                    Some("native write rejected".into()),
-                ),
-                Outcome::Expired => (
-                    ProposalStatus::Expired,
-                    Some("native write approval expired".into()),
-                ),
-            };
+            }
+            Outcome::Rejected => (
+                ProposalStatus::Rejected,
+                Some("native write rejected".into()),
+            ),
+            Outcome::Expired => (
+                ProposalStatus::Expired,
+                Some("native write approval expired".into()),
+            ),
+        };
         if refusal.is_none() {
             if let Err(error) = check_run(true) {
                 status = ProposalStatus::Rejected;

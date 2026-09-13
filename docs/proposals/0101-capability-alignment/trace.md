@@ -234,3 +234,30 @@ interface used by Rig waits for a real approval, executes the edited typed args
 once, and refuses a second call when the shared quota is spent. No provider API
 or real note/calendar mutation was called by these tests. Installed-agent chain
 dispatch and UI activation remain the next wiring step.
+
+## Block B - installed native chain dispatch
+
+Connected schema-2 installed native-only chains to run_agent_chain and the real
+LlmClient native surface. The schema-1 branch is unchanged. External schema-2
+requirements fail closed pending isolated owner connections; no legacy bound
+resource or fabricated device identity is used. Native tools must use the same
+database as the installed pin. A single verified row supplies the manifest and
+a read-only recheck of canonical bytes, digest, version and active state before
+proposals and immediately before invocation after approval.
+
+Native time accounting excludes the union of overlapping approval waits and
+resumes on cancellation. Actual tool execution remains charged. Native results
+and refusals enter the chain trace so completed calls cannot become a false no-op.
+The external read-before-write chain guard cannot be satisfied by a native read.
+
+Checks: 13 existing focused tests passed (native execution 4, shared run 4,
+scoped installation 4, Rig wrapper 1). Initial compilation found a missing
+ChainError-to-String conversion in the new chain; fixed before rerunning.
+Two disposable isolated-DB probes passed: deactivation during pending approval
+caused zero mutations; overlapping waits were excluded once, followed by a real
+compute-time budget refusal. Probe source retained in private session artifacts,
+not added as permanent tests. No live provider call or real user note mutation.
+
+Remaining: palette/activation support for installed schema 2, model-driven full
+flow validation, /v2 network installation and isolated external owners. No
+publication or deployment performed. UI/live end-to-end completion is not claimed.
