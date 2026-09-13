@@ -1,5 +1,6 @@
 mod actions;
 mod bot_bubble;
+mod connector_status;
 mod empty_state;
 mod mention_menu;
 mod menu;
