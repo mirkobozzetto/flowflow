@@ -5,7 +5,10 @@ use crate::application::agent_bindings::{
 };
 use crate::domain::agent_manifest::digest_of_stored;
 use crate::domain::scoped_agent_manifest::ScopedAgentManifest;
-use crate::infrastructure::{backend::BackendClient, persistence::Database};
+use crate::infrastructure::{
+    backend::BackendClient, mcp::McpPool, persistence::Database,
+};
+use rmcp::model::CallToolRequestParams;
 use serde_json::{json, Value};
 use std::sync::Arc;
 
@@ -195,6 +198,52 @@ pub fn views(db: &Database, id: &str) -> Result<Vec<SelectionView>, String> {
             }
         })
         .collect())
+}
+
+/// Discover selectable resources through the connector's generic read-only
+/// session. This path is independent of the legacy CRM installation and never
+/// creates a scoped binding until the user chooses one result.
+pub async fn list_sheet_resources(
+    db: &Database,
+    id: &str,
+    key: &str,
+    slug: &str,
+) -> Result<Vec<crate::application::connector_module::Spreadsheet>, String> {
+    const LIST_TOOL: &str = "google_sheets_list_spreadsheets";
+    let (manifest, _, _) = context(db, id)?;
+    let connector = checked_connector(
+        db,
+        &manifest,
+        key,
+        slug,
+        &json!({"spreadsheet_id":"selection-probe"}),
+    )?;
+    if connector.connector != "google-sheets"
+        || connector.connector_type != "tabular_store"
+        || !connector.tools.iter().any(|tool| tool.tool == LIST_TOOL)
+    {
+        return Err("resource discovery adapter unavailable".into());
+    }
+    let backend =
+        BackendClient::from_db(db).ok_or("backend is not configured")?;
+    let pool = McpPool::connect_chat(db, &backend, &[slug.to_string()])
+        .await
+        .map_err(|error| error.to_string())?;
+    let (tools, peer) = pool
+        .mounts()
+        .into_iter()
+        .next()
+        .ok_or("resource discovery session is empty")?;
+    if !tools.iter().any(|tool| tool.name.as_ref() == LIST_TOOL) {
+        return Err("resource discovery tool is unavailable".into());
+    }
+    let result = peer
+        .call_tool(CallToolRequestParams::new(LIST_TOOL))
+        .await
+        .map_err(|error| format!("list sheet resources: {error}"))?;
+    Ok(crate::application::connector_module::parse_spreadsheets(
+        &crate::application::connector_module::result_json(&result),
+    ))
 }
 
 pub async fn select(

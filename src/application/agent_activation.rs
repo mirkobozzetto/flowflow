@@ -181,11 +181,10 @@ fn installed_manifests(db: &Database) -> Vec<ActivationManifest> {
                 return Some(ActivationManifest::from(&manifest));
             }
             // Unlike display-only catalog data, activation requires a valid,
-            // active pin. External schema-2 owners are not runnable yet.
+            // active pin. Owner and resource readiness is checked again when the
+            // selected chain starts; the palette must not hide external owners.
             let manifest = db.load_scoped_agent(&row.id).ok()?;
-            if !manifest.execution.required_connectors.is_empty()
-                || manifest.execution.orchestration.chains.is_empty()
-            {
+            if manifest.execution.orchestration.chains.is_empty() {
                 return None;
             }
             Some(ActivationManifest {
