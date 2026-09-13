@@ -46,18 +46,22 @@ fn stale_entries(
         .iter()
         .filter(|row| !served.iter().any(|e| e.id == row.id))
         .map(|row| {
-            let manifest = crate::domain::agent_manifest::parse_manifest(
-                &row.manifest_json,
-            )
-            .ok();
+            let manifest =
+                serde_json::from_str::<serde_json::Value>(&row.manifest_json)
+                    .ok();
             AgentEntry {
                 id: row.id.clone(),
                 name: manifest
                     .as_ref()
-                    .map(|m| m.name.clone())
-                    .filter(|n| !n.is_empty())
+                    .and_then(|value| value["name"].as_str())
+                    .filter(|name| !name.is_empty())
+                    .map(String::from)
                     .unwrap_or_else(|| row.id.clone()),
-                alias: manifest.map(|m| m.alias).unwrap_or_default(),
+                alias: manifest
+                    .as_ref()
+                    .and_then(|value| value["alias"].as_str())
+                    .map(String::from)
+                    .unwrap_or_default(),
                 installed: true,
                 stale: true,
             }
@@ -110,14 +114,28 @@ pub async fn ensure_installed(
         return Ok(());
     }
 
-    let package = backend
-        .fetch_agent_package(db, agent_id)
-        .await
-        .map_err(|e| format!("fetch agent package: {e}"))?;
-    let verified = verify_package(&package, ADMIN_PUBKEY)
-        .map_err(|e| format!("verify agent package: {e}"))?;
-    db.install_agent(&verified)?;
-    restore_binding(db, agent_id);
+    match backend.fetch_agent_package(db, agent_id).await {
+        Ok(package) => {
+            let verified = verify_package(&package, ADMIN_PUBKEY)
+                .map_err(|e| format!("verify agent package: {e}"))?;
+            db.install_agent(&verified)?;
+            restore_binding(db, agent_id);
+        }
+        Err(crate::infrastructure::backend::BackendError::Status(409, _)) => {
+            let package = backend
+                .fetch_scoped_agent_package(db, agent_id)
+                .await
+                .map_err(|e| format!("fetch schema-2 agent package: {e}"))?;
+            let verified =
+                crate::domain::scoped_agent_manifest::verify_scoped_package(
+                    &package,
+                    ADMIN_PUBKEY,
+                )
+                .map_err(|e| format!("verify schema-2 agent package: {e}"))?;
+            db.install_scoped_agent(agent_id, &verified)?;
+        }
+        Err(error) => return Err(format!("fetch agent package: {error}")),
+    }
 
     // Connector pins ride the same install moment (RFC 0016): revocations first (a revoked slug
     // must not survive), then fetch + verify + pin what this agent requires. Best-effort: a pin

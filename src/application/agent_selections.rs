@@ -141,6 +141,62 @@ fn checked_connector(
     Ok(connector)
 }
 
+#[derive(Clone, Debug, PartialEq)]
+pub struct SelectionView {
+    pub key: String,
+    pub connector_type: String,
+    pub resource_required: bool,
+    pub compatible_slugs: Vec<String>,
+    pub selected_slug: Option<String>,
+    pub selected_resource: Option<Value>,
+}
+
+pub fn views(db: &Database, id: &str) -> Result<Vec<SelectionView>, String> {
+    let (manifest, identity, _) = context(db, id)?;
+    Ok(manifest
+        .execution
+        .required_connectors
+        .iter()
+        .map(|requirement| {
+            let probe_resource = if requirement.resource_required {
+                json!({"spreadsheet_id":"selection-probe"})
+            } else {
+                Value::Null
+            };
+            let compatible_slugs = db
+                .list_pinned_connectors()
+                .into_iter()
+                .filter(|pin| {
+                    checked_connector(
+                        db,
+                        &manifest,
+                        &requirement.key,
+                        &pin.slug,
+                        &probe_resource,
+                    )
+                    .is_ok()
+                })
+                .map(|pin| pin.slug)
+                .collect();
+            let selected = db
+                .get_setting(&selection_key(&identity, &requirement.key))
+                .and_then(|raw| serde_json::from_str::<Value>(&raw).ok());
+            SelectionView {
+                key: requirement.key.clone(),
+                connector_type: requirement.connector_type.clone(),
+                resource_required: requirement.resource_required,
+                compatible_slugs,
+                selected_slug: selected
+                    .as_ref()
+                    .and_then(|value| value["connector_slug"].as_str())
+                    .map(String::from),
+                selected_resource: selected
+                    .and_then(|value| value.get("resource").cloned()),
+            }
+        })
+        .collect())
+}
+
 pub async fn select(
     db: &Database,
     id: &str,

@@ -321,3 +321,21 @@ targeted regressions, not treated as reliable proof of impact or safety.
 Still not verified: a complete multi-external-owner model flow, selection changes
 during an external approval in that flow, live v2 download, phone installation,
 publication and deployment. This checkpoint does not complete block B.
+
+## Block B - v2 install, owner selection and multi-owner client complete in code
+
+The client now interprets only v1 HTTP 409 as the schema-2 distribution signal,
+fetches `/v2`, verifies the signed envelope and installs it through the isolated
+reader. Settings exposes compatible pinned owners per requirement. Resource-free
+owners use explicit null; the known Sheets adapter can select an already armed
+spreadsheet.
+
+A disposable loopback probe passed two external owners on distinct scoped MCP
+sessions, shared budgets, edited native confirmation, exact note creation and
+terminal synthesis. Selection view state drove those bindings. A permanent hook
+test proves an approval-time selection change skips before peer execution. Client
+regressions and cargo check passed. Probe source is retained privately, not in Git.
+
+This closes block-B implementation. It does not prove rendered phone UI, real
+provider behavior, publication or deployment; those are release steps requiring
+separate authorization.

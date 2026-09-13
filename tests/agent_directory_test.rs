@@ -154,3 +154,88 @@ fn served_entries_are_never_stale_and_ghosts_are_never_auto_removed() {
     assert_eq!(db.list_installed_agents().len(), 1);
     assert_eq!(db.list_installed_agents()[0].id, "agent-crm-sync");
 }
+
+#[tokio::test]
+async fn v2_transport_verifies_and_installs_scoped_package() {
+    use base64::{engine::general_purpose::STANDARD as B64, Engine};
+    use ed25519_dalek::{Signer, SigningKey};
+    use serde_json::json;
+    use tokio::io::{AsyncReadExt, AsyncWriteExt};
+
+    let manifest = json!({
+        "schema_version":"2", "id":"scoped-install", "version":"1",
+        "name":"Scoped", "alias":"scoped", "model":"test",
+        "execution": {
+            "required_connectors": [], "native_tools": ["create_note"],
+            "governance": {
+                "tools": [{"tool":"create_note","mode":"read_write","approval":"require_approval"}],
+                "read_before_write": false, "deny_destructive": true
+            },
+            "orchestration": {"chains": {}}
+        }
+    });
+    let digest = flowflow::domain::agent_manifest::digest_of(&manifest);
+    let signing = SigningKey::from_bytes(&[7u8; 32]);
+    let package = json!({
+        "manifest": manifest, "content_digest": digest,
+        "signature": format!("ed25519:{}", B64.encode(signing.sign(digest.as_bytes()).to_bytes())),
+        "signer_key_id":"dev-admin", "status":"published"
+    }).to_string();
+    let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+    let base = format!("http://{}", listener.local_addr().unwrap());
+    let server = tokio::spawn(async move {
+        for _ in 0..1 {
+            let (mut stream, _) = listener.accept().await.unwrap();
+            let mut request = vec![0u8; 8192];
+            let n = stream.read(&mut request).await.unwrap();
+            let head = String::from_utf8_lossy(&request[..n]);
+            assert!(head
+                .to_ascii_lowercase()
+                .contains("authorization: bearer local-session"));
+            let path = head
+                .lines()
+                .next()
+                .unwrap()
+                .split_whitespace()
+                .nth(1)
+                .unwrap();
+            assert_eq!(path, "/v2/agents/scoped-install/package");
+            let (status, body) = ("200 OK", package.as_str());
+            let response = format!("HTTP/1.1 {status}\r\nContent-Type: application/json\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{body}", body.len());
+            stream.write_all(response.as_bytes()).await.unwrap();
+        }
+    });
+    let dir = tempdir().unwrap();
+    let db = open_db(&dir);
+    db.set_setting("backend_base_url", &base).unwrap();
+    db.set_setting("backend_session_token", "local-session")
+        .unwrap();
+    db.set_setting(
+        "backend_session_expires_at",
+        &(chrono::Utc::now() + chrono::Duration::hours(1)).to_rfc3339(),
+    )
+    .unwrap();
+    let backend =
+        flowflow::infrastructure::backend::BackendClient::from_db(&db).unwrap();
+    let raw = backend
+        .fetch_scoped_agent_package(&db, "scoped-install")
+        .await
+        .unwrap();
+    let test_key =
+        format!("ed25519:{}", B64.encode(signing.verifying_key().to_bytes()));
+    let verified =
+        flowflow::domain::scoped_agent_manifest::verify_scoped_package(
+            &raw, &test_key,
+        )
+        .unwrap();
+    db.install_scoped_agent("scoped-install", &verified)
+        .unwrap();
+    let row = db.get_installed_agent("scoped-install").unwrap();
+    assert_eq!(row.content_digest, digest);
+    assert_eq!(
+        serde_json::from_str::<serde_json::Value>(&row.manifest_json).unwrap()
+            ["schema_version"],
+        "2"
+    );
+    server.await.unwrap();
+}
