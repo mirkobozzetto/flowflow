@@ -261,3 +261,17 @@ not added as permanent tests. No live provider call or real user note mutation.
 Remaining: palette/activation support for installed schema 2, model-driven full
 flow validation, /v2 network installation and isolated external owners. No
 publication or deployment performed. UI/live end-to-end completion is not claimed.
+
+## Block B - installed native activation and palettes
+
+Installed schema-2 native-only agents now enter the existing chat/note palettes
+and alias/id activation resolver through a metadata/trigger view. No schema-2
+manifest is converted into a schema-1 executable manifest. The legacy public
+deterministic resolver remains compatible. Unsupported external schema-2 owners,
+chainless packages and invalid/inactive pins are excluded from activation.
+
+Checks: all 10 existing activation tests passed. A disposable isolated-DB probe
+also passed: signed schema-2 installation resolves alias/id to its chain, appears
+in the palette without changing canonical bytes, and disappears after either
+deactivation or digest tampering. No model/provider call or user data mutation.
+Full model-driven chain validation and /v2 installation remain outstanding.
