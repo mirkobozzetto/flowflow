@@ -1,6 +1,7 @@
 pub mod account_heal;
 pub mod agent_activation;
 pub mod agent_builder;
+pub mod agent_bindings;
 pub mod agent_directory;
 pub mod ai;
 pub mod approvals;

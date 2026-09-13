@@ -97,3 +97,27 @@ Reader protections delivered: FlowFlow 33dde01 and marketplace e7f342c, both dev
 Next contract question: new bindings per-device versus shared across linked
 account devices. Current backend bind mutates global catalog config; the new
 format must isolate identity and package digest before persistence changes.
+
+## Block B - isolated resource adapter
+
+Implemented `application::agent_bindings::scoped_resource_contracts` as a pure,
+reader-first adapter. Its internal Rust types do not define or enable schema 2.
+It joins device + agent + package digest + requirement key + resolved owner,
+rejects shared legacy bounds and ambiguous routes, and gives each owner only its
+own tools/resource. All returned entries must enter one ContractHook so limits
+remain shared. Authenticated identity must come from the session/verified pin;
+this pure adapter is not an authentication or persistence layer.
+
+Eight targeted tests passed, including the real PromptHook seam proving scoped
+resources and a shared call budget. External connectors claiming any of the five
+native tool names are refused before routing (native tools bypass legacy gates).
+Existing linker unwind-size and dependency future-compatibility warnings remain;
+no failing check or runtime activation is concealed.
+
+Legacy builder, stored bindings, signed bytes and direct native actions are
+unchanged. Adapter is not yet wired to installation or execution. No schema-2
+publication or migration enabled. Next: native descriptors and admission wiring.
+
+User explicitly requires autonomous continuation, including while a separate
+Prime diagnosis runs. Do not stop at RESUME.md or ask for a new window. Native
+persistent goal is active; use checkpoints and compact.run() as needed.
