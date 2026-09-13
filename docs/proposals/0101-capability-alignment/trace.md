@@ -185,3 +185,17 @@ check on an ephemeral structural-validation copy, not matching enum variants.
 The original runtime policy is not modified; binding/availability validation
 remains mandatory before execution. Matching tests pass on both native builds.
 No network adapter or schema-2 publication is enabled by this pure validator.
+
+## Block B - combined run assembly
+
+assemble_scoped_run now composes complete owner validation, native availability
+and consent admission, isolated resource contracts and shared run accounting.
+It does not create a partial run when any requirement fails. Two targeted tests
+passed: native-only construction without fake connectors, and mixed construction
+requiring every resource, the correct device identity and a live write-decision
+surface. No network or storage mutation is performed by assembly.
+
+This remains an internal integration seam, not installed-package dispatch.
+Remaining: wire-format acceptance, versioned admission/dispatch and device-scoped
+persistence before publication/runtime activation. Existing signed bytes and
+legacy direct actions remain untouched.
