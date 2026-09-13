@@ -121,3 +121,14 @@ publication or migration enabled. Next: native descriptors and admission wiring.
 User explicitly requires autonomous continuation, including while a separate
 Prime diagnosis runs. Do not stop at RESUME.md or ask for a new window. Native
 persistent goal is active; use checkpoints and compact.run() as needed.
+
+## Block B - native capability admission
+
+`application::agent_native` defines native descriptors from the five actual Tool
+names, not fake connector/OAuth entries. A private-field plan admits only known,
+mounted capabilities with compatible modes and no spreadsheet key semantics.
+Create-note and schedule-reminder grants must declare require_approval and have
+an available decision channel. Native-only reads need no external connector.
+Four focused tests passed. This checks admission, not that an actual decision
+was awaited; per-call native approval wiring and schema-2 execution remain off.
+The earlier isolated resource adapter was pushed in c30077e (8 tests passed).

@@ -3,6 +3,7 @@ pub mod agent_activation;
 pub mod agent_builder;
 pub mod agent_bindings;
 pub mod agent_directory;
+pub mod agent_native;
 pub mod ai;
 pub mod approvals;
 pub mod authorship;
