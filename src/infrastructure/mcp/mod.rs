@@ -3,6 +3,8 @@
 // bearer auth header, discovers the connector tools, and exposes them as rig `McpTool`s.
 // The connection is dark unless a backend is configured (BackendClient::from_db == None).
 
+mod scoped;
+
 use crate::infrastructure::backend::{BackendClient, BackendError};
 use crate::infrastructure::persistence::Database;
 use reqwest::header::{HeaderName, HeaderValue};

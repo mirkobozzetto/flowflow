@@ -3,6 +3,10 @@
 // keeps the card pending, and the decision always comes from ANOTHER task (no lock is held
 // across the await, or these tests deadlock).
 
+use std::sync::{
+    atomic::{AtomicBool, Ordering},
+    Arc,
+};
 use std::time::Duration;
 
 use flowflow::application::approvals::{decide, UserDecision};
@@ -757,4 +761,40 @@ fn filter_fails_closed_on_missing_or_non_array_path() {
         |_| true
     )
     .is_none());
+}
+
+#[tokio::test]
+async fn changed_schema2_admission_after_approval_wait_skips_before_peer_execution(
+) {
+    let valid = Arc::new(AtomicBool::new(true));
+    let checked = valid.clone();
+    let (hook, mut rx) = hook_with_events(Duration::from_secs(5));
+    let hook = hook.with_admission_check(Arc::new(move || {
+        checked
+            .load(Ordering::Relaxed)
+            .then_some(())
+            .ok_or_else(|| "selection changed during execution".into())
+    }));
+    satisfy_read(&hook).await;
+    let held_hook = hook.clone();
+    let held = tokio::spawn(async move {
+        PromptHook::<Model>::on_tool_call(
+            &held_hook,
+            "google_sheets_write_to_cell",
+            None,
+            "",
+            &write_args(),
+        )
+        .await
+    });
+    let id = next_proposal_id(&mut rx).await;
+    valid.store(false, Ordering::Relaxed);
+    decide(id, UserDecision::Approved).expect("pending");
+    match held.await.unwrap() {
+        ToolCallHookAction::Skip { reason } => {
+            assert!(reason.contains("selection changed"))
+        }
+        other => panic!("expected admission Skip, got {other:?}"),
+    }
+    assert!(hook.aborted());
 }

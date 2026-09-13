@@ -142,7 +142,7 @@ pub fn ConnectionsSettings() -> Element {
                     }
                     div { class: "rounded-xl bg-warm-white border border-stone-200 divide-y divide-stone-100 overflow-hidden",
                         for a in agents() {
-                            div { key: "{a.id}", class: "px-4 py-3 min-h-[44px] flex items-center gap-3",
+                            div { key: "{a.id}", class: "px-4 py-3 min-h-[44px] flex flex-wrap items-center gap-3",
                                 span {
                                     class: if a.installed {
                                         "w-1.5 h-1.5 shrink-0 rounded-full bg-ios-green"
@@ -203,6 +203,17 @@ pub fn ConnectionsSettings() -> Element {
                                             }
                                         },
                                         {t(&lang, "connections-agent-install")}
+                                    }
+                                }
+                                if a.installed {
+                                    ScopedAgentSelections {
+                                        agent_id: a.id.clone(),
+                                        db,
+                                        sheets: bindings,
+                                        status,
+                                        busy,
+                                        reload,
+                                        lang: lang.clone(),
                                     }
                                 }
                             }
@@ -538,6 +549,101 @@ pub fn ConnectionsSettings() -> Element {
                                             }
                                         }
                                     }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+#[component]
+fn ScopedAgentSelections(
+    agent_id: String,
+    db: Signal<Arc<Database>>,
+    sheets: Signal<Vec<(String, String)>>,
+    mut status: Signal<Option<String>>,
+    mut busy: Signal<bool>,
+    mut reload: Signal<u32>,
+    lang: String,
+) -> Element {
+    let views = crate::application::agent_selections::views(&db(), &agent_id)
+        .unwrap_or_default();
+    if views.is_empty() {
+        return rsx! {};
+    }
+    rsx! {
+        div { class: "w-full pl-4 pt-2 mt-1 border-t border-stone-100 space-y-2",
+            p { class: "text-[11px] font-medium text-stone-500",
+                {t(&lang, "connections-agent-owners")}
+            }
+            for requirement in views {
+                div { key: "{requirement.key}", class: "space-y-1",
+                    p { class: "text-[10px] text-stone-400",
+                        "{requirement.key} · {requirement.connector_type}"
+                    }
+                    if requirement.compatible_slugs.is_empty() {
+                        p { class: "text-[10px] text-ios-orange",
+                            {t(&lang, "connections-agent-owner-missing")}
+                        }
+                    } else if requirement.resource_required {
+                        for slug in requirement.compatible_slugs.clone() {
+                            for (sheet_id, sheet_name) in sheets() {
+                                button {
+                                    class: crate::ui::kit::PILL_GHOST,
+                                    disabled: busy(),
+                                    onclick: {
+                                        let agent_id = agent_id.clone();
+                                        let key = requirement.key.clone();
+                                        let slug = slug.clone();
+                                        let sheet_id = sheet_id.clone();
+                                        move |_| {
+                                            if busy() { return; }
+                                            busy.set(true); status.set(None);
+                                            let agent_id=agent_id.clone();let key=key.clone();let slug=slug.clone();let sheet_id=sheet_id.clone();
+                                            spawn(async move {
+                                                match crate::application::agent_selections::select(&db(), &agent_id, &key, &slug, serde_json::json!({"spreadsheet_id":sheet_id})).await {
+                                                    Ok(()) => reload.set(reload()+1), Err(error) => status.set(Some(error)),
+                                                }
+                                                busy.set(false);
+                                            });
+                                        }
+                                    },
+                                    if requirement.selected_slug.as_deref() == Some(slug.as_str())
+                                        && requirement.selected_resource.as_ref().and_then(|value| value["spreadsheet_id"].as_str()) == Some(sheet_id.as_str()) { "✓ " }
+                                    "{slug} → {sheet_name}"
+                                }
+                            }
+                        }
+                        if sheets().is_empty() {
+                            p { class: "text-[10px] text-ios-orange",
+                                {t(&lang, "connections-agent-owner-resource")}
+                            }
+                        }
+                    } else {
+                        div { class: "flex flex-wrap gap-1",
+                            for slug in requirement.compatible_slugs {
+                                button {
+                                    class: crate::ui::kit::PILL_GHOST,
+                                    disabled: busy(),
+                                    onclick: {
+                                        let agent_id=agent_id.clone();let key=requirement.key.clone();let slug=slug.clone();
+                                        move |_| {
+                                            if busy() { return; }
+                                            busy.set(true);status.set(None);
+                                            let agent_id=agent_id.clone();let key=key.clone();let slug=slug.clone();
+                                            spawn(async move {
+                                                match crate::application::agent_selections::select(&db(),&agent_id,&key,&slug,serde_json::Value::Null).await {
+                                                    Ok(()) => reload.set(reload()+1), Err(error) => status.set(Some(error)),
+                                                }
+                                                busy.set(false);
+                                            });
+                                        }
+                                    },
+                                    if requirement.selected_slug.as_deref() == Some(slug.as_str()) { "✓ " }
+                                    "{slug}"
                                 }
                             }
                         }

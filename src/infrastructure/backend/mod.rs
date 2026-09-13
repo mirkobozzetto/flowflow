@@ -5,6 +5,7 @@
 // backend, `from_db` returns None and the agent behaves exactly as before.
 
 pub mod onboarding;
+mod scoped;
 pub mod profile;
 pub mod shares;
 pub mod spaces;
@@ -436,7 +437,25 @@ impl BackendClient {
         db: &Database,
         agent_id: &str,
     ) -> Result<String, BackendError> {
-        let url = format!("{}/v1/agents/{}/package", self.base_url, agent_id);
+        self.fetch_versioned_agent_package(db, agent_id, "v1").await
+    }
+
+    pub async fn fetch_scoped_agent_package(
+        &self,
+        db: &Database,
+        agent_id: &str,
+    ) -> Result<String, BackendError> {
+        self.fetch_versioned_agent_package(db, agent_id, "v2").await
+    }
+
+    async fn fetch_versioned_agent_package(
+        &self,
+        db: &Database,
+        agent_id: &str,
+        version: &str,
+    ) -> Result<String, BackendError> {
+        let url =
+            format!("{}/{version}/agents/{agent_id}/package", self.base_url);
         let resp = self.authed(db, |c, t| c.get(&url).bearer_auth(t)).await?;
         Self::read_text(resp).await
     }

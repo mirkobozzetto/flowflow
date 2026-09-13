@@ -3,6 +3,8 @@
 // transcript forward, enforces the read_before_write guard at the FSM seam, and composes a terminal answer.
 // It reports a per-state trace, including states the backend serves no tool for, so gaps surface honestly.
 
+pub(crate) mod native;
+
 use crate::application::agent_builder::BuiltAgent;
 use crate::application::error::LlmError;
 use crate::application::tools::ContractHook;

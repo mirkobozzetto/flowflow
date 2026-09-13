@@ -1,5 +1,6 @@
 pub mod create;
 pub mod reminder;
+pub mod scoped_native;
 pub mod search;
 pub mod summarize;
 pub mod web;
@@ -194,6 +195,9 @@ pub struct ContractHook {
     peers: BTreeMap<String, rmcp::service::ServerSink>,
     // Card deadline; APPROVAL_TIMEOUT in production, shrunk by tests.
     approval_timeout: std::time::Duration,
+    // Schema-2 only: recheck immutable package/selection snapshot after an
+    // approval wait and before the peer receives any write.
+    admission: Option<Arc<dyn Fn() -> Result<(), String> + Send + Sync>>,
 }
 
 impl ContractHook {
@@ -208,6 +212,7 @@ impl ContractHook {
             peer: None,
             peers: BTreeMap::new(),
             approval_timeout: APPROVAL_TIMEOUT,
+            admission: None,
         }
     }
 
@@ -257,6 +262,7 @@ impl ContractHook {
             peer: None,
             peers: BTreeMap::new(),
             approval_timeout: APPROVAL_TIMEOUT,
+            admission: None,
         }
     }
 
@@ -290,6 +296,30 @@ impl ContractHook {
             peer: None,
             peers: BTreeMap::new(),
             approval_timeout: APPROVAL_TIMEOUT,
+            admission: None,
+        }
+    }
+
+    /// Opt-in accounting shared with declared native tools. Existing constructors
+    /// retain their fresh-run behavior. Only freshly constructed contracts mutate.
+    pub fn with_shared_run(
+        tx: mpsc::UnboundedSender<ToolEvent>,
+        entries: Vec<(String, Governance, ConnectorManifest)>,
+        run: Arc<Mutex<RunState>>,
+    ) -> Self {
+        let mut hook = Self::with_contracts(tx, entries);
+        for (_, contract) in &mut hook.contracts {
+            Arc::get_mut(contract)
+                .expect("fresh contract is unique")
+                .run = run.clone();
+        }
+        hook
+    }
+
+    /// Stop every external owner after a native decision ends this run.
+    pub fn abort_run(&self) {
+        for (_, contract) in &self.contracts {
+            contract.abort.store(true, Ordering::Relaxed);
         }
     }
 
@@ -542,6 +572,18 @@ impl ContractHook {
         self
     }
 
+    pub fn with_admission_check(
+        mut self,
+        check: Arc<dyn Fn() -> Result<(), String> + Send + Sync>,
+    ) -> Self {
+        self.admission = Some(check);
+        self
+    }
+
+    fn recheck_admission(&self) -> Result<(), String> {
+        self.admission.as_ref().map_or(Ok(()), |check| check())
+    }
+
     // The server to dial for a tool: its owner when known, else the single attached peer.
     fn peer_for(&self, tool: &str) -> Option<&rmcp::service::ServerSink> {
         self.peers.get(tool).or(self.peer.as_ref())
@@ -575,6 +617,7 @@ impl ContractHook {
             peer: self.peer.clone(),
             peers: self.peers.clone(),
             approval_timeout: self.approval_timeout,
+            admission: self.admission.clone(),
         }
     }
 
@@ -615,6 +658,20 @@ impl ContractHook {
                 .expect("governance run state poisoned")
                 .read_resources
                 .is_empty()
+        })
+    }
+
+    /// Schema-2 FSM admission: an authorized external read need not have a
+    /// bound resource. This does not change the gate's per-resource write rule.
+    /// Like read_resources, per_tool is charged only when the gate allows a call.
+    pub fn admitted_external_read(&self) -> bool {
+        self.contracts.iter().any(|(_, contract)| {
+            let run =
+                contract.run.lock().expect("governance run state poisoned");
+            contract.conn.tools.iter().any(|tool| {
+                !tool.action.is_write()
+                    && run.per_tool.get(&tool.tool).copied().unwrap_or(0) > 0
+            })
         })
     }
 
@@ -681,6 +738,15 @@ impl ContractHook {
         let action = loop {
             match approvals::await_decision(registered).await {
                 Outcome::Approved => {
+                    if let Err(reason) = self.recheck_admission() {
+                        contract.abort.store(true, Ordering::Relaxed);
+                        self.record(format!(
+                            "approved {} but admission changed: {reason}",
+                            proposal.tool
+                        ));
+                        self.resolve_card(card_id, ProposalStatus::Rejected);
+                        break ToolCallHookAction::Skip { reason };
+                    }
                     let decision = {
                         let mut run = contract
                             .run
@@ -725,6 +791,15 @@ impl ContractHook {
                     }
                 }
                 Outcome::Edited(new_args) => {
+                    if let Err(reason) = self.recheck_admission() {
+                        contract.abort.store(true, Ordering::Relaxed);
+                        self.record(format!(
+                            "edited {} but admission changed: {reason}",
+                            proposal.tool
+                        ));
+                        self.resolve_card(card_id, ProposalStatus::Rejected);
+                        break ToolCallHookAction::Skip { reason };
+                    }
                     let fp = call_fingerprint(&proposal.tool, &new_args);
                     // An edited row write re-validates against the schema too - but never
                     // re-syncs (this run already spent its one re-sync for that tab).

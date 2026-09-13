@@ -29,13 +29,35 @@ pub enum Resolution {
     None,
 }
 
+// Metadata/trigger view only. A schema-2 package is never converted to a
+// schema-1 executable manifest; execution reloads its original signed pin.
+struct ActivationManifest {
+    id: String,
+    alias: String,
+    name: String,
+    description: String,
+    orchestration: crate::domain::orchestration::Orchestration,
+}
+
+impl From<&AgentManifest> for ActivationManifest {
+    fn from(manifest: &AgentManifest) -> Self {
+        Self {
+            id: manifest.id.clone(),
+            alias: manifest.alias.clone(),
+            name: manifest.name.clone(),
+            description: manifest.description.clone(),
+            orchestration: manifest.orchestration.clone(),
+        }
+    }
+}
+
 fn normalize(s: &str) -> String {
     s.trim().to_lowercase()
 }
 
 // The chain an activation runs when the trigger does not name one: the manifest's only
 // chain, else the first trigger's `then` that exists. None -> the agent cannot activate.
-fn default_chain(m: &AgentManifest) -> Option<String> {
+fn default_chain(m: &ActivationManifest) -> Option<String> {
     if m.orchestration.chains.len() == 1 {
         return m.orchestration.chains.keys().next().cloned();
     }
@@ -47,7 +69,7 @@ fn default_chain(m: &AgentManifest) -> Option<String> {
 }
 
 fn activation_for(
-    m: &AgentManifest,
+    m: &ActivationManifest,
     chain: Option<String>,
 ) -> Option<Activation> {
     Some(Activation {
@@ -60,7 +82,7 @@ fn activation_for(
 // goal ("lance synchro-clients quelle est ma liste ?"): the user naturally appends the question
 // to the activation, and an exact-only match would silently fall through to the generic
 // assistant. The boundary check keeps `agent-x` from hijacking `agent-x-v2`.
-fn alias_match(msg: &str, m: &AgentManifest) -> bool {
+fn alias_match(msg: &str, m: &ActivationManifest) -> bool {
     let targets: Vec<String> = [m.alias.as_str(), m.id.as_str()]
         .iter()
         .filter(|t| !t.is_empty())
@@ -86,7 +108,7 @@ fn alias_match(msg: &str, m: &AgentManifest) -> bool {
 // Keyword prefilter: any authored trigger word/phrase contained in the message
 // (case-insensitive). Only in-run keyword triggers count in v1; the chain is the
 // trigger's `then` when it exists.
-fn keyword_match(msg: &str, m: &AgentManifest) -> Option<Activation> {
+fn keyword_match(msg: &str, m: &ActivationManifest) -> Option<Activation> {
     for trig in &m.orchestration.triggers {
         if trig.kind != "keyword" || trig.scope != "in_run" {
             continue;
@@ -113,13 +135,22 @@ pub fn resolve_deterministic(
     message: &str,
     manifests: &[AgentManifest],
 ) -> Resolution {
+    let views: Vec<_> =
+        manifests.iter().map(ActivationManifest::from).collect();
+    resolve_manifests(message, &views)
+}
+
+fn resolve_manifests(
+    message: &str,
+    manifests: &[ActivationManifest],
+) -> Resolution {
     let msg = normalize(message);
     if msg.is_empty() {
         return Resolution::None;
     }
     // Aliases are display metadata, not unique: two published agents can carry the same
     // one. Exactly one match fires; a collision falls through (never guess).
-    let alias_hits: Vec<&AgentManifest> =
+    let alias_hits: Vec<&ActivationManifest> =
         manifests.iter().filter(|m| alias_match(&msg, m)).collect();
     match alias_hits.as_slice() {
         [one] => {
@@ -141,11 +172,30 @@ pub fn resolve_deterministic(
     }
 }
 
-fn installed_manifests(db: &Database) -> Vec<AgentManifest> {
+fn installed_manifests(db: &Database) -> Vec<ActivationManifest> {
     db.list_installed_agents()
         .into_iter()
-        .filter(|a| a.active)
-        .filter_map(|a| parse_manifest(&a.manifest_json).ok())
+        .filter(|row| row.active)
+        .filter_map(|row| {
+            if let Ok(manifest) = parse_manifest(&row.manifest_json) {
+                return Some(ActivationManifest::from(&manifest));
+            }
+            // Unlike display-only catalog data, activation requires a valid,
+            // active pin. External schema-2 owners are not runnable yet.
+            let manifest = db.load_scoped_agent(&row.id).ok()?;
+            if !manifest.execution.required_connectors.is_empty()
+                || manifest.execution.orchestration.chains.is_empty()
+            {
+                return None;
+            }
+            Some(ActivationManifest {
+                id: manifest.id,
+                alias: manifest.alias,
+                name: manifest.name,
+                description: manifest.description,
+                orchestration: manifest.execution.orchestration,
+            })
+        })
         .collect()
 }
 
@@ -153,7 +203,7 @@ fn installed_manifests(db: &Database) -> Vec<AgentManifest> {
 // Unavailable or unparseable judge -> false: the safe outcome is the generic assistant.
 async fn confidence_holds(
     db: &Database,
-    m: &AgentManifest,
+    m: &ActivationManifest,
     message: &str,
 ) -> bool {
     let Ok(llm) = LlmClient::from_db(db) else {
@@ -179,7 +229,7 @@ pub async fn resolve(db: &Database, message: &str) -> Option<Activation> {
     if manifests.is_empty() {
         return None;
     }
-    match resolve_deterministic(message, &manifests) {
+    match resolve_manifests(message, &manifests) {
         Resolution::Direct(a) => Some(a),
         Resolution::Candidate(a) => {
             let m = manifests.iter().find(|m| m.id == a.agent_id)?;
