@@ -51,6 +51,10 @@ impl ScopedAgentRun {
 
     /// Only external calls go through this hook. Declared native tools must use
     /// execute_native; mounting raw native tools would retain the legacy bypass.
+    pub fn native_tool_names(&self) -> Vec<&str> {
+        self.native.policies().iter().map(|policy| policy.tool.as_str()).collect()
+    }
+
     pub fn external_hook(&self) -> &ContractHook {
         &self.hook
     }

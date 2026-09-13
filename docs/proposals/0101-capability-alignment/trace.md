@@ -221,3 +221,16 @@ open_at; corrected to path.clone(). No application/user database was modified.
 Next: connect a loaded native-only pin to guarded execution, then versioned
 network installation and isolated owner persistence. Local APIs do not imply
 published schema-2 availability or completed application dispatch.
+
+## Block B - native tools mounted through the actual Rig interface
+
+Added ScopedNativeTool<T> and allowlisted mounting of real native implementations.
+Every mounted native tool, including reads, routes through ScopedAgentRun.
+The separate LlmClient::run_scoped_native surface supports existing configured
+providers without modifying legacy run_agent or mounting raw tools alongside it.
+
+Checks: scoped_native_tool_test 1 + agent_run_test 4 passed. The erased ToolDyn
+interface used by Rig waits for a real approval, executes the edited typed args
+once, and refuses a second call when the shared quota is spent. No provider API
+or real note/calendar mutation was called by these tests. Installed-agent chain
+dispatch and UI activation remain the next wiring step.

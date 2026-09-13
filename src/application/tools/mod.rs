@@ -1,4 +1,5 @@
 pub mod create;
+pub mod scoped_native;
 pub mod reminder;
 pub mod search;
 pub mod summarize;
