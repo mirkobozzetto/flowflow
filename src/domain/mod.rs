@@ -1,4 +1,5 @@
 pub mod agent_manifest;
+pub mod scoped_agent_manifest;
 pub mod attachment;
 pub mod conversation;
 pub mod dictionary;

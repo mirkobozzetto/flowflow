@@ -199,3 +199,25 @@ This remains an internal integration seam, not installed-package dispatch.
 Remaining: wire-format acceptance, versioned admission/dispatch and device-scoped
 persistence before publication/runtime activation. Existing signed bytes and
 legacy direct actions remain untouched.
+
+## Block B - accepted schema-2 reader and local installed pin
+
+User explicitly accepted separate schema 2, /v2 routes and device/package-scoped
+bindings with no automatic legacy migration. Persistent goal resumed and verified
+active. Publication, deployment and production mutations remain excluded.
+
+Added a strict schema-2 reader using the existing signed-envelope verifier.
+Unknown execution policy fields fail closed; original canonical metadata/bytes
+remain pinned. Explicit local installation checks the requested id and refuses
+to replace a legacy row. Reload checks the stored digest, id, version and active
+state. Legacy verify_package and install_agent behavior remains unchanged.
+
+Checks: scoped_agent_install_test 4 + agent_directory_test 6 passed. Native-only
+signed fixture installed into an isolated SQLite file, database reopened, exact
+canonical bytes and digest checked. Tampered input/row and automatic legacy
+replacement refused. Initial test compilation failed due to passing &PathBuf to
+open_at; corrected to path.clone(). No application/user database was modified.
+
+Next: connect a loaded native-only pin to guarded execution, then versioned
+network installation and isolated owner persistence. Local APIs do not imply
+published schema-2 availability or completed application dispatch.
