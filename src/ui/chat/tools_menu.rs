@@ -1,4 +1,6 @@
+use super::connector_status::ConnectionStatus;
 use crate::application::i18n::t;
+use crate::infrastructure::backend::BackendClient;
 use crate::infrastructure::persistence::Database;
 use crate::ui::hooks::swipe::use_sheet_dismiss;
 use crate::ui::icons::*;
@@ -143,12 +145,22 @@ fn ToolsMenuBody() -> Element {
 }
 
 // Shared connectors list (chat + note menus). A connector tap routes to
-// Settings > Connections, the real connect/manage surface; the labels here are a
-// static showcase of the hub.
+// Settings > Connections. Refresh on each mount rather than retaining a stale
+// success after the user disconnects in settings. This is account connection
+// state, not proof that a particular tool or resource is ready.
 #[component]
 pub(crate) fn ConnectorsSection() -> Element {
     let mut app: AppState = use_context();
+    let db: Signal<Arc<Database>> = use_context();
     let lang = (app.current_lang)();
+    let connections = use_resource(move || async move {
+        let database = db();
+        match BackendClient::from_db(&database) {
+            Some(client) => client.list_connectors(&database).await,
+            None => Ok(Vec::new()),
+        }
+    });
+    let status = ConnectionStatus::from_query(connections.read().as_ref());
 
     let open_connections = move |_| {
         app.show_tools_menu.set(false);
@@ -166,10 +178,12 @@ pub(crate) fn ConnectorsSection() -> Element {
             span { class: LEAD_TILE, IconGoogleSheets { size: 18 } }
             span { class: "flex-1 flex flex-col gap-0.5 min-w-0",
                 span { class: ROW_TITLE, "Google Sheets" }
-                span { class: ROW_SUB, {t(&lang, "chat-tools-connected")} }
+                span { class: ROW_SUB, role: "status", {t(&lang, status.label_key())} }
             }
-            span { class: "shrink-0 flex items-center gap-1 text-ios-orange text-xs font-medium",
-                IconCheck { size: 16 }
+            if status == ConnectionStatus::Connected {
+                span { class: "shrink-0 flex items-center gap-1 text-ios-orange text-xs font-medium",
+                    IconCheck { size: 16 }
+                }
             }
         }
 

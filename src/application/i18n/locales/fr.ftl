@@ -637,3 +637,7 @@ space-error-other = Le serveur a répondu par une erreur. Réessayez plus tard.
 
 share-join-link = Rejoindre avec un lien
 share-join-placeholder = Colle le lien ici
+
+chat-tools-connection-loading = Vérification de la connexion…
+chat-tools-google-connected = Compte Google connecté
+chat-tools-connection-unavailable = Connexion impossible à vérifier
