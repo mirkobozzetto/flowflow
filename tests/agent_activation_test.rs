@@ -8,6 +8,7 @@ use flowflow::application::agent_activation::{
 };
 use flowflow::domain::agent_manifest::{parse_manifest, AgentManifest};
 use flowflow::domain::orchestration::parse_orchestration;
+use serde_json::json;
 
 fn manifest(
     id: &str,
@@ -223,6 +224,64 @@ fn palette_lists_installed_active_agents_with_launch_command() {
     assert!(!agent.description.trim().is_empty());
     // The command targets the unique id, never the (collidable) alias.
     assert_eq!(agent.launch_command(), "lance agent-crm-sync");
+}
+
+#[test]
+fn palette_includes_a_scoped_agent_with_an_external_owner() {
+    let dir = tempfile::tempdir().unwrap();
+    let db = flowflow::infrastructure::persistence::Database::open_at(
+        dir.path().join("t.db"),
+    )
+    .unwrap();
+    let manifest = json!({
+        "schema_version": "2",
+        "id": "agent-general-sheet",
+        "version": "1.0.0",
+        "name": "General sheet",
+        "description": "Work with the selected sheet.",
+        "alias": "sheet-helper",
+        "model": "gpt-5.4-mini",
+        "execution": {
+            "required_connectors": [{
+                "key": "table",
+                "type": "tabular_store",
+                "capabilities": ["read", "update"],
+                "resource_required": true
+            }],
+            "native_tools": [],
+            "governance": {
+                "tools": [
+                    { "tool": "google_sheets_get_spreadsheet", "mode": "read_only" },
+                    { "tool": "google_sheets_write_to_cell", "mode": "read_write", "approval": "require_approval" }
+                ],
+                "read_before_write": true,
+                "deny_destructive": true
+            },
+            "orchestration": {
+                "chains": {
+                    "sheet": {
+                        "initial": "read",
+                        "states": {
+                            "read": { "allowed_tools": ["google_sheets_get_spreadsheet"], "on_done": "write" },
+                            "write": { "allowed_tools": ["google_sheets_write_to_cell"], "guard": "read_before_write", "on_done": "answer" },
+                            "answer": { "terminal": true }
+                        }
+                    }
+                }
+            }
+        }
+    });
+    let canonical = flowflow::domain::agent_manifest::canonical_json(&manifest);
+    let digest = flowflow::domain::agent_manifest::digest_of(&manifest);
+    db.conn().execute(
+        "INSERT INTO installed_agents (id, version, content_digest, manifest_json, active) VALUES (?1, ?2, ?3, ?4, 1)",
+        rusqlite::params!["agent-general-sheet", "1.0.0", digest, canonical],
+    ).unwrap();
+
+    let entries = palette_entries(&db);
+    assert_eq!(entries.len(), 1);
+    assert_eq!(entries[0].id, "agent-general-sheet");
+    assert_eq!(entries[0].launch_command(), "lance agent-general-sheet");
 }
 
 #[test]

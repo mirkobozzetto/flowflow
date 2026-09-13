@@ -209,7 +209,6 @@ pub fn ConnectionsSettings() -> Element {
                                     ScopedAgentSelections {
                                         agent_id: a.id.clone(),
                                         db,
-                                        sheets: bindings,
                                         status,
                                         busy,
                                         reload,
@@ -563,7 +562,6 @@ pub fn ConnectionsSettings() -> Element {
 fn ScopedAgentSelections(
     agent_id: String,
     db: Signal<Arc<Database>>,
-    sheets: Signal<Vec<(String, String)>>,
     mut status: Signal<Option<String>>,
     mut busy: Signal<bool>,
     mut reload: Signal<u32>,
@@ -590,36 +588,17 @@ fn ScopedAgentSelections(
                         }
                     } else if requirement.resource_required {
                         for slug in requirement.compatible_slugs.clone() {
-                            for (sheet_id, sheet_name) in sheets() {
-                                button {
-                                    class: crate::ui::kit::PILL_GHOST,
-                                    disabled: busy(),
-                                    onclick: {
-                                        let agent_id = agent_id.clone();
-                                        let key = requirement.key.clone();
-                                        let slug = slug.clone();
-                                        let sheet_id = sheet_id.clone();
-                                        move |_| {
-                                            if busy() { return; }
-                                            busy.set(true); status.set(None);
-                                            let agent_id=agent_id.clone();let key=key.clone();let slug=slug.clone();let sheet_id=sheet_id.clone();
-                                            spawn(async move {
-                                                match crate::application::agent_selections::select(&db(), &agent_id, &key, &slug, serde_json::json!({"spreadsheet_id":sheet_id})).await {
-                                                    Ok(()) => reload.set(reload()+1), Err(error) => status.set(Some(error)),
-                                                }
-                                                busy.set(false);
-                                            });
-                                        }
-                                    },
-                                    if requirement.selected_slug.as_deref() == Some(slug.as_str())
-                                        && requirement.selected_resource.as_ref().and_then(|value| value["spreadsheet_id"].as_str()) == Some(sheet_id.as_str()) { "✓ " }
-                                    "{slug} → {sheet_name}"
-                                }
-                            }
-                        }
-                        if sheets().is_empty() {
-                            p { class: "text-[10px] text-ios-orange",
-                                {t(&lang, "connections-agent-owner-resource")}
+                            ScopedSheetSelection {
+                                agent_id: agent_id.clone(),
+                                requirement_key: requirement.key.clone(),
+                                slug,
+                                selected_slug: requirement.selected_slug.clone(),
+                                selected_resource: requirement.selected_resource.clone(),
+                                db,
+                                status,
+                                busy,
+                                reload,
+                                lang: lang.clone(),
                             }
                         }
                     } else {
@@ -647,6 +626,111 @@ fn ScopedAgentSelections(
                                 }
                             }
                         }
+                    }
+                }
+            }
+        }
+    }
+}
+
+#[component]
+fn ScopedSheetSelection(
+    agent_id: String,
+    requirement_key: String,
+    slug: String,
+    selected_slug: Option<String>,
+    selected_resource: Option<serde_json::Value>,
+    db: Signal<Arc<Database>>,
+    mut status: Signal<Option<String>>,
+    mut busy: Signal<bool>,
+    mut reload: Signal<u32>,
+    lang: String,
+) -> Element {
+    let mut resources: Signal<
+        Vec<crate::application::connector_module::Spreadsheet>,
+    > = use_signal(Vec::new);
+    let mut loaded = use_signal(|| false);
+    let mut loading = use_signal(|| false);
+
+    rsx! {
+        div { class: "space-y-1",
+            button {
+                class: crate::ui::kit::PILL_GHOST,
+                disabled: busy() || loading(),
+                onclick: {
+                    let agent_id = agent_id.clone();
+                    let requirement_key = requirement_key.clone();
+                    let slug = slug.clone();
+                    move |_| {
+                        if busy() || loading() { return; }
+                        loading.set(true);
+                        status.set(None);
+                        let agent_id = agent_id.clone();
+                        let requirement_key = requirement_key.clone();
+                        let slug = slug.clone();
+                        spawn(async move {
+                            match crate::application::agent_selections::list_sheet_resources(
+                                &db(), &agent_id, &requirement_key, &slug,
+                            ).await {
+                                Ok(found) => {
+                                    resources.set(found);
+                                    loaded.set(true);
+                                }
+                                Err(error) => status.set(Some(error)),
+                            }
+                            loading.set(false);
+                        });
+                    }
+                },
+                if loading() {
+                    {t(&lang, "connections-agent-owner-loading")}
+                } else {
+                    {t(&lang, "connections-agent-owner-load")}
+                }
+            }
+            if loaded() && resources().is_empty() {
+                p { class: "text-[10px] text-ios-orange",
+                    {t(&lang, "connections-agent-owner-empty")}
+                }
+            }
+            div { class: "flex flex-wrap gap-1",
+                for sheet in resources() {
+                    button {
+                        class: crate::ui::kit::PILL_GHOST,
+                        disabled: busy(),
+                        onclick: {
+                            let agent_id = agent_id.clone();
+                            let requirement_key = requirement_key.clone();
+                            let slug = slug.clone();
+                            let sheet_id = sheet.id.clone();
+                            move |_| {
+                                if busy() { return; }
+                                busy.set(true);
+                                status.set(None);
+                                let agent_id = agent_id.clone();
+                                let requirement_key = requirement_key.clone();
+                                let slug = slug.clone();
+                                let sheet_id = sheet_id.clone();
+                                spawn(async move {
+                                    match crate::application::agent_selections::select(
+                                        &db(),
+                                        &agent_id,
+                                        &requirement_key,
+                                        &slug,
+                                        serde_json::json!({"spreadsheet_id":sheet_id}),
+                                    ).await {
+                                        Ok(()) => reload.set(reload() + 1),
+                                        Err(error) => status.set(Some(error)),
+                                    }
+                                    busy.set(false);
+                                });
+                            }
+                        },
+                        if selected_slug.as_deref() == Some(slug.as_str())
+                            && selected_resource.as_ref()
+                                .and_then(|value| value["spreadsheet_id"].as_str())
+                                == Some(sheet.id.as_str()) { "✓ " }
+                        "{sheet.name}"
                     }
                 }
             }
