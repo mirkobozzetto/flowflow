@@ -91,3 +91,9 @@ This is only the first fail-closed reader protection, not schema-2 support.
 Server distribution guard, precise new wire contract, scoped resource adapters
 and multi-owner/native validation remain. No deployment or new PR authorized
 for this incomplete block yet. Keep progress as small tested commits on dev.
+
+Reader protections delivered: FlowFlow 33dde01 and marketplace e7f342c, both dev.
+64 client tests and 23 backend packaging tests passed. New formats remain off.
+Next contract question: new bindings per-device versus shared across linked
+account devices. Current backend bind mutates global catalog config; the new
+format must isolate identity and package digest before persistence changes.
