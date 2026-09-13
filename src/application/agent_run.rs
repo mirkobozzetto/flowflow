@@ -73,6 +73,7 @@ impl ScopedAgentRun {
         mut self,
         check: Arc<dyn Fn() -> Result<(), String> + Send + Sync>,
     ) -> Self {
+        self.hook = self.hook.with_admission_check(check.clone());
         self.admission = Some(check);
         self
     }
@@ -106,6 +107,15 @@ impl ScopedAgentRun {
 
     /// Only external calls go through this hook. Declared native tools must use
     /// execute_native; mounting raw native tools would retain the legacy bypass.
+    pub fn with_external_context(
+        mut self,
+        peers: Vec<(String, rmcp::service::ServerSink)>,
+        schema: serde_json::Map<String, serde_json::Value>,
+    ) -> Self {
+        self.hook = self.hook.with_peers(peers).with_schema(schema);
+        self
+    }
+
     pub fn external_hook(&self) -> &ContractHook {
         &self.hook
     }

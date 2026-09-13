@@ -20,7 +20,12 @@ impl Database {
              WHERE json_extract(installed_agents.manifest_json, '$.schema_version') = '2'",
             rusqlite::params![expected_id, verified.manifest().version, verified.digest(), verified.canonical()],
         ).map_err(|error| format!("install scoped agent: {error}"))?;
-        if changed != 1 { return Err("schema-2 installation cannot replace a legacy assistant".into()); }
+        if changed != 1 {
+            return Err(
+                "schema-2 installation cannot replace a legacy assistant"
+                    .into(),
+            );
+        }
         Ok(())
     }
 
@@ -29,17 +34,37 @@ impl Database {
     pub fn load_scoped_agent(
         &self,
         id: &str,
-    ) -> Result<crate::domain::scoped_agent_manifest::ScopedAgentManifest, String> {
+    ) -> Result<crate::domain::scoped_agent_manifest::ScopedAgentManifest, String>
+    {
         self.scoped_agent_snapshot(id).map(|(manifest, _)| manifest)
     }
 
-    fn scoped_agent_snapshot(&self, id: &str) -> Result<(crate::domain::scoped_agent_manifest::ScopedAgentManifest, InstalledAgent), String> {
-        let row = self.get_installed_agent(id).ok_or("agent is not installed")?;
-        if !row.active { return Err("agent is inactive".into()); }
-        let digest = crate::domain::agent_manifest::digest_of_stored(&row.manifest_json)
-            .map_err(|error| error.to_string())?;
-        if digest != row.content_digest { return Err("stored package digest mismatch".into()); }
-        let manifest = crate::domain::scoped_agent_manifest::parse_scoped_manifest(&row.manifest_json)?;
+    fn scoped_agent_snapshot(
+        &self,
+        id: &str,
+    ) -> Result<
+        (
+            crate::domain::scoped_agent_manifest::ScopedAgentManifest,
+            InstalledAgent,
+        ),
+        String,
+    > {
+        let row = self
+            .get_installed_agent(id)
+            .ok_or("agent is not installed")?;
+        if !row.active {
+            return Err("agent is inactive".into());
+        }
+        let digest =
+            crate::domain::agent_manifest::digest_of_stored(&row.manifest_json)
+                .map_err(|error| error.to_string())?;
+        if digest != row.content_digest {
+            return Err("stored package digest mismatch".into());
+        }
+        let manifest =
+            crate::domain::scoped_agent_manifest::parse_scoped_manifest(
+                &row.manifest_json,
+            )?;
         if manifest.id != row.id || manifest.version != row.version {
             return Err("stored package identity mismatch".into());
         }
@@ -49,15 +74,44 @@ impl Database {
     /// One validated row supplies both the manifest and the immutable execution
     /// check. A separate read-only connection sees later deactivation/repinning
     /// without retaining the caller's Database borrow across a model call.
-    pub fn load_scoped_agent_for_run(&self, id: &str) -> Result<(
-        crate::domain::scoped_agent_manifest::ScopedAgentManifest,
-        std::sync::Arc<dyn Fn() -> Result<(), String> + Send + Sync>,
-    ), String> {
+    pub fn load_scoped_agent_for_run(
+        &self,
+        id: &str,
+    ) -> Result<
+        (
+            crate::domain::scoped_agent_manifest::ScopedAgentManifest,
+            std::sync::Arc<dyn Fn() -> Result<(), String> + Send + Sync>,
+        ),
+        String,
+    > {
+        let (manifest, _, check) = self.load_scoped_execution_snapshot(id)?;
+        Ok((manifest, check))
+    }
+
+    pub fn load_scoped_execution_snapshot(
+        &self,
+        id: &str,
+    ) -> Result<
+        (
+            crate::domain::scoped_agent_manifest::ScopedAgentManifest,
+            String,
+            std::sync::Arc<dyn Fn() -> Result<(), String> + Send + Sync>,
+        ),
+        String,
+    > {
         let (manifest, row) = self.scoped_agent_snapshot(id)?;
-        let path = self.conn().path().filter(|path| !path.is_empty())
-            .map(str::to_owned).ok_or("scoped execution requires a persistent database")?;
-        let connection = rusqlite::Connection::open_with_flags(path, rusqlite::OpenFlags::SQLITE_OPEN_READ_ONLY)
-            .map_err(|error| format!("open installation check: {error}"))?;
+        let digest = row.content_digest.clone();
+        let path = self
+            .conn()
+            .path()
+            .filter(|path| !path.is_empty())
+            .map(str::to_owned)
+            .ok_or("scoped execution requires a persistent database")?;
+        let connection = rusqlite::Connection::open_with_flags(
+            path,
+            rusqlite::OpenFlags::SQLITE_OPEN_READ_ONLY,
+        )
+        .map_err(|error| format!("open installation check: {error}"))?;
         let connection = std::sync::Mutex::new(connection);
         let check = std::sync::Arc::new(move || {
             let valid: bool = connection.lock().map_err(|_| "installation check poisoned".to_string())?
@@ -67,9 +121,13 @@ impl Database {
                     rusqlite::params![row.id, row.version, row.content_digest, row.manifest_json],
                     |record| record.get(0),
                 ).map_err(|error| format!("check installed package: {error}"))?;
-            if valid { Ok(()) } else { Err("installed package changed or became inactive".into()) }
+            if valid {
+                Ok(())
+            } else {
+                Err("installed package changed or became inactive".into())
+            }
         });
-        Ok((manifest, check))
+        Ok((manifest, digest, check))
     }
 
     /// Pin a verified agent. Upsert by id so a re-install (e.g. an update) repins the digest and

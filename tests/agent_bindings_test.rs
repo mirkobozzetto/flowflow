@@ -132,16 +132,22 @@ fn refuses_ambiguous_routes_requirements_tools_and_unknown_policies() {
 }
 
 #[test]
-fn unbound_optional_owner_never_inherits_another_owners_resource() {
-    let (id, gov, mut reqs, bindings) = fixture();
+fn resource_free_owner_requires_an_explicit_null_selection() {
+    let (id, gov, mut reqs, mut bindings) = fixture();
     reqs[1].resource_required = false;
+    assert!(
+        scoped_resource_contracts(&id, &gov, &reqs, &bindings[..1]).is_err()
+    );
+    bindings[1].resource = serde_json::Value::Null;
     let contracts =
-        scoped_resource_contracts(&id, &gov, &reqs, &bindings[..1]).unwrap();
+        scoped_resource_contracts(&id, &gov, &reqs, &bindings).unwrap();
     assert_eq!(
         contracts[0].1.bound_resource.as_ref(),
         Some(&bindings[0].resource)
     );
     assert!(contracts[1].1.bound_resource.is_none());
+    bindings[1].resource = json!({"must_not": "be accepted"});
+    assert!(scoped_resource_contracts(&id, &gov, &reqs, &bindings).is_err());
 }
 
 #[test]

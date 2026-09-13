@@ -1,10 +1,8 @@
-//! Installed native-only schema-2 dispatch. External requirements fail closed
-//! until isolated owner connections are integrated; legacy chains stay separate.
+//! Installed schema-2 dispatch across validated native and external owners.
+//! Legacy chains remain on their original path.
 use super::*;
-use crate::application::agent_native::{
-    validate_native_capabilities, NativeCapability,
-};
-use crate::application::agent_run::ScopedAgentRun;
+use crate::application::agent_native::NativeCapability;
+use crate::infrastructure::{backend::BackendClient, mcp::McpPool};
 use std::sync::Arc;
 
 pub(crate) async fn run_installed_native_chain(
@@ -30,12 +28,13 @@ pub(crate) async fn run_with_client(
     events: mpsc::UnboundedSender<crate::application::tools::ToolEvent>,
     client: impl FnOnce(&Database) -> Result<Arc<LlmClient>, String>,
 ) -> Result<ChainOutcome, String> {
-    let (manifest, check) = db.load_scoped_agent_for_run(agent_id)?;
-    if !manifest.execution.required_connectors.is_empty() {
-        return Err(
-            "schema-2 external owner connections are not integrated yet".into(),
-        );
-    }
+    let (manifest, identity, pin_check) =
+        crate::application::agent_selections::context(db, agent_id)?;
+    let (bindings, resolved) =
+        crate::application::agent_selections::load(db, &identity, &manifest)?;
+    let check = crate::application::agent_selections::snapshot_check(
+        db, &identity, &bindings, pin_check,
+    )?;
     let chain = manifest
         .execution
         .orchestration
@@ -43,8 +42,8 @@ pub(crate) async fn run_with_client(
         .get(chain_name)
         .ok_or_else(|| format!("manifest has no `{chain_name}` chain"))?;
     chain.validate().map_err(|error| error.to_string())?;
-    // The existing native implementations open the application store themselves.
-    // Never let a pin loaded from a different database authorize those tools.
+    // The native implementations open the application store themselves. Never
+    // let a pin loaded from a different database authorize those tools.
     let store = db
         .conn()
         .path()
@@ -70,22 +69,49 @@ pub(crate) async fn run_with_client(
     if web_key.is_some() {
         available.push(NativeCapability::SearchWeb);
     }
-    let native = validate_native_capabilities(
-        &manifest.execution.governance.tools,
-        &available,
-        !events.is_closed(),
+    let requirements: Vec<_> = manifest
+        .execution
+        .required_connectors
+        .iter()
+        .map(|requirement| {
+            crate::domain::capability_contract::CapabilityRequirement {
+                key: requirement.key.clone(),
+                connector_type: requirement.connector_type.clone(),
+                capabilities: requirement.capabilities.clone(),
+            }
+        })
+        .collect();
+    let base = crate::application::agent_execution::assemble_scoped_run(
+        crate::application::agent_execution::ScopedExecutionInput {
+            identity: &identity,
+            governance: &manifest.execution.governance,
+            requirements: &requirements,
+            resolved: &resolved,
+            bindings: &bindings,
+            native_tools: &manifest.execution.native_tools,
+            available_native: &available,
+        },
+        events,
     )?;
+    let pool = if resolved.is_empty() {
+        None
+    } else {
+        let backend =
+            BackendClient::from_db(db).ok_or("backend is not configured")?;
+        Some(
+            McpPool::connect_scoped(db, &backend, &identity, &resolved)
+                .await
+                .map_err(|error| error.to_string())?,
+        )
+    };
+    let peers = pool
+        .as_ref()
+        .map(McpPool::peers_by_tool)
+        .unwrap_or_default();
     let run = Arc::new(
-        ScopedAgentRun::new(
-            events,
-            Vec::new(),
-            native,
-            manifest
-                .execution
-                .governance
-                .limits
-                .clone()
-                .unwrap_or_default(),
+        base.with_external_context(
+            peers,
+            crate::application::connector_module::armed_schema_map(db),
         )
         .with_admission_check(check.clone()),
     );
@@ -119,7 +145,7 @@ pub(crate) async fn run_with_client(
                     ),
                 )
                 .await
-                .unwrap_or_else(|_| transcript.clone());
+                .map_err(|error| format!("terminal synthesis: {error}"))?;
             trace.push(ChainStep {
                 state: name,
                 outcome: answer.clone(),
@@ -130,19 +156,19 @@ pub(crate) async fn run_with_client(
                 trace,
             });
         }
-        if matches!(state.guard, Some(Guard::ReadBeforeWrite)) {
-            // This guard refers to bound external resources, not any native read.
-            // No such resource exists on a native-only run, so do not enter it.
+        if matches!(state.guard, Some(Guard::ReadBeforeWrite))
+            && !run.external_hook().admitted_external_read()
+        {
             skipped = true;
             trace.push(ChainStep { state: name.clone(), outcome:
-                "skipped: no bound external resource was read; no write performed".into(), tools: Vec::new() });
+                "skipped: no external read was admitted; no write performed".into(), tools: Vec::new() });
         } else {
             let preamble = with_mission(
                 &manifest.system_prompt,
                 state_preamble(&name, &state.allowed_tools, &transcript),
             );
             let reply = llm
-                .run_scoped_native(
+                .run_scoped(
                     resolve_chat_model(&manifest.model),
                     &preamble,
                     &format!("Goal: {goal}"),
@@ -150,6 +176,26 @@ pub(crate) async fn run_with_client(
                     &state.allowed_tools,
                     web_key.clone(),
                     f64::from(manifest.temperature.unwrap_or(0.0)),
+                    pool.as_ref()
+                        .map(|pool| {
+                            pool.mounts()
+                                .into_iter()
+                                .filter_map(|(tools, peer)| {
+                                    let tools: Vec<_> = tools
+                                        .into_iter()
+                                        .filter(|tool| {
+                                            state.allowed_tools.iter().any(
+                                                |name| {
+                                                    name == tool.name.as_ref()
+                                                },
+                                            )
+                                        })
+                                        .collect();
+                                    (!tools.is_empty()).then_some((tools, peer))
+                                })
+                                .collect()
+                        })
+                        .unwrap_or_default(),
                 )
                 .await
                 .map_err(|e| e.to_string())?;

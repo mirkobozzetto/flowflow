@@ -159,13 +159,29 @@ pub fn scoped_resource_contracts(
     requirements
         .iter()
         .map(|requirement| {
-            let resource = selections.get(requirement.key.as_str()).copied();
-            if requirement.resource_required && resource.is_none() {
-                return Err(format!(
-                    "missing resource for `{}`",
-                    requirement.key
-                ));
-            }
+            let selected = selections
+                .get(requirement.key.as_str())
+                .copied()
+                .ok_or_else(|| {
+                    format!("missing owner selection for `{}`", requirement.key)
+                })?;
+            let resource = if requirement.resource_required {
+                if selected.is_null() {
+                    return Err(format!(
+                        "missing resource for `{}`",
+                        requirement.key
+                    ));
+                }
+                Some(selected.clone())
+            } else {
+                if !selected.is_null() {
+                    return Err(format!(
+                        "resource-free owner `{}` requires null",
+                        requirement.key
+                    ));
+                }
+                None
+            };
             let scoped = Governance {
                 tools: governance
                     .tools
@@ -175,7 +191,7 @@ pub fn scoped_resource_contracts(
                     })
                     .cloned()
                     .collect(),
-                bound_resource: resource.cloned(),
+                bound_resource: resource,
                 ..governance.clone()
             };
             validate_governance(&scoped, &requirement.manifest).map_err(

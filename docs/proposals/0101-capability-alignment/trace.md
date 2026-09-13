@@ -296,3 +296,28 @@ native-flow-probe.rs and removed from the repository after the check.
 This proves the local execution core, not live /v2 download, entitlement checks,
 production signing, rendered UI interaction or external owner isolation. Those
 remain separate integration/release work. Publication and deployment stay off.
+
+## Block B - mixed client execution and read admission
+
+Connected package/device-local owner selections to v2 binding requests and scoped
+MCP sessions. Native wrappers and external owner tools share the run budget.
+Package/selection snapshots are rechecked after native and external approvals.
+Resource-free owners require explicit null selections, not missing selections.
+
+Schema-2 FSM read admission now counts gate-admitted external reads even without
+a bound resource. Legacy read_any and per-resource write enforcement are unchanged.
+Admission accounting is not a claim that a provider returned successful data.
+Terminal synthesis errors propagate rather than silently returning an earlier reply.
+
+Two disposable loopback probes passed: external search -> edited native approval
+-> exact note creation, and the same flow with rejection -> zero notes. Nineteen
+binding/budget/approval tests and 38 installation, directory, native execution,
+assembly and governance regressions passed. No real provider or user store used.
+Temporary probe sources are retained privately and removed from the repository.
+GitNexus refreshed but returned missing symbols and implausible cross-language
+callers; its critical shared-hook scope warning was checked against source and
+targeted regressions, not treated as reliable proof of impact or safety.
+
+Still not verified: a complete multi-external-owner model flow, selection changes
+during an external approval in that flow, live v2 download, phone installation,
+publication and deployment. This checkpoint does not complete block B.
