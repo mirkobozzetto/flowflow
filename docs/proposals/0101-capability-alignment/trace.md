@@ -275,3 +275,24 @@ also passed: signed schema-2 installation resolves alias/id to its chain, appear
 in the palette without changing canonical bytes, and disappears after either
 deactivation or digest tampering. No model/provider call or user data mutation.
 Full model-driven chain validation and /v2 installation remain outstanding.
+
+## Block B - local model-driven native flow verified
+
+Verified a complete native execution core with a loopback-only OpenAI Responses
+fixture: signed schema-2 package -> install -> database reopen -> alias activation
+-> actual Rig model/tool exchange -> live edited approval -> real CreateNote tool
+-> one note containing exactly the approved text -> terminal chain synthesis.
+The first model request exposed only the declared create_note tool. The database
+contained zero notes before confirmation. Native tool results now enter terminal
+context directly, not only through the intermediate model's narrative.
+
+The production entry retains LlmClient::from_db and its consent checks. A narrow
+internal client factory lets the same execution core run against a local fixture.
+The temporary probe used a fresh FLOWFLOW_DATA_DIR, a fictional key and disabled
+embedding consent; no real provider, backend, user store or published package was
+used. The single targeted probe passed. Source retained privately as
+native-flow-probe.rs and removed from the repository after the check.
+
+This proves the local execution core, not live /v2 download, entitlement checks,
+production signing, rendered UI interaction or external owner isolation. Those
+remain separate integration/release work. Publication and deployment stay off.

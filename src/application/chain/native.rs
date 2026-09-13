@@ -14,6 +14,22 @@ pub(crate) async fn run_installed_native_chain(
     goal: &str,
     events: mpsc::UnboundedSender<crate::application::tools::ToolEvent>,
 ) -> Result<ChainOutcome, String> {
+    run_with_client(db, agent_id, chain_name, goal, events, |db| {
+        LlmClient::from_db(db)
+            .map(Arc::new)
+            .map_err(|error| error.to_string())
+    })
+    .await
+}
+
+pub(crate) async fn run_with_client(
+    db: &Database,
+    agent_id: &str,
+    chain_name: &str,
+    goal: &str,
+    events: mpsc::UnboundedSender<crate::application::tools::ToolEvent>,
+    client: impl FnOnce(&Database) -> Result<Arc<LlmClient>, String>,
+) -> Result<ChainOutcome, String> {
     let (manifest, check) = db.load_scoped_agent_for_run(agent_id)?;
     if !manifest.execution.required_connectors.is_empty() {
         return Err(
@@ -73,7 +89,7 @@ pub(crate) async fn run_installed_native_chain(
         )
         .with_admission_check(check.clone()),
     );
-    let llm = Arc::new(LlmClient::from_db(db).map_err(|e| e.to_string())?);
+    let llm = client(db)?;
     let mut trace: Vec<ChainStep> = Vec::new();
     let mut transcript = String::new();
     let mut name = chain.initial.clone();
@@ -141,6 +157,10 @@ pub(crate) async fn run_installed_native_chain(
             let mut tools = run.external_hook().drain_events();
             tools.extend(run.drain_native_events());
             transcript.push_str(&format!("\n[{name}] {reply}"));
+            if !tools.is_empty() {
+                transcript.push_str("\nRecorded tool outcomes:\n");
+                transcript.push_str(&tools.join("\n"));
+            }
             trace.push(ChainStep {
                 state: name.clone(),
                 outcome: reply,
