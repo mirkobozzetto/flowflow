@@ -339,3 +339,23 @@ regressions and cargo check passed. Probe source is retained privately, not in G
 This closes block-B implementation. It does not prove rendered phone UI, real
 provider behavior, publication or deployment; those are release steps requiring
 separate authorization.
+
+## Block C - scoped outcomes available in client
+
+Installed schema-2 assistants with external owners now appear in the existing
+chat and selected-note palettes. Execution still rechecks every owner, resource,
+package and selection when the chain starts. Settings discovers existing Google
+Sheets through the connector's read-only chat MCP session, independently of the
+legacy CRM assistant, and creates no binding until the user selects a result.
+No API creates a new spreadsheet.
+
+Seventy targeted activation, selection, installation, assembly, governance and
+race tests passed. Forty-two native/reminder regressions passed, and `cargo
+check --lib` succeeded. A permanent loopback test proves Sheet discovery without
+the CRM package. A disposable loopback vertical used the exact Studio-generated
+general-Sheet contract through selected-note framing: selected resource read,
+write proposal, zero writes before approval, edited approval, then one write with
+exactly the edited fictional value. Text and voice use the same activation and
+chat-input path; selected-note uses the same activation/run path with note
+framing. No real provider, user data, publication, deployment or phone test was
+used.
