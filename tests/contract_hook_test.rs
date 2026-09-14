@@ -540,6 +540,100 @@ async fn after_reject_every_later_call_is_refused_without_a_new_card() {
     assert_eq!(proposals, 0, "no second card after the reject");
 }
 
+fn docs_hook(
+    timeout: Duration,
+) -> (ContractHook, UnboundedReceiver<ToolEvent>) {
+    let connector = parse_connector_manifest(
+        r#"{
+          "connector":"google-docs", "type":"document_store", "server":"fixture",
+          "mcp_prefix":"google_docs_", "provides":["create"],
+          "tools":[{
+            "tool":"google_docs_create_document_from_text", "resource":"document",
+            "action":"create", "risk":"read_write"
+          }]
+        }"#,
+    )
+    .unwrap();
+    let governance = parse_governance(
+        r#"{
+          "tools":[{
+            "tool":"google_docs_create_document_from_text", "mode":"read_write",
+            "approval":"require_approval"
+          }],
+          "read_before_write":false, "deny_destructive":true,
+          "limits":{"max_steps":2,"max_tool_calls":2}
+        }"#,
+    )
+    .unwrap();
+    let (tx, rx) = tokio::sync::mpsc::unbounded_channel();
+    (
+        ContractHook::with_contract(
+            tx,
+            governance,
+            connector,
+            Default::default(),
+        )
+        .with_approval_timeout(timeout),
+        rx,
+    )
+}
+
+#[tokio::test]
+async fn docs_create_exposes_exact_arguments_only_after_approval() {
+    let (hook, mut rx) = docs_hook(Duration::from_secs(5));
+    let args = json!({
+        "title":"Fictional quarterly report",
+        "text_content":"Fictional body"
+    });
+    let pending = tokio::spawn({
+        let hook = hook.clone();
+        let args = args.clone();
+        async move {
+            PromptHook::<Model>::on_tool_call(
+                &hook,
+                "google_docs_create_document_from_text",
+                None,
+                "",
+                &args.to_string(),
+            )
+            .await
+        }
+    });
+    let proposal = loop {
+        match rx.recv().await.expect("event") {
+            ToolEvent::Proposal(view) => break view,
+            _ => continue,
+        }
+    };
+    assert_eq!(proposal.tool, "google_docs_create_document_from_text");
+    assert_eq!(proposal.raw_args, args);
+    decide(
+        Uuid::parse_str(&proposal.id).unwrap(),
+        UserDecision::Approved,
+    )
+    .unwrap();
+    assert!(matches!(
+        pending.await.unwrap(),
+        ToolCallHookAction::Continue
+    ));
+    assert!(!hook.aborted());
+
+    match PromptHook::<Model>::on_tool_call(
+        &hook,
+        "google_docs_insert_text_at_end",
+        None,
+        "",
+        &json!({"document_id":"existing", "text":"denied"}).to_string(),
+    )
+    .await
+    {
+        ToolCallHookAction::Skip { reason } => {
+            assert!(reason.contains("governed tools"), "{reason}")
+        }
+        other => panic!("expected Skip, got {other:?}"),
+    }
+}
+
 // ---- RFC 0023: scoped tools, executed-and-filtered by the hook ----
 
 fn sheets_scoped() -> ConnectorManifest {
