@@ -468,6 +468,41 @@ pub fn IconKeyboard(#[props(default = 20)] size: u32) -> Element {
 }
 
 // Brand marks: real multicolor logos (explicit fills, not currentColor) for connector tiles.
+// Product marks are bundled so connector identity stays clear when the phone is offline.
+#[component]
+pub fn ConnectorIcon(
+    provider: String,
+    #[props(default = 20)] size: u32,
+) -> Element {
+    let icon = match provider.as_str() {
+        "google" | "google-sheets" => {
+            asset!("/assets/connector-icons/google-sheets.svg")
+        }
+        "google-docs" => asset!("/assets/connector-icons/google-docs.svg"),
+        "google-drive" => asset!("/assets/connector-icons/google-drive.svg"),
+        "google-forms" => asset!("/assets/connector-icons/google-forms.svg"),
+        "google-calendar" => {
+            asset!("/assets/connector-icons/google-calendar.svg")
+        }
+        "google-contacts" => {
+            asset!("/assets/connector-icons/google-contacts.svg")
+        }
+        "google-tasks" => asset!("/assets/connector-icons/google-tasks.svg"),
+        "google-gmail" | "gmail" => asset!("/assets/connector-icons/gmail.svg"),
+        _ => return rsx! { IconLink { size } },
+    };
+    rsx! {
+        img {
+            src: icon,
+            width: "{size}",
+            height: "{size}",
+            class: "object-contain",
+            alt: "",
+            aria_hidden: "true",
+        }
+    }
+}
+
 #[component]
 pub fn IconGoogleSheets(#[props(default = 20)] size: u32) -> Element {
     rsx! {

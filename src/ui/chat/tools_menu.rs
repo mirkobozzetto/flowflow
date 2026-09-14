@@ -1,4 +1,3 @@
-use super::connector_status::ConnectionStatus;
 use crate::application::i18n::t;
 use crate::infrastructure::backend::BackendClient;
 use crate::infrastructure::persistence::Database;
@@ -160,7 +159,12 @@ pub(crate) fn ConnectorsSection() -> Element {
             None => Ok(Vec::new()),
         }
     });
-    let status = ConnectionStatus::from_query(connections.read().as_ref());
+    let connector_rows = connections
+        .read()
+        .as_ref()
+        .and_then(|result| result.as_ref().ok())
+        .cloned()
+        .unwrap_or_default();
 
     let open_connections = move |_| {
         app.show_tools_menu.set(false);
@@ -172,56 +176,43 @@ pub(crate) fn ConnectorsSection() -> Element {
     rsx! {
         div { class: SECTION, {t(&lang, "chat-tools-section-connectors")} }
 
-        button {
-            class: ROW,
-            onclick: open_connections,
-            span { class: LEAD_TILE, IconGoogleSheets { size: 18 } }
-            span { class: "flex-1 flex flex-col gap-0.5 min-w-0",
-                span { class: ROW_TITLE, "Google Sheets" }
-                span { class: ROW_SUB, role: "status", {t(&lang, status.label_key())} }
+        if connector_rows.is_empty() {
+            button {
+                class: ROW,
+                onclick: open_connections,
+                span { class: LEAD_TILE, ConnectorIcon { provider: "google".to_string(), size: 18 } }
+                span { class: "flex-1 flex flex-col gap-0.5 min-w-0",
+                    span { class: ROW_TITLE, "Google Sheets" }
+                    span { class: ROW_SUB, {t(&lang, "connections-not-connected")} }
+                }
             }
-            if status == ConnectionStatus::Connected {
-                span { class: "shrink-0 flex items-center gap-1 text-ios-orange text-xs font-medium",
-                    IconCheck { size: 16 }
+        } else {
+            for connector in connector_rows {
+                button {
+                    key: "{connector.provider}",
+                    class: ROW,
+                    onclick: open_connections,
+                    span { class: LEAD_TILE,
+                        ConnectorIcon { provider: connector.provider.clone(), size: 20 }
+                    }
+                    span { class: "flex-1 flex flex-col gap-0.5 min-w-0",
+                        span { class: ROW_TITLE, "{connector.name}" }
+                        span { class: ROW_SUB, role: "status",
+                            if connector.connected {
+                                {t(&lang, "connections-connected")}
+                            } else {
+                                {t(&lang, "connections-not-connected")}
+                            }
+                        }
+                    }
+                    if connector.connected {
+                        span { class: "shrink-0 flex items-center gap-1 text-ios-orange text-xs font-medium",
+                            IconCheck { size: 16 }
+                        }
+                    }
                 }
             }
         }
-
-        // Parked until wired (icons + i18n kept): Calendar duplicates our own
-        // reminder/calendar system, Gmail and Notion are not connected yet.
-        // Restore these rows when the connectors go live.
-        /*
-        button {
-            class: ROW,
-            onclick: open_connections,
-            span { class: LEAD_TILE, IconGmail { size: 18 } }
-            span { class: "flex-1 flex flex-col gap-0.5 min-w-0",
-                span { class: ROW_TITLE, "Gmail" }
-                span { class: ROW_SUB, {t(&lang, "chat-tools-gmail-desc")} }
-            }
-            span { class: PILL, {t(&lang, "chat-tools-connect")} }
-        }
-
-        button {
-            class: ROW,
-            onclick: open_connections,
-            span { class: LEAD_TILE, IconGoogleCalendar { size: 20 } }
-            span { class: "flex-1 flex flex-col gap-0.5 min-w-0",
-                span { class: ROW_TITLE, {t(&lang, "chat-conn-calendar")} }
-                span { class: ROW_SUB, {t(&lang, "chat-tools-calendar-desc")} }
-            }
-            span { class: PILL, {t(&lang, "chat-tools-connect")} }
-        }
-
-        div {
-            class: ROW_DISABLED,
-            span { class: LEAD_TILE, IconNotion { size: 18 } }
-            span { class: "flex-1 flex flex-col gap-0.5 min-w-0",
-                span { class: ROW_TITLE, "Notion" }
-                span { class: ROW_SUB, {t(&lang, "chat-tools-soon")} }
-            }
-        }
-        */
     }
 }
 

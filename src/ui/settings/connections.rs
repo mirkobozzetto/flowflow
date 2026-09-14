@@ -92,42 +92,23 @@ pub fn ConnectionsSettings() -> Element {
             }
 
             if !device_id().is_empty() {
-                div {
-                    label { class: "block text-sm font-medium text-stone-700 mb-1",
-                        {t(&lang, "connections-device-id-label")}
-                    }
-                    p { class: "text-[11px] text-stone-400 mb-2 leading-relaxed",
-                        {t(&lang, "connections-device-id-hint")}
-                    }
-                    div { class: "flex items-center gap-2",
-                        code {
-                            class: "flex-1 text-[11px] font-mono break-all bg-warm-white border border-stone-200 rounded-lg px-3 py-2 text-stone-700",
-                            "{device_id}"
-                        }
-                        button {
-                            class: if dev_copied() {
-                                "shrink-0 p-1.5 rounded-md text-ios-green transition-colors"
-                            } else {
-                                "shrink-0 p-1.5 rounded-md text-stone-400 hover:bg-stone-100 active:bg-stone-100 transition-colors"
-                            },
-                            onclick: move |_| {
-                                if dev_copied() { return; }
-                                crate::ui::clipboard::copy_text(&device_id());
-                                dev_copied.set(true);
-                                spawn(async move {
-                                    futures_timer::Delay::new(
-                                        Duration::from_millis(1500),
-                                    )
-                                    .await;
-                                    dev_copied.set(false);
-                                });
-                            },
-                            if dev_copied() {
-                                IconCheck { size: 16 }
-                            } else {
-                                IconCopy { size: 16 }
-                            }
-                        }
+                button {
+                    class: "w-full min-h-[44px] px-3 rounded-xl border border-stone-200 bg-warm-white flex items-center justify-center gap-2 text-sm font-medium text-stone-600 hover:bg-stone-50 active:bg-stone-100 transition-colors",
+                    onclick: move |_| {
+                        if dev_copied() { return; }
+                        crate::ui::clipboard::copy_text(&device_id());
+                        dev_copied.set(true);
+                        spawn(async move {
+                            futures_timer::Delay::new(Duration::from_millis(1500)).await;
+                            dev_copied.set(false);
+                        });
+                    },
+                    if dev_copied() {
+                        IconCheck { size: 16 }
+                        {t(&lang, "connections-device-id-copied")}
+                    } else {
+                        IconCopy { size: 16 }
+                        {t(&lang, "connections-copy-device-id")}
                     }
                 }
             }
@@ -259,18 +240,9 @@ pub fn ConnectionsSettings() -> Element {
                             key: "{c.provider}",
                             class: "px-4 py-3",
                             div { class: "min-h-[44px] flex items-center gap-3",
-                            // Real brand logo for known providers, first-letter fallback otherwise.
+                            // The connector slug selects its exact bundled product mark.
                             div { class: "w-10 h-10 shrink-0 rounded-xl bg-white border border-stone-200 flex items-center justify-center overflow-hidden",
-                                {
-                                    match c.provider.as_str() {
-                                        "google" => rsx! { crate::ui::icons::IconGoogleSheets { size: 24 } },
-                                        _ => rsx! {
-                                            span { class: "text-stone-600 font-semibold text-base",
-                                                {c.name.chars().next().map(|ch| ch.to_uppercase().to_string()).unwrap_or_default()}
-                                            }
-                                        },
-                                    }
-                                }
+                                crate::ui::icons::ConnectorIcon { provider: c.provider.clone(), size: 24 }
                             }
                             div { class: "flex-1 min-w-0",
                                 p { class: "text-sm font-medium text-stone-800 truncate", "{c.name}" }
