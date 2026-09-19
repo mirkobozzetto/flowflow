@@ -1,0 +1,278 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>FlowFlow · Demander à Hermes · maquette</title>
+<script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
+<style type="text/tailwindcss">
+@theme {
+    --radius-md: 0.625rem;
+    --radius-lg: 0.625rem;
+    --radius-xl: 0.75rem;
+    --radius-2xl: 1rem;
+    --ease-soft: cubic-bezier(0.2, 0.8, 0.2, 1);
+    --shadow-card: 0 1px 2px rgba(28, 25, 23, 0.06);
+    --shadow-lift: 0 1px 2px rgba(28, 25, 23, 0.06), 0 8px 24px -12px rgba(28, 25, 23, 0.18);
+    --shadow-menu: 0 18px 40px -12px rgba(28, 25, 23, 0.28), 0 4px 10px -4px rgba(28, 25, 23, 0.14);
+    --color-ios-green: #34c759;
+    --color-ios-red: oklch(0.55 0.2 30);
+    --color-ios-red-dark: oklch(0.46 0.16 30);
+    --color-ios-red-50: oklch(0.96 0.025 30);
+    --color-ios-orange-50: oklch(0.97 0.04 50);
+    --color-ios-orange-100: oklch(0.92 0.07 50);
+    --color-ios-orange: oklch(0.60 0.22 50);
+    --color-ios-orange-dark: oklch(0.48 0.16 50);
+    --color-warm-white: oklch(0.99 0.005 50);
+}
+body { font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", Inter, system-ui, sans-serif; }
+.pressable { transition: color, background-color, border-color, opacity, transform 120ms var(--ease-soft); }
+.pressable:not(:disabled):active { transform: scale(0.98); }
+.popover-pop { animation: popUp 0.16s ease-out; transform-origin: bottom left; }
+.sheet-pop { animation: slideInUp 0.24s cubic-bezier(0.2, 0.9, 0.25, 1.12); }
+.backdrop-fade { animation: fadeIn 0.2s ease-out; }
+@keyframes popUp { from { opacity: 0; transform: scale(0.96) translateY(8px); } to { opacity: 1; transform: none; } }
+@keyframes slideInUp { from { transform: translateY(100%); } to { transform: none; } }
+@keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+@keyframes fadeInUp { from { transform: translateY(8px); opacity: 0; } to { transform: none; opacity: 1; } }
+@keyframes typingDot { 0%, 60%, 100% { transform: translateY(0); opacity: 0.4; } 30% { transform: translateY(-4px); opacity: 1; } }
+@keyframes pulseSoft { 0%, 100% { opacity: 1; } 50% { opacity: 0.4; } }
+.prose p { margin-bottom: 0.5em; } .prose p:last-child { margin-bottom: 0; } .prose strong { font-weight: 600; }
+.prose ul { list-style-type: disc; padding-left: 1.25em; margin: 0.5em 0; } .prose li { margin: 0.15em 0; }
+.phone { width: 390px; height: 780px; border-radius: 44px; border: 10px solid #1c1917; overflow: hidden; position: relative; background: var(--color-warm-white); box-shadow: var(--shadow-menu); }
+.screen { position: absolute; inset: 0; display: flex; flex-direction: column; }
+.notch { position: absolute; top: 0; left: 50%; transform: translateX(-50%); width: 120px; height: 30px; background: #1c1917; border-radius: 0 0 18px 18px; z-index: 60; }
+.step { display: none; } .step.on { display: block; }
+.note-copy { max-width: 390px; }
+</style>
+</head>
+<body class="bg-stone-100 text-stone-900 min-h-screen">
+<header class="max-w-6xl mx-auto px-6 pt-10 pb-6">
+  <h1 class="text-2xl font-semibold">Demander à Hermes depuis FlowFlow</h1>
+  <p class="text-sm text-stone-500 mt-1 max-w-3xl">Maquette. Cliquer sur les boutons orange fait avancer chaque écran (états A1 à A4, N1 à N3). Le design reprend les tokens et classes de l'app iOS actuelle : fond <code>warm-white</code>, bordures <code>stone-200</code>, accent <code>ios-orange</code>, cartes <code>rounded-xl</code>. Seul le flux est à juger, pas le texte des exemples.</p>
+  <p class="text-sm text-stone-500 mt-2">Réponds par exemple « A ok, N à revoir » ou cite un état (A3).</p>
+</header>
+
+<main class="max-w-6xl mx-auto px-6 pb-16 grid grid-cols-1 lg:grid-cols-2 gap-10">
+
+<!-- ================= A · CHAT ================= -->
+<section>
+  <h2 class="text-xs font-medium text-stone-400 uppercase tracking-[0.08em] mb-3">A · Dans un chat : mentionner @Hermes</h2>
+  <div class="phone mx-auto"><div class="notch"></div>
+  <div class="screen">
+    <!-- top bar -->
+    <div class="flex items-center px-4 pt-11 pb-3 bg-warm-white border-b border-stone-200 gap-3 min-h-[44px] shadow-card z-30">
+      <button class="relative min-w-[44px] min-h-[44px] flex items-center justify-center rounded-[10px] text-stone-700">
+        <svg width="22" height="22" viewBox="0 0 256 256" fill="currentColor"><path d="M224 128a8 8 0 0 1-8 8H40a8 8 0 0 1 0-16h176a8 8 0 0 1 8 8ZM40 72h176a8 8 0 0 0 0-16H40a8 8 0 0 0 0 16Zm176 112H40a8 8 0 0 0 0 16h176a8 8 0 0 0 0-16Z"/></svg>
+        <img src="flowflow-icon-300.png" class="absolute bottom-1 right-1 w-2.5 h-2.5 object-contain" alt="">
+      </button>
+      <div class="flex-1 text-left flex items-center gap-1.5"><span class="text-base font-semibold text-stone-900">Projet Marketplace</span></div>
+    </div>
+
+    <!-- messages -->
+    <div id="a-body" class="flex-1 overflow-y-auto px-4 py-4 space-y-4">
+      <div class="flex justify-end"><div class="bg-ios-orange text-white rounded-2xl rounded-br-md px-4 py-2.5 max-w-[80%] text-sm leading-relaxed">On part sur quoi pour le connecteur GitHub, App ou OAuth classique ?</div></div>
+      <div class="flex justify-start items-start gap-2"><img src="flowflow-icon-300.png" class="w-5 h-5 mt-1 object-contain rounded-full shrink-0" alt="FlowFlow"><div class="min-w-0 max-w-[85%] py-1 text-sm text-stone-900 leading-relaxed prose">GitHub App : dépôts sélectionnés, permissions étroites, jeton court. C'est ce que dit la proposition 0102.</div></div>
+
+      <!-- A2+ : user delegates -->
+      <div class="step a-2 a-3 a-4 flex justify-end"><div class="bg-ios-orange text-white rounded-2xl rounded-br-md px-4 py-2.5 max-w-[80%] text-sm leading-relaxed"><span class="font-semibold underline decoration-white/50">@Hermes</span> compare les deux approches et propose 3 issues, montre-moi avant de créer.</div></div>
+
+      <!-- A2 : running -->
+      <div class="step a-2" style="animation: fadeInUp .15s ease-out">
+        <div class="flex justify-start items-start gap-2"><img src="hermes-agent.png" class="w-5 h-5 mt-1 object-contain rounded-full shrink-0" alt="Hermes">
+          <div class="min-w-0 max-w-[85%] p-3 bg-warm-white border border-stone-200 rounded-xl">
+            <div class="flex items-center gap-2"><span class="w-1.5 h-1.5 rounded-full bg-ios-orange" style="animation: pulseSoft 1.2s ease-in-out infinite"></span><span class="text-sm font-semibold text-stone-800">Hermes travaille</span></div>
+            <div class="mt-0.5 text-xs text-stone-500">Contexte envoyé : ce fil (12 messages) · proposition 0102</div>
+            <div class="mt-2 text-xs text-stone-500">Lit docs/proposals/0102-github-connector…</div>
+            <div class="mt-3 flex gap-2">
+              <button class="pressable flex-1 min-h-[40px] rounded-xl bg-stone-100 text-stone-600 font-medium text-xs">Continuer en arrière-plan</button>
+              <button class="pressable flex-1 min-h-[40px] rounded-xl bg-ios-red/10 text-ios-red font-medium text-xs">Annuler</button>
+            </div>
+          </div></div>
+      </div>
+
+      <!-- A3 : Hermes asks a question -->
+      <div class="step a-3" style="animation: fadeInUp .15s ease-out">
+        <div class="flex justify-start items-start gap-2"><img src="hermes-agent.png" class="w-5 h-5 mt-1 object-contain rounded-full shrink-0" alt="Hermes">
+          <div class="min-w-0 max-w-[85%] p-3 bg-warm-white border border-stone-200 rounded-xl">
+            <div class="flex items-center gap-2 text-ios-orange-dark"><svg width="18" height="18" viewBox="0 0 256 256" fill="currentColor"><path d="M140 180a12 12 0 1 1-12-12 12 12 0 0 1 12 12ZM128 72c-22.06 0-40 16.15-40 36v4a8 8 0 0 0 16 0v-4c0-11 10.77-20 24-20s24 9 24 20-10.77 20-24 20a8 8 0 0 0-8 8v8a8 8 0 0 0 16 0v-.72c18.24-3.35 32-17.9 32-35.28 0-19.85-17.94-36-40-36Zm104 56A104 104 0 1 1 128 24a104.11 104.11 0 0 1 104 104Zm-16 0a88 88 0 1 0-88 88 88.1 88.1 0 0 0 88-88Z"/></svg><span class="text-sm font-semibold text-stone-800">Hermes a une question</span></div>
+            <div class="mt-2 text-sm text-stone-700">Les issues vont dans quel dépôt ?</div>
+            <div class="mt-2 flex flex-col gap-1.5">
+              <button class="pressable min-h-[40px] px-3 rounded-lg border border-stone-200 text-left text-sm text-stone-800 hover:bg-stone-100">mirkobozzetto/marketplace-flowflow</button>
+              <button class="pressable min-h-[40px] px-3 rounded-lg border border-stone-200 text-left text-sm text-stone-800 hover:bg-stone-100">mirkobozzetto/flowflow</button>
+            </div>
+            <div class="mt-2 text-xs italic text-stone-400">La tâche reprend là où elle en était, sans relancer.</div>
+          </div></div>
+      </div>
+
+      <!-- A4 : result + approval -->
+      <div class="step a-4" style="animation: fadeInUp .15s ease-out">
+        <div class="flex justify-start items-start gap-2"><img src="hermes-agent.png" class="w-5 h-5 mt-1 object-contain rounded-full shrink-0" alt="Hermes">
+          <div class="min-w-0 max-w-[85%] py-1">
+            <div class="text-sm text-stone-900 leading-relaxed prose"><p><strong>GitHub App</strong> l'emporte : accès par dépôt, jeton d'installation court, révocable côté GitHub. OAuth classique donne un jeton large et durable, inutile ici.</p><p>Trois issues proposées :</p><ul><li>Manifeste connector GitHub App</li><li>Callback installation + stockage installation_id</li><li>Proxy tools/call : issues.create scoped</li></ul></div>
+            <div class="mt-2 p-3 bg-warm-white border border-stone-200 rounded-xl">
+              <div class="flex items-center gap-2 text-ios-orange-dark"><svg width="18" height="18" viewBox="0 0 256 256" fill="currentColor"><path d="M208 40H48a16 16 0 0 0-16 16v56c0 52.72 25.52 84.67 46.93 102.19 23.06 18.86 46 25.27 47 25.53a8 8 0 0 0 4.14 0c1-.26 23.9-6.67 47-25.53C198.48 196.67 224 164.72 224 112V56a16 16 0 0 0-16-16Zm0 72c0 37.07-13.66 67.16-40.6 89.42A129.3 129.3 0 0 1 128 223.62a128.8 128.8 0 0 1-38.92-21.81C61.82 179.51 48 149.3 48 112V56h160Zm-34.34 3.94a8 8 0 0 1 0 11.32l-48 48a8 8 0 0 1-11.32 0l-24-24a8 8 0 0 1 11.32-11.32L120 158.34l42.34-42.34a8 8 0 0 1 11.32-.06Z"/></svg><span class="text-sm font-semibold text-stone-800">Approbation requise</span></div>
+              <div class="mt-0.5 text-xs text-stone-500">Créer 3 issues · GitHub</div>
+              <div class="mt-2 space-y-1 text-sm"><div class="flex gap-2"><span class="shrink-0 text-stone-400">Dépôt</span><span class="text-stone-700">marketplace-flowflow</span></div><div class="flex gap-2"><span class="shrink-0 text-stone-400">Compte</span><span class="text-stone-700">ton installation GitHub, pas celle du fil</span></div></div>
+              <div class="mt-2 text-xs italic text-stone-400">Rien n'est créé tant que tu n'approuves pas.</div>
+              <div class="mt-3 flex gap-2">
+                <button class="pressable flex-1 min-h-[44px] rounded-xl bg-ios-orange text-white font-medium text-sm">Approuver</button>
+                <button class="pressable flex-1 min-h-[44px] rounded-xl bg-stone-100 text-stone-700 font-medium text-sm">Modifier</button>
+                <button class="pressable flex-1 min-h-[44px] rounded-xl bg-ios-red/10 text-ios-red font-medium text-sm">Refuser</button>
+              </div>
+            </div>
+          </div></div>
+      </div>
+    </div>
+
+    <!-- composer -->
+    <div class="relative px-4 py-2 bg-warm-white border-t border-stone-200 z-30 pb-8">
+      <!-- A1 : mention menu -->
+      <div class="step a-1 absolute bottom-full left-2 right-2 mb-2 z-40 bg-warm-white border border-stone-200 rounded-xl shadow-menu p-2 popover-pop">
+        <div class="px-3 py-2 text-xs font-medium text-stone-400 uppercase tracking-[0.08em]">Agents</div>
+        <button class="w-full flex items-center gap-3 px-3 min-h-[48px] rounded-lg text-left hover:bg-stone-100 bg-stone-100">
+          <img src="hermes-agent.png" class="w-7 h-7 shrink-0 rounded-lg object-cover" alt="">
+          <span class="min-w-0"><span class="block text-sm font-medium text-stone-800">Hermes</span><span class="block text-xs text-stone-400">Ton agent · vps · connecté</span></span>
+          <span class="ml-auto w-2 h-2 rounded-full bg-ios-green"></span>
+        </button>
+        <div class="h-px bg-stone-200 mx-3 my-2"></div>
+        <div class="px-3 py-2 text-xs font-medium text-stone-400 uppercase tracking-[0.08em]">Outils</div>
+        <button class="w-full flex items-center gap-3 px-3 min-h-[48px] rounded-lg text-left hover:bg-stone-100"><span class="w-[22px] h-[22px] flex items-center justify-center text-stone-500"><svg width="22" height="22" viewBox="0 0 256 256" fill="currentColor"><path d="M128 24a104 104 0 1 0 104 104A104.11 104.11 0 0 0 128 24Zm88 104a87.6 87.6 0 0 1-3.33 24h-38.51a157.4 157.4 0 0 0 0-48h38.51a87.6 87.6 0 0 1 3.33 24Zm-114 40h52a115.1 115.1 0 0 1-26 45 115.3 115.3 0 0 1-26-45Zm-3.9-16a140.8 140.8 0 0 1 0-48h59.88a140.8 140.8 0 0 1 0 48ZM40 128a87.6 87.6 0 0 1 3.33-24h38.51a157.4 157.4 0 0 0 0 48H43.33A87.6 87.6 0 0 1 40 128Zm114-40h-52a115.1 115.1 0 0 1 26-45 115.3 115.3 0 0 1 26 45Z"/></svg></span><span class="text-sm font-medium text-stone-800">Recherche web</span></button>
+        <div class="h-px bg-stone-200 mx-3 my-2"></div>
+        <div class="px-3 py-2 text-xs font-medium text-stone-400 uppercase tracking-[0.08em]">Notes récentes</div>
+        <button class="w-full flex items-center gap-3 px-3 min-h-[48px] rounded-lg text-left hover:bg-stone-100"><span class="w-[22px] h-[22px] flex items-center justify-center text-stone-500">📝</span><span class="min-w-0"><span class="block text-sm font-medium text-stone-800">TypeSafe AI</span><span class="block text-xs text-stone-400">Projets</span></span></button>
+      </div>
+      <div class="flex items-end gap-2">
+        <button class="pressable w-11 h-11 rounded-full bg-warm-white border border-stone-200 flex items-center justify-center text-stone-600 text-xl leading-none">+</button>
+        <button class="pressable w-11 h-11 shrink-0 rounded-full bg-warm-white border border-ios-orange/15 flex items-center justify-center text-ios-orange-dark"><svg width="18" height="18" viewBox="0 0 256 256" fill="currentColor"><path d="M128 176a48.05 48.05 0 0 0 48-48V64a48 48 0 0 0-96 0v64a48.05 48.05 0 0 0 48 48ZM96 64a32 32 0 0 1 64 0v64a32 32 0 0 1-64 0Zm40 143.6V232a8 8 0 0 1-16 0v-24.4A80.11 80.11 0 0 1 48 128a8 8 0 0 1 16 0 64 64 0 0 0 128 0 8 8 0 0 1 16 0 80.11 80.11 0 0 1-72 79.6Z"/></svg></button>
+        <div id="a-input" class="flex-1 min-h-[44px] bg-stone-100 rounded-2xl px-4 py-3 text-sm text-stone-900"><span class="step a-1 on">@He<span class="text-stone-400">|</span></span><span class="step a-2 a-3 a-4 text-stone-400">Message…</span></div>
+      </div>
+    </div>
+  </div></div>
+
+  <div class="note-copy mx-auto mt-4 text-sm text-stone-600 space-y-1">
+    <p><b>A1</b> Hermes apparaît dans le menu @ existant, section « Agents », avec son état de connexion.</p>
+    <p><b>A2</b> Carte de tâche dans le fil : contexte envoyé visible, annulable, on peut quitter l'app.</p>
+    <p><b>A3</b> Hermes pose une question ; la réponse reprend la même tâche.</p>
+    <p><b>A4</b> Réponse en bulle normale, puis la carte d'approbation déjà présente dans l'app pour les actions sensibles.</p>
+    <div class="flex gap-2 pt-2"><button onclick="go('a',-1)" class="pressable min-h-[36px] px-3 rounded-xl bg-stone-200 text-stone-700 text-xs font-medium">← état</button><button onclick="go('a',1)" class="pressable min-h-[36px] px-4 rounded-xl bg-ios-orange text-white text-xs font-medium">État suivant →</button><span id="a-label" class="self-center text-xs text-stone-400 ml-1">A1 / 4</span></div>
+  </div>
+</section>
+
+<!-- ================= N · NOTE ================= -->
+<section>
+  <h2 class="text-xs font-medium text-stone-400 uppercase tracking-[0.08em] mb-3">N · Depuis une note : confier un travail long</h2>
+  <div class="phone mx-auto"><div class="notch"></div>
+  <div class="screen">
+    <div class="flex items-center px-4 pt-11 pb-3 bg-warm-white border-b border-stone-200 gap-3 min-h-[44px] shadow-card z-30">
+      <button class="min-w-[44px] min-h-[44px] flex items-center justify-center rounded-[10px] text-stone-700"><svg width="22" height="22" viewBox="0 0 256 256" fill="currentColor"><path d="M224 128a8 8 0 0 1-8 8H59.31l58.35 58.34a8 8 0 0 1-11.32 11.32l-72-72a8 8 0 0 1 0-11.32l72-72a8 8 0 0 1 11.32 11.32L59.31 120H216a8 8 0 0 1 8 8Z"/></svg></button>
+      <div class="flex-1 text-left flex items-center gap-1.5"><span class="text-base font-semibold text-stone-900">Projets</span></div>
+    </div>
+
+    <div class="flex-1 overflow-y-auto px-4 py-4">
+      <h1 class="text-xl font-semibold text-stone-900 leading-tight">Connecteur GitHub : App ou OAuth ?</h1>
+      <div class="mt-1 text-xs text-stone-400">2026-09-19 · 00:12</div>
+      <div class="mt-2 flex gap-1.5"><span class="px-2 py-1 rounded-full bg-warm-white border border-ios-orange/25 text-ios-orange-dark text-xs font-medium">marketplace</span><span class="px-2 py-1 rounded-full bg-warm-white border border-ios-orange/25 text-ios-orange-dark text-xs font-medium">github</span></div>
+      <div class="mt-4 text-sm text-stone-800 leading-relaxed prose">
+        <p>Idée : comparer GitHub App vs OAuth App pour le connecteur, en regardant scopes, durée des jetons, et ce que ça impose côté proxy.</p>
+        <p>Points à creuser : installation par dépôt, refresh, révocation, ce que Google fait déjà chez nous.</p>
+      </div>
+
+      <!-- N1 : button, like NoteActions -->
+      <div class="step n-1 on mt-3">
+        <button onclick="go('n',1)" class="pressable w-full min-h-[44px] flex items-center justify-center gap-2 rounded-xl bg-ios-orange/10 text-ios-orange-dark text-sm font-medium">
+          <img src="hermes-agent.png" class="w-4 h-4 rounded-full object-cover" alt="">Demander à Hermes
+        </button>
+      </div>
+
+      <!-- N2 : running card -->
+      <div class="step n-2 mt-3 p-3 bg-warm-white border border-stone-200 rounded-xl" style="animation: fadeInUp .15s ease-out">
+        <div class="flex items-center gap-2"><span class="w-1.5 h-1.5 rounded-full bg-ios-orange" style="animation: pulseSoft 1.2s ease-in-out infinite"></span><span class="text-sm font-semibold text-stone-800">Hermes travaille</span><span class="ml-auto text-xs text-stone-400">2 min</span></div>
+        <div class="mt-0.5 text-xs text-stone-500">Compare les deux approches et ajoute une synthèse sourcée à cette note</div>
+        <div class="mt-2 text-xs text-stone-500">Cherche : docs.github.com/apps · lit connectors/github.json</div>
+        <div class="mt-2 text-xs italic text-stone-400">Tu peux fermer l'app. Le résultat arrivera ici.</div>
+        <div class="mt-3 flex gap-2"><button class="pressable flex-1 min-h-[40px] rounded-xl bg-ios-red/10 text-ios-red font-medium text-xs">Annuler</button></div>
+      </div>
+
+      <!-- N3 : result appended -->
+      <div class="step n-3 mt-3" style="animation: fadeInUp .15s ease-out">
+        <div class="p-3 bg-warm-white border border-stone-200 rounded-xl flex items-start gap-2.5">
+          <span class="shrink-0 mt-0.5 text-ios-orange-dark"><svg width="18" height="18" viewBox="0 0 256 256" fill="currentColor"><path d="M229.66 77.66l-128 128a8 8 0 0 1-11.32 0l-56-56a8 8 0 0 1 11.32-11.32L96 188.69 218.34 66.34a8 8 0 0 1 11.32 11.32Z"/></svg></span>
+          <div class="min-w-0 text-sm text-stone-800 leading-relaxed prose">
+            <p><strong>Synthèse Hermes</strong> · ajoutée à la note</p>
+            <ul><li><strong>GitHub App</strong> : accès par dépôt choisi à l'installation, jeton 1 h, révocable par le propriétaire du dépôt.</li><li><strong>OAuth App</strong> : jeton utilisateur large, scope <code>repo</code> = tous les dépôts, pas de sélection.</li><li>Notre proxy scoped (<code>proxy/scoped.rs</code>) tient déjà des jetons courts : l'App s'y branche sans changer le modèle.</li></ul>
+            <p class="text-xs text-stone-400">3 sources · 2 fichiers lus · 4 min</p>
+          </div>
+        </div>
+        <div class="mt-2 flex gap-2">
+          <button class="pressable flex-1 min-h-[40px] rounded-xl bg-ios-orange/10 text-ios-orange-dark text-xs font-medium">Continuer dans un chat</button>
+          <button onclick="go('n',-2)" class="pressable flex-1 min-h-[40px] rounded-xl bg-stone-100 text-stone-600 text-xs font-medium">Redemander</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- N1 sheet : bottom sheet on tap (the app's + sheet pattern) -->
+    <div id="n-sheet" class="hidden">
+      <div class="absolute inset-0 z-30 bg-black/10 backdrop-fade" onclick="sheet(false)"></div>
+      <div class="absolute bottom-0 left-0 right-0 z-40 bg-warm-white rounded-t-2xl px-2 pt-2 pb-8 sheet-pop">
+        <div class="w-9 h-1 rounded-full bg-stone-300 mx-auto mt-1 mb-3"></div>
+        <div class="px-3 py-2 text-xs font-medium text-stone-400 uppercase tracking-[0.08em]">Demander à Hermes</div>
+        <div class="px-3 pb-2">
+          <div class="min-h-[44px] bg-stone-100 rounded-2xl px-4 py-3 text-sm text-stone-900">Compare les deux approches et ajoute une synthèse sourcée à cette note</div>
+        </div>
+        <div class="px-3 py-2 text-xs font-medium text-stone-400 uppercase tracking-[0.08em]">Contexte envoyé</div>
+        <div class="px-3 space-y-1.5">
+          <label class="flex items-center gap-3 min-h-[40px] text-sm text-stone-800"><input type="checkbox" checked class="accent-[oklch(0.60_0.22_50)] w-4 h-4"> Cette note</label>
+          <label class="flex items-center gap-3 min-h-[40px] text-sm text-stone-800"><input type="checkbox" class="accent-[oklch(0.60_0.22_50)] w-4 h-4"> Le dossier Projets (4 notes)</label>
+          <label class="flex items-center gap-3 min-h-[40px] text-sm text-stone-800"><input type="checkbox" checked class="accent-[oklch(0.60_0.22_50)] w-4 h-4"> Mes connecteurs GitHub et Google</label>
+        </div>
+        <div class="px-3 pt-3 flex gap-2">
+          <button onclick="sheet(false);go('n',1)" class="pressable flex-1 min-h-[44px] rounded-xl bg-ios-orange text-white font-medium text-sm">Envoyer à Hermes</button>
+          <button onclick="sheet(false)" class="pressable flex-1 min-h-[44px] rounded-xl bg-stone-100 text-stone-600 font-medium text-sm">Annuler</button>
+        </div>
+        <p class="px-3 pt-3 text-xs text-stone-400">Hermes tourne sur ton VPS avec tes comptes. Dans un espace partagé, un autre membre verra le résultat, pas tes accès.</p>
+      </div>
+    </div>
+  </div></div>
+
+  <div class="note-copy mx-auto mt-4 text-sm text-stone-600 space-y-1">
+    <p><b>N1</b> Même bouton que « Lancer l'action » actuel, mais avec une feuille qui montre le contexte envoyé avant de partir.</p>
+    <p><b>N2</b> Carte de progression dans la note, persistante : fermer l'app ne perd pas la demande.</p>
+    <p><b>N3</b> Résultat ajouté à la note, avec ses sources ; passage possible vers un chat pour continuer.</p>
+    <div class="flex gap-2 pt-2"><button onclick="go('n',-1)" class="pressable min-h-[36px] px-3 rounded-xl bg-stone-200 text-stone-700 text-xs font-medium">← état</button><button onclick="go('n',1)" class="pressable min-h-[36px] px-4 rounded-xl bg-ios-orange text-white text-xs font-medium">État suivant →</button><span id="n-label" class="self-center text-xs text-stone-400 ml-1">N1 / 3</span></div>
+  </div>
+</section>
+
+<section class="lg:col-span-2 max-w-3xl">
+  <h2 class="text-xs font-medium text-stone-400 uppercase tracking-[0.08em] mb-3">Ce que ça implique (pour l'issue éventuelle)</h2>
+  <div class="bg-warm-white border border-stone-200 rounded-xl p-4 text-sm text-stone-700 space-y-2">
+    <p><b>Une tâche = un objet durable</b> : demande, contexte, état (en cours, question, terminé, annulé), réponse. Attachée à un fil ou à une note. Survit à la fermeture de l'app et à une coupure réseau, sans relancer deux fois.</p>
+    <p><b>Un seul Hermes</b> : celui du VPS, appelé avec l'identité de qui demande. Les approbations réutilisent la carte existante (<code>approval_card.rs</code>).</p>
+    <p><b>Pas de protocole imposé au départ</b> : le transport FlowFlow → Hermes peut rester interne. A2A devient utile si chaque utilisateur branche son propre agent.</p>
+  </div>
+</section>
+</main>
+
+<script>
+const max = { a: 4, n: 3 };
+const cur = { a: 1, n: 1 };
+function render(p) {
+  document.querySelectorAll(`.step[class*="${p}-"]`).forEach(el => {
+    const on = [...el.classList].includes(`${p}-${cur[p]}`);
+    el.classList.toggle('on', on);
+  });
+  document.getElementById(`${p}-label`).textContent = `${p.toUpperCase()}${cur[p]} / ${max[p]}`;
+  if (p === 'a') document.getElementById('a-body').scrollTop = 1e6;
+}
+function go(p, d) {
+  const next = cur[p] + d;
+  if (next < 1 || next > max[p]) return;
+  if (p === 'n' && cur.n === 1 && d === 1 && !document.getElementById('n-sheet').classList.contains('hidden')) return;
+  if (p === 'n' && cur.n === 1 && d === 1 && !window._sheetSeen) { window._sheetSeen = true; sheet(true); return; }
+  cur[p] = next; render(p);
+}
+function sheet(open) { document.getElementById('n-sheet').classList.toggle('hidden', !open); }
+render('a'); render('n');
+</script>
+</body>
+</html>

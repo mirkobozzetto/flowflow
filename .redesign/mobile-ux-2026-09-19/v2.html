@@ -1,0 +1,368 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>FlowFlow · UX mobile v2 · burger, dictée, composer</title>
+<script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
+<style type="text/tailwindcss">
+@theme {
+    --radius-md: 0.625rem; --radius-lg: 0.625rem; --radius-xl: 0.75rem; --radius-2xl: 1rem;
+    --ease-soft: cubic-bezier(0.2, 0.8, 0.2, 1);
+    --shadow-card: 0 1px 2px rgba(28, 25, 23, 0.06);
+    --shadow-lift: 0 1px 2px rgba(28, 25, 23, 0.06), 0 8px 24px -12px rgba(28, 25, 23, 0.18);
+    --shadow-menu: 0 18px 40px -12px rgba(28, 25, 23, 0.28), 0 4px 10px -4px rgba(28, 25, 23, 0.14);
+    --color-ios-green: #34c759;
+    --color-ios-red: oklch(0.55 0.2 30);
+    --color-ios-orange-50: oklch(0.97 0.04 50);
+    --color-ios-orange-100: oklch(0.92 0.07 50);
+    --color-ios-orange: oklch(0.60 0.22 50);
+    --color-ios-orange-dark: oklch(0.48 0.16 50);
+    --color-warm-white: oklch(0.99 0.005 50);
+}
+body { font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", system-ui, sans-serif; -webkit-user-select: none; user-select: none; }
+.pressable { transition: transform 120ms var(--ease-soft), background-color 150ms, color 150ms, opacity 150ms; }
+.pressable:active { transform: scale(0.97); }
+.phone { width: 390px; height: 760px; border-radius: 48px; border: 10px solid #1c1917; overflow: hidden; position: relative; background: #1c1917; box-shadow: var(--shadow-menu); flex: none; }
+.notch { position: absolute; top: 0; left: 50%; transform: translateX(-50%); width: 120px; height: 30px; background: #1c1917; border-radius: 0 0 18px 18px; z-index: 90; }
+.screen { position: absolute; inset: 0; background: var(--color-warm-white); display: flex; flex-direction: column; overflow: hidden; }
+.topbar { display: flex; align-items: center; gap: 12px; padding: 44px 16px 12px; background: var(--color-warm-white); border-bottom: 1px solid #e7e5e4; box-shadow: var(--shadow-card); min-height: 44px; position: relative; z-index: 5; }
+.iconbtn { min-width: 44px; min-height: 44px; display: flex; align-items: center; justify-content: center; border-radius: 10px; color: #44403c; position: relative; }
+.section { padding: 8px 12px; font-size: 12px; font-weight: 500; color: #a8a29e; text-transform: uppercase; letter-spacing: .08em; }
+.row { width: 100%; display: flex; align-items: center; gap: 12px; padding: 0 12px; min-height: 48px; border-radius: 10px; text-align: left; }
+.row:active { background: #f5f5f4; }
+.rowt { font-size: 14px; font-weight: 500; color: #292524; }
+.rows { font-size: 12px; color: #a8a29e; }
+.card { background: var(--color-warm-white); border: 1px solid #e7e5e4; border-radius: 12px; padding: 16px; margin-bottom: 10px; }
+.chip { display: inline-flex; align-items: center; gap: 6px; height: 28px; padding: 0 10px; border-radius: 9999px; border: 1px solid #e7e5e4; background: var(--color-warm-white); font-size: 12px; font-weight: 500; color: #57534e; }
+@keyframes audioBar { 0%,100% { transform: scaleY(0.3) } 50% { transform: scaleY(1) } }
+@keyframes pulseSoft { 0%,100% { opacity: 1 } 50% { opacity: .4 } }
+@keyframes fadeIn { from { opacity: 0 } to { opacity: 1 } }
+@keyframes fadeInUp { from { transform: translateY(8px); opacity: 0 } to { transform: none; opacity: 1 } }
+@keyframes popUp { from { opacity: 0; transform: scale(0.96) translateY(8px) } to { opacity: 1; transform: none } }
+@keyframes bubbleIn { from { opacity: 0; transform: scale(.92) translateY(8px) } to { opacity: 1; transform: none } }
+@keyframes typingDot { 0%,60%,100% { transform: translateY(0); opacity:.4 } 30% { transform: translateY(-4px); opacity: 1 } }
+
+/* ===== B3 ===== */
+.b-menu { position: absolute; inset: 0; background: #f5f5f4; padding: 56px 0 0; transition: transform 460ms var(--ease-soft), opacity 460ms var(--ease-soft); transform: translateX(-10%); opacity: .55; }
+.b-card { position: absolute; inset: 0; background: var(--color-warm-white); transition: transform 460ms var(--ease-soft), border-radius 460ms var(--ease-soft), box-shadow 460ms; will-change: transform; display: flex; flex-direction: column; overflow: hidden; }
+.b-stage.open .b-menu { transform: none; opacity: 1 }
+.b-stage.open .b-card { transform: translateX(82%); border-radius: 28px 0 0 28px; box-shadow: var(--shadow-menu) }
+.b-stage.dragging .b-card, .b-stage.dragging .b-menu { transition: none }
+.b-cover { position: absolute; inset: 0; pointer-events: none; z-index: 50 }
+.b-stage.open .b-cover { pointer-events: auto }
+/* burger glyphs */
+.g { display: none; align-items: center; justify-content: center; width: 44px; height: 44px }
+.g.on { display: flex }
+/* i1 panel: inner block slides right when open */
+.g1 .inner { transition: transform 420ms var(--ease-soft), fill 300ms }
+.b-stage.open .g1 .inner { transform: translateX(9px) }
+/* i2 logo ring */
+.g2 .ring { width: 32px; height: 32px; border-radius: 9999px; border: 1.5px solid #e7e5e4; display: flex; align-items: center; justify-content: center; background: var(--color-warm-white); transition: border-color 300ms, transform 420ms var(--ease-soft) }
+.b-stage.open .g2 .ring { border-color: var(--color-ios-orange); transform: rotate(-12deg) }
+/* i3 two lines -> chevron */
+.g3 line { transition: transform 420ms var(--ease-soft); transform-origin: 4px 50% }
+.b-stage.open .g3 .l1 { transform: translate(2px, 1px) rotate(-38deg) }
+.b-stage.open .g3 .l2 { transform: translate(2px, -1px) rotate(38deg) }
+.swatch { display: inline-flex; align-items: center; gap: 8px; height: 40px; padding: 0 12px 0 6px; border-radius: 12px; border: 1px solid #e7e5e4; background: var(--color-warm-white); font-size: 12px; font-weight: 500; color: #57534e }
+.swatch.on { border-color: var(--color-ios-orange); color: var(--color-ios-orange-dark); background: var(--color-ios-orange-50) }
+
+/* ===== shared voice capsule (note + chat) ===== */
+.nbar { position: absolute; left: 0; right: 0; bottom: 0; padding: 8px 16px 28px; background: var(--color-warm-white); border-top: 1px solid #e7e5e4; z-index: 30 }
+.stack { position: relative; height: 52px }
+.layer { position: absolute; inset: 0; display: flex; align-items: center; gap: 8px; transition: opacity 200ms var(--ease-soft), transform 300ms var(--ease-soft) }
+.layer.hide { opacity: 0; transform: scale(.96); pointer-events: none }
+.rbtn48 { width: 48px; height: 48px; border-radius: 9999px; display: flex; align-items: center; justify-content: center; flex: none }
+.dictpill { flex: 1; height: 48px; border-radius: 9999px; background: var(--color-warm-white); border: 1px solid oklch(0.60 0.22 50 / .25); color: var(--color-ios-orange-dark); font-size: 14px; font-weight: 500; display: flex; align-items: center; justify-content: center; gap: 10px }
+/* the dark capsule: same in note and chat */
+.vcap { position: absolute; inset: 0; border-radius: 9999px; background: #1c1917; color: #fff; display: flex; align-items: center; gap: 6px; padding: 0 6px; box-shadow: var(--shadow-lift); transform-origin: right center; transition: transform 340ms cubic-bezier(0.2, 0.9, 0.25, 1.1), opacity 200ms, background-color 260ms, color 260ms, box-shadow 260ms; overflow: hidden }
+.vcap.hide { transform: scaleX(.3); opacity: 0; pointer-events: none }
+.vcap .ghost { width: 40px; height: 40px; border-radius: 9999px; border: 1px solid rgba(255,255,255,.18); display: flex; align-items: center; justify-content: center; color: #fff; flex: none }
+.vcap .stop { width: 40px; height: 40px; border-radius: 9999px; background: rgba(255,255,255,.14); display: flex; align-items: center; justify-content: center; flex: none }
+.vcap .stop i { display: block; width: 12px; height: 12px; border-radius: 3px; background: #fff }
+.vcap .go { width: 40px; height: 40px; border-radius: 9999px; background: var(--color-ios-orange); color: #fff; display: flex; align-items: center; justify-content: center; flex: none }
+.tl { flex: 1; min-width: 0; height: 28px; display: flex; align-items: center; justify-content: flex-end; overflow: hidden; -webkit-mask-image: linear-gradient(90deg, transparent, #000 12px, #000 100%) }
+.tl .dots { flex: 1; min-width: 0; height: 28px; display: flex; align-items: center; gap: 4px; overflow: hidden; justify-content: flex-end }
+.tl .dots i { display: block; width: 3px; height: 3px; border-radius: 9999px; background: rgba(255,255,255,.45); flex: none }
+.tl .bars { display: flex; align-items: center; gap: 2px; height: 28px; flex: none }
+.tl .bars i { display: block; width: 3px; border-radius: 9999px; background: rgba(255,255,255,.92); flex: none; transform-origin: center; animation: barIn 240ms var(--ease-soft) }
+@keyframes barIn { from { transform: scaleY(.2); opacity: 0 } to { opacity: 1 } }
+.vcap.light { background: var(--color-warm-white); color: #1c1917; border: 1px solid var(--color-ios-orange-dark); box-shadow: 0 0 0 3px var(--color-ios-orange-50) }
+.vcap.light .ghost { border-color: #e7e5e4; color: #57534e }
+.vcap .tx { flex: 1; min-width: 0; font-size: 14px; line-height: 1.35; color: inherit; padding: 0 4px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis }
+.vcap .tr { flex: 1; text-align: center; font-size: 13px; color: rgba(255,255,255,.55); animation: pulseSoft 1.5s ease-in-out infinite }
+/* chat capsule idle */
+.capsule { display: flex; align-items: flex-end; gap: 4px; padding: 6px; border-radius: 26px; background: #f5f5f4; border: 1px solid transparent; transition: background-color 180ms, border-color 180ms, box-shadow 180ms; min-height: 52px }
+.capsule.focus { background: var(--color-warm-white); border-color: var(--color-ios-orange-dark); box-shadow: 0 0 0 3px var(--color-ios-orange-50) }
+.capsule .ta { flex: 1; min-width: 0; min-height: 40px; padding: 10px 6px; font-size: 14px; color: #1c1917; line-height: 1.4; outline: none; white-space: pre-wrap }
+.capsule .ta:empty::before { content: attr(data-ph); color: #a8a29e }
+.r40 { width: 40px; height: 40px; border-radius: 9999px; display: flex; align-items: center; justify-content: center; flex: none; position: relative; overflow: hidden; color: #57534e; transition: background-color 220ms var(--ease-soft), width 260ms var(--ease-soft), opacity 200ms }
+.r40 .ic { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; transition: transform 260ms cubic-bezier(0.2, 0.9, 0.25, 1.2), opacity 160ms }
+.r40.prim { background: var(--color-ios-orange); color: #fff }
+.r40.prim .ic.send { transform: scale(.4) rotate(-45deg); opacity: 0 }
+.r40.prim.has .ic.voice { transform: scale(.4) rotate(45deg); opacity: 0 } .r40.prim.has .ic.send { transform: none; opacity: 1 }
+.r40.mic.gone { width: 0; opacity: 0; margin-left: -4px }
+.plus { width: 40px; height: 40px; border-radius: 9999px; display: flex; align-items: center; justify-content: center; color: #57534e; flex: none; transition: transform 280ms cubic-bezier(0.2, 0.9, 0.25, 1.2), background-color 180ms }
+.plus.on { transform: rotate(45deg); background: #e7e5e4 }
+/* popover with existing items only */
+.pop { position: absolute; left: 12px; bottom: calc(100% + 6px); width: 320px; background: var(--color-warm-white); border: 1px solid #e7e5e4; border-radius: 16px; box-shadow: var(--shadow-menu); padding: 8px; z-index: 40; transform-origin: 14px calc(100% + 8px); transform: scale(.6); opacity: 0; pointer-events: none; transition: transform 280ms cubic-bezier(0.2, 0.9, 0.25, 1.18), opacity 160ms }
+.pop.on { transform: none; opacity: 1; pointer-events: auto }
+.pop .it { opacity: 0; transform: translateY(6px); transition: opacity 220ms, transform 260ms var(--ease-soft) }
+.pop.on .it { opacity: 1; transform: none }
+.pop.on .it:nth-child(1){transition-delay:20ms}.pop.on .it:nth-child(2){transition-delay:40ms}.pop.on .it:nth-child(3){transition-delay:60ms}.pop.on .it:nth-child(4){transition-delay:80ms}.pop.on .it:nth-child(5){transition-delay:100ms}.pop.on .it:nth-child(6){transition-delay:120ms}.pop.on .it:nth-child(7){transition-delay:140ms}.pop.on .it:nth-child(8){transition-delay:160ms}
+.sw { position: relative; width: 44px; height: 24px; border-radius: 9999px; background: #d6d3d1; transition: background-color 200ms; flex: none }
+.sw i { position: absolute; top: 2px; left: 2px; width: 20px; height: 20px; border-radius: 9999px; background: #fff; box-shadow: 0 1px 2px rgba(0,0,0,.2); transition: transform 200ms }
+.sw.on { background: var(--color-ios-orange) } .sw.on i { transform: translateX(20px) }
+.tile { width: 28px; height: 28px; border-radius: 8px; background: #f5f5f4; display: flex; align-items: center; justify-content: center; overflow: hidden; flex: none }
+.lead { width: 22px; height: 22px; display: flex; align-items: center; justify-content: center; color: #78716c; flex: none }
+/* response reveal */
+.ub { align-self: flex-end; background: var(--color-ios-orange); color: #fff; border-radius: 16px 16px 4px 16px; padding: 10px 16px; max-width: 80%; font-size: 14px; line-height: 1.5; transform-origin: bottom right; animation: bubbleIn .32s cubic-bezier(0.2, 0.9, 0.25, 1.15) }
+.status { display: flex; align-items: center; gap: 8px; font-size: 12px; color: #78716c; height: 20px }
+.status .d { width: 6px; height: 6px; border-radius: 9999px; background: var(--color-ios-orange); animation: pulseSoft 1.2s ease-in-out infinite }
+.status .txt { transition: opacity 180ms, transform 220ms var(--ease-soft) }
+.status .txt.swp { opacity: 0; transform: translateY(4px) }
+.w { display: inline-block; white-space: pre; opacity: 0; transform: translateY(3px); transition: opacity 260ms, transform 320ms var(--ease-soft) }
+.w.on { opacity: 1; transform: none }
+.src { margin-top: 8px; border: 1px solid oklch(0.60 0.22 50 / .2); border-radius: 12px; padding: 6px 10px; font-size: 12px; color: #57534e; display: flex; align-items: center; gap: 8px; opacity: 0; transform: translateY(6px); transition: opacity 260ms, transform 320ms var(--ease-soft); min-height: 44px }
+.src.on { opacity: 1; transform: none }
+.src b { color: var(--color-ios-orange-dark); font-weight: 600 }
+.acts { display: flex; justify-content: flex-end; margin-top: 6px; opacity: 0; transition: opacity 300ms }
+.acts.on { opacity: 1 }
+.note { max-width: 390px; margin: 14px auto 0; font-size: 13px; color: #57534e; line-height: 1.5 }
+.note b { color: #1c1917 }
+.ctl { display: flex; gap: 8px; margin-top: 10px; flex-wrap: wrap; justify-content: center }
+.ctl button { min-height: 34px; padding: 0 14px; border-radius: 10px; background: var(--color-ios-orange); color: #fff; font-size: 12px; font-weight: 500 }
+.ctl button.s { background: #e7e5e4; color: #44403c }
+.tag { position: absolute; top: 14px; left: 14px; z-index: 95; font-size: 11px; font-weight: 600; letter-spacing: .06em; color: #fff; background: #1c1917; padding: 3px 8px; border-radius: 6px }
+</style>
+</head>
+<body class="bg-stone-100 text-stone-900">
+<header class="max-w-7xl mx-auto px-6 pt-10 pb-4">
+  <h1 class="text-2xl font-semibold">FlowFlow mobile v2 : burger, dictée, composer</h1>
+  <p class="text-sm text-stone-500 mt-1 max-w-3xl">Reprise d'après tes retours : B3 sans réduction avec un nouveau bouton de menu ; une seule capsule vocale partagée entre la note et le chat, dans l'esprit de la barre ChatGPT ; le popover « + » ne montre que ce qui existe déjà dans l'app (agents installés, Recherche web, connecteurs, rappel @). Réponds par codes, par exemple « B3-i1, N1, C1+C2+C3 ».</p>
+</header>
+
+<main class="max-w-7xl mx-auto px-6 pb-20 space-y-16">
+
+<!-- ================= B3 ================= -->
+<section>
+  <h2 class="text-xs font-medium text-stone-400 uppercase tracking-[0.08em] mb-4">B3 · Carte sans réduction, et trois idées de bouton de menu</h2>
+  <div class="flex flex-wrap gap-8 justify-center items-start">
+    <div>
+      <div class="flex gap-2 justify-center mb-4">
+        <button class="swatch on" id="sw1" onclick="glyph(1)"><span class="g g1 on">${G1}</span>i1 · Panneau</button>
+        <button class="swatch" id="sw2" onclick="glyph(2)"><span class="g g2 on"><span class="ring" style="width:28px;height:28px"><img src="flowflow-icon-300.png" class="w-4 h-4" alt=""></span></span>i2 · Logo</button>
+        <button class="swatch" id="sw3" onclick="glyph(3)"><span class="g g3 on">${G3}</span>i3 · Traits</button>
+      </div>
+      <div class="phone"><div class="notch"></div><span class="tag">B3</span>
+        <div class="screen b-stage" id="b3">
+          <div class="b-menu">
+            <div class="flex items-center gap-2.5 px-6 pb-4"><img src="flowflow-icon-300.png" class="w-6 h-6" alt=""><span class="text-[15px] font-semibold tracking-[-0.01em]">FlowFlow</span></div>
+            <div class="px-4"><div class="row rowt text-ios-orange-dark">${PLUS} Nouvelle note</div><div class="row rowt bg-ios-orange-50 text-ios-orange-dark rounded-lg">Toutes mes notes</div><div class="section mt-2">Dossiers</div><div class="row rowt">Projets <span class="ml-auto rows">12</span></div><div class="row rowt">Perso <span class="ml-auto rows">4</span></div><div class="row rowt">Clients <span class="ml-auto rows">7</span></div><div class="section mt-2">Chats</div><div class="row rowt">Projet Marketplace</div><div class="row rowt">Onboarding</div></div>
+            <div class="absolute bottom-8 left-4 right-0 pr-4"><div class="row rowt text-stone-500">${GEAR} Réglages</div></div>
+          </div>
+          <div class="b-card" id="b3card">
+            <div class="topbar">
+              <button class="iconbtn" id="b3btn" onclick="bTog('b3')">
+                <span class="g g1 on">${G1}</span>
+                <span class="g g2"><span class="ring"><img src="flowflow-icon-300.png" class="w-[18px] h-[18px]" alt=""></span></span>
+                <span class="g g3">${G3}</span>
+              </button>
+              <span class="text-base font-semibold">Toutes mes notes</span>
+            </div>
+            <div class="p-4">${LIST}</div>
+            <div class="b-cover" onclick="bTog('b3')"></div>
+          </div>
+        </div>
+      </div>
+      <p class="note"><b>i1 Panneau</b> : un cadre avec un volet plein à gauche, le glyphe universel « barre latérale » ; à l'ouverture le volet glisse vers la droite, comme la carte. Lisible à 22 px, sans logo miniature. <b>i2 Logo</b> : le vrai logo FlowFlow dans un anneau ; c'est la marque qui sert de poignée, l'anneau passe à l'orange quand le menu est ouvert. <b>i3 Traits</b> : deux traits inégaux qui se plient en chevron « retour » à l'ouverture, une seule forme pour ouvrir et fermer. <b>Clique le bouton dans le téléphone</b> pour voir chaque transformation ; glisse la carte pour sentir le geste.</p>
+    </div>
+  </div>
+</section>
+
+<!-- ================= N1 ================= -->
+<section>
+  <h2 class="text-xs font-medium text-stone-400 uppercase tracking-[0.08em] mb-4">N1 · Note : la barre devient la capsule vocale</h2>
+  <div class="flex flex-wrap gap-8 justify-center">
+    <div>
+      <div class="phone"><div class="notch"></div><span class="tag">N1</span>
+        <div class="screen">
+          <div class="topbar"><button class="iconbtn"><span class="g g1 on">${G1}</span></button><span class="text-base font-semibold">Projets</span></div>
+          <div class="p-4"><h1 class="text-xl font-semibold leading-tight">Connecteur GitHub : App ou OAuth ?</h1><div class="text-xs text-stone-400 mt-1">2026-09-19 · 00:12</div><div class="mt-2 flex gap-1.5"><span class="chip">marketplace</span><span class="chip">github</span></div><p class="mt-4 text-sm text-stone-800 leading-relaxed">Idée : comparer GitHub App vs OAuth App pour le connecteur, en regardant scopes, durée des jetons, et ce que ça impose côté proxy.</p><p id="n1txt" class="mt-2 text-sm text-stone-800 leading-relaxed"></p></div>
+          <div class="nbar"><div class="stack">
+            <div class="layer" id="n1idle">
+              <button class="rbtn48 pressable bg-warm-white border border-stone-200 text-stone-600">${PLUS}</button>
+              <button class="dictpill pressable" onclick="vStart('n1')">${MIC}<span>Dicter</span></button>
+              <button class="rbtn48 pressable bg-warm-white border border-ios-orange/25 text-ios-orange-dark">${CHAT}</button>
+            </div>
+            <div class="vcap hide" id="n1cap"></div>
+          </div></div>
+        </div>
+      </div>
+      <p class="note"><b>Appuie sur Dicter.</b> La capsule sombre prend toute la barre depuis la droite ; le « + » et le bouton chat passent dessous, rien ne se chevauche. À gauche la croix annule ; la ligne pointillée est le temps qui passe, l'onde s'écrit par la droite ; à droite le <b>carré</b> arrête et montre le texte dans la capsule pour le relire avant d'ajouter, la <b>flèche</b> ajoute directement à la note. Même capsule, mêmes états que dans le chat.</p>
+    </div>
+  </div>
+</section>
+
+<!-- ================= C ================= -->
+<section>
+  <h2 class="text-xs font-medium text-stone-400 uppercase tracking-[0.08em] mb-4">C · Chat : capsule ChatGPT-like, « + » popover avec l'existant, réponse révélée</h2>
+  <div class="flex flex-wrap gap-8 justify-center">
+
+    <div>
+      <div class="phone"><div class="notch"></div><span class="tag">C1 · CAPSULE + C2 · POPOVER</span>
+        <div class="screen" id="c1">
+          <div class="topbar"><button class="iconbtn"><span class="g g1 on">${G1}</span></button><span class="text-base font-semibold">Projet Marketplace</span></div>
+          <div class="flex-1 px-4 py-4 flex flex-col gap-4 overflow-hidden" id="c1feed">
+            <div class="ub" style="animation:none">On part sur quoi pour le connecteur GitHub ?</div>
+            <div class="flex items-start gap-2"><img src="flowflow-icon-300.png" class="w-5 h-5 mt-1 rounded-full" alt=""><div class="text-sm leading-relaxed">GitHub App : dépôts sélectionnés, permissions étroites, jeton court.</div></div>
+          </div>
+          <div class="nbar">
+            <div class="pop" id="c2pop">
+              <div class="it section">Agents</div>
+              <button class="it row pressable"><span class="lead">${AI}</span><span class="flex-1 min-w-0"><span class="rowt block">Fiche client</span><span class="rows block">lance fiche-client</span></span></button>
+              <div class="it section">Outils</div>
+              <button class="it row pressable" onclick="c2web(this)"><span class="lead">${GLOBE}</span><span class="flex-1 min-w-0"><span class="rowt block">Recherche web</span><span class="rows block">Résultats du web mêlés à tes notes</span></span><span class="sw" id="c2sw"><i></i></span></button>
+              <div class="it section">Connecteurs</div>
+              <button class="it row pressable"><span class="tile"><img src="google-sheets.svg" class="w-[18px] h-[18px]" alt=""></span><span class="flex-1 min-w-0"><span class="rowt block">Google Sheets</span><span class="rows block">Connecté</span></span><span class="text-ios-orange">${CHECK}</span></button>
+              <button class="it row pressable"><span class="tile"><img src="github.svg" class="w-[18px] h-[18px]" alt=""></span><span class="flex-1 min-w-0"><span class="rowt block">GitHub</span><span class="rows block">Non connecté</span></span></button>
+              <div class="it flex items-center gap-1.5 px-3 pt-3 text-xs text-stone-400"><span class="px-1.5 py-0.5 rounded bg-stone-200 border border-stone-300 text-stone-600 font-mono text-[11px]">@</span><span>mentionner une note</span></div>
+            </div>
+            <div class="stack" style="height:auto;min-height:52px">
+              <div class="capsule" id="c1cap">
+                <button class="plus" id="c2plus" onclick="c2tog()">${PLUS}</button>
+                <div class="ta" id="c1ta" contenteditable="true" data-ph="Message…" oninput="c1in()" onfocus="c1f(true)" onblur="c1f(false)"></div>
+                <button class="r40 mic pressable" id="c1mic" onclick="vStart('c1')">${MIC}</button>
+                <button class="r40 prim pressable" id="c1prim" onclick="c1prim()"><span class="ic voice">${VOICE}</span><span class="ic send">${ARROW}</span></button>
+              </div>
+              <div class="vcap hide" id="c1cap2" style="top:auto;height:52px"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <p class="note"><b>C1</b> Capsule : « + » à gauche, champ texte au milieu, à droite le micro (dicter dans le champ) et le bouton principal orange. Le principal montre l'onde tant que le champ est vide ; <b>tape un mot</b> : l'onde tourne et devient la flèche. <b>Appuie sur le micro</b> : la même capsule vocale que dans la note recouvre le composer ; le <b>carré</b> pose le texte dans le champ pour le relire, la <b>flèche</b> envoie tout de suite. <b>C2</b> le « + » ouvre le popover depuis le bouton, avec les sections actuelles du menu (agents installés, Recherche web avec son interrupteur, connecteurs, rappel @), rien d'inventé.</p>
+      <div class="ctl"><button class="s" onclick="c1type()">Simuler la saisie</button><button class="s" onclick="c2tog()">Ouvrir / fermer +</button><button onclick="vStart('c1')">Dicter</button></div>
+    </div>
+
+    <div>
+      <div class="phone"><div class="notch"></div><span class="tag">C3 · RÉPONSE QUI SE RÉVÈLE</span>
+        <div class="screen" id="c3">
+          <div class="topbar"><button class="iconbtn"><span class="g g1 on">${G1}</span></button><span class="text-base font-semibold">Projet Marketplace</span></div>
+          <div class="flex-1 px-4 py-4 flex flex-col gap-4 overflow-hidden" id="c3feed"></div>
+          <div class="nbar"><div class="capsule"><button class="plus">${PLUS}</button><div class="ta" data-ph="Message…"></div><button class="r40 mic">${MIC}</button><button class="r40 prim"><span class="ic voice">${VOICE}</span></button></div></div>
+        </div>
+      </div>
+      <p class="note"><b>C3</b> <b>Lance la démo</b>. Bulle utilisateur qui pousse depuis le coin, ligne d'état qui raconte (« Recherche dans tes notes… », « 3 notes trouvées, je lis… », « 2 notes retenues »), réponse révélée mot à mot, puis l'accordéon de sources existant qui glisse dessous, et les actions (copier, enregistrer) en fondu. Rien de nouveau dans la structure : ce sont les blocs actuels avec un ordre d'apparition.</p>
+      <div class="ctl"><button onclick="c3run()">Lancer la démo</button></div>
+    </div>
+  </div>
+</section>
+
+<section class="max-w-3xl">
+  <h2 class="text-xs font-medium text-stone-400 uppercase tracking-[0.08em] mb-3">Logique partagée note / chat</h2>
+  <div class="card text-sm text-stone-700 space-y-1.5">
+    <p>Une seule capsule vocale (états : enregistre, transcrit, relit, envoyé) montée dans les deux barres. Dans la note, « relire » affiche le texte dans la capsule et la flèche ajoute à la note ; dans le chat, « relire » pose le texte dans le champ et la flèche envoie. Même fond sombre que la pilule d'enregistrement actuelle (<code>bg-stone-900</code>), même orange pour l'action principale, même courbe <code>--ease-soft</code>.</p>
+    <p>Le popover « + » est lui aussi partagé : sections Agents, Outils, Connecteurs ; la note n'affiche pas Outils (pas de recherche web sur une note), comme aujourd'hui.</p>
+  </div>
+</section>
+</main>
+
+<script>
+const I = {
+  G1: '<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="2.5" y="4" width="19" height="16" rx="4"/><rect class="inner" x="5" y="6.5" width="6" height="11" rx="2" fill="currentColor" stroke="none"/></svg>',
+  G3: '<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><line class="l1" x1="4" y1="8.5" x2="15" y2="8.5"/><line class="l2" x1="4" y1="15.5" x2="20" y2="15.5"/></svg>',
+  PLUS: '<svg width="20" height="20" viewBox="0 0 256 256" fill="currentColor"><path d="M224 128a8 8 0 0 1-8 8h-80v80a8 8 0 0 1-16 0v-80H40a8 8 0 0 1 0-16h80V40a8 8 0 0 1 16 0v80h80a8 8 0 0 1 8 8Z"/></svg>',
+  MIC: '<svg width="20" height="20" viewBox="0 0 256 256" fill="currentColor"><path d="M128 176a48.05 48.05 0 0 0 48-48V64a48 48 0 0 0-96 0v64a48.05 48.05 0 0 0 48 48ZM96 64a32 32 0 0 1 64 0v64a32 32 0 0 1-64 0Zm40 143.6V232a8 8 0 0 1-16 0v-24.4A80.11 80.11 0 0 1 48 128a8 8 0 0 1 16 0 64 64 0 0 0 128 0 8 8 0 0 1 16 0 80.11 80.11 0 0 1-72 79.6Z"/></svg>',
+  VOICE: '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><line x1="5" y1="9" x2="5" y2="15"/><line x1="9" y1="5" x2="9" y2="19"/><line x1="13" y1="8" x2="13" y2="16"/><line x1="17" y1="4" x2="17" y2="20"/><line x1="21" y1="10" x2="21" y2="14"/></svg>',
+  ARROW: '<svg width="18" height="18" viewBox="0 0 256 256" fill="currentColor"><path d="M205.66 117.66a8 8 0 0 1-11.32 0L136 59.31V216a8 8 0 0 1-16 0V59.31l-58.34 58.35a8 8 0 0 1-11.32-11.32l72-72a8 8 0 0 1 11.32 0l72 72a8 8 0 0 1 0 11.32Z"/></svg>',
+  CHAT: '<svg width="22" height="22" viewBox="0 0 256 256" fill="currentColor"><path d="M216 48H40a16 16 0 0 0-16 16v160a15.84 15.84 0 0 0 9.25 14.5A16.05 16.05 0 0 0 40 240a15.89 15.89 0 0 0 10.25-3.78l.09-.07L83 208h133a16 16 0 0 0 16-16V64a16 16 0 0 0-16-16Zm0 144H80a8 8 0 0 0-5.15 1.88L40 224V64h176Z"/></svg>',
+  CHECK: '<svg width="16" height="16" viewBox="0 0 256 256" fill="currentColor"><path d="M229.66 77.66l-128 128a8 8 0 0 1-11.32 0l-56-56a8 8 0 0 1 11.32-11.32L96 188.69 218.34 66.34a8 8 0 0 1 11.32 11.32Z"/></svg>',
+  X: '<svg width="16" height="16" viewBox="0 0 256 256" fill="currentColor"><path d="M205.66 194.34a8 8 0 0 1-11.32 11.32L128 139.31l-66.34 66.35a8 8 0 0 1-11.32-11.32L116.69 128 50.34 61.66a8 8 0 0 1 11.32-11.32L128 116.69l66.34-66.35a8 8 0 0 1 11.32 11.32L139.31 128Z"/></svg>',
+  AI: '<svg width="20" height="20" viewBox="0 0 256 256" fill="currentColor"><path d="M208 144a15.78 15.78 0 0 1-10.42 14.94l-51.83 19.24-19.24 51.83a16 16 0 0 1-29.88 0l-19.24-51.83-51.83-19.24a16 16 0 0 1 0-29.88l51.83-19.24 19.24-51.83a16 16 0 0 1 29.88 0l19.24 51.83 51.83 19.24A15.78 15.78 0 0 1 208 144Zm-32-96h16v16a8 8 0 0 0 16 0V48h16a8 8 0 0 0 0-16h-16V16a8 8 0 0 0-16 0v16h-16a8 8 0 0 0 0 16Z"/></svg>',
+  GLOBE: '<svg width="22" height="22" viewBox="0 0 256 256" fill="currentColor"><path d="M128 24a104 104 0 1 0 104 104A104.11 104.11 0 0 0 128 24Zm88 104a87.6 87.6 0 0 1-3.33 24h-38.51a157.4 157.4 0 0 0 0-48h38.51a87.6 87.6 0 0 1 3.33 24Zm-114 40h52a115.1 115.1 0 0 1-26 45 115.3 115.3 0 0 1-26-45Zm-3.9-16a140.8 140.8 0 0 1 0-48h59.88a140.8 140.8 0 0 1 0 48ZM40 128a87.6 87.6 0 0 1 3.33-24h38.51a157.4 157.4 0 0 0 0 48H43.33A87.6 87.6 0 0 1 40 128Zm114-40h-52a115.1 115.1 0 0 1 26-45 115.3 115.3 0 0 1 26 45Z"/></svg>',
+  GEAR: '<svg width="18" height="18" viewBox="0 0 256 256" fill="currentColor"><path d="M128 80a48 48 0 1 0 48 48 48.05 48.05 0 0 0-48-48Zm0 80a32 32 0 1 1 32-32 32 32 0 0 1-32 32Zm88-29.84q.06-2.16 0-4.32l14.92-18.64a8 8 0 0 0 1.48-7.06 107.6 107.6 0 0 0-10.88-26.25 8 8 0 0 0-6-3.93l-23.72-2.64q-1.48-1.56-3-3L186 40.54a8 8 0 0 0-3.94-6 107.3 107.3 0 0 0-26.25-10.86 8 8 0 0 0-7.06 1.48L130.16 40h-4.32L107.2 25.11a8 8 0 0 0-7.06-1.48 107.6 107.6 0 0 0-26.25 10.88 8 8 0 0 0-3.93 6l-2.64 23.76q-1.56 1.49-3 3L40.54 70a8 8 0 0 0-6 3.94 107.7 107.7 0 0 0-10.87 26.25 8 8 0 0 0 1.49 7.06L40 125.84v4.32L25.11 148.8a8 8 0 0 0-1.48 7.06 107.6 107.6 0 0 0 10.88 26.25 8 8 0 0 0 6 3.93l23.72 2.64q1.49 1.56 3 3L70 215.46a8 8 0 0 0 3.94 6 107.7 107.7 0 0 0 26.25 10.87 8 8 0 0 0 7.06-1.49L125.84 216h4.32l18.64 14.92a8 8 0 0 0 7.06 1.48 107.2 107.2 0 0 0 26.25-10.88 8 8 0 0 0 3.93-6l2.64-23.72q1.56-1.48 3-3l23.78-2.8a8 8 0 0 0 6-3.94 107.7 107.7 0 0 0 10.87-26.25 8 8 0 0 0-1.49-7.06Z"/></svg>',
+  CHEV: '<svg width="16" height="16" viewBox="0 0 256 256" fill="currentColor"><path d="M213.66 101.66l-80 80a8 8 0 0 1-11.32 0l-80-80a8 8 0 0 1 11.32-11.32L128 164.69l74.34-74.35a8 8 0 0 1 11.32 11.32Z"/></svg>',
+  DOTS: '<svg width="18" height="18" viewBox="0 0 256 256" fill="currentColor"><path d="M140 128a12 12 0 1 1-12-12 12 12 0 0 1 12 12Zm56-12a12 12 0 1 0 12 12 12 12 0 0 0-12-12ZM60 116a12 12 0 1 0 12 12 12 12 0 0 0-12-12Z"/></svg>',
+};
+I.LIST = `<div class="relative mb-3"><input class="w-full bg-warm-white border border-stone-200 rounded-xl pl-9 py-2.5 text-sm" placeholder="Rechercher"></div>
+<div class="section px-1">Aujourd'hui</div>
+<div class="card"><div class="text-base font-semibold">TypeSafe AI</div><div class="text-sm text-stone-600 mt-1">TypeSafe AI, jugement typé sur un état, choix / bool / score.</div><div class="text-xs text-stone-400 mt-2">2026-09-19 · 09:12</div></div>
+<div class="card"><div class="text-base font-semibold">Connecteur GitHub</div><div class="text-sm text-stone-600 mt-1">App ou OAuth ? Comparer scopes, durée des jetons, proxy.</div><div class="text-xs text-stone-400 mt-2">2026-09-19 · 00:12</div></div>
+<div class="section px-1 mt-2">Cette semaine</div>
+<div class="card"><div class="text-base font-semibold">Onboarding</div><div class="text-sm text-stone-600 mt-1">Invitations par email, demande Premium, liaison de compte.</div><div class="text-xs text-stone-400 mt-2">2026-09-16</div></div>
+<div class="card"><div class="text-base font-semibold">Hermes kit</div><div class="text-sm text-stone-600 mt-1">Guide publié, zip 19 Ko, à relier depuis les réglages.</div><div class="text-xs text-stone-400 mt-2">2026-09-15</div></div>`;
+document.body.innerHTML = document.body.innerHTML.replace(/\$\{(\w+)\}/g, (_, k) => I[k] ?? '');
+
+// ---------- B3 ----------
+function bTog(id) { document.getElementById(id).classList.toggle('open'); }
+function glyph(n) { for (let i = 1; i <= 3; i++) { document.getElementById('sw' + i).classList.toggle('on', i === n); } document.querySelectorAll('#b3btn .g').forEach((el, i) => el.classList.toggle('on', i === n - 1)); }
+{
+  const stage = document.getElementById('b3'), card = document.getElementById('b3card'), menu = stage.querySelector('.b-menu'); const MAX = 390 * .82; let sx = null, x0 = 0;
+  const apply = p => { p = Math.max(0, Math.min(1, p)); card.style.transform = `translateX(${MAX * p}px)`; card.style.borderRadius = `${28 * p}px 0 0 ${28 * p}px`; menu.style.transform = `translateX(${-10 * (1 - p)}%)`; menu.style.opacity = .55 + .45 * p; };
+  card.addEventListener('pointerdown', e => { sx = e.clientX; x0 = stage.classList.contains('open') ? 1 : 0; });
+  card.addEventListener('pointermove', e => { if (sx === null) return; const dx = e.clientX - sx; if (Math.abs(dx) < 6) return; stage.classList.add('dragging'); apply(x0 + dx / MAX); });
+  const end = e => { if (sx === null) return; const dx = e.clientX - sx; const dragged = stage.classList.contains('dragging'); sx = null; stage.classList.remove('dragging'); card.style.transform = card.style.borderRadius = menu.style.transform = menu.style.opacity = ''; if (dragged) stage.classList.toggle('open', (x0 + dx / MAX) > .5); };
+  ['pointerup', 'pointercancel', 'pointerleave'].forEach(ev => card.addEventListener(ev, end));
+}
+
+// ---------- shared voice capsule ----------
+const V = {}; // state per id
+const TRANSCRIPT = 'Points à creuser : installation par dépôt, refresh, révocation, ce que Google fait déjà chez nous.';
+function vRender(id, mode) {
+  const cap = document.getElementById(id === 'n1' ? 'n1cap' : 'c1cap2');
+  if (mode === 'rec') cap.innerHTML = `<button class="ghost pressable" onclick="vCancel('${id}')">${I.X}</button><div class="tl"><div class="dots" id="${id}dots"></div><div class="bars" id="${id}bars"></div></div><button class="stop pressable" onclick="vStop('${id}')"><i></i></button><button class="go pressable" onclick="vSend('${id}')">${I.ARROW}</button>`;
+  if (mode === 'trans') cap.innerHTML = `<button class="ghost" style="opacity:.4">${I.X}</button><div class="tr">Transcription…</div><span class="stop" style="opacity:.4"><i></i></span><span class="go" style="opacity:.4">${I.ARROW}</span>`;
+  if (mode === 'review') cap.innerHTML = `<button class="ghost pressable" onclick="vCancel('${id}')">${I.X}</button><div class="tx">${TRANSCRIPT}</div><button class="go pressable" onclick="vSend('${id}')">${I.ARROW}</button>`;
+}
+function vStart(id) {
+  if (V[id]) return; V[id] = { t: 0 };
+  const cap = document.getElementById(id === 'n1' ? 'n1cap' : 'c1cap2'); cap.classList.remove('light'); vRender(id, 'rec'); cap.classList.remove('hide');
+  if (id === 'n1') document.getElementById('n1idle').classList.add('hide'); else document.getElementById('c1cap').style.opacity = '0';
+  const dots = document.getElementById(id + 'dots'), bars = document.getElementById(id + 'bars');
+  for (let i = 0; i < 60; i++) dots.appendChild(document.createElement('i'));
+  V[id].iv = setInterval(() => { const b = document.createElement('i'); const h = 4 + Math.round(Math.abs(Math.sin(V[id].t * .9) * 14 + Math.sin(V[id].t * 2.3) * 6 + (Math.random() * 6))); b.style.height = h + 'px'; bars.appendChild(b); V[id].t++; if (bars.children.length > 34) bars.removeChild(bars.firstChild); }, 90);
+}
+function vEnd(id) { clearInterval(V[id]?.iv); const cap = document.getElementById(id === 'n1' ? 'n1cap' : 'c1cap2'); cap.classList.add('hide'); cap.classList.remove('light'); if (id === 'n1') document.getElementById('n1idle').classList.remove('hide'); else document.getElementById('c1cap').style.opacity = ''; V[id] = null; }
+function vCancel(id) { vEnd(id); }
+function vStop(id) {
+  clearInterval(V[id].iv); vRender(id, 'trans');
+  setTimeout(() => { const cap = document.getElementById(id === 'n1' ? 'n1cap' : 'c1cap2');
+    if (id === 'n1') { cap.classList.add('light'); vRender(id, 'review'); }
+    else { vEnd(id); const ta = document.getElementById('c1ta'); ta.textContent = TRANSCRIPT; c1in(); c1f(true); }
+  }, 1400);
+}
+function vSend(id) {
+  const wasReview = !V[id]?.iv || true; clearInterval(V[id]?.iv);
+  const cap = document.getElementById(id === 'n1' ? 'n1cap' : 'c1cap2'); const review = cap.classList.contains('light');
+  const finish = () => {
+    if (id === 'n1') { const p = document.getElementById('n1txt'); p.textContent = TRANSCRIPT; p.style.animation = 'fadeInUp .3s var(--ease-soft)'; }
+    else { const f = document.getElementById('c1feed'); const ub = document.createElement('div'); ub.className = 'ub'; ub.textContent = TRANSCRIPT; f.appendChild(ub); }
+    vEnd(id);
+  };
+  if (review) finish(); else { vRender(id, 'trans'); setTimeout(finish, 1200); }
+}
+
+// ---------- C1 / C2 ----------
+function c1f(on) { document.getElementById('c1cap').classList.toggle('focus', on); }
+function c1in() { const has = document.getElementById('c1ta').textContent.trim().length > 0; document.getElementById('c1prim').classList.toggle('has', has); document.getElementById('c1mic').classList.toggle('gone', has); }
+function c1type() { const ta = document.getElementById('c1ta'); ta.textContent = ''; c1f(true); const txt = 'Compare les deux approches et propose 3 issues'; let i = 0; const t = setInterval(() => { ta.textContent = txt.slice(0, ++i); c1in(); if (i >= txt.length) clearInterval(t); }, 28); }
+function c1prim() { const ta = document.getElementById('c1ta'); if (!ta.textContent.trim()) { vStart('c1'); return; } const f = document.getElementById('c1feed'); const ub = document.createElement('div'); ub.className = 'ub'; ub.textContent = ta.textContent; f.appendChild(ub); ta.textContent = ''; c1in(); c1f(false); }
+function c2tog() { document.getElementById('c2pop').classList.toggle('on'); document.getElementById('c2plus').classList.toggle('on'); }
+function c2web(el) { document.getElementById('c2sw').classList.toggle('on'); }
+
+// ---------- C3 ----------
+function c3run() {
+  const f = document.getElementById('c3feed'); f.innerHTML = '';
+  const ub = document.createElement('div'); ub.className = 'ub'; ub.textContent = 'Qu\'est-ce que j\'ai noté sur le connecteur GitHub ?'; f.appendChild(ub);
+  const row = document.createElement('div'); row.className = 'flex items-start gap-2'; row.style.animation = 'fadeInUp .2s var(--ease-soft)';
+  row.innerHTML = `<img src="flowflow-icon-300.png" class="w-5 h-5 mt-1 rounded-full" alt=""><div class="min-w-0 flex-1"><div class="status"><span class="d"></span><span class="txt" id="c3st">Recherche dans tes notes…</span></div><div class="text-sm leading-relaxed" id="c3ans"></div><div class="src" id="c3src"><b>2 sources</b><span>Connecteur GitHub · Onboarding</span><span class="ml-auto text-stone-300">${I.CHEV}</span></div><div class="acts" id="c3acts"><button class="w-8 h-8 flex items-center justify-center rounded-full text-stone-400">${I.DOTS}</button></div></div>`;
+  setTimeout(() => f.appendChild(row), 350);
+  const st = t => { const el = document.getElementById('c3st'); el.classList.add('swp'); setTimeout(() => { el.textContent = t; el.classList.remove('swp'); }, 180); };
+  setTimeout(() => st('3 notes trouvées, je lis…'), 1500);
+  setTimeout(() => st('2 notes retenues'), 2600);
+  const words = 'Tu as deux notes : « Connecteur GitHub » compare GitHub App et OAuth App et penche pour l\'App (dépôts choisis, jeton court, révocable). « Onboarding » mentionne que la connexion GitHub doit passer par les réglages, pas par l\'onboarding.'.split(' ');
+  setTimeout(() => { const a = document.getElementById('c3ans'); document.querySelector('#c3 .status').style.display = 'none'; words.forEach((w, i) => { const s = document.createElement('span'); s.className = 'w'; s.textContent = w + ' '; a.appendChild(s); setTimeout(() => s.classList.add('on'), i * 42); }); setTimeout(() => { document.getElementById('c3src').classList.add('on'); setTimeout(() => document.getElementById('c3acts').classList.add('on'), 250); }, words.length * 42 + 200); }, 3300);
+}
+</script>
+</body>
+</html>
