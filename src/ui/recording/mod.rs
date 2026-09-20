@@ -1,7 +1,5 @@
-mod bar;
 mod controls;
 mod waveform;
 
-pub use bar::RecordingBar;
-pub use controls::{start_recording, RecordingControls};
+pub use controls::{start_recording, VoiceCapsule};
 pub use waveform::Waveform;

@@ -1,5 +1,4 @@
 use crate::domain::ChatScope;
-use crate::infrastructure::audio::RecordingState;
 use crate::infrastructure::persistence::Database;
 use crate::ui::chat::actions::{
     cancel_reminder_card, load_messages_from_db, send_question,
@@ -7,7 +6,6 @@ use crate::ui::chat::actions::{
 };
 use crate::ui::chat::approval_card::ApprovalCard;
 use crate::ui::chat::bot_bubble::BotBubble;
-use crate::ui::chat::chat_input::ChatInputBar;
 use crate::ui::chat::empty_state::ChatEmptyState;
 use crate::ui::chat::mention_menu::MentionedNote;
 use crate::ui::chat::menu::ChatMenu;
@@ -15,6 +13,7 @@ use crate::ui::chat::models::{ChatMsg, ProposalStatus};
 use crate::ui::chat::reminder_card::ReminderCard;
 use crate::ui::chat::typing_indicator::TypingIndicator;
 use crate::ui::chat::user_bubble::UserBubble;
+use crate::ui::composer::{Composer, ComposerRole};
 use crate::ui::state::View;
 use crate::ui::AppState;
 use dioxus::prelude::*;
@@ -59,35 +58,14 @@ pub fn ChatView() -> Element {
     let mut messages: Signal<Vec<ChatMsg>> = use_signal(|| initial_msgs);
     let mut input = use_signal(String::new);
     let mut mentions: Signal<Vec<MentionedNote>> = use_signal(Vec::new);
+    // Chat dictation never keeps a clip; the capsule still needs the slot.
+    let dummy_pending_audio: Signal<Option<(String, f64)>> =
+        use_signal(|| None);
     let mut loading = use_signal(|| false);
     let mut tool_status: Signal<Option<String>> = use_signal(|| None);
     let renaming = use_signal(|| false);
     let rename_input = use_signal(String::new);
     let confirm_delete = use_signal(|| false);
-
-    use_effect(move || {
-        if let RecordingState::Transcribed { transcript, .. } =
-            (app.recording_state)()
-        {
-            // Dictation has no clip to seek into, so only the text is used.
-            let text = transcript.text();
-            let current = input();
-            if current.is_empty() {
-                input.set(text);
-            } else {
-                input.set(format!("{} {}", current, text));
-            }
-            app.recording_state.set(RecordingState::Idle);
-            dioxus::document::eval(
-                r#"
-                requestAnimationFrame(() => {
-                    var ta = document.querySelector('.chat-textarea');
-                    if (ta) { ta.style.height = 'auto'; ta.style.height = ta.scrollHeight + 'px'; }
-                });
-                "#,
-            );
-        }
-    });
 
     use_effect(move || {
         let _len = messages().len();
@@ -253,11 +231,13 @@ pub fn ChatView() -> Element {
                 }
             }
         }
-        ChatInputBar {
+        Composer {
+            role: ComposerRole::SendMessage,
             input: input,
             mentions: mentions,
             disabled: loading(),
-            on_send: move |q: String| {
+            pending_audio: dummy_pending_audio,
+            on_commit: move |q: String| {
                 if conversation_id().is_none() {
                     let title: String = q.chars().take(50).collect();
                     if let Ok(conv) = db().create_conversation(&title) {

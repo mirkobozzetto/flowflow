@@ -148,12 +148,37 @@
     border-radius: 3px;
 }
 .tools-scroll::-webkit-scrollbar-track { background: transparent; }
-/* Rotate the existing + without changing either composer. */
-.keyboard-aware .relative.shrink-0 > button > svg {
-    transition: transform 280ms var(--ease-soft);
+/* Shared composer (#178): + rotates when its menu is open, the orange button
+   swaps mic and arrow, the voice capsule scales in from the right. */
+.composer-capsule {
+    transition: background-color 180ms, border-color 180ms, box-shadow 180ms;
 }
-.keyboard-aware .relative.shrink-0:has(> .tools-popover) > button > svg {
+.composer-plus {
+    transition: transform 280ms var(--ease-soft), background-color 180ms;
+}
+.composer-plus[data-open="true"] {
     transform: rotate(45deg);
+    background: var(--color-stone-200);
+}
+.composer-icon {
+    transition: transform 260ms var(--ease-soft), opacity 160ms;
+}
+.composer-icon-send { transform: scale(0.4) rotate(-45deg); opacity: 0; }
+.composer-primary[data-has-text="true"] .composer-icon-mic {
+    transform: scale(0.4) rotate(45deg);
+    opacity: 0;
+}
+.composer-primary[data-has-text="true"] .composer-icon-send {
+    transform: none;
+    opacity: 1;
+}
+.voice-capsule-enter {
+    transform-origin: right center;
+    animation: voice-in 340ms var(--ease-soft) both;
+}
+@keyframes voice-in {
+    from { transform: scaleX(0.3); opacity: 0; }
+    to { transform: scaleX(1); opacity: 1; }
 }
 .tools-switch-on {
     opacity: 0;

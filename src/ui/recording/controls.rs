@@ -3,6 +3,7 @@ use crate::application::transcribe_audio::transcribe_file;
 use crate::application::transcription_manager::TranscriptionManager;
 use crate::infrastructure::audio::{self, AudioRecorder, RecordingState};
 use crate::infrastructure::persistence::Database;
+use crate::infrastructure::platform::{haptic, haptic_prepare};
 use crate::ui::icons::*;
 use crate::ui::recording::Waveform;
 use crate::ui::AppState;
@@ -11,13 +12,6 @@ use std::path::PathBuf;
 use std::sync::{Arc, Mutex};
 
 pub const NUM_BARS: usize = 120;
-
-fn now_ms() -> u64 {
-    std::time::SystemTime::now()
-        .duration_since(std::time::UNIX_EPOCH)
-        .unwrap_or_default()
-        .as_millis() as u64
-}
 
 /// Dictation only: the transcript goes back through `RecordingState` to
 /// whatever input field is listening, and the file is always disposable. A kept
@@ -56,20 +50,26 @@ pub fn start_recording(
     }
 }
 
+// The dark capsule that replaces the composer while a take is live. Both roles
+// share it; only the arrow differs: chat transcribes then sends, a note keeps
+// the clip and its durable transcription job (unchanged path). The square stops
+// and transcribes for review in the field; X cancels (replaces double-tap).
 #[component]
-pub fn RecordingControls(
+pub fn VoiceCapsule(
     pending_audio: Signal<Option<(String, f64)>>,
     #[props(default = false)] transcribe_only: bool,
+    commit_on_transcribed: Signal<bool>,
 ) -> Element {
     let mut app: AppState = use_context();
     let recorder: Signal<Arc<Mutex<AudioRecorder>>> = use_context();
     let db: Signal<Arc<Database>> = use_context();
     let manager: TranscriptionManager = use_context();
     let mut duration = use_signal(|| 0.0f32);
-    let mut last_tap_ms = use_signal(|| 0u64);
     let mut transcription_gen = use_signal(|| 0u64);
     let lang = (app.current_lang)();
-    let cancel_hint = t(&lang, "recording-cancel-hint");
+    let cancel_label = t(&lang, "recording-cancel");
+    let stop_label = t(&lang, "recording-stop");
+    let send_label = t(&lang, "recording-send");
     let pause_label = t(&lang, "recording-pause-label");
     let transcribing_label = t(&lang, "recording-transcribing");
 
@@ -144,134 +144,137 @@ pub fn RecordingControls(
     });
 
     let recording_state = (app.recording_state)();
-    let is_recording = recording_state == RecordingState::Recording;
     let is_paused = recording_state == RecordingState::Paused;
     let is_transcribing = recording_state == RecordingState::Transcribing;
+    let live = !is_transcribing;
 
     let secs = duration() as u32;
-    let m = secs / 60;
-    let s = secs % 60;
+    let timer = format!("{}:{:02}", secs / 60, secs % 60);
 
-    if is_recording || is_paused {
-        rsx! {
-            div { class: "flex items-center gap-2",
-                div { class: "flex-1 flex flex-col",
-                    button {
-                        class: if is_paused {
-                            "flex items-center gap-3 h-12 px-4 rounded-full bg-stone-800 text-white text-sm overflow-hidden"
-                        } else {
-                            "flex items-center gap-3 h-12 px-4 rounded-full bg-stone-900 text-white text-sm shadow-lift overflow-hidden"
-                        },
-                        onclick: move |_| {
-                            let now = now_ms();
-                            let is_double = now - last_tap_ms() < 300;
-                            last_tap_ms.set(now);
-                            if is_double {
-                                recorder().lock().unwrap().cancel();
-                                app.recording_state.set(RecordingState::Idle);
-                                duration.set(0.0);
-                                app.audio_levels.set(vec![0.0; NUM_BARS]);
-                            } else if is_recording {
-                                recorder().lock().unwrap().pause();
-                                app.recording_state.set(RecordingState::Paused);
-                                app.audio_levels.set(vec![0.0; NUM_BARS]);
-                            } else {
-                                let rec = recorder();
-                                let mut rec = rec.lock().unwrap();
-                                match rec.resume() {
-                                    Ok(()) => app.recording_state.set(RecordingState::Recording),
-                                    Err(e) => app.recording_state.set(RecordingState::Error(e)),
-                                }
-                            }
-                        },
-                        if is_paused {
-                            div { class: "flex gap-[2px] flex-shrink-0",
-                                div { class: "w-[3px] h-3.5 bg-white/80 rounded-full" }
-                                div { class: "w-[3px] h-3.5 bg-white/80 rounded-full" }
-                            }
-                        } else {
-                            div { class: "w-2 h-2 rounded-full bg-ios-red flex-shrink-0",
-                                style: "animation: pulseSoft 1.5s ease-in-out infinite;",
-                            }
-                        }
-                        if is_paused {
-                            span { class: "flex-1 text-center text-xs text-white/50", "{cancel_hint}" }
-                        } else {
-                            Waveform { num_bars: NUM_BARS, frozen: false }
-                        }
-                        span { class: "text-xs tabular-nums flex-shrink-0 ml-1",
-                            {
-                                let timer_label = if is_paused {
-                                    format!("{pause_label} · {m}:{s:02}")
-                                } else {
-                                    format!("{m}:{s:02}")
-                                };
-                                rsx! { "{timer_label}" }
-                            }
-                        }
+    let reset = use_callback(move |()| {
+        let mut app = app;
+        let mut duration = duration;
+        duration.set(0.0);
+        app.audio_levels.set(vec![0.0; NUM_BARS]);
+    });
+
+    // Square: stop, transcribe the disposable file, land the text in the field.
+    // Arrow: chat transcribes then commits; a note stores the clip as before.
+    let finish = use_callback(move |commit: bool| {
+        let mut app = app;
+        let rec = recorder();
+        let mut rec = rec.lock().unwrap();
+        let dur = rec.duration_secs();
+        match rec.stop(&audio::output_dir()) {
+            Ok(path) => {
+                drop(rec);
+                reset(());
+                let mut transcription_gen = transcription_gen;
+                let mut commit_on_transcribed = commit_on_transcribed;
+                if transcribe_only || !commit {
+                    let gen = transcription_gen() + 1;
+                    transcription_gen.set(gen);
+                    commit_on_transcribed.set(commit);
+                    app.recording_state.set(RecordingState::Transcribing);
+                    spawn_transcription(
+                        path,
+                        db(),
+                        app.recording_state,
+                        gen,
+                        transcription_gen,
+                    );
+                    return;
+                }
+                // The clip's id is known here, the moment it is stored. Carrying
+                // it through the job is what lets the word timings land on this
+                // exact clip rather than on whichever one happens to be last.
+                let filename =
+                    audio::audio_filename(&path.display().to_string());
+                if let Some(nid) =
+                    (app.current_note_id)().filter(|id| !id.is_empty())
+                {
+                    if let Ok(audio) =
+                        db().add_audio(&nid, &filename, dur as f64)
+                    {
+                        app.notes_version.set((app.notes_version)() + 1);
+                        manager.enqueue(nid, path, Some(audio.id));
                     }
                 }
+                // `AudioJobBanner` is the progress UI from here on; leaving
+                // `Transcribing` set would freeze the bar, since nothing clears
+                // it on this path any more.
+                pending_audio.set(Some((filename, dur as f64)));
+                app.recording_state.set(RecordingState::Idle);
+            }
+            Err(e) => app.recording_state.set(RecordingState::Error(e)),
+        }
+    });
+
+    rsx! {
+        div {
+            class: "voice-capsule flex items-center gap-1.5 px-1.5 min-h-14 rounded-full bg-stone-900 text-white shadow-lift overflow-hidden",
+            role: "group",
+            "aria-label": t(&lang, "recording-dictate"),
+            button {
+                class: "pressable w-11 h-11 shrink-0 rounded-full border border-white/20 flex items-center justify-center disabled:opacity-40",
+                "aria-label": "{cancel_label}",
+                disabled: !live,
+                onclick: move |_| {
+                    if is_transcribing {
+                        transcription_gen.set(transcription_gen() + 1);
+                    } else {
+                        recorder().lock().unwrap().cancel();
+                    }
+                    reset(());
+                    app.recording_state.set(RecordingState::Idle);
+                },
+                IconX { size: 18 }
+            }
+            if is_transcribing {
+                span { class: "flex-1 text-center text-[13px] text-white/60", style: "animation: pulseSoft 1.5s ease-in-out infinite;", "{transcribing_label}" }
+            } else {
                 button {
-                    class: "w-12 h-12 rounded-full bg-ios-orange text-white flex items-center justify-center flex-shrink-0",
+                    class: "flex-1 min-w-0 flex items-center gap-2 h-11 text-left",
+                    "aria-label": if is_paused { "{pause_label} · {timer}" } else { "{timer}" },
                     onclick: move |_| {
                         let rec = recorder();
                         let mut rec = rec.lock().unwrap();
-                        let dur = rec.duration_secs();
-                        match rec.stop(&audio::output_dir()) {
-                            Ok(path) => {
-                                if transcribe_only {
-                                    let gen = transcription_gen() + 1;
-                                    transcription_gen.set(gen);
-                                    app.recording_state.set(RecordingState::Transcribing);
-                                    spawn_transcription(
-                                        path, db(), app.recording_state, gen, transcription_gen,
-                                    );
-                                    return;
-                                }
-                                // The clip's id is known here, the moment it is stored. Carrying
-                                // it through the job is what lets the word timings land on this
-                                // exact clip rather than on whichever one happens to be last.
-                                let filename = audio::audio_filename(&path.display().to_string());
-                                if let Some(nid) = (app.current_note_id)().filter(|id| !id.is_empty()) {
-                                    if let Ok(audio) = db().add_audio(&nid, &filename, dur as f64) {
-                                        app.notes_version.set((app.notes_version)() + 1);
-                                        manager.enqueue(nid, path, Some(audio.id));
-                                    }
-                                }
-                                // `AudioJobBanner` is the progress UI from here on; leaving
-                                // `Transcribing` set would freeze the recording bar, since
-                                // nothing clears it on this path any more.
-                                pending_audio.set(Some((filename, dur as f64)));
-                                app.recording_state.set(RecordingState::Idle);
+                        if is_paused {
+                            match rec.resume() {
+                                Ok(()) => app.recording_state.set(RecordingState::Recording),
+                                Err(e) => app.recording_state.set(RecordingState::Error(e)),
                             }
-                            Err(e) => {
-                                app.recording_state.set(RecordingState::Error(e));
-                            }
+                        } else {
+                            rec.pause();
+                            drop(rec);
+                            app.recording_state.set(RecordingState::Paused);
+                            app.audio_levels.set(vec![0.0; NUM_BARS]);
                         }
                     },
-                    IconPaperPlaneRight { size: 18 }
+                    if is_paused {
+                        span { class: "flex-1 text-center text-xs text-white/60", "{pause_label}" }
+                    } else {
+                        Waveform { num_bars: NUM_BARS }
+                    }
+                    span { class: "text-xs tabular-nums shrink-0 text-white/80", "{timer}" }
                 }
             }
-        }
-    } else if is_transcribing {
-        rsx! {
-            div { class: "flex items-center justify-center",
-                button {
-                    class: "w-full flex items-center justify-center gap-2 h-12 rounded-full bg-stone-100 text-stone-400 text-sm",
-                    onclick: move |_| {
-                        let now = now_ms();
-                        let is_double = now - last_tap_ms() < 300;
-                        last_tap_ms.set(now);
-                        if is_double {
-                            transcription_gen.set(transcription_gen() + 1);
-                            app.recording_state.set(RecordingState::Idle);
-                        }
-                    },
-                    span { style: "animation: pulseSoft 1.5s ease-in-out infinite;", "{transcribing_label}" }
-                }
+            button {
+                class: "pressable w-11 h-11 shrink-0 rounded-full bg-white/15 flex items-center justify-center disabled:opacity-40",
+                "aria-label": "{stop_label}",
+                disabled: !live,
+                onpointerdown: move |_| haptic_prepare("light"),
+                onclick: move |_| { haptic("light"); finish(false); },
+                span { class: "block w-[13px] h-[13px] rounded-[3px] bg-white" }
+            }
+            button {
+                class: "pressable w-11 h-11 shrink-0 rounded-full bg-ios-orange flex items-center justify-center disabled:opacity-40",
+                "aria-label": "{send_label}",
+                disabled: !live,
+                onpointerdown: move |_| haptic_prepare("soft"),
+                onclick: move |_| { haptic("soft"); finish(true); },
+                IconArrowUp { size: 20 }
             }
         }
-    } else {
-        rsx! {}
     }
 }

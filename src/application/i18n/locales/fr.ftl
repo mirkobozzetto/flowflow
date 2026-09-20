@@ -370,6 +370,12 @@ note-related-pin = Épingler
 note-related-unpin = Désépingler
 note-related-dismiss = Masquer
 
+chat-send = Envoyer
+composer-note-placeholder = Ajouter à la note…
+composer-append = Ajouter à la note
+recording-cancel = Annuler
+recording-stop = Arrêter et relire
+recording-send = Envoyer
 recording-dictate = Dicter
 
 folder-picker-all = Toutes les notes

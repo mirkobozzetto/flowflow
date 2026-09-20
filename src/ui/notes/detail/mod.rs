@@ -5,6 +5,8 @@ use crate::domain::{generate_auto_title, Attachment};
 use crate::infrastructure::audio::RecordingState;
 use crate::infrastructure::persistence::Database;
 use crate::ui::chat::md_to_html;
+use crate::ui::composer::{Composer, ComposerRole};
+use crate::ui::icons::IconChatAi;
 use crate::ui::icons::{IconCheck, IconCopy, IconPencil};
 use crate::ui::notes::attachments::AttachmentSection;
 use crate::ui::notes::audio_section::{AudioJobBanner, AudioSection};
@@ -12,7 +14,7 @@ use crate::ui::notes::dates::{format_absolute_short, format_relative_date};
 use crate::ui::notes::menu::NoteMenu;
 use crate::ui::notes::reminders::{ActiveReminders, ReminderSuggestions};
 use crate::ui::notes::tags::TagsSection;
-use crate::ui::recording::RecordingBar;
+use crate::ui::SidebarTab;
 use crate::ui::{AppState, View};
 use dioxus::prelude::*;
 use std::sync::Arc;
@@ -93,6 +95,10 @@ pub fn NoteDetail() -> Element {
     let import_in_progress = use_signal(|| false);
     let mut note_copied = use_signal(|| false);
     let mut pending_audio: Signal<Option<(String, f64)>> = use_signal(|| None);
+    let composer_input = use_signal(String::new);
+    let note_id_for_chat = local_note_id().clone();
+    let note_id_for_chat =
+        (!note_id_for_chat.is_empty()).then_some(note_id_for_chat);
     let mut audios_version = use_signal(|| 0u32);
 
     use_effect(move || {
@@ -425,6 +431,35 @@ pub fn NoteDetail() -> Element {
                 }
             }
         }
-        RecordingBar { pending_audio }
+        Composer {
+            role: ComposerRole::AppendToNote,
+            input: composer_input,
+            pending_audio,
+            // Same merge as a transcription: the editor is the source of truth
+            // while the note is open, and save-on-drop persists it.
+            on_commit: move |text: String| {
+                if let Some(merged) = crate::domain::merge_transcript_into_body(&content(), &text) {
+                    content.set(merged);
+                }
+            },
+            if let Some(nid) = note_id_for_chat {
+                crate::ui::thread::ThreadEntryButton { note_id: nid.clone() }
+                button {
+                    class: "pressable shrink-0 w-12 h-12 flex items-center justify-center rounded-full bg-warm-white border border-ios-orange/25 text-ios-orange-dark",
+                    "aria-label": t(&lang, "note-chat-entry"),
+                    onclick: move |_| {
+                        app.show_folder_picker.set(false);
+                        app.show_note_menu.set(false);
+                        app.sidebar_tab.set(SidebarTab::Chats);
+                        app.chat_scope.set(
+                            (app.detail_folder_id)().map(crate::domain::ChatScope::Folder),
+                        );
+                        app.previous_view.set(Some(View::NoteDetail { note_id: nid.clone() }));
+                        app.view.set(View::Chat { conversation_id: None });
+                    },
+                    IconChatAi { size: 24 }
+                }
+            }
+        }
     }
 }
