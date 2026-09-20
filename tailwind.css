@@ -150,8 +150,29 @@
 .tools-scroll::-webkit-scrollbar-track { background: transparent; }
 /* Shared composer (#178): + rotates when its menu is open, the orange button
    swaps mic and arrow, the voice capsule scales in from the right. */
+/* Pill on one line, card from the second: only the capsule's height and radius
+   move (height is set by the AUTOSIZE script), the buttons are anchored to its
+   bottom and the field slides from between them to full width. No inner focus
+   ring: the capsule carries the only one. */
 .composer-capsule {
-    transition: background-color 180ms, border-color 180ms, box-shadow 180ms;
+    transition: height 260ms var(--ease-soft), border-radius 260ms var(--ease-soft),
+        background-color 180ms, border-color 180ms, box-shadow 180ms,
+        opacity 200ms, transform 300ms var(--ease-soft);
+}
+.composer-capsule[data-multi="true"] {
+    border-radius: 24px;
+}
+.composer-field {
+    margin-left: 44px;
+    margin-right: 44px;
+    transition: margin 260ms var(--ease-soft);
+}
+.composer-field:focus-visible {
+    outline: none;
+}
+.composer-capsule[data-multi="true"] .composer-field {
+    margin-left: 0;
+    margin-right: 0;
 }
 .composer-plus {
     transition: transform 280ms var(--ease-soft), background-color 180ms;
@@ -171,10 +192,6 @@
 .composer-primary[data-has-text="true"] .composer-icon-send {
     transform: none;
     opacity: 1;
-}
-.composer-capsule {
-    transition: background-color 180ms, border-color 180ms, box-shadow 180ms,
-        opacity 200ms, transform 300ms var(--ease-soft);
 }
 .composer-capsule[data-hidden="true"] {
     opacity: 0;

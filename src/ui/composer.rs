@@ -34,9 +34,21 @@ pub fn mention_fragment(s: &str) -> Option<String> {
     Some(frag.to_string())
 }
 
+// Fit the field, then size the CAPSULE: it is the only animated box (height and
+// radius transition in CSS), the buttons stay anchored to its bottom and the
+// field slides to full width on the second line. The caret never moves: the
+// box comes to it. Validated on ~/ff-ux-mockup/composer-multiline.html.
 const AUTOSIZE: &str = r#"
     var ta = document.querySelector('.composer-field');
-    if (ta) { ta.style.height = 'auto'; ta.style.height = ta.scrollHeight + 'px'; }
+    var cap = ta && ta.closest('.composer-capsule');
+    if (ta && cap) {
+        ta.style.height = 'auto';
+        var h = Math.min(ta.scrollHeight, 160);
+        ta.style.height = h + 'px';
+        var multi = h > 44;
+        cap.setAttribute('data-multi', multi);
+        cap.style.height = (multi ? 6 + h + 50 : 56) + 'px';
+    }
 "#;
 
 // One capsule for the note and the chat: "+", the field, one orange button (mic
@@ -188,9 +200,9 @@ pub fn Composer(
         },
     );
     let capsule = if focused() {
-        "composer-capsule flex items-end gap-1 p-1.5 min-h-14 rounded-[28px] bg-warm-white border border-ios-orange-dark ring-[3px] ring-ios-orange-50"
+        "composer-capsule relative h-14 rounded-[28px] bg-warm-white border border-ios-orange-dark ring-[3px] ring-ios-orange-50"
     } else {
-        "composer-capsule flex items-end gap-1 p-1.5 min-h-14 rounded-[28px] bg-stone-100 border border-transparent"
+        "composer-capsule relative h-14 rounded-[28px] bg-stone-100 border border-transparent"
     };
 
     rsx! {
@@ -204,7 +216,7 @@ pub fn Composer(
                         div { class: capsule,
                             "data-hidden": !is_idle,
                             "data-landed": landed(),
-                            div { class: "relative shrink-0",
+                            div { class: "absolute left-[5px] bottom-[5px]",
                                 button {
                                     class: "composer-plus pressable w-11 h-11 rounded-full flex items-center justify-center text-stone-600 hover:bg-stone-200/70",
                                     "data-open": menu_open,
@@ -226,7 +238,7 @@ pub fn Composer(
                                 }
                             }
                             textarea {
-                                class: "composer-field flex-1 min-w-0 min-h-11 max-h-[120px] bg-transparent border-0 px-1.5 py-[11px] text-[15px] leading-[1.4] outline-none text-stone-900 placeholder:text-stone-400 resize-none overflow-y-auto",
+                                class: "composer-field absolute top-1.5 left-1.5 right-1.5 max-h-40 bg-transparent border-0 px-1.5 py-[11px] text-[15px] leading-[1.4] outline-none text-stone-900 placeholder:text-stone-400 resize-none overflow-y-auto",
                                 rows: "1",
                                 placeholder: "{placeholder}",
                                 value: "{input}",
@@ -265,7 +277,7 @@ pub fn Composer(
                                 },
                             }
                             button {
-                                class: "composer-primary pressable relative w-11 h-11 shrink-0 rounded-full bg-ios-orange text-white flex items-center justify-center overflow-hidden disabled:opacity-50",
+                                class: "composer-primary pressable absolute right-[5px] bottom-[5px] w-11 h-11 rounded-full bg-ios-orange text-white flex items-center justify-center overflow-hidden disabled:opacity-50",
                                 "data-has-text": !empty,
                                 "data-sent": sent(),
                                 "aria-label": t(&lang, if empty { "recording-dictate" } else if chat { "chat-send" } else { "composer-append" }),
