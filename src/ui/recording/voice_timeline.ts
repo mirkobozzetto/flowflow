@@ -6,12 +6,18 @@
 // Bars are symmetric around the axis, Voice Memos style. The strip survives a
 // pause: reinstalling only replaces the loop, never the bars.
 
-(function () {
+(async function () {
   const TICK = __TICK__;
   const PITCH = 4; // 2 px bar + 2 px gap
   const HALF = 13; // max half-height in px (track is 28 px tall)
   const RELEASE = 120;
-  const host = document.querySelector<HTMLElement>(".voice-timeline");
+  // The eval runs from the Rust effect before Dioxus has flushed the capsule
+  // into the DOM: poll a few frames for the node instead of giving up.
+  let host: HTMLElement | null = null;
+  for (let i = 0; i < 30 && !host; i++) {
+    host = document.querySelector<HTMLElement>(".voice-timeline");
+    if (!host) await new Promise((r) => requestAnimationFrame(r));
+  }
   const strip = host?.querySelector<HTMLElement>(".voice-bars");
   if (!host || !strip) return;
 
@@ -19,7 +25,7 @@
   w.__ffVoiceStop?.();
 
   const reduced = matchMedia("(prefers-reduced-motion: reduce)").matches;
-  const cap = Math.ceil(host.clientWidth / PITCH) + 4;
+  const cap = Math.ceil(Math.max(host.clientWidth, 200) / PITCH) + 4;
   const bars = Array.from(strip.children) as HTMLElement[];
   let live: HTMLElement | null = null;
   let target = 0;

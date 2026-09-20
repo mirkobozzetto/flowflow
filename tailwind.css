@@ -208,6 +208,17 @@
     from { transform: scaleX(0.3); opacity: 0; }
     to { transform: scaleX(1); opacity: 1; }
 }
+.voice-bars i {
+    display: block;
+    width: 2px;
+    min-height: 2px;
+    border-radius: 9999px;
+    background: rgba(255, 255, 255, 0.92);
+    flex: none;
+}
+.voice-capsule[data-transcribing="true"] .voice-bars i {
+    background: var(--color-stone-400);
+}
 .voice-capsule {
     transition: background-color 260ms var(--ease-soft), color 260ms,
         box-shadow 260ms, border-color 260ms;

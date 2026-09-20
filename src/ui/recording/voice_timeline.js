@@ -1,17 +1,22 @@
 // src/ui/recording/voice_timeline.ts
-(function() {
+(async function() {
   const TICK = __TICK__;
   const PITCH = 4;
   const HALF = 13;
   const RELEASE = 120;
-  const host = document.querySelector(".voice-timeline");
+  let host = null;
+  for (let i = 0;i < 30 && !host; i++) {
+    host = document.querySelector(".voice-timeline");
+    if (!host)
+      await new Promise((r) => requestAnimationFrame(r));
+  }
   const strip = host?.querySelector(".voice-bars");
   if (!host || !strip)
     return;
   const w = window;
   w.__ffVoiceStop?.();
   const reduced = matchMedia("(prefers-reduced-motion: reduce)").matches;
-  const cap = Math.ceil(host.clientWidth / PITCH) + 4;
+  const cap = Math.ceil(Math.max(host.clientWidth, 200) / PITCH) + 4;
   const bars = Array.from(strip.children);
   let live = null;
   let target = 0;
