@@ -91,9 +91,6 @@ pub fn Composer(
             });
         }
     });
-        }
-        was_live.set(live);
-    });
     let flash = move |signal: Signal<bool>| {
         let mut signal = signal;
         signal.set(true);
