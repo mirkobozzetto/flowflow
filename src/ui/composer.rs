@@ -61,11 +61,40 @@ pub fn Composer(
     let mut mention_query = use_signal(String::new);
     let mut focused = use_signal(|| false);
     let mut commit_on_transcribed = use_signal(|| false);
+    // Exit choreography: the voice capsule stays mounted 260 ms after the
+    // take ends so CSS can play it out; the field flashes when text lands.
+    let mut voice_leaving = use_signal(|| false);
+    let landed = use_signal(|| false);
+    let sent = use_signal(|| false);
 
     let recording_state = (app.recording_state)();
     let is_idle = recording_state == RecordingState::Idle
         || matches!(recording_state, RecordingState::Error(_))
         || matches!(recording_state, RecordingState::Transcribed { .. });
+    let mut was_live = use_signal(|| false);
+    use_effect(move || {
+        let live = !is_idle;
+        if was_live() && !live {
+            voice_leaving.set(true);
+            spawn(async move {
+                futures_timer::Delay::new(std::time::Duration::from_millis(
+                    260,
+                ))
+                .await;
+                voice_leaving.set(false);
+            });
+        }
+        was_live.set(live);
+    });
+    let flash = move |signal: Signal<bool>| {
+        let mut signal = signal;
+        signal.set(true);
+        spawn(async move {
+            futures_timer::Delay::new(std::time::Duration::from_millis(320))
+                .await;
+            signal.set(false);
+        });
+    };
     let menu_open = if chat {
         (app.show_tools_menu)()
     } else {
@@ -80,6 +109,7 @@ pub fn Composer(
             return;
         }
         input.set(String::new());
+        flash(sent);
         app.show_tools_menu.set(false);
         app.show_note_tools_menu.set(false);
         app.show_mention_menu.set(false);
@@ -105,6 +135,7 @@ pub fn Composer(
                 commit_on_transcribed.set(false);
                 commit();
             } else {
+                flash(landed);
                 dioxus::document::eval(&format!(
                     "requestAnimationFrame(() => {{ {AUTOSIZE} var f = document.querySelector('.composer-field'); if (f) f.focus(); }});"
                 ));
@@ -135,9 +166,9 @@ pub fn Composer(
         },
     );
     let capsule = if focused() {
-        "composer-capsule flex-1 flex items-end gap-1 p-1.5 min-h-14 rounded-[28px] bg-warm-white border border-ios-orange-dark ring-[3px] ring-ios-orange-50"
+        "composer-capsule flex items-end gap-1 p-1.5 min-h-14 rounded-[28px] bg-warm-white border border-ios-orange-dark ring-[3px] ring-ios-orange-50"
     } else {
-        "composer-capsule flex-1 flex items-end gap-1 p-1.5 min-h-14 rounded-[28px] bg-stone-100 border border-transparent"
+        "composer-capsule flex items-end gap-1 p-1.5 min-h-14 rounded-[28px] bg-stone-100 border border-transparent"
     };
 
     rsx! {
@@ -147,8 +178,10 @@ pub fn Composer(
                     if let (true, Some(mentions)) = (show_mention, mentions) {
                         MentionMenu { input, mentions, query: mention_query() }
                     }
-                    if is_idle {
+                    div { class: "composer-stack relative flex-1 min-w-0",
                         div { class: capsule,
+                            "data-hidden": !is_idle,
+                            "data-landed": landed(),
                             div { class: "relative shrink-0",
                                 button {
                                     class: "composer-plus pressable w-11 h-11 rounded-full flex items-center justify-center text-stone-600 hover:bg-stone-200/70",
@@ -212,6 +245,7 @@ pub fn Composer(
                             button {
                                 class: "composer-primary pressable relative w-11 h-11 shrink-0 rounded-full bg-ios-orange text-white flex items-center justify-center overflow-hidden disabled:opacity-50",
                                 "data-has-text": !empty,
+                                "data-sent": sent(),
                                 "aria-label": t(&lang, if empty { "recording-dictate" } else if chat { "chat-send" } else { "composer-append" }),
                                 disabled: disabled,
                                 onpointerdown: move |_| if empty { haptic_prepare("medium") } else { haptic_prepare("soft") },
@@ -228,9 +262,11 @@ pub fn Composer(
                                 span { class: "composer-icon composer-icon-send absolute inset-0 flex items-center justify-center", IconArrowUp { size: 20 } }
                             }
                         }
-                    } else {
-                        div { class: "voice-capsule-enter flex-1 min-w-0",
-                            VoiceCapsule { pending_audio, transcribe_only: chat, commit_on_transcribed }
+                        if !is_idle || voice_leaving() {
+                            div { class: "voice-layer absolute inset-0",
+                                "data-leaving": is_idle,
+                                VoiceCapsule { pending_audio, transcribe_only: chat, commit_on_transcribed }
+                            }
                         }
                     }
                     {children}

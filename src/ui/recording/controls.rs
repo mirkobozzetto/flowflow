@@ -215,11 +215,12 @@ pub fn VoiceCapsule(
 
     rsx! {
         div {
-            class: "voice-capsule flex items-center gap-1.5 px-1.5 min-h-14 rounded-full bg-stone-900 text-white shadow-lift overflow-hidden",
+            class: "voice-capsule h-full flex items-center gap-1.5 px-1.5 min-h-14 rounded-full bg-stone-900 text-white shadow-lift overflow-hidden",
+            "data-transcribing": is_transcribing,
             role: "group",
             "aria-label": t(&lang, "recording-dictate"),
             button {
-                class: "pressable w-11 h-11 shrink-0 rounded-full border border-white/20 flex items-center justify-center disabled:opacity-40",
+                class: "voice-ghost pressable w-11 h-11 shrink-0 rounded-full border border-white/20 flex items-center justify-center disabled:opacity-40",
                 "aria-label": "{cancel_label}",
                 disabled: !live,
                 onclick: move |_| {
@@ -234,7 +235,7 @@ pub fn VoiceCapsule(
                 IconX { size: 18 }
             }
             if is_transcribing {
-                span { class: "flex-1 text-center text-[13px] text-white/60", style: "animation: pulseSoft 1.5s ease-in-out infinite;", "{transcribing_label}" }
+                span { class: "voice-status flex-1 text-center text-[13px] text-white/60", style: "animation: pulseSoft 1.5s ease-in-out infinite;", "{transcribing_label}" }
             } else {
                 button {
                     class: "flex-1 min-w-0 flex items-center gap-2 h-11 text-left",

@@ -172,13 +172,58 @@
     transform: none;
     opacity: 1;
 }
-.voice-capsule-enter {
+.composer-capsule {
+    transition: background-color 180ms, border-color 180ms, box-shadow 180ms,
+        opacity 200ms, transform 300ms var(--ease-soft);
+}
+.composer-capsule[data-hidden="true"] {
+    opacity: 0;
+    transform: scale(0.97);
+    pointer-events: none;
+}
+.composer-capsule[data-landed="true"] .composer-field {
+    animation: fadeInUp 220ms var(--ease-soft) both;
+}
+.composer-primary[data-sent="true"] {
+    animation: composer-sent 200ms var(--ease-soft);
+}
+@keyframes composer-sent {
+    0% { transform: scale(1); }
+    40% { transform: scale(0.88); }
+    100% { transform: scale(1); }
+}
+/* Voice capsule: scales in from the right edge, plays out the same way on
+   cancel; turns light while transcribing so it morphs into the field. */
+.voice-layer {
     transform-origin: right center;
     animation: voice-in 340ms var(--ease-soft) both;
+    transition: transform 240ms var(--ease-soft), opacity 200ms;
+}
+.voice-layer[data-leaving="true"] {
+    transform: scaleX(0.3);
+    opacity: 0;
+    pointer-events: none;
 }
 @keyframes voice-in {
     from { transform: scaleX(0.3); opacity: 0; }
     to { transform: scaleX(1); opacity: 1; }
+}
+.voice-capsule {
+    transition: background-color 260ms var(--ease-soft), color 260ms,
+        box-shadow 260ms, border-color 260ms;
+}
+.voice-capsule[data-transcribing="true"] {
+    background: var(--color-warm-white);
+    color: var(--color-stone-900);
+    box-shadow: 0 0 0 3px var(--color-ios-orange-50);
+    border: 1px solid var(--color-ios-orange-dark);
+}
+.voice-capsule[data-transcribing="true"] .voice-ghost {
+    border-color: var(--color-stone-200);
+    color: var(--color-stone-600);
+}
+.voice-capsule[data-transcribing="true"] .voice-status {
+    color: var(--color-stone-500);
 }
 .tools-switch-on {
     opacity: 0;
