@@ -1,3 +1,16 @@
+/// Discreet feedback for menu selection changes; desktop intentionally stays silent.
+pub fn haptic(kind: &str) {
+    #[cfg(target_os = "ios")]
+    if kind == "selection" {
+        if let Some(main_thread) = objc2::MainThreadMarker::new() {
+            objc2_ui_kit::UISelectionFeedbackGenerator::new(main_thread)
+                .selectionChanged();
+        }
+    }
+    #[cfg(not(target_os = "ios"))]
+    let _ = kind;
+}
+
 #[cfg(target_os = "ios")]
 pub mod ios;
 

@@ -339,6 +339,11 @@ approval-status-edited = Edited
 approval-status-rejected = Rejected
 approval-status-expired = Expired
 
+chat-tools-agents-count = { $count } installed
+chat-tools-connectors-count = { $connected } connected · { $available } available
+chat-tools-agents-empty = No installed, active agents.
+chat-tools-connectors-empty = No connectors available. Check Settings › Connections.
+chat-tools-manage-connections = Manage in Settings › Connections
 chat-tools-section-agents = Agents
 chat-tools-section-tools = Tools
 chat-tools-section-connectors = Connectors
