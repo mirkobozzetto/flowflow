@@ -74,7 +74,13 @@ pub fn Composer(
     let mut was_live = use_signal(|| false);
     use_effect(move || {
         let live = !is_idle;
-        if was_live() && !live {
+        // peek: an effect must never subscribe to the signal it writes.
+        let before = *was_live.peek();
+        if before == live {
+            return;
+        }
+        was_live.set(live);
+        if before && !live {
             voice_leaving.set(true);
             spawn(async move {
                 futures_timer::Delay::new(std::time::Duration::from_millis(
@@ -83,6 +89,8 @@ pub fn Composer(
                 .await;
                 voice_leaving.set(false);
             });
+        }
+    });
         }
         was_live.set(live);
     });
@@ -124,14 +132,14 @@ pub fn Composer(
             (app.recording_state)()
         {
             let text = transcript.text();
-            let current = input();
+            let current = input.peek().clone();
             input.set(if current.is_empty() {
                 text
             } else {
                 format!("{current} {text}")
             });
             app.recording_state.set(RecordingState::Idle);
-            if commit_on_transcribed() {
+            if *commit_on_transcribed.peek() {
                 commit_on_transcribed.set(false);
                 commit();
             } else {
