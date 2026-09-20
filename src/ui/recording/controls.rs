@@ -5,15 +5,12 @@ use crate::infrastructure::audio::{self, AudioRecorder, RecordingState};
 use crate::infrastructure::persistence::Database;
 use crate::infrastructure::platform::{haptic, haptic_prepare};
 use crate::ui::icons::*;
+use crate::ui::recording::waveform::{mount_timeline, TICK_MS};
 use crate::ui::recording::Waveform;
 use crate::ui::AppState;
 use dioxus::prelude::*;
 use std::path::PathBuf;
 use std::sync::{Arc, Mutex};
-
-// Bars kept on the capsule timeline: 48 × 50 ms = 2.4 s of history.
-pub const NUM_BARS: usize = 48;
-const TICK_MS: u64 = 50;
 
 /// Dictation only: the transcript goes back through `RecordingState` to
 /// whatever input field is listening, and the file is always disposable. A kept
@@ -80,26 +77,25 @@ pub fn VoiceCapsule(
         if state == RecordingState::Recording {
             let rec = recorder();
             spawn(async move {
+                // One controller per take segment: a resume re-installs the
+                // loop over the bars that are still in the DOM.
+                let timeline = mount_timeline();
                 loop {
                     if (app.recording_state)() != RecordingState::Recording {
                         break;
                     }
-                    let level = rec
+                    let (rms, peak) = rec
                         .lock()
                         .unwrap()
-                        .recent_level(TICK_MS as f32 / 1000.0);
-                    let mut history = app.audio_levels.write();
-                    history.push(level);
-                    if history.len() > NUM_BARS {
-                        history.remove(0);
-                    }
-                    drop(history);
+                        .recent_levels(TICK_MS as f32 / 1000.0);
+                    let _ = timeline.send((rms, peak));
                     duration.set(rec.lock().unwrap().duration_secs());
                     futures_timer::Delay::new(
                         std::time::Duration::from_millis(TICK_MS),
                     )
                     .await;
                 }
+                let _ = timeline.send(());
             });
         }
     });
@@ -124,7 +120,6 @@ pub fn VoiceCapsule(
                             InterruptionEvent::Began => {
                                 rec.lock().unwrap().on_interruption_began();
                                 app.recording_state.set(RecordingState::Paused);
-                                app.audio_levels.set(Vec::new());
                             }
                             InterruptionEvent::Ended { should_resume } => {
                                 let mut r = rec.lock().unwrap();
@@ -162,10 +157,8 @@ pub fn VoiceCapsule(
     let timer = format!("{}:{:02}", secs / 60, secs % 60);
 
     let reset = use_callback(move |()| {
-        let mut app = app;
         let mut duration = duration;
         duration.set(0.0);
-        app.audio_levels.set(Vec::new());
     });
 
     // Square: stop, transcribe the disposable file, land the text in the field.
@@ -258,15 +251,12 @@ pub fn VoiceCapsule(
                             rec.pause();
                             drop(rec);
                             app.recording_state.set(RecordingState::Paused);
-                            app.audio_levels.set(Vec::new());
-                        }
+                                            }
                     },
-                    if is_paused {
-                        span { class: "flex-1 text-center text-xs text-white/60", "{pause_label}" }
-                    } else {
-                        Waveform {}
+                    Waveform {}
+                    span { class: "text-xs tabular-nums shrink-0 text-white/80",
+                        if is_paused { "{pause_label} · {timer}" } else { "{timer}" }
                     }
-                    span { class: "text-xs tabular-nums shrink-0 text-white/80", "{timer}" }
                 }
             }
             button {

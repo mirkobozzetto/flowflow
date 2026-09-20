@@ -112,7 +112,6 @@ pub struct AppState {
     // collapse every time the drawer is reopened.
     pub expanded_folders: Signal<HashSet<String>>,
     pub sliding_out: Signal<bool>,
-    pub audio_levels: Signal<Vec<f32>>,
     pub notes_version: Signal<u32>,
     pub current_note_id: Signal<Option<String>>,
     pub previous_view: Signal<Option<View>>,
@@ -184,7 +183,6 @@ impl AppState {
             folders_version: Signal::new(0),
             expanded_folders: Signal::new(HashSet::new()),
             sliding_out: Signal::new(false),
-            audio_levels: Signal::new(Vec::new()),
             notes_version: Signal::new(0),
             current_note_id: Signal::new(None),
             previous_view: Signal::new(None),

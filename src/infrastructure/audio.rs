@@ -186,24 +186,28 @@ impl AudioRecorder {
         Ok(path)
     }
 
-    /// Loudness of the last `secs` of audio, 0..1 on a decibel scale
-    /// (-55 dB silence floor, -5 dB ceiling) so speech fills the mid range.
-    /// One slice per call, no window overlap: that is what keeps a timeline
-    /// honest and reactive instead of a moving average that lags.
-    pub fn recent_level(&self, secs: f32) -> f32 {
+    /// Loudness of the last `secs` of audio as `(rms, peak)`, each 0..1 on a
+    /// decibel scale (-55 dB floor, -5 dB ceiling) so speech fills the mid
+    /// range. RMS carries the voice, the peak carries consonants and attacks.
+    /// One slice per call, no overlap: an honest, reactive timeline instead of
+    /// a moving average that lags.
+    pub fn recent_levels(&self, secs: f32) -> (f32, f32) {
         let samples = self.samples.lock().unwrap();
         let window = ((self.sample_rate as f32 * self.channels as f32 * secs)
             as usize)
             .max(1)
             .min(samples.len());
         if window == 0 {
-            return 0.0;
+            return (0.0, 0.0);
         }
         let slice = &samples[samples.len() - window..];
         let rms =
             (slice.iter().map(|s| s * s).sum::<f32>() / window as f32).sqrt();
-        let db = 20.0 * rms.max(1e-6).log10();
-        ((db + 55.0) / 50.0).clamp(0.0, 1.0)
+        let peak = slice.iter().fold(0.0f32, |m, s| m.max(s.abs()));
+        let norm = |v: f32| {
+            ((20.0 * v.max(1e-6).log10() + 55.0) / 50.0).clamp(0.0, 1.0)
+        };
+        (norm(rms), norm(peak))
     }
 
     pub fn duration_secs(&self) -> f32 {
