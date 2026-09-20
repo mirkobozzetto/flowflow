@@ -186,26 +186,6 @@ impl AudioRecorder {
         Ok(path)
     }
 
-    pub fn current_levels(&self, num_bars: usize) -> Vec<f32> {
-        let samples = self.samples.lock().unwrap();
-        let len = samples.len();
-        if len < 200 || num_bars == 0 {
-            return vec![0.0; num_bars];
-        }
-        let window = (num_bars * 300).min(len);
-        let start = len - window;
-        let chunk = window / num_bars;
-        let mut levels = vec![0.0f32; num_bars];
-        for (i, level) in levels.iter_mut().enumerate().take(num_bars) {
-            let from = start + i * chunk;
-            let to = from + chunk;
-            let rms: f32 = samples[from..to].iter().map(|s| s * s).sum::<f32>()
-                / chunk as f32;
-            *level = (rms.sqrt() * 8.0).min(1.0);
-        }
-        levels
-    }
-
     /// Loudness of the last `secs` of audio, 0..1 on a decibel scale
     /// (-55 dB silence floor, -5 dB ceiling) so speech fills the mid range.
     /// One slice per call, no window overlap: that is what keeps a timeline
@@ -220,8 +200,8 @@ impl AudioRecorder {
             return 0.0;
         }
         let slice = &samples[samples.len() - window..];
-        let rms = (slice.iter().map(|s| s * s).sum::<f32>() / window as f32)
-            .sqrt();
+        let rms =
+            (slice.iter().map(|s| s * s).sum::<f32>() / window as f32).sqrt();
         let db = 20.0 * rms.max(1e-6).log10();
         ((db + 55.0) / 50.0).clamp(0.0, 1.0)
     }

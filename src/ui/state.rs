@@ -184,7 +184,7 @@ impl AppState {
             folders_version: Signal::new(0),
             expanded_folders: Signal::new(HashSet::new()),
             sliding_out: Signal::new(false),
-            audio_levels: Signal::new(vec![0.0; 12]),
+            audio_levels: Signal::new(Vec::new()),
             notes_version: Signal::new(0),
             current_note_id: Signal::new(None),
             previous_view: Signal::new(None),

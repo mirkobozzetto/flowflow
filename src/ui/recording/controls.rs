@@ -11,7 +11,9 @@ use dioxus::prelude::*;
 use std::path::PathBuf;
 use std::sync::{Arc, Mutex};
 
-pub const NUM_BARS: usize = 120;
+// Bars kept on the capsule timeline: 48 × 50 ms = 2.4 s of history.
+pub const NUM_BARS: usize = 48;
+const TICK_MS: u64 = 50;
 
 /// Dictation only: the transcript goes back through `RecordingState` to
 /// whatever input field is listening, and the file is always disposable. A kept
@@ -82,11 +84,19 @@ pub fn VoiceCapsule(
                     if (app.recording_state)() != RecordingState::Recording {
                         break;
                     }
-                    let levels = rec.lock().unwrap().current_levels(NUM_BARS);
-                    app.audio_levels.set(levels);
+                    let level = rec
+                        .lock()
+                        .unwrap()
+                        .recent_level(TICK_MS as f32 / 1000.0);
+                    let mut history = app.audio_levels.write();
+                    history.push(level);
+                    if history.len() > NUM_BARS {
+                        history.remove(0);
+                    }
+                    drop(history);
                     duration.set(rec.lock().unwrap().duration_secs());
                     futures_timer::Delay::new(
-                        std::time::Duration::from_millis(60),
+                        std::time::Duration::from_millis(TICK_MS),
                     )
                     .await;
                 }
@@ -114,7 +124,7 @@ pub fn VoiceCapsule(
                             InterruptionEvent::Began => {
                                 rec.lock().unwrap().on_interruption_began();
                                 app.recording_state.set(RecordingState::Paused);
-                                app.audio_levels.set(vec![0.0; NUM_BARS]);
+                                app.audio_levels.set(Vec::new());
                             }
                             InterruptionEvent::Ended { should_resume } => {
                                 let mut r = rec.lock().unwrap();
@@ -155,7 +165,7 @@ pub fn VoiceCapsule(
         let mut app = app;
         let mut duration = duration;
         duration.set(0.0);
-        app.audio_levels.set(vec![0.0; NUM_BARS]);
+        app.audio_levels.set(Vec::new());
     });
 
     // Square: stop, transcribe the disposable file, land the text in the field.
@@ -248,13 +258,13 @@ pub fn VoiceCapsule(
                             rec.pause();
                             drop(rec);
                             app.recording_state.set(RecordingState::Paused);
-                            app.audio_levels.set(vec![0.0; NUM_BARS]);
+                            app.audio_levels.set(Vec::new());
                         }
                     },
                     if is_paused {
                         span { class: "flex-1 text-center text-xs text-white/60", "{pause_label}" }
                     } else {
-                        Waveform { num_bars: NUM_BARS }
+                        Waveform {}
                     }
                     span { class: "text-xs tabular-nums shrink-0 text-white/80", "{timer}" }
                 }
