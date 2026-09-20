@@ -5,8 +5,8 @@
 // backend, `from_db` returns None and the agent behaves exactly as before.
 
 pub mod onboarding;
-mod scoped;
 pub mod profile;
+mod scoped;
 pub mod shares;
 pub mod spaces;
 

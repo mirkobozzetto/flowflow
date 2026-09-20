@@ -85,8 +85,85 @@
     }
 }
 
-/* Composer "+" menu: bottom-sheet springs up on mobile, popover pops above the
-   button on desktop, backdrop and tooltip fade. */
+/* Shared + popover. These overrides are scoped: the @ sheet stays unchanged. */
+.tools-popover {
+    width: min(330px, calc(100vw - 2rem));
+    max-height: var(--tools-space, calc(100dvh - 8rem));
+    transform-origin: 22px calc(100% + 8px);
+    animation: tools-pop 280ms var(--ease-soft) both;
+}
+@keyframes tools-pop {
+    0% { transform: scale(0.6); opacity: 0; }
+    80% { transform: scale(1.02); opacity: 1; }
+    100% { transform: scale(1); opacity: 1; }
+}
+.tools-pane {
+    transition: transform 300ms var(--ease-soft), opacity 240ms var(--ease-soft);
+}
+.tools-root {
+    position: relative;
+    max-height: var(--tools-space, calc(100dvh - 8rem));
+    overflow-y: auto;
+}
+.tools-root > * {
+    animation: fadeInUp 260ms var(--ease-soft) both;
+}
+.tools-root > :nth-child(1) { animation-delay: 20ms; }
+.tools-root > :nth-child(2) { animation-delay: 40ms; }
+.tools-root > :nth-child(3) { animation-delay: 60ms; }
+.tools-root > :nth-child(4) { animation-delay: 80ms; }
+.tools-root > :nth-child(5) { animation-delay: 100ms; }
+.tools-root[data-away="true"] {
+    position: absolute;
+    inset: 0;
+    transform: translateX(-24px);
+    opacity: 0;
+    pointer-events: none;
+}
+.tools-sub {
+    position: absolute;
+    inset: 0;
+    transform: translateX(40px);
+    opacity: 0;
+    pointer-events: none;
+}
+.tools-sub[data-in="true"] {
+    position: relative;
+    transform: translateX(0);
+    opacity: 1;
+    pointer-events: auto;
+}
+.tools-list {
+    max-height: min(296px, calc(var(--tools-space, 400px) - 58px));
+    overscroll-behavior: contain;
+}
+/* Reuse the desktop scrollbar values even below the desktop breakpoint. */
+.tools-scroll {
+    scrollbar-width: thin;
+    scrollbar-color: oklch(0.78 0.01 50 / 0.7) transparent;
+}
+.tools-scroll::-webkit-scrollbar { display: block; width: 6px; }
+.tools-scroll::-webkit-scrollbar-thumb {
+    background: oklch(0.78 0.01 50 / 0.7);
+    border-radius: 3px;
+}
+.tools-scroll::-webkit-scrollbar-track { background: transparent; }
+/* Rotate the existing + without changing either composer. */
+.keyboard-aware .relative.shrink-0 > button > svg {
+    transition: transform 280ms var(--ease-soft);
+}
+.keyboard-aware .relative.shrink-0:has(> .tools-popover) > button > svg {
+    transform: rotate(45deg);
+}
+.tools-switch-on {
+    opacity: 0;
+    transition: opacity 240ms var(--ease-soft);
+}
+.tools-switch-on[data-on="true"] { opacity: 1; }
+.tools-switch-knob { transition: transform 240ms var(--ease-soft); }
+.tools-switch-knob[data-on="true"] { transform: translateX(20px); }
+
+/* Other sheets and popovers retain their existing motion. */
 .sheet-pop {
     animation: slideInUp 0.24s cubic-bezier(0.2, 0.9, 0.25, 1.12);
 }

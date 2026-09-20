@@ -10,5 +10,7 @@ https://knowledge.workspace.google.com/admin/getting-started/brand-your-internal
 SVG distribution references:
 - `thesvg-color`: Docs, Sheets, Drive, Forms, Calendar, Tasks and Gmail 2026 marks
 - `selfhst`: Google Contacts mark
+- `primer/octicons` (MIT): GitHub mark (`mark-github`), added 2026-09-19
 
-Google trademarks remain Google’s property.
+Google trademarks remain Google’s property. The GitHub mark is a GitHub
+trademark, used per https://github.com/logos.

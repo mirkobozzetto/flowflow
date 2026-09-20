@@ -1,0 +1,349 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>FlowFlow · UX mobile v3 · référence pour l'issue</title>
+<script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
+<style type="text/tailwindcss">
+@theme {
+    --radius-md: 0.625rem; --radius-lg: 0.625rem; --radius-xl: 0.75rem; --radius-2xl: 1rem;
+    --ease-soft: cubic-bezier(0.2, 0.8, 0.2, 1);
+    --shadow-card: 0 1px 2px rgba(28, 25, 23, 0.06);
+    --shadow-lift: 0 1px 2px rgba(28, 25, 23, 0.06), 0 8px 24px -12px rgba(28, 25, 23, 0.18);
+    --shadow-menu: 0 18px 40px -12px rgba(28, 25, 23, 0.28), 0 4px 10px -4px rgba(28, 25, 23, 0.14);
+    --color-ios-green: #34c759;
+    --color-ios-red: oklch(0.55 0.2 30);
+    --color-ios-orange-50: oklch(0.97 0.04 50);
+    --color-ios-orange-100: oklch(0.92 0.07 50);
+    --color-ios-orange: oklch(0.60 0.22 50);
+    --color-ios-orange-dark: oklch(0.48 0.16 50);
+    --color-warm-white: oklch(0.99 0.005 50);
+}
+body { font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", system-ui, sans-serif; -webkit-user-select: none; user-select: none; }
+.pressable { transition: transform 120ms var(--ease-soft), background-color 150ms, color 150ms, opacity 150ms; }
+.pressable:active { transform: scale(0.97); }
+.phone { width: 390px; height: 760px; border-radius: 48px; border: 10px solid #1c1917; overflow: hidden; position: relative; background: #1c1917; box-shadow: var(--shadow-menu); flex: none; }
+.notch { position: absolute; top: 0; left: 50%; transform: translateX(-50%); width: 120px; height: 30px; background: #1c1917; border-radius: 0 0 18px 18px; z-index: 90; }
+.screen { position: absolute; inset: 0; background: var(--color-warm-white); display: flex; flex-direction: column; overflow: hidden; }
+.topbar { display: flex; align-items: center; gap: 10px; padding: 44px 12px 10px 10px; background: var(--color-warm-white); border-bottom: 1px solid #e7e5e4; box-shadow: var(--shadow-card); min-height: 44px; position: relative; z-index: 5; }
+.section { padding: 8px 12px; font-size: 12px; font-weight: 500; color: #a8a29e; text-transform: uppercase; letter-spacing: .08em; }
+.row { width: 100%; display: flex; align-items: center; gap: 12px; padding: 0 12px; min-height: 48px; border-radius: 10px; text-align: left; }
+.row:active { background: #f5f5f4; }
+.rowt { font-size: 14px; font-weight: 500; color: #292524; }
+.rows { font-size: 12px; color: #a8a29e; }
+.card { background: var(--color-warm-white); border: 1px solid #e7e5e4; border-radius: 12px; padding: 16px; margin-bottom: 10px; }
+.chip { display: inline-flex; align-items: center; gap: 6px; height: 28px; padding: 0 10px; border-radius: 9999px; border: 1px solid #e7e5e4; background: var(--color-warm-white); font-size: 12px; font-weight: 500; color: #57534e; }
+.sep { height: 1px; background: #e7e5e4; margin: 8px 12px }
+@keyframes pulseSoft { 0%,100% { opacity: 1 } 50% { opacity: .4 } }
+@keyframes fadeInUp { from { transform: translateY(8px); opacity: 0 } to { transform: none; opacity: 1 } }
+@keyframes bubbleIn { from { opacity: 0; transform: scale(.92) translateY(8px) } to { opacity: 1; transform: none } }
+
+/* ===== B3 + burger "traits" ===== */
+.b-menu { position: absolute; inset: 0; background: #f5f5f4; padding: 56px 0 0; transition: transform 460ms var(--ease-soft), opacity 460ms var(--ease-soft); transform: translateX(-10%); opacity: .55; }
+.b-card { position: absolute; inset: 0; background: var(--color-warm-white); transition: transform 460ms var(--ease-soft), border-radius 460ms var(--ease-soft), box-shadow 460ms; will-change: transform; display: flex; flex-direction: column; overflow: hidden; }
+.b-stage.open .b-menu { transform: none; opacity: 1 }
+.b-stage.open .b-card { transform: translateX(82%); border-radius: 28px 0 0 28px; box-shadow: var(--shadow-menu) }
+.b-stage.dragging .b-card, .b-stage.dragging .b-menu { transition: none }
+.b-cover { position: absolute; inset: 0; pointer-events: none; z-index: 50 }
+.b-stage.open .b-cover { pointer-events: auto }
+/* the burger: two unequal strokes, big, always the same glyph; a glass pill blooms under the finger */
+.burger { position: relative; width: 44px; height: 44px; display: flex; align-items: center; justify-content: center; color: #292524; flex: none }
+.burger::before { content: ""; position: absolute; inset: 0; border-radius: 9999px; background: rgba(255,255,255,.55); border: 1px solid rgba(28,25,23,.08); backdrop-filter: blur(10px) saturate(1.3); -webkit-backdrop-filter: blur(10px) saturate(1.3); box-shadow: inset 0 1px 0 rgba(255,255,255,.8), 0 2px 8px -4px rgba(28,25,23,.25); transition: transform 320ms cubic-bezier(0.2, 0.9, 0.25, 1.2), background-color 200ms }
+.burger:active::before { transform: scale(.92); background: rgba(255,255,255,.8) }
+.burger svg { position: relative; z-index: 1 }
+.burger line { transition: transform 420ms var(--ease-soft) }
+.b-stage.open .burger .l1 { transform: translateX(3px) }
+.b-stage.open .burger .l2 { transform: translateX(-2px) }
+
+/* ===== composer capsule (shared) ===== */
+.nbar { position: absolute; left: 0; right: 0; bottom: 0; padding: 8px 12px 24px; background: var(--color-warm-white); border-top: 1px solid #e7e5e4; z-index: 30 }
+.stack { position: relative; min-height: 56px }
+.capsule { display: flex; align-items: flex-end; gap: 4px; padding: 6px; border-radius: 28px; background: #f5f5f4; border: 1px solid transparent; min-height: 56px; transition: background-color 180ms, border-color 180ms, box-shadow 180ms, opacity 200ms, transform 300ms var(--ease-soft) }
+.capsule.focus { background: var(--color-warm-white); border-color: var(--color-ios-orange-dark); box-shadow: 0 0 0 3px var(--color-ios-orange-50) }
+.capsule.hide { opacity: 0; transform: scale(.97); pointer-events: none }
+.capsule .ta { flex: 1; min-width: 0; min-height: 42px; padding: 11px 6px; font-size: 15px; color: #1c1917; line-height: 1.4; outline: none; white-space: pre-wrap }
+.capsule .ta:empty::before { content: attr(data-ph); color: #a8a29e }
+.r44 { width: 44px; height: 44px; border-radius: 9999px; display: flex; align-items: center; justify-content: center; flex: none; position: relative; overflow: hidden; color: #57534e; transition: background-color 220ms var(--ease-soft) }
+.r44 .ic { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; transition: transform 260ms cubic-bezier(0.2, 0.9, 0.25, 1.2), opacity 160ms }
+.r44.prim { background: var(--color-ios-orange); color: #fff }
+.r44.prim .ic.send { transform: scale(.4) rotate(-45deg); opacity: 0 }
+.r44.prim.has .ic.mic { transform: scale(.4) rotate(45deg); opacity: 0 } .r44.prim.has .ic.send { transform: none; opacity: 1 }
+.plus { width: 44px; height: 44px; border-radius: 9999px; display: flex; align-items: center; justify-content: center; color: #57534e; flex: none; transition: transform 280ms cubic-bezier(0.2, 0.9, 0.25, 1.2), background-color 180ms }
+.plus.on { transform: rotate(45deg); background: #e7e5e4 }
+/* voice capsule (screenshot 2), shared note + chat */
+.vcap { position: absolute; inset: 0; border-radius: 9999px; background: #1c1917; color: #fff; display: flex; align-items: center; gap: 6px; padding: 0 6px; box-shadow: var(--shadow-lift); transform-origin: right center; transition: transform 340ms cubic-bezier(0.2, 0.9, 0.25, 1.1), opacity 200ms, background-color 260ms, color 260ms, box-shadow 260ms; overflow: hidden }
+.vcap.hide { transform: scaleX(.3); opacity: 0; pointer-events: none }
+.vcap .ghost { width: 44px; height: 44px; border-radius: 9999px; border: 1px solid rgba(255,255,255,.18); display: flex; align-items: center; justify-content: center; color: #fff; flex: none }
+.vcap .stop { width: 44px; height: 44px; border-radius: 9999px; background: rgba(255,255,255,.14); display: flex; align-items: center; justify-content: center; flex: none }
+.vcap .stop i { display: block; width: 13px; height: 13px; border-radius: 3px; background: #fff }
+.vcap .go { width: 44px; height: 44px; border-radius: 9999px; background: var(--color-ios-orange); color: #fff; display: flex; align-items: center; justify-content: center; flex: none }
+.tl { flex: 1; min-width: 0; height: 28px; display: flex; align-items: center; justify-content: flex-end; overflow: hidden; -webkit-mask-image: linear-gradient(90deg, transparent, #000 12px, #000 100%) }
+.tl .dots { flex: 1; min-width: 0; height: 28px; display: flex; align-items: center; gap: 4px; overflow: hidden; justify-content: flex-end }
+.tl .dots i { display: block; width: 3px; height: 3px; border-radius: 9999px; background: rgba(255,255,255,.45); flex: none }
+.tl .bars { display: flex; align-items: center; gap: 2px; height: 28px; flex: none }
+.tl .bars i { display: block; width: 3px; border-radius: 9999px; background: rgba(255,255,255,.92); flex: none; animation: barIn 240ms var(--ease-soft) }
+@keyframes barIn { from { transform: scaleY(.2); opacity: 0 } to { opacity: 1 } }
+.vcap.light { background: var(--color-warm-white); color: #1c1917; border: 1px solid var(--color-ios-orange-dark); box-shadow: 0 0 0 3px var(--color-ios-orange-50) }
+.vcap.light .ghost { border-color: #e7e5e4; color: #57534e }
+.vcap .tx { flex: 1; min-width: 0; font-size: 14px; padding: 0 4px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis }
+.vcap .tr { flex: 1; text-align: center; font-size: 13px; color: rgba(255,255,255,.55); animation: pulseSoft 1.5s ease-in-out infinite }
+/* ===== the "+" popover with drill-down ===== */
+.pop { position: absolute; left: 8px; bottom: calc(100% + 6px); width: 330px; background: var(--color-warm-white); border: 1px solid #e7e5e4; border-radius: 16px; box-shadow: var(--shadow-menu); z-index: 40; transform-origin: 18px calc(100% + 8px); transform: scale(.6); opacity: 0; pointer-events: none; transition: transform 280ms cubic-bezier(0.2, 0.9, 0.25, 1.18), opacity 160ms; overflow: hidden }
+.pop.on { transform: none; opacity: 1; pointer-events: auto }
+.pop .pane { padding: 6px; transition: transform 300ms var(--ease-soft), opacity 240ms }
+.pop .pane.root.away { transform: translateX(-24px); opacity: 0; pointer-events: none; position: absolute; inset: 0 }
+.pop .pane.sub { position: absolute; inset: 0; transform: translateX(40px); opacity: 0; pointer-events: none; display: flex; flex-direction: column }
+.pop .pane.sub.in { transform: none; opacity: 1; pointer-events: auto; position: relative }
+.pop .it { opacity: 0; transform: translateY(6px); transition: opacity 220ms, transform 260ms var(--ease-soft) }
+.pop.on .root .it { opacity: 1; transform: none }
+.pop.on .root .it:nth-child(1){transition-delay:20ms}.pop.on .root .it:nth-child(2){transition-delay:40ms}.pop.on .root .it:nth-child(3){transition-delay:60ms}.pop.on .root .it:nth-child(4){transition-delay:80ms}.pop.on .root .it:nth-child(5){transition-delay:100ms}.pop.on .root .it:nth-child(6){transition-delay:120ms}.pop.on .root .it:nth-child(7){transition-delay:140ms}.pop.on .root .it:nth-child(8){transition-delay:160ms}.pop.on .root .it:nth-child(9){transition-delay:180ms}
+.sub .it { opacity: 1; transform: none }
+.subhead { display: flex; align-items: center; gap: 6px; padding: 4px 6px 4px 2px }
+.subhead .back { width: 36px; height: 36px; border-radius: 9999px; display: flex; align-items: center; justify-content: center; color: #57534e }
+.subhead .ttl { font-size: 14px; font-weight: 600; color: #292524 }
+.sublist { max-height: 296px; overflow-y: auto; padding: 0 6px 4px 0; scrollbar-width: thin; scrollbar-color: oklch(0.78 0.01 50 / 0.7) transparent }
+.sublist::-webkit-scrollbar { display: block; width: 4px } .sublist::-webkit-scrollbar-thumb { background: oklch(0.78 0.01 50 / 0.7); border-radius: 2px }
+.sw { position: relative; width: 44px; height: 24px; border-radius: 9999px; background: #d6d3d1; transition: background-color 200ms; flex: none }
+.sw i { position: absolute; top: 2px; left: 2px; width: 20px; height: 20px; border-radius: 9999px; background: #fff; box-shadow: 0 1px 2px rgba(0,0,0,.2); transition: transform 200ms }
+.sw.on { background: var(--color-ios-orange) } .sw.on i { transform: translateX(20px) }
+.tile { width: 28px; height: 28px; border-radius: 9999px; background: #f5f5f4; display: flex; align-items: center; justify-content: center; overflow: hidden; flex: none }
+.tile.exa { background: #1c1917 } .tile.exa img { width: 12px; height: 14px }
+.lead { width: 28px; height: 28px; display: flex; align-items: center; justify-content: center; color: #78716c; flex: none }
+/* ===== C3 ===== */
+.ub { align-self: flex-end; background: var(--color-ios-orange); color: #fff; border-radius: 16px 16px 4px 16px; padding: 10px 16px; max-width: 80%; font-size: 14px; line-height: 1.5; transform-origin: bottom right; animation: bubbleIn .32s cubic-bezier(0.2, 0.9, 0.25, 1.15) }
+.status { display: flex; align-items: center; gap: 8px; font-size: 12px; color: #78716c; height: 20px }
+.status .d { width: 6px; height: 6px; border-radius: 9999px; background: var(--color-ios-orange); animation: pulseSoft 1.2s ease-in-out infinite }
+.status .txt { transition: opacity 180ms, transform 220ms var(--ease-soft) }
+.status .txt.swp { opacity: 0; transform: translateY(4px) }
+.w { display: inline-block; white-space: pre; opacity: 0; transform: translateY(3px); transition: opacity 260ms, transform 320ms var(--ease-soft) }
+.w.on { opacity: 1; transform: none }
+.src { margin-top: 8px; border: 1px solid oklch(0.60 0.22 50 / .2); border-radius: 12px; padding: 6px 10px; font-size: 12px; color: #57534e; display: flex; align-items: center; gap: 8px; opacity: 0; transform: translateY(6px); transition: opacity 260ms, transform 320ms var(--ease-soft); min-height: 44px }
+.src.on { opacity: 1; transform: none }
+.src b { color: var(--color-ios-orange-dark); font-weight: 600 }
+.acts { display: flex; justify-content: flex-end; margin-top: 6px; opacity: 0; transition: opacity 300ms }
+.acts.on { opacity: 1 }
+.note { max-width: 390px; margin: 14px auto 0; font-size: 13px; color: #57534e; line-height: 1.5 }
+.note b { color: #1c1917 }
+.ctl { display: flex; gap: 8px; margin-top: 10px; flex-wrap: wrap; justify-content: center }
+.ctl button { min-height: 34px; padding: 0 14px; border-radius: 10px; background: var(--color-ios-orange); color: #fff; font-size: 12px; font-weight: 500 }
+.ctl button.s { background: #e7e5e4; color: #44403c }
+.tag { position: absolute; top: 14px; left: 14px; z-index: 95; font-size: 11px; font-weight: 600; letter-spacing: .06em; color: #fff; background: #1c1917; padding: 3px 8px; border-radius: 6px }
+</style>
+</head>
+<body class="bg-stone-100 text-stone-900">
+<header class="max-w-7xl mx-auto px-6 pt-10 pb-4">
+  <h1 class="text-2xl font-semibold">FlowFlow mobile v3 : référence pour l'issue</h1>
+  <p class="text-sm text-stone-500 mt-1 max-w-3xl">Ce qui a été retenu, aligné : burger « traits » grand et constant ; une capsule de saisie identique dans la note et le chat (« + », champ, bouton orange micro qui devient flèche) ; une capsule vocale identique une fois le micro activé ; un « + » identique avec sections en sous-menus qui défilent. Rien hors du design system.</p>
+</header>
+
+<main class="max-w-7xl mx-auto px-6 pb-20 space-y-16">
+
+<!-- ================= B ================= -->
+<section>
+  <h2 class="text-xs font-medium text-stone-400 uppercase tracking-[0.08em] mb-4">B · Carte sans réduction, burger « traits »</h2>
+  <div class="flex flex-wrap gap-8 justify-center items-start">
+    <div>
+      <div class="phone"><div class="notch"></div>
+        <div class="screen b-stage" id="b3">
+          <div class="b-menu">
+            <div class="flex items-center gap-2.5 px-6 pb-4"><img src="flowflow-icon-300.png" class="w-6 h-6" alt=""><span class="text-[15px] font-semibold tracking-[-0.01em]">FlowFlow</span></div>
+            <div class="px-4"><div class="row rowt text-ios-orange-dark">${PLUS} Nouvelle note</div><div class="row rowt bg-ios-orange-50 text-ios-orange-dark rounded-lg">Toutes mes notes</div><div class="section mt-2">Dossiers</div><div class="row rowt">Projets <span class="ml-auto rows">12</span></div><div class="row rowt">Perso <span class="ml-auto rows">4</span></div><div class="row rowt">Clients <span class="ml-auto rows">7</span></div><div class="section mt-2">Chats</div><div class="row rowt">Projet Marketplace</div><div class="row rowt">Onboarding</div></div>
+            <div class="absolute bottom-8 left-4 right-0 pr-4"><div class="row rowt text-stone-500">${GEAR} Réglages</div></div>
+          </div>
+          <div class="b-card" id="b3card">
+            <div class="topbar"><button class="burger" onclick="bTog('b3')">${BURGER}</button><span class="text-base font-semibold">Toutes mes notes</span></div>
+            <div class="p-4">${LIST}</div>
+            <div class="b-cover" onclick="bTog('b3')"></div>
+          </div>
+        </div>
+      </div>
+      <p class="note"><b>Burger</b> : deux traits inégaux, 28 px, toujours le même dessin ouvert ou fermé. Il vit en permanence dans un cercle translucide de 44 px (fond warm-white à 55 %, flou, liseré fin), même géométrie que les boutons ronds des barres ; à l'appui le cercle se contracte légèrement. <b>Appuie dessus</b>, ou glisse la carte.</p>
+    </div>
+  </div>
+</section>
+
+<!-- ================= N + C composer ================= -->
+<section>
+  <h2 class="text-xs font-medium text-stone-400 uppercase tracking-[0.08em] mb-4">N · C · La même capsule dans la note et dans le chat</h2>
+  <div class="flex flex-wrap gap-8 justify-center">
+
+    <div>
+      <div class="phone"><div class="notch"></div>
+        <div class="screen">
+          <div class="topbar"><button class="burger">${BACK}</button><span class="text-base font-semibold">Projets</span></div>
+          <div class="p-4"><h1 class="text-xl font-semibold leading-tight">Connecteur GitHub : App ou OAuth ?</h1><div class="text-xs text-stone-400 mt-1">2026-09-19 · 00:12</div><div class="mt-2 flex gap-1.5"><span class="chip">marketplace</span><span class="chip">github</span></div><p class="mt-4 text-sm text-stone-800 leading-relaxed">Idée : comparer GitHub App vs OAuth App pour le connecteur, en regardant scopes, durée des jetons, et ce que ça impose côté proxy.</p><p id="ntxt" class="mt-2 text-sm text-stone-800 leading-relaxed"></p></div>
+          <div class="nbar">
+            ${POP_NOTE}
+            <div class="flex items-end gap-2">
+              <div class="stack flex-1">
+                <div class="capsule" id="ncap">
+                  <button class="plus" id="nplus" onclick="pTog('n')">${PLUS}</button>
+                  <div class="ta" id="nta" contenteditable="true" data-ph="Ajouter à la note…" oninput="cIn('n')" onfocus="cF('n',true)" onblur="cF('n',false)"></div>
+                  <button class="r44 prim pressable" id="nprim" onclick="cPrim('n')"><span class="ic mic">${MIC}</span><span class="ic send">${ARROW}</span></button>
+                </div>
+                <div class="vcap hide" id="nv"></div>
+              </div>
+              <button class="r44 pressable bg-warm-white border border-ios-orange/25 text-ios-orange-dark" style="width:48px;height:48px;margin-bottom:4px">${CHAT}</button>
+            </div>
+          </div>
+        </div>
+      </div>
+      <p class="note"><b>Note</b> : la barre « + / Dicter / chat » devient la même capsule que le chat. Le champ ajoute du texte à la note (« Ajouter à la note… »), le bouton orange dicte à vide et envoie quand il y a du texte. La différence propre à la note reste : le bouton chat à droite, hors capsule, comme aujourd'hui. Le « + » n'affiche pas Outils (pas de recherche web sur une note).</p>
+      <div class="ctl"><button onclick="vStart('n')">Dicter</button><button class="s" onclick="pTog('n')">Ouvrir +</button></div>
+    </div>
+
+    <div>
+      <div class="phone"><div class="notch"></div>
+        <div class="screen">
+          <div class="topbar"><button class="burger">${BURGER}</button><span class="text-base font-semibold">Projet Marketplace</span></div>
+          <div class="flex-1 px-4 py-4 flex flex-col gap-4 overflow-hidden" id="cfeed">
+            <div class="ub" style="animation:none">On part sur quoi pour le connecteur GitHub ?</div>
+            <div class="flex items-start gap-2"><img src="flowflow-icon-300.png" class="w-5 h-5 mt-1 rounded-full" alt=""><div class="text-sm leading-relaxed">GitHub App : dépôts sélectionnés, permissions étroites, jeton court.</div></div>
+          </div>
+          <div class="nbar">
+            ${POP_CHAT}
+            <div class="stack">
+              <div class="capsule" id="ccap">
+                <button class="plus" id="cplus" onclick="pTog('c')">${PLUS}</button>
+                <div class="ta" id="cta" contenteditable="true" data-ph="Message…" oninput="cIn('c')" onfocus="cF('c',true)" onblur="cF('c',false)"></div>
+                <button class="r44 prim pressable" id="cprim" onclick="cPrim('c')"><span class="ic mic">${MIC}</span><span class="ic send">${ARROW}</span></button>
+              </div>
+              <div class="vcap hide" id="cv"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <p class="note"><b>Chat</b> : un seul bouton à droite, orange, micro à vide, flèche dès qu'on tape (le micro gris et l'onde faisaient deux fois le même travail). <b>Micro</b> : la capsule sombre (croix, pointillés, onde, carré, flèche) ; le carré arrête et pose le texte dans le champ pour relecture, la flèche envoie tel quel. <b>+</b> : Agents, Connecteurs et Outils ; Agents et Connecteurs ouvrent un sous-panneau qui glisse et <b>défile</b> (9 connecteurs ici), avec retour en haut et barre de défilement visible  ; la tuile Recherche web porte le logomark officiel Exa (exa.ai/brand, sablier, blanc sur fond stone-900). Recherche web et le rappel @ restent au premier niveau.</p>
+      <div class="ctl"><button class="s" onclick="cType()">Simuler la saisie</button><button onclick="vStart('c')">Dicter</button><button class="s" onclick="pTog('c')">Ouvrir +</button></div>
+    </div>
+
+    <div>
+      <div class="phone"><div class="notch"></div>
+        <div class="screen" id="c3">
+          <div class="topbar"><button class="burger">${BURGER}</button><span class="text-base font-semibold">Projet Marketplace</span></div>
+          <div class="flex-1 px-4 py-4 flex flex-col gap-4 overflow-hidden" id="c3feed"></div>
+          <div class="nbar"><div class="capsule"><button class="plus">${PLUS}</button><div class="ta" data-ph="Message…"></div><button class="r44 prim">${MIC}</button></div></div>
+        </div>
+      </div>
+      <p class="note"><b>Réponse</b> : bulle qui pousse depuis le coin, ligne d'état qui raconte, texte révélé mot à mot, accordéon de sources existant qui glisse dessous, actions en fondu. Inchangé depuis la v2.</p>
+      <div class="ctl"><button onclick="c3run()">Lancer la démo</button></div>
+    </div>
+  </div>
+</section>
+
+<section class="max-w-3xl">
+  <h2 class="text-xs font-medium text-stone-400 uppercase tracking-[0.08em] mb-3">Règles retenues pour l'issue</h2>
+  <div class="card text-sm text-stone-700 space-y-1.5">
+    <p><b>Un composant de capsule</b> monté dans la note et le chat, avec trois états (texte, vocal, relecture) et une seule différence de rôle : « ajouter à la note » contre « envoyer ». <b>Un composant de menu « + »</b> partagé, sections en sous-panneaux glissants et défilants ; la note n'affiche pas Outils. <b>Burger</b> : glyphe constant, pastille translucide au toucher.</p>
+    <p>Design system inchangé : couleurs (stone, ios-orange, warm-white), rayons, ombres (<code>shadow-lift</code>, <code>shadow-menu</code>), courbe <code>--ease-soft</code>, keyframes existants. Transform et opacité seulement. Aucun onglet, outil ou service qui n'existe pas déjà dans l'app.</p>
+  </div>
+</section>
+</main>
+
+<script>
+const I = {
+  BURGER: '<svg width="28" height="28" viewBox="0 0 28 28" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><line class="l1" x1="5" y1="10" x2="19" y2="10"/><line class="l2" x1="5" y1="18" x2="23" y2="18"/></svg>',
+  BACK: '<svg width="24" height="24" viewBox="0 0 256 256" fill="currentColor"><path d="M224 128a8 8 0 0 1-8 8H59.31l58.35 58.34a8 8 0 0 1-11.32 11.32l-72-72a8 8 0 0 1 0-11.32l72-72a8 8 0 0 1 11.32 11.32L59.31 120H216a8 8 0 0 1 8 8Z"/></svg>',
+  PLUS: '<svg width="22" height="22" viewBox="0 0 256 256" fill="currentColor"><path d="M224 128a8 8 0 0 1-8 8h-80v80a8 8 0 0 1-16 0v-80H40a8 8 0 0 1 0-16h80V40a8 8 0 0 1 16 0v80h80a8 8 0 0 1 8 8Z"/></svg>',
+  MIC: '<svg width="20" height="20" viewBox="0 0 256 256" fill="currentColor"><path d="M128 176a48.05 48.05 0 0 0 48-48V64a48 48 0 0 0-96 0v64a48.05 48.05 0 0 0 48 48ZM96 64a32 32 0 0 1 64 0v64a32 32 0 0 1-64 0Zm40 143.6V232a8 8 0 0 1-16 0v-24.4A80.11 80.11 0 0 1 48 128a8 8 0 0 1 16 0 64 64 0 0 0 128 0 8 8 0 0 1 16 0 80.11 80.11 0 0 1-72 79.6Z"/></svg>',
+  ARROW: '<svg width="20" height="20" viewBox="0 0 256 256" fill="currentColor"><path d="M205.66 117.66a8 8 0 0 1-11.32 0L136 59.31V216a8 8 0 0 1-16 0V59.31l-58.34 58.35a8 8 0 0 1-11.32-11.32l72-72a8 8 0 0 1 11.32 0l72 72a8 8 0 0 1 0 11.32Z"/></svg>',
+  CHAT: '<svg width="22" height="22" viewBox="0 0 256 256" fill="currentColor"><path d="M216 48H40a16 16 0 0 0-16 16v160a15.84 15.84 0 0 0 9.25 14.5A16.05 16.05 0 0 0 40 240a15.89 15.89 0 0 0 10.25-3.78l.09-.07L83 208h133a16 16 0 0 0 16-16V64a16 16 0 0 0-16-16Zm0 144H80a8 8 0 0 0-5.15 1.88L40 224V64h176Z"/></svg>',
+  CHECK: '<svg width="16" height="16" viewBox="0 0 256 256" fill="currentColor"><path d="M229.66 77.66l-128 128a8 8 0 0 1-11.32 0l-56-56a8 8 0 0 1 11.32-11.32L96 188.69 218.34 66.34a8 8 0 0 1 11.32 11.32Z"/></svg>',
+  X: '<svg width="18" height="18" viewBox="0 0 256 256" fill="currentColor"><path d="M205.66 194.34a8 8 0 0 1-11.32 11.32L128 139.31l-66.34 66.35a8 8 0 0 1-11.32-11.32L116.69 128 50.34 61.66a8 8 0 0 1 11.32-11.32L128 116.69l66.34-66.35a8 8 0 0 1 11.32 11.32L139.31 128Z"/></svg>',
+  AI: '<svg width="22" height="22" viewBox="0 0 256 256" fill="currentColor"><path d="M232.07,186.76a80,80,0,0,0-62.5-114.17A80,80,0,1,0,23.93,138.76l-7.27,24.71a16,16,0,0,0,19.87,19.87l24.71-7.27a80.39,80.39,0,0,0,25.18,7.35,80,80,0,0,0,108.34,40.65l24.71,7.27a16,16,0,0,0,19.87-19.86ZM62,159.5a8.28,8.28,0,0,0-2.26.32L32,168l8.17-27.76a8,8,0,0,0-.63-6,64,64,0,1,1,26.26,26.26A8,8,0,0,0,62,159.5Zm153.79,28.73L224,216l-27.76-8.17a8,8,0,0,0-6,.63,64.05,64.05,0,0,1-85.87-24.88A79.93,79.93,0,0,0,174.7,89.71a64,64,0,0,1,41.75,92.48A8,8,0,0,0,215.82,188.23Z"/></svg>',
+  GLOBE: '<svg width="22" height="22" viewBox="0 0 256 256" fill="currentColor"><path d="M128 24a104 104 0 1 0 104 104A104.11 104.11 0 0 0 128 24Zm88 104a87.6 87.6 0 0 1-3.33 24h-38.51a157.4 157.4 0 0 0 0-48h38.51a87.6 87.6 0 0 1 3.33 24Zm-114 40h52a115.1 115.1 0 0 1-26 45 115.3 115.3 0 0 1-26-45Zm-3.9-16a140.8 140.8 0 0 1 0-48h59.88a140.8 140.8 0 0 1 0 48ZM40 128a87.6 87.6 0 0 1 3.33-24h38.51a157.4 157.4 0 0 0 0 48H43.33A87.6 87.6 0 0 1 40 128Zm114-40h-52a115.1 115.1 0 0 1 26-45 115.3 115.3 0 0 1 26 45Z"/></svg>',
+  GEAR: '<svg width="18" height="18" viewBox="0 0 256 256" fill="currentColor"><path d="M128 80a48 48 0 1 0 48 48 48.05 48.05 0 0 0-48-48Zm0 80a32 32 0 1 1 32-32 32 32 0 0 1-32 32Zm88-29.84q.06-2.16 0-4.32l14.92-18.64a8 8 0 0 0 1.48-7.06 107.6 107.6 0 0 0-10.88-26.25 8 8 0 0 0-6-3.93l-23.72-2.64q-1.48-1.56-3-3L186 40.54a8 8 0 0 0-3.94-6 107.3 107.3 0 0 0-26.25-10.86 8 8 0 0 0-7.06 1.48L130.16 40h-4.32L107.2 25.11a8 8 0 0 0-7.06-1.48 107.6 107.6 0 0 0-26.25 10.88 8 8 0 0 0-3.93 6l-2.64 23.76q-1.56 1.49-3 3L40.54 70a8 8 0 0 0-6 3.94 107.7 107.7 0 0 0-10.87 26.25 8 8 0 0 0 1.49 7.06L40 125.84v4.32L25.11 148.8a8 8 0 0 0-1.48 7.06 107.6 107.6 0 0 0 10.88 26.25 8 8 0 0 0 6 3.93l23.72 2.64q1.49 1.56 3 3L70 215.46a8 8 0 0 0 3.94 6 107.7 107.7 0 0 0 26.25 10.87 8 8 0 0 0 7.06-1.49L125.84 216h4.32l18.64 14.92a8 8 0 0 0 7.06 1.48 107.2 107.2 0 0 0 26.25-10.88 8 8 0 0 0 3.93-6l2.64-23.72q1.56-1.48 3-3l23.78-2.8a8 8 0 0 0 6-3.94 107.7 107.7 0 0 0 10.87-26.25 8 8 0 0 0-1.49-7.06Z"/></svg>',
+  CHEV: '<svg width="16" height="16" viewBox="0 0 256 256" fill="currentColor"><path d="M181.66 133.66l-80 80a8 8 0 0 1-11.32-11.32L164.69 128 90.34 53.66a8 8 0 0 1 11.32-11.32l80 80a8 8 0 0 1 0 11.32Z"/></svg>',
+  CHEVD: '<svg width="16" height="16" viewBox="0 0 256 256" fill="currentColor"><path d="M213.66 101.66l-80 80a8 8 0 0 1-11.32 0l-80-80a8 8 0 0 1 11.32-11.32L128 164.69l74.34-74.35a8 8 0 0 1 11.32 11.32Z"/></svg>',
+  DOTS: '<svg width="18" height="18" viewBox="0 0 256 256" fill="currentColor"><path d="M140 128a12 12 0 1 1-12-12 12 12 0 0 1 12 12Zm56-12a12 12 0 1 0 12 12 12 12 0 0 0-12-12ZM60 116a12 12 0 1 0 12 12 12 12 0 0 0-12-12Z"/></svg>',
+  PLUG: '<svg width="22" height="22" viewBox="0 0 256 256" fill="currentColor"><path d="M104 40H56a16 16 0 0 0-16 16v48a16 16 0 0 0 16 16h48a16 16 0 0 0 16-16V56a16 16 0 0 0-16-16Zm0 64H56V56h48Zm96-64h-48a16 16 0 0 0-16 16v48a16 16 0 0 0 16 16h48a16 16 0 0 0 16-16V56a16 16 0 0 0-16-16Zm0 64h-48V56h48Zm-96 32H56a16 16 0 0 0-16 16v48a16 16 0 0 0 16 16h48a16 16 0 0 0 16-16v-48a16 16 0 0 0-16-16Zm0 64H56v-48h48Zm96-64h-48a16 16 0 0 0-16 16v48a16 16 0 0 0 16 16h48a16 16 0 0 0 16-16v-48a16 16 0 0 0-16-16Zm0 64h-48v-48h48Z"/></svg>',
+};
+I.LIST = `<div class="relative mb-3"><input class="w-full bg-warm-white border border-stone-200 rounded-xl pl-9 py-2.5 text-sm" placeholder="Rechercher"></div>
+<div class="section px-1">Aujourd'hui</div>
+<div class="card"><div class="text-base font-semibold">TypeSafe AI</div><div class="text-sm text-stone-600 mt-1">TypeSafe AI, jugement typé sur un état, choix / bool / score.</div><div class="text-xs text-stone-400 mt-2">2026-09-19 · 09:12</div></div>
+<div class="card"><div class="text-base font-semibold">Connecteur GitHub</div><div class="text-sm text-stone-600 mt-1">App ou OAuth ? Comparer scopes, durée des jetons, proxy.</div><div class="text-xs text-stone-400 mt-2">2026-09-19 · 00:12</div></div>
+<div class="section px-1 mt-2">Cette semaine</div>
+<div class="card"><div class="text-base font-semibold">Onboarding</div><div class="text-sm text-stone-600 mt-1">Invitations par email, demande Premium, liaison de compte.</div><div class="text-xs text-stone-400 mt-2">2026-09-16</div></div>
+<div class="card"><div class="text-base font-semibold">Hermes kit</div><div class="text-sm text-stone-600 mt-1">Guide publié, zip 19 Ko, à relier depuis les réglages.</div><div class="text-xs text-stone-400 mt-2">2026-09-15</div></div>`;
+
+// connectors from assets/connector-icons (real list), a few more to show scrolling
+const CONN = [['Gmail','gmail.svg',1],['Google Drive','google-drive.svg',1],['Google Sheets','google-sheets.svg',1],['Google Calendar','google-calendar.svg',1],['Google Docs','google-docs.svg',0],['Google Contacts','google-contacts.svg',0],['Google Tasks','google-tasks.svg',0],['Google Forms','google-forms.svg',0],['GitHub','github.svg',0]];
+const AGENTS = [['Fiche client','lance fiche-client'],['Résumé de dossier','lance resume-dossier'],['Relance email','lance relance']];
+function popHtml(id, withTools) {
+  const connRows = CONN.map(([n, f, on]) => `<button class="it row pressable"><span class="tile"><img src="${f}" class="w-[18px] h-[18px]" alt=""></span><span class="flex-1 min-w-0"><span class="rowt block">${n}</span><span class="rows block">${on ? 'Connecté' : 'Non connecté'}</span></span>${on ? `<span class="text-ios-orange">${I.CHECK}</span>` : ''}</button>`).join('');
+  const agentRows = AGENTS.map(([n, c]) => `<button class="it row pressable"><span class="lead">${I.AI}</span><span class="flex-1 min-w-0"><span class="rowt block">${n}</span><span class="rows block">${c}</span></span></button>`).join('');
+  const plug = `<span class="lead">${I.PLUG}</span>`;
+  return `<div class="pop" id="${id}pop">
+    <div class="pane root" id="${id}root">
+      <button class="it row pressable" onclick="pSub('${id}','agents')"><span class="lead">${I.AI}</span><span class="flex-1 min-w-0"><span class="rowt block">Agents</span><span class="rows block">${AGENTS.length} installés</span></span><span class="text-stone-300">${I.CHEV}</span></button>
+      <button class="it row pressable" onclick="pSub('${id}','conn')">${plug}<span class="flex-1 min-w-0"><span class="rowt block">Connecteurs</span><span class="rows block">${CONN.filter(c=>c[2]).length} connectés · ${CONN.length} disponibles</span></span><span class="text-stone-300">${I.CHEV}</span></button>
+      ${withTools ? `<div class="it sep"></div><button class="it row pressable" onclick="document.getElementById('${id}sw').classList.toggle('on')"><span class="tile exa"><img src="exa-mark.svg" alt=""></span><span class="flex-1 min-w-0"><span class="rowt block">Recherche web</span><span class="rows block">Résultats du web mêlés à tes notes</span></span><span class="sw" id="${id}sw"><i></i></span></button>` : ''}
+      <div class="it flex items-center gap-1.5 px-3 pt-2 pb-1 text-xs text-stone-400"><span class="px-1.5 py-0.5 rounded bg-stone-200 border border-stone-300 text-stone-600 font-mono text-[11px]">@</span><span>mentionner une note</span></div>
+    </div>
+    <div class="pane sub" id="${id}sub-agents"><div class="subhead"><button class="back pressable" onclick="pBack('${id}')">${I.BACK}</button><span class="ttl">Agents</span></div><div class="sublist">${agentRows}</div></div>
+    <div class="pane sub" id="${id}sub-conn"><div class="subhead"><button class="back pressable" onclick="pBack('${id}')">${I.BACK}</button><span class="ttl">Connecteurs</span></div><div class="sublist">${connRows}<div class="it row"><span class="rows">Gérer dans Réglages › Connexions</span></div></div></div>
+  </div>`;
+}
+I.POP_NOTE = popHtml('n', false); I.POP_CHAT = popHtml('c', true);
+document.body.innerHTML = document.body.innerHTML.replace(/\$\{(\w+)\}/g, (_, k) => I[k] ?? '');
+
+// ---------- B ----------
+function bTog(id) { document.getElementById(id).classList.toggle('open'); }
+{
+  const stage = document.getElementById('b3'), card = document.getElementById('b3card'), menu = stage.querySelector('.b-menu'); const MAX = 390 * .82; let sx = null, x0 = 0;
+  const apply = p => { p = Math.max(0, Math.min(1, p)); card.style.transform = `translateX(${MAX * p}px)`; card.style.borderRadius = `${28 * p}px 0 0 ${28 * p}px`; menu.style.transform = `translateX(${-10 * (1 - p)}%)`; menu.style.opacity = .55 + .45 * p; };
+  card.addEventListener('pointerdown', e => { sx = e.clientX; x0 = stage.classList.contains('open') ? 1 : 0; });
+  card.addEventListener('pointermove', e => { if (sx === null) return; const dx = e.clientX - sx; if (Math.abs(dx) < 6) return; stage.classList.add('dragging'); apply(x0 + dx / MAX); });
+  const end = e => { if (sx === null) return; const dx = e.clientX - sx; const dragged = stage.classList.contains('dragging'); sx = null; stage.classList.remove('dragging'); card.style.transform = card.style.borderRadius = menu.style.transform = menu.style.opacity = ''; if (dragged) stage.classList.toggle('open', (x0 + dx / MAX) > .5); };
+  ['pointerup', 'pointercancel', 'pointerleave'].forEach(ev => card.addEventListener(ev, end));
+}
+
+// ---------- popover ----------
+function pTog(id) { const p = document.getElementById(id + 'pop'); p.classList.toggle('on'); document.getElementById(id + 'plus').classList.toggle('on'); if (!p.classList.contains('on')) setTimeout(() => pBack(id), 200); }
+function pSub(id, which) { document.getElementById(id + 'root').classList.add('away'); document.getElementById(id + 'sub-' + which).classList.add('in'); }
+function pBack(id) { document.getElementById(id + 'root').classList.remove('away'); document.querySelectorAll('#' + id + 'pop .sub').forEach(s => s.classList.remove('in')); }
+
+// ---------- capsule ----------
+const TRANSCRIPT = 'Points à creuser : installation par dépôt, refresh, révocation, ce que Google fait déjà chez nous.';
+function cF(id, on) { document.getElementById(id + 'cap').classList.toggle('focus', on); }
+function cIn(id) { document.getElementById(id + 'prim').classList.toggle('has', document.getElementById(id + 'ta').textContent.trim().length > 0); }
+function cType() { const ta = document.getElementById('cta'); ta.textContent = ''; cF('c', true); const txt = 'Compare les deux approches et propose 3 issues'; let i = 0; const t = setInterval(() => { ta.textContent = txt.slice(0, ++i); cIn('c'); if (i >= txt.length) clearInterval(t); }, 28); }
+function cCommit(id, text) {
+  if (id === 'n') { const p = document.getElementById('ntxt'); p.textContent = text; p.style.animation = 'fadeInUp .3s var(--ease-soft)'; }
+  else { const f = document.getElementById('cfeed'); const ub = document.createElement('div'); ub.className = 'ub'; ub.textContent = text; f.appendChild(ub); }
+}
+function cPrim(id) { const ta = document.getElementById(id + 'ta'); const t = ta.textContent.trim(); if (!t) { vStart(id); return; } cCommit(id, t); ta.textContent = ''; cIn(id); cF(id, false); }
+
+// ---------- voice capsule (shared) ----------
+const V = {};
+function vEl(id) { return document.getElementById(id + 'v'); }
+function vRender(id, mode) {
+  const cap = vEl(id);
+  if (mode === 'rec') cap.innerHTML = `<button class="ghost pressable" onclick="vEnd('${id}')">${I.X}</button><div class="tl"><div class="dots" id="${id}dots"></div><div class="bars" id="${id}bars"></div></div><button class="stop pressable" onclick="vStop('${id}')"><i></i></button><button class="go pressable" onclick="vSend('${id}')">${I.ARROW}</button>`;
+  if (mode === 'trans') cap.innerHTML = `<button class="ghost" style="opacity:.4">${I.X}</button><div class="tr">Transcription…</div><span class="stop" style="opacity:.4"><i></i></span><span class="go" style="opacity:.4">${I.ARROW}</span>`;
+}
+function vStart(id) {
+  if (V[id]) return; V[id] = { t: 0 }; const cap = vEl(id); cap.classList.remove('light'); vRender(id, 'rec'); cap.classList.remove('hide'); document.getElementById(id + 'cap').classList.add('hide');
+  const dots = document.getElementById(id + 'dots'), bars = document.getElementById(id + 'bars'); for (let i = 0; i < 60; i++) dots.appendChild(document.createElement('i'));
+  V[id].iv = setInterval(() => { const b = document.createElement('i'); b.style.height = (4 + Math.round(Math.abs(Math.sin(V[id].t * .9) * 14 + Math.sin(V[id].t * 2.3) * 6 + Math.random() * 6))) + 'px'; bars.appendChild(b); V[id].t++; if (bars.children.length > 34) bars.removeChild(bars.firstChild); }, 90);
+}
+function vEnd(id) { clearInterval(V[id]?.iv); vEl(id).classList.add('hide'); document.getElementById(id + 'cap').classList.remove('hide'); V[id] = null; }
+function vStop(id) { clearInterval(V[id].iv); vRender(id, 'trans'); setTimeout(() => { vEnd(id); const ta = document.getElementById(id + 'ta'); ta.textContent = TRANSCRIPT; cIn(id); cF(id, true); }, 1400); }
+function vSend(id) { clearInterval(V[id].iv); vRender(id, 'trans'); setTimeout(() => { cCommit(id, TRANSCRIPT); vEnd(id); }, 1200); }
+
+// ---------- C3 ----------
+function c3run() {
+  const f = document.getElementById('c3feed'); f.innerHTML = '';
+  const ub = document.createElement('div'); ub.className = 'ub'; ub.textContent = 'Qu\'est-ce que j\'ai noté sur le connecteur GitHub ?'; f.appendChild(ub);
+  const row = document.createElement('div'); row.className = 'flex items-start gap-2'; row.style.animation = 'fadeInUp .2s var(--ease-soft)';
+  row.innerHTML = `<img src="flowflow-icon-300.png" class="w-5 h-5 mt-1 rounded-full" alt=""><div class="min-w-0 flex-1"><div class="status"><span class="d"></span><span class="txt" id="c3st">Recherche dans tes notes…</span></div><div class="text-sm leading-relaxed" id="c3ans"></div><div class="src" id="c3src"><b>2 sources</b><span>Connecteur GitHub · Onboarding</span><span class="ml-auto text-stone-300">${I.CHEVD}</span></div><div class="acts" id="c3acts"><button class="w-8 h-8 flex items-center justify-center rounded-full text-stone-400">${I.DOTS}</button></div></div>`;
+  setTimeout(() => f.appendChild(row), 350);
+  const st = t => { const el = document.getElementById('c3st'); el.classList.add('swp'); setTimeout(() => { el.textContent = t; el.classList.remove('swp'); }, 180); };
+  setTimeout(() => st('3 notes trouvées, je lis…'), 1500); setTimeout(() => st('2 notes retenues'), 2600);
+  const words = 'Tu as deux notes : « Connecteur GitHub » compare GitHub App et OAuth App et penche pour l\'App (dépôts choisis, jeton court, révocable). « Onboarding » mentionne que la connexion GitHub doit passer par les réglages, pas par l\'onboarding.'.split(' ');
+  setTimeout(() => { const a = document.getElementById('c3ans'); document.querySelector('#c3 .status').style.display = 'none'; words.forEach((w, i) => { const s = document.createElement('span'); s.className = 'w'; s.textContent = w + ' '; a.appendChild(s); setTimeout(() => s.classList.add('on'), i * 42); }); setTimeout(() => { document.getElementById('c3src').classList.add('on'); setTimeout(() => document.getElementById('c3acts').classList.add('on'), 250); }, words.length * 42 + 200); }, 3300);
+}
+</script>
+</body>
+</html>

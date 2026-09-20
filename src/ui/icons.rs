@@ -489,6 +489,7 @@ pub fn ConnectorIcon(
         }
         "google-tasks" => asset!("/assets/connector-icons/google-tasks.svg"),
         "google-gmail" | "gmail" => asset!("/assets/connector-icons/gmail.svg"),
+        "github" => asset!("/assets/connector-icons/github.svg"),
         _ => return rsx! { IconLink { size } },
     };
     rsx! {

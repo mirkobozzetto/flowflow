@@ -85,13 +85,17 @@ pub async fn run_agent_chain(
     >,
 ) -> Result<ChainOutcome, String> {
     crate::application::agent_directory::ensure_installed(db, agent_id).await?;
-    let scoped = db.get_installed_agent(agent_id)
-        .and_then(|row| serde_json::from_str::<serde_json::Value>(&row.manifest_json).ok())
+    let scoped = db
+        .get_installed_agent(agent_id)
+        .and_then(|row| {
+            serde_json::from_str::<serde_json::Value>(&row.manifest_json).ok()
+        })
         .is_some_and(|manifest| manifest["schema_version"] == "2");
     if scoped {
         return crate::application::chain::native::run_installed_native_chain(
             db, agent_id, chain_name, goal, events,
-        ).await;
+        )
+        .await;
     }
     let built = load_built(db, agent_id)?;
     let chain = built

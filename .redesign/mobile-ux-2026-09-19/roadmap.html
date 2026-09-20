@@ -1,0 +1,313 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>FlowFlow · Feuille de route mobile, Hermes, vérification web</title>
+<script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
+<style type="text/tailwindcss">
+@theme {
+    --color-ios-orange-50: oklch(0.97 0.04 50);
+    --color-ios-orange-100: oklch(0.92 0.07 50);
+    --color-ios-orange: oklch(0.60 0.22 50);
+    --color-ios-orange-dark: oklch(0.48 0.16 50);
+    --color-warm-white: oklch(0.99 0.005 50);
+    --color-ios-green: #34c759;
+    --shadow-card: 0 1px 2px rgba(28, 25, 23, 0.06);
+}
+body { font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", system-ui, sans-serif }
+.card { background: var(--color-warm-white); border: 1px solid #e7e5e4; border-radius: 12px; box-shadow: var(--shadow-card) }
+.k { font-size: 11px; font-weight: 600; letter-spacing: .08em; text-transform: uppercase; color: #a8a29e }
+pre { background: #1c1917; color: #f5f5f4; border-radius: 10px; padding: 12px 14px; font-size: 12.5px; line-height: 1.55; white-space: pre-wrap; word-break: break-word; position: relative }
+pre .cp { position: absolute; top: 8px; right: 8px; font-size: 11px; font-weight: 500; color: #a8a29e; background: rgba(255,255,255,.08); border-radius: 6px; padding: 3px 8px; cursor: pointer }
+pre .cp:hover { color: #fff }
+.pill { display: inline-flex; align-items: center; gap: 6px; height: 24px; padding: 0 9px; border-radius: 9999px; font-size: 12px; font-weight: 500; border: 1px solid #e7e5e4; background: var(--color-warm-white); color: #57534e }
+.pill.o { border-color: oklch(0.60 0.22 50 / .35); background: var(--color-ios-orange-50); color: var(--color-ios-orange-dark) }
+.pill.g { border-color: #34c75955; background: #34c75914; color: #1f7a3a }
+.step { display: grid; grid-template-columns: 44px 1fr; gap: 14px }
+.num { width: 36px; height: 36px; border-radius: 9999px; background: var(--color-ios-orange); color: #fff; font-weight: 600; display: flex; align-items: center; justify-content: center; font-size: 14px }
+.num.s { background: #e7e5e4; color: #44403c }
+details summary { cursor: pointer; list-style: none } details summary::-webkit-details-marker { display: none }
+.chk { display: flex; gap: 10px; align-items: flex-start; padding: 6px 0; font-size: 13.5px; color: #44403c }
+.chk input { margin-top: 3px; accent-color: oklch(0.60 0.22 50) }
+a { color: var(--color-ios-orange-dark) }
+</style>
+</head>
+<body class="bg-stone-100 text-stone-900">
+<header class="max-w-4xl mx-auto px-6 pt-12 pb-6">
+  <div class="k mb-2">FlowFlow · 2026-09-19</div>
+  <h1 class="text-3xl font-semibold tracking-tight">Feuille de route : coque mobile, Hermes, vérification web</h1>
+  <p class="text-stone-600 mt-3 max-w-2xl">À ouvrir depuis une conversation vierge. Chaque étape dit quoi lancer, avec quelle skill, et ce qu'il faut tester avant de passer à la suivante. Une étape à la fois, jamais tout d'un coup.</p>
+  <div class="flex flex-wrap gap-2 mt-4">
+    <span class="pill">Maquette UX retenue : <code>.redesign/mobile-ux-2026-09-19/v3.html</code></span>
+    <span class="pill">Maquette Hermes (non validée) : <code>.redesign/hermes-2026-09-19/index.html</code></span>
+    <span class="pill">Ce fichier : <code>.redesign/mobile-ux-2026-09-19/roadmap.html</code></span>
+  </div>
+</header>
+
+<main class="max-w-4xl mx-auto px-6 pb-24 space-y-10">
+
+<!-- ===== règles ===== -->
+<section class="card p-6">
+  <div class="k mb-3">Règles valables pour toutes les étapes</div>
+  <ul class="space-y-2 text-sm text-stone-700 list-disc pl-5">
+    <li><b>Design system inchangé.</b> Couleurs, rayons, ombres, courbes et keyframes viennent de <code>flowflow/tailwind.css</code>. Aucune couleur inventée, aucun nouveau rayon, aucune ombre teintée hors <code>shadow-card</code> / <code>shadow-lift</code> / <code>shadow-menu</code>.</li>
+    <li><b>Desktop à jour au fur et à mesure.</b> Chaque composant partagé (capsule, menu <code>+</code>, burger) a son rendu macOS dans la même PR, adapté (popover au lieu de feuille, sidebar statique au lieu de carte), même système. On ne livre pas un mobile beau et un desktop cassé.</li>
+    <li><b>Une issue = une branche = un test réel.</b> Build iOS sur ton iPhone (<code>make ios</code> ou <code>dx serve</code> selon le Makefile) et build macOS avant de dire « fait ». Une capture d'écran par état clé dans le commentaire de l'issue.</li>
+    <li><b>Rien d'inventé.</b> Pas d'onglet, d'outil ou de service qui n'existe pas déjà dans l'app. Les issues listent ce qui existe.</li>
+    <li><b>Pas de label sur les issues</b>, pas de <code>claude-memory</code>.</li>
+    <li>Commits en anglais, Conventional Commits, sans signature générée.</li>
+  </ul>
+</section>
+
+<!-- ===== comment lancer ===== -->
+<section class="card p-6">
+  <div class="k mb-3">Comment lancer une étape (depuis une conversation vierge, dans le bon repo)</div>
+  <div class="grid md:grid-cols-3 gap-4 text-sm">
+    <div><div class="font-semibold text-stone-800 mb-1">1 · Reprendre le contexte</div><p class="text-stone-600">La skill <b>issue</b> reconstruit l'état depuis GitHub, pas depuis la mémoire. Toujours commencer par là.</p></div>
+    <div><div class="font-semibold text-stone-800 mb-1">2 · Implémenter</div><p class="text-stone-600"><b>/ship</b> est l'implémenteur par défaut pour une spec arrêtée : il travaille seul, fait le plus petit changement suffisant, vérifie, s'arrête.</p></div>
+    <div><div class="font-semibold text-stone-800 mb-1">3 · Tester puis tracer</div><p class="text-stone-600">Tu testes sur iPhone et Mac. Ensuite la skill <b>issue</b> en mode <code>update</code> consigne ce qui a été fait et ce qui reste.</p></div>
+  </div>
+  <p class="text-xs text-stone-500 mt-4">Si tu veux qu'Arsenal choisisse lui-même la skill, lance <code>/arsenal</code> avec la même phrase : il routera vers issue puis ship. Les prompts ci-dessous appellent directement la skill utile pour éviter un aller-retour.</p>
+</section>
+
+<!-- ===== Phase 1 ===== -->
+<section>
+  <div class="flex items-baseline gap-3 mb-4"><span class="k">Phase 1</span><h2 class="text-xl font-semibold">La coque mobile (repo <code>flowflow</code>)</h2></div>
+  <p class="text-sm text-stone-600 mb-5 max-w-2xl">Trois composants partagés. Ils se font dans cet ordre parce que la capsule (#178) reçoit le menu (#179), et que le burger (#177) est indépendant. À la fin : une seule barre, un seul menu, un seul geste de navigation, sur iPhone et sur Mac.</p>
+
+  <!-- 1 -->
+  <div class="card p-6 mb-4">
+    <div class="step">
+      <div class="num">1</div>
+      <div>
+        <div class="flex flex-wrap items-center gap-2 mb-1"><h3 class="font-semibold text-lg">Menu <code>+</code> : popover ancré, sous-panneaux Agents / Connecteurs</h3><a class="pill o" href="https://github.com/mirkobozzetto/flowflow/issues/179" target="_blank">flowflow #179</a><span class="pill">skill: issue → ship</span></div>
+        <p class="text-sm text-stone-600 mb-3">Le composant que les deux suivants réutilisent. Se construit derrière les flags existants <code>show_tools_menu</code> / <code>show_note_tools_menu</code>, donc sans toucher aux barres. Ajoute le logomark Exa dans <code>assets/</code>.</p>
+        <div class="k mb-1">Prompt à lancer (cwd : ~/code/flowflow)</div>
+<pre><span class="cp" onclick="cp(this)">copier</span>/issue resume #179
+
+Puis, une fois le contexte relu :
+
+/ship Implémente flowflow #179 telle qu'elle est écrite, en suivant la maquette .redesign/mobile-ux-2026-09-19/v3.html (écrans N et C, le menu +). Contraintes : design system strict (tailwind.css), transform/opacité seulement, rien qui n'existe pas déjà dans l'app. iOS : popover ancré au + avec sous-panneaux glissants et liste défilante à barre visible. macOS : même composant, même contenu, dans le popover desktop existant (tools_menu.rs branche non-iOS). Ajoute assets/exa-mark.svg (logomark officiel, voir le commentaire de l'issue). Ne touche pas aux barres de saisie ni au RAG. Termine par un build iOS et un build macOS, et dis-moi exactement quoi tester.</pre>
+        <details class="mt-3"><summary class="text-sm font-medium text-ios-orange-dark">À tester avant de passer à l'étape 2</summary>
+          <div class="mt-2">
+            <label class="chk"><input type="checkbox"> iPhone chat : tap <code>+</code> → popover depuis le bouton, le fil reste visible, le <code>+</code> pivote.</label>
+            <label class="chk"><input type="checkbox"> Lignes Agents › et Connecteurs › avec compteurs ; Recherche web avec interrupteur et logo Exa ; rappel @.</label>
+            <label class="chk"><input type="checkbox"> Connecteurs › : sous-panneau qui glisse, liste qui défile avec barre visible, dernière ligne vers Réglages › Connexions, retour.</label>
+            <label class="chk"><input type="checkbox"> iPhone note : même menu sans la section Outils.</label>
+            <label class="chk"><input type="checkbox"> Mac chat et note : même contenu dans le popover desktop, alignement des icônes à 28 px.</label>
+            <label class="chk"><input type="checkbox"> Fermer puis rouvrir : revient à la racine.</label>
+          </div>
+        </details>
+        <div class="k mt-4 mb-1">Après test</div>
+<pre><span class="cp" onclick="cp(this)">copier</span>/issue update #179 : testé sur iPhone et Mac, [ce qui marche], [ce qui reste]. Ajoute les captures.</pre>
+      </div>
+    </div>
+  </div>
+
+  <!-- 2 -->
+  <div class="card p-6 mb-4">
+    <div class="step">
+      <div class="num">2</div>
+      <div>
+        <div class="flex flex-wrap items-center gap-2 mb-1"><h3 class="font-semibold text-lg">Composer : une capsule pour la note et le chat, capsule vocale</h3><a class="pill o" href="https://github.com/mirkobozzetto/flowflow/issues/178" target="_blank">flowflow #178</a><span class="pill">skill: issue → ship</span><span class="pill">le plus gros morceau</span></div>
+        <p class="text-sm text-stone-600 mb-3">Fusion de <code>recording/bar.rs</code>, <code>recording/controls.rs</code> et <code>chat/chat_input.rs</code> en un composant <code>Composer</code> (rôle AppendToNote | SendMessage) et un <code>VoiceCapsule</code>. Le <code>+</code> de l'étape 1 s'y branche.</p>
+        <div class="k mb-1">Prompt à lancer</div>
+<pre><span class="cp" onclick="cp(this)">copier</span>/issue resume #178
+
+/ship Implémente flowflow #178 en suivant la maquette .redesign/mobile-ux-2026-09-19/v3.html (écrans N et C, et la capsule sombre). Un seul composant Composer avec un rôle (note : ajoute à la note ; chat : envoie) et un seul composant VoiceCapsule (enregistre, transcrit, relit, envoie), montés dans la note et le chat. Un seul bouton orange à droite : micro à vide, flèche avec du texte. Supprime le micro gris et l'ancienne pilule Dicter. Garde le bouton d'entrée chat de la note hors capsule, et garde le bouton thread accessible. Ne change rien à la transcription, au stockage audio ni au TranscriptionManager. macOS : même capsule, mêmes états, largeur max-w-3xl comme aujourd'hui. Vérifie avec le clavier iOS ouvert. Build iOS + macOS, puis dis-moi quoi tester.</pre>
+        <details class="mt-3"><summary class="text-sm font-medium text-ios-orange-dark">À tester avant de passer à l'étape 3</summary>
+          <div class="mt-2">
+            <label class="chk"><input type="checkbox"> Note et chat : même capsule (<code>+</code>, champ, bouton orange 44 px).</label>
+            <label class="chk"><input type="checkbox"> Champ vide → micro ; je tape → flèche (rotation) ; focus → fond blanc, anneau orange.</label>
+            <label class="chk"><input type="checkbox"> Micro → capsule sombre depuis la droite ; croix annule ; carré → « Transcription… » → texte dans le champ ; flèche → envoi/ajout direct.</label>
+            <label class="chk"><input type="checkbox"> Note : « Ajouter à la note… », le texte se retrouve dans le corps ; bouton chat à droite hors capsule.</label>
+            <label class="chk"><input type="checkbox"> Clavier iOS ouvert : la capsule suit, rien ne se chevauche.</label>
+            <label class="chk"><input type="checkbox"> Mac : même capsule ; Entrée envoie, Maj+Entrée saute une ligne, comme avant.</label>
+            <label class="chk"><input type="checkbox"> Dictée longue (2 min) : pas de perte, transcription arrive.</label>
+          </div>
+        </details>
+        <div class="k mt-4 mb-1">Après test</div>
+<pre><span class="cp" onclick="cp(this)">copier</span>/issue update #178 : testé sur iPhone et Mac, [ce qui marche], [ce qui reste].</pre>
+      </div>
+    </div>
+  </div>
+
+  <!-- 3 -->
+  <div class="card p-6 mb-4">
+    <div class="step">
+      <div class="num">3</div>
+      <div>
+        <div class="flex flex-wrap items-center gap-2 mb-1"><h3 class="font-semibold text-lg">Sidebar en carte, burger « traits » dans son cercle</h3><a class="pill o" href="https://github.com/mirkobozzetto/flowflow/issues/177" target="_blank">flowflow #177</a><span class="pill">skill: issue → ship</span><span class="pill">indépendant, peut se faire avant 2</span></div>
+        <p class="text-sm text-stone-600 mb-3">iOS seulement pour la carte ; le burger (deux traits, cercle translucide permanent) s'applique aussi sur Mac quand la sidebar est repliée, s'il y a un tel état, sinon rien à faire côté desktop.</p>
+        <div class="k mb-1">Prompt à lancer</div>
+<pre><span class="cp" onclick="cp(this)">copier</span>/issue resume #177
+
+/ship Implémente flowflow #177 selon la maquette .redesign/mobile-ux-2026-09-19/v3.html (écran B) et les commentaires de l'issue. iOS : la vue principale devient une carte qui glisse à 82 % sans réduction, coins 28 px côté visible, shadow-menu, menu révélé dessous, drag qui suit le doigt avec snap à 50 %, tap sur la carte pour fermer, edge swipe conservé. Burger : deux traits inégaux 28 px, glyphe constant, cercle translucide 44 px permanent (warm-white 55 % + flou + liseré), qui se contracte à l'appui. Pas de logo dans le glyphe. macOS : sidebar statique inchangée ; si un bouton burger existe sur Mac, applique le même glyphe et le même cercle. Reduced motion : bascule instantanée. Build iOS + macOS, puis dis-moi quoi tester.</pre>
+        <details class="mt-3"><summary class="text-sm font-medium text-ios-orange-dark">À tester</summary>
+          <div class="mt-2">
+            <label class="chk"><input type="checkbox"> Tap burger : la carte s'écarte, le menu était dessous, pas de voile noir.</label>
+            <label class="chk"><input type="checkbox"> Glisser la carte : elle suit, claque en place ou revient.</label>
+            <label class="chk"><input type="checkbox"> Burger identique ouvert/fermé, cercle toujours là, contraction à l'appui.</label>
+            <label class="chk"><input type="checkbox"> Clavier ouvert puis burger : pas de saut de mise en page.</label>
+            <label class="chk"><input type="checkbox"> Mac : rien ne bouge (sidebar statique), ou même glyphe si burger présent.</label>
+          </div>
+        </details>
+        <div class="k mt-4 mb-1">Après test</div>
+<pre><span class="cp" onclick="cp(this)">copier</span>/issue update #177 : testé sur iPhone et Mac, [ce qui marche], [ce qui reste].</pre>
+      </div>
+    </div>
+  </div>
+
+  <div class="card p-5 bg-ios-orange-50/60 border-ios-orange-100">
+    <div class="k mb-1">Point de contrôle fin de phase 1</div>
+    <p class="text-sm text-stone-700">Ouvre <code>.redesign/mobile-ux-2026-09-19/v3.html</code> à côté de l'app sur iPhone, puis sur Mac. Si un écart te gêne, ne le corrige pas dans la foulée : rouvre l'issue concernée avec <code>/issue update</code> et un « écart constaté ». Ensuite seulement, phase 2.</p>
+  </div>
+</section>
+
+<!-- ===== Phase 2 ===== -->
+<section>
+  <div class="flex items-baseline gap-3 mb-4"><span class="k">Phase 2</span><h2 class="text-xl font-semibold">Hermes dans le chat (repos <code>marketplace-flowflow</code> puis <code>flowflow</code>)</h2></div>
+  <p class="text-sm text-stone-600 mb-5 max-w-2xl">On commence par une preuve à la main, sans code. Si la boucle « je dépose une note, Hermes répond dans le dossier » ne rend pas service, on s'arrête là et on n'a rien codé.</p>
+
+  <!-- 4 -->
+  <div class="card p-6 mb-4">
+    <div class="step">
+      <div class="num s">4</div>
+      <div>
+        <div class="flex flex-wrap items-center gap-2 mb-1"><h3 class="font-semibold text-lg">Palier 0 : la boucle à la main</h3><a class="pill o" href="https://github.com/mirkobozzetto/marketplace-flowflow/issues/113" target="_blank">marketplace #113</a><span class="pill g">zéro code</span><span class="pill">skill: issue, puis verify-hermes-skills-and-cron</span></div>
+        <p class="text-sm text-stone-600 mb-3">Dossier « Boîte Hermes » dans ton espace, une note-consigne déposée depuis l'app, une règle de skill côté Hermes VPS qui répond par <code>put_note</code>. Mesure la cadence de <code>pull_changes</code> : c'est ce qui décide si le palier 2 (push) est nécessaire.</p>
+        <div class="k mb-1">Prompt à lancer (cwd : ~/code/marketplace-flowflow)</div>
+<pre><span class="cp" onclick="cp(this)">copier</span>/issue resume marketplace-flowflow #113
+
+Fais le palier 0 avec moi, sans coder : (1) dis-moi quoi créer dans l'app (dossier, note, texte de consigne) ; (2) écris la règle de skill à déposer dans ~/.hermes/skills/ sur le VPS pour que Hermes traite une note de « Boîte Hermes » comme une consigne et réponde par put_note dans le même dossier, en citant l'id de la demande ; (3) prouve que la skill est chargée et mesure à quelle fréquence mon Hermes tire pull_changes (skill verify-hermes-skills-and-cron). Rappel : hermes = celui du VPS, via hermes -c &lt;fil&gt; -z "...", jamais l'instance locale. Ne touche pas au code du backend.</pre>
+        <details class="mt-3"><summary class="text-sm font-medium text-ios-orange-dark">Ce que tu dois observer</summary>
+          <div class="mt-2">
+            <label class="chk"><input type="checkbox"> La note-consigne apparaît côté Hermes (<code>list_notes</code> / <code>pull_changes</code>).</label>
+            <label class="chk"><input type="checkbox"> Hermes répond par une note dans « Boîte Hermes », visible dans l'app après le pull suivant.</label>
+            <label class="chk"><input type="checkbox"> Délai mesuré entre dépôt et réponse (noter la valeur dans l'issue).</label>
+            <label class="chk"><input type="checkbox"> Une note ordinaire d'un autre dossier n'est PAS traitée comme consigne.</label>
+          </div>
+        </details>
+        <div class="k mt-4 mb-1">Après test</div>
+<pre><span class="cp" onclick="cp(this)">copier</span>/issue update marketplace-flowflow #113 : palier 0 fait, cadence pull = [x], délai = [y], verdict : [utile / pas utile]. Décision : [on passe au palier 1 / on arrête].</pre>
+      </div>
+    </div>
+  </div>
+
+  <!-- 5 -->
+  <div class="card p-6 mb-4">
+    <div class="step">
+      <div class="num">5</div>
+      <div>
+        <div class="flex flex-wrap items-center gap-2 mb-1"><h3 class="font-semibold text-lg">Palier 1 backend : route de dépôt + lecture de réponse</h3><a class="pill o" href="https://github.com/mirkobozzetto/marketplace-flowflow/issues/113" target="_blank">marketplace #113</a><span class="pill">skill: issue → ship</span><span class="pill">branche dev, merge commit vers main</span></div>
+        <p class="text-sm text-stone-600 mb-3">Route « créer une demande pour l'agent » (jeton appareil, membre de l'espace, écrit la note-boîte, renvoie un id) et route « lire la réponse par id ». Dossier boîte provisionné à la création du <code>space_agents</code>. Les 12 outils MCP ne changent pas.</p>
+        <div class="k mb-1">Prompt à lancer (cwd : ~/code/marketplace-flowflow, branche dev)</div>
+<pre><span class="cp" onclick="cp(this)">copier</span>/issue resume marketplace-flowflow #113
+
+/ship Implémente le palier 1 de #113 : route POST de dépôt d'une demande à un agent d'espace (auth jeton appareil, membre de l'espace ; écrit la note-boîte signée par le backend avec le membre demandeur, la consigne, la copie optionnelle d'une note jointe et un id de demande), route GET de la réponse par id, provisionnement du dossier boîte à la création du space_agents. Les contrats des 12 outils MCP existants ne bougent pas. Tests d'intégration sur SQLite jetable comme les existants. Impact GitNexus avant d'éditer, detect_changes avant de committer. Pas de push, pas de merge : dis-moi quand c'est prêt à relire.</pre>
+        <details class="mt-3"><summary class="text-sm font-medium text-ios-orange-dark">À tester</summary>
+          <div class="mt-2">
+            <label class="chk"><input type="checkbox"> <code>cargo test</code> vert.</label>
+            <label class="chk"><input type="checkbox"> Curl de dépôt → la note apparaît via <code>list_notes</code> avec le jeton agent, avec membre et id.</label>
+            <label class="chk"><input type="checkbox"> Réponse <code>put_note</code> de Hermes → récupérable par id via la route app.</label>
+            <label class="chk"><input type="checkbox"> Un membre hors espace : 403.</label>
+            <label class="chk"><input type="checkbox"> Merge dev → main par « Create a merge commit » ; Dokploy déploie ; vérifier <code>compose.yml</code> si nouvelle variable.</label>
+          </div>
+        </details>
+      </div>
+    </div>
+  </div>
+
+  <!-- 6 -->
+  <div class="card p-6 mb-4">
+    <div class="step">
+      <div class="num">6</div>
+      <div>
+        <div class="flex flex-wrap items-center gap-2 mb-1"><h3 class="font-semibold text-lg">Parler à Hermes depuis le chat</h3><a class="pill o" href="https://github.com/mirkobozzetto/flowflow/issues/175" target="_blank">flowflow #175</a><span class="pill">skill: issue → ship</span><span class="pill">dépend de 1 et 5</span></div>
+        <p class="text-sm text-stone-600 mb-3">Aiguillage avant le RAG (comme <code>chat_web</code>), ligne Hermes dans le sous-panneau Agents du <code>+</code> (étape 1), détection « hermes, … » FR/EN tolérante, bulle Hermes, « Ajouter à la note ». Le RAG local ne bouge pas. Avant de coder, rejouer la maquette Hermes avec la coque de la phase 1 : ce qui est encore spéculatif (partage de connecteurs, résultat ajouté automatiquement) reste hors scope.</p>
+        <div class="k mb-1">Prompt à lancer (cwd : ~/code/flowflow)</div>
+<pre><span class="cp" onclick="cp(this)">copier</span>/issue resume #175
+
+Avant d'implémenter : relis .redesign/hermes-2026-09-19/index.html et dis-moi en 5 lignes ce qui reste dans le scope de #175 (Tier 1) et ce qui est reporté (Tier 3). J'attends ta liste avant de lancer /ship.
+
+Puis :
+
+/ship Implémente flowflow #175 Tier 1 : détection pure dans application/intent (nom de l'agent depuis space_agents.name, normalisé, Levenshtein ≤ 2, en tête de message seulement, tests unitaires FR/EN/typos/faux positif « hermétique ») ; ligne Hermes dans le sous-panneau Agents du + avec état connecté / aucun agent ; aiguillage dans le chemin d'envoi AVANT le RAG (le RAG, LanceDB, seuils, rerank ne bougent pas) ; bulle Hermes avec état en attente / répondu via la route de #113 ; « Ajouter à la note ». macOS : même chose. Build iOS + macOS, puis dis-moi quoi tester.</pre>
+        <details class="mt-3"><summary class="text-sm font-medium text-ios-orange-dark">À tester</summary>
+          <div class="mt-2">
+            <label class="chk"><input type="checkbox"> « hermes, résume le dossier Projets » → bulle Hermes en attente, puis sa réponse.</label>
+            <label class="chk"><input type="checkbox"> « hermès » / « Hermes: » / « ermes » → détecté ; « hermétique » → pas détecté ; un message normal → RAG local avec sources, comme avant.</label>
+            <label class="chk"><input type="checkbox"> Espace sans agent : ligne Hermes désactivée avec le lien vers « Accès Hermes ».</label>
+            <label class="chk"><input type="checkbox"> « Ajouter à la note » sur une réponse Hermes.</label>
+            <label class="chk"><input type="checkbox"> Mac : même comportement.</label>
+          </div>
+        </details>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ===== Phase 3 ===== -->
+<section>
+  <div class="flex items-baseline gap-3 mb-4"><span class="k">Phase 3</span><h2 class="text-xl font-semibold">Le web qui vérifie (repo <code>flowflow</code>)</h2></div>
+
+  <!-- 7 -->
+  <div class="card p-6 mb-4">
+    <div class="step">
+      <div class="num">7</div>
+      <div>
+        <div class="flex flex-wrap items-center gap-2 mb-1"><h3 class="font-semibold text-lg">« Vérifier avec le web » : jambe Exa par affirmation, contradictions datées</h3><a class="pill o" href="https://github.com/mirkobozzetto/flowflow/issues/176" target="_blank">flowflow #176</a><span class="pill">skill: issue → ship</span><span class="pill">touche le RAG, seule sur la table</span></div>
+        <p class="text-sm text-stone-600 mb-3">Nouveau <code>rag/verify.rs</code> : extraction de 3 affirmations max depuis les notes retenues, réécrites autonomes (SAFE), une requête Exa chacune, prompt « confronter et dater, ne jamais trancher », étiquettes confirme / contredit / complète dans l'accordéon. Mode explicite dans le <code>+</code>, sous Recherche web. Les deux modes existants restent identiques octet pour octet.</p>
+        <div class="k mb-1">Prompt à lancer (cwd : ~/code/flowflow)</div>
+<pre><span class="cp" onclick="cp(this)">copier</span>/issue resume #176
+
+/ship Implémente flowflow #176 Tier 1 : module rag/verify.rs avec fonctions pures testées (extraction JSON d'affirmations, plafond VERIFY_MAX_CLAIMS = 3, réécriture autonome, mapping des verdicts), jambe B séquentielle après select_relevant, une requête Exa par affirmation (VERIFY_RESULTS_PER_CLAIM = 3), variante de prompt « confronte et date », champ verdict optionnel sur SearchResult, étiquettes dans SourcesAccordion, ligne « Vérifier avec le web » sous Recherche web dans le + (active le web), strings FR/EN, statut « Vérification… ». Les modes web-off et web-on restent inchangés (même chemin RRF, même prompt). Repli sans erreur si Exa tombe sur la jambe B. macOS identique. Build iOS + macOS, puis dis-moi quoi tester.</pre>
+        <details class="mt-3"><summary class="text-sm font-medium text-ios-orange-dark">À tester</summary>
+          <div class="mt-2">
+            <label class="chk"><input type="checkbox"> Une note volontairement périmée (ex. une version de lib) + « Vérifier » → la réponse cite la date de la note, la date de la source, et dit qu'elles divergent ; source étiquetée « contredit ».</label>
+            <label class="chk"><input type="checkbox"> « Recherche web » seule → comportement identique à avant.</label>
+            <label class="chk"><input type="checkbox"> Web off → identique à avant.</label>
+            <label class="chk"><input type="checkbox"> Clé Exa retirée → « Vérifier » indisponible avec le message existant.</label>
+            <label class="chk"><input type="checkbox"> Latence acceptable (≈ +2 s) sur iPhone.</label>
+          </div>
+        </details>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ===== plus tard ===== -->
+<section class="card p-6">
+  <div class="k mb-3">Plus tard, pas d'issue encore</div>
+  <ul class="space-y-1.5 text-sm text-stone-700 list-disc pl-5">
+    <li>#113 palier 2 : push FlowFlow → Hermes (webhook ou notification MCP) si la cadence mesurée au palier 0 est trop lente.</li>
+    <li>#113 / #175 palier 3 : Hermes pose une question et reprend, cartes d'approbation pour les actions sensibles, autres agents que Hermes (A2A évalué seulement ici).</li>
+    <li>#176 tier 2 : « Mettre à jour la note » depuis une contradiction, avec la source web pré-remplie en citation ; jamais d'édition automatique.</li>
+    <li>Maquette Hermes à rejouer avec la coque de la phase 1 avant #175 (états A1-A4 / N1-N3 dans <code>.redesign/hermes-2026-09-19/index.html</code>).</li>
+  </ul>
+</section>
+
+<!-- ===== skills utiles ===== -->
+<section class="card p-6">
+  <div class="k mb-3">Skills utiles en chemin</div>
+  <div class="grid md:grid-cols-2 gap-x-8 gap-y-2 text-sm text-stone-700">
+    <div><b>issue</b> : resume / update / list, mémoire de reprise. Toujours le premier appel.</div>
+    <div><b>ship</b> : implémente une spec arrêtée, seul, avec vérification.</div>
+    <div><b>arsenal</b> : si tu ne sais pas laquelle appeler, il route.</div>
+    <div><b>html-design-drafts</b> : pour trancher un nouveau choix visuel avant de coder.</div>
+    <div><b>verify-hermes-skills-and-cron</b> : prouver qu'une skill Hermes est chargée et qu'un cron tourne.</div>
+    <div><b>testing-flowflow-spaces-mcp-directly</b> : appeler <code>/v1/mcp-spaces</code> sans passer par le LLM Hermes.</div>
+    <div><b>prove-change-by-stashing</b> : prouver qu'un test défend bien la régression (utile sur #176 et la détection de #175).</div>
+    <div><b>diagnosing-pushed-but-not-deployed</b> : si Dokploy ne suit pas après le merge de #113.</div>
+    <div><b>fixing-dioxus-ios-app-after-xcode-27</b> : si le build iOS meurt au lancement après une mise à jour Xcode.</div>
+    <div><b>design-taste-skill-pack</b> + règle <b>design-system-fidelity</b> : rappel pour tout rendu visuel.</div>
+  </div>
+</section>
+
+</main>
+<script>
+function cp(el) { const t = el.parentElement.innerText.replace(/^copier\s*/, ''); navigator.clipboard.writeText(t).then(() => { el.textContent = 'copié'; setTimeout(() => el.textContent = 'copier', 1200); }); }
+</script>
+</body>
+</html>

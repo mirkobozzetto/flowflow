@@ -1,0 +1,480 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>FlowFlow · UX mobile · burger, notes, chat</title>
+<script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
+<style type="text/tailwindcss">
+@theme {
+    --radius-md: 0.625rem; --radius-lg: 0.625rem; --radius-xl: 0.75rem; --radius-2xl: 1rem;
+    --ease-soft: cubic-bezier(0.2, 0.8, 0.2, 1);
+    --shadow-card: 0 1px 2px rgba(28, 25, 23, 0.06);
+    --shadow-lift: 0 1px 2px rgba(28, 25, 23, 0.06), 0 8px 24px -12px rgba(28, 25, 23, 0.18);
+    --shadow-menu: 0 18px 40px -12px rgba(28, 25, 23, 0.28), 0 4px 10px -4px rgba(28, 25, 23, 0.14);
+    --color-ios-green: #34c759;
+    --color-ios-red: oklch(0.55 0.2 30);
+    --color-ios-orange-50: oklch(0.97 0.04 50);
+    --color-ios-orange-100: oklch(0.92 0.07 50);
+    --color-ios-orange: oklch(0.60 0.22 50);
+    --color-ios-orange-dark: oklch(0.48 0.16 50);
+    --color-warm-white: oklch(0.99 0.005 50);
+}
+body { font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", system-ui, sans-serif; -webkit-user-select: none; user-select: none; }
+.pressable { transition: transform 120ms var(--ease-soft), background-color 150ms, color 150ms, opacity 150ms; }
+.pressable:active { transform: scale(0.97); }
+/* Phone frame: the iPhone screen is the stage; everything animates inside it. */
+.phone { width: 390px; height: 760px; border-radius: 48px; border: 10px solid #1c1917; overflow: hidden; position: relative; background: #1c1917; box-shadow: var(--shadow-menu); flex: none; }
+.notch { position: absolute; top: 0; left: 50%; transform: translateX(-50%); width: 120px; height: 30px; background: #1c1917; border-radius: 0 0 18px 18px; z-index: 90; }
+.screen { position: absolute; inset: 0; background: var(--color-warm-white); display: flex; flex-direction: column; overflow: hidden; }
+.topbar { display: flex; align-items: center; gap: 12px; padding: 44px 16px 12px; background: var(--color-warm-white); border-bottom: 1px solid #e7e5e4; box-shadow: var(--shadow-card); min-height: 44px; position: relative; z-index: 5; }
+.iconbtn { min-width: 44px; min-height: 44px; display: flex; align-items: center; justify-content: center; border-radius: 10px; color: #44403c; position: relative; }
+.section { padding: 8px 12px; font-size: 12px; font-weight: 500; color: #a8a29e; text-transform: uppercase; letter-spacing: .08em; }
+.row { width: 100%; display: flex; align-items: center; gap: 12px; padding: 0 12px; min-height: 48px; border-radius: 10px; text-align: left; }
+.row:active { background: #f5f5f4; }
+.rowt { font-size: 14px; font-weight: 500; color: #292524; }
+.rows { font-size: 12px; color: #a8a29e; }
+.card { background: var(--color-warm-white); border: 1px solid #e7e5e4; border-radius: 12px; padding: 16px; margin-bottom: 10px; }
+.chip { display: inline-flex; align-items: center; gap: 6px; height: 28px; padding: 0 10px; border-radius: 9999px; border: 1px solid #e7e5e4; background: var(--color-warm-white); font-size: 12px; font-weight: 500; color: #57534e; }
+/* Keyframes copied from tailwind.css */
+@keyframes audioBar { 0%,100% { transform: scaleY(0.3) } 50% { transform: scaleY(1) } }
+@keyframes pulseSoft { 0%,100% { opacity: 1 } 50% { opacity: .4 } }
+@keyframes fadeIn { from { opacity: 0 } to { opacity: 1 } }
+@keyframes fadeInUp { from { transform: translateY(8px); opacity: 0 } to { transform: none; opacity: 1 } }
+@keyframes popUp { from { opacity: 0; transform: scale(0.96) translateY(8px) } to { opacity: 1; transform: none } }
+@keyframes slideInUp { from { transform: translateY(100%) } to { transform: none } }
+@keyframes typingDot { 0%,60%,100% { transform: translateY(0); opacity:.4 } 30% { transform: translateY(-4px); opacity: 1 } }
+.backdrop-fade { animation: fadeIn .2s ease-out }
+.sheet-pop { animation: slideInUp .24s cubic-bezier(0.2, 0.9, 0.25, 1.12) }
+.popover-pop { animation: popUp .16s ease-out; transform-origin: bottom left }
+
+/* ===== B · burger ===== */
+.b-menu { position: absolute; inset: 0; background: #f5f5f4; padding: 56px 0 0; transition: transform 460ms var(--ease-soft), opacity 460ms var(--ease-soft); transform: translateX(-10%); opacity: .55; }
+.b-card { position: absolute; inset: 0; background: var(--color-warm-white); transition: transform 460ms var(--ease-soft), border-radius 460ms var(--ease-soft), box-shadow 460ms; will-change: transform; display: flex; flex-direction: column; overflow: hidden; }
+.b-stage.open .b-menu { transform: none; opacity: 1 }
+.b-stage.open .b-card { transform: translateX(78%) scale(0.92); border-radius: 40px; box-shadow: var(--shadow-menu) }
+.b-stage.lite.open .b-card { transform: translateX(82%); border-radius: 28px 0 0 28px; }
+.b-stage.dragging .b-card, .b-stage.dragging .b-menu { transition: none }
+.b-card.veil::after { content: ""; position: absolute; inset: 0; background: rgba(28,25,23,0); transition: background 460ms; pointer-events: none }
+.b-stage.open .b-card.veil::after { background: rgba(28,25,23,.06) }
+.b-stage.open .b-card .b-cover { pointer-events: auto }
+.b-cover { position: absolute; inset: 0; pointer-events: none; z-index: 50 }
+/* current: drawer over content */
+.b-drawer { position: absolute; left: 0; top: 0; height: 100%; width: 85%; max-width: 340px; background: var(--color-warm-white); border-right: 1px solid #e7e5e4; z-index: 60; transition: transform 200ms; transform: translateX(-100%); padding-top: 44px }
+.b-bd { position: absolute; inset: 0; background: rgba(0,0,0,.35); opacity: 0; pointer-events: none; transition: opacity 200ms; z-index: 55 }
+.b-stage.open .b-drawer { transform: none } .b-stage.open .b-bd { opacity: 1; pointer-events: auto }
+
+/* ===== N · notes bar ===== */
+.nbar { position: absolute; left: 0; right: 0; bottom: 0; padding: 8px 16px 28px; background: var(--color-warm-white); border-top: 1px solid #e7e5e4; z-index: 30 }
+.dict { flex: 1; height: 48px; border-radius: 9999px; background: var(--color-warm-white); border: 1px solid oklch(0.60 0.22 50 / .25); color: var(--color-ios-orange-dark); font-size: 14px; font-weight: 500; display: flex; align-items: center; justify-content: center; gap: 10px; position: relative; overflow: hidden; transition: background-color 260ms var(--ease-soft), border-color 260ms, color 260ms, box-shadow 260ms, flex-basis 300ms }
+.dict .st { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; gap: 10px; padding: 0 16px; transition: opacity 180ms var(--ease-soft), transform 260ms var(--ease-soft); }
+.dict .st.hide { opacity: 0; transform: translateY(6px); pointer-events: none }
+.dict.rec { background: #1c1917; border-color: #1c1917; color: #fff; box-shadow: var(--shadow-lift) }
+.dict.done { background: #f5f5f4; border-color: #f5f5f4; color: #a8a29e }
+.wave { display: flex; align-items: center; gap: 2px; height: 28px; flex: 1; min-width: 0; overflow: hidden; -webkit-mask-image: linear-gradient(90deg, transparent, #000 16px, #000 calc(100% - 16px), transparent) }
+.wave i { display: block; width: 3px; height: 22px; border-radius: 9999px; background: rgba(255,255,255,.92); transform-origin: center; animation: audioBar 1s ease-in-out infinite }
+.sendbtn { width: 48px; height: 48px; border-radius: 9999px; background: var(--color-ios-orange); color: #fff; display: flex; align-items: center; justify-content: center; flex: none; transition: transform 300ms cubic-bezier(0.2, 0.9, 0.25, 1.25), opacity 200ms, width 300ms var(--ease-soft), margin 300ms var(--ease-soft); transform: scale(0) }
+.sendbtn.on { transform: none }
+.sendbtn.gone { width: 0; margin-left: -8px; opacity: 0 }
+/* detached sheet */
+.sheet { position: absolute; left: 0; right: 0; bottom: 0; background: var(--color-warm-white); border-radius: 16px 16px 0 0; padding: 8px 8px 28px; z-index: 40 }
+.sheet.float { left: 10px; right: 10px; bottom: 10px; border-radius: 22px; padding-bottom: 12px; box-shadow: var(--shadow-menu); animation: popUp .28s cubic-bezier(0.2, 0.9, 0.25, 1.1); transform-origin: bottom center }
+.tile { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 8px; height: 76px; border-radius: 12px; background: #f5f5f4; color: #292524; font-size: 12px; font-weight: 500 }
+.tile svg { color: var(--color-ios-orange-dark) }
+.tile:active { background: #e7e5e4 }
+/* FAB */
+.fab { position: absolute; right: 16px; bottom: 28px; width: 72px; height: 72px; border-radius: 9999px; background: var(--color-warm-white); border: 1.5px solid var(--color-ios-orange-100); box-shadow: var(--shadow-lift); display: flex; align-items: center; justify-content: center; z-index: 20; transition: transform 520ms var(--ease-soft), border-color 300ms, box-shadow 300ms; transform-origin: center }
+.fab svg line { stroke: var(--color-ios-orange); stroke-width: 4; stroke-linecap: round }
+.fab.morph { transform: scale(14); border-color: transparent; box-shadow: none }
+.fab.morph svg { opacity: 0; transition: opacity 120ms }
+.editor { position: absolute; inset: 0; z-index: 25; opacity: 0; pointer-events: none; transition: opacity 260ms var(--ease-soft) 240ms; background: var(--color-warm-white) }
+.editor.on { opacity: 1; pointer-events: auto }
+.mini { position: absolute; right: 24px; width: 56px; height: 56px; border-radius: 9999px; background: var(--color-warm-white); border: 1px solid #e7e5e4; box-shadow: var(--shadow-lift); display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; font-size: 10px; font-weight: 500; color: #57534e; z-index: 21; opacity: 0; transform: translateY(24px) scale(.6); transition: transform 320ms cubic-bezier(0.2, 0.9, 0.25, 1.25), opacity 200ms; pointer-events: none }
+.mini svg { color: var(--color-ios-orange-dark) }
+.minis.on .mini { opacity: 1; transform: none; pointer-events: auto }
+.minis.on .mini:nth-child(1) { transition-delay: 0ms } .minis.on .mini:nth-child(2) { transition-delay: 45ms } .minis.on .mini:nth-child(3) { transition-delay: 90ms }
+.fab.hold { transform: scale(.94); border-color: var(--color-ios-orange) }
+
+/* ===== C · chat composer ===== */
+.capsule { display: flex; align-items: flex-end; gap: 4px; padding: 6px; border-radius: 26px; background: #f5f5f4; border: 1px solid transparent; transition: background-color 180ms, border-color 180ms, box-shadow 180ms }
+.capsule.focus { background: var(--color-warm-white); border-color: var(--color-ios-orange-dark); box-shadow: 0 0 0 3px var(--color-ios-orange-50) }
+.capsule .ta { flex: 1; min-height: 40px; padding: 10px 6px; font-size: 14px; color: #1c1917; line-height: 1.4; outline: none; white-space: pre-wrap }
+.capsule .ta:empty::before { content: attr(data-ph); color: #a8a29e }
+.rbtn { width: 40px; height: 40px; border-radius: 9999px; display: flex; align-items: center; justify-content: center; flex: none; position: relative; overflow: hidden }
+.rbtn .ic { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; transition: transform 260ms cubic-bezier(0.2, 0.9, 0.25, 1.2), opacity 160ms }
+.rbtn .ic.mic { color: var(--color-ios-orange-dark) } .rbtn .ic.send { color: #fff; transform: scale(.4) rotate(-45deg); opacity: 0 }
+.rbtn { background: transparent; transition: background-color 220ms var(--ease-soft) }
+.rbtn.has { background: var(--color-ios-orange) }
+.rbtn.has .ic.mic { transform: scale(.4) rotate(45deg); opacity: 0 } .rbtn.has .ic.send { transform: none; opacity: 1 }
+.chips { display: flex; gap: 6px; padding: 0 4px 8px; min-height: 0; overflow: hidden; transition: max-height 260ms var(--ease-soft), opacity 200ms; max-height: 44px }
+.chips:empty { max-height: 0; opacity: 0; padding-bottom: 0 }
+.chip.on { border-color: oklch(0.60 0.22 50 / .35); background: var(--color-ios-orange-50); color: var(--color-ios-orange-dark) }
+.chip .x { color: #a8a29e; margin-left: 2px }
+.pop { position: absolute; left: 12px; bottom: calc(100% + 6px); width: 300px; background: var(--color-warm-white); border: 1px solid #e7e5e4; border-radius: 16px; box-shadow: var(--shadow-menu); padding: 8px; z-index: 40; transform-origin: 14px calc(100% + 8px); transform: scale(.6); opacity: 0; pointer-events: none; transition: transform 280ms cubic-bezier(0.2, 0.9, 0.25, 1.18), opacity 160ms }
+.pop.on { transform: none; opacity: 1; pointer-events: auto }
+.pop .grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px }
+.pop .t { display: flex; flex-direction: column; align-items: center; gap: 6px; padding: 12px 4px 10px; border-radius: 12px; font-size: 11px; font-weight: 500; color: #292524; text-align: center; opacity: 0; transform: translateY(6px); transition: opacity 220ms, transform 260ms var(--ease-soft), background-color 150ms }
+.pop.on .t { opacity: 1; transform: none }
+.pop .t:active { background: #f5f5f4 }
+.pop .t svg { color: #57534e }
+.pop .t.on { background: var(--color-ios-orange-50); color: var(--color-ios-orange-dark) } .pop .t.on svg { color: var(--color-ios-orange-dark) }
+.pop.on .t:nth-child(1){transition-delay:20ms}.pop.on .t:nth-child(2){transition-delay:45ms}.pop.on .t:nth-child(3){transition-delay:70ms}.pop.on .t:nth-child(4){transition-delay:95ms}.pop.on .t:nth-child(5){transition-delay:120ms}.pop.on .t:nth-child(6){transition-delay:145ms}
+.plus { width: 40px; height: 40px; border-radius: 9999px; display: flex; align-items: center; justify-content: center; color: #57534e; flex: none; transition: transform 280ms cubic-bezier(0.2, 0.9, 0.25, 1.2), background-color 180ms }
+.plus.on { transform: rotate(45deg); background: #e7e5e4 }
+/* response reveal */
+.ub { align-self: flex-end; background: var(--color-ios-orange); color: #fff; border-radius: 16px 16px 4px 16px; padding: 10px 16px; max-width: 80%; font-size: 14px; line-height: 1.5; transform-origin: bottom right; animation: bubbleIn .32s cubic-bezier(0.2, 0.9, 0.25, 1.15) }
+@keyframes bubbleIn { from { opacity: 0; transform: scale(.92) translateY(8px) } to { opacity: 1; transform: none } }
+.status { display: flex; align-items: center; gap: 8px; font-size: 12px; color: #78716c; height: 20px }
+.status .d { width: 6px; height: 6px; border-radius: 9999px; background: var(--color-ios-orange); animation: pulseSoft 1.2s ease-in-out infinite }
+.status .txt { transition: opacity 180ms, transform 220ms var(--ease-soft) }
+.status .txt.sw { opacity: 0; transform: translateY(4px) }
+.w { display: inline-block; white-space: pre; opacity: 0; transform: translateY(3px); transition: opacity 260ms, transform 320ms var(--ease-soft) }
+.w.on { opacity: 1; transform: none }
+.src { margin-top: 8px; border: 1px solid oklch(0.60 0.22 50 / .2); border-radius: 12px; padding: 8px 10px; font-size: 12px; color: #57534e; display: flex; align-items: center; gap: 8px; opacity: 0; transform: translateY(6px); transition: opacity 260ms, transform 320ms var(--ease-soft) }
+.src.on { opacity: 1; transform: none }
+.src b { color: var(--color-ios-orange-dark); font-weight: 600 }
+.tdot { width: 6px; height: 6px; border-radius: 9999px; background: oklch(0.60 0.22 50 / .6); animation: typingDot 1.2s ease-in-out infinite }
+.note { max-width: 390px; margin: 14px auto 0; font-size: 13px; color: #57534e; line-height: 1.5 }
+.note b { color: #1c1917 }
+.ctl { display: flex; gap: 8px; margin-top: 10px; flex-wrap: wrap }
+.ctl button { min-height: 34px; padding: 0 14px; border-radius: 10px; background: var(--color-ios-orange); color: #fff; font-size: 12px; font-weight: 500 }
+.ctl button.s { background: #e7e5e4; color: #44403c }
+.tag { position: absolute; top: 14px; left: 14px; z-index: 95; font-size: 11px; font-weight: 600; letter-spacing: .06em; color: #fff; background: #1c1917; padding: 3px 8px; border-radius: 6px }
+</style>
+</head>
+<body class="bg-stone-100 text-stone-900">
+<header class="max-w-7xl mx-auto px-6 pt-10 pb-4">
+  <h1 class="text-2xl font-semibold">FlowFlow mobile : burger, notes, chat</h1>
+  <p class="text-sm text-stone-500 mt-1 max-w-3xl">Tout est cliquable dans les téléphones. Tokens, rayons, ombres et keyframes recopiés de <code>tailwind.css</code> ; aucune couleur ajoutée. Chaque variante a un code (B2, N1, C3...). Réponds par codes, par exemple « B2, N1+N3, C1+C2+C4 ».</p>
+</header>
+
+<main class="max-w-7xl mx-auto px-6 pb-20 space-y-16">
+
+<!-- ================= B ================= -->
+<section>
+  <h2 class="text-xs font-medium text-stone-400 uppercase tracking-[0.08em] mb-4">B · Burger : tiroir par-dessus (actuel) contre carte qui s'écarte</h2>
+  <div class="flex flex-wrap gap-8 justify-center">
+
+    <!-- B0 current -->
+    <div>
+      <div class="phone"><div class="notch"></div><span class="tag">B0 · ACTUEL</span>
+        <div class="screen b-stage" id="b0">
+          <div class="b-bd" onclick="bTog('b0')"></div>
+          <div class="b-drawer">
+            <div class="h-[68px] flex items-center gap-2.5 px-5 border-b border-stone-200"><img src="flowflow-icon-300.png" class="w-6 h-6" alt=""><span class="text-[15px] font-semibold tracking-[-0.01em]">FlowFlow</span></div>
+            <div class="flex border-b border-stone-200"><div class="flex-1 py-3 text-center text-sm font-semibold text-ios-orange-dark border-b-2 border-ios-orange-dark">Notes</div><div class="flex-1 py-3 text-center text-sm font-medium text-stone-400">Chats</div></div>
+            <div class="p-4 space-y-1"><div class="row rowt text-ios-orange-dark">+ Nouvelle note</div><div class="row rowt bg-ios-orange-50 text-ios-orange-dark">Toutes mes notes</div><div class="section">Dossiers</div><div class="row rowt">Projets</div><div class="row rowt">Perso</div></div>
+          </div>
+          <div class="topbar"><button class="iconbtn" onclick="bTog('b0')">${BURGER}</button><span class="text-base font-semibold">Toutes mes notes</span></div>
+          <div class="p-4">${LIST}</div>
+        </div>
+      </div>
+      <p class="note"><b>B0</b> Tiroir qui glisse par-dessus, voile noir. Gagne : simple. Coûte : le contenu disparaît, l'écran devient une boîte de dialogue, l'icône burger perd son sens.</p>
+    </div>
+
+    <!-- B2 card -->
+    <div>
+      <div class="phone"><div class="notch"></div><span class="tag">B2 · CARTE</span>
+        <div class="screen b-stage" id="b2">
+          <div class="b-menu">
+            <div class="flex items-center gap-2.5 px-6 pb-4"><img src="flowflow-icon-300.png" class="w-6 h-6" alt=""><span class="text-[15px] font-semibold tracking-[-0.01em]">FlowFlow</span></div>
+            <div class="px-4"><div class="relative mb-3"><input class="w-full bg-warm-white border border-stone-200 rounded-xl px-3 py-2.5 text-sm" placeholder="Rechercher"></div>
+            <div class="row rowt text-ios-orange-dark">${PLUS} Nouvelle note</div>
+            <div class="row rowt bg-ios-orange-50 text-ios-orange-dark rounded-lg">Toutes mes notes</div>
+            <div class="section mt-2">Dossiers</div>
+            <div class="row rowt">Projets <span class="ml-auto rows">12</span></div><div class="row rowt">Perso <span class="ml-auto rows">4</span></div><div class="row rowt">Clients <span class="ml-auto rows">7</span></div>
+            <div class="section mt-2">Chats</div>
+            <div class="row rowt">Projet Marketplace</div><div class="row rowt">Hermes</div></div>
+            <div class="absolute bottom-8 left-4 right-0 pr-4"><div class="row rowt text-stone-500">${GEAR} Réglages</div></div>
+          </div>
+          <div class="b-card veil" id="b2card">
+            <div class="topbar"><button class="iconbtn" onclick="bTog('b2')">${BURGER}<img src="flowflow-icon-300.png" class="absolute bottom-1 right-1 w-2.5 h-2.5" alt=""></button><span class="text-base font-semibold">Toutes mes notes</span></div>
+            <div class="p-4">${LIST}</div>
+            <div class="b-cover" onclick="bTog('b2')"></div>
+          </div>
+        </div>
+      </div>
+      <p class="note"><b>B2</b> L'écran entier devient une carte qui s'écarte à droite, se réduit à 92 % et prend les coins de l'iPhone ; le menu était dessous. <b>Glisse la carte</b> au doigt, elle suit et claque en place. Gagne : on ne quitte jamais l'écran, le burger reste sur la carte. Coûte : un peu plus de code d'animation, à tester avec le clavier ouvert.</p>
+    </div>
+
+    <!-- B3 lite -->
+    <div>
+      <div class="phone"><div class="notch"></div><span class="tag">B3 · CARTE SANS RÉDUCTION</span>
+        <div class="screen b-stage lite" id="b3">
+          <div class="b-menu">
+            <div class="flex items-center gap-2.5 px-6 pb-4"><img src="flowflow-icon-300.png" class="w-6 h-6" alt=""><span class="text-[15px] font-semibold tracking-[-0.01em]">FlowFlow</span></div>
+            <div class="px-4"><div class="row rowt text-ios-orange-dark">${PLUS} Nouvelle note</div><div class="row rowt bg-ios-orange-50 text-ios-orange-dark rounded-lg">Toutes mes notes</div><div class="section mt-2">Dossiers</div><div class="row rowt">Projets</div><div class="row rowt">Perso</div><div class="row rowt">Clients</div><div class="section mt-2">Chats</div><div class="row rowt">Projet Marketplace</div><div class="row rowt">Hermes</div></div>
+          </div>
+          <div class="b-card" id="b3card">
+            <div class="topbar"><button class="iconbtn" onclick="bTog('b3')">${BURGER}</button><span class="text-base font-semibold">Toutes mes notes</span></div>
+            <div class="p-4">${LIST}</div>
+            <div class="b-cover" onclick="bTog('b3')"></div>
+          </div>
+        </div>
+      </div>
+      <p class="note"><b>B3</b> Même principe sans réduction d'échelle : la carte glisse et s'arrondit seulement du côté visible. Gagne : plus sobre, texte jamais redimensionné. Coûte : moins « physique » ; l'effet carte se lit moins.</p>
+    </div>
+  </div>
+</section>
+
+<!-- ================= N ================= -->
+<section>
+  <h2 class="text-xs font-medium text-stone-400 uppercase tracking-[0.08em] mb-4">N · Note : la barre Dicter, le « + » et le bouton flottant</h2>
+  <div class="flex flex-wrap gap-8 justify-center">
+
+    <!-- N1 morphing dictate -->
+    <div>
+      <div class="phone"><div class="notch"></div><span class="tag">N1 · DICTER QUI SE TRANSFORME</span>
+        <div class="screen">
+          <div class="topbar"><button class="iconbtn">${BACK}</button><span class="text-base font-semibold">Projets</span></div>
+          <div class="p-4"><h1 class="text-xl font-semibold leading-tight">Connecteur GitHub : App ou OAuth ?</h1><div class="text-xs text-stone-400 mt-1">2026-09-19 · 00:12</div><div class="mt-2 flex gap-1.5"><span class="chip">marketplace</span><span class="chip">github</span></div><p class="mt-4 text-sm text-stone-800 leading-relaxed">Idée : comparer GitHub App vs OAuth App pour le connecteur, en regardant scopes, durée des jetons, et ce que ça impose côté proxy.</p><p id="n1txt" class="mt-2 text-sm text-stone-800 leading-relaxed"></p></div>
+          <div class="nbar"><div class="flex items-center gap-2">
+            <button class="pressable w-12 h-12 flex items-center justify-center rounded-full bg-warm-white border border-stone-200 text-stone-600 flex-none">${PLUS}</button>
+            <button class="dict" id="n1d" onclick="n1()">
+              <span class="st idle">${MIC}<span>Dicter</span></span>
+              <span class="st rec hide"><span class="w-2 h-2 rounded-full bg-ios-red flex-none" style="animation: pulseSoft 1.5s ease-in-out infinite"></span><span class="wave" id="n1w"></span><span class="text-xs tabular-nums flex-none" id="n1t">0:00</span></span>
+              <span class="st done hide"><span style="animation: pulseSoft 1.5s ease-in-out infinite">Transcription…</span></span>
+              <span class="st ok hide text-ios-green">${CHECK}<span>Ajouté à la note</span></span>
+            </button>
+            <button class="sendbtn gone" id="n1s" onclick="n1stop(event)">${SEND}</button>
+            <button class="pressable w-12 h-12 flex items-center justify-center rounded-full bg-warm-white border border-ios-orange/25 text-ios-orange-dark flex-none" id="n1c">${CHAT}</button>
+          </div></div>
+        </div>
+      </div>
+      <p class="note"><b>N1</b> Le pilule « Dicter » ne change pas d'écran : <b>appuie dessus</b>, elle devient elle-même la pilule sombre d'enregistrement (fond, onde, chrono), le bouton d'envoi orange pousse depuis la droite, puis elle repasse par « Transcription… » et « Ajouté à la note » avant de revenir. Gagne : un seul objet, l'œil ne saute jamais. Coûte : un composant avec 4 états au lieu de 2 composants.</p>
+    </div>
+
+    <!-- N2 sheet -->
+    <div>
+      <div class="phone"><div class="notch"></div><span class="tag">N2 · FEUILLE « + » RANGÉE</span>
+        <div class="screen" id="n2">
+          <div class="topbar"><button class="iconbtn">${BACK}</button><span class="text-base font-semibold">Projets</span></div>
+          <div class="p-4"><h1 class="text-xl font-semibold leading-tight">Connecteur GitHub : App ou OAuth ?</h1><div class="text-xs text-stone-400 mt-1">2026-09-19 · 00:12</div><p class="mt-4 text-sm text-stone-800 leading-relaxed">Idée : comparer GitHub App vs OAuth App pour le connecteur, en regardant scopes, durée des jetons, et ce que ça impose côté proxy.</p></div>
+          <div class="nbar"><div class="flex items-center gap-2">
+            <button class="pressable w-12 h-12 flex items-center justify-center rounded-full bg-warm-white border border-stone-200 text-stone-600 flex-none" onclick="n2open()">${PLUS}</button>
+            <button class="dict">${MIC}<span>Dicter</span></button>
+            <button class="pressable w-12 h-12 flex items-center justify-center rounded-full bg-warm-white border border-ios-orange/25 text-ios-orange-dark flex-none">${CHAT}</button>
+          </div></div>
+          <div id="n2bd" class="absolute inset-0 z-30 bg-black/10 hidden" onclick="n2close()"></div>
+          <div id="n2sheet" class="sheet float hidden">
+            <div class="flex items-center justify-between px-3 pt-2 pb-1"><span class="text-sm font-semibold text-stone-800">Ajouter à la note</span><button class="iconbtn !min-w-8 !min-h-8 text-stone-400" onclick="n2close()">${X}</button></div>
+            <div class="grid grid-cols-4 gap-2 px-2 pt-1">
+              <button class="tile pressable">${MIC}<span>Dicter</span></button>
+              <button class="tile pressable">${DOC}<span>Document</span></button>
+              <button class="tile pressable">${CAM}<span>Photo</span></button>
+              <button class="tile pressable">${BELL}<span>Rappel</span></button>
+            </div>
+            <div class="section mt-2">Agents</div>
+            <button class="row pressable"><span class="w-7 h-7 rounded-lg bg-stone-100 flex items-center justify-center text-stone-500">${AI}</span><span class="flex-1 min-w-0"><span class="rowt block">Résumer</span><span class="rows block">Une synthèse de cette note</span></span></button>
+            <button class="row pressable"><img src="hermes-agent.png" class="w-7 h-7 rounded-lg object-cover" alt=""><span class="flex-1 min-w-0"><span class="rowt block">Demander à Hermes</span><span class="rows block">Ton agent · connecté</span></span><span class="w-2 h-2 rounded-full bg-ios-green"></span></button>
+            <div class="h-px bg-stone-200 mx-3 my-2"></div>
+            <button class="row pressable"><span class="flex -space-x-1.5"><img src="gmail.svg" class="w-6 h-6 rounded-md bg-warm-white border border-stone-200 p-0.5" alt=""><img src="google-drive.svg" class="w-6 h-6 rounded-md bg-warm-white border border-stone-200 p-0.5" alt=""><img src="github.svg" class="w-6 h-6 rounded-md bg-warm-white border border-stone-200 p-0.5" alt=""></span><span class="flex-1 min-w-0"><span class="rowt block">Services connectés</span><span class="rows block">Gmail, Drive · GitHub à connecter</span></span><span class="text-stone-300">${CHEV}</span></button>
+          </div>
+        </div>
+      </div>
+      <p class="note"><b>N2</b> <b>Appuie sur +</b>. La feuille est détachée (marges, coins de 22 px, ombre), elle jaillit du bas au lieu de monter comme un mur. Trois niveaux : actions rapides en tuiles, agents en lignes, connecteurs repliés sur une seule ligne. Gagne : on trouve en une seconde ; la liste de connecteurs ne noie plus le reste. Coûte : les connecteurs sont à un tap de plus.</p>
+      <div class="ctl max-w-[390px] mx-auto"><button class="s" onclick="n2mode(false)">Voir en feuille collée (N2a)</button><button onclick="n2mode(true)">Feuille détachée (N2b)</button></div>
+    </div>
+
+    <!-- N3 FAB -->
+    <div>
+      <div class="phone"><div class="notch"></div><span class="tag">N3 · BOUTON FLOTTANT</span>
+        <div class="screen" id="n3">
+          <div class="topbar"><button class="iconbtn">${BURGER}</button><span class="text-base font-semibold">Toutes mes notes</span></div>
+          <div class="p-4">${LIST}</div>
+          <div class="editor" id="n3ed">
+            <div class="topbar"><button class="iconbtn" onclick="n3back()">${BACK}</button><span class="text-base font-semibold">Nouvelle note</span></div>
+            <div class="p-4"><div class="text-xl font-semibold text-stone-300">Titre</div><div class="mt-3 text-sm text-stone-400">Commence à écrire, ou dicte.</div></div>
+            <div class="nbar"><div class="flex items-center gap-2"><button class="w-12 h-12 flex items-center justify-center rounded-full bg-warm-white border border-stone-200 text-stone-600 flex-none">${PLUS}</button><button class="dict">${MIC}<span>Dicter</span></button></div></div>
+          </div>
+          <div class="minis" id="n3m">
+            <button class="mini" style="bottom: 260px" onclick="n3go()">${MIC}<span>Dicter</span></button>
+            <button class="mini" style="bottom: 192px" onclick="n3go()">${CAM}<span>Photo</span></button>
+            <button class="mini" style="bottom: 124px" onclick="n3go()">${PEN}<span>Texte</span></button>
+          </div>
+          <button class="fab" id="n3f"><svg width="32" height="32" viewBox="0 0 100 100"><line x1="30" y1="50" x2="70" y2="50"/><line x1="50" y1="30" x2="50" y2="70"/></svg></button>
+        </div>
+      </div>
+      <p class="note"><b>N3</b> <b>Tap</b> : le disque grandit jusqu'à couvrir l'écran et l'éditeur apparaît dedans, on comprend d'où vient la page. <b>Appui long</b> : trois raccourcis se déploient (Dicter, Photo, Texte). Gagne : la note naît du bouton ; la dictée est à un geste de la liste. Coûte : l'appui long est invisible tant qu'on ne l'a pas découvert.</p>
+    </div>
+  </div>
+</section>
+
+<!-- ================= C ================= -->
+<section>
+  <h2 class="text-xs font-medium text-stone-400 uppercase tracking-[0.08em] mb-4">C · Chat : composer, « + », réponse</h2>
+  <div class="flex flex-wrap gap-8 justify-center">
+
+    <!-- C1 capsule + C2 popover -->
+    <div>
+      <div class="phone"><div class="notch"></div><span class="tag">C1 · CAPSULE + C2 · POPOVER</span>
+        <div class="screen" id="c1">
+          <div class="topbar"><button class="iconbtn">${BURGER}</button><span class="text-base font-semibold">Projet Marketplace</span></div>
+          <div class="flex-1 px-4 py-4 flex flex-col gap-4 overflow-hidden">
+            <div class="ub" style="animation:none">On part sur quoi pour le connecteur GitHub ?</div>
+            <div class="flex items-start gap-2"><img src="flowflow-icon-300.png" class="w-5 h-5 mt-1 rounded-full" alt=""><div class="text-sm leading-relaxed">GitHub App : dépôts sélectionnés, permissions étroites, jeton court.</div></div>
+          </div>
+          <div class="nbar">
+          <div class="pop" id="c2pop">
+            <div class="grid">
+              <button class="t" onclick="c2tile(this,'Recherche web')">${GLOBE}<span>Recherche web</span></button>
+              <button class="t" onclick="c2tile(this,'Vérifier')">${SHIELD}<span>Vérifier</span></button>
+              <button class="t" onclick="c2tile(this,'Hermes')"><img src="hermes-agent.png" class="w-[22px] h-[22px] rounded-full" alt=""><span>Hermes</span></button>
+              <button class="t">${CAM}<span>Photo</span></button>
+              <button class="t">${DOC}<span>Fichier</span></button>
+              <button class="t">${AI}<span>Agents</span></button>
+            </div>
+            <div class="flex items-center gap-1.5 px-2 pt-2 text-xs text-stone-400"><span class="px-1.5 py-0.5 rounded bg-stone-200 border border-stone-300 text-stone-600 font-mono text-[11px]">@</span><span>mentionner une note ou un agent</span></div>
+          </div>
+            <div class="chips" id="c1chips"></div>
+            <div class="capsule" id="c1cap">
+              <button class="plus" id="c2plus" onclick="c2tog()">${PLUS}</button>
+              <div class="ta" id="c1ta" contenteditable="true" data-ph="Message…" oninput="c1in()" onfocus="c1f(true)" onblur="c1f(false)"></div>
+              <button class="rbtn" id="c1r" onclick="c1send()"><span class="ic mic">${MIC}</span><span class="ic send">${ARROW}</span></button>
+            </div>
+          </div>
+        </div>
+      </div>
+      <p class="note"><b>C1</b> Le composer est une capsule : « + » et micro dedans, champ au milieu. <b>Tape un mot</b> : le micro tourne et devient la flèche d'envoi, la capsule se pose en blanc avec l'anneau orange. <b>C2 : appuie sur +</b> : un popover jaillit du bouton (pas de feuille, pas de voile), tuiles en grille avec léger décalage, le « + » pivote en croix. Une tuile activée devient une puce au-dessus du champ, retirable d'un tap. Gagne : le panneau ne cache plus le fil ; les états actifs sont visibles avant d'envoyer. Coûte : 6 tuiles max avant de devoir paginer.</p>
+      <div class="ctl max-w-[390px] mx-auto"><button class="s" onclick="c1type()">Simuler la saisie</button><button class="s" onclick="c2tog()">Ouvrir / fermer +</button></div>
+    </div>
+
+    <!-- C3 response -->
+    <div>
+      <div class="phone"><div class="notch"></div><span class="tag">C3 · RÉPONSE QUI SE RÉVÈLE</span>
+        <div class="screen" id="c3">
+          <div class="topbar"><button class="iconbtn">${BURGER}</button><span class="text-base font-semibold">Projet Marketplace</span></div>
+          <div class="flex-1 px-4 py-4 flex flex-col gap-4 overflow-hidden" id="c3feed"></div>
+          <div class="nbar"><div class="capsule"><button class="plus">${PLUS}</button><div class="ta" data-ph="Message…"></div><button class="rbtn"><span class="ic mic">${MIC}</span></button></div></div>
+        </div>
+      </div>
+      <p class="note"><b>C3</b> <b>Lance la démo</b>. La bulle utilisateur pousse depuis le coin, une ligne d'état dit ce qui se passe (« Recherche dans tes notes… », « 3 notes trouvées »), puis la réponse se révèle mot par mot en fondu, et les sources glissent en dessous. Gagne : l'attente est racontée, pas subie ; ça ne ressemble plus à un bloc collé. Coûte : le streaming mot à mot dépend du backend qui stream déjà.</p>
+      <div class="ctl max-w-[390px] mx-auto"><button onclick="c3run()">Lancer la démo</button></div>
+    </div>
+  </div>
+</section>
+
+<section class="max-w-3xl">
+  <h2 class="text-xs font-medium text-stone-400 uppercase tracking-[0.08em] mb-3">Une seule langue de mouvement</h2>
+  <div class="card text-sm text-stone-700 space-y-1.5">
+    <p>Toutes les variantes utilisent deux courbes déjà dans l'app : <code>--ease-soft</code> pour ce qui se déplace, et la courbe à léger dépassement de la feuille (<code>0.2, 0.9, 0.25, 1.12</code>) pour ce qui apparaît. Durées : 160 à 460 ms. Transform et opacité seulement, jamais de largeur ou de hauteur animée sur les objets qui bougent.</p>
+    <p>Rien de nouveau dans le design system : mêmes couleurs, rayons, ombres. Les icônes sont des aplats de substitution ; seul le cadre et le mouvement sont à juger.</p>
+  </div>
+</section>
+</main>
+
+<script>
+// ---------- icon strings (phosphor-like, inline) ----------
+const I = {
+  BURGER: '<svg width="22" height="22" viewBox="0 0 256 256" fill="currentColor"><path d="M224 128a8 8 0 0 1-8 8H40a8 8 0 0 1 0-16h176a8 8 0 0 1 8 8ZM40 72h176a8 8 0 0 0 0-16H40a8 8 0 0 0 0 16Zm176 112H40a8 8 0 0 0 0 16h176a8 8 0 0 0 0-16Z"/></svg>',
+  BACK: '<svg width="22" height="22" viewBox="0 0 256 256" fill="currentColor"><path d="M224 128a8 8 0 0 1-8 8H59.31l58.35 58.34a8 8 0 0 1-11.32 11.32l-72-72a8 8 0 0 1 0-11.32l72-72a8 8 0 0 1 11.32 11.32L59.31 120H216a8 8 0 0 1 8 8Z"/></svg>',
+  PLUS: '<svg width="20" height="20" viewBox="0 0 256 256" fill="currentColor"><path d="M224 128a8 8 0 0 1-8 8h-80v80a8 8 0 0 1-16 0v-80H40a8 8 0 0 1 0-16h80V40a8 8 0 0 1 16 0v80h80a8 8 0 0 1 8 8Z"/></svg>',
+  MIC: '<svg width="20" height="20" viewBox="0 0 256 256" fill="currentColor"><path d="M128 176a48.05 48.05 0 0 0 48-48V64a48 48 0 0 0-96 0v64a48.05 48.05 0 0 0 48 48ZM96 64a32 32 0 0 1 64 0v64a32 32 0 0 1-64 0Zm40 143.6V232a8 8 0 0 1-16 0v-24.4A80.11 80.11 0 0 1 48 128a8 8 0 0 1 16 0 64 64 0 0 0 128 0 8 8 0 0 1 16 0 80.11 80.11 0 0 1-72 79.6Z"/></svg>',
+  SEND: '<svg width="18" height="18" viewBox="0 0 256 256" fill="currentColor"><path d="M231.4 44.34a16 16 0 0 0-16.83-3.89L36.4 103.2a16 16 0 0 0 .1 30.28l74.1 25.84 25.84 74.1a16 16 0 0 0 30.28.1L229.5 61.17a16 16 0 0 0 1.9-16.83Zm-79.96 175.1-24.03-68.98 46.2-46.2a8 8 0 0 0-11.32-11.32l-46.2 46.2L47.1 115.1 208 60Z"/></svg>',
+  ARROW: '<svg width="18" height="18" viewBox="0 0 256 256" fill="currentColor"><path d="M205.66 117.66a8 8 0 0 1-11.32 0L136 59.31V216a8 8 0 0 1-16 0V59.31l-58.34 58.35a8 8 0 0 1-11.32-11.32l72-72a8 8 0 0 1 11.32 0l72 72a8 8 0 0 1 0 11.32Z"/></svg>',
+  CHAT: '<svg width="22" height="22" viewBox="0 0 256 256" fill="currentColor"><path d="M216 48H40a16 16 0 0 0-16 16v160a15.84 15.84 0 0 0 9.25 14.5A16.05 16.05 0 0 0 40 240a15.89 15.89 0 0 0 10.25-3.78l.09-.07L83 208h133a16 16 0 0 0 16-16V64a16 16 0 0 0-16-16Zm0 144H80a8 8 0 0 0-5.15 1.88L40 224V64h176Z"/></svg>',
+  CHECK: '<svg width="18" height="18" viewBox="0 0 256 256" fill="currentColor"><path d="M229.66 77.66l-128 128a8 8 0 0 1-11.32 0l-56-56a8 8 0 0 1 11.32-11.32L96 188.69 218.34 66.34a8 8 0 0 1 11.32 11.32Z"/></svg>',
+  X: '<svg width="16" height="16" viewBox="0 0 256 256" fill="currentColor"><path d="M205.66 194.34a8 8 0 0 1-11.32 11.32L128 139.31l-66.34 66.35a8 8 0 0 1-11.32-11.32L116.69 128 50.34 61.66a8 8 0 0 1 11.32-11.32L128 116.69l66.34-66.35a8 8 0 0 1 11.32 11.32L139.31 128Z"/></svg>',
+  DOC: '<svg width="22" height="22" viewBox="0 0 256 256" fill="currentColor"><path d="M213.66 82.34l-56-56A8 8 0 0 0 152 24H56a16 16 0 0 0-16 16v176a16 16 0 0 0 16 16h144a16 16 0 0 0 16-16V88a8 8 0 0 0-2.34-5.66ZM160 51.31 188.69 80H160ZM200 216H56V40h88v48a8 8 0 0 0 8 8h48Z"/></svg>',
+  CAM: '<svg width="22" height="22" viewBox="0 0 256 256" fill="currentColor"><path d="M208 56h-27.72l-13.63-20.44A8 8 0 0 0 160 32H96a8 8 0 0 0-6.65 3.56L75.72 56H48a24 24 0 0 0-24 24v112a24 24 0 0 0 24 24h160a24 24 0 0 0 24-24V80a24 24 0 0 0-24-24Zm8 136a8 8 0 0 1-8 8H48a8 8 0 0 1-8-8V80a8 8 0 0 1 8-8h32a8 8 0 0 0 6.66-3.56L100.28 48h55.43l13.63 20.44A8 8 0 0 0 176 72h32a8 8 0 0 1 8 8ZM128 88a44 44 0 1 0 44 44 44.05 44.05 0 0 0-44-44Zm0 72a28 28 0 1 1 28-28 28 28 0 0 1-28 28Z"/></svg>',
+  BELL: '<svg width="22" height="22" viewBox="0 0 256 256" fill="currentColor"><path d="M221.8 175.94C216.25 166.38 208 139.33 208 104a80 80 0 1 0-160 0c0 35.34-8.26 62.38-13.81 71.94A16 16 0 0 0 48 200h40.81a40 40 0 0 0 78.38 0H208a16 16 0 0 0 13.8-24.06ZM128 216a24 24 0 0 1-22.62-16h45.24A24 24 0 0 1 128 216Zm-80-32c7.7-13.24 16-43.92 16-80a64 64 0 1 1 128 0c0 36.05 8.28 66.73 16 80Z"/></svg>',
+  PEN: '<svg width="22" height="22" viewBox="0 0 256 256" fill="currentColor"><path d="M227.31 73.37 182.63 28.69a16 16 0 0 0-22.63 0L36.69 152A15.86 15.86 0 0 0 32 163.31V208a16 16 0 0 0 16 16h44.69a15.86 15.86 0 0 0 11.31-4.69L227.31 96a16 16 0 0 0 0-22.63ZM92.69 208H48v-44.69l88-88L180.69 120ZM192 108.68 147.31 64l24-24L216 84.68Z"/></svg>',
+  AI: '<svg width="20" height="20" viewBox="0 0 256 256" fill="currentColor"><path d="M208 144a15.78 15.78 0 0 1-10.42 14.94l-51.83 19.24-19.24 51.83a16 16 0 0 1-29.88 0l-19.24-51.83-51.83-19.24a16 16 0 0 1 0-29.88l51.83-19.24 19.24-51.83a16 16 0 0 1 29.88 0l19.24 51.83 51.83 19.24A15.78 15.78 0 0 1 208 144Zm-32-96h16v16a8 8 0 0 0 16 0V48h16a8 8 0 0 0 0-16h-16V16a8 8 0 0 0-16 0v16h-16a8 8 0 0 0 0 16Z"/></svg>',
+  GLOBE: '<svg width="22" height="22" viewBox="0 0 256 256" fill="currentColor"><path d="M128 24a104 104 0 1 0 104 104A104.11 104.11 0 0 0 128 24Zm88 104a87.6 87.6 0 0 1-3.33 24h-38.51a157.4 157.4 0 0 0 0-48h38.51a87.6 87.6 0 0 1 3.33 24Zm-114 40h52a115.1 115.1 0 0 1-26 45 115.3 115.3 0 0 1-26-45Zm-3.9-16a140.8 140.8 0 0 1 0-48h59.88a140.8 140.8 0 0 1 0 48ZM40 128a87.6 87.6 0 0 1 3.33-24h38.51a157.4 157.4 0 0 0 0 48H43.33A87.6 87.6 0 0 1 40 128Zm114-40h-52a115.1 115.1 0 0 1 26-45 115.3 115.3 0 0 1 26 45Z"/></svg>',
+  SHIELD: '<svg width="22" height="22" viewBox="0 0 256 256" fill="currentColor"><path d="M208 40H48a16 16 0 0 0-16 16v56c0 52.72 25.52 84.67 46.93 102.19 23.06 18.86 46 25.27 47 25.53a8 8 0 0 0 4.14 0c1-.26 23.9-6.67 47-25.53C198.48 196.67 224 164.72 224 112V56a16 16 0 0 0-16-16Zm0 72c0 37.07-13.66 67.16-40.6 89.42A129.3 129.3 0 0 1 128 223.62a128.8 128.8 0 0 1-38.92-21.81C61.82 179.51 48 149.3 48 112V56h160Zm-34.34 3.94a8 8 0 0 1 0 11.32l-48 48a8 8 0 0 1-11.32 0l-24-24a8 8 0 0 1 11.32-11.32L120 158.34l42.34-42.34a8 8 0 0 1 11.32-.06Z"/></svg>',
+  GEAR: '<svg width="18" height="18" viewBox="0 0 256 256" fill="currentColor"><path d="M128 80a48 48 0 1 0 48 48 48.05 48.05 0 0 0-48-48Zm0 80a32 32 0 1 1 32-32 32 32 0 0 1-32 32Zm88-29.84q.06-2.16 0-4.32l14.92-18.64a8 8 0 0 0 1.48-7.06 107.6 107.6 0 0 0-10.88-26.25 8 8 0 0 0-6-3.93l-23.72-2.64q-1.48-1.56-3-3L186 40.54a8 8 0 0 0-3.94-6 107.3 107.3 0 0 0-26.25-10.86 8 8 0 0 0-7.06 1.48L130.16 40h-4.32L107.2 25.11a8 8 0 0 0-7.06-1.48 107.6 107.6 0 0 0-26.25 10.88 8 8 0 0 0-3.93 6l-2.64 23.76q-1.56 1.49-3 3L40.54 70a8 8 0 0 0-6 3.94 107.7 107.7 0 0 0-10.87 26.25 8 8 0 0 0 1.49 7.06L40 125.84v4.32L25.11 148.8a8 8 0 0 0-1.48 7.06 107.6 107.6 0 0 0 10.88 26.25 8 8 0 0 0 6 3.93l23.72 2.64q1.49 1.56 3 3L70 215.46a8 8 0 0 0 3.94 6 107.7 107.7 0 0 0 26.25 10.87 8 8 0 0 0 7.06-1.49L125.84 216h4.32l18.64 14.92a8 8 0 0 0 7.06 1.48 107.2 107.2 0 0 0 26.25-10.88 8 8 0 0 0 3.93-6l2.64-23.72q1.56-1.48 3-3l23.78-2.8a8 8 0 0 0 6-3.94 107.7 107.7 0 0 0 10.87-26.25 8 8 0 0 0-1.49-7.06Z"/></svg>',
+  CHEV: '<svg width="16" height="16" viewBox="0 0 256 256" fill="currentColor"><path d="M181.66 133.66l-80 80a8 8 0 0 1-11.32-11.32L164.69 128 90.34 53.66a8 8 0 0 1 11.32-11.32l80 80a8 8 0 0 1 0 11.32Z"/></svg>',
+};
+I.LIST = `<div class="relative mb-3"><input class="w-full bg-warm-white border border-stone-200 rounded-xl pl-9 py-2.5 text-sm" placeholder="Rechercher"></div>
+<div class="section px-1">Aujourd'hui</div>
+<div class="card"><div class="text-base font-semibold">TypeSafe AI</div><div class="text-sm text-stone-600 mt-1 line-clamp-2">TypeSafe AI, jugement typé sur un état, choix / bool / score, moins cher qu'un appel complet.</div><div class="text-xs text-stone-400 mt-2">2026-09-19 · 09:12</div></div>
+<div class="card"><div class="text-base font-semibold">Connecteur GitHub</div><div class="text-sm text-stone-600 mt-1 line-clamp-2">App ou OAuth ? Comparer scopes, durée des jetons, proxy.</div><div class="text-xs text-stone-400 mt-2">2026-09-19 · 00:12</div></div>
+<div class="section px-1 mt-2">Cette semaine</div>
+<div class="card"><div class="text-base font-semibold">Onboarding</div><div class="text-sm text-stone-600 mt-1 line-clamp-2">Invitations par email, demande Premium, liaison de compte.</div><div class="text-xs text-stone-400 mt-2">2026-09-16</div></div>
+<div class="card"><div class="text-base font-semibold">Hermes kit</div><div class="text-sm text-stone-600 mt-1 line-clamp-2">Guide publié, zip 19 Ko, à relier depuis les réglages.</div><div class="text-xs text-stone-400 mt-2">2026-09-15</div></div>`;
+document.body.innerHTML = document.body.innerHTML.replace(/\$\{(\w+)\}/g, (_, k) => I[k] ?? '');
+
+// ---------- B ----------
+function bTog(id) { document.getElementById(id).classList.toggle('open'); }
+// drag the card (B2, B3): pointer follows, snap on release
+for (const id of ['b2', 'b3']) {
+  const stage = document.getElementById(id), card = document.getElementById(id + 'card'), menu = stage.querySelector('.b-menu');
+  const lite = stage.classList.contains('lite'); const MAX = 390 * (lite ? .82 : .78);
+  let sx = null, x0 = 0;
+  const apply = p => {
+    p = Math.max(0, Math.min(1, p));
+    card.style.transform = lite ? `translateX(${MAX * p}px)` : `translateX(${MAX * p}px) scale(${1 - .08 * p})`;
+    card.style.borderRadius = lite ? `${28 * p}px 0 0 ${28 * p}px` : `${40 * p}px`;
+    menu.style.transform = `translateX(${-10 * (1 - p)}%)`; menu.style.opacity = .55 + .45 * p;
+  };
+  card.addEventListener('pointerdown', e => { sx = e.clientX; x0 = stage.classList.contains('open') ? 1 : 0; });
+  card.addEventListener('pointermove', e => { if (sx === null) return; const dx = e.clientX - sx; if (Math.abs(dx) < 6) return; stage.classList.add('dragging'); apply(x0 + dx / MAX); });
+  const end = e => { if (sx === null) return; const dx = e.clientX - sx; const dragged = stage.classList.contains('dragging'); sx = null; stage.classList.remove('dragging'); card.style.transform = card.style.borderRadius = menu.style.transform = menu.style.opacity = ''; if (dragged) stage.classList.toggle('open', (x0 + dx / MAX) > .5); };
+  card.addEventListener('pointerup', end); card.addEventListener('pointercancel', end); card.addEventListener('pointerleave', end);
+}
+
+// ---------- N1 ----------
+const n1w = document.getElementById('n1w'); for (let i = 0; i < 40; i++) { const b = document.createElement('i'); b.style.animationDelay = `${(i * 137) % 900}ms`; b.style.animationDuration = `${700 + (i * 53) % 500}ms`; n1w.appendChild(b); }
+let n1state = 'idle', n1timer = null, n1sec = 0;
+function n1show(s) { const d = document.getElementById('n1d'); d.querySelectorAll('.st').forEach(el => el.classList.toggle('hide', !el.classList.contains(s))); }
+function n1() {
+  const d = document.getElementById('n1d'), s = document.getElementById('n1s'), c = document.getElementById('n1c');
+  if (n1state !== 'idle') return; n1state = 'rec'; d.classList.add('rec'); n1show('rec'); n1sec = 0; document.getElementById('n1t').textContent = '0:00';
+  c.style.transition = 'width 300ms var(--ease-soft), opacity 200ms, margin 300ms var(--ease-soft)'; c.style.width = '0'; c.style.opacity = '0'; c.style.marginLeft = '-8px'; c.style.overflow = 'hidden'; c.style.borderWidth = '0';
+  s.classList.remove('gone'); requestAnimationFrame(() => s.classList.add('on'));
+  n1timer = setInterval(() => { n1sec++; document.getElementById('n1t').textContent = `${Math.floor(n1sec / 60)}:${String(n1sec % 60).padStart(2, '0')}`; }, 1000);
+}
+function n1stop(e) {
+  e.stopPropagation(); if (n1state !== 'rec') return; clearInterval(n1timer); n1state = 'done';
+  const d = document.getElementById('n1d'), s = document.getElementById('n1s'), c = document.getElementById('n1c');
+  s.classList.remove('on'); setTimeout(() => s.classList.add('gone'), 200);
+  d.classList.remove('rec'); d.classList.add('done'); n1show('done');
+  setTimeout(() => { d.classList.remove('done'); n1show('ok'); const p = document.getElementById('n1txt'); p.textContent = 'Points à creuser : installation par dépôt, refresh, révocation, ce que Google fait déjà chez nous.'; p.style.animation = 'fadeInUp .3s var(--ease-soft)'; }, 1600);
+  setTimeout(() => { n1show('idle'); c.style.width = ''; c.style.opacity = ''; c.style.marginLeft = ''; c.style.borderWidth = ''; n1state = 'idle'; }, 3000);
+}
+
+// ---------- N2 ----------
+let n2float = true;
+function n2mode(f) { n2float = f; n2close(); setTimeout(n2open, 60); }
+function n2open() { const sh = document.getElementById('n2sheet'), bd = document.getElementById('n2bd'); sh.classList.toggle('float', n2float); sh.classList.toggle('sheet-pop', !n2float); sh.classList.remove('hidden'); bd.classList.remove('hidden'); bd.classList.add('backdrop-fade'); }
+function n2close() { document.getElementById('n2sheet').classList.add('hidden'); document.getElementById('n2bd').classList.add('hidden'); }
+
+// ---------- N3 ----------
+const n3f = document.getElementById('n3f'), n3m = document.getElementById('n3m'); let holdT = null, held = false;
+n3f.addEventListener('pointerdown', () => { held = false; n3f.classList.add('hold'); holdT = setTimeout(() => { held = true; n3m.classList.add('on'); n3f.classList.remove('hold'); }, 380); });
+const n3up = () => { clearTimeout(holdT); n3f.classList.remove('hold'); };
+n3f.addEventListener('pointerup', () => { n3up(); if (!held) { if (n3m.classList.contains('on')) { n3m.classList.remove('on'); return; } n3go(); } });
+n3f.addEventListener('pointerleave', n3up);
+function n3go() { n3m.classList.remove('on'); n3f.classList.add('morph'); setTimeout(() => document.getElementById('n3ed').classList.add('on'), 200); }
+function n3back() { document.getElementById('n3ed').classList.remove('on'); setTimeout(() => n3f.classList.remove('morph'), 120); }
+
+// ---------- C1 / C2 ----------
+function c1f(on) { document.getElementById('c1cap').classList.toggle('focus', on); }
+function c1in() { document.getElementById('c1r').classList.toggle('has', document.getElementById('c1ta').textContent.trim().length > 0); }
+function c1type() { const ta = document.getElementById('c1ta'); ta.textContent = ''; c1f(true); const txt = 'Compare les deux approches et propose 3 issues'; let i = 0; const t = setInterval(() => { ta.textContent = txt.slice(0, ++i); c1in(); if (i >= txt.length) clearInterval(t); }, 28); }
+function c1send() { const ta = document.getElementById('c1ta'); if (!ta.textContent.trim()) return; ta.textContent = ''; c1in(); c1f(false); }
+function c2tog() { document.getElementById('c2pop').classList.toggle('on'); document.getElementById('c2plus').classList.toggle('on'); }
+function c2tile(el, label) {
+  el.classList.toggle('on'); const chips = document.getElementById('c1chips'); const ex = chips.querySelector(`[data-l="${label}"]`);
+  if (ex) { ex.remove(); return; }
+  const c = document.createElement('button'); c.className = 'chip on'; c.dataset.l = label; c.style.animation = 'popUp .22s cubic-bezier(0.2,0.9,0.25,1.15)';
+  c.innerHTML = (label === 'Hermes' ? '<img src="hermes-agent.png" class="w-4 h-4 rounded-full" alt="">' : '<span class="w-1.5 h-1.5 rounded-full bg-ios-orange"></span>') + `<span>${label}</span><span class="x">${I.X.replace('16', '12').replace('16', '12')}</span>`;
+  c.onclick = () => { c.remove(); el.classList.remove('on'); }; chips.appendChild(c);
+}
+
+// ---------- C3 ----------
+function c3run() {
+  const f = document.getElementById('c3feed'); f.innerHTML = '';
+  const ub = document.createElement('div'); ub.className = 'ub'; ub.textContent = 'Qu\'est-ce que j\'ai noté sur le connecteur GitHub ?'; f.appendChild(ub);
+  const row = document.createElement('div'); row.className = 'flex items-start gap-2'; row.style.animation = 'fadeInUp .2s var(--ease-soft)';
+  row.innerHTML = `<img src="flowflow-icon-300.png" class="w-5 h-5 mt-1 rounded-full" alt=""><div class="min-w-0 flex-1"><div class="status"><span class="d"></span><span class="txt" id="c3st">Recherche dans tes notes…</span></div><div class="text-sm leading-relaxed" id="c3ans"></div><div class="src" id="c3src"><b>2 sources</b><span>Connecteur GitHub · Onboarding</span><span class="ml-auto text-stone-300">${I.CHEV}</span></div></div>`;
+  setTimeout(() => f.appendChild(row), 350);
+  const st = t => { const el = document.getElementById('c3st'); el.classList.add('sw'); setTimeout(() => { el.textContent = t; el.classList.remove('sw'); }, 180); };
+  setTimeout(() => st('3 notes trouvées, je lis…'), 1500);
+  setTimeout(() => { st('2 notes retenues'); }, 2600);
+  const words = 'Tu as deux notes : « Connecteur GitHub » compare GitHub App et OAuth App et penche pour l\'App (dépôts choisis, jeton court, révocable). « Onboarding » mentionne que la connexion GitHub doit passer par les réglages, pas par l\'onboarding.'.split(' ');
+  setTimeout(() => { const a = document.getElementById('c3ans'); document.querySelector('#c3 .status').style.display = 'none'; words.forEach((w, i) => { const s = document.createElement('span'); s.className = 'w'; s.textContent = w + ' '; a.appendChild(s); setTimeout(() => s.classList.add('on'), i * 42); }); setTimeout(() => document.getElementById('c3src').classList.add('on'), words.length * 42 + 200); }, 3300);
+}
+</script>
+</body>
+</html>
