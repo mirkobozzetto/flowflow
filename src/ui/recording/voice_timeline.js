@@ -76,7 +76,9 @@ for (;;) {
     // `visibilityState: hidden` and WebKit freezes its animation clock.
     const r = bars[39].getBoundingClientRect();
     const tall = bars.filter((b) => b.getBoundingClientRect().height > 4).length;
+    const layer = host.closest(".voice-layer");
     dioxus.send("timeline:bars=" + bars.length + " w=" + r.width + " tall=" + tall
+      + " layer_in=" + (layer && layer.getAttribute("data-in"))
       + " visibility=" + document.visibilityState);
   }
 }

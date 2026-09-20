@@ -77,7 +77,12 @@ pub fn Composer(
         || matches!(recording_state, RecordingState::Transcribed { .. });
     let mut was_live = use_signal(|| false);
     use_effect(move || {
-        let live = !is_idle;
+        // Read the signal here: `is_idle` is a plain local of this render,
+        // so an effect built on it alone never re-runs.
+        let state = (app.recording_state)();
+        let live = !(state == RecordingState::Idle
+            || matches!(state, RecordingState::Error(_))
+            || matches!(state, RecordingState::Transcribed { .. }));
         // peek: an effect must never subscribe to the signal it writes.
         let before = *was_live.peek();
         if before == live {
