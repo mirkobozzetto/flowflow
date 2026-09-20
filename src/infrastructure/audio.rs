@@ -206,6 +206,26 @@ impl AudioRecorder {
         levels
     }
 
+    /// Loudness of the last `secs` of audio, 0..1 on a decibel scale
+    /// (-55 dB silence floor, -5 dB ceiling) so speech fills the mid range.
+    /// One slice per call, no window overlap: that is what keeps a timeline
+    /// honest and reactive instead of a moving average that lags.
+    pub fn recent_level(&self, secs: f32) -> f32 {
+        let samples = self.samples.lock().unwrap();
+        let window = ((self.sample_rate as f32 * self.channels as f32 * secs)
+            as usize)
+            .max(1)
+            .min(samples.len());
+        if window == 0 {
+            return 0.0;
+        }
+        let slice = &samples[samples.len() - window..];
+        let rms = (slice.iter().map(|s| s * s).sum::<f32>() / window as f32)
+            .sqrt();
+        let db = 20.0 * rms.max(1e-6).log10();
+        ((db + 55.0) / 50.0).clamp(0.0, 1.0)
+    }
+
     pub fn duration_secs(&self) -> f32 {
         let count = self.samples.lock().unwrap().len();
         if self.sample_rate == 0 || self.channels == 0 {
