@@ -64,6 +64,10 @@ pub fn Composer(
     // Exit choreography: the voice capsule stays mounted 260 ms after the
     // take ends so CSS can play it out; the field flashes when text lands.
     let mut voice_leaving = use_signal(|| false);
+    // Enter transition: false on the frame the layer mounts, true one tick
+    // later. Dioxus owns every attribute of that node, so the flag must be a
+    // Rust signal, never something JS sets on the element.
+    let mut voice_in = use_signal(|| false);
     let landed = use_signal(|| false);
     let sent = use_signal(|| false);
 
@@ -80,6 +84,14 @@ pub fn Composer(
             return;
         }
         was_live.set(live);
+        if live {
+            voice_in.set(false);
+            spawn(async move {
+                futures_timer::Delay::new(std::time::Duration::from_millis(16))
+                    .await;
+                voice_in.set(true);
+            });
+        }
         if before && !live {
             voice_leaving.set(true);
             spawn(async move {
@@ -268,7 +280,10 @@ pub fn Composer(
                             }
                         }
                         if !is_idle || voice_leaving() {
+                            // Enter/exit are CSS transitions driven by Rust flags:
+                            // data-in flips one tick after mount, data-leaving on exit.
                             div { class: "voice-layer absolute inset-0",
+                                "data-in": voice_in() && !is_idle,
                                 "data-leaving": is_idle,
                                 VoiceCapsule { pending_audio, transcribe_only: chat, commit_on_transcribed }
                             }

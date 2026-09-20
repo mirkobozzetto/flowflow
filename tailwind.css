@@ -196,21 +196,24 @@
    cancel; turns light while transcribing so it morphs into the field. */
 .voice-layer {
     transform-origin: right center;
-    animation: voice-in 340ms var(--ease-soft) both;
-    transition: transform 240ms var(--ease-soft), opacity 200ms;
+    transform: scaleX(0.3);
+    opacity: 0;
+    transition: transform 340ms var(--ease-soft), opacity 200ms;
+}
+.voice-layer[data-in="true"] {
+    transform: scaleX(1);
+    opacity: 1;
 }
 .voice-layer[data-leaving="true"] {
     transform: scaleX(0.3);
     opacity: 0;
+    transition-duration: 240ms, 200ms;
     pointer-events: none;
-}
-@keyframes voice-in {
-    from { transform: scaleX(0.3); opacity: 0; }
-    to { transform: scaleX(1); opacity: 1; }
 }
 .voice-bars i {
     display: block;
     width: 2px;
+    min-width: 2px;
     min-height: 2px;
     border-radius: 9999px;
     background: rgba(255, 255, 255, 0.92);

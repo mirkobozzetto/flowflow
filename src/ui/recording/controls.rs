@@ -80,6 +80,15 @@ pub fn VoiceCapsule(
                 // One controller per take segment: a resume re-installs the
                 // loop over the bars that are still in the DOM.
                 let timeline = mount_timeline();
+                // Log what the webview really drew (see voice_timeline.ts).
+                spawn({
+                    let mut probe = timeline.clone();
+                    async move {
+                        while let Ok(msg) = probe.recv::<String>().await {
+                            eprintln!("[voice] {msg}");
+                        }
+                    }
+                });
                 loop {
                     if (app.recording_state)() != RecordingState::Recording {
                         break;
