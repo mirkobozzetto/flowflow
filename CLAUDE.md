@@ -74,7 +74,7 @@ src/
     audio.rs               AudioRecorder (cpal, WAV capture)
 
   ui/                      Dioxus components (1 component = 1 file)
-    app/                   root + routing (mod, router, nav, top_bar, fab, boot, consent, watchers, right_nav, restore_lock, animations, contexts)
+    app/                   root + routing (mod, router, nav, top_bar, fab, boot, consent, watchers, restore_lock, animations, contexts)
     chat/                  ChatView + RAG chat (view, chat_input, actions, action_card, bubbles, sources_accordion, menu, typing_indicator, empty_state, models)
     notes/                 list + detail (note_list, note_card, detail/ + detail/hooks/, attachments, tags, reminders, folder_picker, audio_player, menu)
     sidebar/               drawer (mod, folders, conversations) + use_swipe_drawer
@@ -82,7 +82,7 @@ src/
     recording/             recording bar + 60fps waveform (bar, controls, waveform)
     settings/              tabs (general, intelligence, transcription, connections, account, backup, privacy, storage, shortcuts)
     sync/                  pairing + conflicts UI (controls, pairing, conflicts)
-    hooks/                 reusable hooks (swipe.rs = use_swipe_drawer / use_swipe_right_nav, +.ts source -> .js via `make js`)
+    hooks/                 reusable hooks (swipe.rs = use_swipe_drawer / use_sheet_dismiss, +.ts source -> .js via `make js`)
     keyboard/, state.rs, kit.rs, icons.rs, clipboard.rs
 ```
 

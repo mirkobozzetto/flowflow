@@ -83,23 +83,33 @@
         transform: none;
         opacity: 1;
     }
+    /* The card keeps the phone's own corner shape the whole time it is off
+       its resting place: full radius from the first pixel of travel, and it
+       drops only once the card is back (hidden by the screen corners). */
     .sb-card {
+        /* ponytail: one radius near the iPhone display corners, per-model
+           values if a device shows a mismatch. */
+        --sb-card-r: 48px;
         background: var(--color-stone-100);
         overflow: hidden;
         transition:
             transform 460ms var(--ease-soft),
-            border-radius 460ms var(--ease-soft),
-            box-shadow 460ms var(--ease-soft);
+            box-shadow 460ms var(--ease-soft),
+            border-radius 0s 460ms;
     }
     .sb-card[data-open="1"] {
         transform: translateX(82vw);
-        border-radius: 28px 0 0 28px;
+        border-radius: var(--sb-card-r);
         box-shadow: var(--shadow-menu);
+        transition:
+            transform 460ms var(--ease-soft),
+            box-shadow 460ms var(--ease-soft);
     }
 }
 
-/* Burger (#177): a constant two-stroke glyph over a permanent 44px glass
-   disc that contracts and brightens under the finger. */
+/* Burger (#177): a constant two-stroke glyph over a permanent 44px disc.
+   Deliberately static: no press scale, no backdrop blur (both flickered on
+   device); the haptic tick and the card moving are the feedback. */
 .burger-disc::before {
     content: "";
     position: absolute;
@@ -107,16 +117,7 @@
     border-radius: 9999px;
     background: --alpha(var(--color-warm-white) / 55%);
     border: 1px solid --alpha(var(--color-stone-900) / 8%);
-    -webkit-backdrop-filter: blur(10px) saturate(1.3);
-    backdrop-filter: blur(10px) saturate(1.3);
     box-shadow: inset 0 1px 0 --alpha(var(--color-warm-white) / 80%);
-    transition:
-        transform 320ms var(--ease-soft),
-        background-color 200ms;
-}
-.burger-disc:active::before {
-    transform: scale(0.92);
-    background: --alpha(var(--color-warm-white) / 80%);
 }
 .burger-disc > svg {
     position: relative;

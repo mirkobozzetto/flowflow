@@ -1,6 +1,5 @@
 use super::animations::{slide_style, Slide};
 use crate::ui::app::fab::FloatingActionButton;
-use crate::ui::app::right_nav::RightNav;
 use crate::ui::app::top_bar::TopBar;
 use crate::ui::chat::ChatView;
 use crate::ui::notes::attachment_modal::AttachmentModal;
@@ -56,7 +55,6 @@ pub fn AppRouter(index_rebuilding: Signal<bool>) -> Element {
                 }
             }
             SidebarOverlay {}
-            RightNav {}
             AttachmentModal {}
             NoteRowMenu {}
             div {

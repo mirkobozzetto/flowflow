@@ -65,7 +65,7 @@
       const p = Math.max(0, Math.min(1, 1 - Math.abs(cur) / w));
       card.style.transition = panel.style.transition = "none";
       card.style.transform = "translateX(" + p * w + "px)";
-      card.style.borderRadius = 28 * p + "px 0 0 " + 28 * p + "px";
+      card.style.borderRadius = "var(--sb-card-r)";
       card.style.boxShadow = "var(--shadow-menu)";
       panel.style.transform = "translateX(" + -10 * (1 - p) + "%)";
       panel.style.opacity = (0.55 + 0.45 * p).toFixed(3);
@@ -91,11 +91,12 @@
       raf = 0;
     }
     if (card) {
-      card.style.transition =
-        "transform " + CARD_T + ", border-radius " + CARD_T + ", box-shadow " + CARD_T;
+      // The radius stays on while the card travels; it is cleared with the
+      // rest once Dioxus has the committed state (the class then keeps it).
+      card.style.transition = "transform " + CARD_T + ", box-shadow " + CARD_T;
       panel.style.transition = "transform " + CARD_T + ", opacity " + CARD_T;
       card.style.transform = "translateX(" + (open ? w : 0) + "px)";
-      card.style.borderRadius = open ? "28px 0 0 28px" : "0";
+      card.style.borderRadius = "var(--sb-card-r)";
       card.style.boxShadow = open ? "var(--shadow-menu)" : "none";
       panel.style.transform = open ? "none" : "translateX(-10%)";
       panel.style.opacity = open ? "1" : "0.55";
