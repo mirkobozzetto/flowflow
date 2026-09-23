@@ -186,24 +186,28 @@ impl AudioRecorder {
         Ok(path)
     }
 
-    pub fn current_levels(&self, num_bars: usize) -> Vec<f32> {
+    /// Loudness of the last `secs` of audio as `(rms, peak)`, each 0..1 on a
+    /// decibel scale (-55 dB floor, -5 dB ceiling) so speech fills the mid
+    /// range. RMS carries the voice, the peak carries consonants and attacks.
+    /// One slice per call, no overlap: an honest, reactive timeline instead of
+    /// a moving average that lags.
+    pub fn recent_levels(&self, secs: f32) -> (f32, f32) {
         let samples = self.samples.lock().unwrap();
-        let len = samples.len();
-        if len < 200 || num_bars == 0 {
-            return vec![0.0; num_bars];
+        let window = ((self.sample_rate as f32 * self.channels as f32 * secs)
+            as usize)
+            .max(1)
+            .min(samples.len());
+        if window == 0 {
+            return (0.0, 0.0);
         }
-        let window = (num_bars * 300).min(len);
-        let start = len - window;
-        let chunk = window / num_bars;
-        let mut levels = vec![0.0f32; num_bars];
-        for (i, level) in levels.iter_mut().enumerate().take(num_bars) {
-            let from = start + i * chunk;
-            let to = from + chunk;
-            let rms: f32 = samples[from..to].iter().map(|s| s * s).sum::<f32>()
-                / chunk as f32;
-            *level = (rms.sqrt() * 8.0).min(1.0);
-        }
-        levels
+        let slice = &samples[samples.len() - window..];
+        let rms =
+            (slice.iter().map(|s| s * s).sum::<f32>() / window as f32).sqrt();
+        let peak = slice.iter().fold(0.0f32, |m, s| m.max(s.abs()));
+        let norm = |v: f32| {
+            ((20.0 * v.max(1e-6).log10() + 55.0) / 50.0).clamp(0.0, 1.0)
+        };
+        (norm(rms), norm(peak))
     }
 
     pub fn duration_secs(&self) -> f32 {

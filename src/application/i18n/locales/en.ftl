@@ -370,6 +370,12 @@ note-related-pin = Pin
 note-related-unpin = Unpin
 note-related-dismiss = Dismiss
 
+chat-send = Send
+composer-note-placeholder = Add to the note…
+composer-append = Add to the note
+recording-cancel = Cancel
+recording-stop = Stop and review
+recording-send = Send
 recording-dictate = Dictate
 
 folder-picker-all = All notes

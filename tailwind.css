@@ -148,12 +148,113 @@
     border-radius: 3px;
 }
 .tools-scroll::-webkit-scrollbar-track { background: transparent; }
-/* Rotate the existing + without changing either composer. */
-.keyboard-aware .relative.shrink-0 > button > svg {
-    transition: transform 280ms var(--ease-soft);
+/* Shared composer (#178): + rotates when its menu is open, the orange button
+   swaps mic and arrow, the voice capsule scales in from the right. */
+/* Pill on one line, card from the second: only the capsule's height and radius
+   move (height is set by the AUTOSIZE script), the buttons are anchored to its
+   bottom and the field slides from between them to full width. No inner focus
+   ring: the capsule carries the only one. */
+.composer-capsule {
+    transition: height 260ms var(--ease-soft), border-radius 260ms var(--ease-soft),
+        background-color 180ms, border-color 180ms, box-shadow 180ms,
+        opacity 200ms, transform 300ms var(--ease-soft);
 }
-.keyboard-aware .relative.shrink-0:has(> .tools-popover) > button > svg {
+.composer-capsule[data-multi="true"] {
+    border-radius: 24px;
+}
+.composer-field {
+    margin-left: 44px;
+    margin-right: 44px;
+    transition: margin 260ms var(--ease-soft);
+}
+.composer-field:focus-visible {
+    outline: none;
+}
+.composer-capsule[data-multi="true"] .composer-field {
+    margin-left: 0;
+    margin-right: 0;
+}
+.composer-plus {
+    transition: transform 280ms var(--ease-soft), background-color 180ms;
+}
+.composer-plus[data-open="true"] {
     transform: rotate(45deg);
+    background: var(--color-stone-200);
+}
+.composer-icon {
+    transition: transform 260ms var(--ease-soft), opacity 160ms;
+}
+.composer-icon-send { transform: scale(0.4) rotate(-45deg); opacity: 0; }
+.composer-primary[data-has-text="true"] .composer-icon-mic {
+    transform: scale(0.4) rotate(45deg);
+    opacity: 0;
+}
+.composer-primary[data-has-text="true"] .composer-icon-send {
+    transform: none;
+    opacity: 1;
+}
+.composer-capsule[data-hidden="true"] {
+    opacity: 0;
+    transform: scale(0.97);
+    pointer-events: none;
+}
+.composer-capsule[data-landed="true"] .composer-field {
+    animation: fadeInUp 220ms var(--ease-soft) both;
+}
+.composer-primary[data-sent="true"] {
+    animation: composer-sent 200ms var(--ease-soft);
+}
+@keyframes composer-sent {
+    0% { transform: scale(1); }
+    40% { transform: scale(0.88); }
+    100% { transform: scale(1); }
+}
+/* Voice capsule: scales in from the right edge, plays out the same way on
+   cancel; turns light while transcribing so it morphs into the field. */
+.voice-layer {
+    transform-origin: right center;
+    transform: scaleX(0.3);
+    opacity: 0;
+    transition: transform 340ms var(--ease-soft), opacity 200ms;
+}
+.voice-layer[data-in="true"] {
+    transform: scaleX(1);
+    opacity: 1;
+}
+.voice-layer[data-leaving="true"] {
+    transform: scaleX(0.3);
+    opacity: 0;
+    transition-duration: 240ms, 200ms;
+    pointer-events: none;
+}
+.voice-bars i {
+    display: block;
+    width: 2px;
+    min-width: 2px;
+    min-height: 2px;
+    border-radius: 9999px;
+    background: rgba(255, 255, 255, 0.92);
+    flex: none;
+}
+.voice-capsule[data-transcribing="true"] .voice-bars i {
+    background: var(--color-stone-400);
+}
+.voice-capsule {
+    transition: background-color 260ms var(--ease-soft), color 260ms,
+        box-shadow 260ms, border-color 260ms;
+}
+.voice-capsule[data-transcribing="true"] {
+    background: var(--color-warm-white);
+    color: var(--color-stone-900);
+    box-shadow: 0 0 0 3px var(--color-ios-orange-50);
+    border: 1px solid var(--color-ios-orange-dark);
+}
+.voice-capsule[data-transcribing="true"] .voice-ghost {
+    border-color: var(--color-stone-200);
+    color: var(--color-stone-600);
+}
+.voice-capsule[data-transcribing="true"] .voice-status {
+    color: var(--color-stone-500);
 }
 .tools-switch-on {
     opacity: 0;

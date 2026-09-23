@@ -54,3 +54,17 @@ Dioxus 0.8 alpha + UIScene migration, GitHub connector icon.
 Build verification covers the combined tree, not a runtime migration audit.
 Mirko requested a PR into dev and its merge, preserving all remaining work.
 No issue closure requested; #179 remains open for any unconfirmed acceptance.
+
+# Issue #178 — shared composer and voice capsule
+
+Status: implemented, builds green, installed on iPhone; device acceptance pending.
+- `src/ui/composer.rs`: `Composer { role }` mounted by chat (`SendMessage`) and
+  note (`AppendToNote`); `bar.rs` and `chat_input.rs` deleted.
+- `VoiceCapsule` replaces `RecordingControls`: X cancels (replaces double-tap),
+  square = dictation for review in the field, arrow = chat: transcribe+send,
+  note: keep the clip + durable TranscriptionManager job (unchanged path).
+- ponytail: on a note the square path discards the audio clip (dictation file);
+  keeping the clip on review needs a transcript↔audio binding, later if wanted.
+- Haptics: `haptic`/`haptic_prepare` (medium mic, light stop, soft send, none X).
+- Verified: cargo clippy desktop clean on touched files, make desktop-build,
+  make all (installed). Transcription/audio storage/TranscriptionManager untouched.
