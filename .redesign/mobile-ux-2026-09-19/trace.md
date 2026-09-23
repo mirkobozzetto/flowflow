@@ -57,7 +57,8 @@ No issue closure requested; #179 remains open for any unconfirmed acceptance.
 
 # Issue #178 — shared composer and voice capsule
 
-Status: implemented, builds green, installed on iPhone; device acceptance pending.
+Status: merged into dev (PR #181, merge 48a911a). Issue #178 still OPEN:
+`Closes #178` only auto-closes from the default branch (main), not from dev.
 - `src/ui/composer.rs`: `Composer { role }` mounted by chat (`SendMessage`) and
   note (`AppendToNote`); `bar.rs` and `chat_input.rs` deleted.
 - `VoiceCapsule` replaces `RecordingControls`: X cancels (replaces double-tap),
@@ -68,3 +69,40 @@ Status: implemented, builds green, installed on iPhone; device acceptance pendin
 - Haptics: `haptic`/`haptic_prepare` (medium mic, light stop, soft send, none X).
 - Verified: cargo clippy desktop clean on touched files, make desktop-build,
   make all (installed). Transcription/audio storage/TranscriptionManager untouched.
+
+## What broke and why (read this before touching the waveform)
+- `document::eval` runs the script as the body of ONE async function and closes
+  the Rust->JS channel as soon as that body's promise resolves. An IIFE resolves
+  immediately, so `dioxus.recv()` never receives anything. `voice_timeline.js`
+  must stay a BARE body with a top-level `await` loop, exactly like
+  packages/document/docs/eval.md. It is hand-written JS on purpose: TypeScript
+  refuses top-level await outside a module.
+- Tailwind does not scan `.js`, so bars created by the script need their rule in
+  `tailwind.css` (`.voice-bars i`). The edited file is the SOURCE `tailwind.css`;
+  `assets/tailwind.css` is the compiled output dx actually loads.
+- An effect that reads a render-local bool subscribes to nothing and runs once at
+  mount: `voice_in`/`was_live` read `app.recording_state` directly. And an effect
+  must never subscribe to a signal it writes: use `peek()`.
+- Debug-only bench: `FLOWFLOW_VOICE_PROBE=1 ./flowflow` (desktop) starts a take
+  by itself and logs `[voice] timeline:bars=... w=... tall=...`. A webview
+  launched from a shell reports `visibilityState: hidden`, and WebKit then
+  FREEZES its animation clock: CSS transitions read as stuck at their start
+  value there. Judge transitions in a visible window only.
+
+## Composer shape (validated by Mirko)
+Pill on one line, card from the second: the autosize script sets the CAPSULE
+height, CSS transitions height and radius (260 ms), buttons stay anchored to its
+bottom, the field slides to full width, and the inner focus ring is gone.
+Reference: `~/ff-ux-mockup/composer-multiline.html`.
+
+## Open decisions (#178)
+- Waveform pacing: 30 ms slice / 4 px pitch today (~133 px/s, felt fast).
+  Proposed 50 ms x 3 px (~60 px/s, ~5 s visible) or 40 ms x 3 px.
+- Sensitivity: dB range -50..-10 instead of -55..-5, `level^0.7` curve, 1 px floor.
+- On a note, the square (review) path keeps no audio clip; the arrow keeps it.
+- Not confirmed on device: three haptic ticks, reduced motion, 2 min take.
+
+## Next
+#177 (sidebar card + burger) closes phase 1. Then phase 2 starts with
+marketplace-flowflow #113 palier 0, no code. Order and prompts:
+`.redesign/mobile-ux-2026-09-19/roadmap.html`.
