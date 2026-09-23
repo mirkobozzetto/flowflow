@@ -46,7 +46,7 @@
       card.style.transition = panel.style.transition = "none";
       card.style.transform = "translateX(" + p * w + "px)";
       card.style.borderRadius = "var(--sb-card-r)";
-      card.style.boxShadow = "var(--shadow-menu)";
+      card.style.boxShadow = "var(--sb-card-edge)";
       panel.style.transform = "translateX(" + -10 * (1 - p) + "%)";
       panel.style.opacity = (0.55 + 0.45 * p).toFixed(3);
       return;
@@ -75,7 +75,7 @@
       panel.style.transition = "transform " + CARD_T + ", opacity " + CARD_T;
       card.style.transform = "translateX(" + (open ? w : 0) + "px)";
       card.style.borderRadius = "var(--sb-card-r)";
-      card.style.boxShadow = open ? "var(--shadow-menu)" : "none";
+      card.style.boxShadow = open ? "var(--sb-card-edge)" : "none";
       panel.style.transform = open ? "none" : "translateX(-10%)";
       panel.style.opacity = open ? "1" : "0.55";
     } else {

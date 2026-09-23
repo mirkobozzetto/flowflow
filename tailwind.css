@@ -90,6 +90,9 @@
         /* ponytail: one radius near the iPhone display corners, per-model
            values if a device shows a mismatch. */
         --sb-card-r: 48px;
+        /* A hairline ring draws the contour, like ChatGPT's card: the card and
+           the menu are both near-white, so the shadow alone lost the top corner. */
+        --sb-card-edge: 0 0 0 1px var(--color-stone-300), var(--shadow-menu);
         background: var(--color-stone-100);
         overflow: hidden;
         transition:
@@ -100,7 +103,7 @@
     .sb-card[data-open="1"] {
         transform: translateX(82vw);
         border-radius: var(--sb-card-r);
-        box-shadow: var(--shadow-menu);
+        box-shadow: var(--sb-card-edge);
         transition:
             transform 460ms var(--ease-soft),
             box-shadow 460ms var(--ease-soft);
