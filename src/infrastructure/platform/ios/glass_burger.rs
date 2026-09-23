@@ -17,9 +17,9 @@ use objc2_ui_kit::{
     NSDirectionalEdgeInsets, NSFontAttributeName, UIAction, UIButton,
     UIButtonConfiguration, UIButtonConfigurationCornerStyle, UIColor,
     UIControlEvents, UIFont, UIFontWeightSemibold, UIGraphicsImageRenderer,
-    UIGraphicsImageRendererContext, UIImage, UIImageSymbolConfiguration,
-    UIImageSymbolWeight, UIUserInterfaceStyle, UIView, UIViewAnimating,
-    UIViewAnimatingState, UIViewPropertyAnimator,
+    UIGraphicsImageRendererContext, UIImage, UIImageRenderingMode,
+    UIImageSymbolConfiguration, UIImageSymbolWeight, UIUserInterfaceStyle,
+    UIView, UIViewAnimating, UIViewAnimatingState, UIViewPropertyAnimator,
 };
 use std::cell::RefCell;
 use std::ptr::NonNull;
@@ -62,22 +62,41 @@ fn orange() -> Retained<UIColor> {
     rgb(223.0, 67.0, 0.0)
 }
 
-/// The two unequal strokes of the web burger (28px viewBox drawn at 30px).
-fn burger_glyph(mtm: MainThreadMarker) -> Retained<UIImage> {
+// The glass would otherwise tint every glyph with its own dark vibrant
+// colour: pin each image to the web anchor's colour.
+fn original(image: &UIImage, color: &UIColor) -> Retained<UIImage> {
+    image.imageWithTintColor_renderingMode(
+        color,
+        UIImageRenderingMode::AlwaysOriginal,
+    )
+}
+
+/// Round-capped strokes `(x1, y1, x2, y2)` in a `view`-unit box drawn at
+/// `size` points, `width` units thick: the web SVG glyphs, redrawn.
+fn strokes(
+    mtm: MainThreadMarker,
+    size: f64,
+    view: f64,
+    width: f64,
+    lines: &'static [(f64, f64, f64, f64)],
+    color: Retained<UIColor>,
+) -> Retained<UIImage> {
     let renderer = UIGraphicsImageRenderer::initWithSize(
         mtm.alloc(),
-        CGSize::new(30.0, 30.0),
+        CGSize::new(size, size),
     );
-    let color = stone_800();
+    let fill = color.clone();
     let draw = RcBlock::new(
         move |_ctx: NonNull<UIGraphicsImageRendererContext>| {
-            color.setFill();
-            let k = 30.0 / 28.0;
-            let half = 1.2 * k;
-            for (x2, y) in [(19.0, 10.0), (23.0, 18.0)] {
+            fill.setFill();
+            let k = size / view;
+            let half = width * k / 2.0;
+            for &(x1, y1, x2, y2) in lines {
+                let (x, y) = (x1.min(x2) * k, y1.min(y2) * k);
+                let (w, h) = ((x2 - x1).abs() * k, (y2 - y1).abs() * k);
                 let rect = CGRect::new(
-                    CGPoint::new(5.0 * k - half, y * k - half),
-                    CGSize::new((x2 - 5.0) * k + 2.0 * half, 2.0 * half),
+                    CGPoint::new(x - half, y - half),
+                    CGSize::new(w + 2.0 * half, h + 2.0 * half),
                 );
                 objc2_ui_kit::UIBezierPath::bezierPathWithRoundedRect_cornerRadius(
                     rect, half,
@@ -86,19 +105,21 @@ fn burger_glyph(mtm: MainThreadMarker) -> Retained<UIImage> {
             }
         },
     );
-    unsafe { renderer.imageWithActions(&*draw as *const _ as *mut _) }
+    let image =
+        unsafe { renderer.imageWithActions(&*draw as *const _ as *mut _) };
+    original(&image, &color)
 }
 
-fn symbol(config: &UIButtonConfiguration, name: &str, size: f64) {
-    config.setImage(
-        UIImage::systemImageNamed(&NSString::from_str(name)).as_deref(),
+fn symbol(name: &str, size: f64, color: &UIColor) -> Option<Retained<UIImage>> {
+    let config = UIImageSymbolConfiguration::configurationWithPointSize_weight(
+        size,
+        UIImageSymbolWeight::Semibold,
     );
-    config.setPreferredSymbolConfigurationForImage(Some(
-        &UIImageSymbolConfiguration::configurationWithPointSize_weight(
-            size,
-            UIImageSymbolWeight::Semibold,
-        ),
-    ));
+    let image = UIImage::systemImageNamed_withConfiguration(
+        &NSString::from_str(name),
+        Some(&config),
+    )?;
+    Some(original(&image, color))
 }
 
 /// The glass look of each known anchor; None for an unknown id.
@@ -110,12 +131,21 @@ fn configuration(
     config.setCornerStyle(UIButtonConfigurationCornerStyle::Capsule);
     let id = match id {
         "burger" => {
-            config.setImage(Some(&burger_glyph(mtm)));
-            config.setBaseForegroundColor(Some(&stone_800()));
+            // top_bar.rs: 28px viewBox at 30px, stroke 2.4.
+            config.setImage(Some(&strokes(
+                mtm,
+                30.0,
+                28.0,
+                2.4,
+                &[(5.0, 10.0, 19.0, 10.0), (5.0, 18.0, 23.0, 18.0)],
+                stone_800(),
+            )));
             "burger"
         }
         "chat" => {
-            symbol(&config, "text.bubble", 17.0);
+            config.setImage(
+                symbol("text.bubble", 17.0, &orange_dark()).as_deref(),
+            );
             config.setImagePadding(6.0);
             config.setBaseForegroundColor(Some(&orange_dark()));
             config.setContentInsets(NSDirectionalEdgeInsets {
@@ -143,8 +173,15 @@ fn configuration(
             "chat"
         }
         "fab" => {
-            symbol(&config, "plus", 26.0);
-            config.setBaseForegroundColor(Some(&orange()));
+            // fab.rs: the same thin orange plus (100 viewBox at 32px, stroke 4).
+            config.setImage(Some(&strokes(
+                mtm,
+                32.0,
+                100.0,
+                4.0,
+                &[(30.0, 50.0, 70.0, 50.0), (50.0, 30.0, 50.0, 70.0)],
+                orange(),
+            )));
             "fab"
         }
         _ => return None,
@@ -288,6 +325,14 @@ pub fn place(
         let running = g.animator.as_ref().is_some_and(|a| a.isRunning());
         let (p, travel) = (g.p, g.travel);
         let b = &mut g.buttons[idx];
+        // Never narrower than the native content (a wrapped "Ch/at" title):
+        // grow to the left, the anchors that can grow sit on the right edge.
+        let need = b.button.intrinsicContentSize().width;
+        let (x, w) = if visible && need > w {
+            (x - (need - w), need)
+        } else {
+            (x, w)
+        };
         b.base = CGRect::new(CGPoint::new(x, y), CGSize::new(w, h));
         b.button.setHidden(!visible);
         b.badge.setHidden(!dot);
