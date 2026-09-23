@@ -113,20 +113,28 @@
             transform 460ms var(--ease-soft),
             box-shadow 460ms var(--ease-soft);
     }
-    /* The card darkens as it slides aside, so the menu reads first. During a
-       drag swipe.ts sets --sb-dim to the progress with no transition. */
+    /* The card darkens and blurs as it slides aside, so its text does not
+       compete with the menu. During a drag swipe.ts sets --sb-dim (veil
+       alpha) and --sb-blur to the progress with no transition. No filter at
+       rest: the blur layer only exists while the card is off its place. */
     .sb-card::after {
         content: "";
         position: absolute;
         inset: 0;
         z-index: 70;
         pointer-events: none;
-        background: var(--color-stone-900);
-        opacity: var(--sb-dim, 0);
-        transition: opacity var(--sb-dim-t, 460ms) var(--ease-soft);
+        background: color-mix(in oklab, var(--color-stone-900) calc(var(--sb-dim, 0) * 100%), transparent);
+        -webkit-backdrop-filter: var(--sb-blur, none);
+        backdrop-filter: var(--sb-blur, none);
+        transition:
+            background-color var(--sb-dim-t, 460ms) var(--ease-soft),
+            -webkit-backdrop-filter var(--sb-dim-t, 460ms) var(--ease-soft),
+            backdrop-filter var(--sb-dim-t, 460ms) var(--ease-soft);
     }
     .sb-card[data-open="1"]::after {
-        opacity: var(--sb-dim, 0.14);
+        background: color-mix(in oklab, var(--color-stone-900) calc(var(--sb-dim, 0.3) * 100%), transparent);
+        -webkit-backdrop-filter: var(--sb-blur, blur(8px));
+        backdrop-filter: var(--sb-blur, blur(8px));
     }
 }
 
