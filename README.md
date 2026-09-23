@@ -27,7 +27,10 @@ No manual searching. No folders to dig through. Just talk, and find it later.
 
 **Capture**
 
-- Tap to record: real-time waveform, pause/resume, Dynamic Island live timer
+- One composer for notes and chat: type, or tap the mic and a dark voice
+  capsule records, transcribes and hands the text back where you were typing
+- Live 60fps waveform, pause/resume, Dynamic Island live timer; the capsule
+  stays on screen until the text is ready, with retry if a transcription fails
 - Cloud (Soniox) or fully offline transcription with local Whisper models
 - Personal dictionary: your names and brands spelled right, everywhere
 
@@ -56,7 +59,12 @@ No manual searching. No folders to dig through. Just talk, and find it later.
 
 - "Pick up the kids at 5pm" becomes a calendar event, one tap to confirm
 - Notes as actions: the assistant executes with your connected tools, every write holds for approval
-- Governed connectors (Google Sheets), groundwork for a signed-agent marketplace
+- One `+` menu in notes and chat: tools, agents and connectors, with live
+  connection state and each product's own icon
+- Scoped agents: installed packages are verified and pinned, each capability
+  checked against its owner, every native action confirmed before it runs
+- Governed connectors (Google Sheets), each through its own MCP peer;
+  groundwork for a signed-agent marketplace
 
 **Share a space with Hermes Agent**
 
@@ -69,7 +77,9 @@ No manual searching. No folders to dig through. Just talk, and find it later.
 **Native feel**
 
 - A real Mac app: ⌘N, ⌘F, ⌘⌘, view history, native file dialogs
-- 60fps waveform, edge-swipe drawers, drag-to-dismiss sheets
+- iPhone: the menu lies under the screen, which slides aside as a card;
+  swipe from anywhere to open it
+- iOS 26 Liquid Glass controls, haptics on every commit, drag-to-dismiss sheets
 - English + French, down to error messages; word-level transcript with tap-to-seek
 
 The full tour, one paragraph per feature: [docs/FEATURES.md](docs/FEATURES.md).
