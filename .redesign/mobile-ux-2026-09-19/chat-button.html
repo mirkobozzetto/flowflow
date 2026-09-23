@@ -1,0 +1,108 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>FlowFlow · bouton chat du haut · draft</title>
+<script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
+<style type="text/tailwindcss">
+@theme {
+    --ease-soft: cubic-bezier(0.2, 0.8, 0.2, 1);
+    --shadow-card: 0 1px 2px rgba(28, 25, 23, 0.06);
+    --color-ios-orange-50: oklch(0.97 0.04 50);
+    --color-ios-orange-100: oklch(0.92 0.07 50);
+    --color-ios-orange: oklch(0.60 0.22 50);
+    --color-ios-orange-dark: oklch(0.48 0.16 50);
+    --color-warm-white: oklch(0.99 0.005 50);
+}
+body { font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", system-ui, sans-serif; }
+.phone { width: 390px; height: 300px; border-radius: 48px 48px 0 0; border: 10px solid #1c1917; border-bottom: 0; overflow: hidden; background: var(--color-stone-100); flex: none; }
+.status { height: 50px; display: flex; align-items: flex-end; justify-content: space-between; padding: 0 28px 6px; font-size: 15px; font-weight: 600; color: #1c1917; }
+.bar { display: flex; align-items: center; gap: 12px; padding: 12px 16px; background: var(--color-warm-white); border-bottom: 1px solid var(--color-stone-200); box-shadow: var(--shadow-card); min-height: 68px; }
+/* Stand-in for the native Liquid Glass: on device the burger is real UIKit
+   glass; here a light disc with a rim and a top highlight. */
+.glass { position: relative; width: 48px; height: 48px; border-radius: 9999px; display: flex; align-items: center; justify-content: center; flex: none;
+  background: linear-gradient(180deg, rgba(255,255,255,.95), rgba(245,245,244,.75));
+  border: 1px solid rgba(28,25,23,.08);
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.9), 0 4px 12px -6px rgba(28,25,23,.25);
+  transition: transform 200ms var(--ease-soft); }
+.glass:active { transform: scale(1.08); }
+.glass-orange { background: linear-gradient(180deg, var(--color-ios-orange-50), oklch(0.94 0.05 50)); border-color: color-mix(in oklab, var(--color-ios-orange) 25%, transparent); }
+.pill { height: 48px; padding: 0 16px 0 12px; gap: 6px; width: auto; font-size: 15px; font-weight: 600; color: var(--color-ios-orange-dark); }
+.list { padding: 12px 16px; }
+.cardrow { height: 64px; border-radius: 16px; background: var(--color-warm-white); border: 1px solid var(--color-stone-200); margin-bottom: 10px; }
+</style>
+</head>
+<body class="bg-stone-200/60 min-h-screen p-8 text-stone-900">
+  <h1 class="text-xl font-semibold">Bouton chat du haut : 4 options</h1>
+  <p class="text-sm text-stone-500 mt-1 max-w-3xl">Le burger à gauche est celui qui vient d'être livré (verre natif sur iPhone, simulé ici). Seul le bouton de droite change. Appuie sur les boutons pour voir l'état pressé.</p>
+
+  <div class="flex flex-wrap gap-8 mt-8 items-start">
+
+    <figure>
+      <div class="phone">
+        <div class="status"><span>23:51</span><span>●●● 66</span></div>
+        <div class="bar">
+          <button class="glass">__BURGER__</button>
+          <span class="flex-1 text-lg font-semibold tracking-[-0.01em]">Toutes mes notes <span class="text-stone-400 text-sm">›</span></span>
+          <button class="w-11 h-11 flex items-center justify-center rounded-[10px]">__CHAT28__</button>
+        </div>
+        <div class="list"><div class="cardrow"></div><div class="cardrow"></div></div>
+      </div>
+      <figcaption class="mt-3 max-w-[390px]"><b>A · Actuel.</b> <span class="text-sm text-stone-500">Icône 28 px sans fond. À côté du burger en verre, elle paraît petite et plus légère.</span></figcaption>
+    </figure>
+
+    <figure>
+      <div class="phone">
+        <div class="status"><span>23:51</span><span>●●● 66</span></div>
+        <div class="bar">
+          <button class="glass">__BURGER__</button>
+          <span class="flex-1 text-lg font-semibold tracking-[-0.01em]">Toutes mes notes <span class="text-stone-400 text-sm">›</span></span>
+          <button class="glass">__CHAT26__</button>
+        </div>
+        <div class="list"><div class="cardrow"></div><div class="cardrow"></div></div>
+      </div>
+      <figcaption class="mt-3 max-w-[390px]"><b>B · Disque miroir (recommandé).</b> <span class="text-sm text-stone-500">Même disque de verre 48 px que le burger, icône 26 px. La barre devient symétrique ; sur iPhone il réutilise le bouton de verre natif déjà en place.</span></figcaption>
+    </figure>
+
+    <figure>
+      <div class="phone">
+        <div class="status"><span>23:51</span><span>●●● 66</span></div>
+        <div class="bar">
+          <button class="glass">__BURGER__</button>
+          <span class="flex-1 text-lg font-semibold tracking-[-0.01em]">Toutes mes notes <span class="text-stone-400 text-sm">›</span></span>
+          <button class="glass glass-orange">__CHAT26O__</button>
+        </div>
+        <div class="list"><div class="cardrow"></div><div class="cardrow"></div></div>
+      </div>
+      <figcaption class="mt-3 max-w-[390px]"><b>C · Disque teinté.</b> <span class="text-sm text-stone-500">Même disque, teinté orange très clair (ios-orange-50). Le chat se lit comme l'action principale de la barre.</span></figcaption>
+    </figure>
+
+    <figure>
+      <div class="phone">
+        <div class="status"><span>23:51</span><span>●●● 66</span></div>
+        <div class="bar">
+          <button class="glass">__BURGER__</button>
+          <span class="flex-1 min-w-0 truncate text-lg font-semibold tracking-[-0.01em]">Toutes mes notes <span class="text-stone-400 text-sm">›</span></span>
+          <button class="glass pill">__CHAT22__<span>Chat</span></button>
+        </div>
+        <div class="list"><div class="cardrow"></div><div class="cardrow"></div></div>
+      </div>
+      <figcaption class="mt-3 max-w-[390px]"><b>D · Pilule « Chat ».</b> <span class="text-sm text-stone-500">Capsule de verre avec l'icône et le mot. La plus explicite, mais elle mange la place du titre : un nom de dossier long sera coupé.</span></figcaption>
+    </figure>
+
+  </div>
+
+<script>
+const chat = (size, stroke) => `<svg width="${size}" height="${size}" viewBox="0 0 256 256" fill="none"><path d="M232,124A100.11,100.11,0,0,1,132,224H48a16,16,0,0,1-16-16V124a100,100,0,0,1,200,0ZM216,124a84,84,0,0,0-168,0v84h84A84.09,84.09,0,0,0,216,124Z" fill="${stroke}"/><path d="M172,112a8,8,0,0,1-8,8H96a8,8,0,0,1,0-16h68A8,8,0,0,1,172,112ZM164,136H96a8,8,0,0,0,0,16h68a8,8,0,0,0,0-16Z" fill="#E86A10"/></svg>`;
+const I = {
+  BURGER: '<svg width="30" height="30" viewBox="0 0 28 28" fill="none" stroke="#292524" stroke-width="2.4" stroke-linecap="round"><line x1="5" y1="10" x2="19" y2="10"/><line x1="5" y1="18" x2="23" y2="18"/></svg>',
+  CHAT28: chat(28, "oklch(0.48 0.16 50)"),
+  CHAT26: chat(26, "#292524"),
+  CHAT26O: chat(26, "oklch(0.48 0.16 50)"),
+  CHAT22: chat(22, "oklch(0.48 0.16 50)"),
+};
+document.body.innerHTML = document.body.innerHTML.replace(/__(\w+)__/g, (_, k) => I[k] ?? '');
+</script>
+</body>
+</html>
