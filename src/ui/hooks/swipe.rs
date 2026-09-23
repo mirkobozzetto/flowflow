@@ -16,7 +16,8 @@ pub struct DrawerSwipe {
     pub open: Signal<bool>,
     pub panel_id: &'static str,
     pub backdrop_id: &'static str,
-    pub edge: &'static str, // "left" | "right"
+    pub card_id: &'static str, // "" = drawer over the content, else card mode
+    pub edge: &'static str,    // "left" | "right"
     pub edge_px: f64,
     pub open_at: f64,
     pub close_at: f64,
@@ -30,6 +31,7 @@ const SWIPE_JS: &str = include_str!("swipe.js");
 pub fn build_script(
     panel_id: &str,
     backdrop_id: &str,
+    card_id: &str,
     edge: &str,
     edge_px: f64,
     open_at: f64,
@@ -38,6 +40,7 @@ pub fn build_script(
     SWIPE_JS
         .replace("__PANEL__", panel_id)
         .replace("__BACKDROP__", backdrop_id)
+        .replace("__CARD__", card_id)
         .replace("__EDGE__", edge)
         .replace("__EDGE_PX__", &edge_px.to_string())
         .replace("__OPEN_AT__", &open_at.to_string())
@@ -50,6 +53,7 @@ pub fn use_swipe_drawer(cfg: DrawerSwipe) {
         let script = build_script(
             cfg.panel_id,
             cfg.backdrop_id,
+            cfg.card_id,
             cfg.edge,
             cfg.edge_px,
             cfg.open_at,

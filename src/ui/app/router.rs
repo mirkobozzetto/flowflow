@@ -9,7 +9,7 @@ use crate::ui::notes::note_list::NotesList;
 use crate::ui::notes::row_menu::{NoteDeleteStatus, NoteRowMenu};
 use crate::ui::notes::NoteDetail;
 use crate::ui::settings::{SettingsSectionView, SettingsView};
-use crate::ui::sidebar::SidebarOverlay;
+use crate::ui::sidebar::{SidebarOverlay, CARD_MODE};
 use crate::ui::sync::SyncView;
 use crate::ui::thread::ThreadDetail;
 use crate::ui::{AppState, View};
@@ -21,6 +21,7 @@ const SPLASH_FADE_MS: u64 = 350;
 #[component]
 pub fn AppRouter(index_rebuilding: Signal<bool>) -> Element {
     let app = use_context::<AppState>();
+    let menu_open = (app.sidebar_open)();
     let mut splash_visible = use_signal(|| true);
     let mut splash_fading = use_signal(|| false);
     use_effect(move || {
@@ -39,7 +40,9 @@ pub fn AppRouter(index_rebuilding: Signal<bool>) -> Element {
     });
 
     rsx! {
-        div { class: "h-screen w-full overflow-hidden font-sans bg-stone-100 lg:flex lg:flex-row",
+        div {
+            class: "h-screen w-full overflow-hidden font-sans bg-stone-100 lg:flex lg:flex-row",
+            class: if CARD_MODE { "sb-stage" } else { "" },
             if splash_visible() {
                 div {
                     class: "splash-overlay fixed inset-0 z-[100] bg-warm-white flex items-center justify-center transition-opacity",
@@ -56,7 +59,22 @@ pub fn AppRouter(index_rebuilding: Signal<bool>) -> Element {
             RightNav {}
             AttachmentModal {}
             NoteRowMenu {}
-            div { class: "flex flex-col h-screen safe-pt lg:flex-1 lg:min-w-0",
+            div {
+                id: "main-card",
+                class: "flex flex-col h-screen safe-pt lg:flex-1 lg:min-w-0",
+                class: if CARD_MODE { "sb-card" } else { "" },
+                "data-open": if menu_open { "1" } else { "0" },
+                // Card slid aside: a tap anywhere on it closes the menu.
+                if CARD_MODE && menu_open {
+                    div {
+                        class: "absolute inset-0 z-[60]",
+                        onclick: move |_| {
+                            let mut app = app;
+                            app.row_menu.set(None);
+                            app.sidebar_open.set(false);
+                        },
+                    }
+                }
                 TopBar {}
                 NoteDeleteStatus {}
                 if index_rebuilding() {

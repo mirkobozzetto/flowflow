@@ -1,6 +1,7 @@
 use crate::application::i18n::t;
 use crate::domain::ChatScope;
 use crate::infrastructure::persistence::Database;
+use crate::infrastructure::platform::haptic_prepare;
 use crate::ui::icons::*;
 use crate::ui::{AppState, SidebarTab, View};
 use dioxus::prelude::*;
@@ -141,7 +142,8 @@ pub fn TopBar() -> Element {
                 }
             } else {
                 button {
-                    class: "relative min-w-[44px] min-h-[44px] flex items-center justify-center rounded-[10px] text-stone-700 hover:bg-stone-100 lg:hidden",
+                    class: "burger-disc relative w-11 h-11 shrink-0 flex items-center justify-center rounded-full text-stone-800 lg:hidden",
+                    onpointerdown: move |_| haptic_prepare("light"),
                     onclick: move |_| {
                         app.show_folder_picker.set(false);
                         app.sidebar_tab.set(if is_chat {
@@ -151,11 +153,17 @@ pub fn TopBar() -> Element {
                         });
                         app.sidebar_open.set(true);
                     },
-                    IconList { size: 22 }
-                    img {
-                        src: asset!("/assets/flowflow-icon-300.png"),
-                        class: "absolute bottom-1 right-1 w-2.5 h-2.5 object-contain",
-                        alt: "",
+                    // Two unequal strokes, the same glyph open or closed (#177).
+                    svg {
+                        width: "28",
+                        height: "28",
+                        view_box: "0 0 28 28",
+                        fill: "none",
+                        stroke: "currentColor",
+                        stroke_width: "2.4",
+                        stroke_linecap: "round",
+                        line { x1: "5", y1: "10", x2: "19", y2: "10" }
+                        line { x1: "5", y1: "18", x2: "23", y2: "18" }
                     }
                     if (app.transcription_done_badge)() > 0 {
                         span { class: "absolute top-2 right-2 w-2 h-2 rounded-full bg-ios-orange" }
