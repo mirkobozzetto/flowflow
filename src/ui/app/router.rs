@@ -1,6 +1,5 @@
 use super::animations::{slide_style, Slide};
 use crate::ui::app::fab::FloatingActionButton;
-use crate::ui::app::right_nav::RightNav;
 use crate::ui::app::top_bar::TopBar;
 use crate::ui::chat::ChatView;
 use crate::ui::notes::attachment_modal::AttachmentModal;
@@ -9,7 +8,7 @@ use crate::ui::notes::note_list::NotesList;
 use crate::ui::notes::row_menu::{NoteDeleteStatus, NoteRowMenu};
 use crate::ui::notes::NoteDetail;
 use crate::ui::settings::{SettingsSectionView, SettingsView};
-use crate::ui::sidebar::SidebarOverlay;
+use crate::ui::sidebar::{SidebarOverlay, CARD_MODE};
 use crate::ui::sync::SyncView;
 use crate::ui::thread::ThreadDetail;
 use crate::ui::{AppState, View};
@@ -21,6 +20,8 @@ const SPLASH_FADE_MS: u64 = 350;
 #[component]
 pub fn AppRouter(index_rebuilding: Signal<bool>) -> Element {
     let app = use_context::<AppState>();
+    let menu_open = (app.sidebar_open)();
+    super::glass_burger::use_glass_burger();
     let mut splash_visible = use_signal(|| true);
     let mut splash_fading = use_signal(|| false);
     use_effect(move || {
@@ -39,7 +40,9 @@ pub fn AppRouter(index_rebuilding: Signal<bool>) -> Element {
     });
 
     rsx! {
-        div { class: "h-screen w-full overflow-hidden font-sans bg-stone-100 lg:flex lg:flex-row",
+        div {
+            class: "h-screen w-full overflow-hidden font-sans bg-stone-100 lg:flex lg:flex-row",
+            class: if CARD_MODE { "sb-stage" } else { "" },
             if splash_visible() {
                 div {
                     class: "splash-overlay fixed inset-0 z-[100] bg-warm-white flex items-center justify-center transition-opacity",
@@ -53,10 +56,26 @@ pub fn AppRouter(index_rebuilding: Signal<bool>) -> Element {
                 }
             }
             SidebarOverlay {}
-            RightNav {}
             AttachmentModal {}
             NoteRowMenu {}
-            div { class: "flex flex-col h-screen safe-pt lg:flex-1 lg:min-w-0",
+            div {
+                id: "main-card",
+                class: "flex flex-col h-screen safe-pt lg:flex-1 lg:min-w-0",
+                class: if CARD_MODE { "sb-card" } else { "" },
+                "data-open": if menu_open { "1" } else { "0" },
+                // Card slid aside: a tap anywhere on it closes the menu.
+                if CARD_MODE && menu_open {
+                    div {
+                        class: "absolute inset-0 z-[60]",
+                        // The native glass burger stays shown above it.
+                        "data-glass-pass": "",
+                        onclick: move |_| {
+                            let mut app = app;
+                            app.row_menu.set(None);
+                            app.sidebar_open.set(false);
+                        },
+                    }
+                }
                 TopBar {}
                 NoteDeleteStatus {}
                 if index_rebuilding() {
@@ -84,9 +103,13 @@ pub fn AppRouter(index_rebuilding: Signal<bool>) -> Element {
                                 } else if instant {
                                     "transform: translateX(0); opacity: 1;".to_string()
                                 } else if shifted {
-                                    format!("transform: translateX({shift_dir}); opacity: 0.5; transition: transform 0.15s ease, opacity 0.15s ease;")
+                                    // Covered by an opaque view (chat, note...): once its
+                                    // slide-in is over, stop painting the list. Left
+                                    // composited under it, it flashed through for a frame
+                                    // whenever the iOS menu card started to move (#177).
+                                    format!("transform: translateX({shift_dir}); opacity: 0.5; visibility: hidden; transition: transform 0.15s ease, opacity 0.15s ease, visibility 0s linear 0.15s;")
                                 } else {
-                                    "transform: translateX(0); opacity: 1; transition: transform 0.15s ease, opacity 0.15s ease;".to_string()
+                                    "transform: translateX(0); opacity: 1; visibility: visible; transition: transform 0.15s ease, opacity 0.15s ease;".to_string()
                                 },
                                 div { class: "w-full lg:max-w-3xl lg:mx-auto",
                                     NotesList {}

@@ -8,6 +8,10 @@
 // edge zone (so the open swipe is not stolen by native scroll). The panel keeps
 // a `data-open` attribute (0/1) that Dioxus syncs to the open state.
 //
+// Card mode (#177, `cardId` set): the panel lies UNDER a card (#<cardId>, the
+// main view) and the drag moves the card aside instead of the panel over it.
+// No backdrop; the resting states live in the .sb-card/.sb-under CSS classes.
+//
 // Config placeholders are filled by the Rust hook (use_swipe_drawer) before eval.
 // Source of truth: this .ts file; compile to swipe.js with `make js` (bun).
 
@@ -16,6 +20,7 @@
   const CFG = {
     panelId: "__PANEL__",
     backdropId: "__BACKDROP__",
+    cardId: "__CARD__" as string, // "" = drawer mode
     side: "__EDGE__" as string, // "left" | "right" (cast: filled by Rust pre-eval)
     edgePx: __EDGE_PX__,
     openAt: __OPEN_AT__,
@@ -32,6 +37,9 @@
 
   let panel: HTMLElement | null = null;
   let backdrop: HTMLElement | null = null;
+  let card: HTMLElement | null = null;
+  // Matches the .sb-card/.sb-under transitions in tailwind.css.
+  const CARD_T = "460ms var(--ease-soft)";
   let w = 0;
   let active = false;
   let opening = false;
@@ -47,11 +55,22 @@
   function els(): boolean {
     panel = document.getElementById(CFG.panelId);
     backdrop = document.getElementById(CFG.backdropId);
-    return !!panel && !!backdrop;
+    card = CFG.cardId ? document.getElementById(CFG.cardId) : null;
+    return !!panel && (CFG.cardId ? !!card : !!backdrop);
   }
   function apply(): void {
     raf = 0;
     if (!panel) return;
+    if (card) {
+      const p = Math.max(0, Math.min(1, 1 - Math.abs(cur) / w));
+      card.style.transition = panel.style.transition = "none";
+      card.style.transform = "translateX(" + p * w + "px)";
+      card.style.borderRadius = "var(--sb-card-r)";
+      card.style.boxShadow = "var(--sb-card-edge)";
+      panel.style.transform = "translateX(" + -10 * (1 - p) + "%)";
+      panel.style.opacity = (0.55 + 0.45 * p).toFixed(3);
+      return;
+    }
     // Tailwind v4 positions the panel with the CSS `translate` property, so we
     // must drive the same property to override it (an inline transform stacks).
     panel.style.transition = "none";
@@ -71,8 +90,20 @@
       cancelAnimationFrame(raf);
       raf = 0;
     }
-    panel.style.transition = "translate .25s cubic-bezier(.32,.72,0,1)";
-    panel.style.translate = (open ? 0 : sign * w) + "px";
+    if (card) {
+      // The radius stays on while the card travels; it is cleared with the
+      // rest once Dioxus has the committed state (the class then keeps it).
+      card.style.transition = "transform " + CARD_T + ", box-shadow " + CARD_T;
+      panel.style.transition = "transform " + CARD_T + ", opacity " + CARD_T;
+      card.style.transform = "translateX(" + (open ? w : 0) + "px)";
+      card.style.borderRadius = "var(--sb-card-r)";
+      card.style.boxShadow = open ? "var(--sb-card-edge)" : "none";
+      panel.style.transform = open ? "none" : "translateX(-10%)";
+      panel.style.opacity = open ? "1" : "0.55";
+    } else {
+      panel.style.transition = "translate .25s cubic-bezier(.32,.72,0,1)";
+      panel.style.translate = (open ? 0 : sign * w) + "px";
+    }
     if (backdrop) {
       backdrop.style.transition = "opacity .25s ease";
       backdrop.style.opacity = open ? "1" : "0";
@@ -89,6 +120,14 @@
       if (panel.dataset.open === want || tries++ > 240) {
         panel.style.transition = "";
         panel.style.translate = "";
+        panel.style.transform = "";
+        panel.style.opacity = "";
+        if (card) {
+          card.style.transition = "";
+          card.style.transform = "";
+          card.style.borderRadius = "";
+          card.style.boxShadow = "";
+        }
         if (backdrop) {
           backdrop.style.transition = "";
           backdrop.style.opacity = "";
@@ -97,10 +136,12 @@
         requestAnimationFrame(tryClear);
       }
     };
-    setTimeout(() => requestAnimationFrame(tryClear), 260);
+    setTimeout(() => requestAnimationFrame(tryClear), card ? 470 : 260);
   }
   function onDown(e: PointerEvent): void {
     if (e.pointerType === "mouse" || active || !els() || !panel) return;
+    // At lg the panel is a static column (iPad landscape): nothing to drag.
+    if (getComputedStyle(panel).position !== "fixed") return;
     w = panel.offsetWidth || 300;
     const open = panel.dataset.open === "1";
     if (!open) {

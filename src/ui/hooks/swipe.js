@@ -3,6 +3,7 @@
   const CFG = {
     panelId: "__PANEL__",
     backdropId: "__BACKDROP__",
+    cardId: "__CARD__",
     side: "__EDGE__",
     edgePx: __EDGE_PX__,
     openAt: __OPEN_AT__,
@@ -17,6 +18,8 @@
   w0[guard] = true;
   let panel = null;
   let backdrop = null;
+  let card = null;
+  const CARD_T = "460ms var(--ease-soft)";
   let w = 0;
   let active = false;
   let opening = false;
@@ -31,12 +34,23 @@
   function els() {
     panel = document.getElementById(CFG.panelId);
     backdrop = document.getElementById(CFG.backdropId);
-    return !!panel && !!backdrop;
+    card = CFG.cardId ? document.getElementById(CFG.cardId) : null;
+    return !!panel && (CFG.cardId ? !!card : !!backdrop);
   }
   function apply() {
     raf = 0;
     if (!panel)
       return;
+    if (card) {
+      const p = Math.max(0, Math.min(1, 1 - Math.abs(cur) / w));
+      card.style.transition = panel.style.transition = "none";
+      card.style.transform = "translateX(" + p * w + "px)";
+      card.style.borderRadius = "var(--sb-card-r)";
+      card.style.boxShadow = "var(--sb-card-edge)";
+      panel.style.transform = "translateX(" + -10 * (1 - p) + "%)";
+      panel.style.opacity = (0.55 + 0.45 * p).toFixed(3);
+      return;
+    }
     panel.style.transition = "none";
     panel.style.translate = cur + "px";
     if (backdrop) {
@@ -56,8 +70,18 @@
       cancelAnimationFrame(raf);
       raf = 0;
     }
-    panel.style.transition = "translate .25s cubic-bezier(.32,.72,0,1)";
-    panel.style.translate = (open ? 0 : sign * w) + "px";
+    if (card) {
+      card.style.transition = "transform " + CARD_T + ", box-shadow " + CARD_T;
+      panel.style.transition = "transform " + CARD_T + ", opacity " + CARD_T;
+      card.style.transform = "translateX(" + (open ? w : 0) + "px)";
+      card.style.borderRadius = "var(--sb-card-r)";
+      card.style.boxShadow = open ? "var(--sb-card-edge)" : "none";
+      panel.style.transform = open ? "none" : "translateX(-10%)";
+      panel.style.opacity = open ? "1" : "0.55";
+    } else {
+      panel.style.transition = "translate .25s cubic-bezier(.32,.72,0,1)";
+      panel.style.translate = (open ? 0 : sign * w) + "px";
+    }
     if (backdrop) {
       backdrop.style.transition = "opacity .25s ease";
       backdrop.style.opacity = open ? "1" : "0";
@@ -71,6 +95,14 @@
       if (panel.dataset.open === want || tries++ > 240) {
         panel.style.transition = "";
         panel.style.translate = "";
+        panel.style.transform = "";
+        panel.style.opacity = "";
+        if (card) {
+          card.style.transition = "";
+          card.style.transform = "";
+          card.style.borderRadius = "";
+          card.style.boxShadow = "";
+        }
         if (backdrop) {
           backdrop.style.transition = "";
           backdrop.style.opacity = "";
@@ -79,10 +111,12 @@
         requestAnimationFrame(tryClear);
       }
     };
-    setTimeout(() => requestAnimationFrame(tryClear), 260);
+    setTimeout(() => requestAnimationFrame(tryClear), card ? 470 : 260);
   }
   function onDown(e) {
     if (e.pointerType === "mouse" || active || !els() || !panel)
+      return;
+    if (getComputedStyle(panel).position !== "fixed")
       return;
     w = panel.offsetWidth || 300;
     const open = panel.dataset.open === "1";

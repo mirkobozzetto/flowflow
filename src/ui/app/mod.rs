@@ -1,6 +1,7 @@
 mod animations;
 mod boot;
 mod contexts;
+mod glass_burger;
 mod router;
 mod watchers;
 
@@ -10,7 +11,6 @@ pub(crate) mod fab;
 #[cfg(target_os = "macos")]
 pub(crate) mod nav;
 pub(crate) mod restore_lock;
-pub(crate) mod right_nav;
 pub(crate) mod top_bar;
 
 pub use boot::{load_consent, load_lang};
