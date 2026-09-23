@@ -1,3 +1,9 @@
+# Builds
+
+Claude runs the builds itself: `make all` for the iPhone (build + install),
+`make desktop-app` for the Mac app. Never run or suggest `make ddev`,
+`make dev` or any other serve command. Mirko only gets the manual test steps.
+
 <!-- gitnexus:start -->
 # GitNexus — Code Intelligence
 
