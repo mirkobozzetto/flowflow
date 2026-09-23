@@ -103,9 +103,13 @@ pub fn AppRouter(index_rebuilding: Signal<bool>) -> Element {
                                 } else if instant {
                                     "transform: translateX(0); opacity: 1;".to_string()
                                 } else if shifted {
-                                    format!("transform: translateX({shift_dir}); opacity: 0.5; transition: transform 0.15s ease, opacity 0.15s ease;")
+                                    // Covered by an opaque view (chat, note...): once its
+                                    // slide-in is over, stop painting the list. Left
+                                    // composited under it, it flashed through for a frame
+                                    // whenever the iOS menu card started to move (#177).
+                                    format!("transform: translateX({shift_dir}); opacity: 0.5; visibility: hidden; transition: transform 0.15s ease, opacity 0.15s ease, visibility 0s linear 0.15s;")
                                 } else {
-                                    "transform: translateX(0); opacity: 1; transition: transform 0.15s ease, opacity 0.15s ease;".to_string()
+                                    "transform: translateX(0); opacity: 1; visibility: visible; transition: transform 0.15s ease, opacity 0.15s ease;".to_string()
                                 },
                                 div { class: "w-full lg:max-w-3xl lg:mx-auto",
                                     NotesList {}
