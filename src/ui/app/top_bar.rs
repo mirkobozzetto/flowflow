@@ -142,7 +142,7 @@ pub fn TopBar() -> Element {
                 }
             } else {
                 button {
-                    class: "burger-disc relative w-11 h-11 shrink-0 flex items-center justify-center rounded-full text-stone-800 lg:hidden",
+                    class: "burger-disc relative w-12 h-12 -my-0.5 shrink-0 flex items-center justify-center rounded-full text-stone-800 lg:hidden",
                     onpointerdown: move |_| haptic_prepare("light"),
                     onclick: move |_| {
                         app.show_folder_picker.set(false);
@@ -155,8 +155,8 @@ pub fn TopBar() -> Element {
                     },
                     // Two unequal strokes, the same glyph open or closed (#177).
                     svg {
-                        width: "28",
-                        height: "28",
+                        width: "30",
+                        height: "30",
                         view_box: "0 0 28 28",
                         fill: "none",
                         stroke: "currentColor",

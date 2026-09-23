@@ -40,6 +40,9 @@ fn use_open_feedback(open: Signal<bool>) {
     let last = use_hook(|| std::rc::Rc::new(std::cell::Cell::new(false)));
     use_effect(move || {
         let now = open();
+        // Re-applied on every change: WebKit may toggle the effect itself.
+        #[cfg(target_os = "ios")]
+        crate::infrastructure::platform::ios::hide_top_edge_effect();
         if last.replace(now) == now {
             return;
         }

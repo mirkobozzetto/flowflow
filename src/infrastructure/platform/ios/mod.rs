@@ -234,6 +234,51 @@ pub fn hide_keyboard_accessory() {
     }
 }
 
+/// iOS 26 veils the top of every WKWebView with a soft "scroll edge effect"
+/// under the status bar; it hid the top corner of the #177 card. Hide it on
+/// the app's web view. Idempotent; a no-op before iOS 26 or before the web
+/// view is in the window.
+#[allow(deprecated)]
+pub fn hide_top_edge_effect() {
+    use objc2::runtime::{AnyClass, AnyObject, NSObjectProtocol};
+    use objc2::{msg_send, sel};
+    use objc2_ui_kit::{UIApplication, UIView};
+
+    let Some(mtm) = objc2_foundation::MainThreadMarker::new() else {
+        return;
+    };
+    let Some(window) = UIApplication::sharedApplication(mtm).keyWindow() else {
+        return;
+    };
+    let Some(web_cls) = AnyClass::get(c"WKWebView") else {
+        return;
+    };
+    let mut stack: Vec<objc2::rc::Retained<UIView>> =
+        vec![objc2::rc::Retained::into_super(window)];
+    while let Some(view) = stack.pop() {
+        if !view.isKindOfClass(web_cls) {
+            stack.extend(view.subviews().to_vec());
+            continue;
+        }
+        unsafe {
+            let scroll: *mut AnyObject = msg_send![&*view, scrollView];
+            let Some(scroll) = scroll.as_ref() else {
+                return;
+            };
+            let has_effect: bool =
+                msg_send![scroll, respondsToSelector: sel!(topEdgeEffect)];
+            if !has_effect {
+                return;
+            }
+            let effect: *mut AnyObject = msg_send![scroll, topEdgeEffect];
+            if let Some(effect) = effect.as_ref() {
+                let _: () = msg_send![effect, setHidden: true];
+            }
+        }
+        return;
+    }
+}
+
 pub fn detect_system_language() -> String {
     let result = std::panic::catch_unwind(|| unsafe {
         let cls = objc2::ffi::objc_getClass(c"NSLocale".as_ptr());

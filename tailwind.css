@@ -110,7 +110,7 @@
     }
 }
 
-/* Burger (#177): a constant two-stroke glyph over a permanent 44px disc.
+/* Burger (#177): a constant two-stroke glyph over a permanent 48px disc.
    Deliberately static: no press scale, no backdrop blur (both flickered on
    device); the haptic tick and the card moving are the feedback. */
 .burger-disc::before {
