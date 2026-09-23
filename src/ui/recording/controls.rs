@@ -1,6 +1,8 @@
 use crate::application::i18n::t;
 use crate::application::transcribe_audio::transcribe_file;
-use crate::application::transcription_manager::TranscriptionManager;
+use crate::application::transcription_manager::{
+    JobStatus, TranscriptionManager,
+};
 use crate::infrastructure::audio::{self, AudioRecorder, RecordingState};
 use crate::infrastructure::persistence::Database;
 use crate::infrastructure::platform::{haptic, haptic_prepare};
@@ -65,12 +67,17 @@ pub fn VoiceCapsule(
     let manager: TranscriptionManager = use_context();
     let mut duration = use_signal(|| 0.0f32);
     let mut transcription_gen = use_signal(|| 0u64);
+    // A note's arrow hands the take to the durable job: (note id, clip id)
+    // keeps the capsule on screen until that job's text is in the note.
+    let mut tracked: Signal<Option<(String, String)>> = use_signal(|| None);
     let lang = (app.current_lang)();
     let cancel_label = t(&lang, "recording-cancel");
     let stop_label = t(&lang, "recording-stop");
     let send_label = t(&lang, "recording-send");
     let pause_label = t(&lang, "recording-pause-label");
     let transcribing_label = t(&lang, "recording-transcribing");
+    let failed_label = t(&lang, "audio-transcription-failed");
+    let retry_label = t(&lang, "audio-import-retry");
 
     use_effect(move || {
         let state = (app.recording_state)();
@@ -157,6 +164,49 @@ pub fn VoiceCapsule(
         }
     });
 
+    // The job leaves the queue once the note has merged its text: that is
+    // when the pill comes back. The manager is the truth, the signal the tick.
+    let job_manager = manager.clone();
+    let retry_manager = manager.clone();
+    use_effect(move || {
+        let _ = (app.transcription_jobs)();
+        let Some((nid, aid)) = tracked.peek().clone() else {
+            return;
+        };
+        let pending = job_manager.snapshot().get(&nid).is_some_and(|q| {
+            q.iter()
+                .any(|j| j.audio_id.as_deref() == Some(aid.as_str()))
+        });
+        if !pending {
+            tracked.set(None);
+            haptic("light");
+            app.recording_state.set(RecordingState::Idle);
+        }
+    });
+
+    // Leaving the note mid-job: the job carries on (banner, watcher), but the
+    // shared recording state must not keep the next composer hidden.
+    use_drop(move || {
+        let was_tracking =
+            tracked.try_peek().map(|t| t.is_some()).unwrap_or(false);
+        if was_tracking {
+            app.recording_state.set(RecordingState::Idle);
+        }
+    });
+
+    let failed: Option<String> = tracked().and_then(|(nid, aid)| {
+        (app.transcription_jobs)().get(&nid).and_then(|q| {
+            q.iter().find_map(|j| match &j.status {
+                JobStatus::Failed(reason)
+                    if j.audio_id.as_deref() == Some(aid.as_str()) =>
+                {
+                    Some(reason.clone())
+                }
+                _ => None,
+            })
+        })
+    });
+
     let recording_state = (app.recording_state)();
     let is_paused = recording_state == RecordingState::Paused;
     let is_transcribing = recording_state == RecordingState::Transcribing;
@@ -209,14 +259,23 @@ pub fn VoiceCapsule(
                         db().add_audio(&nid, &filename, dur as f64)
                     {
                         app.notes_version.set((app.notes_version)() + 1);
-                        manager.enqueue(nid, path, Some(audio.id));
+                        manager.enqueue(
+                            nid.clone(),
+                            path,
+                            Some(audio.id.clone()),
+                        );
+                        let mut tracked = tracked;
+                        tracked.set(Some((nid, audio.id)));
                     }
                 }
-                // `AudioJobBanner` is the progress UI from here on; leaving
-                // `Transcribing` set would freeze the bar, since nothing clears
-                // it on this path any more.
                 pending_audio.set(Some((filename, dur as f64)));
-                app.recording_state.set(RecordingState::Idle);
+                // Without a job to follow (note not created yet), the note's
+                // own banner takes over as before.
+                app.recording_state.set(if tracked.peek().is_some() {
+                    RecordingState::Transcribing
+                } else {
+                    RecordingState::Idle
+                });
             }
             Err(e) => app.recording_state.set(RecordingState::Error(e)),
         }
@@ -224,16 +283,19 @@ pub fn VoiceCapsule(
 
     rsx! {
         div {
-            class: "voice-capsule h-full flex items-center gap-1.5 px-1.5 min-h-14 rounded-full bg-stone-900 text-white shadow-lift overflow-hidden",
+            class: "voice-capsule h-full flex items-center gap-1.5 px-1 min-h-[60px] rounded-full bg-stone-900 text-white shadow-lift overflow-hidden",
             "data-transcribing": is_transcribing,
             role: "group",
             "aria-label": t(&lang, "recording-dictate"),
             button {
-                class: "voice-ghost pressable w-11 h-11 shrink-0 rounded-full border border-white/20 flex items-center justify-center disabled:opacity-40",
+                class: "voice-ghost pressable w-[46px] h-[46px] shrink-0 rounded-full border border-white/20 flex items-center justify-center",
                 "aria-label": "{cancel_label}",
-                disabled: !live,
+                // Dictation: drop the result. A note's job: stop watching it,
+                // it finishes in the background under the note's banner.
                 onclick: move |_| {
-                    if is_transcribing {
+                    if tracked.peek().is_some() {
+                        tracked.set(None);
+                    } else if is_transcribing {
                         transcription_gen.set(transcription_gen() + 1);
                     } else {
                         recorder().lock().unwrap().cancel();
@@ -241,14 +303,28 @@ pub fn VoiceCapsule(
                     reset(());
                     app.recording_state.set(RecordingState::Idle);
                 },
-                IconX { size: 18 }
+                IconX { size: 20 }
             }
-            if is_transcribing {
-                span { class: "voice-status flex-1 text-center text-[13px] text-white/60", style: "animation: pulseSoft 1.5s ease-in-out infinite;", "{transcribing_label}" }
+            if let Some(reason) = failed {
+                span { class: "flex-1 min-w-0 truncate pl-1 text-[13px] text-ios-red", title: "{reason}", "{failed_label}" }
+                button {
+                    class: "pressable press-grow h-10 px-3.5 shrink-0 rounded-full bg-white/15 text-[13px] font-semibold",
+                    onpointerdown: move |_| haptic_prepare("light"),
+                    onclick: move |_| {
+                        haptic("light");
+                        if let Some((nid, _)) = tracked.peek().clone() {
+                            retry_manager.retry(&nid);
+                        }
+                    },
+                    "{retry_label}"
+                }
             } else {
+                // Kept mounted while transcribing: the take's bars stay
+                // frozen in place and breathe (CSS) instead of vanishing.
                 button {
                     class: "flex-1 min-w-0 flex items-center gap-2 h-11 text-left",
-                    "aria-label": if is_paused { "{pause_label} · {timer}" } else { "{timer}" },
+                    "aria-label": if is_transcribing { "{transcribing_label}" } else if is_paused { "{pause_label} · {timer}" } else { "{timer}" },
+                    disabled: is_transcribing,
                     onclick: move |_| {
                         let rec = recorder();
                         let mut rec = rec.lock().unwrap();
@@ -264,26 +340,31 @@ pub fn VoiceCapsule(
                                             }
                     },
                     Waveform {}
-                    span { class: "text-xs tabular-nums shrink-0 text-white/80",
-                        if is_paused { "{pause_label} · {timer}" } else { "{timer}" }
+                    span { class: "text-xs tabular-nums shrink-0 text-white/80 pr-1",
+                        if is_transcribing { "{transcribing_label}" } else if is_paused { "{pause_label} · {timer}" } else { "{timer}" }
                     }
                 }
-            }
-            button {
-                class: "pressable w-11 h-11 shrink-0 rounded-full bg-white/15 flex items-center justify-center disabled:opacity-40",
-                "aria-label": "{stop_label}",
-                disabled: !live,
-                onpointerdown: move |_| haptic_prepare("light"),
-                onclick: move |_| { haptic("light"); finish(false); },
-                span { class: "block w-[13px] h-[13px] rounded-[3px] bg-white" }
-            }
-            button {
-                class: "pressable w-11 h-11 shrink-0 rounded-full bg-ios-orange flex items-center justify-center disabled:opacity-40",
-                "aria-label": "{send_label}",
-                disabled: !live,
-                onpointerdown: move |_| haptic_prepare("soft"),
-                onclick: move |_| { haptic("soft"); finish(true); },
-                IconArrowUp { size: 20 }
+                if live {
+                    button {
+                        class: "pressable press-grow w-[50px] h-[50px] shrink-0 rounded-full bg-white/15 flex items-center justify-center",
+                        "aria-label": "{stop_label}",
+                        onpointerdown: move |_| haptic_prepare("light"),
+                        onclick: move |_| { haptic("light"); finish(false); },
+                        span { class: "block w-[14px] h-[14px] rounded-[3px] bg-white" }
+                    }
+                }
+                button {
+                    class: "pressable press-grow w-[50px] h-[50px] shrink-0 rounded-full bg-ios-orange flex items-center justify-center",
+                    "aria-label": if is_transcribing { "{transcribing_label}" } else { "{send_label}" },
+                    disabled: !live,
+                    onpointerdown: move |_| haptic_prepare("soft"),
+                    onclick: move |_| { haptic("soft"); finish(true); },
+                    if is_transcribing {
+                        span { class: "block w-[18px] h-[18px] rounded-full border-2 border-white/35 border-t-white animate-spin" }
+                    } else {
+                        IconArrowUp { size: 22 }
+                    }
+                }
             }
         }
     }

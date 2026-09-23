@@ -27,6 +27,12 @@
     closeAt: __CLOSE_AT__,
   };
   const FLICK = 0.4; // px/ms velocity that commits a flick
+  // Card mode: the card blurs with its travel, up to this radius when open
+  // (mirrors .sb-card::after in tailwind.css).
+  const BLUR = 6;
+  function veil(c: HTMLElement, p: number): void {
+    c.style.setProperty("--sb-blur", "blur(" + (BLUR * p).toFixed(2) + "px)");
+  }
   // Closed position is sign*w (left: -w, right: +w); open is 0.
   const sign = CFG.side === "left" ? -1 : 1;
 
@@ -67,6 +73,8 @@
       card.style.transform = "translateX(" + p * w + "px)";
       card.style.borderRadius = "var(--sb-card-r)";
       card.style.boxShadow = "var(--sb-card-edge)";
+      card.style.setProperty("--sb-blur-t", "0ms");
+      veil(card, p);
       panel.style.transform = "translateX(" + -10 * (1 - p) + "%)";
       panel.style.opacity = (0.55 + 0.45 * p).toFixed(3);
       return;
@@ -98,6 +106,8 @@
       card.style.transform = "translateX(" + (open ? w : 0) + "px)";
       card.style.borderRadius = "var(--sb-card-r)";
       card.style.boxShadow = open ? "var(--sb-card-edge)" : "none";
+      card.style.removeProperty("--sb-blur-t");
+      veil(card, open ? 1 : 0);
       panel.style.transform = open ? "none" : "translateX(-10%)";
       panel.style.opacity = open ? "1" : "0.55";
     } else {
@@ -127,6 +137,7 @@
           card.style.transform = "";
           card.style.borderRadius = "";
           card.style.boxShadow = "";
+          card.style.removeProperty("--sb-blur");
         }
         if (backdrop) {
           backdrop.style.transition = "";
@@ -137,6 +148,28 @@
       }
     };
     setTimeout(() => requestAnimationFrame(tryClear), card ? 470 : 260);
+  }
+  // Card mode opens from anywhere on the card, like ChatGPT, except where a
+  // horizontal drag already means something: a focused field, a horizontal
+  // scroller, or an element marked data-no-swipe.
+  function anywhere(e: PointerEvent): boolean {
+    const t = e.target as Element | null;
+    if (!card || !t || !card.contains(t)) return false;
+    if (t.closest("[data-no-swipe]")) return false;
+    const focused = document.activeElement;
+    if (
+      focused &&
+      focused !== document.body &&
+      focused.contains(t) &&
+      focused.matches("input, textarea, [contenteditable]")
+    )
+      return false;
+    for (let el: Element | null = t; el && el !== card; el = el.parentElement) {
+      const ox = getComputedStyle(el).overflowX;
+      if ((ox === "auto" || ox === "scroll") && el.scrollWidth > el.clientWidth + 1)
+        return false;
+    }
+    return true;
   }
   function onDown(e: PointerEvent): void {
     if (e.pointerType === "mouse" || active || !els() || !panel) return;
@@ -149,7 +182,7 @@
         CFG.side === "left"
           ? e.clientX <= CFG.edgePx
           : e.clientX >= window.innerWidth - CFG.edgePx;
-      if (!atEdge) return;
+      if (!atEdge && !anywhere(e)) return;
       // Mark intent only; engage after a real drag (onMove). A pure tap landing
       // in the edge zone (the burger overlaps it) stays unengaged, so its click
       // is not swallowed and the burger opens normally.
@@ -225,6 +258,14 @@
     passive: false,
     capture: true,
   });
+  // Once the drag is ours, keep the page from scrolling under the finger.
+  document.addEventListener(
+    "touchmove",
+    (e: TouchEvent) => {
+      if (engaged && e.cancelable) e.preventDefault();
+    },
+    { passive: false, capture: true },
+  );
   document.addEventListener("pointerup", onUp, true);
   document.addEventListener("pointercancel", onUp, true);
 })();

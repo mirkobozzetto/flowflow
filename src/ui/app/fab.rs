@@ -59,8 +59,8 @@ pub fn FloatingActionButton() -> Element {
                     });
                 },
                 svg {
-                    width: "32",
-                    height: "32",
+                    width: "34",
+                    height: "34",
                     view_box: "0 0 100 100",
                     line {
                         class: "fab-plus-h",

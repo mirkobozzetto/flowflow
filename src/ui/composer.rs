@@ -45,9 +45,9 @@ const AUTOSIZE: &str = r#"
         ta.style.height = 'auto';
         var h = Math.min(ta.scrollHeight, 160);
         ta.style.height = h + 'px';
-        var multi = h > 44;
+        var multi = h > 48;
         cap.setAttribute('data-multi', multi);
-        cap.style.height = (multi ? 6 + h + 50 : 56) + 'px';
+        cap.style.height = (multi ? 8 + h + 54 : 60) + 'px';
     }
 "#;
 
@@ -73,7 +73,7 @@ pub fn Composer(
     let mut mention_query = use_signal(String::new);
     let mut focused = use_signal(|| false);
     let mut commit_on_transcribed = use_signal(|| false);
-    // Exit choreography: the voice capsule stays mounted 260 ms after the
+    // Exit choreography: the voice capsule stays mounted 320 ms after the
     // take ends so CSS can play it out; the field flashes when text lands.
     let mut voice_leaving = use_signal(|| false);
     // Enter transition: false on the frame the layer mounts, true one tick
@@ -113,7 +113,7 @@ pub fn Composer(
             voice_leaving.set(true);
             spawn(async move {
                 futures_timer::Delay::new(std::time::Duration::from_millis(
-                    260,
+                    320,
                 ))
                 .await;
                 voice_leaving.set(false);
@@ -165,6 +165,7 @@ pub fn Composer(
                 format!("{current} {text}")
             });
             app.recording_state.set(RecordingState::Idle);
+            haptic("light");
             if *commit_on_transcribed.peek() {
                 commit_on_transcribed.set(false);
                 commit();
@@ -200,13 +201,13 @@ pub fn Composer(
         },
     );
     let capsule = if focused() {
-        "composer-capsule relative h-14 rounded-[28px] bg-warm-white border border-ios-orange-dark ring-[3px] ring-ios-orange-50"
+        "composer-capsule relative h-[60px] rounded-[30px] bg-warm-white border border-ios-orange-dark ring-[3px] ring-ios-orange-50"
     } else {
-        "composer-capsule relative h-14 rounded-[28px] bg-stone-100 border border-transparent"
+        "composer-capsule relative h-[60px] rounded-[30px] bg-stone-100 border border-stone-300/80"
     };
 
     rsx! {
-        div { class: "fixed bottom-0 left-0 right-0 px-3 py-2 bg-warm-white border-t border-stone-200 z-30 keyboard-aware lg:left-72",
+        div { class: "fixed bottom-0 left-0 right-0 px-2 py-2 bg-warm-white border-t border-stone-200 z-30 keyboard-aware lg:left-72",
             div { class: "lg:max-w-3xl lg:mx-auto",
                 div { class: "relative flex items-end gap-2",
                     if let (true, Some(mentions)) = (show_mention, mentions) {
@@ -216,9 +217,9 @@ pub fn Composer(
                         div { class: capsule,
                             "data-hidden": !is_idle,
                             "data-landed": landed(),
-                            div { class: "absolute left-[5px] bottom-[5px]",
+                            div { class: "absolute left-[6px] bottom-[6px]",
                                 button {
-                                    class: "composer-plus pressable w-11 h-11 rounded-full flex items-center justify-center text-stone-600 hover:bg-stone-200/70",
+                                    class: "composer-plus pressable w-[46px] h-[46px] rounded-full flex items-center justify-center text-stone-600 hover:bg-stone-200/70",
                                     "data-open": menu_open,
                                     "aria-label": t(&lang, "chat-tools-tooltip"),
                                     "aria-expanded": menu_open,
@@ -231,14 +232,14 @@ pub fn Composer(
                                             app.show_note_tools_menu.set(!(app.show_note_tools_menu)());
                                         }
                                     },
-                                    IconPlus { size: 22 }
+                                    IconPlus { size: 24 }
                                 }
                                 if menu_open {
                                     ToolsMenu { note: !chat }
                                 }
                             }
                             textarea {
-                                class: "composer-field absolute top-1.5 left-1.5 right-1.5 max-h-40 bg-transparent border-0 px-1.5 py-[11px] text-[15px] leading-[1.4] outline-none text-stone-900 placeholder:text-stone-400 resize-none overflow-y-auto",
+                                class: "composer-field absolute top-2 left-1.5 right-1.5 max-h-40 bg-transparent border-0 px-1.5 py-[11px] text-[16px] leading-[1.4] outline-none text-stone-900 placeholder:text-stone-400 resize-none overflow-y-auto",
                                 rows: "1",
                                 placeholder: "{placeholder}",
                                 value: "{input}",
@@ -277,7 +278,7 @@ pub fn Composer(
                                 },
                             }
                             button {
-                                class: "composer-primary pressable absolute right-[5px] bottom-[5px] w-11 h-11 rounded-full bg-ios-orange text-white flex items-center justify-center overflow-hidden disabled:opacity-50",
+                                class: "composer-primary pressable press-grow absolute right-[5px] bottom-[5px] w-[50px] h-[50px] rounded-full bg-ios-orange text-white flex items-center justify-center overflow-hidden disabled:opacity-50",
                                 "data-has-text": !empty,
                                 "data-sent": sent(),
                                 "aria-label": t(&lang, if empty { "recording-dictate" } else if chat { "chat-send" } else { "composer-append" }),
@@ -292,8 +293,8 @@ pub fn Composer(
                                         commit();
                                     }
                                 },
-                                span { class: "composer-icon composer-icon-mic absolute inset-0 flex items-center justify-center", IconMic { size: 20 } }
-                                span { class: "composer-icon composer-icon-send absolute inset-0 flex items-center justify-center", IconArrowUp { size: 20 } }
+                                span { class: "composer-icon composer-icon-mic absolute inset-0 flex items-center justify-center", IconMic { size: 22 } }
+                                span { class: "composer-icon composer-icon-send absolute inset-0 flex items-center justify-center", IconArrowUp { size: 22 } }
                             }
                         }
                         if !is_idle || voice_leaving() {

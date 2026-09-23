@@ -61,6 +61,10 @@
 .pressable:not(:disabled):active {
     transform: scale(0.98);
 }
+/* Voice buttons (#183): grow a hair while held, no bounce on release. */
+.press-grow:not(:disabled):active {
+    transform: scale(1.06);
+}
 
 /* iOS below lg (#177): the main view (.sb-card) slides aside as a card and
    reveals the menu (.sb-under) lying underneath, instead of a drawer sliding
@@ -95,6 +99,7 @@
         --sb-card-edge: 0 0 0 1px var(--color-stone-300), var(--shadow-menu);
         background: var(--color-stone-100);
         overflow: hidden;
+        position: relative;
         transition:
             transform 460ms var(--ease-soft),
             box-shadow 460ms var(--ease-soft),
@@ -107,6 +112,26 @@
         transition:
             transform 460ms var(--ease-soft),
             box-shadow 460ms var(--ease-soft);
+    }
+    /* The card blurs as it slides aside, so its text does not compete with
+       the menu. During a drag swipe.ts sets --sb-blur to the progress with
+       no transition. No filter at rest: the blur layer only exists while the
+       card is off its place. */
+    .sb-card::after {
+        content: "";
+        position: absolute;
+        inset: 0;
+        z-index: 70;
+        pointer-events: none;
+        -webkit-backdrop-filter: var(--sb-blur, none);
+        backdrop-filter: var(--sb-blur, none);
+        transition:
+            -webkit-backdrop-filter var(--sb-blur-t, 460ms) var(--ease-soft),
+            backdrop-filter var(--sb-blur-t, 460ms) var(--ease-soft);
+    }
+    .sb-card[data-open="1"]::after {
+        -webkit-backdrop-filter: var(--sb-blur, blur(6px));
+        backdrop-filter: var(--sb-blur, blur(6px));
     }
 }
 
@@ -232,8 +257,8 @@
     border-radius: 24px;
 }
 .composer-field {
-    margin-left: 44px;
-    margin-right: 44px;
+    margin-left: 46px;
+    margin-right: 48px;
     transition: margin 260ms var(--ease-soft);
 }
 .composer-field:focus-visible {
@@ -279,21 +304,22 @@
     100% { transform: scale(1); }
 }
 /* Voice capsule: scales in from the right edge, plays out the same way on
-   cancel; turns light while transcribing so it morphs into the field. */
+   cancel; stays dark while transcribing (#183), the take frozen and breathing. */
+/* #183: the capsule unrolls from the orange button and rolls back into it,
+   X first, instead of scaling: a clip, so nothing inside is squashed. */
 .voice-layer {
-    transform-origin: right center;
-    transform: scaleX(0.3);
+    clip-path: inset(0 0 0 calc(100% - 60px) round 30px);
     opacity: 0;
-    transition: transform 340ms var(--ease-soft), opacity 200ms;
+    transition: clip-path 340ms var(--ease-soft), opacity 160ms;
 }
 .voice-layer[data-in="true"] {
-    transform: scaleX(1);
+    clip-path: inset(0 0 0 0 round 30px);
     opacity: 1;
 }
 .voice-layer[data-leaving="true"] {
-    transform: scaleX(0.3);
+    clip-path: inset(0 0 0 calc(100% - 60px) round 30px);
     opacity: 0;
-    transition-duration: 240ms, 200ms;
+    transition: clip-path 300ms var(--ease-soft), opacity 120ms 200ms;
     pointer-events: none;
 }
 .voice-bars i {
@@ -305,25 +331,18 @@
     background: rgba(255, 255, 255, 0.92);
     flex: none;
 }
-.voice-capsule[data-transcribing="true"] .voice-bars i {
-    background: var(--color-stone-400);
+.voice-capsule[data-transcribing="true"] .voice-timeline {
+    animation: voice-breathe 1.6s ease-in-out infinite;
 }
-.voice-capsule {
-    transition: background-color 260ms var(--ease-soft), color 260ms,
-        box-shadow 260ms, border-color 260ms;
+@keyframes voice-breathe {
+    0%, 100% { opacity: 0.45; }
+    50% { opacity: 0.2; }
 }
-.voice-capsule[data-transcribing="true"] {
-    background: var(--color-warm-white);
-    color: var(--color-stone-900);
-    box-shadow: 0 0 0 3px var(--color-ios-orange-50);
-    border: 1px solid var(--color-ios-orange-dark);
-}
-.voice-capsule[data-transcribing="true"] .voice-ghost {
-    border-color: var(--color-stone-200);
-    color: var(--color-stone-600);
-}
-.voice-capsule[data-transcribing="true"] .voice-status {
-    color: var(--color-stone-500);
+@media (prefers-reduced-motion: reduce) {
+    .voice-capsule[data-transcribing="true"] .voice-timeline {
+        animation: none;
+        opacity: 0.45;
+    }
 }
 .tools-switch-on {
     opacity: 0;
@@ -350,8 +369,8 @@
 
 .fab-btn {
     position: relative;
-    width: 72px;
-    height: 72px;
+    width: 78px;
+    height: 78px;
     border-radius: 9999px;
     background: var(--color-warm-white);
     border: 1.5px solid var(--color-ios-orange-100);
