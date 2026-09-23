@@ -99,6 +99,7 @@
         --sb-card-edge: 0 0 0 1px var(--color-stone-300), var(--shadow-menu);
         background: var(--color-stone-100);
         overflow: hidden;
+        position: relative;
         transition:
             transform 460ms var(--ease-soft),
             box-shadow 460ms var(--ease-soft),
@@ -111,6 +112,21 @@
         transition:
             transform 460ms var(--ease-soft),
             box-shadow 460ms var(--ease-soft);
+    }
+    /* The card darkens as it slides aside, so the menu reads first. During a
+       drag swipe.ts sets --sb-dim to the progress with no transition. */
+    .sb-card::after {
+        content: "";
+        position: absolute;
+        inset: 0;
+        z-index: 70;
+        pointer-events: none;
+        background: var(--color-stone-900);
+        opacity: var(--sb-dim, 0);
+        transition: opacity var(--sb-dim-t, 460ms) var(--ease-soft);
+    }
+    .sb-card[data-open="1"]::after {
+        opacity: var(--sb-dim, 0.14);
     }
 }
 

@@ -10,6 +10,7 @@
     closeAt: __CLOSE_AT__
   };
   const FLICK = 0.4;
+  const DIM = 0.14;
   const sign = CFG.side === "left" ? -1 : 1;
   const w0 = window;
   const guard = "__swipe_" + CFG.panelId;
@@ -47,6 +48,8 @@
       card.style.transform = "translateX(" + p * w + "px)";
       card.style.borderRadius = "var(--sb-card-r)";
       card.style.boxShadow = "var(--sb-card-edge)";
+      card.style.setProperty("--sb-dim-t", "0ms");
+      card.style.setProperty("--sb-dim", (DIM * p).toFixed(3));
       panel.style.transform = "translateX(" + -10 * (1 - p) + "%)";
       panel.style.opacity = (0.55 + 0.45 * p).toFixed(3);
       return;
@@ -76,6 +79,8 @@
       card.style.transform = "translateX(" + (open ? w : 0) + "px)";
       card.style.borderRadius = "var(--sb-card-r)";
       card.style.boxShadow = open ? "var(--sb-card-edge)" : "none";
+      card.style.removeProperty("--sb-dim-t");
+      card.style.setProperty("--sb-dim", open ? String(DIM) : "0");
       panel.style.transform = open ? "none" : "translateX(-10%)";
       panel.style.opacity = open ? "1" : "0.55";
     } else {
@@ -102,6 +107,7 @@
           card.style.transform = "";
           card.style.borderRadius = "";
           card.style.boxShadow = "";
+          card.style.removeProperty("--sb-dim");
         }
         if (backdrop) {
           backdrop.style.transition = "";
@@ -113,6 +119,22 @@
     };
     setTimeout(() => requestAnimationFrame(tryClear), card ? 470 : 260);
   }
+  function anywhere(e) {
+    const t = e.target;
+    if (!card || !t || !card.contains(t))
+      return false;
+    if (t.closest("[data-no-swipe]"))
+      return false;
+    const focused = document.activeElement;
+    if (focused && focused !== document.body && focused.contains(t) && focused.matches("input, textarea, [contenteditable]"))
+      return false;
+    for (let el = t;el && el !== card; el = el.parentElement) {
+      const ox = getComputedStyle(el).overflowX;
+      if ((ox === "auto" || ox === "scroll") && el.scrollWidth > el.clientWidth + 1)
+        return false;
+    }
+    return true;
+  }
   function onDown(e) {
     if (e.pointerType === "mouse" || active || !els() || !panel)
       return;
@@ -122,7 +144,7 @@
     const open = panel.dataset.open === "1";
     if (!open) {
       const atEdge = CFG.side === "left" ? e.clientX <= CFG.edgePx : e.clientX >= window.innerWidth - CFG.edgePx;
-      if (!atEdge)
+      if (!atEdge && !anywhere(e))
         return;
       active = true;
       opening = true;
@@ -196,6 +218,10 @@
     passive: false,
     capture: true
   });
+  document.addEventListener("touchmove", (e) => {
+    if (engaged && e.cancelable)
+      e.preventDefault();
+  }, { passive: false, capture: true });
   document.addEventListener("pointerup", onUp, true);
   document.addEventListener("pointercancel", onUp, true);
 })();
