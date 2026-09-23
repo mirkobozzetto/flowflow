@@ -10,10 +10,8 @@
     closeAt: __CLOSE_AT__
   };
   const FLICK = 0.4;
-  const DIM = 0.3;
-  const BLUR = 8;
+  const BLUR = 6;
   function veil(c, p) {
-    c.style.setProperty("--sb-dim", (DIM * p).toFixed(3));
     c.style.setProperty("--sb-blur", "blur(" + (BLUR * p).toFixed(2) + "px)");
   }
   const sign = CFG.side === "left" ? -1 : 1;
@@ -53,7 +51,7 @@
       card.style.transform = "translateX(" + p * w + "px)";
       card.style.borderRadius = "var(--sb-card-r)";
       card.style.boxShadow = "var(--sb-card-edge)";
-      card.style.setProperty("--sb-dim-t", "0ms");
+      card.style.setProperty("--sb-blur-t", "0ms");
       veil(card, p);
       panel.style.transform = "translateX(" + -10 * (1 - p) + "%)";
       panel.style.opacity = (0.55 + 0.45 * p).toFixed(3);
@@ -84,7 +82,7 @@
       card.style.transform = "translateX(" + (open ? w : 0) + "px)";
       card.style.borderRadius = "var(--sb-card-r)";
       card.style.boxShadow = open ? "var(--sb-card-edge)" : "none";
-      card.style.removeProperty("--sb-dim-t");
+      card.style.removeProperty("--sb-blur-t");
       veil(card, open ? 1 : 0);
       panel.style.transform = open ? "none" : "translateX(-10%)";
       panel.style.opacity = open ? "1" : "0.55";
@@ -112,7 +110,6 @@
           card.style.transform = "";
           card.style.borderRadius = "";
           card.style.boxShadow = "";
-          card.style.removeProperty("--sb-dim");
           card.style.removeProperty("--sb-blur");
         }
         if (backdrop) {
