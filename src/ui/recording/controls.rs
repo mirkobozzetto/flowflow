@@ -283,12 +283,12 @@ pub fn VoiceCapsule(
 
     rsx! {
         div {
-            class: "voice-capsule h-full flex items-center gap-1.5 px-1 min-h-14 rounded-full bg-stone-900 text-white shadow-lift overflow-hidden",
+            class: "voice-capsule h-full flex items-center gap-1.5 px-1 min-h-[60px] rounded-full bg-stone-900 text-white shadow-lift overflow-hidden",
             "data-transcribing": is_transcribing,
             role: "group",
             "aria-label": t(&lang, "recording-dictate"),
             button {
-                class: "voice-ghost pressable w-11 h-11 shrink-0 rounded-full border border-white/20 flex items-center justify-center",
+                class: "voice-ghost pressable w-[46px] h-[46px] shrink-0 rounded-full border border-white/20 flex items-center justify-center",
                 "aria-label": "{cancel_label}",
                 // Dictation: drop the result. A note's job: stop watching it,
                 // it finishes in the background under the note's banner.
@@ -303,7 +303,7 @@ pub fn VoiceCapsule(
                     reset(());
                     app.recording_state.set(RecordingState::Idle);
                 },
-                IconX { size: 18 }
+                IconX { size: 20 }
             }
             if let Some(reason) = failed {
                 span { class: "flex-1 min-w-0 truncate pl-1 text-[13px] text-ios-red", title: "{reason}", "{failed_label}" }
@@ -346,7 +346,7 @@ pub fn VoiceCapsule(
                 }
                 if live {
                     button {
-                        class: "pressable press-grow w-12 h-12 shrink-0 rounded-full bg-white/15 flex items-center justify-center",
+                        class: "pressable press-grow w-[50px] h-[50px] shrink-0 rounded-full bg-white/15 flex items-center justify-center",
                         "aria-label": "{stop_label}",
                         onpointerdown: move |_| haptic_prepare("light"),
                         onclick: move |_| { haptic("light"); finish(false); },
@@ -354,7 +354,7 @@ pub fn VoiceCapsule(
                     }
                 }
                 button {
-                    class: "pressable press-grow w-12 h-12 shrink-0 rounded-full bg-ios-orange flex items-center justify-center",
+                    class: "pressable press-grow w-[50px] h-[50px] shrink-0 rounded-full bg-ios-orange flex items-center justify-center",
                     "aria-label": if is_transcribing { "{transcribing_label}" } else { "{send_label}" },
                     disabled: !live,
                     onpointerdown: move |_| haptic_prepare("soft"),
@@ -362,7 +362,7 @@ pub fn VoiceCapsule(
                     if is_transcribing {
                         span { class: "block w-[18px] h-[18px] rounded-full border-2 border-white/35 border-t-white animate-spin" }
                     } else {
-                        IconArrowUp { size: 20 }
+                        IconArrowUp { size: 22 }
                     }
                 }
             }

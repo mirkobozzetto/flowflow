@@ -236,8 +236,8 @@
     border-radius: 24px;
 }
 .composer-field {
-    margin-left: 44px;
-    margin-right: 46px;
+    margin-left: 46px;
+    margin-right: 48px;
     transition: margin 260ms var(--ease-soft);
 }
 .composer-field:focus-visible {
@@ -287,16 +287,16 @@
 /* #183: the capsule unrolls from the orange button and rolls back into it,
    X first, instead of scaling: a clip, so nothing inside is squashed. */
 .voice-layer {
-    clip-path: inset(0 0 0 calc(100% - 56px) round 28px);
+    clip-path: inset(0 0 0 calc(100% - 60px) round 30px);
     opacity: 0;
     transition: clip-path 340ms var(--ease-soft), opacity 160ms;
 }
 .voice-layer[data-in="true"] {
-    clip-path: inset(0 0 0 0 round 28px);
+    clip-path: inset(0 0 0 0 round 30px);
     opacity: 1;
 }
 .voice-layer[data-leaving="true"] {
-    clip-path: inset(0 0 0 calc(100% - 56px) round 28px);
+    clip-path: inset(0 0 0 calc(100% - 60px) round 30px);
     opacity: 0;
     transition: clip-path 300ms var(--ease-soft), opacity 120ms 200ms;
     pointer-events: none;
