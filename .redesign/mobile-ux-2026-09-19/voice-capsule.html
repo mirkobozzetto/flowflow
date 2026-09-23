@@ -1,0 +1,185 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>FlowFlow · capsule vocale · draft</title>
+<script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
+<style type="text/tailwindcss">
+@theme {
+    --ease-soft: cubic-bezier(0.2, 0.8, 0.2, 1);
+    --shadow-lift: 0 8px 24px -12px rgba(28, 25, 23, 0.35);
+    --color-ios-orange-50: oklch(0.97 0.04 50);
+    --color-ios-orange: oklch(0.60 0.22 50);
+    --color-ios-orange-dark: oklch(0.48 0.16 50);
+    --color-warm-white: oklch(0.99 0.005 50);
+}
+body { font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", system-ui, sans-serif; }
+.phone { width: 390px; height: 330px; border-radius: 0 0 48px 48px; border: 10px solid #1c1917; border-top: 0; overflow: hidden; background: var(--color-warm-white); flex: none; display: flex; flex-direction: column; }
+.note { flex: 1; padding: 18px 22px 0; font-size: 15px; line-height: 1.5; color: var(--color-stone-700); }
+.note h3 { font-size: 20px; font-weight: 600; color: var(--color-stone-900); margin-bottom: 6px; }
+.landed { background: var(--color-ios-orange-50); border-radius: 4px; animation: landed 1.6s var(--ease-soft) 0.4s both; }
+@keyframes landed { from { background: var(--color-ios-orange-50); } to { background: transparent; } }
+.dock { padding: 10px 14px 30px; }
+
+/* Composer pill at rest. */
+.pill { height: 58px; border-radius: 9999px; background: #fff; border: 1px solid var(--color-stone-200); box-shadow: var(--shadow-lift); display: flex; align-items: center; gap: 6px; padding: 0 5px; }
+.plus { width: 44px; height: 44px; border-radius: 9999px; display: flex; align-items: center; justify-content: center; color: var(--color-stone-500); flex: none; }
+.field { flex: 1; font-size: 15px; color: var(--color-stone-400); }
+.field.filled { color: var(--color-stone-900); animation: fadeUp 260ms var(--ease-soft) both; }
+@keyframes fadeUp { from { opacity: 0; transform: translateY(6px); } }
+
+/* Proposed: primary buttons 48 px, and a Liquid Glass style bounce. */
+.btn { width: 48px; height: 48px; border-radius: 9999px; display: flex; align-items: center; justify-content: center; flex: none; position: relative; color: #fff; transition: transform 160ms var(--ease-soft), opacity 200ms, width 260ms var(--ease-soft); }
+.btn-orange { background: var(--color-ios-orange); }
+.btn-soft { background: rgba(255,255,255,.15); }
+.btn-ghost { width: 44px; height: 44px; border: 1px solid rgba(255,255,255,.2); }
+.btn:active { transform: scale(1.06); }
+.btn-old { width: 44px; height: 44px; }
+
+/* Dark capsule: recording, processing and failure keep the same shape. */
+.capsule { height: 58px; border-radius: 9999px; background: var(--color-stone-900); color: #fff; box-shadow: var(--shadow-lift); display: flex; align-items: center; gap: 6px; padding: 0 5px; overflow: hidden; }
+.bars { flex: 1; min-width: 0; display: flex; align-items: center; gap: 3px; height: 32px; position: relative; overflow: hidden; }
+.bars i { width: 2px; border-radius: 9999px; background: rgba(255,255,255,.92); flex: none; }
+.bars.live i { animation: live 900ms ease-in-out infinite alternate; }
+@keyframes live { to { transform: scaleY(.45); } }
+.bars.busy i { background: rgba(255,255,255,.35); }
+/* Processing: the frozen take breathes softly. */
+.bars.busy { animation: breathe 1.6s ease-in-out infinite; }
+@keyframes breathe { 50% { opacity: .5; } }
+.time { font-size: 12px; font-variant-numeric: tabular-nums; color: rgba(255,255,255,.8); flex: none; padding-right: 4px; }
+.status { font-size: 12px; color: rgba(255,255,255,.7); flex: none; padding-right: 6px; }
+/* A thin spinner replaces the arrow inside the orange button. */
+.ring svg { display: none; }
+.ring::before { content: ""; width: 18px; height: 18px; border-radius: 9999px; border: 2px solid rgba(255,255,255,.35); border-top-color: #fff; animation: spin 900ms linear infinite; }
+@keyframes spin { to { transform: rotate(360deg); } }
+.retry { height: 40px; padding: 0 14px; border-radius: 9999px; background: rgba(255,255,255,.15); font-size: 13px; font-weight: 600; flex: none; }
+.err { flex: 1; font-size: 13px; color: oklch(0.8 0.12 25); padding-left: 6px; }
+</style>
+</head>
+<body class="bg-stone-200/60 min-h-screen p-8 text-stone-900">
+  <h1 class="text-xl font-semibold">Capsule vocale : suivi du micro, du clic à la transcription</h1>
+  <p class="text-sm text-stone-500 mt-1 max-w-3xl">Même capsule dans le chat et dans une note. Le bas de l'écran seulement. Appuie sur les boutons : ils grossissent d'un poil tant que le doigt est posé. La démo en haut enchaîne les états ; les cadres dessous les figent un par un.</p>
+
+  <h2 class="font-semibold mt-8">Démo interactive</h2>
+  <div class="flex flex-wrap gap-8 mt-3 items-start">
+    <figure>
+      <div class="phone">
+        <div class="note"><h3>Réunion lundi</h3><p>Points à revoir avec l'équipe. <span id="demo-landed"></span></p></div>
+        <div class="dock" id="demo-dock"></div>
+      </div>
+      <figcaption class="mt-3 max-w-[390px] text-sm text-stone-500">Micro → enregistrement. ■ garde le texte dans le champ, ↑ l'ajoute à la note. Le traitement dure 3 s ici. <label class="ml-1"><input type="checkbox" id="demo-fail"> simuler un échec</label></figcaption>
+    </figure>
+  </div>
+
+  <h2 class="font-semibold mt-10">États, un par cadre</h2>
+  <div class="flex flex-wrap gap-8 mt-3 items-start">
+
+    <figure>
+      <div class="phone">
+        <div class="note"><h3>Réunion lundi</h3><p>Points à revoir avec l'équipe.</p></div>
+        <div class="dock"><div class="pill"><span class="plus">__PLUS__</span><span class="field">Écrire ou dicter…</span><button class="btn btn-orange btn-old">__MIC__</button></div></div>
+      </div>
+      <figcaption class="mt-3 max-w-[390px]"><b>0 · Actuel.</b> <span class="text-sm text-stone-500">Bouton micro 44 px, simple enfoncement à l'appui.</span></figcaption>
+    </figure>
+
+    <figure>
+      <div class="phone">
+        <div class="note"><h3>Réunion lundi</h3><p>Points à revoir avec l'équipe.</p></div>
+        <div class="dock"><div class="pill"><span class="plus">__PLUS__</span><span class="field">Écrire ou dicter…</span><button class="btn btn-orange" data-bounce>__MIC__</button></div></div>
+      </div>
+      <figcaption class="mt-3 max-w-[390px]"><b>1 · Repos.</b> <span class="text-sm text-stone-500">Micro 48 px, comme le disque du burger. Tant que le doigt est posé il grossit d'un poil (×1,06), sans rebond au relâché. Vibration moyenne, comme aujourd'hui.</span></figcaption>
+    </figure>
+
+    <figure>
+      <div class="phone">
+        <div class="note"><h3>Réunion lundi</h3><p>Points à revoir avec l'équipe.</p></div>
+        <div class="dock"><div class="capsule"><button class="btn btn-ghost">__X__</button><div class="bars live">__BARS__</div><span class="time">0:07</span><button class="btn btn-soft" data-bounce>__STOP__</button><button class="btn btn-orange" data-bounce>__UP__</button></div></div>
+      </div>
+      <figcaption class="mt-3 max-w-[390px]"><b>2 · Enregistrement.</b> <span class="text-sm text-stone-500">Inchangé, sauf ■ et ↑ en 48 px avec le même léger grossissement. ✕ reste à 44 px : c'est l'action secondaire.</span></figcaption>
+    </figure>
+
+    <figure>
+      <div class="phone">
+        <div class="note"><h3>Réunion lundi</h3><p>Points à revoir avec l'équipe.</p></div>
+        <div class="dock"><div class="capsule"><button class="btn btn-ghost">__X__</button><div class="bars busy">__BARS__</div><span class="status">Transcription…</span><button class="btn btn-orange ring">__UP__</button></div></div>
+      </div>
+      <figcaption class="mt-3 max-w-[390px]"><b>3 · Traitement (nouveau).</b> <span class="text-sm text-stone-500">La capsule reste sombre et garde sa forme. L'onde se fige et respire doucement. ■ s'efface ; un petit spinner blanc remplace la flèche dans le bouton orange. ✕ annule. Rien n'apparaît encore dans la note : ni bandeau, ni fond gris.</span></figcaption>
+    </figure>
+
+    <figure>
+      <div class="phone">
+        <div class="note"><h3>Réunion lundi</h3><p>Points à revoir avec l'équipe. <span class="landed">Penser à envoyer le budget avant jeudi.</span></p></div>
+        <div class="dock"><div class="pill"><span class="plus">__PLUS__</span><span class="field">Écrire ou dicter…</span><button class="btn btn-orange">__MIC__</button></div></div>
+      </div>
+      <figcaption class="mt-3 max-w-[390px]"><b>4a · Fini, via ↑.</b> <span class="text-sm text-stone-500">Seulement quand le texte est prêt : la capsule se replie en pilule, le texte entre dans la note avec un surlignage orange pâle qui s'éteint. Une vibration légère. Dans le chat, ↑ envoie le message à ce moment-là.</span></figcaption>
+    </figure>
+
+    <figure>
+      <div class="phone">
+        <div class="note"><h3>Réunion lundi</h3><p>Points à revoir avec l'équipe.</p></div>
+        <div class="dock"><div class="pill"><span class="plus">__PLUS__</span><span class="field filled">Penser à envoyer le budget avant jeudi.</span><button class="btn btn-orange">__UP__</button></div></div>
+      </div>
+      <figcaption class="mt-3 max-w-[390px]"><b>4b · Fini, via ■.</b> <span class="text-sm text-stone-500">Même repli, mais le texte atterrit dans le champ pour être relu ; le bouton passe en ↑. Comportement actuel conservé.</span></figcaption>
+    </figure>
+
+    <figure>
+      <div class="phone">
+        <div class="note"><h3>Réunion lundi</h3><p>Points à revoir avec l'équipe.</p></div>
+        <div class="dock"><div class="capsule"><button class="btn btn-ghost">__X__</button><span class="err">Transcription échouée</span><button class="retry" data-bounce>Réessayer</button></div></div>
+      </div>
+      <figcaption class="mt-3 max-w-[390px]"><b>5 · Échec.</b> <span class="text-sm text-stone-500">Toujours dans la capsule, pas dans la note. Réessayer relance sur le même fichier ; ✕ ferme, et dans une note le clip reste attaché (rien n'est perdu).</span></figcaption>
+    </figure>
+
+  </div>
+
+<script>
+const svg = (d, s = 20, w = 2) => `<svg width="${s}" height="${s}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="${w}" stroke-linecap="round" stroke-linejoin="round">${d}</svg>`;
+const heights = [6,10,16,22,14,8,12,20,26,18,10,6,14,24,28,16,9,12,18,22,12,7,10,15,20,11,6,9];
+const I = {
+  MIC: svg('<rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5 11a7 7 0 0 0 14 0M12 18v3"/>'),
+  UP: svg('<path d="M12 19V5M5 12l7-7 7 7"/>'),
+  X: svg('<path d="M6 6l12 12M18 6L6 18"/>', 18),
+  PLUS: svg('<path d="M12 5v14M5 12h14"/>', 22, 1.8),
+  STOP: '<span class="block w-[14px] h-[14px] rounded-[3px] bg-white"></span>',
+  BARS: heights.map((h, i) => `<i style="height:${h}px;animation-delay:${(i % 7) * 90}ms"></i>`).join(''),
+};
+const fill = html => html.replace(/__(\w+)__/g, (_, k) => I[k] ?? '');
+document.body.innerHTML = fill(document.body.innerHTML);
+
+
+// Demo state machine: idle -> recording -> processing -> idle (or failed).
+const dock = document.getElementById('demo-dock');
+const landed = document.getElementById('demo-landed');
+const TEXT = 'Penser à envoyer le budget avant jeudi.';
+let timer, secs = 0;
+const views = {
+  idle: (text) => text
+    ? `<div class="pill"><span class="plus">${I.PLUS}</span><span class="field filled">${text}</span><button class="btn btn-orange" data-bounce data-act="clear">${I.UP}</button></div>`
+    : `<div class="pill"><span class="plus">${I.PLUS}</span><span class="field">Écrire ou dicter…</span><button class="btn btn-orange" data-bounce data-act="rec">${I.MIC}</button></div>`,
+  rec: () => `<div class="capsule"><button class="btn btn-ghost" data-act="cancel">${I.X}</button><div class="bars live">${I.BARS}</div><span class="time" id="t">0:00</span><button class="btn btn-soft" data-bounce data-act="stop">${I.STOP}</button><button class="btn btn-orange" data-bounce data-act="send">${I.UP}</button></div>`,
+  busy: () => `<div class="capsule"><button class="btn btn-ghost" data-act="cancel">${I.X}</button><div class="bars busy">${I.BARS}</div><span class="status">Transcription…</span><button class="btn btn-orange ring">${I.UP}</button></div>`,
+  fail: () => `<div class="capsule"><button class="btn btn-ghost" data-act="cancel">${I.X}</button><span class="err">Transcription échouée</span><button class="retry" data-bounce data-act="retry">Réessayer</button></div>`,
+};
+let lastMode;
+const show = (v, arg) => { clearInterval(timer); dock.innerHTML = views[v](arg); };
+const process = (mode) => {
+  lastMode = mode; show('busy');
+  timer = setTimeout(() => {
+    if (document.getElementById('demo-fail').checked) return show('fail');
+    if (mode === 'send') { landed.innerHTML = `<span class="landed">${TEXT}</span>`; show('idle'); }
+    else show('idle', TEXT);
+  }, 3000);
+};
+dock.addEventListener('click', e => {
+  const act = e.target.closest('[data-act]')?.dataset.act;
+  if (act === 'rec') { landed.innerHTML = ''; show('rec'); secs = 0; timer = setInterval(() => { secs++; const t = document.getElementById('t'); if (t) t.textContent = `0:${String(secs).padStart(2, '0')}`; }, 1000); }
+  if (act === 'cancel' || act === 'clear') { clearTimeout(timer); show('idle'); }
+  if (act === 'stop') process('stop');
+  if (act === 'send') process('send');
+  if (act === 'retry') process(lastMode);
+});
+show('idle');
+</script>
+</body>
+</html>
