@@ -1,7 +1,7 @@
 mod actions;
 mod bot_bubble;
 mod empty_state;
-mod mention_menu;
+pub(crate) mod mention_menu;
 mod menu;
 pub(crate) mod models;
 mod sources_accordion;
@@ -13,7 +13,6 @@ mod view;
 
 pub(crate) mod action_card;
 pub(crate) mod approval_card;
-pub(crate) mod chat_input;
 pub(crate) mod reminder_card;
 
 pub use actions::md_to_html;

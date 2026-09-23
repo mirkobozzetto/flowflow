@@ -339,6 +339,11 @@ approval-status-edited = Edited
 approval-status-rejected = Rejected
 approval-status-expired = Expired
 
+chat-tools-agents-count = { $count } installed
+chat-tools-connectors-count = { $connected } connected · { $available } available
+chat-tools-agents-empty = No installed, active agents.
+chat-tools-connectors-empty = No connectors available. Check Settings › Connections.
+chat-tools-manage-connections = Manage in Settings › Connections
 chat-tools-section-agents = Agents
 chat-tools-section-tools = Tools
 chat-tools-section-connectors = Connectors
@@ -365,6 +370,12 @@ note-related-pin = Pin
 note-related-unpin = Unpin
 note-related-dismiss = Dismiss
 
+chat-send = Send
+composer-note-placeholder = Add to the note…
+composer-append = Add to the note
+recording-cancel = Cancel
+recording-stop = Stop and review
+recording-send = Send
 recording-dictate = Dictate
 
 folder-picker-all = All notes

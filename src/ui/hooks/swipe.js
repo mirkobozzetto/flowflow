@@ -3,12 +3,17 @@
   const CFG = {
     panelId: "__PANEL__",
     backdropId: "__BACKDROP__",
+    cardId: "__CARD__",
     side: "__EDGE__",
     edgePx: __EDGE_PX__,
     openAt: __OPEN_AT__,
     closeAt: __CLOSE_AT__
   };
   const FLICK = 0.4;
+  const BLUR = 6;
+  function veil(c, p) {
+    c.style.setProperty("--sb-blur", "blur(" + (BLUR * p).toFixed(2) + "px)");
+  }
   const sign = CFG.side === "left" ? -1 : 1;
   const w0 = window;
   const guard = "__swipe_" + CFG.panelId;
@@ -17,6 +22,8 @@
   w0[guard] = true;
   let panel = null;
   let backdrop = null;
+  let card = null;
+  const CARD_T = "460ms var(--ease-soft)";
   let w = 0;
   let active = false;
   let opening = false;
@@ -31,12 +38,25 @@
   function els() {
     panel = document.getElementById(CFG.panelId);
     backdrop = document.getElementById(CFG.backdropId);
-    return !!panel && !!backdrop;
+    card = CFG.cardId ? document.getElementById(CFG.cardId) : null;
+    return !!panel && (CFG.cardId ? !!card : !!backdrop);
   }
   function apply() {
     raf = 0;
     if (!panel)
       return;
+    if (card) {
+      const p = Math.max(0, Math.min(1, 1 - Math.abs(cur) / w));
+      card.style.transition = panel.style.transition = "none";
+      card.style.transform = "translateX(" + p * w + "px)";
+      card.style.borderRadius = "var(--sb-card-r)";
+      card.style.boxShadow = "var(--sb-card-edge)";
+      card.style.setProperty("--sb-blur-t", "0ms");
+      veil(card, p);
+      panel.style.transform = "translateX(" + -10 * (1 - p) + "%)";
+      panel.style.opacity = (0.55 + 0.45 * p).toFixed(3);
+      return;
+    }
     panel.style.transition = "none";
     panel.style.translate = cur + "px";
     if (backdrop) {
@@ -56,8 +76,20 @@
       cancelAnimationFrame(raf);
       raf = 0;
     }
-    panel.style.transition = "translate .25s cubic-bezier(.32,.72,0,1)";
-    panel.style.translate = (open ? 0 : sign * w) + "px";
+    if (card) {
+      card.style.transition = "transform " + CARD_T + ", box-shadow " + CARD_T;
+      panel.style.transition = "transform " + CARD_T + ", opacity " + CARD_T;
+      card.style.transform = "translateX(" + (open ? w : 0) + "px)";
+      card.style.borderRadius = "var(--sb-card-r)";
+      card.style.boxShadow = open ? "var(--sb-card-edge)" : "none";
+      card.style.removeProperty("--sb-blur-t");
+      veil(card, open ? 1 : 0);
+      panel.style.transform = open ? "none" : "translateX(-10%)";
+      panel.style.opacity = open ? "1" : "0.55";
+    } else {
+      panel.style.transition = "translate .25s cubic-bezier(.32,.72,0,1)";
+      panel.style.translate = (open ? 0 : sign * w) + "px";
+    }
     if (backdrop) {
       backdrop.style.transition = "opacity .25s ease";
       backdrop.style.opacity = open ? "1" : "0";
@@ -71,6 +103,15 @@
       if (panel.dataset.open === want || tries++ > 240) {
         panel.style.transition = "";
         panel.style.translate = "";
+        panel.style.transform = "";
+        panel.style.opacity = "";
+        if (card) {
+          card.style.transition = "";
+          card.style.transform = "";
+          card.style.borderRadius = "";
+          card.style.boxShadow = "";
+          card.style.removeProperty("--sb-blur");
+        }
         if (backdrop) {
           backdrop.style.transition = "";
           backdrop.style.opacity = "";
@@ -79,16 +120,34 @@
         requestAnimationFrame(tryClear);
       }
     };
-    setTimeout(() => requestAnimationFrame(tryClear), 260);
+    setTimeout(() => requestAnimationFrame(tryClear), card ? 470 : 260);
+  }
+  function anywhere(e) {
+    const t = e.target;
+    if (!card || !t || !card.contains(t))
+      return false;
+    if (t.closest("[data-no-swipe]"))
+      return false;
+    const focused = document.activeElement;
+    if (focused && focused !== document.body && focused.contains(t) && focused.matches("input, textarea, [contenteditable]"))
+      return false;
+    for (let el = t;el && el !== card; el = el.parentElement) {
+      const ox = getComputedStyle(el).overflowX;
+      if ((ox === "auto" || ox === "scroll") && el.scrollWidth > el.clientWidth + 1)
+        return false;
+    }
+    return true;
   }
   function onDown(e) {
     if (e.pointerType === "mouse" || active || !els() || !panel)
+      return;
+    if (getComputedStyle(panel).position !== "fixed")
       return;
     w = panel.offsetWidth || 300;
     const open = panel.dataset.open === "1";
     if (!open) {
       const atEdge = CFG.side === "left" ? e.clientX <= CFG.edgePx : e.clientX >= window.innerWidth - CFG.edgePx;
-      if (!atEdge)
+      if (!atEdge && !anywhere(e))
         return;
       active = true;
       opening = true;
@@ -162,6 +221,10 @@
     passive: false,
     capture: true
   });
+  document.addEventListener("touchmove", (e) => {
+    if (engaged && e.cancelable)
+      e.preventDefault();
+  }, { passive: false, capture: true });
   document.addEventListener("pointerup", onUp, true);
   document.addEventListener("pointercancel", onUp, true);
 })();

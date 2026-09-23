@@ -1,5 +1,6 @@
 use crate::application::i18n::t;
 use crate::infrastructure::persistence::Database;
+use crate::infrastructure::platform::{haptic, haptic_prepare};
 use crate::ui::{AppState, View};
 use dioxus::prelude::*;
 use std::sync::Arc;
@@ -30,16 +31,22 @@ pub fn FloatingActionButton() -> Element {
     rsx! {
         div { class: "fixed safe-bottom-6 right-4 z-20",
             button {
+                // Native glass on iOS 26 (#177), tapping through this handler.
+                "data-glass": "fab",
                 class: "fab-btn",
                 class: if pressing() { "fab-pressing" },
                 class: if clicked() { "fab-clicked" },
-                onpointerdown: move |_| pressing.set(true),
+                onpointerdown: move |_| {
+                    haptic_prepare("light");
+                    pressing.set(true);
+                },
                 onpointerup: move |_| pressing.set(false),
                 onpointerleave: move |_| pressing.set(false),
                 onclick: move |_| {
                     if clicked() {
                         return;
                     }
+                    haptic("light");
                     clicked.set(true);
                     spawn(async move {
                         futures_timer::Delay::new(
@@ -52,8 +59,8 @@ pub fn FloatingActionButton() -> Element {
                     });
                 },
                 svg {
-                    width: "32",
-                    height: "32",
+                    width: "34",
+                    height: "34",
                     view_box: "0 0 100 100",
                     line {
                         class: "fab-plus-h",

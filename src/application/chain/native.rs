@@ -160,8 +160,13 @@ pub(crate) async fn run_with_client(
             && !run.external_hook().admitted_external_read()
         {
             skipped = true;
-            trace.push(ChainStep { state: name.clone(), outcome:
-                "skipped: no external read was admitted; no write performed".into(), tools: Vec::new() });
+            trace.push(ChainStep {
+                state: name.clone(),
+                outcome:
+                    "skipped: no external read was admitted; no write performed"
+                        .into(),
+                tools: Vec::new(),
+            });
         } else {
             let preamble = with_mission(
                 &manifest.system_prompt,

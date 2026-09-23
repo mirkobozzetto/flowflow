@@ -8,6 +8,7 @@ pub use folders::*;
 
 use crate::application::i18n::t;
 use crate::infrastructure::persistence::Database;
+use crate::infrastructure::platform::haptic;
 use crate::ui::hooks::swipe::{use_swipe_drawer, DrawerSwipe};
 use crate::ui::icons::*;
 use crate::ui::{AppState, SidebarTab, View};
@@ -24,6 +25,31 @@ fn use_menu_scroll(app: AppState) {
                     var el = document.getElementById('row-menu');
                     if (el) el.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
                 });",
+            );
+        }
+    });
+}
+
+/// iOS: the main view slides aside as a card over the menu (#177); elsewhere
+/// the menu is a drawer sliding over the content.
+pub(crate) const CARD_MODE: bool = cfg!(target_os = "ios");
+
+// One light tick each time the menu commits open or closed (burger, drag
+// release, row tap), and in card mode the keyboard steps aside on open.
+fn use_open_feedback(open: Signal<bool>) {
+    let last = use_hook(|| std::rc::Rc::new(std::cell::Cell::new(false)));
+    use_effect(move || {
+        let now = open();
+        // Re-applied on every change: WebKit may toggle the effect itself.
+        #[cfg(target_os = "ios")]
+        crate::infrastructure::platform::ios::hide_top_edge_effect();
+        if last.replace(now) == now {
+            return;
+        }
+        haptic("light");
+        if now && CARD_MODE {
+            dioxus::document::eval(
+                "document.activeElement && document.activeElement.blur()",
             );
         }
     });
@@ -62,14 +88,17 @@ pub fn SidebarOverlay() -> Element {
     let is_open = (app.sidebar_open)();
     let lang = (app.current_lang)();
 
+    use_open_feedback(app.sidebar_open);
     use_swipe_drawer(DrawerSwipe {
         open: app.sidebar_open,
         panel_id: "sb-panel",
         backdrop_id: "sb-backdrop",
+        card_id: if CARD_MODE { "main-card" } else { "" },
         edge: "left",
         edge_px: 30.0,
-        open_at: 0.15,
-        close_at: 0.4,
+        // The card snaps past half its travel; the drawer opens early.
+        open_at: if CARD_MODE { 0.5 } else { 0.15 },
+        close_at: if CARD_MODE { 0.5 } else { 0.4 },
     });
 
     rsx! {
@@ -80,18 +109,22 @@ pub fn SidebarOverlay() -> Element {
                 style: "touch-action: none;",
             }
         }
-        div {
-            id: "sb-backdrop",
-            class: "fixed inset-0 bg-black/35 z-40 transition-opacity duration-200 lg:hidden",
-            class: if is_open { "opacity-100" } else { "opacity-0 pointer-events-none" },
-            onclick: move |_| app.sidebar_open.set(false),
+        // Card mode has no veil: the card's own cover closes the menu.
+        if !CARD_MODE {
+            div {
+                id: "sb-backdrop",
+                class: "fixed inset-0 bg-black/35 z-40 transition-opacity duration-200 lg:hidden",
+                class: if is_open { "opacity-100" } else { "opacity-0 pointer-events-none" },
+                onclick: move |_| app.sidebar_open.set(false),
+            }
         }
         // Outside-click catcher for row context menus. It MUST live here - outside the
         // translated sb-panel (a `translate` ancestor contains `fixed` descendants) and
         // outside any row subtree - so deleting a row can never orphan it in the DOM.
         // Below the panel (z-40 < z-50): taps on other rows still land, and those
-        // handlers close the menu themselves.
-        if (app.row_menu)().is_some() {
+        // handlers close the menu themselves. Card mode: the panel's own onclick
+        // and the card cover cover the whole screen, no catcher needed.
+        if !CARD_MODE && (app.row_menu)().is_some() {
             div {
                 class: "fixed inset-0 z-40",
                 onclick: move |_| app.row_menu.set(None),
@@ -100,8 +133,12 @@ pub fn SidebarOverlay() -> Element {
         div {
             id: "sb-panel",
             "data-open": if is_open { "1" } else { "0" },
-            class: "fixed left-0 top-0 w-[85vw] max-w-[340px] h-full bg-warm-white z-50 flex flex-col border-r border-stone-200 transition-transform duration-200 safe-pt lg:static lg:translate-x-0 lg:w-72 lg:shrink-0 lg:h-screen",
-            class: if is_open { "translate-x-0" } else { "-translate-x-full" },
+            class: if CARD_MODE {
+                "sb-under fixed left-0 top-0 h-full bg-warm-white flex flex-col safe-pt lg:static lg:w-72 lg:shrink-0 lg:h-screen lg:border-r lg:border-stone-200"
+            } else {
+                "fixed left-0 top-0 w-[85vw] max-w-[340px] h-full bg-warm-white z-50 flex flex-col border-r border-stone-200 transition-transform duration-200 safe-pt lg:static lg:translate-x-0 lg:w-72 lg:shrink-0 lg:h-screen"
+            },
+            class: if CARD_MODE { "" } else if is_open { "translate-x-0" } else { "-translate-x-full" },
             // A tap anywhere in the drawer that is not on a menu closes the
             // open menu; menus and their buttons stop the bubble themselves.
             onclick: move |evt| {
@@ -119,7 +156,8 @@ pub fn SidebarOverlay() -> Element {
                 },
                 img {
                     src: asset!("/assets/flowflow-icon-300.png"),
-                    class: "w-6 h-6 object-contain",
+                    // As big as the glass burger on mobile (#177).
+                    class: "w-12 h-12 lg:w-6 lg:h-6 object-contain",
                     alt: "",
                 }
                 span { class: "text-[15px] font-semibold tracking-[-0.01em] text-stone-900", "FlowFlow" }

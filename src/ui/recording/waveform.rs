@@ -1,54 +1,29 @@
-use crate::ui::AppState;
 use dioxus::prelude::*;
-use futures_timer::Delay;
-use std::time::Duration;
 
-const FADE: &str = "-webkit-mask-image: linear-gradient(90deg, transparent, #000 20px, #000 calc(100% - 20px), transparent); mask-image: linear-gradient(90deg, transparent, #000 20px, #000 calc(100% - 20px), transparent);";
+// Timeline of the voice capsule: a dotted track fills the left, bars grow
+// from the right, the left edge is masked so old bars fade out. The bars are
+// owned by voice_timeline.js (60 fps, sub-pixel scroll); Rust only pushes one
+// (rms, peak) slice per tick through the `Eval` returned by `mount_timeline`.
+const TRACK: &str = "-webkit-mask-image: linear-gradient(90deg, transparent, #000 12px, #000 100%); mask-image: linear-gradient(90deg, transparent, #000 12px, #000 100%);";
+const DOTS: &str = "background: radial-gradient(circle, rgba(255,255,255,0.45) 1.5px, transparent 1.6px) 0 50% / 7px 3px repeat-x;";
+const TIMELINE_JS: &str = include_str!("voice_timeline.js");
+
+pub const TICK_MS: u64 = 30;
+
+pub fn mount_timeline() -> dioxus::document::Eval {
+    dioxus::document::eval(
+        &TIMELINE_JS.replace("__TICK__", &TICK_MS.to_string()),
+    )
+}
 
 #[component]
-pub fn Waveform(
-    #[props(default = 80)] num_bars: usize,
-    #[props(default = false)] frozen: bool,
-) -> Element {
-    let app: AppState = use_context();
-    let mut display = use_signal(|| vec![0.0f32; num_bars]);
-
-    use_future(move || async move {
-        loop {
-            let target = (app.audio_levels)();
-            {
-                let mut cur = display.write();
-                if cur.len() != num_bars {
-                    cur.resize(num_bars, 0.0);
-                }
-                for i in 0..num_bars {
-                    let t = target.get(i).copied().unwrap_or(0.0);
-                    cur[i] += (t - cur[i]) * 0.3;
-                }
-            }
-            Delay::new(Duration::from_millis(16)).await;
-        }
-    });
-
-    let levels = display();
-
+pub fn Waveform() -> Element {
     rsx! {
         div {
-            class: "flex-1 flex items-center justify-center gap-px h-7 min-w-0 overflow-hidden",
-            style: "{FADE}",
-            for (i, &lvl) in levels.iter().enumerate() {
-                {
-                    let s = if frozen { 0.16 } else { 0.16 + lvl.clamp(0.0, 1.0) * 0.84 };
-                    let key = format!("bar-{i}");
-                    rsx! {
-                        div {
-                            key: "{key}",
-                            class: "flex-1 max-w-[3px] min-w-0 rounded-full",
-                            style: "height: 25px; transform: scaleY({s:.3}); transform-origin: center; will-change: transform; background: rgba(255,255,255,0.92);",
-                        }
-                    }
-                }
-            }
+            class: "voice-timeline flex-1 flex items-center justify-end h-7 min-w-0 overflow-hidden",
+            style: "{TRACK}",
+            div { class: "flex-1 h-full min-w-3", style: "{DOTS}" }
+            div { class: "voice-bars flex items-center gap-[2px] shrink-0 h-full will-change-transform" }
         }
     }
 }

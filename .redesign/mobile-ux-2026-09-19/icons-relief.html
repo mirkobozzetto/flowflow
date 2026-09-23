@@ -1,0 +1,87 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>FlowFlow · icônes avec relief · draft</title>
+<script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
+<style type="text/tailwindcss">
+@theme {
+    --ease-soft: cubic-bezier(0.2, 0.8, 0.2, 1);
+    --color-ios-orange-50: oklch(0.97 0.04 50);
+    --color-ios-orange-100: oklch(0.92 0.07 50);
+    --color-ios-orange: oklch(0.60 0.22 50);
+    --color-ios-orange-dark: oklch(0.48 0.16 50);
+    --color-warm-white: oklch(0.99 0.005 50);
+}
+body { font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", system-ui, sans-serif; }
+.menu { width: 320px; height: 640px; border-radius: 40px; border: 10px solid #1c1917; overflow: hidden; background: var(--color-warm-white); display: flex; flex-direction: column; flex: none; }
+.head { display: flex; align-items: center; gap: 10px; padding: 44px 20px 14px; border-bottom: 1px solid var(--color-stone-200); }
+.row { display: flex; align-items: center; gap: 12px; padding: 7px 8px; border-radius: 12px; font-size: 15px; color: #1c1917; min-height: 44px; }
+.row.on { background: var(--color-ios-orange-50); color: var(--color-ios-orange-dark); font-weight: 600; }
+.sec { font-size: 11px; letter-spacing: .08em; text-transform: uppercase; color: var(--color-stone-400); padding: 14px 8px 4px; }
+.foot { margin-top: auto; border-top: 1px solid var(--color-stone-200); padding: 10px 12px 26px; }
+.ic { width: 22px; height: 22px; flex: none; }
+/* C: iOS Settings-style tiles, gradient + top highlight, white glyph */
+.tile { width: 30px; height: 30px; border-radius: 8px; display: flex; align-items: center; justify-content: center; flex: none;
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.45), 0 1px 2px rgba(28,25,23,.18); }
+.tile img { width: 18px; height: 18px; filter: brightness(0) invert(1); }
+.t-orange { background: linear-gradient(180deg, oklch(0.72 0.18 55), oklch(0.60 0.22 45)); }
+.t-blue { background: linear-gradient(180deg, #5ac8fa, #1e88e5); }
+.t-green { background: linear-gradient(180deg, #5fd48a, #2e9d57); }
+.t-purple { background: linear-gradient(180deg, #b39ddb, #7e57c2); }
+.t-pink { background: linear-gradient(180deg, #f48fb1, #e0527f); }
+.t-gray { background: linear-gradient(180deg, #a8a29e, #78716c); }
+.big-set { display: flex; align-items: center; gap: 12px; padding: 8px; border-radius: 14px; font-size: 16px; font-weight: 600; color: #292524; }
+.emoji { width: 28px; height: 28px; flex: none; }
+</style>
+</head>
+<body class="bg-stone-200/60 min-h-screen p-8 text-stone-900">
+  <h1 class="text-xl font-semibold">Icônes avec relief : 4 pistes pour le menu</h1>
+  <p class="text-sm text-stone-500 mt-1 max-w-3xl">Même menu, quatre traitements. Le bouton Réglages grossit dans les pistes B à D. Icônes chargées en ligne (Iconify, jsDelivr) : il faut du réseau pour voir le draft.</p>
+
+  <div class="flex flex-wrap gap-8 mt-8 items-start" id="grid"></div>
+
+  <div class="mt-10 max-w-4xl text-sm text-stone-600 space-y-2">
+    <p><b>A · Actuel.</b> Phosphor « regular », trait fin gris. Propre mais plat.</p>
+    <p><b>B · Phosphor Duotone.</b> La même famille que l'app, poids « duotone » : un second ton translucide donne du volume. Zéro nouvelle dépendance, mêmes formes, changement de chemins SVG seulement.</p>
+    <p><b>C · Tuiles iOS.</b> Chaque icône dans une petite tuile en dégradé, comme les Réglages d'iPhone ; une couleur par thème rend les dossiers reconnaissables d'un coup d'œil. Pur CSS autour des icônes existantes.</p>
+    <p><b>D · Objets 3D.</b> Fluent Emoji 3D de Microsoft (licence MIT) : de vrais petits objets en relief (dossier, mémo, bulle, engrenage). Le plus « fun », mais ce sont des PNG, pas des icônes teintables ; à réserver aux dossiers et aux Réglages.</p>
+    <p class="text-stone-400">Écartées : Glass Icons (Font Awesome restylé, CC BY 4.0 avec attribution obligatoire, dépôt tout jeune), Solar bold-duotone (CC BY 4.0, attribution visible obligatoire), icônes 3D WebGL (trop lourdes pour des listes).</p>
+  </div>
+
+<script>
+const ph = (n, c) => `https://api.iconify.design/ph/${n}.svg?color=${encodeURIComponent(c)}`;
+const fl = (dir, file) => `https://cdn.jsdelivr.net/gh/microsoft/fluentui-emoji@main/assets/${encodeURIComponent(dir)}/3D/${file}_3d.png`;
+const stone = '#57534e', orange = '#a03700';
+const folders = [['Dev','t-blue'],['Idées','t-orange'],['Pro','t-purple'],['Réseaux','t-pink'],['Tâches','t-green']];
+
+function menu(title, icon, settings) {
+  return `<figure><div class="menu">
+    <div class="head"><img src="flowflow-icon-300.png" class="w-12 h-12" alt=""><span class="text-[17px] font-semibold">FlowFlow</span></div>
+    <div class="px-3 pt-2 flex-1 overflow-hidden">
+      <div class="row" style="color:${orange}">${icon('new')}<span>Nouvelle note</span></div>
+      <div class="row on">${icon('all')}<span>Toutes mes notes</span></div>
+      <div class="sec">Thèmes</div>
+      ${folders.map(([n, t]) => `<div class="row">${icon('folder', t)}<span>${n}</span></div>`).join('')}
+      <div class="sec">Chats</div>
+      <div class="row">${icon('chat')}<span>Projet Marketplace</span></div>
+    </div>
+    <div class="foot">${settings}</div>
+  </div><figcaption class="mt-3 font-semibold">${title}</figcaption></figure>`;
+}
+
+const A = (k) => `<img class="ic" src="${ph({new:'plus',all:'files',folder:'folder',chat:'chat-circle'}[k], k==='new'?orange:stone)}">`;
+const B = (k) => `<img class="ic" src="${ph({new:'plus-circle-duotone',all:'files-duotone',folder:'folder-duotone',chat:'chat-circle-dots-duotone'}[k]+'', k==='new'||k==='all'?orange:stone)}">`;
+const C = (k, t) => `<span class="tile ${t || {new:'t-orange',all:'t-orange',chat:'t-blue'}[k]}"><img src="${ph({new:'plus-bold',all:'files-fill',folder:'folder-fill',chat:'chat-circle-dots-fill'}[k], '#fff')}"></span>`;
+const D = (k) => `<img class="emoji" src="${{new:fl('Memo','memo'),all:fl('Card index dividers','card_index_dividers'),folder:fl('File folder','file_folder'),chat:fl('Speech balloon','speech_balloon')}[k]}">`;
+
+document.getElementById('grid').innerHTML = [
+  menu('A · Actuel', A, `<div class="row text-stone-500 text-sm">${`<img class="ic" style="width:18px;height:18px" src="${ph('gear', '#78716c')}">`}<span>Réglages</span></div>`),
+  menu('B · Phosphor Duotone', B, `<div class="big-set"><img class="ic" style="width:26px;height:26px" src="${ph('gear-six-duotone', stone)}"><span>Réglages</span></div>`),
+  menu('C · Tuiles iOS', C, `<div class="big-set"><span class="tile t-gray" style="width:34px;height:34px;border-radius:9px"><img style="width:20px;height:20px" src="${ph('gear-six-fill', '#fff')}"></span><span>Réglages</span></div>`),
+  menu('D · Objets 3D (Fluent Emoji)', D, `<div class="big-set"><img class="emoji" style="width:34px;height:34px" src="${fl('Gear','gear')}"><span>Réglages</span></div>`),
+].join('');
+</script>
+</body>
+</html>

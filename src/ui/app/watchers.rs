@@ -126,7 +126,29 @@ pub fn use_record_deeplink_watcher(
     use_future(move || {
         let mut app = app;
         async move {
+            // Debug-only self-test: FLOWFLOW_VOICE_PROBE=1 opens a new note
+            // and starts a take by itself, so the voice timeline can be
+            // checked from a log line without a finger on the screen.
+            let mut probe = cfg!(debug_assertions)
+                && std::env::var_os("FLOWFLOW_VOICE_PROBE").is_some();
             loop {
+                if probe {
+                    probe = false;
+                    futures_timer::Delay::new(
+                        std::time::Duration::from_millis(1500),
+                    )
+                    .await;
+                    crate::infrastructure::sync::deeplink::push(
+                        "flowflow://record".to_string(),
+                    );
+                    spawn(async move {
+                        futures_timer::Delay::new(
+                            std::time::Duration::from_millis(3500),
+                        )
+                        .await;
+                        std::process::exit(0);
+                    });
+                }
                 #[cfg(target_os = "ios")]
                 let group_flag =
                     crate::infrastructure::platform::ios::take_pending_record();

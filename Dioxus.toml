@@ -18,6 +18,15 @@ NSCalendarsUsageDescription = "FlowFlow adds calendar events for the time ranges
 NSLocalNetworkUsageDescription = "FlowFlow connects directly to your other paired devices on your local network to sync your notes, without any server."
 NSSupportsLiveActivities = true
 
+# iOS 27 SDK requires the UIScene life cycle (TN3187). tao >= 0.35 provides
+# TaoSceneDelegate and enables scene mode when this manifest is present.
+[ios.plist.UIApplicationSceneManifest]
+UIApplicationSupportsMultipleScenes = true
+
+[[ios.plist.UIApplicationSceneManifest.UISceneConfigurations.UIWindowSceneSessionRoleApplication]]
+UISceneConfigurationName = "Default Configuration"
+UISceneDelegateClassName = "TaoSceneDelegate"
+
 [[ios.widget_extensions]]
 source = "src/ios/widget"
 display_name = "FlowFlow Recording"

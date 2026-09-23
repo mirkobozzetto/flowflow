@@ -1,6 +1,7 @@
 use crate::application::i18n::t;
 use crate::domain::ChatScope;
 use crate::infrastructure::persistence::Database;
+use crate::infrastructure::platform::{haptic, haptic_prepare};
 use crate::ui::icons::*;
 use crate::ui::{AppState, SidebarTab, View};
 use dioxus::prelude::*;
@@ -141,8 +142,17 @@ pub fn TopBar() -> Element {
                 }
             } else {
                 button {
-                    class: "relative min-w-[44px] min-h-[44px] flex items-center justify-center rounded-[10px] text-stone-700 hover:bg-stone-100 lg:hidden",
+                    // Anchor of the native glass burger on iOS 26 (#177), which
+                    // taps through this click handler.
+                    "data-glass": "burger",
+                    class: "glass-disc relative w-12 h-12 -my-0.5 shrink-0 flex items-center justify-center rounded-full text-stone-800 lg:hidden",
+                    onpointerdown: move |_| haptic_prepare("light"),
                     onclick: move |_| {
+                        if (app.sidebar_open)() {
+                            app.row_menu.set(None);
+                            app.sidebar_open.set(false);
+                            return;
+                        }
                         app.show_folder_picker.set(false);
                         app.sidebar_tab.set(if is_chat {
                             SidebarTab::Chats
@@ -151,25 +161,34 @@ pub fn TopBar() -> Element {
                         });
                         app.sidebar_open.set(true);
                     },
-                    IconList { size: 22 }
-                    img {
-                        src: asset!("/assets/flowflow-icon-300.png"),
-                        class: "absolute bottom-1 right-1 w-2.5 h-2.5 object-contain",
-                        alt: "",
+                    // Two unequal strokes, the same glyph open or closed (#177).
+                    svg {
+                        width: "30",
+                        height: "30",
+                        view_box: "0 0 28 28",
+                        fill: "none",
+                        stroke: "currentColor",
+                        stroke_width: "2.4",
+                        stroke_linecap: "round",
+                        line { x1: "5", y1: "10", x2: "19", y2: "10" }
+                        line { x1: "5", y1: "18", x2: "23", y2: "18" }
                     }
                     if (app.transcription_done_badge)() > 0 {
-                        span { class: "absolute top-2 right-2 w-2 h-2 rounded-full bg-ios-orange" }
+                        span {
+                            "data-badge": "",
+                            class: "absolute top-2 right-2 w-2 h-2 rounded-full bg-ios-orange",
+                        }
                     }
                 }
             }
             if is_detail || is_chat || !is_inner {
                 button {
-                    class: "flex-1 text-left flex items-center gap-1.5 active:opacity-70 hover:opacity-70 transition-opacity duration-150",
+                    class: "flex-1 min-w-0 text-left flex items-center gap-1.5 active:opacity-70 hover:opacity-70 transition-opacity duration-150",
                     onclick: move |_| {
                         let cur = (app.show_folder_picker)();
                         app.show_folder_picker.set(!cur);
                     },
-                    span { class: "text-lg font-semibold tracking-[-0.01em] text-stone-900", "{title}" }
+                    span { class: "min-w-0 truncate text-lg font-semibold tracking-[-0.01em] text-stone-900", "{title}" }
                     span {
                         class: "text-stone-400 transition-transform duration-150",
                         class: if (app.show_folder_picker)() { "rotate-90" } else { "rotate-0" },
@@ -225,16 +244,21 @@ pub fn TopBar() -> Element {
                     IconDotsThreeVertical { size: 22 }
                 }
             } else if !is_inner {
+                // Chat pill (#177): native glass on iOS 26, like the burger.
                 button {
-                    class: "min-w-[44px] min-h-[44px] flex items-center justify-center rounded-[10px] text-ios-orange-dark hover:bg-stone-100 transition-colors duration-150",
+                    "data-glass": "chat",
+                    class: "glass-disc relative h-12 -my-0.5 pl-3.5 pr-5 shrink-0 flex items-center gap-1.5 rounded-full text-[15px] font-semibold text-ios-orange-dark",
+                    onpointerdown: move |_| haptic_prepare("light"),
                     onclick: move |_| {
+                        haptic("light");
                         app.show_folder_picker.set(false);
                         app.sidebar_tab.set(SidebarTab::Chats);
                         app.chat_scope.set(None);
                         app.previous_view.set(Some(View::NotesList));
                         app.view.set(View::Chat { conversation_id: None });
                     },
-                    IconChatAi { size: 28 }
+                    IconChatAi { size: 22 }
+                    span { "Chat" }
                 }
             }
         }
