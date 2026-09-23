@@ -6,9 +6,9 @@
     return;
   w.__glassInstalled = true;
   const send = (m) => w.__glassSend(m);
-  const root = document.documentElement;
   const reduced = window.matchMedia("(prefers-reduced-motion: reduce)");
-  let lastPlace = "";
+  const lastPlace = new Map;
+  const shown = new Map;
   let lastTarget = -1;
   let raf = 0;
   const card = () => document.getElementById("main-card");
@@ -23,25 +23,39 @@
   }
   function measure() {
     raf = 0;
-    const b = document.getElementById("burger");
     const c = card();
-    let msg = "place 0 0 0 0 0 0";
-    let visible = false;
-    if (b && c) {
-      const r = b.getBoundingClientRect();
-      const vv = window.visualViewport;
-      const x = r.left - shift(c) - (vv ? vv.offsetLeft : 0);
+    const dx = c ? shift(c) : 0;
+    const vv = window.visualViewport;
+    const seen = new Set;
+    document.querySelectorAll("[data-glass]").forEach((a) => {
+      const id = a.dataset.glass;
+      seen.add(id);
+      const r = a.getBoundingClientRect();
+      let visible = shown.get(id) ?? false;
+      if (Math.abs(dx) < 0.5) {
+        const hit = document.elementFromPoint(r.left + r.width / 2, r.top + r.height / 2);
+        visible = r.width > 0 && !!hit && (a.contains(hit) || !!hit.closest("[data-glass-pass]"));
+      }
+      shown.set(id, visible);
+      a.toggleAttribute("data-glass-on", visible);
+      const x = r.left - dx - (vv ? vv.offsetLeft : 0);
       const y = r.top - (vv ? vv.offsetTop : 0);
-      const hit = document.elementFromPoint(r.left + r.width / 2, r.top + r.height / 2);
-      visible = r.width > 0 && !!hit && (b.contains(hit) || !!hit.closest("[data-glass-pass]"));
-      const dot = b.querySelector("[data-badge]") ? 1 : 0;
-      msg = ["place", x, y, r.width, travel(), visible ? 1 : 0, dot].join(" ");
+      const dot = a.querySelector("[data-badge]") ? 1 : 0;
+      post(id, [x, y, r.width, r.height, travel(), visible ? 1 : 0, dot]);
+    });
+    for (const id of lastPlace.keys()) {
+      if (!seen.has(id)) {
+        shown.set(id, false);
+        post(id, [0, 0, 0, 0, travel(), 0, 0]);
+      }
     }
-    root.classList.toggle("glass-burger", visible);
-    if (msg !== lastPlace) {
-      lastPlace = msg;
-      send(msg);
-    }
+  }
+  function post(id, v) {
+    const msg = "place " + id + " " + v.join(" ");
+    if (lastPlace.get(id) === msg)
+      return;
+    lastPlace.set(id, msg);
+    send(msg);
   }
   function schedule() {
     if (!raf)

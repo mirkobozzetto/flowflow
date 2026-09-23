@@ -1,10 +1,11 @@
-// #177: reports the web burger (#burger) to the native iOS 26 Liquid Glass
-// button laid over the web view (src/infrastructure/platform/ios/
-// glass_burger.rs). The web burger keeps its place, its click handler and,
-// whenever the native button cannot show, its own look. Messages:
-//   "place x y size travel visible dot"  resting place (card closed)
-//   "drag p"                              the card follows the finger
-//   "settle p"                            the card glides to 0 or 1
+// #177: reports the web anchors ([data-glass="<id>"]: burger, chat pill,
+// new-note button) to the native iOS 26 Liquid Glass buttons laid over the
+// web view (src/infrastructure/platform/ios/glass_burger.rs). Each anchor
+// keeps its place, its click handler and, whenever its native button cannot
+// show, its own look. Messages:
+//   "place id x y w h travel visible dot"  resting place (card closed)
+//   "drag p"                                the card follows the finger
+//   "settle p"                              the card glides to 0 or 1
 // Source of truth: this .ts file; compile to glass_burger.js with `make js`.
 
 (function () {
@@ -15,9 +16,9 @@
   w.__glassInstalled = true;
   const send = (m: string) => (w.__glassSend as (m: string) => void)(m);
 
-  const root = document.documentElement;
   const reduced = window.matchMedia("(prefers-reduced-motion: reduce)");
-  let lastPlace = "";
+  const lastPlace = new Map<string, string>();
+  const shown = new Map<string, boolean>();
   let lastTarget = -1;
   let raf = 0;
 
@@ -34,33 +35,49 @@
 
   function measure(): void {
     raf = 0;
-    const b = document.getElementById("burger");
     const c = card();
-    let msg = "place 0 0 0 0 0 0";
-    let visible = false;
-    if (b && c) {
-      const r = b.getBoundingClientRect();
-      const vv = window.visualViewport;
-      const x = r.left - shift(c) - (vv ? vv.offsetLeft : 0);
+    const dx = c ? shift(c) : 0;
+    const vv = window.visualViewport;
+    const seen = new Set<string>();
+    document.querySelectorAll<HTMLElement>("[data-glass]").forEach((a) => {
+      const id = a.dataset.glass as string;
+      seen.add(id);
+      const r = a.getBoundingClientRect();
+      // Visibility is only re-judged with the card at rest: mid-slide an
+      // anchor can leave the screen and must not flip look on the way.
+      let visible = shown.get(id) ?? false;
+      if (Math.abs(dx) < 0.5) {
+        // Shown only when the anchor is what the finger would hit: any
+        // overlay (sheet, modal, splash) hands the look back to the web one.
+        const hit = document.elementFromPoint(
+          r.left + r.width / 2,
+          r.top + r.height / 2,
+        );
+        visible =
+          r.width > 0 &&
+          !!hit &&
+          (a.contains(hit) || !!hit.closest("[data-glass-pass]"));
+      }
+      shown.set(id, visible);
+      a.toggleAttribute("data-glass-on", visible);
+      const x = r.left - dx - (vv ? vv.offsetLeft : 0);
       const y = r.top - (vv ? vv.offsetTop : 0);
-      // Shown only when the web burger is what the finger would hit: any
-      // overlay (sheet, modal, splash) hands the look back to the web one.
-      const hit = document.elementFromPoint(
-        r.left + r.width / 2,
-        r.top + r.height / 2,
-      );
-      visible =
-        r.width > 0 &&
-        !!hit &&
-        (b.contains(hit) || !!hit.closest("[data-glass-pass]"));
-      const dot = b.querySelector("[data-badge]") ? 1 : 0;
-      msg = ["place", x, y, r.width, travel(), visible ? 1 : 0, dot].join(" ");
+      const dot = a.querySelector("[data-badge]") ? 1 : 0;
+      post(id, [x, y, r.width, r.height, travel(), visible ? 1 : 0, dot]);
+    });
+    // An anchor gone from the page (inner view) hides its button.
+    for (const id of lastPlace.keys()) {
+      if (!seen.has(id)) {
+        shown.set(id, false);
+        post(id, [0, 0, 0, 0, travel(), 0, 0]);
+      }
     }
-    root.classList.toggle("glass-burger", visible);
-    if (msg !== lastPlace) {
-      lastPlace = msg;
-      send(msg);
-    }
+  }
+  function post(id: string, v: number[]): void {
+    const msg = "place " + id + " " + v.join(" ");
+    if (lastPlace.get(id) === msg) return;
+    lastPlace.set(id, msg);
+    send(msg);
   }
   function schedule(): void {
     if (!raf) raf = requestAnimationFrame(measure);

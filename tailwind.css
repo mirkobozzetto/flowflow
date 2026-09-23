@@ -110,10 +110,10 @@
     }
 }
 
-/* Burger (#177): a constant two-stroke glyph over a permanent 48px disc.
-   Deliberately static: no press scale, no backdrop blur (both flickered on
-   device); the haptic tick and the card moving are the feedback. */
-.burger-disc::before {
+/* Top-bar buttons (#177): the burger's 48px disc and the chat pill. The web
+   stand-in for the native glass (and its look before iOS 26). Deliberately
+   static: no press scale, no backdrop blur (both flickered on device). */
+.glass-disc::before {
     content: "";
     position: absolute;
     inset: 0;
@@ -122,11 +122,12 @@
     border: 1px solid --alpha(var(--color-stone-900) / 8%);
     box-shadow: inset 0 1px 0 --alpha(var(--color-warm-white) / 80%);
 }
-.burger-disc > svg {
+.glass-disc > svg,
+.glass-disc > span:not([data-badge]) {
     position: relative;
 }
-/* iOS 26: the native Liquid Glass button sits on it (glass_burger.ts). */
-.glass-burger #burger {
+/* iOS 26: a native Liquid Glass button sits on the anchor (glass_burger.ts). */
+[data-glass][data-glass-on] {
     opacity: 0;
 }
 

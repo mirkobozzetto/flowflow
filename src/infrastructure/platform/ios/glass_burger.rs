@@ -1,29 +1,39 @@
-//! #177: the burger as a native iOS 26 Liquid Glass button laid over the web
-//! view. The web burger (`#burger`) stays the source of truth: it keeps its
-//! place in the top bar and its click handler, and it shows itself whenever
-//! this button cannot (before iOS 26, under a web overlay, on inner views).
-//! `src/ui/app/glass_burger.ts` reports where it is and how the card moves.
+//! #177: native iOS 26 Liquid Glass buttons laid over web anchors
+//! (`[data-glass="<id>"]`): the burger, the chat pill, the new-note button.
+//! The web anchor stays the source of truth: it keeps its place, its click
+//! handler and, whenever the native button cannot show (before iOS 26, under
+//! a web overlay, off its view), its own look. `src/ui/app/glass_burger.ts`
+//! reports where each anchor is and how the card they all ride on moves.
 
 use block2::RcBlock;
 use objc2::rc::Retained;
 use objc2::runtime::AnyObject;
-use objc2::{msg_send, sel, ClassType};
+use objc2::{msg_send, sel, AnyThread, ClassType};
 use objc2_core_foundation::{CGPoint, CGRect, CGSize};
-use objc2_foundation::{MainThreadMarker, NSString};
+use objc2_foundation::{
+    MainThreadMarker, NSAttributedString, NSDictionary, NSString,
+};
 use objc2_ui_kit::{
-    UIAction, UIButton, UIButtonConfiguration,
-    UIButtonConfigurationCornerStyle, UIColor, UIControlEvents,
-    UIGraphicsImageRenderer, UIGraphicsImageRendererContext,
-    UIUserInterfaceStyle, UIView, UIViewAnimating, UIViewAnimatingState,
-    UIViewPropertyAnimator,
+    NSDirectionalEdgeInsets, NSFontAttributeName, UIAction, UIButton,
+    UIButtonConfiguration, UIButtonConfigurationCornerStyle, UIColor,
+    UIControlEvents, UIFont, UIFontWeightSemibold, UIGraphicsImageRenderer,
+    UIGraphicsImageRendererContext, UIImage, UIImageSymbolConfiguration,
+    UIImageSymbolWeight, UIUserInterfaceStyle, UIView, UIViewAnimating,
+    UIViewAnimatingState, UIViewPropertyAnimator,
 };
 use std::cell::RefCell;
 use std::ptr::NonNull;
 
-struct Glass {
+struct Glassed {
+    id: &'static str,
     button: Retained<UIButton>,
     badge: Retained<UIView>,
     base: CGRect,
+}
+
+struct Glass {
+    web: Retained<UIView>,
+    buttons: Vec<Glassed>,
     travel: f64,
     p: f64,
     animator: Option<Retained<UIViewPropertyAnimator>>,
@@ -38,17 +48,22 @@ const SETTLE_S: f64 = 0.46;
 const EASE_SOFT: (CGPoint, CGPoint) =
     (CGPoint { x: 0.2, y: 0.8 }, CGPoint { x: 0.2, y: 1.0 });
 
+fn rgb(r: f64, g: f64, b: f64) -> Retained<UIColor> {
+    UIColor::colorWithRed_green_blue_alpha(r / 255.0, g / 255.0, b / 255.0, 1.0)
+}
+// stone-800, ios-orange-dark, ios-orange (tailwind.css, oklch -> sRGB).
 fn stone_800() -> Retained<UIColor> {
-    UIColor::colorWithRed_green_blue_alpha(
-        41.0 / 255.0,
-        37.0 / 255.0,
-        36.0 / 255.0,
-        1.0,
-    )
+    rgb(41.0, 37.0, 36.0)
+}
+fn orange_dark() -> Retained<UIColor> {
+    rgb(160.0, 55.0, 0.0)
+}
+fn orange() -> Retained<UIColor> {
+    rgb(223.0, 67.0, 0.0)
 }
 
-/// The two unequal strokes of the web glyph (28px viewBox drawn at 30px).
-fn glyph(mtm: MainThreadMarker) -> Retained<objc2_ui_kit::UIImage> {
+/// The two unequal strokes of the web burger (28px viewBox drawn at 30px).
+fn burger_glyph(mtm: MainThreadMarker) -> Retained<UIImage> {
     let renderer = UIGraphicsImageRenderer::initWithSize(
         mtm.alloc(),
         CGSize::new(30.0, 30.0),
@@ -74,40 +89,83 @@ fn glyph(mtm: MainThreadMarker) -> Retained<objc2_ui_kit::UIImage> {
     unsafe { renderer.imageWithActions(&*draw as *const _ as *mut _) }
 }
 
-/// Create the button once; false before iOS 26 or without a web view, in
-/// which case the web burger simply stays visible.
-pub fn install() -> bool {
-    if GLASS.with(|g| g.borrow().is_some()) {
-        return true;
-    }
-    let Some(mtm) = MainThreadMarker::new() else {
-        return false;
-    };
-    if UIButtonConfiguration::class()
-        .class_method(sel!(glassButtonConfiguration))
-        .is_none()
-    {
-        return false;
-    }
-    let Some(web) = super::web_view() else {
-        return false;
-    };
+fn symbol(config: &UIButtonConfiguration, name: &str, size: f64) {
+    config.setImage(
+        UIImage::systemImageNamed(&NSString::from_str(name)).as_deref(),
+    );
+    config.setPreferredSymbolConfigurationForImage(Some(
+        &UIImageSymbolConfiguration::configurationWithPointSize_weight(
+            size,
+            UIImageSymbolWeight::Semibold,
+        ),
+    ));
+}
 
+/// The glass look of each known anchor; None for an unknown id.
+fn configuration(
+    id: &str,
+    mtm: MainThreadMarker,
+) -> Option<(&'static str, Retained<UIButtonConfiguration>)> {
     let config = UIButtonConfiguration::glassButtonConfiguration(mtm);
     config.setCornerStyle(UIButtonConfigurationCornerStyle::Capsule);
-    config.setImage(Some(&glyph(mtm)));
-    config.setBaseForegroundColor(Some(&stone_800()));
+    let id = match id {
+        "burger" => {
+            config.setImage(Some(&burger_glyph(mtm)));
+            config.setBaseForegroundColor(Some(&stone_800()));
+            "burger"
+        }
+        "chat" => {
+            symbol(&config, "text.bubble", 17.0);
+            config.setImagePadding(6.0);
+            config.setBaseForegroundColor(Some(&orange_dark()));
+            config.setContentInsets(NSDirectionalEdgeInsets {
+                top: 0.0,
+                leading: 12.0,
+                bottom: 0.0,
+                trailing: 16.0,
+            });
+            let font = UIFont::systemFontOfSize_weight(15.0, unsafe {
+                UIFontWeightSemibold
+            });
+            let value: &AnyObject = font.as_ref();
+            let attrs = NSDictionary::from_slices(
+                &[unsafe { NSFontAttributeName }],
+                &[value],
+            );
+            let title = unsafe {
+                NSAttributedString::initWithString_attributes(
+                    NSAttributedString::alloc(),
+                    &NSString::from_str("Chat"),
+                    Some(&attrs),
+                )
+            };
+            config.setAttributedTitle(Some(&title));
+            "chat"
+        }
+        "fab" => {
+            symbol(&config, "plus", 26.0);
+            config.setBaseForegroundColor(Some(&orange()));
+            "fab"
+        }
+        _ => return None,
+    };
+    Some((id, config))
+}
+
+fn make(web: &UIView, id: &str, mtm: MainThreadMarker) -> Option<Glassed> {
+    let (id, config) = configuration(id, mtm)?;
     let button = UIButton::buttonWithConfiguration_primaryAction(&config, None);
     // The web UI is light-only: in system dark mode the glass would turn dark.
     button.setOverrideUserInterfaceStyle(UIUserInterfaceStyle::Light);
     button.setHidden(true);
 
-    // A tap goes through the web burger's own click handler (open/close).
-    let web_for_tap = web.clone();
+    // A tap goes through the web anchor's own click handler, which also owns
+    // the haptic tick (one tick, whichever button the finger hit).
+    let web_for_tap = objc2::Message::retain(web);
     let tap = RcBlock::new(move |_a: NonNull<UIAction>| {
-        let js = NSString::from_str(
-            "var b=document.getElementById('burger');b&&b.click();",
-        );
+        let js = NSString::from_str(&format!(
+            "document.querySelector('[data-glass=\"{id}\"]')?.click();"
+        ));
         let done: Option<
             &block2::DynBlock<dyn Fn(*mut AnyObject, *mut AnyObject)>,
         > = None;
@@ -130,10 +188,10 @@ pub fn install() -> bool {
         button.addAction_forControlEvents(&down, UIControlEvents::TouchDown);
     }
 
-    // Transcription-done dot, mirrored from the web burger.
+    // Transcription-done dot, mirrored from the web anchor.
     let badge = UIView::initWithFrame(
         mtm.alloc(),
-        CGRect::new(CGPoint::new(30.0, 9.0), CGSize::new(8.0, 8.0)),
+        CGRect::new(CGPoint::new(0.0, 0.0), CGSize::new(8.0, 8.0)),
     );
     badge.setBackgroundColor(Some(&UIColor::systemOrangeColor()));
     badge.setUserInteractionEnabled(false);
@@ -146,12 +204,33 @@ pub fn install() -> bool {
     }
     button.addSubview(&badge);
     web.addSubview(&button);
+    Some(Glassed {
+        id,
+        button,
+        badge,
+        base: CGRect::default(),
+    })
+}
 
+/// Ready the layer; false before iOS 26 or without a web view, in which case
+/// the web anchors simply stay visible.
+pub fn install() -> bool {
+    if GLASS.with(|g| g.borrow().is_some()) {
+        return true;
+    }
+    if UIButtonConfiguration::class()
+        .class_method(sel!(glassButtonConfiguration))
+        .is_none()
+    {
+        return false;
+    }
+    let Some(web) = super::web_view() else {
+        return false;
+    };
     GLASS.with(|g| {
         *g.borrow_mut() = Some(Glass {
-            button,
-            badge,
-            base: CGRect::default(),
+            web,
+            buttons: Vec::new(),
             travel: 0.0,
             p: 0.0,
             animator: None,
@@ -160,10 +239,10 @@ pub fn install() -> bool {
     true
 }
 
-fn frame(g: &Glass) -> CGRect {
+fn frame(b: &Glassed, p: f64, travel: f64) -> CGRect {
     CGRect::new(
-        CGPoint::new(g.base.origin.x + g.p * g.travel, g.base.origin.y),
-        g.base.size,
+        CGPoint::new(b.base.origin.x + p * travel, b.base.origin.y),
+        b.base.size,
     )
 }
 
@@ -176,22 +255,48 @@ fn stop(g: &mut Glass) {
     }
 }
 
-/// Resting place of the web burger (card closed), the card travel, and
-/// whether the button may show (false under an overlay or on inner views).
-pub fn place(x: f64, y: f64, size: f64, travel: f64, visible: bool, dot: bool) {
-    GLASS.with(|g| {
-        let mut g = g.borrow_mut();
-        let Some(g) = g.as_mut() else { return };
-        g.base = CGRect::new(CGPoint::new(x, y), CGSize::new(size, size));
+/// Resting place of an anchor (card closed), the card travel, and whether
+/// its button may show (false under an overlay or off its view).
+#[allow(clippy::too_many_arguments)]
+pub fn place(
+    id: &str,
+    x: f64,
+    y: f64,
+    w: f64,
+    h: f64,
+    travel: f64,
+    visible: bool,
+    dot: bool,
+) {
+    let Some(mtm) = MainThreadMarker::new() else {
+        return;
+    };
+    GLASS.with(|cell| {
+        let mut guard = cell.borrow_mut();
+        let Some(g) = guard.as_mut() else { return };
         g.travel = travel;
-        g.button.setHidden(!visible);
-        g.badge.setHidden(!dot);
-        g.badge.setFrame(CGRect::new(
-            CGPoint::new(size - 16.0, 8.0),
+        let idx = match g.buttons.iter().position(|b| b.id == id) {
+            Some(idx) => idx,
+            None => {
+                let Some(made) = make(&g.web, id, mtm) else {
+                    return;
+                };
+                g.buttons.push(made);
+                g.buttons.len() - 1
+            }
+        };
+        let running = g.animator.as_ref().is_some_and(|a| a.isRunning());
+        let (p, travel) = (g.p, g.travel);
+        let b = &mut g.buttons[idx];
+        b.base = CGRect::new(CGPoint::new(x, y), CGSize::new(w, h));
+        b.button.setHidden(!visible);
+        b.badge.setHidden(!dot);
+        b.badge.setFrame(CGRect::new(
+            CGPoint::new(w - 16.0, 8.0),
             CGSize::new(8.0, 8.0),
         ));
-        if !g.animator.as_ref().is_some_and(|a| a.isRunning()) {
-            g.button.setFrame(frame(g));
+        if !running {
+            b.button.setFrame(frame(b, p, travel));
         }
     });
 }
@@ -203,7 +308,9 @@ pub fn drag(p: f64) {
         let Some(g) = g.as_mut() else { return };
         stop(g);
         g.p = p;
-        g.button.setFrame(frame(g));
+        for b in &g.buttons {
+            b.button.setFrame(frame(b, p, g.travel));
+        }
     });
 }
 
@@ -217,16 +324,23 @@ pub fn settle(p: f64) {
         let Some(g) = guard.as_mut() else { return };
         stop(g);
         g.p = p;
-        let button = g.button.clone();
-        let target = frame(g);
-        let move_it = RcBlock::new(move || button.setFrame(target));
+        let moves: Vec<(Retained<UIButton>, CGRect)> = g
+            .buttons
+            .iter()
+            .map(|b| (b.button.clone(), frame(b, p, g.travel)))
+            .collect();
+        let move_all = RcBlock::new(move || {
+            for (button, target) in &moves {
+                button.setFrame(*target);
+            }
+        });
         let animator =
             UIViewPropertyAnimator::initWithDuration_controlPoint1_controlPoint2_animations(
                 mtm.alloc(),
                 SETTLE_S,
                 EASE_SOFT.0,
                 EASE_SOFT.1,
-                Some(&*move_it),
+                Some(&*move_all),
             );
         animator.startAnimation();
         g.animator = Some(animator);
