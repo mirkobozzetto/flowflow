@@ -73,7 +73,7 @@ pub fn Composer(
     let mut mention_query = use_signal(String::new);
     let mut focused = use_signal(|| false);
     let mut commit_on_transcribed = use_signal(|| false);
-    // Exit choreography: the voice capsule stays mounted 260 ms after the
+    // Exit choreography: the voice capsule stays mounted 320 ms after the
     // take ends so CSS can play it out; the field flashes when text lands.
     let mut voice_leaving = use_signal(|| false);
     // Enter transition: false on the frame the layer mounts, true one tick
@@ -113,7 +113,7 @@ pub fn Composer(
             voice_leaving.set(true);
             spawn(async move {
                 futures_timer::Delay::new(std::time::Duration::from_millis(
-                    260,
+                    320,
                 ))
                 .await;
                 voice_leaving.set(false);
@@ -165,6 +165,7 @@ pub fn Composer(
                 format!("{current} {text}")
             });
             app.recording_state.set(RecordingState::Idle);
+            haptic("light");
             if *commit_on_transcribed.peek() {
                 commit_on_transcribed.set(false);
                 commit();
@@ -277,7 +278,7 @@ pub fn Composer(
                                 },
                             }
                             button {
-                                class: "composer-primary pressable absolute right-[5px] bottom-[5px] w-11 h-11 rounded-full bg-ios-orange text-white flex items-center justify-center overflow-hidden disabled:opacity-50",
+                                class: "composer-primary pressable press-grow absolute right-1 bottom-1 w-12 h-12 rounded-full bg-ios-orange text-white flex items-center justify-center overflow-hidden disabled:opacity-50",
                                 "data-has-text": !empty,
                                 "data-sent": sent(),
                                 "aria-label": t(&lang, if empty { "recording-dictate" } else if chat { "chat-send" } else { "composer-append" }),

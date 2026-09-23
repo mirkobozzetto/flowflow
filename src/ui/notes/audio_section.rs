@@ -5,7 +5,7 @@ use crate::application::transcription_manager::{
 };
 use crate::domain::NoteAudio;
 use crate::domain::Transcript;
-use crate::infrastructure::audio;
+use crate::infrastructure::audio::{self, RecordingState};
 use crate::infrastructure::persistence::Database;
 use crate::ui::icons::IconX;
 use crate::ui::notes::audio_player::AudioPlayer;
@@ -280,10 +280,13 @@ pub fn AudioJobBanner(local_note_id: Signal<String>) -> Element {
     let manager: TranscriptionManager = use_context();
     let lang = (app.current_lang)();
 
+    // While the voice capsule follows this note's job (#183), it is the
+    // progress and failure UI; the banner is the fallback once it is closed.
+    let capsule_busy = (app.recording_state)() == RecordingState::Transcribing;
     let audio_job_status: Option<JobStatus> = {
         let jobs = (app.transcription_jobs)();
         let nid = local_note_id();
-        if nid.is_empty() {
+        if nid.is_empty() || capsule_busy {
             None
         } else {
             jobs.get(&nid)
