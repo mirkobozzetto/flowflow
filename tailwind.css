@@ -348,8 +348,8 @@
 
 .fab-btn {
     position: relative;
-    width: 72px;
-    height: 72px;
+    width: 78px;
+    height: 78px;
     border-radius: 9999px;
     background: var(--color-warm-white);
     border: 1.5px solid var(--color-ios-orange-100);

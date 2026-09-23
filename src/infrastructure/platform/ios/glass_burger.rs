@@ -173,10 +173,10 @@ fn configuration(
             "chat"
         }
         "fab" => {
-            // fab.rs: the same thin orange plus (100 viewBox at 32px, stroke 4).
+            // fab.rs: the same thin orange plus (100 viewBox at 34px, stroke 4).
             config.setImage(Some(&strokes(
                 mtm,
-                32.0,
+                34.0,
                 100.0,
                 4.0,
                 &[(30.0, 50.0, 70.0, 50.0), (50.0, 30.0, 50.0, 70.0)],
@@ -186,6 +186,15 @@ fn configuration(
         }
         _ => return None,
     };
+    if id != "chat" {
+        // A disc: the glyph centred in the square anchor, no default padding.
+        config.setContentInsets(NSDirectionalEdgeInsets {
+            top: 0.0,
+            leading: 0.0,
+            bottom: 0.0,
+            trailing: 0.0,
+        });
+    }
     Some((id, config))
 }
 
@@ -327,8 +336,10 @@ pub fn place(
         let b = &mut g.buttons[idx];
         // Never narrower than the native content (a wrapped "Ch/at" title):
         // grow to the left, the anchors that can grow sit on the right edge.
+        // Only the pill: the discs keep their square anchor, or the glass
+        // insets stretch them into a rounded rectangle.
         let need = b.button.intrinsicContentSize().width;
-        let (x, w) = if visible && need > w {
+        let (x, w) = if visible && b.id == "chat" && need > w {
             (x - (need - w), need)
         } else {
             (x, w)
