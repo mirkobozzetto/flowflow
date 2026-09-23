@@ -142,9 +142,17 @@ pub fn TopBar() -> Element {
                 }
             } else {
                 button {
+                    // Anchor of the native glass burger on iOS 26 (#177), which
+                    // taps through this click handler.
+                    id: "burger",
                     class: "burger-disc relative w-12 h-12 -my-0.5 shrink-0 flex items-center justify-center rounded-full text-stone-800 lg:hidden",
                     onpointerdown: move |_| haptic_prepare("light"),
                     onclick: move |_| {
+                        if (app.sidebar_open)() {
+                            app.row_menu.set(None);
+                            app.sidebar_open.set(false);
+                            return;
+                        }
                         app.show_folder_picker.set(false);
                         app.sidebar_tab.set(if is_chat {
                             SidebarTab::Chats
@@ -166,7 +174,10 @@ pub fn TopBar() -> Element {
                         line { x1: "5", y1: "18", x2: "23", y2: "18" }
                     }
                     if (app.transcription_done_badge)() > 0 {
-                        span { class: "absolute top-2 right-2 w-2 h-2 rounded-full bg-ios-orange" }
+                        span {
+                            "data-badge": "",
+                            class: "absolute top-2 right-2 w-2 h-2 rounded-full bg-ios-orange",
+                        }
                     }
                 }
             }

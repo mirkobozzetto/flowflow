@@ -125,6 +125,10 @@
 .burger-disc > svg {
     position: relative;
 }
+/* iOS 26: the native Liquid Glass button sits on it (glass_burger.ts). */
+.glass-burger #burger {
+    opacity: 0;
+}
 
 .menu-pop {
     animation: popIn 0.16s ease-out;

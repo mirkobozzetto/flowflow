@@ -3591,6 +3591,7 @@ dependencies = [
  "libc",
  "objc2",
  "objc2-avf-audio",
+ "objc2-core-foundation",
  "objc2-event-kit",
  "objc2-event-kit-ui",
  "objc2-foundation",

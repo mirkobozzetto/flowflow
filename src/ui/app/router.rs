@@ -21,6 +21,7 @@ const SPLASH_FADE_MS: u64 = 350;
 pub fn AppRouter(index_rebuilding: Signal<bool>) -> Element {
     let app = use_context::<AppState>();
     let menu_open = (app.sidebar_open)();
+    super::glass_burger::use_glass_burger();
     let mut splash_visible = use_signal(|| true);
     let mut splash_fading = use_signal(|| false);
     use_effect(move || {
@@ -66,6 +67,8 @@ pub fn AppRouter(index_rebuilding: Signal<bool>) -> Element {
                 if CARD_MODE && menu_open {
                     div {
                         class: "absolute inset-0 z-[60]",
+                        // The native glass burger stays shown above it.
+                        "data-glass-pass": "",
                         onclick: move |_| {
                             let mut app = app;
                             app.row_menu.set(None);
