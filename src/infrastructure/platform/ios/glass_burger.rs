@@ -13,8 +13,9 @@ use objc2_foundation::{MainThreadMarker, NSString};
 use objc2_ui_kit::{
     UIAction, UIButton, UIButtonConfiguration,
     UIButtonConfigurationCornerStyle, UIColor, UIControlEvents,
-    UIGraphicsImageRenderer, UIGraphicsImageRendererContext, UIView,
-    UIViewAnimating, UIViewAnimatingState, UIViewPropertyAnimator,
+    UIGraphicsImageRenderer, UIGraphicsImageRendererContext,
+    UIUserInterfaceStyle, UIView, UIViewAnimating, UIViewAnimatingState,
+    UIViewPropertyAnimator,
 };
 use std::cell::RefCell;
 use std::ptr::NonNull;
@@ -97,6 +98,8 @@ pub fn install() -> bool {
     config.setImage(Some(&glyph(mtm)));
     config.setBaseForegroundColor(Some(&stone_800()));
     let button = UIButton::buttonWithConfiguration_primaryAction(&config, None);
+    // The web UI is light-only: in system dark mode the glass would turn dark.
+    button.setOverrideUserInterfaceStyle(UIUserInterfaceStyle::Light);
     button.setHidden(true);
 
     // A tap goes through the web burger's own click handler (open/close).

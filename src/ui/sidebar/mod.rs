@@ -156,7 +156,8 @@ pub fn SidebarOverlay() -> Element {
                 },
                 img {
                     src: asset!("/assets/flowflow-icon-300.png"),
-                    class: "w-6 h-6 object-contain",
+                    // As big as the glass burger on mobile (#177).
+                    class: "w-12 h-12 lg:w-6 lg:h-6 object-contain",
                     alt: "",
                 }
                 span { class: "text-[15px] font-semibold tracking-[-0.01em] text-stone-900", "FlowFlow" }
