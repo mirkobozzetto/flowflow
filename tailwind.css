@@ -497,8 +497,15 @@
     outline-offset: 0;
 }
 .note-title-field:focus-visible,
-.note-content-field:focus-visible {
+.note-content-field:focus-visible,
+.folder-search input:focus-visible {
     outline: none;
+}
+/* The search wrapper carries a neutral focus border; no inner orange halo.
+   Keep keyboard focus visible on its clear button, without the global orange. */
+.folder-search button:focus-visible {
+    outline: 2px solid var(--color-stone-500);
+    outline-offset: -2px;
 }
 .splash-mark {
     animation: splash-mark-enter 650ms var(--ease-soft) both;

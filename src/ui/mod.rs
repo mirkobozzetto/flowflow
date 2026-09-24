@@ -3,6 +3,7 @@ mod chat;
 mod clipboard;
 mod composer;
 pub(crate) mod delete_confirm;
+mod folder_navigation;
 pub mod hooks;
 pub mod icons;
 mod keyboard;
@@ -47,7 +48,10 @@ pub fn App() -> Element {
 
     let app = use_context_provider(|| {
         let d = db();
-        AppState::new(load_consent(&d), load_lang(&d))
+        let mut app = AppState::new(load_consent(&d), load_lang(&d));
+        app.collapsed_folders
+            .set(folder_navigation::load_closed_folders(&d));
+        app
     });
 
     use_transcription_watcher(manager.clone(), db, engine, app);

@@ -201,7 +201,7 @@ pub fn Composer(
         },
     );
     let capsule = if focused() {
-        "composer-capsule composer-glass relative h-[60px] rounded-[30px] border border-ios-orange-dark ring-[3px] ring-ios-orange-50"
+        "composer-capsule composer-glass relative h-[60px] rounded-[30px] border border-stone-500"
     } else {
         "composer-capsule composer-glass relative h-[60px] rounded-[30px] border border-stone-300/80"
     };

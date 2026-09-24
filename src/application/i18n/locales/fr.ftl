@@ -379,6 +379,11 @@ recording-send = Envoyer
 recording-dictate = Dicter
 
 folder-picker-all = Toutes les notes
+folder-search-placeholder = Rechercher un thème
+folder-search-clear = Effacer la recherche de thèmes
+folder-search-empty = Aucun thème trouvé. Essayez un autre nom.
+folder-expand = Déplier
+folder-collapse = Replier
 
 settings-language-section = Langue
 language-en = Anglais
