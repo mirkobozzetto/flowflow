@@ -9,6 +9,39 @@
   const reduced = window.matchMedia("(prefers-reduced-motion: reduce)");
   const lastPlace = new Map;
   const shown = new Map;
+  const lastMenu = new Map;
+  w.__ffMenuPick = (id, context, action) => {
+    if (id !== "note-more" && id !== "chat-more")
+      return;
+    const anchor = document.querySelector(`[data-glass="${id}"]`);
+    const root = document.querySelector(`[data-native-menu="${id}"]`);
+    if (!anchor || !root || root.dataset.nativeContext !== context)
+      return;
+    const r = anchor.getBoundingClientRect();
+    const hit = document.elementFromPoint(r.left + r.width / 2, r.top + r.height / 2);
+    if (!hit || !anchor.contains(hit))
+      return;
+    const button = Array.from(root.querySelectorAll("[data-native-action]")).find((b) => b.dataset.nativeAction === action);
+    if (button && !button.disabled)
+      button.click();
+  };
+  function menuFor(id, anchor) {
+    if (id !== "note-more" && id !== "chat-more")
+      return null;
+    const root = document.querySelector(`[data-native-menu="${id}"]`);
+    return {
+      id,
+      context: root?.dataset.nativeContext ?? "",
+      label: anchor.getAttribute("aria-label") ?? "",
+      items: root ? Array.from(root.querySelectorAll("[data-native-action]")).map((button) => ({
+        id: button.dataset.nativeAction,
+        title: button.textContent?.trim() ?? "",
+        symbol: button.dataset.nativeSymbol ?? "ellipsis",
+        disabled: button.disabled,
+        destructive: button.hasAttribute("data-native-destructive")
+      })) : []
+    };
+  }
   let lastTarget = -1;
   let raf = 0;
   const card = () => document.getElementById("main-card");
@@ -29,6 +62,7 @@
     const seen = new Set;
     document.querySelectorAll("[data-glass]").forEach((a) => {
       const id = a.dataset.glass;
+      const menu = menuFor(id, a);
       seen.add(id);
       const r = a.getBoundingClientRect();
       let visible = shown.get(id) ?? false;
@@ -36,17 +70,29 @@
         const hit = document.elementFromPoint(r.left + r.width / 2, r.top + r.height / 2);
         visible = r.width > 0 && !!hit && (a.contains(hit) || !!hit.closest("[data-glass-pass]"));
       }
+      if (menu && !menu.items.length)
+        visible = false;
       shown.set(id, visible);
       a.toggleAttribute("data-glass-on", visible);
       const x = r.left - dx - (vv ? vv.offsetLeft : 0);
       const y = r.top - (vv ? vv.offsetTop : 0);
       const dot = a.querySelector("[data-badge]") ? 1 : 0;
       post(id, [x, y, r.width, r.height, travel(), visible ? 1 : 0, dot]);
+      if (menu) {
+        const json = JSON.stringify(menu);
+        if (lastMenu.get(id) !== json) {
+          lastMenu.set(id, json);
+          send("menu " + json);
+        }
+      }
     });
     for (const id of lastPlace.keys()) {
       if (!seen.has(id)) {
         shown.set(id, false);
         post(id, [0, 0, 0, 0, travel(), 0, 0]);
+        if (lastMenu.delete(id)) {
+          send("menu " + JSON.stringify({ id, context: "", items: [] }));
+        }
       }
     }
   }
@@ -100,7 +146,8 @@
     childList: true,
     subtree: true,
     attributes: true,
-    attributeFilter: ["class"]
+    characterData: true,
+    attributeFilter: ["class", "disabled", "hidden", "data-native-context", "aria-label"]
   });
   window.addEventListener("resize", schedule);
   window.visualViewport?.addEventListener("resize", schedule);

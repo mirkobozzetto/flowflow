@@ -664,3 +664,7 @@ share-join-placeholder = Paste the link here
 chat-tools-connection-loading = Checking connection…
 chat-tools-google-connected = Google account connected
 chat-tools-connection-unavailable = Connection could not be verified
+
+# Native overflow controls
+note-menu-options = Note options
+chat-menu-options = Conversation options

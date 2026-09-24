@@ -142,6 +142,14 @@ fn configuration(
             )));
             "burger"
         }
+        "note-more" | "chat-more" => {
+            config.setImage(symbol("ellipsis", 20.0, &stone_800()).as_deref());
+            if id == "note-more" {
+                "note-more"
+            } else {
+                "chat-more"
+            }
+        }
         "chat" => {
             config.setImage(
                 symbol("text.bubble", 17.0, &orange_dark()).as_deref(),
@@ -223,14 +231,24 @@ fn make(web: &UIView, id: &str, mtm: MainThreadMarker) -> Option<Glassed> {
             ];
         }
     });
-    let down = RcBlock::new(|_a: NonNull<UIAction>| {
+    let down = RcBlock::new(move |_a: NonNull<UIAction>| {
         crate::infrastructure::platform::haptic_prepare("light");
+        if id == "note-more" || id == "chat-more" {
+            super::native_menu::prepare(id);
+        }
     });
     unsafe {
         let tap = UIAction::actionWithHandler(&*tap as *const _ as *mut _, mtm);
         let down =
             UIAction::actionWithHandler(&*down as *const _ as *mut _, mtm);
-        button.addAction_forControlEvents(&tap, UIControlEvents::TouchUpInside);
+        // These two controls use UIButton.menu instead of opening the web
+        // popover as well. Before iOS 26 the web button remains the fallback.
+        if id != "note-more" && id != "chat-more" {
+            button.addAction_forControlEvents(
+                &tap,
+                UIControlEvents::TouchUpInside,
+            );
+        }
         button.addAction_forControlEvents(&down, UIControlEvents::TouchDown);
     }
 
@@ -283,6 +301,30 @@ pub fn install() -> bool {
         })
     });
     true
+}
+
+/// The DOM menu is the source of truth for labels, availability and actions.
+/// `place` creates the button before the matching menu message arrives.
+pub fn set_menu(json: &str) {
+    let Some(mtm) = MainThreadMarker::new() else {
+        return;
+    };
+    let Ok(menu) = serde_json::from_str::<super::native_menu::Menu>(json)
+    else {
+        return;
+    };
+    if menu.id != "note-more" && menu.id != "chat-more" {
+        return;
+    }
+    GLASS.with(|cell| {
+        let g = cell.borrow();
+        if let Some(button) = g
+            .as_ref()
+            .and_then(|g| g.buttons.iter().find(|b| b.id == menu.id))
+        {
+            super::native_menu::attach(&button.button, menu, mtm);
+        }
+    });
 }
 
 fn frame(b: &Glassed, p: f64, travel: f64) -> CGRect {

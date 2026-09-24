@@ -139,139 +139,165 @@ pub fn NoteMenu(
     let import_label = t(&lang, "note-menu-import");
     let import_audio_label = t(&lang, "note-menu-import-audio");
     let delete_label = t(&lang, "note-menu-delete");
+    let instance = use_hook(|| uuid::Uuid::new_v4().to_string());
+    let menu_context = format!("{note_id}:{instance}");
+    use_effect(move || {
+        if !(app.show_note_menu)() {
+            confirm_delete.set(false);
+        }
+    });
 
     rsx! {
         div {
-            class: "fixed inset-0 z-40",
-            onclick: move |_| {
-                app.show_note_menu.set(false);
-                confirm_delete.set(false);
-            },
-        }
-        div { class: "absolute right-4 top-1 {kit::MENU_PANEL}",
-            if confirm_delete() {
-                {
-                    // A shared note's link dies with it (proposal 0001 T15): the
-                    // confirm says so, and the revoke rides the delete.
-                    let is_shared = db().get_share(&note_id).is_some();
-                    rsx! {
-                        DeleteConfirm {
-                            title: t(&lang, "note-menu-delete-title"),
-                            warning: if is_shared {
-                                t(&lang, "share-delete-offers-revoke")
-                            } else {
-                                t(&lang, "note-menu-delete-warning")
-                            },
-                            cancel_label: t(&lang, "chat-menu-cancel"),
-                            confirm_label: if is_shared {
-                                t(&lang, "share-revoke-and-delete")
-                            } else {
-                                t(&lang, "chat-menu-delete")
-                            },
-                            on_cancel: move |_| {
-                                confirm_delete.set(false);
-                                app.show_note_menu.set(false);
-                            },
-                            on_confirm: {
-                                let note_id = note_id.clone();
-                                move |_| {
-                                    if app.note_delete_pending.peek().is_some() {
-                                        return;
-                                    }
-                                    let note_id = note_id.clone();
-                                    let database = db();
-                                    let engine = engine();
-                                    app.note_delete_pending.set(Some(note_id.clone()));
-                                    app.note_delete_error.set(None);
+            "data-native-menu": "note-more",
+            "data-native-context": "{menu_context}",
+            hidden: !(app.show_note_menu)(),
+            div {
+                class: "fixed inset-0 z-40",
+                onclick: move |_| {
+                    app.show_note_menu.set(false);
+                    confirm_delete.set(false);
+                },
+            }
+            div { class: "absolute right-4 top-1 {kit::MENU_PANEL}",
+                if confirm_delete() {
+                    {
+                        // A shared note's link dies with it (proposal 0001 T15): the
+                        // confirm says so, and the revoke rides the delete.
+                        let is_shared = db().get_share(&note_id).is_some();
+                        rsx! {
+                            DeleteConfirm {
+                                title: t(&lang, "note-menu-delete-title"),
+                                warning: if is_shared {
+                                    t(&lang, "share-delete-offers-revoke")
+                                } else {
+                                    t(&lang, "note-menu-delete-warning")
+                                },
+                                cancel_label: t(&lang, "chat-menu-cancel"),
+                                confirm_label: if is_shared {
+                                    t(&lang, "share-revoke-and-delete")
+                                } else {
+                                    t(&lang, "chat-menu-delete")
+                                },
+                                on_cancel: move |_| {
+                                    confirm_delete.set(false);
                                     app.show_note_menu.set(false);
-                                    // The menu disappears now; only app-owned state may outlive it.
-                                    dioxus::core::spawn_forever(async move {
-                                        let revoke = crate::application::sharing::revoke(&database, &note_id).await;
-                                        let result = crate::application::note_persistence::delete_note(&database, &note_id);
-                                        app.note_delete_pending.set(None);
-                                        let lang = (app.current_lang)();
-                                        if let Err(error) = result {
-                                            eprintln!("[note] delete: {error}");
-                                            app.note_delete_error.set(Some(t(&lang, "note-delete-failed")));
+                                },
+                                on_confirm: {
+                                    let note_id = note_id.clone();
+                                    move |_| {
+                                        if app.note_delete_pending.peek().is_some() {
                                             return;
                                         }
-                                        if revoke.is_err() {
-                                            app.note_delete_error.set(Some(t(&lang, "note-delete-revoke-failed")));
-                                        }
-                                        app.notes_version.set((app.notes_version)() + 1);
-                                        engine.schedule_debounced();
-                                        if (app.current_note_id)().as_deref() == Some(&note_id) {
-                                            app.current_note_id.set(None);
-                                        }
-                                        if matches!((app.view)(), crate::ui::View::NoteDetail { note_id: ref id } if id == &note_id) {
-                                            if let Ok(mut flag) = deleted.try_write() {
-                                                *flag = true;
-                                            } else {
-                                                // The user reopened this note in a new detail scope.
-                                                app.view.set(crate::ui::View::NotesList);
+                                        let note_id = note_id.clone();
+                                        let database = db();
+                                        let engine = engine();
+                                        app.note_delete_pending.set(Some(note_id.clone()));
+                                        app.note_delete_error.set(None);
+                                        app.show_note_menu.set(false);
+                                        // The menu disappears now; only app-owned state may outlive it.
+                                        dioxus::core::spawn_forever(async move {
+                                            let revoke = crate::application::sharing::revoke(&database, &note_id).await;
+                                            let result = crate::application::note_persistence::delete_note(&database, &note_id);
+                                            app.note_delete_pending.set(None);
+                                            let lang = (app.current_lang)();
+                                            if let Err(error) = result {
+                                                eprintln!("[note] delete: {error}");
+                                                app.note_delete_error.set(Some(t(&lang, "note-delete-failed")));
+                                                return;
                                             }
-                                        }
-                                    });
-                                }
-                            },
+                                            if revoke.is_err() {
+                                                app.note_delete_error.set(Some(t(&lang, "note-delete-revoke-failed")));
+                                            }
+                                            app.notes_version.set((app.notes_version)() + 1);
+                                            engine.schedule_debounced();
+                                            if (app.current_note_id)().as_deref() == Some(&note_id) {
+                                                app.current_note_id.set(None);
+                                            }
+                                            if matches!((app.view)(), crate::ui::View::NoteDetail { note_id: ref id } if id == &note_id) {
+                                                if let Ok(mut flag) = deleted.try_write() {
+                                                    *flag = true;
+                                                } else {
+                                                    // The user reopened this note in a new detail scope.
+                                                    app.view.set(crate::ui::View::NotesList);
+                                                }
+                                            }
+                                        });
+                                    }
+                                },
+                            }
                         }
                     }
-                }
-            } else {
-                button {
-                    class: kit::MENU_ITEM,
-                    onclick: move |_| {
-                        import_requested.set(true);
-                        app.show_note_menu.set(false);
-                    },
-                    IconFileArrowUp { size: 16 }
-                    "{import_label}"
-                }
-                button {
-                    class: kit::MENU_ITEM,
-                    onclick: move |_| {
-                        app.audio_import_requested.set(true);
-                        app.show_note_menu.set(false);
-                    },
-                    IconMic { size: 16 }
-                    "{import_audio_label}"
-                }
-                div { class: kit::MENU_SEP }
-                button {
-                    class: kit::MENU_ITEM,
-                    onclick: {
-                        let note_id = note_id.clone();
-                        move |_| {
-                            app.share_request.set(Some(note_id.clone()));
-                            app.show_note_menu.set(false);
-                        }
-                    },
-                    IconArrowUpRight { size: 16 }
-                    {t(&lang, "share-publish-note")}
-                }
-                div { class: kit::MENU_SEP }
-                if in_thread {
+                } else {
                     button {
                         class: kit::MENU_ITEM,
+                        "data-native-action": "import-file",
+                        "data-native-symbol": "square.and.arrow.down",
+                        onclick: move |_| {
+                            import_requested.set(true);
+                            app.show_note_menu.set(false);
+                        },
+                        IconFileArrowUp { size: 16 }
+                        "{import_label}"
+                    }
+                    button {
+                        class: kit::MENU_ITEM,
+                        "data-native-action": "import-audio",
+                        "data-native-symbol": "waveform",
+                        onclick: move |_| {
+                            app.audio_import_requested.set(true);
+                            app.show_note_menu.set(false);
+                        },
+                        IconMic { size: 16 }
+                        "{import_audio_label}"
+                    }
+                    div { class: kit::MENU_SEP }
+                    button {
+                        class: kit::MENU_ITEM,
+                        "data-native-action": "share",
+                        "data-native-symbol": "square.and.arrow.up",
                         onclick: {
                             let note_id = note_id.clone();
                             move |_| {
-                                let _ = db().remove_note_from_thread(&note_id);
-                                app.notes_version.set((app.notes_version)() + 1);
+                                app.share_request.set(Some(note_id.clone()));
                                 app.show_note_menu.set(false);
                             }
                         },
-                        IconX { size: 16 }
-                        {t(&lang, "thread-remove-from")}
+                        IconArrowUpRight { size: 16 }
+                        {t(&lang, "share-publish-note")}
                     }
                     div { class: kit::MENU_SEP }
-                }
-                button {
-                    class: kit::MENU_ITEM_DANGER,
-                    disabled: (app.note_delete_pending)().is_some(),
-                    onclick: move |_| confirm_delete.set(true),
-                    IconTrash { size: 16 }
-                    "{delete_label}"
+                    if in_thread {
+                        button {
+                            class: kit::MENU_ITEM,
+                            "data-native-action": "remove-thread",
+                            "data-native-symbol": "rectangle.stack.badge.minus",
+                            onclick: {
+                                let note_id = note_id.clone();
+                                move |_| {
+                                    let _ = db().remove_note_from_thread(&note_id);
+                                    app.notes_version.set((app.notes_version)() + 1);
+                                    app.show_note_menu.set(false);
+                                }
+                            },
+                            IconX { size: 16 }
+                            {t(&lang, "thread-remove-from")}
+                        }
+                        div { class: kit::MENU_SEP }
+                    }
+                    button {
+                        class: kit::MENU_ITEM_DANGER,
+                        "data-native-action": "delete",
+                        "data-native-symbol": "trash",
+                        "data-native-destructive": "",
+                        disabled: (app.note_delete_pending)().is_some(),
+                        onclick: move |_| {
+                            app.show_note_menu.set(true);
+                            confirm_delete.set(true);
+                        },
+                        IconTrash { size: 16 }
+                        "{delete_label}"
+                    }
                 }
             }
         }
