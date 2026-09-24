@@ -41,6 +41,40 @@ pub fn ChatMenu(props: ChatMenuProps) -> Element {
         }
     });
 
+    let rename_chat = EventHandler::new(move |value: String| {
+        let value = value.trim();
+        if !value.is_empty() {
+            if let Some(ref cid) = conversation_id() {
+                let _ = db().update_conversation_title(cid, value);
+                app.invalidate_data();
+            }
+        }
+        renaming.set(false);
+        app.show_chat_menu.set(false);
+    });
+    let delete_chat = EventHandler::new(move |_: ()| {
+        if let Some(ref cid) = conversation_id() {
+            let _ = db().delete_conversation(cid);
+        }
+        // The drawer's conversation list stays mounted on mobile (the swipe
+        // panel never unmounts) and only re-reads on this version: without
+        // the bump the deleted chat ghosts in the list.
+        app.invalidate_data();
+        confirm_delete.set(false);
+        app.show_chat_menu.set(false);
+        app.sliding_out.set(true);
+        // spawn_forever, NOT spawn: show_chat_menu=false unmounts THIS menu in
+        // the same click, which cancels a scope-bound task mid-delay - leaving
+        // sliding_out stuck true (whole screen pointer-events-none) and the
+        // view never set. The freeze-after-delete bug.
+        dioxus::core::spawn_forever(async move {
+            futures_timer::Delay::new(std::time::Duration::from_millis(150))
+                .await;
+            app.sliding_out.set(false);
+            app.view.set(View::NotesList);
+        });
+    });
+
     rsx! {
         div {
             "data-native-menu": "chat-more",
@@ -70,15 +104,7 @@ pub fn ChatMenu(props: ChatMenuProps) -> Element {
                                 },
                                 onkeypress: move |evt| {
                                     if evt.key() == Key::Enter {
-                                        let v = rename_input().trim().to_string();
-                                        if !v.is_empty() {
-                                            if let Some(ref cid) = conversation_id() {
-                                                let _ = db().update_conversation_title(cid, &v);
-                                                app.invalidate_data();
-                                            }
-                                        }
-                                        renaming.set(false);
-                                        app.show_chat_menu.set(false);
+                                        rename_chat.call(rename_input());
                                     }
                                 },
                             }
@@ -90,15 +116,7 @@ pub fn ChatMenu(props: ChatMenuProps) -> Element {
                                     "text-ios-orange-dark bg-ios-orange-50 active:opacity-70 hover:opacity-80"
                                 },
                                 onclick: move |_| {
-                                    let v = rename_input().trim().to_string();
-                                    if !v.is_empty() {
-                                        if let Some(ref cid) = conversation_id() {
-                                            let _ = db().update_conversation_title(cid, &v);
-                                            app.invalidate_data();
-                                        }
-                                    }
-                                    renaming.set(false);
-                                    app.show_chat_menu.set(false);
+                                    rename_chat.call(rename_input());
                                 },
                                 IconCheck { size: 16 }
                             }
@@ -122,27 +140,7 @@ pub fn ChatMenu(props: ChatMenuProps) -> Element {
                             confirm_delete.set(false);
                             app.show_chat_menu.set(false);
                         },
-                        on_confirm: move |_| {
-                            if let Some(ref cid) = conversation_id() {
-                                let _ = db().delete_conversation(cid);
-                            }
-                            // The drawer's conversation list stays mounted on mobile (the swipe
-                            // panel never unmounts) and only re-reads on this version: without
-                            // the bump the deleted chat ghosts in the list.
-                            app.invalidate_data();
-                            confirm_delete.set(false);
-                            app.show_chat_menu.set(false);
-                            app.sliding_out.set(true);
-                            // spawn_forever, NOT spawn: show_chat_menu=false unmounts THIS menu in
-                            // the same click, which cancels a scope-bound task mid-delay - leaving
-                            // sliding_out stuck true (whole screen pointer-events-none) and the
-                            // view never set. The freeze-after-delete bug.
-                            dioxus::core::spawn_forever(async move {
-                                futures_timer::Delay::new(std::time::Duration::from_millis(150)).await;
-                                app.sliding_out.set(false);
-                                app.view.set(View::NotesList);
-                            });
-                        },
+                        on_confirm: move |_| delete_chat.call(()),
                     }
                 } else {
                     button {
@@ -225,6 +223,23 @@ pub fn ChatMenu(props: ChatMenuProps) -> Element {
                                     }
                                 }
                             }
+                            #[cfg(target_os = "ios")]
+                            if crate::infrastructure::platform::ios::glass_burger::install() {
+                                let expected = conversation_id();
+                                let initial = rename_input();
+                                let lang = (app.current_lang)();
+                                spawn(async move {
+                                    if let Some(value) = crate::infrastructure::platform::ios::dialog::present(
+                                        &t(&lang, "chat-menu-rename"), None, Some(&initial),
+                                        &t(&lang, "chat-menu-cancel"), &t(&lang, "chat-menu-ok"), false,
+                                    ).await {
+                                        if conversation_id() == expected {
+                                            rename_chat.call(value);
+                                        }
+                                    }
+                                });
+                                return;
+                            }
                             app.show_chat_menu.set(true);
                             renaming.set(true);
                         },
@@ -239,6 +254,22 @@ pub fn ChatMenu(props: ChatMenuProps) -> Element {
                         "data-native-destructive": "",
                         disabled: !has_conversation,
                         onclick: move |_| {
+                            #[cfg(target_os = "ios")]
+                            if crate::infrastructure::platform::ios::glass_burger::install() {
+                                let expected = conversation_id();
+                                let lang = (app.current_lang)();
+                                spawn(async move {
+                                    let confirmed = crate::infrastructure::platform::ios::dialog::present(
+                                        &t(&lang, "chat-menu-delete-title"),
+                                        Some(&t(&lang, "chat-menu-delete-warning")), None,
+                                        &t(&lang, "chat-menu-cancel"), &t(&lang, "chat-menu-delete"), true,
+                                    ).await.is_some();
+                                    if confirmed && conversation_id() == expected {
+                                        delete_chat.call(());
+                                    }
+                                });
+                                return;
+                            }
                             app.show_chat_menu.set(true);
                             confirm_delete.set(true);
                         },

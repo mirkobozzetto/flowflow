@@ -147,6 +147,56 @@ pub fn NoteMenu(
         }
     });
 
+    let delete_note = EventHandler::new({
+        let note_id = note_id.clone();
+        move |_: ()| {
+            if app.note_delete_pending.peek().is_some() {
+                return;
+            }
+            let note_id = note_id.clone();
+            let database = db();
+            let engine = engine();
+            app.note_delete_pending.set(Some(note_id.clone()));
+            app.note_delete_error.set(None);
+            app.show_note_menu.set(false);
+            // The menu disappears now; only app-owned state may outlive it.
+            dioxus::core::spawn_forever(async move {
+                let revoke =
+                    crate::application::sharing::revoke(&database, &note_id)
+                        .await;
+                let result = crate::application::note_persistence::delete_note(
+                    &database, &note_id,
+                );
+                app.note_delete_pending.set(None);
+                let lang = (app.current_lang)();
+                if let Err(error) = result {
+                    eprintln!("[note] delete: {error}");
+                    app.note_delete_error
+                        .set(Some(t(&lang, "note-delete-failed")));
+                    return;
+                }
+                if revoke.is_err() {
+                    app.note_delete_error
+                        .set(Some(t(&lang, "note-delete-revoke-failed")));
+                }
+                app.notes_version.set((app.notes_version)() + 1);
+                engine.schedule_debounced();
+                if (app.current_note_id)().as_deref() == Some(&note_id) {
+                    app.current_note_id.set(None);
+                }
+                if matches!((app.view)(), crate::ui::View::NoteDetail { note_id: ref id } if id == &note_id)
+                {
+                    if let Ok(mut flag) = deleted.try_write() {
+                        *flag = true;
+                    } else {
+                        // The user reopened this note in a new detail scope.
+                        app.view.set(crate::ui::View::NotesList);
+                    }
+                }
+            });
+        }
+    });
+
     rsx! {
         div {
             "data-native-menu": "note-more",
@@ -183,48 +233,7 @@ pub fn NoteMenu(
                                     confirm_delete.set(false);
                                     app.show_note_menu.set(false);
                                 },
-                                on_confirm: {
-                                    let note_id = note_id.clone();
-                                    move |_| {
-                                        if app.note_delete_pending.peek().is_some() {
-                                            return;
-                                        }
-                                        let note_id = note_id.clone();
-                                        let database = db();
-                                        let engine = engine();
-                                        app.note_delete_pending.set(Some(note_id.clone()));
-                                        app.note_delete_error.set(None);
-                                        app.show_note_menu.set(false);
-                                        // The menu disappears now; only app-owned state may outlive it.
-                                        dioxus::core::spawn_forever(async move {
-                                            let revoke = crate::application::sharing::revoke(&database, &note_id).await;
-                                            let result = crate::application::note_persistence::delete_note(&database, &note_id);
-                                            app.note_delete_pending.set(None);
-                                            let lang = (app.current_lang)();
-                                            if let Err(error) = result {
-                                                eprintln!("[note] delete: {error}");
-                                                app.note_delete_error.set(Some(t(&lang, "note-delete-failed")));
-                                                return;
-                                            }
-                                            if revoke.is_err() {
-                                                app.note_delete_error.set(Some(t(&lang, "note-delete-revoke-failed")));
-                                            }
-                                            app.notes_version.set((app.notes_version)() + 1);
-                                            engine.schedule_debounced();
-                                            if (app.current_note_id)().as_deref() == Some(&note_id) {
-                                                app.current_note_id.set(None);
-                                            }
-                                            if matches!((app.view)(), crate::ui::View::NoteDetail { note_id: ref id } if id == &note_id) {
-                                                if let Ok(mut flag) = deleted.try_write() {
-                                                    *flag = true;
-                                                } else {
-                                                    // The user reopened this note in a new detail scope.
-                                                    app.view.set(crate::ui::View::NotesList);
-                                                }
-                                            }
-                                        });
-                                    }
-                                },
+                                on_confirm: move |_| delete_note.call(()),
                             }
                         }
                     }
@@ -292,6 +301,21 @@ pub fn NoteMenu(
                         "data-native-destructive": "",
                         disabled: (app.note_delete_pending)().is_some(),
                         onclick: move |_| {
+                            #[cfg(target_os = "ios")]
+                            if crate::infrastructure::platform::ios::glass_burger::install() {
+                                let is_shared = db().get_share(&note_id).is_some();
+                                let lang = lang.clone();
+                                spawn(async move {
+                                    let confirmed = crate::infrastructure::platform::ios::dialog::present(
+                                        &t(&lang, "note-menu-delete-title"),
+                                        Some(&t(&lang, if is_shared { "share-delete-offers-revoke" } else { "note-menu-delete-warning" })),
+                                        None, &t(&lang, "chat-menu-cancel"),
+                                        &t(&lang, if is_shared { "share-revoke-and-delete" } else { "chat-menu-delete" }), true,
+                                    ).await.is_some();
+                                    if confirmed { delete_note.call(()); }
+                                });
+                                return;
+                            }
                             app.show_note_menu.set(true);
                             confirm_delete.set(true);
                         },

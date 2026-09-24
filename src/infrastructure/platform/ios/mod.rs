@@ -1,3 +1,4 @@
+pub mod dialog;
 pub mod glass_burger;
 mod keyboard;
 pub mod live_activity;
