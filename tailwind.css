@@ -278,6 +278,25 @@
         inset 0 1px 0 rgba(255, 255, 255, 0.9),
         0 8px 24px -14px --alpha(var(--color-stone-900) / 35%);
 }
+/* Orange glass (mic, send): a lit top, a shaded base and a light rim. */
+.glass-orange {
+    background: radial-gradient(
+        120% 90% at 50% 0%,
+        color-mix(in oklab, var(--color-ios-orange) 65%, white) 0%,
+        var(--color-ios-orange) 55%,
+        var(--color-ios-orange-dark) 100%
+    );
+    box-shadow:
+        inset 0 1px 1px rgba(255, 255, 255, 0.6),
+        inset 0 -2px 5px --alpha(var(--color-stone-900) / 15%),
+        0 0 0 1px rgba(255, 255, 255, 0.35),
+        0 6px 14px -8px var(--color-ios-orange-dark);
+}
+/* Keyboard up (keyboard/inset.rs sets data-keyboard): the home-indicator
+   inset is gone, keep a clear gap between the pill and the keys. */
+:root[data-keyboard="1"] .composer-dock {
+    padding-bottom: max(16px, calc(0.5rem + env(safe-area-inset-bottom)));
+}
 .composer-glass:active:not(:has(button:active)) {
     transform: scale(1.015);
     background: --alpha(var(--color-warm-white) / 90%);
@@ -395,8 +414,8 @@
 
 .fab-btn {
     position: relative;
-    width: 86px;
-    height: 86px;
+    width: 96px;
+    height: 96px;
     border-radius: 9999px;
     background: var(--color-warm-white);
     border: 1.5px solid var(--color-ios-orange-100);

@@ -9,6 +9,7 @@ pub fn use_keyboard_inset() {
 
                 function applyOffset(offset) {
                     document.documentElement.style.setProperty('--keyboard-inset', offset + 'px');
+                    document.documentElement.dataset.keyboard = offset > 50 ? '1' : '0';
                     var els = document.querySelectorAll('.keyboard-aware');
                     for (var i = 0; i < els.length; i++) {
                         els[i].style.bottom = offset + 'px';

@@ -131,12 +131,12 @@ fn configuration(
     config.setCornerStyle(UIButtonConfigurationCornerStyle::Capsule);
     let id = match id {
         "burger" => {
-            // top_bar.rs: 28px viewBox at 30px, stroke 2.4.
+            // top_bar.rs: 28px viewBox at 30px, stroke 1.8.
             config.setImage(Some(&strokes(
                 mtm,
                 30.0,
                 28.0,
-                2.4,
+                1.8,
                 &[(5.0, 10.0, 19.0, 10.0), (5.0, 18.0, 23.0, 18.0)],
                 stone_800(),
             )));
@@ -173,10 +173,10 @@ fn configuration(
             "chat"
         }
         "fab" => {
-            // fab.rs: the same thin orange plus (100 viewBox at 37px, stroke 4).
+            // fab.rs: the same thin orange plus (100 viewBox at 42px, stroke 4).
             config.setImage(Some(&strokes(
                 mtm,
-                37.0,
+                42.0,
                 100.0,
                 4.0,
                 &[(30.0, 50.0, 70.0, 50.0), (50.0, 30.0, 50.0, 70.0)],

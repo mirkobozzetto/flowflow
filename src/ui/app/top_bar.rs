@@ -168,7 +168,7 @@ pub fn TopBar() -> Element {
                         view_box: "0 0 28 28",
                         fill: "none",
                         stroke: "currentColor",
-                        stroke_width: "2.4",
+                        stroke_width: "1.8",
                         stroke_linecap: "round",
                         line { x1: "5", y1: "10", x2: "19", y2: "10" }
                         line { x1: "5", y1: "18", x2: "23", y2: "18" }
