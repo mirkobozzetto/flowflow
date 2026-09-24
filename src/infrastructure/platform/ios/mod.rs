@@ -1,4 +1,5 @@
 pub mod glass_burger;
+mod keyboard;
 pub mod live_activity;
 mod picker;
 mod player;
@@ -197,6 +198,7 @@ pub fn app_group_inbox_dir() -> Option<PathBuf> {
 
 pub use crate::infrastructure::platform::parsers::read_file_as_text;
 pub use crate::infrastructure::platform::pdf::extract as read_pdf_text;
+pub use keyboard::observe_keyboard;
 pub use picker::{open_audio_picker, open_file_picker};
 pub use player::{
     current_time_secs, is_playing, play_audio, play_audio_at, seek_to,
