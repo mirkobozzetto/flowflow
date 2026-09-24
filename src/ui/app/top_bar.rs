@@ -247,7 +247,7 @@ pub fn TopBar() -> Element {
                 // Chat pill (#177): native glass on iOS 26, like the burger.
                 button {
                     "data-glass": "chat",
-                    class: "glass-disc relative h-12 -my-0.5 pl-3.5 pr-5 shrink-0 flex items-center gap-1.5 rounded-full text-[15px] font-semibold text-ios-orange-dark",
+                    class: "glass-disc relative h-12 -my-0.5 pl-3.5 pr-5 shrink-0 flex items-center gap-1.5 rounded-full text-[15px] font-medium text-ios-orange-dark",
                     onpointerdown: move |_| haptic_prepare("light"),
                     onclick: move |_| {
                         haptic("light");

@@ -16,7 +16,7 @@ use objc2_foundation::{
 use objc2_ui_kit::{
     NSDirectionalEdgeInsets, NSFontAttributeName, UIAction, UIButton,
     UIButtonConfiguration, UIButtonConfigurationCornerStyle, UIColor,
-    UIControlEvents, UIFont, UIFontWeightSemibold, UIGraphicsImageRenderer,
+    UIControlEvents, UIFont, UIFontWeightMedium, UIGraphicsImageRenderer,
     UIGraphicsImageRendererContext, UIImage, UIImageRenderingMode,
     UIImageSymbolConfiguration, UIImageSymbolWeight, UIUserInterfaceStyle,
     UIView, UIViewAnimating, UIViewAnimatingState, UIViewPropertyAnimator,
@@ -113,7 +113,7 @@ fn strokes(
 fn symbol(name: &str, size: f64, color: &UIColor) -> Option<Retained<UIImage>> {
     let config = UIImageSymbolConfiguration::configurationWithPointSize_weight(
         size,
-        UIImageSymbolWeight::Semibold,
+        UIImageSymbolWeight::Regular,
     );
     let image = UIImage::systemImageNamed_withConfiguration(
         &NSString::from_str(name),
@@ -155,7 +155,7 @@ fn configuration(
                 trailing: 16.0,
             });
             let font = UIFont::systemFontOfSize_weight(15.0, unsafe {
-                UIFontWeightSemibold
+                UIFontWeightMedium
             });
             let value: &AnyObject = font.as_ref();
             let attrs = NSDictionary::from_slices(
@@ -173,10 +173,10 @@ fn configuration(
             "chat"
         }
         "fab" => {
-            // fab.rs: the same thin orange plus (100 viewBox at 34px, stroke 4).
+            // fab.rs: the same thin orange plus (100 viewBox at 37px, stroke 4).
             config.setImage(Some(&strokes(
                 mtm,
-                34.0,
+                37.0,
                 100.0,
                 4.0,
                 &[(30.0, 50.0, 70.0, 50.0), (50.0, 30.0, 50.0, 70.0)],
