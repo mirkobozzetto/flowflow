@@ -37,14 +37,23 @@ pub fn use_keyboard_inset() {
                         if (cachedKeyboardH > 0) {
                             applyOffset(cachedKeyboardH);
                         }
-                        setTimeout(function() {
+                        // Follow the keyboard every frame while it rises:
+                        // WKWebView sometimes skips the last visualViewport
+                        // resize, which left the field under the keys.
+                        var start = performance.now();
+                        var follow = function(now) {
                             var h = measureKeyboard();
                             if (h > 50) {
                                 cachedKeyboardH = h;
                                 applyOffset(h);
                             }
-                            e.target.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
-                        }, 400);
+                            if (now - start < 900) {
+                                requestAnimationFrame(follow);
+                            } else {
+                                e.target.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+                            }
+                        };
+                        requestAnimationFrame(follow);
                     }
                 });
 

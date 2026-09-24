@@ -278,7 +278,7 @@ pub fn Composer(
                                 },
                             }
                             button {
-                                class: "composer-primary glass-orange pressable press-grow absolute right-[5px] bottom-[5px] w-[50px] h-[50px] rounded-full bg-ios-orange text-white flex items-center justify-center overflow-hidden disabled:opacity-50",
+                                class: "composer-primary pressable press-grow absolute right-[5px] bottom-[5px] w-[50px] h-[50px] rounded-full bg-ios-orange text-white flex items-center justify-center overflow-hidden disabled:opacity-50",
                                 "data-has-text": !empty,
                                 "data-sent": sent(),
                                 "aria-label": t(&lang, if empty { "recording-dictate" } else if chat { "chat-send" } else { "composer-append" }),

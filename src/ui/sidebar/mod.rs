@@ -245,7 +245,7 @@ pub fn SidebarOverlay() -> Element {
 
             div { class: "border-t border-stone-200 p-4",
                 button {
-                    class: "glass-disc glass-pill pressable relative inline-flex items-center gap-3 px-5 pr-6 min-h-[52px] rounded-full text-base font-medium text-stone-800",
+                    class: "glass-disc glass-pill pressable relative inline-flex items-center gap-2 pl-3 pr-4 min-h-[44px] rounded-full text-base font-medium text-stone-800",
                     onclick: move |_| {
                         app.view.set(View::Settings);
                         app.sidebar_open.set(false);

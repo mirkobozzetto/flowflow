@@ -354,7 +354,7 @@ pub fn VoiceCapsule(
                     }
                 }
                 button {
-                    class: "glass-orange pressable press-grow w-[50px] h-[50px] shrink-0 rounded-full bg-ios-orange flex items-center justify-center",
+                    class: "pressable press-grow w-[50px] h-[50px] shrink-0 rounded-full bg-ios-orange flex items-center justify-center",
                     "aria-label": if is_transcribing { "{transcribing_label}" } else { "{send_label}" },
                     disabled: !live,
                     onpointerdown: move |_| haptic_prepare("soft"),
