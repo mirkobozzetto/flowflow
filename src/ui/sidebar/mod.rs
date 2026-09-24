@@ -245,13 +245,13 @@ pub fn SidebarOverlay() -> Element {
 
             div { class: "border-t border-stone-200 p-4",
                 button {
-                    class: "flex items-center gap-2.5 w-full px-2 py-3 text-sm text-stone-500 rounded-lg min-h-[44px] lg:min-h-[48px] hover:bg-stone-100 transition-colors duration-150",
+                    class: "glass-disc glass-pill pressable relative flex items-center gap-3 w-full px-5 min-h-[52px] rounded-full text-base font-medium text-stone-800",
                     onclick: move |_| {
                         app.view.set(View::Settings);
                         app.sidebar_open.set(false);
                     },
-                    IconGear { size: 18 }
-                    {t(&lang, "sidebar-settings")}
+                    IconGear { size: 22 }
+                    span { {t(&lang, "sidebar-settings")} }
                 }
             }
         }

@@ -201,13 +201,13 @@ pub fn Composer(
         },
     );
     let capsule = if focused() {
-        "composer-capsule relative h-[60px] rounded-[30px] bg-warm-white border border-ios-orange-dark ring-[3px] ring-ios-orange-50"
+        "composer-capsule composer-glass relative h-[60px] rounded-[30px] border border-ios-orange-dark ring-[3px] ring-ios-orange-50"
     } else {
-        "composer-capsule relative h-[60px] rounded-[30px] bg-stone-100 border border-stone-300/80"
+        "composer-capsule composer-glass relative h-[60px] rounded-[30px] border border-stone-300/80"
     };
 
     rsx! {
-        div { class: "fixed bottom-0 left-0 right-0 px-2 py-2 bg-warm-white border-t border-stone-200 z-30 keyboard-aware lg:left-72",
+        div { class: "composer-dock fixed bottom-0 left-0 right-0 px-2 py-2 z-30 keyboard-aware lg:left-72",
             div { class: "lg:max-w-3xl lg:mx-auto",
                 div { class: "relative flex items-end gap-2",
                     if let (true, Some(mentions)) = (show_mention, mentions) {
