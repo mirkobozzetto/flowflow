@@ -108,9 +108,9 @@ pub struct AppState {
     pub selected_folder_id: Signal<Option<String>>,
     pub recording_state: Signal<RecordingState>,
     pub folders_version: Signal<u32>,
-    // Folders left expanded in the sidebar; app-global so the tree does not
-    // collapse every time the drawer is reopened.
-    pub expanded_folders: Signal<HashSet<String>>,
+    // Closed exceptions shared by both theme navigators and persisted locally.
+    // An absent id is open, including newly created folders.
+    pub collapsed_folders: Signal<HashSet<String>>,
     pub sliding_out: Signal<bool>,
     pub notes_version: Signal<u32>,
     pub current_note_id: Signal<Option<String>>,
@@ -181,7 +181,7 @@ impl AppState {
             selected_folder_id: Signal::new(None),
             recording_state: Signal::new(RecordingState::Idle),
             folders_version: Signal::new(0),
-            expanded_folders: Signal::new(HashSet::new()),
+            collapsed_folders: Signal::new(HashSet::new()),
             sliding_out: Signal::new(false),
             notes_version: Signal::new(0),
             current_note_id: Signal::new(None),

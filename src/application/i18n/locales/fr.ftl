@@ -379,6 +379,11 @@ recording-send = Envoyer
 recording-dictate = Dicter
 
 folder-picker-all = Toutes les notes
+folder-search-placeholder = Rechercher un thème
+folder-search-clear = Effacer la recherche de thèmes
+folder-search-empty = Aucun thème trouvé. Essayez un autre nom.
+folder-expand = Déplier
+folder-collapse = Replier
 
 settings-language-section = Langue
 language-en = Anglais
@@ -659,3 +664,7 @@ share-join-placeholder = Colle le lien ici
 chat-tools-connection-loading = Vérification de la connexion…
 chat-tools-google-connected = Compte Google connecté
 chat-tools-connection-unavailable = Connexion impossible à vérifier
+
+# Native overflow controls
+note-menu-options = Options de la note
+chat-menu-options = Options de la conversation

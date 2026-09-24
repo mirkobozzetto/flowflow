@@ -152,7 +152,7 @@ pub fn ChatView() -> Element {
     let show_menu = (app.show_chat_menu)();
 
     rsx! {
-        if show_menu {
+        if show_menu || cfg!(target_os = "ios") {
             ChatMenu {
                 conversation_id: conversation_id,
                 renaming: renaming,

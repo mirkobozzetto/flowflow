@@ -379,6 +379,11 @@ recording-send = Send
 recording-dictate = Dictate
 
 folder-picker-all = All notes
+folder-search-placeholder = Search themes
+folder-search-clear = Clear theme search
+folder-search-empty = No matching themes. Try another name.
+folder-expand = Expand
+folder-collapse = Collapse
 
 settings-language-section = Language
 language-en = English
@@ -659,3 +664,7 @@ share-join-placeholder = Paste the link here
 chat-tools-connection-loading = Checking connection…
 chat-tools-google-connected = Google account connected
 chat-tools-connection-unavailable = Connection could not be verified
+
+# Native overflow controls
+note-menu-options = Note options
+chat-menu-options = Conversation options

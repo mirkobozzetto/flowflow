@@ -44,6 +44,8 @@ fn main() {
     #[cfg(target_os = "ios")]
     flowflow::infrastructure::platform::ios::observe_launch_url();
     #[cfg(target_os = "ios")]
+    flowflow::infrastructure::platform::ios::observe_keyboard();
+    #[cfg(target_os = "ios")]
     flowflow::infrastructure::platform::ios::live_activity::cleanup_orphans();
     #[cfg(target_os = "ios")]
     flowflow::infrastructure::platform::ios::live_activity::register_record_intent();

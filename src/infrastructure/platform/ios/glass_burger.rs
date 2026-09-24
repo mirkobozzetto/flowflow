@@ -16,7 +16,7 @@ use objc2_foundation::{
 use objc2_ui_kit::{
     NSDirectionalEdgeInsets, NSFontAttributeName, UIAction, UIButton,
     UIButtonConfiguration, UIButtonConfigurationCornerStyle, UIColor,
-    UIControlEvents, UIFont, UIFontWeightSemibold, UIGraphicsImageRenderer,
+    UIControlEvents, UIFont, UIFontWeightMedium, UIGraphicsImageRenderer,
     UIGraphicsImageRendererContext, UIImage, UIImageRenderingMode,
     UIImageSymbolConfiguration, UIImageSymbolWeight, UIUserInterfaceStyle,
     UIView, UIViewAnimating, UIViewAnimatingState, UIViewPropertyAnimator,
@@ -113,7 +113,7 @@ fn strokes(
 fn symbol(name: &str, size: f64, color: &UIColor) -> Option<Retained<UIImage>> {
     let config = UIImageSymbolConfiguration::configurationWithPointSize_weight(
         size,
-        UIImageSymbolWeight::Semibold,
+        UIImageSymbolWeight::Regular,
     );
     let image = UIImage::systemImageNamed_withConfiguration(
         &NSString::from_str(name),
@@ -131,16 +131,24 @@ fn configuration(
     config.setCornerStyle(UIButtonConfigurationCornerStyle::Capsule);
     let id = match id {
         "burger" => {
-            // top_bar.rs: 28px viewBox at 30px, stroke 2.4.
+            // top_bar.rs: 28px viewBox at 30px, stroke 1.8.
             config.setImage(Some(&strokes(
                 mtm,
                 30.0,
                 28.0,
-                2.4,
+                1.8,
                 &[(5.0, 10.0, 19.0, 10.0), (5.0, 18.0, 23.0, 18.0)],
                 stone_800(),
             )));
             "burger"
+        }
+        "note-more" | "chat-more" => {
+            config.setImage(symbol("ellipsis", 20.0, &stone_800()).as_deref());
+            if id == "note-more" {
+                "note-more"
+            } else {
+                "chat-more"
+            }
         }
         "chat" => {
             config.setImage(
@@ -155,7 +163,7 @@ fn configuration(
                 trailing: 16.0,
             });
             let font = UIFont::systemFontOfSize_weight(15.0, unsafe {
-                UIFontWeightSemibold
+                UIFontWeightMedium
             });
             let value: &AnyObject = font.as_ref();
             let attrs = NSDictionary::from_slices(
@@ -173,10 +181,10 @@ fn configuration(
             "chat"
         }
         "fab" => {
-            // fab.rs: the same thin orange plus (100 viewBox at 34px, stroke 4).
+            // fab.rs: the same thin orange plus (100 viewBox at 42px, stroke 4).
             config.setImage(Some(&strokes(
                 mtm,
-                34.0,
+                42.0,
                 100.0,
                 4.0,
                 &[(30.0, 50.0, 70.0, 50.0), (50.0, 30.0, 50.0, 70.0)],
@@ -223,14 +231,24 @@ fn make(web: &UIView, id: &str, mtm: MainThreadMarker) -> Option<Glassed> {
             ];
         }
     });
-    let down = RcBlock::new(|_a: NonNull<UIAction>| {
+    let down = RcBlock::new(move |_a: NonNull<UIAction>| {
         crate::infrastructure::platform::haptic_prepare("light");
+        if id == "note-more" || id == "chat-more" {
+            super::native_menu::prepare(id);
+        }
     });
     unsafe {
         let tap = UIAction::actionWithHandler(&*tap as *const _ as *mut _, mtm);
         let down =
             UIAction::actionWithHandler(&*down as *const _ as *mut _, mtm);
-        button.addAction_forControlEvents(&tap, UIControlEvents::TouchUpInside);
+        // These two controls use UIButton.menu instead of opening the web
+        // popover as well. Before iOS 26 the web button remains the fallback.
+        if id != "note-more" && id != "chat-more" {
+            button.addAction_forControlEvents(
+                &tap,
+                UIControlEvents::TouchUpInside,
+            );
+        }
         button.addAction_forControlEvents(&down, UIControlEvents::TouchDown);
     }
 
@@ -283,6 +301,30 @@ pub fn install() -> bool {
         })
     });
     true
+}
+
+/// The DOM menu is the source of truth for labels, availability and actions.
+/// `place` creates the button before the matching menu message arrives.
+pub fn set_menu(json: &str) {
+    let Some(mtm) = MainThreadMarker::new() else {
+        return;
+    };
+    let Ok(menu) = serde_json::from_str::<super::native_menu::Menu>(json)
+    else {
+        return;
+    };
+    if menu.id != "note-more" && menu.id != "chat-more" {
+        return;
+    }
+    GLASS.with(|cell| {
+        let g = cell.borrow();
+        if let Some(button) = g
+            .as_ref()
+            .and_then(|g| g.buttons.iter().find(|b| b.id == menu.id))
+        {
+            super::native_menu::attach(&button.button, menu, mtm);
+        }
+    });
 }
 
 fn frame(b: &Glassed, p: f64, travel: f64) -> CGRect {
