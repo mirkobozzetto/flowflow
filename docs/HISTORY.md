@@ -86,6 +86,26 @@ Finger-following gestures from a small native pointer controller (rAF + CSS tran
 
 Web search moves from a single global Settings toggle to a per-chat control inside a composer **+** menu (a tools + connectors hub) - a drag-to-dismiss bottom-sheet on iPhone, a popover with a hover tooltip on Mac, the switch in the brand orange and off by default, persisted per conversation (settings-KV, like the chat scope). Typing **@** opens a mention menu that scopes a message's RAG to a chosen note. The same **+** hub appears on notes. RAG `query()` now takes the per-chat web flag and mention note ids; a scoped chat answers from its notes unless web is explicitly on. See [prd/composer-tools-menu/](prd/composer-tools-menu/).
 
+## 2026-07 - FlowFlow 2.0.0, RAG trace, governed connectors (#95-#103)
+
+Release 2.0.0 (#95). A per-question RAG trace behind a debug toggle and a single prep call with a cheap judge (#97, #98). Path-scoped connector tools split chat and action surfaces (RFC 0022, #99); armed connectors gain a read scope (RFC 0023, #100). A user dictionary corrects declared terms on every engine (#101), and transcripts carry per-word timings with tap-to-seek (RFC 0024, #102).
+
+## 2026-08 - Accounts everywhere, spaces, App Store 2.0.1 (#105-#134)
+
+Durable transcription jobs (#105). Note actions through the approval channel, LLM chat titles, the note menu at the finger, chat reminders with an undo card, agents run on a note, and list filters in the search field (#114-#121). Note authors and device names (RFC 0025, #125), one account across devices with a customer site (#126) and a profile with per-field visibility (#127). Collaborative shared folders become team spaces (#129, #134). App Store 2.0.1 (#130).
+
+## 2026-09 - ChatGPT sign-in, Hermes, iOS 2.0.2-2.0.3 (#138-#162)
+
+Chat through a ChatGPT subscription (#138), embedding provenance (#140), AI and data resilience (#142). Hermes Agent gets scoped, revocable access to one space, threads included (#144-#149). UI polish (#150, #151). iOS 2.0.3: note deletion that survives its menu, copy and share a single thread note (#162).
+
+## 2026-09 - Account onboarding, scoped agents, connector icons (#163-#174)
+
+Guided account onboarding with Premium, a simpler account home showing collaborators (#163, #167). Chat verifies each connection and routes tools to the connector that owns them (#170). Scoped agents run across native and external owners with shared budgets and a confirmation for every action; Google Sheets selection (#171-#173). Product icons per connector, device ID hidden behind a copy action (#174).
+
+## 2026-09 - Mobile shell redesign, release 2.1.0 (#180-#186)
+
+One `+` popover in notes and chat (#180). A single composer for notes and chat with a voice capsule that records, transcribes and hands the text back (#181, #184). On iPhone the menu lies under the screen, which slides aside as a card, with iOS 26 Liquid Glass controls and swipe from anywhere (#182, #184). Theme search in the sidebar and title picker with remembered folds, native iOS options menus and dialogs, glass composer and UIKit keyboard height (#186). Mac DMG notarized, with the microphone entitlement it lacked. Release notes: [release/2.1.0.md](release/2.1.0.md).
+
 ## Track board (archive)
 
 The original build order. Kept for reference; all of it shipped and is described in

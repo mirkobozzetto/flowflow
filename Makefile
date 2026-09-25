@@ -165,7 +165,7 @@ dmg: desktop-toml
 	  echo ">> No Developer ID Application certificate found."; \
 	  echo ">> Signing with '$$IDENTITY': downloaders must right-click > Open on first launch."; \
 	fi; \
-	codesign --force --deep --options runtime --sign "$$IDENTITY" target/dx/flowflow/release/macos/Flowflow.app
+	codesign --force --deep --options runtime --entitlements macos/entitlements.plist --sign "$$IDENTITY" target/dx/flowflow/release/macos/Flowflow.app
 	rm -rf dist/dmg-staging
 	mkdir -p dist/dmg-staging
 	cp -R target/dx/flowflow/release/macos/Flowflow.app dist/dmg-staging/
@@ -174,8 +174,11 @@ dmg: desktop-toml
 	rm -rf dist/dmg-staging
 	@echo ">> dist/FlowFlow-$(VERSION)-macos-arm64.dmg ready"
 
-# Publish the DMG as a GitHub release (tag v$(VERSION)). Requires gh auth.
+# Publish the notarized DMG as a GitHub release (tag v$(VERSION)). Requires
+# gh auth and the one-time notarytool profile (docs/guides/desktop-release.md).
 release: dmg
+	xcrun notarytool submit dist/FlowFlow-$(VERSION)-macos-arm64.dmg --keychain-profile flowflow-notary --wait
+	xcrun stapler staple dist/FlowFlow-$(VERSION)-macos-arm64.dmg
 	cp dist/FlowFlow-$(VERSION)-macos-arm64.dmg dist/FlowFlow-macos-arm64.dmg
 	gh release create v$(VERSION) \
 	  dist/FlowFlow-$(VERSION)-macos-arm64.dmg \

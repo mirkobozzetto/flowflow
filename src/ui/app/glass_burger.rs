@@ -28,6 +28,10 @@ pub fn use_glass_burger() {
             }
             let mut eval = dioxus::document::eval(GLASS_JS);
             while let Ok(msg) = eval.recv::<String>().await {
+                if let Some(json) = msg.strip_prefix("menu ") {
+                    native::set_menu(json);
+                    continue;
+                }
                 let mut parts = msg.split(' ');
                 let kind = parts.next();
                 let id = if kind == Some("place") {

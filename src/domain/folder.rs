@@ -62,6 +62,55 @@ pub fn flatten_tree(folders: &[Folder]) -> Vec<(Folder, u32)> {
     out
 }
 
+/// One visible row in a theme navigator. Search results retain their parent
+/// path even when those parents are closed in the normal tree.
+#[derive(Debug, Clone, PartialEq)]
+pub struct FolderNavigationRow {
+    pub folder: Folder,
+    pub depth: u32,
+    pub path: String,
+    pub has_children: bool,
+}
+
+pub fn folder_navigation_rows(
+    folders: &[Folder],
+    closed: &std::collections::HashSet<String>,
+    query: &str,
+) -> Vec<FolderNavigationRow> {
+    let query = query.trim().to_lowercase();
+    let parents: std::collections::HashSet<&str> = folders
+        .iter()
+        .filter_map(|f| f.parent_id.as_deref())
+        .collect();
+    let mut ancestors: Vec<(String, String)> = Vec::new();
+    let mut rows = Vec::new();
+    for (folder, depth) in flatten_tree(folders) {
+        ancestors.truncate(depth as usize);
+        let hidden = ancestors.iter().any(|(id, _)| closed.contains(id));
+        let path = ancestors
+            .iter()
+            .map(|(_, name)| name.as_str())
+            .collect::<Vec<_>>()
+            .join(" › ");
+        ancestors.push((folder.id.clone(), folder.name.clone()));
+        let visible = if query.is_empty() {
+            !hidden
+        } else {
+            let name = folder.name.to_lowercase();
+            query.split_whitespace().all(|word| name.contains(word))
+        };
+        if visible {
+            rows.push(FolderNavigationRow {
+                has_children: parents.contains(folder.id.as_str()),
+                folder,
+                depth: if query.is_empty() { depth } else { 0 },
+                path,
+            });
+        }
+    }
+    rows
+}
+
 /// Ids of `folder_id` and every folder below it. Used to forbid moving a folder
 /// into itself or one of its descendants (would detach the subtree into a cycle).
 pub fn subtree_ids(folders: &[Folder], folder_id: &str) -> Vec<String> {

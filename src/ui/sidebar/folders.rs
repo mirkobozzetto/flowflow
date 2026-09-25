@@ -5,10 +5,12 @@ use crate::domain::space::MODE_READ;
 // the server caps a space name at this length
 const MAX_TEAM_NAME_CHARS: usize = 100;
 use crate::domain::{
-    flatten_tree, subtree_ids, Folder, NewFolder, UpdateFolder,
+    flatten_tree, folder_navigation_rows, subtree_ids, Folder, NewFolder,
+    UpdateFolder,
 };
 use crate::infrastructure::persistence::Database;
 use crate::ui::delete_confirm::DeleteConfirm;
+use crate::ui::folder_navigation::{set_folder_expanded, FolderSearch};
 use crate::ui::icons::*;
 use crate::ui::kit;
 use crate::ui::{AppState, RowMenu, View};
@@ -21,7 +23,20 @@ pub fn FolderSection() -> Element {
     let mut app: AppState = use_context();
     let mut creating = use_signal(|| false);
     let mut new_name = use_signal(String::new);
+    let query = use_signal(String::new);
     let lang = (app.current_lang)();
+    let all_folders = use_memo(move || {
+        let _v = (app.folders_version)();
+        db().list_all_folders().unwrap_or_default()
+    });
+    let searching = !query().trim().is_empty();
+    let results = use_memo(move || {
+        folder_navigation_rows(
+            &all_folders(),
+            &(app.collapsed_folders)(),
+            &query(),
+        )
+    });
 
     // Shared themes are listed under their space, not among personal themes.
     let folders = use_memo(move || {
@@ -38,6 +53,44 @@ pub fn FolderSection() -> Element {
     });
 
     rsx! {
+        div { class: "pb-2",
+            FolderSearch { query }
+        }
+        if searching {
+            if results().is_empty() {
+                p { class: "px-2 py-4 text-sm text-stone-500", role: "status",
+                    {t(&lang, "folder-search-empty")}
+                }
+            }
+            for row in results() {
+                {
+                    let fid = row.folder.id.clone();
+                    let mut path = row.path;
+                    let group = row.folder.space_id.as_ref().and_then(|id| {
+                        spaces().into_iter().find(|s| &s.id == id).map(|s| s.name)
+                    }).unwrap_or_else(|| t(&lang, "sidebar-folders-title"));
+                    path = if path.is_empty() { group } else { format!("{group} › {path}") };
+                    rsx! {
+                        button {
+                            key: "{row.folder.id}",
+                            class: "w-full flex items-center gap-2 px-2 py-2.5 min-h-[44px] text-left rounded-lg hover:bg-stone-100 focus-visible:outline-stone-500",
+                            class: if (app.selected_folder_id)().as_ref() == Some(&fid) { "bg-ios-orange-50 text-ios-orange-dark" } else { "text-stone-900" },
+                            onclick: move |_| {
+                                app.row_menu.set(None);
+                                app.selected_folder_id.set(Some(fid.clone()));
+                                app.sidebar_open.set(false);
+                                crate::ui::sidebar::navigate_with_slide(app, View::NotesList);
+                            },
+                            IconFolder { size: 16 }
+                            span { class: "flex-1 min-w-0",
+                                span { class: "block text-sm [overflow-wrap:anywhere]", "{row.folder.name}" }
+                                span { class: "block text-xs text-stone-500 [overflow-wrap:anywhere]", "{path}" }
+                            }
+                        }
+                    }
+                }
+            }
+        } else {
         if !spaces().is_empty() {
             div { class: "flex items-center gap-1.5 px-2 mb-1 {kit::SECTION_LABEL}",
                 IconUsersThree { size: 14 }
@@ -146,6 +199,7 @@ pub fn FolderSection() -> Element {
             FolderItem { key: "{folder.id}", folder: folder, depth: 0 }
         }
         super::join_link::JoinLink {}
+        }
     }
 }
 
@@ -294,9 +348,7 @@ pub(super) fn FolderItem(folder: Folder, depth: u32) -> Element {
                     app.folders_version.set((app.folders_version)() + 1);
                 }
             }
-            let mut set = (app.expanded_folders)();
-            set.insert(parent_local);
-            app.expanded_folders.set(set);
+            set_folder_expanded(app, &db(), &parent_local, true);
         };
 
     // Whether this theme lives in a shared space, and whether the user may add
@@ -313,14 +365,11 @@ pub(super) fn FolderItem(folder: Folder, depth: u32) -> Element {
     });
     let has_children = !children().is_empty();
 
-    // Expansion lives in AppState so the tree survives drawer close/reopen.
-    let is_expanded = (app.expanded_folders)().contains(&folder.id);
+    let is_expanded = !(app.collapsed_folders)().contains(&folder.id);
     let toggle_expanded = use_callback(move |_: ()| {
-        let mut set = (app.expanded_folders)();
-        if !set.remove(&folder_id_for_toggle) {
-            set.insert(folder_id_for_toggle.clone());
-        }
-        app.expanded_folders.set(set);
+        let expanded =
+            app.collapsed_folders.peek().contains(&folder_id_for_toggle);
+        set_folder_expanded(app, &db(), &folder_id_for_toggle, expanded);
     });
 
     let note_count = use_memo(move || {
@@ -395,6 +444,8 @@ pub(super) fn FolderItem(folder: Folder, depth: u32) -> Element {
                     if has_children {
                         button {
                             class: "min-w-[28px] min-h-[44px] flex items-center justify-center hover:opacity-70 transition-opacity duration-150",
+                            "aria-expanded": is_expanded,
+                            "aria-label": format!("{} {}", t(&lang, if is_expanded { "folder-collapse" } else { "folder-expand" }), folder.name),
                             onclick: move |evt| {
                                 evt.stop_propagation();
                                 toggle_expanded(());
@@ -415,9 +466,6 @@ pub(super) fn FolderItem(folder: Folder, depth: u32) -> Element {
                             "flex-1 min-w-0 flex items-center gap-2 text-left px-2 py-2.5 text-sm text-stone-900 rounded-lg min-h-[44px] hover:bg-stone-100 transition-colors duration-150"
                         },
                         onclick: move |_| {
-                            if has_children {
-                                toggle_expanded(());
-                            }
                             app.selected_folder_id.set(Some(folder_id_nav.clone()));
                             app.sidebar_open.set(false);
                             crate::ui::sidebar::navigate_with_slide(app, View::NotesList);

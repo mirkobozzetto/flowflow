@@ -251,8 +251,9 @@ pub fn NoteDetail() -> Element {
     let is_importing = import_in_progress();
 
     rsx! {
-        if show_menu {
+        if show_menu || cfg!(target_os = "ios") {
             NoteMenu {
+                key: "{local_note_id}",
                 note_id: local_note_id(),
                 import_requested,
                 deleted,

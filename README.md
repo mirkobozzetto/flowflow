@@ -19,8 +19,8 @@ No manual searching. No folders to dig through. Just talk, and find it later.
 
 ## Get it
 
-- **iOS** - on the App Store (v2.0), available worldwide.
-- **macOS (Apple Silicon)** - grab the DMG from the [latest release](https://github.com/mirkobozzetto/flowflow/releases/latest), drag FlowFlow to Applications. First launch: right-click > Open (the build is not notarized yet).
+- **iOS** - on the [App Store](https://apps.apple.com/app/id6773033233), available worldwide.
+- **macOS (Apple Silicon)** - grab the DMG from the [latest release](https://github.com/mirkobozzetto/flowflow/releases/latest), drag FlowFlow to Applications. Signed and notarized by Apple: it opens like any Mac app.
 - **From source** - see [Build](#build) below; one `make` installs on your own iPhone or Mac.
 
 ## Highlights
@@ -45,6 +45,8 @@ No manual searching. No folders to dig through. Just talk, and find it later.
 **Organized for you**
 
 - AI titles, tags and themes as you write; searchable chats
+- Theme search from the menu or the title; every folder starts open and
+  the ones you close stay closed
 - Threads: related notes as one chronological story; right-click or long-press
   a note within a thread to copy its full text or share that note
 - Smart filters in the search bar: dictated, reminder, document, thread
@@ -79,7 +81,8 @@ No manual searching. No folders to dig through. Just talk, and find it later.
 - A real Mac app: ⌘N, ⌘F, ⌘⌘, view history, native file dialogs
 - iPhone: the menu lies under the screen, which slides aside as a card;
   swipe from anywhere to open it
-- iOS 26 Liquid Glass controls, haptics on every commit, drag-to-dismiss sheets
+- iOS 26 Liquid Glass controls and native options menus (press, slide,
+  release); haptics on every commit, drag-to-dismiss sheets
 - English + French, down to error messages; word-level transcript with tap-to-seek
 
 The full tour, one paragraph per feature: [docs/FEATURES.md](docs/FEATURES.md).
@@ -163,7 +166,7 @@ make all          # build + sign + icon + install on iPhone
 make ddev         # dx serve --ios --device (hot reload)
 make desktop-app  # build + install the Mac app in /Applications
 make dmg          # distributable Mac DMG in dist/
-make release      # make dmg + publish as a GitHub release
+make release      # make dmg + notarize + publish as a GitHub release
 make check        # fmt check + clippy
 make appstore     # release build + signed IPA
 ```

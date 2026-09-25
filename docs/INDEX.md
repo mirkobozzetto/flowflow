@@ -24,6 +24,7 @@
 
 ## 04 App Store
 
+- [Releases](release/) - store listing EN/FR, and per version: What's New, Mac release notes, checklist
 - [App Store guide](guides/appstore.md) - provisioning, signing, IPA, submission, troubleshooting, quick links
 - [Deploy notes](deploy/) - fresh setup, submission walkthrough, execution plan, Dioxus workarounds
 

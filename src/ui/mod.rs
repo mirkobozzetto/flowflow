@@ -3,6 +3,7 @@ mod chat;
 mod clipboard;
 mod composer;
 pub(crate) mod delete_confirm;
+mod folder_navigation;
 pub mod hooks;
 pub mod icons;
 mod keyboard;
@@ -47,7 +48,10 @@ pub fn App() -> Element {
 
     let app = use_context_provider(|| {
         let d = db();
-        AppState::new(load_consent(&d), load_lang(&d))
+        let mut app = AppState::new(load_consent(&d), load_lang(&d));
+        app.collapsed_folders
+            .set(folder_navigation::load_closed_folders(&d));
+        app
     });
 
     use_transcription_watcher(manager.clone(), db, engine, app);
@@ -59,6 +63,8 @@ pub fn App() -> Element {
     use_share_align_watcher(app, db);
     use_space_pull_watcher(app, db);
     use_share_deeplink_watcher(app, db);
+    #[cfg(debug_assertions)]
+    app::use_screenshot_watcher(app, db);
 
     #[cfg(target_os = "macos")]
     keyboard::use_macos_shortcuts(app);

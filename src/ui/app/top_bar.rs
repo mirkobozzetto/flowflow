@@ -168,7 +168,7 @@ pub fn TopBar() -> Element {
                         view_box: "0 0 28 28",
                         fill: "none",
                         stroke: "currentColor",
-                        stroke_width: "2.4",
+                        stroke_width: "1.8",
                         stroke_linecap: "round",
                         line { x1: "5", y1: "10", x2: "19", y2: "10" }
                         line { x1: "5", y1: "18", x2: "23", y2: "18" }
@@ -215,13 +215,16 @@ pub fn TopBar() -> Element {
             }
             if is_detail {
                 button {
-                    class: "min-w-[44px] min-h-[44px] flex items-center justify-center rounded-[10px] text-stone-700 hover:text-stone-900 hover:bg-stone-100 transition-colors duration-150",
+                    "data-glass": "note-more",
+                    class: "glass-disc relative w-11 h-11 shrink-0 flex items-center justify-center rounded-full text-stone-700",
+                    "aria-label": t(&lang, "note-menu-options"),
+                    onpointerdown: move |_| app.show_folder_picker.set(false),
                     onclick: move |_| {
                         app.show_folder_picker.set(false);
                         let cur = (app.show_note_menu)();
                         app.show_note_menu.set(!cur);
                     },
-                    IconDotsThreeVertical { size: 22 }
+                    IconDotsThree { size: 22 }
                 }
             } else if is_thread {
                 button {
@@ -235,19 +238,22 @@ pub fn TopBar() -> Element {
                 }
             } else if is_chat {
                 button {
-                    class: "min-w-[44px] min-h-[44px] flex items-center justify-center rounded-[10px] text-stone-700 hover:text-stone-900 hover:bg-stone-100 transition-colors duration-150",
+                    "data-glass": "chat-more",
+                    class: "glass-disc relative w-11 h-11 shrink-0 flex items-center justify-center rounded-full text-stone-700",
+                    "aria-label": t(&lang, "chat-menu-options"),
+                    onpointerdown: move |_| app.show_folder_picker.set(false),
                     onclick: move |_| {
                         app.show_folder_picker.set(false);
                         let cur = (app.show_chat_menu)();
                         app.show_chat_menu.set(!cur);
                     },
-                    IconDotsThreeVertical { size: 22 }
+                    IconDotsThree { size: 22 }
                 }
             } else if !is_inner {
                 // Chat pill (#177): native glass on iOS 26, like the burger.
                 button {
                     "data-glass": "chat",
-                    class: "glass-disc relative h-12 -my-0.5 pl-3.5 pr-5 shrink-0 flex items-center gap-1.5 rounded-full text-[15px] font-semibold text-ios-orange-dark",
+                    class: "glass-disc relative h-12 -my-0.5 pl-3.5 pr-5 shrink-0 flex items-center gap-1.5 rounded-full text-[15px] font-medium text-ios-orange-dark",
                     onpointerdown: move |_| haptic_prepare("light"),
                     onclick: move |_| {
                         haptic("light");

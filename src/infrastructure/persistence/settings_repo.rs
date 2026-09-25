@@ -21,6 +21,7 @@ pub const SENSITIVE_SETTINGS: &[&str] = &[
 pub const SENSITIVE_SETTING_PREFIXES: &[&str] = &["sync_psk_"];
 
 pub const DEVICE_LOCAL_SETTINGS: &[&str] = &[
+    "ui_closed_folders",
     "ai_consent",
     "sync_restored_pending",
     "sync_restored_floor",

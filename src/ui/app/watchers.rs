@@ -193,6 +193,68 @@ pub fn use_record_deeplink_watcher(
     });
 }
 
+/// Debug builds only: a `shot` file next to the store names a screen to set
+/// up for the App Store screenshots (scripts/capture-screenshots.sh): the
+/// simulator runs headless and cannot be tapped, and a URL would raise an
+/// "Open in FlowFlow?" alert. home, record, menu, note, chat.
+#[cfg(debug_assertions)]
+pub fn use_screenshot_watcher(app: AppState, db: Signal<Arc<Database>>) {
+    use_future(move || {
+        let mut app = app;
+        async move {
+            loop {
+                futures_timer::Delay::new(std::time::Duration::from_millis(
+                    300,
+                ))
+                .await;
+                let file = crate::infrastructure::persistence::db_path()
+                    .with_file_name("shot");
+                let Ok(screen) = std::fs::read_to_string(&file) else {
+                    continue;
+                };
+                let _ = std::fs::remove_file(&file);
+                let screen = screen.trim();
+                if screen == "record" {
+                    crate::infrastructure::sync::deeplink::push(
+                        "flowflow://record".to_string(),
+                    );
+                    continue;
+                }
+                let note = db
+                    .peek()
+                    .list_notes()
+                    .ok()
+                    .and_then(|notes| notes.into_iter().next())
+                    .map(|n| n.id);
+                let chat = db
+                    .peek()
+                    .list_conversations()
+                    .ok()
+                    .and_then(|c| c.into_iter().next())
+                    .map(|c| c.id);
+                app.sidebar_open.set(screen == "menu");
+                app.show_tools_menu.set(false);
+                app.show_note_tools_menu.set(false);
+                // Through the list first, so a mounted detail is rebuilt.
+                app.view.set(View::NotesList);
+                futures_timer::Delay::new(std::time::Duration::from_millis(60))
+                    .await;
+                match screen {
+                    "note" => {
+                        if let Some(note_id) = note {
+                            app.view.set(View::NoteDetail { note_id });
+                        }
+                    }
+                    "chat" => app.view.set(View::Chat {
+                        conversation_id: chat,
+                    }),
+                    _ => {}
+                }
+            }
+        }
+    });
+}
+
 /// A tapped share link (flowflow://share/{code}) opens the read-only view.
 /// Same mailbox as the record deep link, scoped by prefix.
 pub fn use_share_deeplink_watcher(app: AppState, db: Signal<Arc<Database>>) {

@@ -61,10 +61,20 @@ fn main() {
         panic!("xcrun swift build failed with status: {status}");
     }
 
-    let lib_dir = package_path
-        .join(".build")
-        .join(swift_triple)
-        .join("release");
+    // SwiftPM 6.4+ writes products to .build/out/Products/Release-<sdk>;
+    // older versions to .build/<triple>/release. The old folder is never
+    // cleaned, so preferring it would silently link a stale plugin.
+    let modern = package_path
+        .join(".build/out/Products")
+        .join(format!("Release-{sdk_name}"));
+    let lib_dir = if modern.join("libRecordingPlugin.a").exists() {
+        modern
+    } else {
+        package_path
+            .join(".build")
+            .join(swift_triple)
+            .join("release")
+    };
 
     println!("cargo:rustc-link-search=native={}", lib_dir.display());
     println!("cargo:rustc-link-lib=static=RecordingPlugin");

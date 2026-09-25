@@ -16,6 +16,8 @@ pub(crate) mod top_bar;
 pub use boot::{load_consent, load_lang};
 pub use contexts::{use_app_contexts, AppContexts};
 pub use router::AppRouter;
+#[cfg(debug_assertions)]
+pub use watchers::use_screenshot_watcher;
 pub use watchers::{
     use_history_tracker, use_picker_reset_on_view, use_record_deeplink_watcher,
     use_share_align_watcher, use_share_deeplink_watcher,

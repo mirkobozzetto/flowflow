@@ -82,12 +82,9 @@ Everything below has to be done by hand in the App Store Connect web UI or on th
    - OpenAI key: https://platform.openai.com/api-keys → spending cap at https://platform.openai.com/settings/organization/limits
    - Soniox key: https://console.soniox.com/api-keys → top up $5 prepaid credit
 
-2. **Capture screenshots on the iOS simulator** (1284 × 2778 for iPhone 6.5" slot, or 1320 × 2868 for 6.9").
-   ```bash
-   xcrun simctl boot "iPhone 17 Pro Max"
-   xcrun simctl io booted screenshot slot-1.png
-   ```
-   Take 3 to 4 screens showing the app in English. Upload them in the iPhone slot on the ASC version page (see Quick links below).
+2. **Capture screenshots on the iOS simulator** (1320 × 2868 for the 6.9" slot)
+   on a demo store, one run per locale: `scripts/capture-screenshots.sh`.
+   Full commands in the current release file under [../release/](../release/).
 
 3. **Fill App Review Information** (bottom of the ASC version page):
    - **Contact**: your first name, last name, email, phone number.
@@ -124,9 +121,12 @@ Everything below has to be done by hand in the App Store Connect web UI or on th
 
 ### Push an update (continuous releases)
 
-Workflow once the app is live on the Store:
+Workflow once the app is live on the Store. Texts to paste (What's New,
+listing, review notes) and the per-release checklist: [../release/](../release/).
 
-1. Bump `CFBundleVersion` in `Makefile` (line 74) by `+1`. ASC rejects duplicate build numbers. Bump `CFBundleShortVersionString` only on user-visible releases (e.g. `1.0.0` → `1.0.1`).
+1. Numbers are automatic: the build counter lives in `.appstore-build`, and
+   `make appstore` ships the `Cargo.toml` version with its patch bumped.
+   For a minor or major release, pin it: `make appstore APPSTORE_VERSION=2.1.0`.
 2. `make appstore` → fresh signed `FlowFlow.ipa`.
 3. Open Transporter → drag the `.ipa` → Deliver. Apple processes the build (5-30 min).
 4. ASC → your app → **TestFlight or App Store tab** → attach the new build to the current version, or create a new version (`+ Version` button) if you bumped the short version string.
