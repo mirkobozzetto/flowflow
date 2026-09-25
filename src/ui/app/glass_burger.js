@@ -42,6 +42,10 @@
       })) : []
     };
   }
+  const ready = () => {
+    document.documentElement.dataset.glassReady = "1";
+  };
+  setTimeout(ready, 3000);
   let lastTarget = -1;
   let raf = 0;
   const card = () => document.getElementById("main-card");
@@ -74,6 +78,8 @@
         visible = false;
       shown.set(id, visible);
       a.toggleAttribute("data-glass-on", visible);
+      if (visible)
+        ready();
       const x = r.left - dx - (vv ? vv.offsetLeft : 0);
       const y = r.top - (vv ? vv.offsetTop : 0);
       const dot = a.querySelector("[data-badge]") ? 1 : 0;

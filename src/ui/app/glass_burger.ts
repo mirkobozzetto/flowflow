@@ -53,6 +53,11 @@
         })) : [],
     };
   }
+  const ready = () => {
+    document.documentElement.dataset.glassReady = "1";
+  };
+  // Never keep the anchors hidden if no native button ever shows.
+  setTimeout(ready, 3000);
   let lastTarget = -1;
   let raf = 0;
 
@@ -96,6 +101,9 @@
       if (menu && !menu.items.length) visible = false;
       shown.set(id, visible);
       a.toggleAttribute("data-glass-on", visible);
+      // A native button is on screen: the anchors held transparent at
+      // launch (router.rs, data-glass-wait) now follow data-glass-on alone.
+      if (visible) ready();
       const x = r.left - dx - (vv ? vv.offsetLeft : 0);
       const y = r.top - (vv ? vv.offsetTop : 0);
       const dot = a.querySelector("[data-badge]") ? 1 : 0;

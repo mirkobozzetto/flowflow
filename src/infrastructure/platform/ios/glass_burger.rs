@@ -276,16 +276,20 @@ fn make(web: &UIView, id: &str, mtm: MainThreadMarker) -> Option<Glassed> {
     })
 }
 
+/// iOS 26+: the native Liquid Glass button configuration exists.
+pub fn supported() -> bool {
+    UIButtonConfiguration::class()
+        .class_method(sel!(glassButtonConfiguration))
+        .is_some()
+}
+
 /// Ready the layer; false before iOS 26 or without a web view, in which case
 /// the web anchors simply stay visible.
 pub fn install() -> bool {
     if GLASS.with(|g| g.borrow().is_some()) {
         return true;
     }
-    if UIButtonConfiguration::class()
-        .class_method(sel!(glassButtonConfiguration))
-        .is_none()
-    {
+    if !supported() {
         return false;
     }
     let Some(web) = super::web_view() else {

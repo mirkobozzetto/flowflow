@@ -196,7 +196,8 @@ pub fn use_record_deeplink_watcher(
 /// Debug builds only: a `shot` file next to the store names a screen to set
 /// up for the App Store screenshots (scripts/capture-screenshots.sh): the
 /// simulator runs headless and cannot be tapped, and a URL would raise an
-/// "Open in FlowFlow?" alert. home, record, menu, note, chat.
+/// "Open in FlowFlow?" alert. home, record, menu, note, edit (the note with
+/// its title focused), chat.
 #[cfg(debug_assertions)]
 pub fn use_screenshot_watcher(app: AppState, db: Signal<Arc<Database>>) {
     use_future(move || {
@@ -240,9 +241,18 @@ pub fn use_screenshot_watcher(app: AppState, db: Signal<Arc<Database>>) {
                 futures_timer::Delay::new(std::time::Duration::from_millis(60))
                     .await;
                 match screen {
-                    "note" => {
+                    "note" | "edit" => {
                         if let Some(note_id) = note {
                             app.view.set(View::NoteDetail { note_id });
+                        }
+                        if screen == "edit" {
+                            futures_timer::Delay::new(
+                                std::time::Duration::from_millis(400),
+                            )
+                            .await;
+                            dioxus::document::eval(
+                                "document.querySelector('.note-title-field')?.focus();",
+                            );
                         }
                     }
                     "chat" => app.view.set(View::Chat {

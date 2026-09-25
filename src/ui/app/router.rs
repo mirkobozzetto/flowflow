@@ -43,6 +43,7 @@ pub fn AppRouter(index_rebuilding: Signal<bool>) -> Element {
         div {
             class: "h-screen w-full overflow-hidden font-sans bg-stone-100 lg:flex lg:flex-row",
             class: if CARD_MODE { "sb-stage" } else { "" },
+            "data-glass-wait": super::glass_burger::native_glass(),
             if splash_visible() {
                 div {
                     class: "splash-overlay fixed inset-0 z-[100] bg-warm-white flex items-center justify-center transition-opacity",

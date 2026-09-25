@@ -260,8 +260,10 @@ pub fn NoteDetail() -> Element {
             }
         }
         div {
-            // Match the recording bar: 48px controls, vertical padding and its 1px border.
-            class: "relative overflow-y-auto pb-[calc(4rem+1px+env(safe-area-inset-bottom))] lg:pb-[calc(5rem+1px)] px-4 pt-3 lg:px-[max(1rem,calc((100%-48rem)/2))]",
+            // Clear the composer dock (60px pill + 16px padding + safe area,
+            // 92px on desktop) with room to spare, so the end of the note
+            // (reminder buttons, related notes) never stays under it.
+            class: "note-scroll relative overflow-y-auto pb-[calc(6.5rem+env(safe-area-inset-bottom))] lg:pb-[7rem] px-4 pt-3 lg:px-[max(1rem,calc((100%-48rem)/2))]",
             style: "height: calc(100% - var(--keyboard-inset, 0px));",
             if updated_from_peer() {
                 button {
@@ -333,7 +335,10 @@ pub fn NoteDetail() -> Element {
                     }
                 }
             }
-            div { class: "sticky bottom-1 z-10 flex justify-end gap-1 mt-1 ml-auto w-fit h-10 px-1 rounded-full bg-warm-white border border-stone-200 shadow-card",
+            // In the flow under the body, not sticky: pinned to the viewport
+            // bottom it hid behind the composer, or floated over the text
+            // with the keyboard up.
+            div { class: "flex justify-end gap-1 mt-1 ml-auto w-fit h-10 px-1 rounded-full bg-warm-white border border-stone-200 shadow-card",
                 button {
                     class: "pressable flex items-center gap-1 min-h-[32px] px-2 rounded-full text-xs text-stone-400 hover:text-stone-600 hover:bg-stone-100 transition-colors duration-150",
                     onclick: move |_| editing.set(!editing()),
