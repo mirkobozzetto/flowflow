@@ -1,5 +1,15 @@
 use dioxus::prelude::*;
 
+/// True where native glass buttons will replace the web anchors: the anchors
+/// then stay transparent until the glass layer has placed them, so the app
+/// opens on the final buttons instead of swapping web ones for native ones.
+pub fn native_glass() -> bool {
+    #[cfg(target_os = "ios")]
+    return crate::infrastructure::platform::ios::glass_burger::supported();
+    #[cfg(not(target_os = "ios"))]
+    false
+}
+
 /// #177: on iOS 26+, lay native Liquid Glass buttons over the web anchors
 /// (`data-glass`: burger, chat pill, new-note button) and keep them on them
 /// (place, card drag, card glide). Elsewhere, and whenever a native button is
@@ -24,6 +34,10 @@ pub fn use_glass_burger() {
                 .await;
             }
             if !installed {
+                // No native layer after all: bring the web anchors back.
+                dioxus::document::eval(
+                    "document.documentElement.dataset.glassReady = '1';",
+                );
                 return;
             }
             let mut eval = dioxus::document::eval(GLASS_JS);

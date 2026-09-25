@@ -159,6 +159,11 @@
 [data-glass][data-glass-on] {
     opacity: 0;
 }
+/* Until the glass layer has placed its buttons, keep the web anchors out of
+   sight: otherwise the app opens on them and swaps them for the native ones. */
+:root:not([data-glass-ready]) [data-glass-wait="true"] [data-glass] {
+    opacity: 0;
+}
 
 .menu-pop {
     animation: popIn 0.16s ease-out;
@@ -294,6 +299,12 @@
 }
 .composer-field:focus-visible {
     outline: none;
+}
+/* Editing the note itself (title, tags, body): the append composer would
+   ride the keyboard over the text being typed. Never while a take runs. */
+:root:has(.note-scroll :is(input, textarea):focus)
+    .composer-dock:not(:has(.composer-capsule[data-hidden="true"])) {
+    display: none;
 }
 .composer-capsule[data-multi="true"] .composer-field {
     margin-left: 0;
