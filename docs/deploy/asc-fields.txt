@@ -1,3 +1,6 @@
+SUPERSEDED: the current listing texts live in docs/release/listing.md.
+Kept as the v1.0 record.
+
 ================================================================
   APP STORE CONNECT — copy-paste cheat-sheet for FlowFlow V1.0
 ================================================================

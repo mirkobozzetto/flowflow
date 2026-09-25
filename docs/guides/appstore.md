@@ -124,9 +124,12 @@ Everything below has to be done by hand in the App Store Connect web UI or on th
 
 ### Push an update (continuous releases)
 
-Workflow once the app is live on the Store:
+Workflow once the app is live on the Store. Texts to paste (What's New,
+listing, review notes) and the per-release checklist: [../release/](../release/).
 
-1. Bump `CFBundleVersion` in `Makefile` (line 74) by `+1`. ASC rejects duplicate build numbers. Bump `CFBundleShortVersionString` only on user-visible releases (e.g. `1.0.0` → `1.0.1`).
+1. Numbers are automatic: the build counter lives in `.appstore-build`, and
+   `make appstore` ships the `Cargo.toml` version with its patch bumped.
+   For a minor or major release, pin it: `make appstore APPSTORE_VERSION=2.1.0`.
 2. `make appstore` → fresh signed `FlowFlow.ipa`.
 3. Open Transporter → drag the `.ipa` → Deliver. Apple processes the build (5-30 min).
 4. ASC → your app → **TestFlight or App Store tab** → attach the new build to the current version, or create a new version (`+ Version` button) if you bumped the short version string.
