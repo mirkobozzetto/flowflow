@@ -7,10 +7,14 @@ use objc2_foundation::{MainThreadMarker, NSArray, NSString};
 use objc2_ui_kit::{
     NSObjectUIAccessibility, UIAction, UIButton,
     UIContextMenuConfigurationElementOrder, UIImage, UIMenu, UIMenuElement,
-    UIMenuElementAttributes,
+    UIMenuElementAttributes, UIMenuElementState, UIMenuOptions,
 };
 use serde::Deserialize;
 use std::ptr::NonNull;
+
+// A symbol name the web can send for the app's own chat icon, which has no
+// SF Symbol equivalent.
+const CHAT_AI_SYMBOL: &str = "ff.chat.ai";
 
 #[derive(Deserialize)]
 pub(super) struct Menu {
@@ -21,13 +25,91 @@ pub(super) struct Menu {
     items: Vec<Item>,
 }
 
+/// An action, or with `children` a submenu (a separated group when `inline`).
 #[derive(Deserialize)]
 struct Item {
+    #[serde(default)]
     id: String,
     title: String,
+    #[serde(default)]
     symbol: String,
+    #[serde(default)]
+    subtitle: String,
+    #[serde(default)]
     disabled: bool,
+    #[serde(default)]
     destructive: bool,
+    #[serde(default)]
+    checked: bool,
+    #[serde(default)]
+    inline: bool,
+    #[serde(default)]
+    children: Vec<Item>,
+}
+
+fn image(symbol: &str, mtm: MainThreadMarker) -> Option<Retained<UIImage>> {
+    match symbol {
+        "" => None,
+        CHAT_AI_SYMBOL => Some(super::glass_burger::chat_ai(mtm, 22.0)),
+        name => UIImage::systemImageNamed(&NSString::from_str(name)),
+    }
+}
+
+fn element(
+    item: Item,
+    menu_id: &str,
+    context: &str,
+    mtm: MainThreadMarker,
+) -> Retained<UIMenuElement> {
+    let image = image(&item.symbol, mtm);
+    // Actions carry an id; a submenu or a group has none.
+    if item.id.is_empty() {
+        let children: Vec<Retained<UIMenuElement>> = item
+            .children
+            .into_iter()
+            .map(|c| element(c, menu_id, context, mtm))
+            .collect();
+        let options = if item.inline {
+            UIMenuOptions::DisplayInline
+        } else {
+            UIMenuOptions::empty()
+        };
+        let menu = UIMenu::menuWithTitle_image_identifier_options_children(
+            &NSString::from_str(&item.title),
+            image.as_deref(),
+            None,
+            options,
+            &NSArray::from_retained_slice(&children),
+            mtm,
+        );
+        return Retained::into_super(menu);
+    }
+    // JSON-encode arguments, never interpolate note/user text as JS.
+    let args = serde_json::to_string(&(menu_id, context, &item.id))
+        .expect("menu arguments are strings");
+    let callback = RcBlock::new(move |_action: NonNull<UIAction>| {
+        evaluate(&format!("window.__ffMenuPick?.(...{args});"));
+    });
+    let action = unsafe {
+        UIAction::actionWithHandler(&*callback as *const _ as *mut _, mtm)
+    };
+    action.setTitle(&NSString::from_str(&item.title));
+    action.setImage(image.as_deref());
+    if !item.subtitle.is_empty() {
+        action.setSubtitle(Some(&NSString::from_str(&item.subtitle)));
+    }
+    if item.checked {
+        action.setState(UIMenuElementState::On);
+    }
+    let mut attributes = UIMenuElementAttributes::empty();
+    if item.disabled {
+        attributes |= UIMenuElementAttributes::Disabled;
+    }
+    if item.destructive {
+        attributes |= UIMenuElementAttributes::Destructive;
+    }
+    action.setAttributes(attributes);
+    Retained::into_super(action)
 }
 
 fn evaluate(js: &str) {
@@ -40,6 +122,11 @@ fn evaluate(js: &str) {
         let _: () = msg_send![&*web, evaluateJavaScript: &*js,
             completionHandler: done];
     }
+}
+
+/// Menu shown or dismissed: the web turns its "+" into a cross and back.
+pub(super) fn report_open(open: bool) {
+    evaluate(&format!("window.__ffMenuOpen?.({open});"));
 }
 
 pub(super) fn prepare(id: &str) {
@@ -58,32 +145,11 @@ pub(super) fn attach(button: &UIButton, menu: Menu, mtm: MainThreadMarker) {
         button.setShowsMenuAsPrimaryAction(false);
         return;
     }
-    let mut children: Vec<Retained<UIMenuElement>> = Vec::new();
-    for item in menu.items {
-        // JSON-encode arguments, never interpolate note/user text as JS.
-        let args = serde_json::to_string(&(&menu.id, &menu.context, &item.id))
-            .expect("menu arguments are strings");
-        let callback = RcBlock::new(move |_action: NonNull<UIAction>| {
-            evaluate(&format!("window.__ffMenuPick?.(...{args});"));
-        });
-        let action = unsafe {
-            UIAction::actionWithHandler(&*callback as *const _ as *mut _, mtm)
-        };
-        action.setTitle(&NSString::from_str(&item.title));
-        action.setImage(
-            UIImage::systemImageNamed(&NSString::from_str(&item.symbol))
-                .as_deref(),
-        );
-        let mut attributes = UIMenuElementAttributes::empty();
-        if item.disabled {
-            attributes |= UIMenuElementAttributes::Disabled;
-        }
-        if item.destructive {
-            attributes |= UIMenuElementAttributes::Destructive;
-        }
-        action.setAttributes(attributes);
-        children.push(Retained::into_super(action));
-    }
+    let children: Vec<Retained<UIMenuElement>> = menu
+        .items
+        .into_iter()
+        .map(|item| element(item, &menu.id, &menu.context, mtm))
+        .collect();
     let native =
         UIMenu::menuWithChildren(&NSArray::from_retained_slice(&children), mtm);
     button.setMenu(Some(&native));

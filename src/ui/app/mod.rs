@@ -15,6 +15,7 @@ pub(crate) mod top_bar;
 
 pub use boot::{load_consent, load_lang};
 pub use contexts::{use_app_contexts, AppContexts};
+pub(crate) use glass_burger::native_glass;
 pub use router::AppRouter;
 #[cfg(debug_assertions)]
 pub use watchers::use_screenshot_watcher;

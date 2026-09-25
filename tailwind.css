@@ -156,12 +156,15 @@
     position: relative;
 }
 /* iOS 26: a native Liquid Glass button sits on the anchor (glass_burger.ts). */
-[data-glass][data-glass-on] {
+[data-glass][data-glass-on]:not([data-glass$="-plus"]) {
     opacity: 0;
 }
 /* Until the glass layer has placed its buttons, keep the web anchors out of
-   sight: otherwise the app opens on them and swaps them for the native ones. */
-:root:not([data-glass-ready]) [data-glass-wait="true"] [data-glass] {
+   sight: otherwise the app opens on them and swaps them for the native ones.
+   The composer's "+" stays drawn by the web: its native button is clear. */
+:root:not([data-glass-ready])
+    [data-glass-wait="true"]
+    [data-glass]:not([data-glass$="-plus"]) {
     opacity: 0;
 }
 
@@ -268,12 +271,22 @@
 /* Floating glass composer, ChatGPT-like: the dock is a fade, not a slab,
    and the pill blurs what scrolls under it behind a light rim. Held down
    (not on its buttons), it swells a hair and brightens. */
-.composer-dock {
+/* On a pseudo-element: a mask on the dock itself would fade the pill too. */
+.composer-dock::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    z-index: -1;
+    pointer-events: none;
     background: linear-gradient(
         to top,
         var(--color-warm-white) 45%,
         --alpha(var(--color-warm-white) / 0%)
     );
+    -webkit-backdrop-filter: blur(10px) saturate(1.2);
+    backdrop-filter: blur(10px) saturate(1.2);
+    -webkit-mask-image: linear-gradient(to top, #000 62%, transparent);
+    mask-image: linear-gradient(to top, #000 62%, transparent);
 }
 .composer-glass {
     background: --alpha(var(--color-warm-white) / 70%);
@@ -313,7 +326,8 @@
 .composer-plus {
     transition: transform 280ms var(--ease-soft), background-color 180ms;
 }
-.composer-plus[data-open="true"] {
+.composer-plus[data-open="true"],
+.composer-plus[data-native-open] {
     transform: rotate(45deg);
     background: var(--color-stone-200);
 }

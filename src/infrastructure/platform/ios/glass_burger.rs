@@ -8,19 +8,74 @@
 use block2::RcBlock;
 use objc2::rc::Retained;
 use objc2::runtime::AnyObject;
-use objc2::{msg_send, sel, AnyThread, ClassType};
+use objc2::{
+    define_class, msg_send, sel, AnyThread, ClassType, MainThreadOnly,
+};
 use objc2_core_foundation::{CGPoint, CGRect, CGSize};
 use objc2_foundation::{
-    MainThreadMarker, NSAttributedString, NSDictionary, NSString,
+    MainThreadMarker, NSAttributedString, NSDictionary, NSObject, NSString,
 };
 use objc2_ui_kit::{
     NSDirectionalEdgeInsets, NSFontAttributeName, UIAction, UIButton,
     UIButtonConfiguration, UIButtonConfigurationCornerStyle, UIColor,
-    UIControlEvents, UIFont, UIFontWeightMedium, UIGraphicsImageRenderer,
-    UIGraphicsImageRendererContext, UIImage, UIImageRenderingMode,
-    UIImageSymbolConfiguration, UIImageSymbolWeight, UIUserInterfaceStyle,
-    UIView, UIViewAnimating, UIViewAnimatingState, UIViewPropertyAnimator,
+    UIControl, UIControlEvents, UIFont, UIFontWeightMedium,
+    UIGraphicsImageRenderer, UIGraphicsImageRendererContext, UIImage,
+    UIImageRenderingMode, UIImageSymbolConfiguration, UIImageSymbolWeight,
+    UIResponder, UIUserInterfaceStyle, UIView, UIViewAnimating,
+    UIViewAnimatingState, UIViewPropertyAnimator,
 };
+
+// Anchors whose native button opens a UIMenu mirrored from a hidden DOM menu.
+fn has_menu(id: &str) -> bool {
+    matches!(id, "note-more" | "chat-more" | "note-plus" | "chat-plus")
+}
+
+// The composer's "+": its web glyph stays visible and turns into a cross, so
+// the native button over it is clear and only reports the menu opening.
+fn is_plus(id: &str) -> bool {
+    matches!(id, "note-plus" | "chat-plus")
+}
+
+define_class!(
+    #[unsafe(super(UIButton, UIControl, UIView, UIResponder, NSObject))]
+    #[thread_kind = MainThreadOnly]
+    #[name = "FlowFlowPlusMenuButton"]
+    struct PlusMenuButton;
+
+    impl PlusMenuButton {
+        #[unsafe(method(contextMenuInteraction:willDisplayMenuForConfiguration:animator:))]
+        fn will_display(
+            &self,
+            interaction: &AnyObject,
+            configuration: &AnyObject,
+            animator: *mut AnyObject,
+        ) {
+            unsafe {
+                let _: () = msg_send![super(self),
+                    contextMenuInteraction: interaction,
+                    willDisplayMenuForConfiguration: configuration,
+                    animator: animator];
+            }
+            super::native_menu::report_open(true);
+        }
+
+        #[unsafe(method(contextMenuInteraction:willEndForConfiguration:animator:))]
+        fn will_end(
+            &self,
+            interaction: &AnyObject,
+            configuration: &AnyObject,
+            animator: *mut AnyObject,
+        ) {
+            unsafe {
+                let _: () = msg_send![super(self),
+                    contextMenuInteraction: interaction,
+                    willEndForConfiguration: configuration,
+                    animator: animator];
+            }
+            super::native_menu::report_open(false);
+        }
+    }
+);
 use std::cell::RefCell;
 use std::ptr::NonNull;
 
@@ -110,6 +165,54 @@ fn strokes(
     original(&image, &color)
 }
 
+/// `IconChatAi` (icons.rs), redrawn: the bubble outline in orange-dark, its
+/// two lines in the brighter orange, from the same 256-unit viewBox.
+pub(super) fn chat_ai(mtm: MainThreadMarker, size: f64) -> Retained<UIImage> {
+    let renderer = UIGraphicsImageRenderer::initWithSize(
+        mtm.alloc(),
+        CGSize::new(size, size),
+    );
+    let draw = RcBlock::new(
+        move |_ctx: NonNull<UIGraphicsImageRendererContext>| {
+            let k = size / 256.0;
+            let p = |x: f64, y: f64| CGPoint::new(x * k, y * k);
+            let pi = std::f64::consts::PI;
+            let bubble = objc2_ui_kit::UIBezierPath::bezierPath();
+            bubble.moveToPoint(p(40.0, 124.0));
+            bubble.addArcWithCenter_radius_startAngle_endAngle_clockwise(
+                p(132.0, 124.0),
+                92.0 * k,
+                pi,
+                2.5 * pi,
+                true,
+            );
+            bubble.addLineToPoint(p(48.0, 216.0));
+            bubble.addArcWithCenter_radius_startAngle_endAngle_clockwise(
+                p(48.0, 208.0),
+                8.0 * k,
+                0.5 * pi,
+                pi,
+                true,
+            );
+            bubble.closePath();
+            bubble.setLineWidth(16.0 * k);
+            orange_dark().setStroke();
+            bubble.stroke();
+            rgb(232.0, 106.0, 16.0).setFill();
+            for y in [112.0, 144.0] {
+                objc2_ui_kit::UIBezierPath::bezierPathWithRoundedRect_cornerRadius(
+                    CGRect::new(p(88.0, y - 8.0), CGSize::new(84.0 * k, 16.0 * k)),
+                    8.0 * k,
+                )
+                .fill();
+            }
+        },
+    );
+    let image =
+        unsafe { renderer.imageWithActions(&*draw as *const _ as *mut _) };
+    image.imageWithRenderingMode(UIImageRenderingMode::AlwaysOriginal)
+}
+
 fn symbol(name: &str, size: f64, color: &UIColor) -> Option<Retained<UIImage>> {
     let config = UIImageSymbolConfiguration::configurationWithPointSize_weight(
         size,
@@ -127,6 +230,15 @@ fn configuration(
     id: &str,
     mtm: MainThreadMarker,
 ) -> Option<(&'static str, Retained<UIButtonConfiguration>)> {
+    if is_plus(id) {
+        let config = UIButtonConfiguration::plainButtonConfiguration(mtm);
+        let id = if id == "note-plus" {
+            "note-plus"
+        } else {
+            "chat-plus"
+        };
+        return Some((id, config));
+    }
     let config = UIButtonConfiguration::glassButtonConfiguration(mtm);
     config.setCornerStyle(UIButtonConfigurationCornerStyle::Capsule);
     let id = match id {
@@ -151,9 +263,7 @@ fn configuration(
             }
         }
         "chat" => {
-            config.setImage(
-                symbol("text.bubble", 17.0, &orange_dark()).as_deref(),
-            );
+            config.setImage(Some(&chat_ai(mtm, 22.0)));
             config.setImagePadding(6.0);
             config.setBaseForegroundColor(Some(&orange_dark()));
             config.setContentInsets(NSDirectionalEdgeInsets {
@@ -208,7 +318,15 @@ fn configuration(
 
 fn make(web: &UIView, id: &str, mtm: MainThreadMarker) -> Option<Glassed> {
     let (id, config) = configuration(id, mtm)?;
-    let button = UIButton::buttonWithConfiguration_primaryAction(&config, None);
+    let button: Retained<UIButton> = if is_plus(id) {
+        unsafe {
+            msg_send![PlusMenuButton::class(),
+                buttonWithConfiguration: &*config,
+                primaryAction: Option::<&UIAction>::None]
+        }
+    } else {
+        UIButton::buttonWithConfiguration_primaryAction(&config, None)
+    };
     // The web UI is light-only: in system dark mode the glass would turn dark.
     button.setOverrideUserInterfaceStyle(UIUserInterfaceStyle::Light);
     button.setHidden(true);
@@ -233,7 +351,7 @@ fn make(web: &UIView, id: &str, mtm: MainThreadMarker) -> Option<Glassed> {
     });
     let down = RcBlock::new(move |_a: NonNull<UIAction>| {
         crate::infrastructure::platform::haptic_prepare("light");
-        if id == "note-more" || id == "chat-more" {
+        if has_menu(id) {
             super::native_menu::prepare(id);
         }
     });
@@ -243,7 +361,7 @@ fn make(web: &UIView, id: &str, mtm: MainThreadMarker) -> Option<Glassed> {
             UIAction::actionWithHandler(&*down as *const _ as *mut _, mtm);
         // These two controls use UIButton.menu instead of opening the web
         // popover as well. Before iOS 26 the web button remains the fallback.
-        if id != "note-more" && id != "chat-more" {
+        if !has_menu(id) {
             button.addAction_forControlEvents(
                 &tap,
                 UIControlEvents::TouchUpInside,
@@ -317,7 +435,7 @@ pub fn set_menu(json: &str) {
     else {
         return;
     };
-    if menu.id != "note-more" && menu.id != "chat-more" {
+    if !has_menu(&menu.id) {
         return;
     }
     GLASS.with(|cell| {
