@@ -2,7 +2,7 @@ use crate::application::i18n::t;
 use crate::infrastructure::audio::{AudioRecorder, RecordingState};
 use crate::infrastructure::platform::{haptic, haptic_prepare};
 use crate::ui::chat::mention_menu::{MentionMenu, MentionedNote};
-use crate::ui::chat::tools_menu::ToolsMenu;
+use crate::ui::chat::tools_menu::{NativeToolsMenu, ToolsMenu};
 use crate::ui::icons::*;
 use crate::ui::recording::{start_recording, VoiceCapsule};
 use crate::ui::AppState;
@@ -37,7 +37,7 @@ pub fn mention_fragment(s: &str) -> Option<String> {
 // Fit the field, then size the CAPSULE: it is the only animated box (height and
 // radius transition in CSS), the buttons stay anchored to its bottom and the
 // field slides to full width on the second line. The caret never moves: the
-// box comes to it. Validated on ~/ff-ux-mockup/composer-multiline.html.
+// box comes to it.
 const AUTOSIZE: &str = r#"
     var ta = document.querySelector('.composer-field');
     var cap = ta && ta.closest('.composer-capsule');
@@ -52,8 +52,7 @@ const AUTOSIZE: &str = r#"
 "#;
 
 // One capsule for the note and the chat: "+", the field, one orange button (mic
-// when empty, arrow when there is text). `children` render outside the capsule,
-// to its right (the note's thread and chat entry buttons).
+// when empty, arrow when there is text).
 #[component]
 pub fn Composer(
     role: ComposerRole,
@@ -64,7 +63,6 @@ pub fn Composer(
     /// Chat only: the notes mentioned with "@" in the field.
     #[props(default)]
     mentions: Option<Signal<Vec<MentionedNote>>>,
-    children: Element,
 ) -> Element {
     let mut app: AppState = use_context();
     let recorder: Signal<Arc<Mutex<AudioRecorder>>> = use_context();
@@ -135,6 +133,8 @@ pub fn Composer(
         (app.show_note_tools_menu)()
     };
     let show_mention = chat && (app.show_mention_menu)();
+    // iOS 26+: a native menu over the "+" replaces the web popover.
+    let native_menu = crate::ui::app::native_glass();
     let empty = input().trim().is_empty();
 
     let mut commit = move || {
@@ -218,8 +218,12 @@ pub fn Composer(
                             "data-hidden": !is_idle,
                             "data-landed": landed(),
                             div { class: "absolute left-[6px] bottom-[6px]",
+                                if native_menu {
+                                    NativeToolsMenu { note: !chat }
+                                }
                                 button {
                                     class: "composer-plus pressable w-[46px] h-[46px] rounded-full flex items-center justify-center text-stone-600 hover:bg-stone-200/70",
+                                    "data-glass": native_menu.then_some(if chat { "chat-plus" } else { "note-plus" }),
                                     "data-open": menu_open,
                                     "aria-label": t(&lang, "chat-tools-tooltip"),
                                     "aria-expanded": menu_open,
@@ -307,7 +311,6 @@ pub fn Composer(
                             }
                         }
                     }
-                    {children}
                 }
                 if let RecordingState::Error(ref e) = recording_state {
                     p { class: "text-xs text-ios-red text-center mt-1", "{e}" }
