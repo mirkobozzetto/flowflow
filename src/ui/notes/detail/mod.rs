@@ -451,7 +451,7 @@ pub fn NoteDetail() -> Element {
             if let Some(nid) = note_id_for_chat {
                 crate::ui::thread::ThreadEntryButton { note_id: nid.clone() }
                 button {
-                    class: "pressable shrink-0 w-12 h-12 flex items-center justify-center rounded-full bg-warm-white border border-ios-orange/25 text-ios-orange-dark",
+                    class: "composer-glass pressable shrink-0 w-[50px] h-[50px] mb-[5px] flex items-center justify-center rounded-full border border-stone-300/80 text-ios-orange-dark",
                     "aria-label": t(&lang, "note-chat-entry"),
                     onclick: move |_| {
                         app.show_folder_picker.set(false);
@@ -463,7 +463,7 @@ pub fn NoteDetail() -> Element {
                         app.previous_view.set(Some(View::NoteDetail { note_id: nid.clone() }));
                         app.view.set(View::Chat { conversation_id: None });
                     },
-                    IconChatAi { size: 24 }
+                    IconChatAi { size: 22 }
                 }
             }
         }
