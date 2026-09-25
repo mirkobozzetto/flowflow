@@ -119,10 +119,12 @@ pub fn ThreadEntryButton(note_id: String) -> Element {
                 }
             }
             button {
+                // Same glass and diameter as the composer's mic, centred on it
+                // (composer.rs): the pill's buttons sit 5px above its bottom.
                 class: if in_thread_btn.is_some() {
-                    "w-12 h-12 flex items-center justify-center rounded-full bg-ios-orange/15 border border-ios-orange/40 text-ios-orange-dark active:opacity-70"
+                    "composer-glass pressable w-[50px] h-[50px] mb-[5px] flex items-center justify-center rounded-full border border-ios-orange/50 text-ios-orange-dark"
                 } else {
-                    "w-12 h-12 flex items-center justify-center rounded-full bg-warm-white border border-ios-orange/25 text-ios-orange-dark active:opacity-70"
+                    "composer-glass pressable w-[50px] h-[50px] mb-[5px] flex items-center justify-center rounded-full border border-stone-300/80 text-ios-orange-dark"
                 },
                 "aria-label": if in_thread_btn.is_some() { t(&lang, "thread-open") } else { t(&lang, "thread-add") },
                 onclick: move |_| {
@@ -136,7 +138,7 @@ pub fn ThreadEntryButton(note_id: String) -> Element {
                         show_picker.set(true);
                     }
                 },
-                IconCardsThree { size: 24 }
+                IconCardsThree { size: 22 }
             }
         }
     }
