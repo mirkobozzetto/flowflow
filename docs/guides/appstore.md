@@ -82,12 +82,9 @@ Everything below has to be done by hand in the App Store Connect web UI or on th
    - OpenAI key: https://platform.openai.com/api-keys → spending cap at https://platform.openai.com/settings/organization/limits
    - Soniox key: https://console.soniox.com/api-keys → top up $5 prepaid credit
 
-2. **Capture screenshots on the iOS simulator** (1284 × 2778 for iPhone 6.5" slot, or 1320 × 2868 for 6.9").
-   ```bash
-   xcrun simctl boot "iPhone 17 Pro Max"
-   xcrun simctl io booted screenshot slot-1.png
-   ```
-   Take 3 to 4 screens showing the app in English. Upload them in the iPhone slot on the ASC version page (see Quick links below).
+2. **Capture screenshots on the iOS simulator** (1320 × 2868 for the 6.9" slot)
+   on a demo store, one run per locale: `scripts/capture-screenshots.sh`.
+   Full commands in the current release file under [../release/](../release/).
 
 3. **Fill App Review Information** (bottom of the ASC version page):
    - **Contact**: your first name, last name, email, phone number.

@@ -63,6 +63,8 @@ pub fn App() -> Element {
     use_share_align_watcher(app, db);
     use_space_pull_watcher(app, db);
     use_share_deeplink_watcher(app, db);
+    #[cfg(debug_assertions)]
+    app::use_screenshot_watcher(app, db);
 
     #[cfg(target_os = "macos")]
     keyboard::use_macos_shortcuts(app);
