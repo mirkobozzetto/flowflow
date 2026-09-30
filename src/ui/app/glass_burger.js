@@ -10,8 +10,12 @@
   const lastPlace = new Map;
   const shown = new Map;
   const lastMenu = new Map;
+  const MENU_IDS = ["note-more", "chat-more", "note-plus", "chat-plus"];
+  w.__ffMenuOpen = (open) => {
+    document.querySelectorAll('[data-glass$="-plus"]').forEach((a) => a.toggleAttribute("data-native-open", open));
+  };
   w.__ffMenuPick = (id, context, action) => {
-    if (id !== "note-more" && id !== "chat-more")
+    if (!MENU_IDS.includes(id))
       return;
     const anchor = document.querySelector(`[data-glass="${id}"]`);
     const root = document.querySelector(`[data-native-menu="${id}"]`);
@@ -25,21 +29,42 @@
     if (button && !button.disabled)
       button.click();
   };
+  function items(el) {
+    const out = [];
+    for (const child of Array.from(el.children)) {
+      if (child.dataset.nativeAction !== undefined) {
+        const button = child;
+        out.push({
+          id: button.dataset.nativeAction,
+          title: button.dataset.nativeTitle ?? button.textContent?.trim() ?? "",
+          symbol: button.dataset.nativeSymbol ?? "ellipsis",
+          subtitle: button.dataset.nativeSubtitle,
+          disabled: button.disabled,
+          destructive: button.hasAttribute("data-native-destructive"),
+          checked: button.dataset.nativeChecked === "true"
+        });
+      } else if (child.dataset.nativeSubmenu !== undefined) {
+        out.push({
+          title: child.dataset.nativeTitle ?? "",
+          symbol: child.dataset.nativeSymbol ?? "",
+          inline: child.hasAttribute("data-native-inline"),
+          children: items(child)
+        });
+      } else {
+        out.push(...items(child));
+      }
+    }
+    return out;
+  }
   function menuFor(id, anchor) {
-    if (id !== "note-more" && id !== "chat-more")
+    if (!MENU_IDS.includes(id))
       return null;
     const root = document.querySelector(`[data-native-menu="${id}"]`);
     return {
       id,
       context: root?.dataset.nativeContext ?? "",
       label: anchor.getAttribute("aria-label") ?? "",
-      items: root ? Array.from(root.querySelectorAll("[data-native-action]")).map((button) => ({
-        id: button.dataset.nativeAction,
-        title: button.textContent?.trim() ?? "",
-        symbol: button.dataset.nativeSymbol ?? "ellipsis",
-        disabled: button.disabled,
-        destructive: button.hasAttribute("data-native-destructive")
-      })) : []
+      items: root ? items(root) : []
     };
   }
   const ready = () => {
@@ -153,7 +178,7 @@
     subtree: true,
     attributes: true,
     characterData: true,
-    attributeFilter: ["class", "disabled", "hidden", "data-native-context", "aria-label"]
+    attributeFilter: ["class", "disabled", "hidden", "data-native-context", "data-native-checked", "aria-label"]
   });
   window.addEventListener("resize", schedule);
   window.visualViewport?.addEventListener("resize", schedule);

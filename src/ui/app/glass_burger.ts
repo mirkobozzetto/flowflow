@@ -21,10 +21,18 @@
   const shown = new Map<string, boolean>();
   const lastMenu = new Map<string, string>();
 
+  const MENU_IDS = ["note-more", "chat-more", "note-plus", "chat-plus"];
+
+  // The native menu opened or closed: the composer's "+" turns into a cross.
+  w.__ffMenuOpen = (open: boolean) => {
+    document.querySelectorAll<HTMLElement>('[data-glass$="-plus"]')
+      .forEach((a) => a.toggleAttribute("data-native-open", open));
+  };
+
   // Reuse the existing, mounted web actions. The per-mount context prevents a
   // stale UIKit menu from targeting another note/chat after navigation.
   w.__ffMenuPick = (id: string, context: string, action: string) => {
-    if (id !== "note-more" && id !== "chat-more") return;
+    if (!MENU_IDS.includes(id)) return;
     const anchor = document.querySelector<HTMLElement>(`[data-glass="${id}"]`);
     const root = document.querySelector<HTMLElement>(`[data-native-menu="${id}"]`);
     if (!anchor || !root || root.dataset.nativeContext !== context) return;
@@ -36,21 +44,57 @@
     if (button && !button.disabled) button.click();
   };
 
+  type NativeItem = {
+    id?: string;
+    title: string;
+    symbol: string;
+    subtitle?: string;
+    disabled?: boolean;
+    destructive?: boolean;
+    checked?: boolean;
+    inline?: boolean;
+    children?: NativeItem[];
+  };
+
+  // Walks the hidden DOM menu in order: a [data-native-action] button is an
+  // action, a [data-native-submenu] element a submenu (a separated group when
+  // data-native-inline), anything else is looked through.
+  function items(el: Element): NativeItem[] {
+    const out: NativeItem[] = [];
+    for (const child of Array.from(el.children) as HTMLElement[]) {
+      if (child.dataset.nativeAction !== undefined) {
+        const button = child as HTMLButtonElement;
+        out.push({
+          id: button.dataset.nativeAction,
+          title: button.dataset.nativeTitle ?? button.textContent?.trim() ?? "",
+          symbol: button.dataset.nativeSymbol ?? "ellipsis",
+          subtitle: button.dataset.nativeSubtitle,
+          disabled: button.disabled,
+          destructive: button.hasAttribute("data-native-destructive"),
+          checked: button.dataset.nativeChecked === "true",
+        });
+      } else if (child.dataset.nativeSubmenu !== undefined) {
+        out.push({
+          title: child.dataset.nativeTitle ?? "",
+          symbol: child.dataset.nativeSymbol ?? "",
+          inline: child.hasAttribute("data-native-inline"),
+          children: items(child),
+        });
+      } else {
+        out.push(...items(child));
+      }
+    }
+    return out;
+  }
+
   function menuFor(id: string, anchor: HTMLElement) {
-    if (id !== "note-more" && id !== "chat-more") return null;
+    if (!MENU_IDS.includes(id)) return null;
     const root = document.querySelector<HTMLElement>(`[data-native-menu="${id}"]`);
     return {
       id,
       context: root?.dataset.nativeContext ?? "",
       label: anchor.getAttribute("aria-label") ?? "",
-      items: root ? Array.from(root.querySelectorAll<HTMLButtonElement>("[data-native-action]"))
-        .map((button) => ({
-          id: button.dataset.nativeAction!,
-          title: button.textContent?.trim() ?? "",
-          symbol: button.dataset.nativeSymbol ?? "ellipsis",
-          disabled: button.disabled,
-          destructive: button.hasAttribute("data-native-destructive"),
-        })) : [],
+      items: root ? items(root) : [],
     };
   }
   const ready = () => {
@@ -183,7 +227,7 @@
     subtree: true,
     attributes: true,
     characterData: true,
-    attributeFilter: ["class", "disabled", "hidden", "data-native-context", "aria-label"],
+    attributeFilter: ["class", "disabled", "hidden", "data-native-context", "data-native-checked", "aria-label"],
   });
   window.addEventListener("resize", schedule);
   window.visualViewport?.addEventListener("resize", schedule);
