@@ -293,8 +293,10 @@ pub fn keep_screen_awake(on: bool) {
     let Some(mtm) = objc2_foundation::MainThreadMarker::new() else {
         return;
     };
-    objc2_ui_kit::UIApplication::sharedApplication(mtm)
-        .setIdleTimerDisabled(on);
+    let app = objc2_ui_kit::UIApplication::sharedApplication(mtm);
+    if app.isIdleTimerDisabled() != on {
+        app.setIdleTimerDisabled(on);
+    }
 }
 
 pub fn detect_system_language() -> String {

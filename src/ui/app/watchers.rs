@@ -19,16 +19,19 @@ pub fn use_transcription_watcher(
         let db = db();
         let mut app = app;
         async move {
-            // Auto-lock would background the app and pause a local job.
+            // Auto-lock would background the app and pause a local job. iOS
+            // re-enables it on every return to the foreground, so it is
+            // asserted on each tick while a job runs, not only once.
             let mut awake = false;
             loop {
                 let snap = manager.snapshot();
                 if *app.transcription_jobs.peek() != snap {
                     app.transcription_jobs.set(snap.clone());
                 }
-                if local_job_running(&snap) != awake {
-                    awake = !awake;
-                    crate::infrastructure::platform::keep_screen_awake(awake);
+                let running = local_job_running(&snap);
+                if running || awake {
+                    crate::infrastructure::platform::keep_screen_awake(running);
+                    awake = running;
                 }
                 let current = (app.current_note_id)();
                 let viewing_note =
