@@ -1,4 +1,5 @@
 pub mod client;
+pub mod gpu_gate;
 pub mod hesitations;
 pub mod models;
 pub mod provider;

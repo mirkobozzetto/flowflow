@@ -229,9 +229,6 @@ stt-error-timeout = Délai de transcription dépassé
 stt-error-file-missing = Fichier audio introuvable
 llm-error-openai-key = Clé API OpenAI non configurée
 llm-error-chatgpt-auth = Connectez ChatGPT dans Réglages > Intelligence
-whisper-bench-title = Benchmark (dev)
-whisper-bench-running = Benchmark en cours...
-whisper-bench-need-audio = Enregistrez d'abord une note avec audio.
 
 sync-pairing-title = Appairage
 sync-show-code = Afficher un code d'appairage

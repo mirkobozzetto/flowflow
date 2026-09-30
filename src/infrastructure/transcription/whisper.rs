@@ -1,3 +1,4 @@
+use super::gpu_gate;
 use super::hesitations::clean_hesitations_words;
 use crate::domain::transcript::words_from_span;
 use crate::domain::{Dictionary, Transcript, Word};
@@ -89,41 +90,6 @@ impl WhisperLocal {
     }
 }
 
-pub async fn bench(
-    model_path: PathBuf,
-    wav: PathBuf,
-) -> Result<String, String> {
-    let _permit = WHISPER_LOCK
-        .acquire()
-        .await
-        .map_err(|e| format!("Whisper lock: {e}"))?;
-    tokio::task::spawn_blocking(move || {
-        let audio = load_wav_mono_16k(&wav)?;
-        let audio_secs = audio.len() as f32 / 16_000.0;
-        let started = std::time::Instant::now();
-        let text = Transcript::new(run_whisper(&model_path, &wav, None)?).text();
-        let elapsed_ms = started.elapsed().as_millis();
-        let rss_mb = peak_rss_mb();
-        let preview: String = text.chars().take(120).collect();
-        Ok(format!(
-            "{audio_secs:.0}s audio -> {elapsed_ms} ms, RSS {rss_mb} MB\n{preview}"
-        ))
-    })
-    .await
-    .map_err(|e| format!("Whisper task: {e}"))?
-}
-
-fn peak_rss_mb() -> u64 {
-    unsafe {
-        let mut usage: libc::rusage = std::mem::zeroed();
-        if libc::getrusage(libc::RUSAGE_SELF, &mut usage) == 0 {
-            (usage.ru_maxrss as u64) / 1_048_576
-        } else {
-            0
-        }
-    }
-}
-
 /// One word per segment: whisper.cpp wraps segments after decoding, so this only
 /// changes where segments break, never the decoded text. Nothing moves to
 /// `WhisperContextParameters`, so `CONTEXT_CACHE` keeps its key and its behaviour
@@ -151,12 +117,32 @@ fn run_whisper(
     if audio.is_empty() {
         return Err("Empty audio".to_string());
     }
+    loop {
+        if let Some(words) = infer(&ctx, &audio, language)? {
+            return Ok(words);
+        }
+    }
+}
+
+/// `None` when the app left the foreground mid-inference: the same audio runs
+/// again once `gpu_gate` reopens.
+fn infer(
+    ctx: &WhisperContext,
+    audio: &[f32],
+    language: Option<&str>,
+) -> Result<Option<Vec<Word>>, String> {
+    let _busy = gpu_gate::enter();
     let mut state = ctx
         .create_state()
         .map_err(|e| format!("Whisper state: {e}"))?;
-    state
-        .full(word_params(language), &audio)
-        .map_err(|e| format!("Whisper inference: {e}"))?;
+    let mut params = word_params(language);
+    params.set_abort_callback_safe(gpu_gate::is_paused);
+    if let Err(e) = state.full(params, audio) {
+        if gpu_gate::is_paused() {
+            return Ok(None);
+        }
+        return Err(format!("Whisper inference: {e}"));
+    }
 
     // Everything at or above the end-of-transcript id is a special or timestamp
     // token. Under max_len(1) a segment holds one word, so those are a large
@@ -182,7 +168,7 @@ fn run_whisper(
             segment_confidence(&segment, first_special),
         ));
     }
-    Ok(words)
+    Ok(Some(words))
 }
 
 fn centiseconds_to_ms(centiseconds: i64) -> u32 {

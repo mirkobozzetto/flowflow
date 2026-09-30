@@ -1,5 +1,6 @@
 pub mod dialog;
 pub mod glass_burger;
+pub mod gpu_lifecycle;
 mod keyboard;
 pub mod live_activity;
 mod native_menu;
