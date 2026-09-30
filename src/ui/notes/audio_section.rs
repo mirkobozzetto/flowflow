@@ -330,7 +330,10 @@ pub fn AudioJobBanner(local_note_id: Signal<String>) -> Element {
                 other => {
                     let transcribing_label = t(&lang, "audio-transcribing");
                     let label = match other {
-                        JobStatus::Polling { elapsed_s } => {
+                        JobStatus::Polling { percent: Some(p), .. } => {
+                            t_args(&lang, "audio-transcribing-percent", &[("percent", &p.to_string())])
+                        }
+                        JobStatus::Polling { elapsed_s, percent: None } => {
                             format!("{transcribing_label} · {}:{:02}", elapsed_s / 60, elapsed_s % 60)
                         }
                         _ => transcribing_label,

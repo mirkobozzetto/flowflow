@@ -1,5 +1,6 @@
 pub mod dialog;
 pub mod glass_burger;
+pub mod gpu_lifecycle;
 mod keyboard;
 pub mod live_activity;
 mod native_menu;
@@ -286,6 +287,16 @@ pub(crate) fn web_view() -> Option<objc2::rc::Retained<objc2_ui_kit::UIView>> {
         stack.extend(view.subviews().to_vec());
     }
     None
+}
+
+pub fn keep_screen_awake(on: bool) {
+    let Some(mtm) = objc2_foundation::MainThreadMarker::new() else {
+        return;
+    };
+    let app = objc2_ui_kit::UIApplication::sharedApplication(mtm);
+    if app.isIdleTimerDisabled() != on {
+        app.setIdleTimerDisabled(on);
+    }
 }
 
 pub fn detect_system_language() -> String {

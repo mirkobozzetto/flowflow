@@ -3,9 +3,11 @@ use super::job::{
     Registry,
 };
 use crate::infrastructure::persistence::Database;
+use crate::infrastructure::transcription::whisper::wav_duration_ms;
 use crate::infrastructure::transcription::{
-    SonioxClient, SttProvider, TranscriptionClient, WhisperLocal,
+    Checkpoint, SonioxClient, SttProvider, TranscriptionClient, WhisperLocal,
 };
+use std::path::Path;
 use std::sync::Mutex;
 use std::time::{Duration, SystemTime};
 
@@ -57,17 +59,40 @@ async fn process_local(
         );
         return;
     }
+    let from = resume_point(db, note_id, &path);
     let _ = db.add_pending_local_transcription(
         note_id,
         &path.to_string_lossy(),
         job.audio_id.as_deref(),
     );
-    set_status(reg, note_id, &job.id, JobStatus::Polling { elapsed_s: 0 });
+    let total_ms = wav_duration_ms(&path).unwrap_or(0);
+    let mut done_ms = from.done_ms;
+    set_status(
+        reg,
+        note_id,
+        &job.id,
+        JobStatus::Polling {
+            elapsed_s: 0,
+            percent: percent(done_ms, total_ms),
+        },
+    );
     let started = SystemTime::now();
-    let fut = whisper.transcribe(&path, None);
+    let (progress_tx, mut progress_rx) =
+        tokio::sync::mpsc::unbounded_channel::<Checkpoint>();
+    let fut = whisper.transcribe_from(&path, None, from, move |progress| {
+        let _ = progress_tx.send(progress.clone());
+    });
     tokio::pin!(fut);
     loop {
         tokio::select! {
+            Some(progress) = progress_rx.recv() => {
+                let _ = db.save_local_progress(
+                    note_id,
+                    progress.done_ms,
+                    &progress.words,
+                );
+                done_ms = progress.done_ms;
+            }
             res = &mut fut => {
                 let _ = db.delete_pending_transcription(note_id);
                 match res {
@@ -105,11 +130,38 @@ async fn process_local(
                     reg,
                     note_id,
                     &job.id,
-                    JobStatus::Polling { elapsed_s: elapsed },
+                    JobStatus::Polling {
+                        elapsed_s: elapsed,
+                        percent: percent(done_ms, total_ms),
+                    },
                 );
             }
         }
     }
+}
+
+fn percent(done_ms: u32, total_ms: u32) -> Option<u8> {
+    (total_ms > 0).then(|| {
+        (u64::from(done_ms.min(total_ms)) * 100 / u64::from(total_ms)) as u8
+    })
+}
+
+/// The recording is matched by file name: the app container path changes
+/// across installs, the name does not.
+fn resume_point(db: &Database, note_id: &str, path: &Path) -> Checkpoint {
+    db.local_progress(note_id)
+        .filter(|p| {
+            p.file_path
+                .as_deref()
+                .map(Path::new)
+                .and_then(Path::file_name)
+                == path.file_name()
+        })
+        .map(|p| Checkpoint {
+            done_ms: p.done_ms,
+            words: p.words,
+        })
+        .unwrap_or_default()
 }
 
 async fn process_soniox(
@@ -187,7 +239,10 @@ async fn process_soniox(
                     reg,
                     note_id,
                     &job.id,
-                    JobStatus::Polling { elapsed_s: elapsed },
+                    JobStatus::Polling {
+                        elapsed_s: elapsed,
+                        percent: None,
+                    },
                 );
                 tokio::time::sleep(POLL_INTERVAL).await;
             }
@@ -207,7 +262,10 @@ async fn process_soniox(
                     reg,
                     note_id,
                     &job.id,
-                    JobStatus::Polling { elapsed_s: elapsed },
+                    JobStatus::Polling {
+                        elapsed_s: elapsed,
+                        percent: None,
+                    },
                 );
                 tokio::time::sleep(POLL_INTERVAL).await;
             }

@@ -1,7 +1,7 @@
 mod job;
 mod processing;
 
-pub use job::{Job, JobStatus};
+pub use job::{local_job_running, Job, JobStatus};
 
 use crate::infrastructure::persistence::pending_transcription_repo::PendingTranscription;
 
@@ -213,7 +213,10 @@ pub fn job_from_pending(row: &PendingTranscription) -> Option<Job> {
         id: uuid::Uuid::new_v4().to_string(),
         note_id: row.note_id.clone(),
         file_path: PathBuf::new(),
-        status: JobStatus::Polling { elapsed_s: 0 },
+        status: JobStatus::Polling {
+            elapsed_s: 0,
+            percent: None,
+        },
         provider: SttProvider::Soniox,
         transcription_id: Some(tr_id),
         soniox_file_id: row.soniox_file_id.clone(),
