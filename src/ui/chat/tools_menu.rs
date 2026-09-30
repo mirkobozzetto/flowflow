@@ -224,10 +224,7 @@ fn ToolsMenuBody(note: bool) -> Element {
                 "data-pane": "agents",
                 onclick: move |_| enter(Pane::Agents),
                 span { class: MENU_ICON,
-                    // Phosphor chats-circle, regular: the final icon in #179.
-                    svg { width: "22", height: "22", view_box: "0 0 256 256", fill: "currentColor", "aria-hidden": "true",
-                        path { d: "M232.07,186.76a80,80,0,0,0-62.5-114.17A80,80,0,1,0,23.93,138.76l-7.27,24.71a16,16,0,0,0,19.87,19.87l24.71-7.27a80.39,80.39,0,0,0,25.18,7.35,80,80,0,0,0,108.34,40.65l24.71,7.27a16,16,0,0,0,19.87-19.86ZM62,159.5a8.28,8.28,0,0,0-2.26.32L32,168l8.17-27.76a8,8,0,0,0-.63-6,64,64,0,1,1,26.26,26.26A8,8,0,0,0,62,159.5Zm153.79,28.73L224,216l-27.76-8.17a8,8,0,0,0-6,.63,64.05,64.05,0,0,1-85.87-24.88A79.93,79.93,0,0,0,174.7,89.71a64,64,0,0,1,41.75,92.48A8,8,0,0,0,215.82,188.23Z" }
-                    }
+                    AgentsGlyph {}
                 }
                 span { class: "flex-1 min-w-0",
                     span { class: "block text-sm font-medium text-stone-800", {t(&lang, "chat-tools-section-agents")} }
@@ -240,9 +237,7 @@ fn ToolsMenuBody(note: bool) -> Element {
                 "data-pane": "connectors",
                 onclick: move |_| enter(Pane::Connectors),
                 span { class: MENU_ICON,
-                    svg { width: "22", height: "22", view_box: "0 0 256 256", fill: "currentColor", "aria-hidden": "true",
-                        path { d: "M104 40H56a16 16 0 0 0-16 16v48a16 16 0 0 0 16 16h48a16 16 0 0 0 16-16V56a16 16 0 0 0-16-16Zm0 64H56V56h48Zm96-64h-48a16 16 0 0 0-16 16v48a16 16 0 0 0 16 16h48a16 16 0 0 0 16-16V56a16 16 0 0 0-16-16Zm0 64h-48V56h48Zm-96 32H56a16 16 0 0 0-16 16v48a16 16 0 0 0 16 16h48a16 16 0 0 0 16-16v-48a16 16 0 0 0-16-16Zm0 64H56v-48h48Zm96-64h-48a16 16 0 0 0-16 16v48a16 16 0 0 0 16 16h48a16 16 0 0 0 16-16v-48a16 16 0 0 0-16-16Zm0 64h-48v-48h48Z" }
-                    }
+                    ConnectorsGlyph {}
                 }
                 span { class: "flex-1 min-w-0",
                     span { class: "block text-sm font-medium text-stone-800", {t(&lang, "chat-tools-section-connectors")} }
@@ -440,6 +435,7 @@ pub fn NativeToolsMenu(note: bool) -> Element {
                             let nid = nid.clone();
                             move |_| open_note_chat(app, &nid)
                         },
+                        NativeIcon { IconChatAi { size: 22 } }
                         {t(&lang, "note-chat-entry")}
                     }
                     if let Some(tid) = in_thread {
@@ -450,6 +446,7 @@ pub fn NativeToolsMenu(note: bool) -> Element {
                                 let nid = nid.clone();
                                 move |_| crate::ui::thread::actions::open_thread(app, &nid, &tid)
                             },
+                            NativeIcon { IconCardsThree { size: 22 } }
                             {t(&lang, "thread-open")}
                         }
                     } else {
@@ -457,6 +454,7 @@ pub fn NativeToolsMenu(note: bool) -> Element {
                             "data-native-submenu": "",
                             "data-native-title": t(&lang, "thread-add-to"),
                             "data-native-symbol": "rectangle.stack",
+                            NativeIcon { IconCardsThree { size: 22 } }
                             button {
                                 "data-native-action": "thread-new",
                                 "data-native-symbol": "plus.rectangle.on.rectangle",
@@ -464,6 +462,7 @@ pub fn NativeToolsMenu(note: bool) -> Element {
                                     let (nid, lang) = (nid.clone(), lang.clone());
                                     move |_| crate::ui::thread::actions::start_thread_with_note(app, &db(), &lang, &nid)
                                 },
+                                NativeIcon { IconStackPlus { size: 22 } }
                                 {t(&lang, "thread-start")}
                             }
                             for thread in threads.iter() {
@@ -475,6 +474,7 @@ pub fn NativeToolsMenu(note: bool) -> Element {
                                         let (nid, tid) = (nid.clone(), thread.id.clone());
                                         move |_| crate::ui::thread::actions::add_note_to_thread(app, &db(), &nid, &tid)
                                     },
+                                    NativeIcon { IconCardsThree { size: 22 } }
                                     {if thread.title.is_empty() { t(&lang, "thread-untitled") } else { thread.title.clone() }}
                                 }
                             }
@@ -487,6 +487,7 @@ pub fn NativeToolsMenu(note: bool) -> Element {
                     "data-native-submenu": "",
                     "data-native-title": t(&lang, "chat-tools-section-agents"),
                     "data-native-symbol": "bubble.left.and.bubble.right",
+                    NativeIcon { AgentsGlyph {} }
                     if agents.is_empty() {
                         button {
                             "data-native-action": "agents-empty",
@@ -506,6 +507,7 @@ pub fn NativeToolsMenu(note: bool) -> Element {
                                 let agent = agent.clone();
                                 move |_| pick_agent(app, note, &agent)
                             },
+                            NativeIcon { IconChatAi { size: 22 } }
                             "{agent.name}"
                         }
                     }
@@ -514,20 +516,21 @@ pub fn NativeToolsMenu(note: bool) -> Element {
                     "data-native-submenu": "",
                     "data-native-title": t(&lang, "chat-tools-section-connectors"),
                     "data-native-symbol": "square.grid.2x2",
+                    NativeIcon { ConnectorsGlyph {} }
                     for connector in connectors {
                         button {
                             key: "{connector.provider}",
                             "data-native-action": "connector:{connector.provider}",
-                            "data-native-symbol": "",
-                            "data-native-checked": connector.connected,
+                            "data-native-symbol": "link",
                             "data-native-subtitle": t(&lang, if connector.connected { "connections-connected" } else { "connections-not-connected" }),
                             onclick: move |_| open_connections(app),
+                            NativeIcon { ConnectorIcon { provider: connector.provider.clone(), size: 22 } }
                             "{connector.name}"
                         }
                     }
                     button {
                         "data-native-action": "connections",
-                        "data-native-symbol": "gearshape",
+                        "data-native-symbol": "",
                         onclick: move |_| open_connections(app),
                         {t(&lang, "chat-tools-manage-connections")}
                     }
@@ -541,10 +544,42 @@ pub fn NativeToolsMenu(note: bool) -> Element {
                         "data-native-checked": web_on,
                         "data-native-subtitle": t(&lang, if has_exa { "chat-tools-web-desc" } else { "chat-tools-web-needs-key" }),
                         onclick: move |_| app.chat_web.set(!(app.chat_web)()),
+                        span { "data-native-icon": "disc",
+                            img { src: asset!("/assets/exa-mark.svg"), alt: "" }
+                        }
                         {t(&lang, "chat-tools-web")}
                     }
                 }
             }
+        }
+    }
+}
+
+/// The icon the native menu draws for its parent entry: `glass_burger.ts`
+/// turns it into a bitmap, in this colour.
+#[component]
+fn NativeIcon(children: Element) -> Element {
+    rsx! {
+        span { "data-native-icon": "", class: "text-stone-600", {children} }
+    }
+}
+
+/// Phosphor chats-circle, regular.
+#[component]
+fn AgentsGlyph() -> Element {
+    rsx! {
+        svg { width: "22", height: "22", view_box: "0 0 256 256", fill: "currentColor", "aria-hidden": "true",
+            path { d: "M232.07,186.76a80,80,0,0,0-62.5-114.17A80,80,0,1,0,23.93,138.76l-7.27,24.71a16,16,0,0,0,19.87,19.87l24.71-7.27a80.39,80.39,0,0,0,25.18,7.35,80,80,0,0,0,108.34,40.65l24.71,7.27a16,16,0,0,0,19.87-19.86ZM62,159.5a8.28,8.28,0,0,0-2.26.32L32,168l8.17-27.76a8,8,0,0,0-.63-6,64,64,0,1,1,26.26,26.26A8,8,0,0,0,62,159.5Zm153.79,28.73L224,216l-27.76-8.17a8,8,0,0,0-6,.63,64.05,64.05,0,0,1-85.87-24.88A79.93,79.93,0,0,0,174.7,89.71a64,64,0,0,1,41.75,92.48A8,8,0,0,0,215.82,188.23Z" }
+        }
+    }
+}
+
+/// Phosphor squares-four, regular.
+#[component]
+fn ConnectorsGlyph() -> Element {
+    rsx! {
+        svg { width: "22", height: "22", view_box: "0 0 256 256", fill: "currentColor", "aria-hidden": "true",
+            path { d: "M104 40H56a16 16 0 0 0-16 16v48a16 16 0 0 0 16 16h48a16 16 0 0 0 16-16V56a16 16 0 0 0-16-16Zm0 64H56V56h48Zm96-64h-48a16 16 0 0 0-16 16v48a16 16 0 0 0 16 16h48a16 16 0 0 0 16-16V56a16 16 0 0 0-16-16Zm0 64h-48V56h48Zm-96 32H56a16 16 0 0 0-16 16v48a16 16 0 0 0 16 16h48a16 16 0 0 0 16-16v-48a16 16 0 0 0-16-16Zm0 64H56v-48h48Zm96-64h-48a16 16 0 0 0-16 16v48a16 16 0 0 0 16 16h48a16 16 0 0 0 16-16v-48a16 16 0 0 0-16-16Zm0 64h-48v-48h48Z" }
         }
     }
 }

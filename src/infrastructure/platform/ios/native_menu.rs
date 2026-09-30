@@ -3,11 +3,12 @@
 //! and dispatches a click only if the originating view is still mounted.
 use block2::RcBlock;
 use objc2::{msg_send, rc::Retained, runtime::AnyObject};
-use objc2_foundation::{MainThreadMarker, NSArray, NSString};
+use objc2_foundation::{MainThreadMarker, NSArray, NSData, NSString};
 use objc2_ui_kit::{
     NSObjectUIAccessibility, UIAction, UIButton,
-    UIContextMenuConfigurationElementOrder, UIImage, UIMenu, UIMenuElement,
-    UIMenuElementAttributes, UIMenuElementState, UIMenuOptions,
+    UIContextMenuConfigurationElementOrder, UIImage, UIImageRenderingMode,
+    UIMenu, UIMenuElement, UIMenuElementAttributes, UIMenuElementState,
+    UIMenuOptions,
 };
 use serde::Deserialize;
 use std::ptr::NonNull;
@@ -43,12 +44,26 @@ struct Item {
     checked: bool,
     #[serde(default)]
     inline: bool,
+    /// The app's own icon as a PNG data URL, drawn at 3x by the page.
+    #[serde(default)]
+    image: String,
     #[serde(default)]
     children: Vec<Item>,
 }
 
-fn image(symbol: &str, mtm: MainThreadMarker) -> Option<Retained<UIImage>> {
-    match symbol {
+fn bitmap(data_url: &str) -> Option<Retained<UIImage>> {
+    use base64::Engine;
+    let b64 = data_url.strip_prefix("data:image/png;base64,")?;
+    let bytes = base64::engine::general_purpose::STANDARD.decode(b64).ok()?;
+    let image = UIImage::imageWithData_scale(&NSData::with_bytes(&bytes), 3.0)?;
+    Some(image.imageWithRenderingMode(UIImageRenderingMode::AlwaysOriginal))
+}
+
+fn image(item: &Item, mtm: MainThreadMarker) -> Option<Retained<UIImage>> {
+    if let Some(image) = bitmap(&item.image) {
+        return Some(image);
+    }
+    match item.symbol.as_str() {
         "" => None,
         CHAT_AI_SYMBOL => Some(super::glass_burger::chat_ai(mtm, 22.0)),
         name => UIImage::systemImageNamed(&NSString::from_str(name)),
@@ -61,7 +76,7 @@ fn element(
     context: &str,
     mtm: MainThreadMarker,
 ) -> Retained<UIMenuElement> {
-    let image = image(&item.symbol, mtm);
+    let image = image(&item, mtm);
     // Actions carry an id; a submenu or a group has none.
     if item.id.is_empty() {
         let children: Vec<Retained<UIMenuElement>> = item
