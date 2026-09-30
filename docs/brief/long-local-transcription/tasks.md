@@ -33,42 +33,42 @@ Ordered. Each task closes the acceptance criteria it names.
 
 Closes: AC1, AC2
 
-- [ ] Passer en arrière-plan pendant une transcription locale arrête
+- [x] Passer en arrière-plan pendant une transcription locale arrête
       Whisper avant tout nouveau travail GPU, sans crash.
-- [ ] Revenir au premier plan relance la transcription en attente.
-- [ ] Verrouiller l'iPhone en pleine transcription ne produit aucun
+- [x] Revenir au premier plan relance la transcription en attente.
+- [x] Verrouiller l'iPhone en pleine transcription ne produit aucun
       rapport de crash `ggml_metal_synchronize`.
 
 ## T02 - Reprise au point atteint [#193](https://github.com/mirkobozzetto/flowflow/issues/193)
 
 Closes: AC3, AC4
 
-- [ ] L'avancement est enregistré au fil de la transcription et survit à
+- [x] L'avancement est enregistré au fil de la transcription et survit à
       un arrêt forcé de l'app.
-- [ ] Une reprise ne retraite pas l'audio déjà transcrit.
-- [ ] Les mots transcrits avant et après une reprise gardent leur position
+- [x] Une reprise ne retraite pas l'audio déjà transcrit.
+- [x] Les mots transcrits avant et après une reprise gardent leur position
       exacte dans l'enregistrement (toucher un mot saute au bon moment).
 
 ## T03 - Pourcentage d'avancement visible [#194](https://github.com/mirkobozzetto/flowflow/issues/194)
 
 Closes: AC5
 
-- [ ] La note en cours de transcription locale affiche un pourcentage qui
+- [x] La note en cours de transcription locale affiche un pourcentage qui
       progresse, y compris après une reprise.
 
 ## T04 - Écran allumé pendant la transcription [#195](https://github.com/mirkobozzetto/flowflow/issues/195)
 
 Closes: AC6
 
-- [ ] L'écran ne se verrouille pas tout seul tant qu'une transcription
+- [x] L'écran ne se verrouille pas tout seul tant qu'une transcription
       locale tourne au premier plan.
-- [ ] Le verrouillage automatique revient dès la fin, l'échec ou l'abandon
+- [x] Le verrouillage automatique revient dès la fin, l'échec ou l'abandon
       de la transcription.
 
 ## T05 - La note de 66 minutes aboutit sur l'iPhone [#196](https://github.com/mirkobozzetto/flowflow/issues/196)
 
 Closes: AC7
 
-- [ ] Installer sur l'iPhone, ouvrir la note du 28/09, la laisser reprendre,
+- [x] Installer sur l'iPhone, ouvrir la note du 28/09, la laisser reprendre,
       verrouiller puis déverrouiller une fois en cours de route.
-- [ ] La note obtient son texte complet et sa lecture synchronisée.
+- [x] La note obtient son texte complet et sa lecture synchronisée.

@@ -2,7 +2,7 @@
 type: brief
 slug: long-local-transcription
 title: Transcription locale des longs enregistrements
-status: ready
+status: shipped
 created: 2026-09-30
 next_action: Une transcription Whisper locale survit à l'arrière-plan, reprend là où elle s'est arrêtée et affiche sa progression.
 resume_cmd: /ship docs/brief/long-local-transcription
