@@ -8,7 +8,11 @@ use std::sync::Mutex;
 pub enum JobStatus {
     Queued,
     Uploading,
-    Polling { elapsed_s: u32 },
+    /// `percent` is known only for a local job, which runs chunk by chunk.
+    Polling {
+        elapsed_s: u32,
+        percent: Option<u8>,
+    },
     Done(Transcript),
     Failed(String),
 }

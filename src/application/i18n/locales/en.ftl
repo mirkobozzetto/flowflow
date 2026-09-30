@@ -427,6 +427,7 @@ note-menu-copy = Copy text
 note-menu-no-folder = No folder
 
 audio-transcribing = Transcribing
+audio-transcribing-percent = Transcribing · { $percent }%
 audio-transcription-failed = Transcription failed
 audio-import-retry = Retry
 

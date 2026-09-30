@@ -3,6 +3,7 @@ use super::job::{
     Registry,
 };
 use crate::infrastructure::persistence::Database;
+use crate::infrastructure::transcription::whisper::wav_duration_ms;
 use crate::infrastructure::transcription::{
     Checkpoint, SonioxClient, SttProvider, TranscriptionClient, WhisperLocal,
 };
@@ -64,7 +65,17 @@ async fn process_local(
         &path.to_string_lossy(),
         job.audio_id.as_deref(),
     );
-    set_status(reg, note_id, &job.id, JobStatus::Polling { elapsed_s: 0 });
+    let total_ms = wav_duration_ms(&path).unwrap_or(0);
+    let mut done_ms = from.done_ms;
+    set_status(
+        reg,
+        note_id,
+        &job.id,
+        JobStatus::Polling {
+            elapsed_s: 0,
+            percent: percent(done_ms, total_ms),
+        },
+    );
     let started = SystemTime::now();
     let (progress_tx, mut progress_rx) =
         tokio::sync::mpsc::unbounded_channel::<Checkpoint>();
@@ -80,6 +91,7 @@ async fn process_local(
                     progress.done_ms,
                     &progress.words,
                 );
+                done_ms = progress.done_ms;
             }
             res = &mut fut => {
                 let _ = db.delete_pending_transcription(note_id);
@@ -118,11 +130,20 @@ async fn process_local(
                     reg,
                     note_id,
                     &job.id,
-                    JobStatus::Polling { elapsed_s: elapsed },
+                    JobStatus::Polling {
+                        elapsed_s: elapsed,
+                        percent: percent(done_ms, total_ms),
+                    },
                 );
             }
         }
     }
+}
+
+fn percent(done_ms: u32, total_ms: u32) -> Option<u8> {
+    (total_ms > 0).then(|| {
+        (u64::from(done_ms.min(total_ms)) * 100 / u64::from(total_ms)) as u8
+    })
 }
 
 /// The recording is matched by file name: the app container path changes
@@ -218,7 +239,10 @@ async fn process_soniox(
                     reg,
                     note_id,
                     &job.id,
-                    JobStatus::Polling { elapsed_s: elapsed },
+                    JobStatus::Polling {
+                        elapsed_s: elapsed,
+                        percent: None,
+                    },
                 );
                 tokio::time::sleep(POLL_INTERVAL).await;
             }
@@ -238,7 +262,10 @@ async fn process_soniox(
                     reg,
                     note_id,
                     &job.id,
-                    JobStatus::Polling { elapsed_s: elapsed },
+                    JobStatus::Polling {
+                        elapsed_s: elapsed,
+                        percent: None,
+                    },
                 );
                 tokio::time::sleep(POLL_INTERVAL).await;
             }

@@ -427,6 +427,7 @@ note-menu-copy = Copier le texte
 note-menu-no-folder = Aucun dossier
 
 audio-transcribing = Transcription en cours
+audio-transcribing-percent = Transcription en cours · { $percent } %
 audio-transcription-failed = Échec de la transcription
 audio-import-retry = Réessayer
 
