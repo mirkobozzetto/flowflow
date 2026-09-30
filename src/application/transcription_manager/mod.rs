@@ -1,7 +1,7 @@
 mod job;
 mod processing;
 
-pub use job::{Job, JobStatus};
+pub use job::{local_job_running, Job, JobStatus};
 
 use crate::infrastructure::persistence::pending_transcription_repo::PendingTranscription;
 

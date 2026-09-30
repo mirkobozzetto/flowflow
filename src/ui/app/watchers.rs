@@ -1,6 +1,6 @@
 use crate::application::note_persistence::append_transcription_to_note;
 use crate::application::transcription_manager::{
-    JobStatus, TranscriptionManager,
+    local_job_running, JobStatus, TranscriptionManager,
 };
 use crate::infrastructure::persistence::Database;
 use crate::infrastructure::sync::engine::SyncEngine;
@@ -19,10 +19,16 @@ pub fn use_transcription_watcher(
         let db = db();
         let mut app = app;
         async move {
+            // Auto-lock would background the app and pause a local job.
+            let mut awake = false;
             loop {
                 let snap = manager.snapshot();
                 if *app.transcription_jobs.peek() != snap {
                     app.transcription_jobs.set(snap.clone());
+                }
+                if local_job_running(&snap) != awake {
+                    awake = !awake;
+                    crate::infrastructure::platform::keep_screen_awake(awake);
                 }
                 let current = (app.current_note_id)();
                 let viewing_note =

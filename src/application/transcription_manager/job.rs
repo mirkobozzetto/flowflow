@@ -38,6 +38,14 @@ pub(super) struct Registry {
     pub(super) active: HashSet<String>,
 }
 
+/// A local job is running, or about to, on some note.
+pub fn local_job_running(queues: &HashMap<String, VecDeque<Job>>) -> bool {
+    queues.values().filter_map(VecDeque::front).any(|j| {
+        j.provider == SttProvider::WhisperLocal
+            && matches!(j.status, JobStatus::Queued | JobStatus::Polling { .. })
+    })
+}
+
 pub(super) fn front_job(reg: &Mutex<Registry>, note_id: &str) -> Option<Job> {
     reg.lock()
         .unwrap()
