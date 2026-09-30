@@ -4,8 +4,9 @@ use super::job::{
 };
 use crate::infrastructure::persistence::Database;
 use crate::infrastructure::transcription::{
-    SonioxClient, SttProvider, TranscriptionClient, WhisperLocal,
+    Checkpoint, SonioxClient, SttProvider, TranscriptionClient, WhisperLocal,
 };
+use std::path::Path;
 use std::sync::Mutex;
 use std::time::{Duration, SystemTime};
 
@@ -57,6 +58,7 @@ async fn process_local(
         );
         return;
     }
+    let from = resume_point(db, note_id, &path);
     let _ = db.add_pending_local_transcription(
         note_id,
         &path.to_string_lossy(),
@@ -64,10 +66,21 @@ async fn process_local(
     );
     set_status(reg, note_id, &job.id, JobStatus::Polling { elapsed_s: 0 });
     let started = SystemTime::now();
-    let fut = whisper.transcribe(&path, None);
+    let (progress_tx, mut progress_rx) =
+        tokio::sync::mpsc::unbounded_channel::<Checkpoint>();
+    let fut = whisper.transcribe_from(&path, None, from, move |progress| {
+        let _ = progress_tx.send(progress.clone());
+    });
     tokio::pin!(fut);
     loop {
         tokio::select! {
+            Some(progress) = progress_rx.recv() => {
+                let _ = db.save_local_progress(
+                    note_id,
+                    progress.done_ms,
+                    &progress.words,
+                );
+            }
             res = &mut fut => {
                 let _ = db.delete_pending_transcription(note_id);
                 match res {
@@ -110,6 +123,24 @@ async fn process_local(
             }
         }
     }
+}
+
+/// The recording is matched by file name: the app container path changes
+/// across installs, the name does not.
+fn resume_point(db: &Database, note_id: &str, path: &Path) -> Checkpoint {
+    db.local_progress(note_id)
+        .filter(|p| {
+            p.file_path
+                .as_deref()
+                .map(Path::new)
+                .and_then(Path::file_name)
+                == path.file_name()
+        })
+        .map(|p| Checkpoint {
+            done_ms: p.done_ms,
+            words: p.words,
+        })
+        .unwrap_or_default()
 }
 
 async fn process_soniox(

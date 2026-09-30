@@ -28,6 +28,7 @@ pub const MIGRATIONS: &[(i64, &str)] = &[
     (27, V27_SCHEMA),
     (28, V28_SCHEMA),
     (29, V29_SCHEMA),
+    (30, V30_SCHEMA),
 ];
 
 pub enum TableClass {
@@ -66,6 +67,13 @@ pub const TABLES: &[(&str, TableClass)] = &[
     ("installed_connectors", TableClass::Config),
     ("_migrations", TableClass::Internal),
 ];
+// How far a local Whisper job got, and the words it had produced, so a paused,
+// crashed or killed job resumes there instead of from zero.
+const V30_SCHEMA: &str = "
+ALTER TABLE pending_transcriptions ADD COLUMN done_ms INTEGER NOT NULL DEFAULT 0;
+ALTER TABLE pending_transcriptions ADD COLUMN words_json TEXT;
+";
+
 // Threads on the space plane landed after devices had already consumed pages
 // that carried them (pre-thread clients ignored the field but still advanced
 // the cursor). Cursors are device-local, so the fix is local too: rewind

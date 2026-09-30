@@ -48,6 +48,8 @@ fn rewind_to_v22(db: &Database) {
          DROP TABLE IF EXISTS spaces;
          DROP TABLE IF EXISTS pending_purge;
          ALTER TABLE chunks DROP COLUMN embed_profile;
+         ALTER TABLE pending_transcriptions DROP COLUMN done_ms;
+         ALTER TABLE pending_transcriptions DROP COLUMN words_json;
          DELETE FROM _migrations WHERE version >= 23;",
     )
     .unwrap();
