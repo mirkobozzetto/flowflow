@@ -53,18 +53,81 @@
     destructive?: boolean;
     checked?: boolean;
     inline?: boolean;
+    image?: string;
     children?: NativeItem[];
   };
+  type Icon = [NativeItem, HTMLElement];
+
+  // The app's own icon for an entry ([data-native-icon] holder), drawn to a
+  // 3x PNG the native menu shows with its colours. "disc" puts it on a dark
+  // round tile, as the web menu does for the Exa mark.
+  const ICON_PT = 22;
+  const ICON_SCALE = 3;
+  const drawn = new Map<string, string>();
+  async function raster(holder: HTMLElement): Promise<string | undefined> {
+    const node = holder.firstElementChild;
+    const size = ICON_PT * ICON_SCALE;
+    let src: string;
+    if (node instanceof HTMLImageElement) {
+      src = node.src;
+    } else if (node instanceof SVGSVGElement) {
+      const svg = node.cloneNode(true) as SVGSVGElement;
+      svg.setAttribute("xmlns", "http://www.w3.org/2000/svg");
+      svg.setAttribute("width", String(size));
+      svg.setAttribute("height", String(size));
+      svg.style.color = getComputedStyle(holder).color;
+      src = "data:image/svg+xml;charset=utf-8," +
+        encodeURIComponent(new XMLSerializer().serializeToString(svg));
+    } else {
+      return undefined;
+    }
+    const disc = holder.dataset.nativeIcon === "disc";
+    const key = (disc ? "disc|" : "") + src;
+    const hit = drawn.get(key);
+    if (hit) return hit;
+    try {
+      const img = new Image();
+      img.src = src;
+      await img.decode();
+      const canvas = document.createElement("canvas");
+      canvas.width = canvas.height = size;
+      const ctx = canvas.getContext("2d")!;
+      let box = size;
+      if (disc) {
+        ctx.fillStyle = "#1c1917";
+        ctx.beginPath();
+        ctx.arc(size / 2, size / 2, size / 2, 0, Math.PI * 2);
+        ctx.fill();
+        box = size * 0.5;
+      }
+      const w = img.naturalWidth || size;
+      const h = img.naturalHeight || size;
+      const k = box / Math.max(w, h);
+      ctx.drawImage(img, (size - w * k) / 2, (size - h * k) / 2, w * k, h * k);
+      const url = canvas.toDataURL("image/png");
+      drawn.set(key, url);
+      return url;
+    } catch {
+      // No bitmap: the native menu falls back to the entry's symbol.
+      return undefined;
+    }
+  }
 
   // Walks the hidden DOM menu in order: a [data-native-action] button is an
   // action, a [data-native-submenu] element a submenu (a separated group when
   // data-native-inline), anything else is looked through.
-  function items(el: Element): NativeItem[] {
+  function items(el: Element, icons: Icon[]): NativeItem[] {
     const out: NativeItem[] = [];
+    const iconOf = (item: NativeItem, owner: HTMLElement) => {
+      const holder = owner.querySelector<HTMLElement>(":scope > [data-native-icon]");
+      if (holder) icons.push([item, holder]);
+      return item;
+    };
     for (const child of Array.from(el.children) as HTMLElement[]) {
+      if (child.dataset.nativeIcon !== undefined) continue;
       if (child.dataset.nativeAction !== undefined) {
         const button = child as HTMLButtonElement;
-        out.push({
+        out.push(iconOf({
           id: button.dataset.nativeAction,
           title: button.dataset.nativeTitle ?? button.textContent?.trim() ?? "",
           symbol: button.dataset.nativeSymbol ?? "ellipsis",
@@ -72,16 +135,16 @@
           disabled: button.disabled,
           destructive: button.hasAttribute("data-native-destructive"),
           checked: button.dataset.nativeChecked === "true",
-        });
+        }, button));
       } else if (child.dataset.nativeSubmenu !== undefined) {
-        out.push({
+        out.push(iconOf({
           title: child.dataset.nativeTitle ?? "",
           symbol: child.dataset.nativeSymbol ?? "",
           inline: child.hasAttribute("data-native-inline"),
-          children: items(child),
-        });
+          children: items(child, icons),
+        }, child));
       } else {
-        out.push(...items(child));
+        out.push(...items(child, icons));
       }
     }
     return out;
@@ -90,12 +153,14 @@
   function menuFor(id: string, anchor: HTMLElement) {
     if (!MENU_IDS.includes(id)) return null;
     const root = document.querySelector<HTMLElement>(`[data-native-menu="${id}"]`);
-    return {
+    const icons: Icon[] = [];
+    const menu = {
       id,
       context: root?.dataset.nativeContext ?? "",
       label: anchor.getAttribute("aria-label") ?? "",
-      items: root ? items(root) : [],
+      items: root ? items(root, icons) : [],
     };
+    return { menu, icons };
   }
   const ready = () => {
     document.documentElement.dataset.glassReady = "1";
@@ -124,7 +189,8 @@
     const seen = new Set<string>();
     document.querySelectorAll<HTMLElement>("[data-glass]").forEach((a) => {
       const id = a.dataset.glass as string;
-      const menu = menuFor(id, a);
+      const found = menuFor(id, a);
+      const menu = found?.menu;
       seen.add(id);
       const r = a.getBoundingClientRect();
       // Visibility is only re-judged with the card at rest: mid-slide an
@@ -152,11 +218,17 @@
       const y = r.top - (vv ? vv.offsetTop : 0);
       const dot = a.querySelector("[data-badge]") ? 1 : 0;
       post(id, [x, y, r.width, r.height, travel(), visible ? 1 : 0, dot]);
-      if (menu) {
+      if (found && menu) {
+        // Compare the menu without its bitmaps; send it once they are drawn,
+        // unless a newer menu for this anchor replaced it meanwhile.
         const json = JSON.stringify(menu);
         if (lastMenu.get(id) !== json) {
           lastMenu.set(id, json);
-          send("menu " + json);
+          Promise.all(found.icons.map(async ([item, holder]) => {
+            item.image = await raster(holder);
+          })).then(() => {
+            if (lastMenu.get(id) === json) send("menu " + JSON.stringify(menu));
+          });
         }
       }
     });
