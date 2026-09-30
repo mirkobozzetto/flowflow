@@ -83,7 +83,7 @@ fn recent_space_migrations_apply_on_a_v25_file() {
         .conn()
         .query_row("SELECT MAX(version) FROM _migrations", [], |r| r.get(0))
         .unwrap();
-    assert_eq!(head, 30);
+    assert_eq!(head, 31);
 }
 
 // A device that consumed space pages before threads existed holds a cursor

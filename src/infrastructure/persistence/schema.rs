@@ -29,6 +29,7 @@ pub const MIGRATIONS: &[(i64, &str)] = &[
     (28, V28_SCHEMA),
     (29, V29_SCHEMA),
     (30, V30_SCHEMA),
+    (31, V31_SCHEMA),
 ];
 
 pub enum TableClass {
@@ -69,10 +70,15 @@ pub const TABLES: &[(&str, TableClass)] = &[
 ];
 // How far a local Whisper job got, and the words it had produced, so a paused,
 // crashed or killed job resumes there instead of from zero.
-const V30_SCHEMA: &str = "
+const V31_SCHEMA: &str = "
 ALTER TABLE pending_transcriptions ADD COLUMN done_ms INTEGER NOT NULL DEFAULT 0;
 ALTER TABLE pending_transcriptions ADD COLUMN words_json TEXT;
 ";
+
+// Burned: a test build recorded version 30 on real devices without shipping
+// its schema. Migrations run above the recorded head, so a real V30 would be
+// skipped there.
+const V30_SCHEMA: &str = "";
 
 // Threads on the space plane landed after devices had already consumed pages
 // that carried them (pre-thread clients ignored the field but still advanced
