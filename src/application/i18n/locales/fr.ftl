@@ -227,6 +227,7 @@ stt-error-model-missing = Modèle Whisper non téléchargé : { $id }
 stt-error-server = La transcription a échoué côté serveur
 stt-error-timeout = Délai de transcription dépassé
 stt-error-file-missing = Fichier audio introuvable
+stt-background-progress = Transcription : { $percent } %
 llm-error-openai-key = Clé API OpenAI non configurée
 llm-error-chatgpt-auth = Connectez ChatGPT dans Réglages > Intelligence
 

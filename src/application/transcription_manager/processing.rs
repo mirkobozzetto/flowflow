@@ -1,6 +1,7 @@
+use super::background;
 use super::job::{
-    cleanup_file, front_job, set_status, set_transcription_ids, Job, JobStatus,
-    Registry,
+    cleanup_file, front_job, local_job_running, set_status,
+    set_transcription_ids, Job, JobStatus, Registry,
 };
 use crate::infrastructure::persistence::Database;
 use crate::infrastructure::transcription::whisper::wav_duration_ms;
@@ -28,21 +29,27 @@ pub(super) async fn process_front(
     }
     match job.provider {
         SttProvider::Soniox => process_soniox(reg, db, note_id, job).await,
-        SttProvider::WhisperLocal => process_local(reg, db, note_id, job).await,
+        SttProvider::WhisperLocal => {
+            let done = process_local(reg, db, note_id, job).await;
+            if !local_job_running(&reg.lock().unwrap().queues) {
+                background::end(done);
+            }
+        }
     }
 }
 
+/// `true` when the transcript is done.
 async fn process_local(
     reg: &Mutex<Registry>,
     db: &Database,
     note_id: &str,
     job: Job,
-) {
+) -> bool {
     let whisper: WhisperLocal = match TranscriptionClient::whisper_from_db(db) {
         Ok(w) => w,
         Err(e) => {
             set_status(reg, note_id, &job.id, JobStatus::Failed(e));
-            return;
+            return false;
         }
     };
     let path = job.file_path.clone();
@@ -57,7 +64,7 @@ async fn process_local(
                 "stt-error-file-missing",
             )),
         );
-        return;
+        return false;
     }
     let from = resume_point(db, note_id, &path);
     let _ = db.add_pending_local_transcription(
@@ -67,6 +74,13 @@ async fn process_local(
     );
     let total_ms = wav_duration_ms(&path).unwrap_or(0);
     let mut done_ms = from.done_ms;
+    background::progress(
+        db,
+        note_id,
+        done_ms,
+        total_ms,
+        percent(done_ms, total_ms).unwrap_or(0),
+    );
     set_status(
         reg,
         note_id,
@@ -92,9 +106,17 @@ async fn process_local(
                     &progress.words,
                 );
                 done_ms = progress.done_ms;
+                background::progress(
+                    db,
+                    note_id,
+                    done_ms,
+                    total_ms,
+                    percent(done_ms, total_ms).unwrap_or(0),
+                );
             }
             res = &mut fut => {
                 let _ = db.delete_pending_transcription(note_id);
+                let done = res.is_ok();
                 match res {
                     Ok(text) => {
                         // A clip with a `note_audios` row is the user's kept
@@ -119,7 +141,7 @@ async fn process_local(
                         );
                     }
                 }
-                return;
+                return done;
             }
             _ = tokio::time::sleep(POLL_INTERVAL) => {
                 let elapsed = started
