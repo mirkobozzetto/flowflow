@@ -1,4 +1,4 @@
-use super::gpu_gate;
+use super::gpu_gate::{self, Engine};
 use super::hesitations::clean_hesitations_words;
 use crate::domain::transcript::words_from_span;
 use crate::domain::{Dictionary, Transcript, Word};
@@ -21,29 +21,37 @@ const TAIL_MS: u32 = 5_000;
 // Load the model once and reuse it across transcriptions. Building a WhisperContext loads the full
 // (hundreds of MB) model from disk and inits the Metal backend; doing that on every call was the
 // multi-second warm-up felt before each transcription. The per-inference state stays cheap and is
-// created fresh each call. Keyed by model path so switching the model in Settings reloads it.
-type ContextCache = Mutex<Option<(PathBuf, Arc<WhisperContext>)>>;
+// created fresh each call. Keyed by model path so switching the model in Settings reloads it,
+// and by engine: a GPU context cannot run on the CPU.
+type ContextCache = Mutex<Option<(PathBuf, Engine, Arc<WhisperContext>)>>;
 static CONTEXT_CACHE: LazyLock<ContextCache> =
     LazyLock::new(|| Mutex::new(None));
 
-fn cached_context(model: &Path) -> Result<Arc<WhisperContext>, String> {
+fn cached_context(
+    model: &Path,
+    engine: Engine,
+) -> Result<Arc<WhisperContext>, String> {
     let mut cache = CONTEXT_CACHE.lock().unwrap();
-    if let Some((path, ctx)) = cache.as_ref() {
-        if path == model {
+    if let Some((path, cached, ctx)) = cache.as_ref() {
+        if path == model && *cached == engine {
             return Ok(ctx.clone());
         }
     }
+    // Two copies of a model this size would crowd a phone in the background,
+    // where memory is reclaimed first: the old one goes before the new loads.
+    *cache = None;
     let model_str = model
         .to_str()
         .ok_or_else(|| "non-utf8 model path".to_string())?;
+    let mut params = WhisperContextParameters::default();
+    if engine == Engine::Cpu {
+        params.use_gpu(false);
+    }
     let ctx = Arc::new(
-        WhisperContext::new_with_params(
-            model_str,
-            WhisperContextParameters::default(),
-        )
-        .map_err(|e| format!("Whisper model load: {e}"))?,
+        WhisperContext::new_with_params(model_str, params)
+            .map_err(|e| format!("Whisper model load: {e}"))?,
     );
-    *cache = Some((model.to_path_buf(), ctx.clone()));
+    *cache = Some((model.to_path_buf(), engine, ctx.clone()));
     Ok(ctx)
 }
 
@@ -148,7 +156,6 @@ fn run_whisper(
     mut progress: Checkpoint,
     on_chunk: &mut dyn FnMut(&Checkpoint),
 ) -> Result<Vec<Word>, String> {
-    let ctx = cached_context(model)?;
     let total_ms = wav_duration_ms(wav)?;
     if total_ms == 0 {
         return Err("Empty audio".to_string());
@@ -157,9 +164,19 @@ fn run_whisper(
         let start_ms = progress.done_ms;
         let end_ms = start_ms.saturating_add(CHUNK_MS).min(total_ms);
         let audio = load_wav_mono_16k_range(wav, start_ms, end_ms)?;
-        let Some(words) = infer(&ctx, &audio, language, start_ms)? else {
+        let busy = gpu_gate::enter();
+        let ctx = cached_context(model, busy.engine)?;
+        let started = std::time::Instant::now();
+        let Some(words) = infer(&ctx, busy.engine, &audio, language, start_ms)?
+        else {
             continue;
         };
+        eprintln!(
+            "[whisper] chunk {start_ms}-{end_ms} ms on {:?} in {} ms",
+            busy.engine,
+            started.elapsed().as_millis()
+        );
+        drop(busy);
         let (kept, next_ms) = commit_chunk(start_ms, end_ms, total_ms, words);
         progress.words.extend(kept);
         progress.done_ms = next_ms;
@@ -189,22 +206,28 @@ pub fn commit_chunk(
     (kept, if next_ms > start_ms { next_ms } else { cut_ms })
 }
 
-/// `None` when the app left the foreground mid-inference: the same audio runs
-/// again once `gpu_gate` reopens.
+/// `None` when `engine` had to stop mid-inference: the same audio runs again
+/// on whichever engine `gpu_gate` allows next.
 fn infer(
     ctx: &WhisperContext,
+    engine: Engine,
     audio: &[f32],
     language: Option<&str>,
     offset_ms: u32,
 ) -> Result<Option<Vec<Word>>, String> {
-    let _busy = gpu_gate::enter();
     let mut state = ctx
         .create_state()
         .map_err(|e| format!("Whisper state: {e}"))?;
     let mut params = word_params(language);
-    params.set_abort_callback_safe(gpu_gate::is_paused);
+    // whisper-rs 0.16 reads the callback back under the wrong type: only a
+    // capture-free function survives it, a closure's captures come back as
+    // garbage and abort at random.
+    match engine {
+        Engine::Gpu => params.set_abort_callback_safe(gpu_must_stop),
+        Engine::Cpu => params.set_abort_callback_safe(cpu_must_stop),
+    }
     if let Err(e) = state.full(params, audio) {
-        if gpu_gate::is_paused() {
+        if gpu_gate::must_stop(engine) {
             return Ok(None);
         }
         return Err(format!("Whisper inference: {e}"));
@@ -237,6 +260,14 @@ fn infer(
         ));
     }
     Ok(Some(words))
+}
+
+fn gpu_must_stop() -> bool {
+    gpu_gate::must_stop(Engine::Gpu)
+}
+
+fn cpu_must_stop() -> bool {
+    gpu_gate::must_stop(Engine::Cpu)
 }
 
 fn centiseconds_to_ms(centiseconds: i64) -> u32 {

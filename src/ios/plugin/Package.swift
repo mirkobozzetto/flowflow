@@ -14,6 +14,7 @@ let package = Package(
             linkerSettings: [
                 .linkedFramework("ActivityKit"),
                 .linkedFramework("AppIntents"),
+                .linkedFramework("BackgroundTasks"),
                 .linkedFramework("Foundation"),
             ]
         )

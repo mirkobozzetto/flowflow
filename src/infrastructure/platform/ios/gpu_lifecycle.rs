@@ -16,6 +16,7 @@ const DRAIN_TIMEOUT: Duration = Duration::from_secs(3);
 /// Pauses on background and reopens once the app is active again, the latest
 /// and safest point of the return to the foreground.
 pub fn observe_gpu_lifecycle() {
+    super::continued_task::register();
     OBSERVERS.call_once(|| unsafe {
         let center = NSNotificationCenter::defaultCenter();
         let pause = block2::RcBlock::new(|_n: NonNull<NSNotification>| {

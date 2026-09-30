@@ -1,3 +1,4 @@
+mod background;
 mod job;
 mod processing;
 
@@ -53,9 +54,13 @@ impl TranscriptionManager {
             soniox_file_id: None,
             audio_id,
         };
+        let local = job.provider == SttProvider::WhisperLocal;
         {
             let mut g = self.reg.lock().unwrap();
             g.queues.entry(note_id.clone()).or_default().push_back(job);
+        }
+        if local {
+            background::begin(&self.db, &note_id);
         }
         self.kick(note_id);
     }
@@ -94,17 +99,20 @@ impl TranscriptionManager {
     }
 
     pub fn retry(&self, note_id: &str) {
-        {
+        let local = {
             let mut g = self.reg.lock().unwrap();
-            if let Some(q) = g.queues.get_mut(note_id) {
-                if let Some(j) = q.front_mut() {
-                    if matches!(j.status, JobStatus::Failed(_)) {
-                        j.status = JobStatus::Queued;
-                        j.transcription_id = None;
-                        j.soniox_file_id = None;
-                    }
+            match g.queues.get_mut(note_id).and_then(|q| q.front_mut()) {
+                Some(j) if matches!(j.status, JobStatus::Failed(_)) => {
+                    j.status = JobStatus::Queued;
+                    j.transcription_id = None;
+                    j.soniox_file_id = None;
+                    j.provider == SttProvider::WhisperLocal
                 }
+                _ => false,
             }
+        };
+        if local {
+            background::begin(&self.db, note_id);
         }
         self.kick(note_id.to_string());
     }
