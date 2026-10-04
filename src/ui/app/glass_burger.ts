@@ -21,7 +21,7 @@
   const shown = new Map<string, boolean>();
   const lastMenu = new Map<string, string>();
 
-  const MENU_IDS = ["note-more", "chat-more", "note-plus", "chat-plus"];
+  const MENU_IDS = ["note-more", "chat-more", "note-plus", "chat-plus", "chats-plus"];
 
   // The native menu opened or closed: the composer's "+" turns into a cross.
   w.__ffMenuOpen = (open: boolean) => {
@@ -196,7 +196,10 @@
       // Visibility is only re-judged with the card at rest: mid-slide an
       // anchor can leave the screen and must not flip look on the way.
       let visible = shown.get(id) ?? false;
-      if (Math.abs(dx) < 0.5) {
+      // An anchor in the menu under the card is reachable only with the
+      // card fully aside: judge it at that rest too.
+      const under = !!a.closest(".sb-under");
+      if (Math.abs(dx) < 0.5 || (under && Math.abs(dx - travel()) < 0.5)) {
         // Shown only when the anchor is what the finger would hit: any
         // overlay (sheet, modal, splash) hands the look back to the web one.
         const hit = document.elementFromPoint(
@@ -304,6 +307,8 @@
   window.addEventListener("resize", schedule);
   window.visualViewport?.addEventListener("resize", schedule);
   window.visualViewport?.addEventListener("scroll", schedule);
+  // The menu's lists scroll their anchors without any DOM mutation.
+  document.addEventListener("scroll", schedule, true);
   document.addEventListener("transitionend", schedule, true);
   watchCard();
   schedule();

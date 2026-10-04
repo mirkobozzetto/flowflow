@@ -87,6 +87,8 @@ pub fn ConnectionsSettings() -> Element {
 
     rsx! {
         div { class: "space-y-6 pb-20",
+            super::hermes::HermesSettings {}
+            div { class: "h-px bg-stone-200" }
             p { class: "text-xs text-stone-500 leading-relaxed",
                 {t(&lang, "connections-description")}
             }

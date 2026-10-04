@@ -15,6 +15,8 @@ pub enum ComposerRole {
     AppendToNote,
     /// The chat bar: text is sent as a message.
     SendMessage,
+    /// The Hermes chat bar: sent to Hermes, no "+" tools or "@" mentions.
+    AskHermes,
 }
 
 // A mention is the trailing "@frag" at the very end of the input (start of input
@@ -68,6 +70,7 @@ pub fn Composer(
     let recorder: Signal<Arc<Mutex<AudioRecorder>>> = use_context();
     let lang = (app.current_lang)();
     let chat = role == ComposerRole::SendMessage;
+    let hermes = role == ComposerRole::AskHermes;
     let mut mention_query = use_signal(String::new);
     let mut focused = use_signal(|| false);
     let mut commit_on_transcribed = use_signal(|| false);
@@ -194,7 +197,9 @@ pub fn Composer(
 
     let placeholder = t(
         &lang,
-        if chat {
+        if hermes {
+            "hermes-input-placeholder"
+        } else if chat {
             "chat-input-placeholder"
         } else {
             "composer-note-placeholder"
@@ -217,13 +222,15 @@ pub fn Composer(
                         div { class: capsule,
                             "data-hidden": !is_idle,
                             "data-landed": landed(),
+                            "data-plain": hermes,
                             div { class: "absolute left-[6px] bottom-[6px]",
-                                if native_menu {
+                                hidden: hermes,
+                                if native_menu && !hermes {
                                     NativeToolsMenu { note: !chat }
                                 }
                                 button {
                                     class: "composer-plus pressable w-[46px] h-[46px] rounded-full flex items-center justify-center text-stone-600 hover:bg-stone-200/70",
-                                    "data-glass": native_menu.then_some(if chat { "chat-plus" } else { "note-plus" }),
+                                    "data-glass": (native_menu && !hermes).then_some(if chat { "chat-plus" } else { "note-plus" }),
                                     "data-open": menu_open,
                                     "aria-label": t(&lang, "chat-tools-tooltip"),
                                     "aria-expanded": menu_open,
@@ -285,7 +292,7 @@ pub fn Composer(
                                 class: "composer-primary pressable press-grow absolute right-[5px] bottom-[5px] w-[50px] h-[50px] rounded-full bg-ios-orange text-white flex items-center justify-center overflow-hidden disabled:opacity-50",
                                 "data-has-text": !empty,
                                 "data-sent": sent(),
-                                "aria-label": t(&lang, if empty { "recording-dictate" } else if chat { "chat-send" } else { "composer-append" }),
+                                "aria-label": t(&lang, if empty { "recording-dictate" } else if chat || hermes { "chat-send" } else { "composer-append" }),
                                 disabled: disabled,
                                 onpointerdown: move |_| if empty { haptic_prepare("medium") } else { haptic_prepare("soft") },
                                 onclick: move |_| {
@@ -307,7 +314,7 @@ pub fn Composer(
                             div { class: "voice-layer absolute inset-0",
                                 "data-in": voice_in() && !is_idle,
                                 "data-leaving": is_idle,
-                                VoiceCapsule { pending_audio, transcribe_only: chat, commit_on_transcribed }
+                                VoiceCapsule { pending_audio, transcribe_only: chat || hermes, commit_on_transcribed }
                             }
                         }
                     }

@@ -30,6 +30,7 @@ pub const MIGRATIONS: &[(i64, &str)] = &[
     (29, V29_SCHEMA),
     (30, V30_SCHEMA),
     (31, V31_SCHEMA),
+    (32, V32_SCHEMA),
 ];
 
 pub enum TableClass {
@@ -63,11 +64,28 @@ pub const TABLES: &[(&str, TableClass)] = &[
     ("sync_seq", TableClass::SyncState),
     ("sync_conflicts", TableClass::SyncState),
     ("sync_peers", TableClass::DeviceLocal),
+    ("hermes_conversations", TableClass::DeviceLocal),
     ("settings", TableClass::Config),
     ("installed_agents", TableClass::Config),
     ("installed_connectors", TableClass::Config),
     ("_migrations", TableClass::Internal),
 ];
+// A Hermes conversation points at a Hermes session, which holds the history.
+// pending_* is the turn still answering, followed again on reopening.
+// DEVICE-LOCAL: absent from sync/protocol/catalog.rs, like the Hermes key.
+const V32_SCHEMA: &str = "
+CREATE TABLE IF NOT EXISTS hermes_conversations (
+    session_id TEXT PRIMARY KEY,
+    title TEXT NOT NULL,
+    pending_run_id TEXT,
+    pending_input TEXT,
+    created_at TEXT NOT NULL
+        DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')),
+    modified_at TEXT NOT NULL
+        DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now'))
+);
+";
+
 // How far a local Whisper job got, and the words it had produced, so a paused,
 // crashed or killed job resumes there instead of from zero.
 const V31_SCHEMA: &str = "

@@ -10,7 +10,7 @@
   const lastPlace = new Map;
   const shown = new Map;
   const lastMenu = new Map;
-  const MENU_IDS = ["note-more", "chat-more", "note-plus", "chat-plus"];
+  const MENU_IDS = ["note-more", "chat-more", "note-plus", "chat-plus", "chats-plus"];
   w.__ffMenuOpen = (open) => {
     document.querySelectorAll('[data-glass$="-plus"]').forEach((a) => a.toggleAttribute("data-native-open", open));
   };
@@ -156,7 +156,8 @@
       seen.add(id);
       const r = a.getBoundingClientRect();
       let visible = shown.get(id) ?? false;
-      if (Math.abs(dx) < 0.5) {
+      const under = !!a.closest(".sb-under");
+      if (Math.abs(dx) < 0.5 || under && Math.abs(dx - travel()) < 0.5) {
         const hit = document.elementFromPoint(r.left + r.width / 2, r.top + r.height / 2);
         visible = r.width > 0 && !!hit && (a.contains(hit) || !!hit.closest("[data-glass-pass]"));
       }
@@ -249,6 +250,7 @@
   window.addEventListener("resize", schedule);
   window.visualViewport?.addEventListener("resize", schedule);
   window.visualViewport?.addEventListener("scroll", schedule);
+  document.addEventListener("scroll", schedule, true);
   document.addEventListener("transitionend", schedule, true);
   watchCard();
   schedule();

@@ -1,0 +1,382 @@
+use flowflow::application::hermes_chat::{
+    self, HermesError, HermesTurn, LiveReply, RunEvent,
+};
+use flowflow::infrastructure::hermes::{
+    drain_sse_data, normalize_base, parse_run_event, HermesMessage,
+};
+use flowflow::infrastructure::persistence::Database;
+use std::sync::{Arc, Mutex};
+use tempfile::tempdir;
+use tokio::io::{AsyncReadExt, AsyncWriteExt};
+
+/// Real payloads captured from the Hermes API server on 2026-10-04.
+const TOOL_STARTED: &str = r#"{"event": "tool.started", "run_id": "run_678a", "timestamp": 1791146491.09, "tool": "terminal", "preview": "date", "seq": 0}"#;
+const TOOL_COMPLETED: &str = r#"{"event": "tool.completed", "run_id": "run_678a", "timestamp": 1791146491.85, "tool": "terminal", "duration": 0.811, "error": false, "preview": "{\"output\": \"Sun Oct  4 20:41:31 UTC 2026\", \"exit_code\": 0, \"error\": null}", "seq": 1}"#;
+const REASONING: &str = r#"{"event": "reasoning.available", "run_id": "run_c4de", "timestamp": 1791146516.23, "text": "Je t'avais dit 20:41:31 UTC.", "seq": 0}"#;
+const COMPLETED: &str = r#"{"event": "run.completed", "run_id": "run_c4de", "timestamp": 1791146516.28, "output": "Je t'avais dit 20:41:31 UTC.", "usage": {"input_tokens": 24003}, "seq": 1}"#;
+const SESSION_MESSAGES: &str = r#"[
+  {"id": 1, "session_id": "api_1", "role": "user", "content": "Lance la commande date dans le terminal.", "timestamp": 1791146483.3},
+  {"id": 2, "session_id": "api_1", "role": "assistant", "content": "", "tool_calls": [{"id": "toolu_01", "call_id": "toolu_01", "type": "function", "function": {"name": "terminal", "arguments": "{\"command\": \"date\"}"}}], "timestamp": 1791146490.9},
+  {"id": 3, "session_id": "api_1", "role": "tool", "tool_name": "terminal", "content": "{\"output\": \"Sun Oct  4 20:41:31 UTC 2026\", \"exit_code\": 0}", "timestamp": 1791146491.8},
+  {"id": 4, "session_id": "api_1", "role": "assistant", "content": "Il est 20:41:31 UTC sur le serveur.", "timestamp": 1791146494.7}
+]"#;
+
+fn open_db(dir: &tempfile::TempDir) -> Database {
+    Database::open_at(dir.path().join("flowflow_test.db")).expect("open_at")
+}
+
+#[test]
+fn sse_frames_are_drained_whole_and_keepalives_skipped() {
+    let mut buf = format!(
+        ": open\n\nid: 0\ndata: {TOOL_STARTED}\n\n: keepalive\n\nid: 1\ndata: {{\"ev"
+    );
+    let frames = drain_sse_data(&mut buf);
+    assert_eq!(frames, vec![TOOL_STARTED.to_string()]);
+    assert_eq!(buf, "id: 1\ndata: {\"ev");
+}
+
+#[test]
+fn run_events_map_to_what_the_chat_shows() {
+    assert_eq!(
+        parse_run_event(TOOL_STARTED),
+        Some((
+            0,
+            RunEvent::ToolStarted {
+                tool: "terminal".into(),
+                preview: "date".into(),
+            }
+        ))
+    );
+    assert_eq!(
+        parse_run_event(TOOL_COMPLETED),
+        Some((
+            1,
+            RunEvent::ToolDone {
+                tool: "terminal".into(),
+                failed: false,
+            }
+        ))
+    );
+    assert_eq!(
+        parse_run_event(COMPLETED),
+        Some((
+            1,
+            RunEvent::Completed("Je t'avais dit 20:41:31 UTC.".into())
+        ))
+    );
+    assert_eq!(parse_run_event(REASONING), None);
+}
+
+#[test]
+fn session_history_folds_tool_calls_into_the_reply_steps() {
+    let messages: Vec<HermesMessage> =
+        serde_json::from_str(SESSION_MESSAGES).unwrap();
+    let turns = hermes_chat::turns(&messages);
+    assert_eq!(turns.len(), 2);
+    assert_eq!(
+        turns[0],
+        HermesTurn::User("Lance la commande date dans le terminal.".into())
+    );
+    let HermesTurn::Reply { text, steps } = &turns[1] else {
+        panic!("expected a reply");
+    };
+    assert_eq!(text, "Il est 20:41:31 UTC sur le serveur.");
+    assert_eq!(steps.len(), 1);
+    assert_eq!(steps[0].tool, "terminal");
+    assert_eq!(steps[0].detail, "date");
+    assert!(!steps[0].running);
+}
+
+#[test]
+fn a_live_reply_streams_text_and_closes_its_steps() {
+    let mut reply = LiveReply::default();
+    for data in [TOOL_STARTED, TOOL_COMPLETED] {
+        reply.apply(parse_run_event(data).unwrap().1);
+    }
+    reply.apply(RunEvent::Delta("Il est ".into()));
+    reply.apply(RunEvent::Delta("20:41.".into()));
+    assert_eq!(reply.text, "Il est 20:41.");
+    assert_eq!(reply.steps.len(), 1);
+    assert!(!reply.steps[0].running && !reply.steps[0].failed);
+    assert!(!reply.done);
+
+    reply.apply(RunEvent::Completed("Il est 20:41 UTC.".into()));
+    assert_eq!(reply.text, "Il est 20:41 UTC.");
+    assert!(reply.done);
+}
+
+#[test]
+fn an_address_without_scheme_defaults_to_https() {
+    assert_eq!(
+        normalize_base(" srv.tailnet.ts.net:8642/ "),
+        "https://srv.tailnet.ts.net:8642"
+    );
+    assert_eq!(
+        normalize_base("http://127.0.0.1:8642"),
+        "http://127.0.0.1:8642"
+    );
+}
+
+#[test]
+fn hermes_conversations_stay_on_the_device() {
+    let dir = tempdir().unwrap();
+    let db = open_db(&dir);
+    let meta_rows = |db: &Database| -> i64 {
+        db.conn()
+            .query_row("SELECT COUNT(*) FROM sync_row_meta", [], |r| r.get(0))
+            .unwrap()
+    };
+    let before = meta_rows(&db);
+
+    db.create_hermes_conversation("flowflow_a", "Devis Lemaire")
+        .unwrap();
+    db.set_hermes_pending_run(
+        "flowflow_a",
+        Some(("run_1", "Prépare le devis")),
+    )
+    .unwrap();
+    db.rename_hermes_conversation("flowflow_a", "Devis Cabinet Lemaire")
+        .unwrap();
+
+    assert_eq!(meta_rows(&db), before, "never enters the sync log");
+    let listed = db.list_hermes_conversations().unwrap();
+    assert_eq!(listed.len(), 1);
+    assert_eq!(listed[0].id, "flowflow_a");
+    assert_eq!(listed[0].title, "Devis Cabinet Lemaire");
+    assert!(db.list_conversations().unwrap().is_empty());
+    assert_eq!(
+        db.hermes_pending_run("flowflow_a"),
+        Some(("run_1".into(), "Prépare le devis".into()))
+    );
+
+    db.set_hermes_pending_run("flowflow_a", None).unwrap();
+    assert_eq!(db.hermes_pending_run("flowflow_a"), None);
+    db.delete_hermes_conversation("flowflow_a").unwrap();
+    assert!(db.list_hermes_conversations().unwrap().is_empty());
+}
+
+/// A scripted Hermes: each accepted connection gets the next response whose
+/// path matches; the request heads are kept for assertions.
+struct Script {
+    responses: Vec<(&'static str, String)>,
+    seen: Arc<Mutex<Vec<String>>>,
+}
+
+fn sse(frames: &[&str]) -> String {
+    let body: String = frames
+        .iter()
+        .map(|f| {
+            let seq = serde_json::from_str::<serde_json::Value>(f).unwrap()
+                ["seq"]
+                .clone();
+            format!("id: {seq}\ndata: {f}\n\n")
+        })
+        .collect();
+    format!("HTTP/1.1 200 OK\r\nContent-Type: text/event-stream\r\nConnection: close\r\n\r\n: open\n\n{body}")
+}
+
+fn json(status: &str, body: &str) -> String {
+    format!(
+        "HTTP/1.1 {status}\r\nContent-Type: application/json\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{body}",
+        body.len()
+    )
+}
+
+// Head and body may arrive in separate reads: read up to Content-Length.
+async fn read_request(stream: &mut tokio::net::TcpStream) -> String {
+    let mut raw = Vec::new();
+    let mut chunk = [0u8; 4096];
+    loop {
+        let n = stream.read(&mut chunk).await.unwrap();
+        raw.extend_from_slice(&chunk[..n]);
+        let text = String::from_utf8_lossy(&raw).to_string();
+        if let Some(end) = text.find("\r\n\r\n") {
+            let length = text[..end]
+                .lines()
+                .find_map(|l| {
+                    l.to_ascii_lowercase()
+                        .strip_prefix("content-length:")
+                        .map(|v| v.trim().parse::<usize>().unwrap_or(0))
+                })
+                .unwrap_or(0);
+            if raw.len() >= end + 4 + length || n == 0 {
+                return text;
+            }
+        } else if n == 0 {
+            return text;
+        }
+    }
+}
+
+async fn serve(script: Script) -> String {
+    let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+    let base = format!("http://{}", listener.local_addr().unwrap());
+    tokio::spawn(async move {
+        let mut responses = script.responses;
+        while !responses.is_empty() {
+            let (mut stream, _) = listener.accept().await.unwrap();
+            let head = read_request(&mut stream).await;
+            let line = head.lines().next().unwrap_or_default().to_string();
+            script.seen.lock().unwrap().push(head);
+            let at = responses
+                .iter()
+                .position(|(prefix, _)| line.starts_with(prefix))
+                .unwrap_or_else(|| panic!("unexpected request {line}"));
+            let (_, response) = responses.remove(at);
+            stream.write_all(response.as_bytes()).await.unwrap();
+            let _ = stream.shutdown().await;
+        }
+    });
+    base
+}
+
+fn configure(db: &Database, base: &str) {
+    db.set_setting(hermes_chat::URL_SETTING, base).unwrap();
+    db.set_setting(hermes_chat::KEY_SETTING, "k_0123456789abcdef")
+        .unwrap();
+}
+
+#[tokio::test]
+async fn a_refused_key_and_a_missing_server_say_so() {
+    let seen = Arc::new(Mutex::new(Vec::new()));
+    let base = serve(Script {
+        responses: vec![(
+            "GET /v1/models",
+            json("401 Unauthorized", r#"{"error": "invalid key"}"#),
+        )],
+        seen: seen.clone(),
+    })
+    .await;
+    assert_eq!(
+        hermes_chat::check(&base, "wrong-key").await,
+        Err(HermesError::KeyRefused)
+    );
+    assert!(seen.lock().unwrap()[0]
+        .to_ascii_lowercase()
+        .contains("authorization: bearer wrong-key"));
+
+    let closed = std::net::TcpListener::bind("127.0.0.1:0").unwrap();
+    let dead = format!("http://{}", closed.local_addr().unwrap());
+    drop(closed);
+    assert_eq!(
+        hermes_chat::check(&dead, "k").await,
+        Err(HermesError::Unreachable)
+    );
+
+    let dir = tempdir().unwrap();
+    let db = open_db(&dir);
+    assert_eq!(
+        hermes_chat::ready(&db).await,
+        Err(HermesError::NotConfigured)
+    );
+}
+
+#[tokio::test]
+async fn the_first_question_opens_a_flowflow_session_then_a_run() {
+    let seen = Arc::new(Mutex::new(Vec::new()));
+    let base = serve(Script {
+        responses: vec![
+            (
+                "POST /api/sessions",
+                json("201 Created", r#"{"object": "hermes.session"}"#),
+            ),
+            (
+                "POST /v1/runs",
+                json(
+                    "202 Accepted",
+                    r#"{"run_id": "run_1", "status": "started"}"#,
+                ),
+            ),
+        ],
+        seen: seen.clone(),
+    })
+    .await;
+    let dir = tempdir().unwrap();
+    let db = open_db(&dir);
+    configure(&db, &base);
+
+    let (session, run) = hermes_chat::send(&db, None, "Quelle heure est-il ?")
+        .await
+        .unwrap();
+
+    assert!(session.starts_with("flowflow_"));
+    assert_eq!(run, "run_1");
+    let listed = db.list_hermes_conversations().unwrap();
+    assert_eq!(listed[0].id, session);
+    assert_eq!(listed[0].title, "Quelle heure est-il ?");
+    assert_eq!(
+        hermes_chat::pending(&db, &session),
+        Some(("run_1".into(), "Quelle heure est-il ?".into()))
+    );
+    let heads = seen.lock().unwrap();
+    assert!(heads[1].contains(&format!("\"session_id\":\"{session}\"")));
+}
+
+#[tokio::test]
+async fn a_dropped_stream_is_picked_up_where_it_stopped() {
+    let started = r#"{"event": "tool.started", "run_id": "run_1", "tool": "terminal", "preview": "date", "seq": 0}"#;
+    let first = r#"{"event": "message.delta", "run_id": "run_1", "delta": "Il est ", "seq": 1}"#;
+    let done = r#"{"event": "tool.completed", "run_id": "run_1", "tool": "terminal", "error": false, "seq": 2}"#;
+    let second = r#"{"event": "message.delta", "run_id": "run_1", "delta": "20:41.", "seq": 3}"#;
+    let completed = r#"{"event": "run.completed", "run_id": "run_1", "output": "Il est 20:41.", "seq": 4}"#;
+    let seen = Arc::new(Mutex::new(Vec::new()));
+    let base = serve(Script {
+        responses: vec![
+            // The phone sleeps: the stream ends before the run does.
+            ("GET /v1/runs/run_1/events", sse(&[started, first])),
+            (
+                "GET /v1/runs/run_1 ",
+                json("200 OK", r#"{"run_id": "run_1", "status": "running"}"#),
+            ),
+            ("GET /v1/runs/run_1/events", sse(&[done, second, completed])),
+        ],
+        seen: seen.clone(),
+    })
+    .await;
+    let dir = tempdir().unwrap();
+    let db = open_db(&dir);
+    configure(&db, &base);
+    db.create_hermes_conversation("flowflow_a", "Heure")
+        .unwrap();
+    db.set_hermes_pending_run("flowflow_a", Some(("run_1", "Quelle heure ?")))
+        .unwrap();
+
+    let mut reply = LiveReply::default();
+    hermes_chat::follow(&db, "flowflow_a", "run_1", |e| reply.apply(e))
+        .await
+        .unwrap();
+
+    assert_eq!(reply.text, "Il est 20:41.");
+    assert_eq!(reply.steps.len(), 1);
+    assert!(!reply.steps[0].running);
+    assert!(reply.done && reply.error.is_none());
+    assert_eq!(hermes_chat::pending(&db, "flowflow_a"), None);
+    let heads = seen.lock().unwrap();
+    assert!(heads[2].to_ascii_lowercase().contains("last-event-id: 1"));
+}
+
+#[tokio::test]
+async fn a_run_the_server_forgot_ends_the_follow() {
+    let seen = Arc::new(Mutex::new(Vec::new()));
+    let gone = json("404 Not Found", r#"{"error": {"code": "run_not_found"}}"#);
+    let base = serve(Script {
+        responses: vec![
+            ("GET /v1/runs/run_9/events", gone.clone()),
+            ("GET /v1/runs/run_9 ", gone),
+        ],
+        seen,
+    })
+    .await;
+    let dir = tempdir().unwrap();
+    let db = open_db(&dir);
+    configure(&db, &base);
+    db.create_hermes_conversation("flowflow_b", "Ancien")
+        .unwrap();
+    db.set_hermes_pending_run("flowflow_b", Some(("run_9", "Question")))
+        .unwrap();
+
+    hermes_chat::follow(&db, "flowflow_b", "run_9", |_| {})
+        .await
+        .unwrap();
+    assert_eq!(hermes_chat::pending(&db, "flowflow_b"), None);
+}

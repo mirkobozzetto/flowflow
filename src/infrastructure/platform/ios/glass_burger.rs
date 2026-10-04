@@ -27,13 +27,17 @@ use objc2_ui_kit::{
 
 // Anchors whose native button opens a UIMenu mirrored from a hidden DOM menu.
 fn has_menu(id: &str) -> bool {
-    matches!(id, "note-more" | "chat-more" | "note-plus" | "chat-plus")
+    matches!(
+        id,
+        "note-more" | "chat-more" | "note-plus" | "chat-plus" | "chats-plus"
+    )
 }
 
 // The composer's "+": its web glyph stays visible and turns into a cross, so
-// the native button over it is clear and only reports the menu opening.
+// the native button over it is clear and only reports the menu opening. The
+// Chats tab's "New conversation" row works the same way.
 fn is_plus(id: &str) -> bool {
-    matches!(id, "note-plus" | "chat-plus")
+    matches!(id, "note-plus" | "chat-plus" | "chats-plus")
 }
 
 define_class!(
@@ -232,10 +236,10 @@ fn configuration(
 ) -> Option<(&'static str, Retained<UIButtonConfiguration>)> {
     if is_plus(id) {
         let config = UIButtonConfiguration::plainButtonConfiguration(mtm);
-        let id = if id == "note-plus" {
-            "note-plus"
-        } else {
-            "chat-plus"
+        let id = match id {
+            "note-plus" => "note-plus",
+            "chats-plus" => "chats-plus",
+            _ => "chat-plus",
         };
         return Some((id, config));
     }
