@@ -1,43 +1,41 @@
-use flowflow::domain::Word;
 use flowflow::infrastructure::transcription::whisper::{
-    commit_chunk, load_wav_mono_16k_range, wav_duration_ms,
+    load_wav_mono_16k_range, quiet_cut, wav_duration_ms,
 };
 
-fn word(start_ms: u32, end_ms: u32) -> Word {
-    Word::new("w", start_ms, end_ms, 1.0)
+const RATE: usize = 16_000;
+
+fn loud_minute() -> Vec<f32> {
+    (0..60 * RATE)
+        .map(|i| if i % 2 == 0 { 0.5 } else { -0.5 })
+        .collect()
+}
+
+fn silence(audio: &mut [f32], from_ms: usize, to_ms: usize) {
+    audio[from_ms * RATE / 1000..to_ms * RATE / 1000].fill(0.0);
 }
 
 #[test]
-fn a_middle_chunk_drops_its_tail_and_restarts_after_the_last_kept_word() {
-    let words = vec![
-        word(60_500, 61_000),
-        word(110_000, 114_000),
-        word(116_000, 119_900),
-    ];
+fn the_cut_lands_in_the_quiet_frame_of_the_last_ten_seconds() {
+    let mut audio = loud_minute();
+    silence(&mut audio, 55_000, 55_100);
 
-    let (kept, next_ms) = commit_chunk(60_000, 120_000, 600_000, words);
-
-    assert_eq!(kept, vec![word(60_500, 61_000), word(110_000, 114_000)]);
-    assert_eq!(next_ms, 114_000);
+    assert_eq!(quiet_cut(&audio), 55_050 * RATE / 1000);
 }
 
 #[test]
-fn a_silent_middle_chunk_advances_to_its_cut() {
-    let (kept, next_ms) = commit_chunk(60_000, 120_000, 600_000, Vec::new());
+fn a_quiet_spot_before_the_last_ten_seconds_is_ignored() {
+    let mut audio = loud_minute();
+    silence(&mut audio, 30_000, 31_000);
+    silence(&mut audio, 52_000, 52_100);
 
-    assert!(kept.is_empty());
-    assert_eq!(next_ms, 115_000);
+    assert_eq!(quiet_cut(&audio), 52_050 * RATE / 1000);
 }
 
 #[test]
-fn the_last_chunk_keeps_every_word_and_finishes() {
-    let words = vec![word(590_000, 599_900)];
+fn a_silent_chunk_still_cuts_after_fifty_seconds() {
+    let audio = vec![0.0; 60 * RATE];
 
-    let (kept, next_ms) =
-        commit_chunk(540_000, 600_000, 600_000, words.clone());
-
-    assert_eq!(kept, words);
-    assert_eq!(next_ms, 600_000);
+    assert!(quiet_cut(&audio) >= 50 * RATE);
 }
 
 #[test]

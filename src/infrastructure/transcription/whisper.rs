@@ -14,9 +14,12 @@ static WHISPER_LOCK: Semaphore = Semaphore::const_new(1);
 // A chunk is the unit of progress: a pause, a crash or a kill loses at most
 // the one in flight.
 const CHUNK_MS: u32 = 60_000;
-// A hard cut can clip the last word of a chunk; words ending this close to the
-// cut are dropped and heard whole at the head of the next chunk.
-const TAIL_MS: u32 = 5_000;
+// A chunk ends in the quietest stretch of its last seconds, so no word is cut
+// in two and every word it decodes is kept. Word timestamps drift too much to
+// place the seam.
+const SEAM_SEARCH_MS: u32 = 10_000;
+const SEAM_FRAME_MS: u32 = 100;
+const SAMPLES_PER_MS: usize = 16;
 
 // Load the model once and reuse it across transcriptions. Building a WhisperContext loads the full
 // (hundreds of MB) model from disk and inits the Metal backend; doing that on every call was the
@@ -163,7 +166,19 @@ fn run_whisper(
     while progress.done_ms < total_ms {
         let start_ms = progress.done_ms;
         let end_ms = start_ms.saturating_add(CHUNK_MS).min(total_ms);
-        let audio = load_wav_mono_16k_range(wav, start_ms, end_ms)?;
+        let mut audio = load_wav_mono_16k_range(wav, start_ms, end_ms)?;
+        let next_ms = if end_ms >= total_ms {
+            total_ms
+        } else {
+            let cut = quiet_cut(&audio);
+            let cut_ms = start_ms + (cut / SAMPLES_PER_MS) as u32;
+            if cut_ms > start_ms {
+                audio.truncate(cut);
+                cut_ms
+            } else {
+                end_ms
+            }
+        };
         let busy = gpu_gate::enter();
         let ctx = cached_context(model, busy.engine)?;
         let started = std::time::Instant::now();
@@ -172,38 +187,32 @@ fn run_whisper(
             continue;
         };
         eprintln!(
-            "[whisper] chunk {start_ms}-{end_ms} ms on {:?} in {} ms",
+            "[whisper] chunk {start_ms}-{next_ms} ms on {:?} in {} ms",
             busy.engine,
             started.elapsed().as_millis()
         );
         drop(busy);
-        let (kept, next_ms) = commit_chunk(start_ms, end_ms, total_ms, words);
-        progress.words.extend(kept);
+        progress.words.extend(words);
         progress.done_ms = next_ms;
         on_chunk(&progress);
     }
     Ok(progress.words)
 }
 
-/// Splits a chunk's words into the ones kept and where the next chunk starts.
-/// The last chunk keeps everything. Otherwise words ending in the tail are
-/// dropped and the next chunk starts right after the last kept word.
-pub fn commit_chunk(
-    start_ms: u32,
-    end_ms: u32,
-    total_ms: u32,
-    words: Vec<Word>,
-) -> (Vec<Word>, u32) {
-    if end_ms >= total_ms {
-        return (words, total_ms);
-    }
-    let cut_ms = end_ms.saturating_sub(TAIL_MS).max(start_ms + 1);
-    let kept: Vec<Word> = words
-        .into_iter()
-        .take_while(|w| w.end_ms <= cut_ms)
-        .collect();
-    let next_ms = kept.last().map_or(cut_ms, |w| w.end_ms);
-    (kept, if next_ms > start_ms { next_ms } else { cut_ms })
+/// Where to end a chunk of 16 kHz audio: the middle of the quietest
+/// `SEAM_FRAME_MS` frame in its last `SEAM_SEARCH_MS`. Energy is relative, with
+/// no threshold: some stretch is always the quietest, even in a noisy room.
+pub fn quiet_cut(audio: &[f32]) -> usize {
+    let frame = SEAM_FRAME_MS as usize * SAMPLES_PER_MS;
+    let from = audio
+        .len()
+        .saturating_sub(SEAM_SEARCH_MS as usize * SAMPLES_PER_MS);
+    audio[from..]
+        .chunks_exact(frame)
+        .map(|f| f.iter().map(|s| s * s).sum::<f32>())
+        .enumerate()
+        .min_by(|(_, a), (_, b)| a.total_cmp(b))
+        .map_or(audio.len(), |(i, _)| from + i * frame + frame / 2)
 }
 
 /// `None` when `engine` had to stop mid-inference: the same audio runs again
