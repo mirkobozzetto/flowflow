@@ -1,7 +1,7 @@
 use crate::application::hermes_chat::{
     self, HermesError, HermesTurn, LiveReply,
 };
-use crate::application::i18n::t;
+use crate::application::i18n::{t, t_args};
 use crate::infrastructure::persistence::Database;
 use crate::ui::chat::empty_state::ChatEmptyState;
 use crate::ui::chat::hermes_reply::HermesReply;
@@ -27,6 +27,34 @@ pub(crate) fn problem_text(lang: &str, e: &HermesError) -> String {
     }
 }
 
+// "Opus 5.5 · 99 skills · 4 tâches planifiées": what this Hermes runs on and
+// what it can draw on; a count Hermes cannot serve is left out.
+fn facts_line(
+    lang: &str,
+    app: AppState,
+    counts: Option<(Option<usize>, Option<usize>)>,
+) -> Option<String> {
+    let options = (app.hermes_models)()?;
+    let model = (app.hermes_pick)().map(|(_, m)| m).unwrap_or(options.model);
+    let mut parts = vec![hermes_chat::model_label(&model)];
+    let (skills, jobs) = counts.unwrap_or_default();
+    if let Some(n) = skills.filter(|n| *n > 0) {
+        parts.push(t_args(
+            lang,
+            "hermes-facts-skills",
+            &[("count", &n.to_string())],
+        ));
+    }
+    if let Some(n) = jobs.filter(|n| *n > 0) {
+        parts.push(t_args(
+            lang,
+            "hermes-facts-jobs",
+            &[("count", &n.to_string())],
+        ));
+    }
+    Some(parts.join(" · "))
+}
+
 fn view_session(view: &View) -> Option<Option<String>> {
     match view {
         View::HermesChat { session_id } => Some(session_id.clone()),
@@ -45,6 +73,9 @@ pub fn HermesChatView() -> Element {
     let mut turns: Signal<Vec<HermesTurn>> = use_signal(Vec::new);
     let mut live: Signal<Option<LiveReply>> = use_signal(|| None);
     let mut problem: Signal<Option<HermesError>> = use_signal(|| None);
+    // (skills, scheduled tasks) on Hermes, for the empty conversation.
+    let mut counts: Signal<Option<(Option<usize>, Option<usize>)>> =
+        use_signal(|| None);
     let input = use_signal(String::new);
     let pending_audio: Signal<Option<(String, f64)>> = use_signal(|| None);
 
@@ -90,14 +121,27 @@ pub fn HermesChatView() -> Element {
         turns.set(Vec::new());
         live.set(None);
         problem.set(None);
+        app.hermes_pick.set(
+            sid.as_deref()
+                .and_then(|s| hermes_chat::chosen_model(&db.peek(), s)),
+        );
         spawn(async move {
             let database = db();
+            let options = hermes_chat::model_options(&database).await;
             let Some(sid) = sid else {
-                if let Err(e) = hermes_chat::ready(&database).await {
-                    problem.set(Some(e));
+                // A new conversation: the options read doubles as the
+                // reachability check, the counts fill the empty screen.
+                match options {
+                    Ok(o) => app.hermes_models.set(Some(o)),
+                    Err(e) => {
+                        problem.set(Some(e));
+                        return;
+                    }
                 }
+                counts.set(Some(hermes_chat::counts(&database).await));
                 return;
             };
+            app.hermes_models.set(options.ok());
             match hermes_chat::history(&database, &sid).await {
                 Ok(history) => turns.set(history),
                 Err(e) => {
@@ -150,7 +194,7 @@ pub fn HermesChatView() -> Element {
                     }
                 }
                 if is_empty && problem().is_none() {
-                    ChatEmptyState { hermes: true }
+                    ChatEmptyState { hermes: true, facts: facts_line(&lang, app, counts()) }
                 } else {
                     div { class: "space-y-3",
                         for (i, turn) in turns().into_iter().enumerate() {
@@ -190,7 +234,8 @@ pub fn HermesChatView() -> Element {
                 spawn(async move {
                     let database = db();
                     let current = session.peek().clone();
-                    match hermes_chat::send(&database, current.clone(), &q, None).await {
+                    let pick = app.hermes_pick.peek().clone();
+                    match hermes_chat::send(&database, current.clone(), &q, pick).await {
                         Ok((sid, run_id)) => {
                             if current.is_none() {
                                 session.set(Some(sid.clone()));
