@@ -1,6 +1,6 @@
 use crate::application::note_persistence::append_transcription_to_note;
 use crate::application::transcription_manager::{
-    local_job_running, JobStatus, TranscriptionManager,
+    job_needs_screen_on, JobStatus, TranscriptionManager,
 };
 use crate::infrastructure::persistence::Database;
 use crate::infrastructure::sync::engine::SyncEngine;
@@ -19,16 +19,17 @@ pub fn use_transcription_watcher(
         let db = db();
         let mut app = app;
         async move {
-            // Auto-lock would background the app and pause a local job. iOS
-            // re-enables it on every return to the foreground, so it is
-            // asserted on each tick while a job runs, not only once.
+            // Auto-lock would background the app: a local job pauses, a Soniox
+            // upload is cut. iOS re-enables it on every return to the
+            // foreground, so it is asserted on each tick while a job runs, not
+            // only once.
             let mut awake = false;
             loop {
                 let snap = manager.snapshot();
                 if *app.transcription_jobs.peek() != snap {
                     app.transcription_jobs.set(snap.clone());
                 }
-                let running = local_job_running(&snap);
+                let running = job_needs_screen_on(&snap);
                 if running || awake {
                     crate::infrastructure::platform::keep_screen_awake(running);
                     awake = running;

@@ -50,6 +50,33 @@ impl Database {
         Ok(())
     }
 
+    /// Written before the upload, so a job killed mid-upload is sent again on
+    /// the next launch. `add_pending_transcription` replaces it once Soniox
+    /// has the file.
+    pub fn add_pending_soniox_upload(
+        &self,
+        note_id: &str,
+        file_path: &str,
+        audio_id: Option<&str>,
+    ) -> Result<(), String> {
+        let conn = self.conn();
+        conn.execute(
+            "INSERT INTO pending_transcriptions
+                (note_id, transcription_id, soniox_file_id, provider,
+                 file_path, audio_id)
+             VALUES (?1, NULL, NULL, 'soniox', ?2, ?3)
+             ON CONFLICT(note_id) DO UPDATE SET
+                transcription_id = excluded.transcription_id,
+                soniox_file_id = excluded.soniox_file_id,
+                provider = excluded.provider,
+                file_path = excluded.file_path,
+                audio_id = excluded.audio_id",
+            rusqlite::params![note_id, file_path, audio_id],
+        )
+        .map_err(|e| format!("Add pending soniox upload: {e}"))?;
+        Ok(())
+    }
+
     /// Leaves `done_ms` and `words_json` alone on conflict: a resumed job
     /// re-registers itself and must keep its progress.
     pub fn add_pending_local_transcription(

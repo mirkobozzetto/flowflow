@@ -2,7 +2,7 @@ mod background;
 mod job;
 mod processing;
 
-pub use job::{local_job_running, Job, JobStatus};
+pub use job::{job_needs_screen_on, local_job_running, Job, JobStatus};
 
 use crate::infrastructure::persistence::pending_transcription_repo::PendingTranscription;
 
@@ -198,9 +198,9 @@ impl TranscriptionManager {
     }
 }
 
-/// The job a persisted pending row resumes into. Pure: no thread, no IO -
-/// `resume_pending` is this plus a queue push. `None` means the row is unusable
-/// (a soniox row with no server-side id) and must be dropped.
+/// The job a persisted pending row resumes into. No thread - `resume_pending`
+/// is this plus a queue push. `None` means the row is unusable (an upload
+/// whose recording is gone) and must be dropped.
 pub fn job_from_pending(row: &PendingTranscription) -> Option<Job> {
     if row.provider == SttProvider::WhisperLocal.as_str() {
         return Some(Job {
@@ -214,9 +214,24 @@ pub fn job_from_pending(row: &PendingTranscription) -> Option<Job> {
             audio_id: row.audio_id.clone(),
         });
     }
-    // Soniox holds the audio server-side; without its id there is nothing left
-    // to poll.
-    let tr_id = row.transcription_id.clone()?;
+    // No server-side id yet: the upload never finished, so it starts over
+    // from the recording, if it is still there.
+    let Some(tr_id) = row.transcription_id.clone() else {
+        let file_path = resolve_resume_path(row.file_path.as_deref());
+        if !file_path.is_file() {
+            return None;
+        }
+        return Some(Job {
+            id: uuid::Uuid::new_v4().to_string(),
+            note_id: row.note_id.clone(),
+            file_path,
+            status: JobStatus::Queued,
+            provider: SttProvider::Soniox,
+            transcription_id: None,
+            soniox_file_id: None,
+            audio_id: row.audio_id.clone(),
+        });
+    };
     Some(Job {
         id: uuid::Uuid::new_v4().to_string(),
         note_id: row.note_id.clone(),

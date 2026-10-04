@@ -204,22 +204,29 @@ async fn process_soniox(
 
     let (tr_id, file_id) = match job.transcription_id.clone() {
         Some(tid) => (tid, job.soniox_file_id.clone()),
-        None => match client.start_transcription(&job.file_path, None).await {
-            Ok((tid, fid)) => {
-                let _ = db.add_pending_transcription(
-                    note_id,
-                    &tid,
-                    Some(&fid),
-                    job.audio_id.as_deref(),
-                );
-                set_transcription_ids(reg, note_id, &job.id, &tid, &fid);
-                (tid, Some(fid))
+        None => {
+            let _ = db.add_pending_soniox_upload(
+                note_id,
+                &job.file_path.to_string_lossy(),
+                job.audio_id.as_deref(),
+            );
+            match client.start_transcription(&job.file_path, None).await {
+                Ok((tid, fid)) => {
+                    let _ = db.add_pending_transcription(
+                        note_id,
+                        &tid,
+                        Some(&fid),
+                        job.audio_id.as_deref(),
+                    );
+                    set_transcription_ids(reg, note_id, &job.id, &tid, &fid);
+                    (tid, Some(fid))
+                }
+                Err(e) => {
+                    set_status(reg, note_id, &job.id, JobStatus::Failed(e));
+                    return;
+                }
             }
-            Err(e) => {
-                set_status(reg, note_id, &job.id, JobStatus::Failed(e));
-                return;
-            }
-        },
+        }
     };
 
     let started = SystemTime::now();

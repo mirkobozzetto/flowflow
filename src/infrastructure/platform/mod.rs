@@ -100,6 +100,9 @@ pub mod ios;
 pub mod macos;
 
 #[cfg(any(target_os = "ios", target_os = "macos"))]
+pub mod aac;
+
+#[cfg(any(target_os = "ios", target_os = "macos"))]
 pub mod parsers;
 
 #[cfg(any(target_os = "ios", target_os = "macos"))]
