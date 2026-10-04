@@ -2,7 +2,7 @@ use super::hesitations::clean_hesitations_words;
 use crate::domain::transcript::words_from_span;
 use crate::domain::{Dictionary, Transcript, Word};
 use serde::Deserialize;
-use std::path::Path;
+use std::path::{Path, PathBuf};
 use std::time::Duration;
 
 const BASE_URL: &str = "https://api.soniox.com";
@@ -138,6 +138,42 @@ pub async fn verify_key(api_key: &str) -> Result<(), String> {
         200..=299 => Ok(()),
         401 | 403 => Err("unauthorized".to_string()),
         other => Err(format!("HTTP {other}")),
+    }
+}
+
+/// A WAV goes up as AAC, about ten times smaller, so a long take uploads in
+/// time. Any encoding failure falls back to sending the original.
+async fn compressed_copy(path: &Path) -> Option<PathBuf> {
+    #[cfg(any(target_os = "ios", target_os = "macos"))]
+    {
+        if !path
+            .extension()
+            .is_some_and(|ext| ext.eq_ignore_ascii_case("wav"))
+        {
+            return None;
+        }
+        let out = std::env::temp_dir()
+            .join(format!("soniox-{}.m4a", uuid::Uuid::new_v4()));
+        let (wav, target) = (path.to_path_buf(), out.clone());
+        let encoded = tokio::task::spawn_blocking(move || {
+            crate::infrastructure::platform::aac::encode_m4a(&wav, &target)
+        })
+        .await
+        .map_err(|e| format!("{e}"))
+        .and_then(|r| r);
+        match encoded {
+            Ok(()) => return Some(out),
+            Err(e) => {
+                eprintln!("[soniox] compression failed, sending WAV: {e}")
+            }
+        }
+        let _ = std::fs::remove_file(&out);
+        None
+    }
+    #[cfg(not(any(target_os = "ios", target_os = "macos")))]
+    {
+        let _ = path;
+        None
     }
 }
 
@@ -372,7 +408,15 @@ impl SonioxClient {
         path: &Path,
         language: Option<&str>,
     ) -> Result<(String, String), String> {
-        let file_id = self.upload_file(path).await?;
+        let compressed = compressed_copy(path).await;
+        let upload = self
+            .upload_file(compressed.as_deref().unwrap_or(path))
+            .await;
+        // The copy only exists for the upload; the note keeps the original.
+        if let Some(copy) = &compressed {
+            let _ = std::fs::remove_file(copy);
+        }
+        let file_id = upload?;
         let tr_id = self.create_transcription(&file_id, language).await?;
         Ok((tr_id, file_id))
     }
