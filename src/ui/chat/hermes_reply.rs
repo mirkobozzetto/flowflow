@@ -1,4 +1,4 @@
-use crate::application::hermes_chat::HermesStep;
+use crate::application::hermes_chat::{self, HermesStep};
 use crate::application::i18n::{t, t_args};
 use crate::ui::chat::actions::md_to_html;
 use crate::ui::icons::{HermesAgentIcon, IconCaretRight};
@@ -80,7 +80,7 @@ fn HermesSteps(steps: Vec<HermesStep>, lang: String) -> Element {
             div { class: if open() { "grid grid-rows-[1fr] transition-[grid-template-rows] duration-180" } else { "grid grid-rows-[0fr] transition-[grid-template-rows] duration-180" },
                 div { class: "overflow-hidden",
                     div { class: "flex flex-col gap-1.5 mt-1",
-                        for (i, step) in steps.iter().enumerate() {
+                        for (i, (step, n)) in hermes_chat::grouped(&steps).into_iter().enumerate() {
                             div { key: "{i}", class: "flex items-baseline gap-2 text-xs min-w-0",
                                 span {
                                     class: if step.failed {
@@ -92,8 +92,13 @@ fn HermesSteps(steps: Vec<HermesStep>, lang: String) -> Element {
                                     },
                                     style: if step.running { "animation: pulseSoft 1.2s ease-in-out infinite;" } else { "" },
                                 }
-                                span { class: "shrink-0 font-medium text-stone-700", "{step.tool}" }
+                                span { class: "shrink-0 font-medium text-stone-700",
+                                    {hermes_chat::tool_key(&step.tool).map_or(step.tool.clone(), |k| t(&lang, k))}
+                                }
                                 span { class: "min-w-0 truncate text-stone-400", "{step.detail}" }
+                                if n > 1 {
+                                    span { class: "ml-auto shrink-0 text-stone-400 tabular-nums", "×{n}" }
+                                }
                             }
                         }
                     }

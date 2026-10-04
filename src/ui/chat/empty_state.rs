@@ -3,13 +3,18 @@ use crate::ui::AppState;
 use dioxus::prelude::*;
 
 #[component]
-pub fn ChatEmptyState(#[props(default)] hermes: bool) -> Element {
+pub fn ChatEmptyState(
+    #[props(default)] hermes: bool,
+    /// Hermes: its model and counts, in place of a hint.
+    #[props(default)]
+    facts: Option<String>,
+) -> Element {
     let app: AppState = use_context();
     let lang = (app.current_lang)();
     let (title, hint) = if hermes {
-        ("hermes-empty-title", "hermes-empty-hint")
+        (t(&lang, "hermes-title"), facts.unwrap_or_default())
     } else {
-        ("chat-empty-title", "chat-empty-hint")
+        (t(&lang, "chat-empty-title"), t(&lang, "chat-empty-hint"))
     };
     rsx! {
         div {
@@ -30,12 +35,8 @@ pub fn ChatEmptyState(#[props(default)] hermes: bool) -> Element {
                     class: "mb-6 object-contain",
                 }
             }
-            p { class: "text-stone-900 font-semibold text-base mb-1",
-                {t(&lang, title)}
-            }
-            p { class: "text-stone-400 text-sm text-center",
-                {t(&lang, hint)}
-            }
+            p { class: "text-stone-900 font-semibold text-base mb-1", "{title}" }
+            p { class: "text-stone-400 text-sm text-center min-h-5", "{hint}" }
         }
     }
 }

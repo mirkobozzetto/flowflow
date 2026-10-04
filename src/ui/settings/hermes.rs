@@ -4,7 +4,15 @@ use crate::infrastructure::persistence::Database;
 use crate::ui::chat::hermes_problem_text;
 use crate::ui::AppState;
 use dioxus::prelude::*;
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
+
+// Set when a scanned QR code filled the fields: the card tests on opening.
+static TEST_ON_OPEN: AtomicBool = AtomicBool::new(false);
+
+pub(crate) fn test_on_open() {
+    TEST_ON_OPEN.store(true, Ordering::Relaxed);
+}
 
 #[derive(Clone, PartialEq)]
 enum Probe {
@@ -26,6 +34,26 @@ pub fn HermesSettings() -> Element {
     let mut key =
         use_signal(|| db().get_setting(KEY_SETTING).unwrap_or_default());
     let mut probe = use_signal(|| Probe::Idle);
+
+    // Saves the fields, then asks Hermes; one sentence says how it went.
+    let mut test = move || {
+        let (u, k) = (url().trim().to_string(), key().trim().to_string());
+        let _ = db().set_setting(URL_SETTING, &u);
+        let _ = db().set_setting(KEY_SETTING, &k);
+        probe.set(Probe::Testing);
+        spawn(async move {
+            let lang = (app.current_lang)();
+            probe.set(match hermes_chat::check(&u, &k).await {
+                Ok(()) => Probe::Ok,
+                Err(e) => Probe::Failed(hermes_problem_text(&lang, &e)),
+            });
+        });
+    };
+    use_effect(move || {
+        if TEST_ON_OPEN.swap(false, Ordering::Relaxed) {
+            test();
+        }
+    });
 
     rsx! {
         div { class: "space-y-3",
@@ -63,19 +91,7 @@ pub fn HermesSettings() -> Element {
             button {
                 class: crate::ui::kit::BTN_PRIMARY,
                 disabled: probe() == Probe::Testing || url().trim().is_empty() || key().trim().is_empty(),
-                onclick: move |_| {
-                    let (u, k) = (url().trim().to_string(), key().trim().to_string());
-                    let _ = db().set_setting(URL_SETTING, &u);
-                    let _ = db().set_setting(KEY_SETTING, &k);
-                    probe.set(Probe::Testing);
-                    let lang = lang.clone();
-                    spawn(async move {
-                        probe.set(match hermes_chat::check(&u, &k).await {
-                            Ok(()) => Probe::Ok,
-                            Err(e) => Probe::Failed(hermes_problem_text(&lang, &e)),
-                        });
-                    });
-                },
+                onclick: move |_| test(),
                 if probe() == Probe::Testing {
                     {t(&lang, "hermes-settings-testing")}
                 } else {

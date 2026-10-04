@@ -1,6 +1,7 @@
 use crate::application::i18n::t;
 use crate::domain::conversation::Conversation;
 use crate::infrastructure::persistence::Database;
+use crate::ui::chat::new_chat_menu::{NativeNewChatMenu, NewChatChoices};
 use crate::ui::delete_confirm::DeleteConfirm;
 use crate::ui::icons::*;
 use crate::ui::kit;
@@ -50,7 +51,7 @@ pub fn ConversationSection() -> Element {
     rsx! {
         div { class: "relative mb-2",
             if native_menu {
-                NativeNewChatMenu {}
+                NativeNewChatMenu { anchor: "chats-plus" }
             }
             button {
                 // iOS 26: a clear native button over this row opens the
@@ -65,34 +66,7 @@ pub fn ConversationSection() -> Element {
             if menu_open() {
                 div { class: "fixed inset-0 z-40", onclick: move |_| menu_open.set(false) }
                 div { class: "absolute left-0 top-full mt-1 {kit::MENU_PANEL}",
-                    button {
-                        class: kit::MENU_ITEM,
-                        onclick: move |_| {
-                            menu_open.set(false);
-                            open_notes_chat(app);
-                        },
-                        img {
-                            src: asset!("/assets/flowflow-icon-64.png"),
-                            class: "w-6 h-6 shrink-0 object-contain",
-                            alt: "",
-                        }
-                        span { class: "flex flex-col",
-                            span { {t(&lang, "new-chat-with-notes")} }
-                            span { class: "text-xs text-stone-400", {t(&lang, "new-chat-with-notes-hint")} }
-                        }
-                    }
-                    button {
-                        class: kit::MENU_ITEM,
-                        onclick: move |_| {
-                            menu_open.set(false);
-                            open_hermes_chat(app);
-                        },
-                        HermesAgentIcon { size: 24 }
-                        span { class: "flex flex-col",
-                            span { {t(&lang, "new-chat-with-hermes")} }
-                            span { class: "text-xs text-stone-400", {t(&lang, "new-chat-with-hermes-hint")} }
-                        }
-                    }
+                    NewChatChoices { on_pick: move |_| menu_open.set(false) }
                 }
             }
         }
@@ -125,60 +99,6 @@ pub fn ConversationSection() -> Element {
         }
         for (conv, hermes) in conversations() {
             ConversationItem { key: "{conv.id}", conv, hermes }
-        }
-    }
-}
-
-fn open_notes_chat(mut app: AppState) {
-    app.sidebar_open.set(false);
-    app.chat_scope.set(None);
-    crate::ui::sidebar::navigate_with_slide(
-        app,
-        View::Chat {
-            conversation_id: None,
-        },
-    );
-}
-
-fn open_hermes_chat(mut app: AppState) {
-    app.sidebar_open.set(false);
-    crate::ui::sidebar::navigate_with_slide(
-        app,
-        View::HermesChat { session_id: None },
-    );
-}
-
-/// Hidden source of the native "New conversation" menu (glass_burger.ts):
-/// labels, subtitles and icons are read from here, a pick clicks these.
-#[component]
-fn NativeNewChatMenu() -> Element {
-    let app: AppState = use_context();
-    let lang = (app.current_lang)();
-    rsx! {
-        div {
-            hidden: true,
-            "data-native-menu": "chats-plus",
-            "data-native-context": "chats",
-            button {
-                "data-native-action": "notes",
-                "data-native-symbol": "ff.chat.ai",
-                "data-native-subtitle": t(&lang, "new-chat-with-notes-hint"),
-                onclick: move |_| open_notes_chat(app),
-                span { "data-native-icon": "",
-                    img { src: asset!("/assets/flowflow-icon-64.png"), alt: "" }
-                }
-                {t(&lang, "new-chat-with-notes")}
-            }
-            button {
-                "data-native-action": "hermes",
-                "data-native-symbol": "person.crop.circle",
-                "data-native-subtitle": t(&lang, "new-chat-with-hermes-hint"),
-                onclick: move |_| open_hermes_chat(app),
-                span { "data-native-icon": "",
-                    img { src: asset!("/assets/hermes-agent.png"), alt: "" }
-                }
-                {t(&lang, "new-chat-with-hermes")}
-            }
         }
     }
 }

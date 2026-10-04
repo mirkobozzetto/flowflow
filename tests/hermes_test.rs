@@ -295,9 +295,10 @@ async fn the_first_question_opens_a_flowflow_session_then_a_run() {
     let db = open_db(&dir);
     configure(&db, &base);
 
-    let (session, run) = hermes_chat::send(&db, None, "Quelle heure est-il ?")
-        .await
-        .unwrap();
+    let (session, run) =
+        hermes_chat::send(&db, None, "Quelle heure est-il ?", None, None)
+            .await
+            .unwrap();
 
     assert!(session.starts_with("flowflow_"));
     assert_eq!(run, "run_1");
@@ -379,4 +380,301 @@ async fn a_run_the_server_forgot_ends_the_follow() {
         .await
         .unwrap();
     assert_eq!(hermes_chat::pending(&db, "flowflow_b"), None);
+}
+
+#[test]
+fn a_linking_qr_code_carries_the_address_and_the_key() {
+    let link = "flowflow://hermes?url=https%3A%2F%2Fsrv.tailnet.ts.net%3A8642&key=k_0123456789abcdef";
+    assert_eq!(
+        hermes_chat::parse_link(link),
+        Some((
+            "https://srv.tailnet.ts.net:8642".to_string(),
+            "k_0123456789abcdef".to_string()
+        ))
+    );
+    assert_eq!(
+        hermes_chat::parse_link("flowflow://hermes?url=https%3A%2F%2Fx"),
+        None
+    );
+    assert_eq!(
+        hermes_chat::parse_link("flowflow://share/abc?url=a&key=b"),
+        None
+    );
+    assert_eq!(hermes_chat::parse_link("https://hermes?url=a&key=b"), None);
+}
+
+#[test]
+fn model_ids_read_like_their_product_names() {
+    assert_eq!(hermes_chat::model_label("claude-opus-5-5[1m]"), "Opus 5.5");
+    assert_eq!(
+        hermes_chat::model_label("claude-haiku-4-5-20251001"),
+        "Haiku 4.5"
+    );
+    assert_eq!(hermes_chat::model_label("claude-sonnet-5[1m]"), "Sonnet 5");
+    assert_eq!(hermes_chat::model_label("gpt-6.1-sol"), "GPT-6.1 Sol");
+    assert_eq!(
+        hermes_chat::model_label("gpt-6-astra-900k"),
+        "GPT-6 Astra 900k"
+    );
+    assert_eq!(hermes_chat::model_label("llama-local"), "llama-local");
+    assert_eq!(
+        hermes_chat::provider_label(
+            "claude-subscription-directsdk-experimental",
+            "Claude Subscription DirectSDK (Experimental)"
+        ),
+        "Claude"
+    );
+    assert_eq!(
+        hermes_chat::provider_label(
+            "openai-codex",
+            "ChatGPT or Codex Subscription"
+        ),
+        "ChatGPT"
+    );
+    assert_eq!(
+        hermes_chat::provider_label("fireworks", "Fireworks AI (beta)"),
+        "Fireworks AI"
+    );
+}
+
+/// Shape captured from /api/model/options on 2026-10-05, trimmed.
+#[test]
+fn only_signed_in_providers_offer_models() {
+    let raw = serde_json::json!({
+        "provider": "claude-subscription-directsdk-experimental",
+        "model": "claude-opus-5-5[1m]",
+        "providers": [
+            {"slug": "nous", "name": "Nous Portal", "authenticated": false, "models": []},
+            {"slug": "openai-codex", "name": "ChatGPT or Codex Subscription", "authenticated": true, "models": ["gpt-6.1-sol", "gpt-6-astra"]},
+            {"slug": "claude-subscription-directsdk-experimental", "name": "Claude Subscription DirectSDK (Experimental)", "authenticated": true, "models": ["claude-sonnet-5[1m]", "claude-opus-5-5[1m]"]}
+        ]
+    });
+    let options = flowflow::infrastructure::hermes::parse_model_options(&raw);
+    assert_eq!(options.model, "claude-opus-5-5[1m]");
+    assert_eq!(options.providers.len(), 2);
+    assert_eq!(
+        options.providers[0].models,
+        vec!["gpt-6.1-sol", "gpt-6-astra"]
+    );
+}
+
+#[test]
+fn a_pick_stays_with_its_conversation_and_starts_the_next_ones() {
+    let dir = tempdir().unwrap();
+    let db = open_db(&dir);
+    assert_eq!(hermes_chat::chosen_model(&db, "flowflow_a"), None);
+    hermes_chat::choose_model(&db, "flowflow_a", "openai-codex", "gpt-6.1-sol")
+        .unwrap();
+    hermes_chat::choose_effort(&db, "flowflow_a", "high").unwrap();
+    // A new conversation starts on the latest pick, level included.
+    assert_eq!(
+        hermes_chat::chosen_model(&db, "flowflow_b"),
+        Some(("openai-codex".into(), "gpt-6.1-sol".into()))
+    );
+    assert_eq!(
+        hermes_chat::chosen_effort(&db, "flowflow_b").as_deref(),
+        Some("high")
+    );
+    // A later pick elsewhere leaves this conversation's own pick alone.
+    let claude = "claude-subscription-directsdk-experimental";
+    hermes_chat::choose_model(&db, "flowflow_c", claude, "claude-opus-5-5[1m]")
+        .unwrap();
+    assert_eq!(
+        hermes_chat::chosen_model(&db, "flowflow_a"),
+        Some(("openai-codex".into(), "gpt-6.1-sol".into()))
+    );
+}
+
+#[test]
+fn back_to_back_calls_of_one_tool_fold_into_one_step() {
+    let step = |tool: &str| hermes_chat::HermesStep {
+        tool: tool.into(),
+        detail: format!("{tool} detail"),
+        running: false,
+        failed: false,
+    };
+    let steps = vec![
+        step("session_search"),
+        step("read_file"),
+        step("read_file"),
+        step("read_file"),
+        step("web_search"),
+        step("read_file"),
+    ];
+    let grouped = hermes_chat::grouped(&steps);
+    let shape: Vec<(&str, usize)> =
+        grouped.iter().map(|(s, n)| (s.tool.as_str(), *n)).collect();
+    assert_eq!(
+        shape,
+        vec![
+            ("session_search", 1),
+            ("read_file", 3),
+            ("web_search", 1),
+            ("read_file", 1)
+        ]
+    );
+    assert_eq!(
+        hermes_chat::tool_key("read_file"),
+        Some("hermes-tool-read-file")
+    );
+    assert_eq!(hermes_chat::tool_key("yb_send_sticker"), None);
+}
+
+/// Model lists read from Hermes on 2026-10-05.
+const CLAUDE_MODELS: [&str; 6] = [
+    "claude-sonnet-5[1m]",
+    "claude-haiku-4-5-20251001",
+    "claude-opus-5-5[1m]",
+    "claude-opus-5[1m]",
+    "claude-opus-4-8[1m]",
+    "claude-fable-5-1[1m]",
+];
+const CODEX_MODELS: [&str; 16] = [
+    "gpt-6.1-sol",
+    "gpt-6.1-sol-900k",
+    "gpt-6-astra",
+    "gpt-6-astra-900k",
+    "gpt-6-sol",
+    "gpt-6-sol-900k",
+    "gpt-6-luna",
+    "gpt-6-luna-900k",
+    "gpt-5.6-sol",
+    "gpt-5.6-sol-900k",
+    "gpt-5.6-terra",
+    "gpt-5.6-terra-900k",
+    "gpt-5.6-luna",
+    "gpt-5.6-luna-900k",
+    "gpt-5.5",
+    "gpt-5.3-codex-spark",
+];
+
+fn owned(list: &[&str]) -> Vec<String> {
+    list.iter().map(|s| s.to_string()).collect()
+}
+
+#[test]
+fn the_menu_keeps_the_newest_model_of_each_family() {
+    assert_eq!(
+        hermes_chat::latest_models(&owned(&CLAUDE_MODELS), ""),
+        owned(&[
+            "claude-opus-5-5[1m]",
+            "claude-fable-5-1[1m]",
+            "claude-sonnet-5[1m]",
+            "claude-haiku-4-5-20251001"
+        ])
+    );
+    assert_eq!(
+        hermes_chat::latest_models(&owned(&CODEX_MODELS), ""),
+        owned(&[
+            "gpt-6.1-sol",
+            "gpt-6-astra",
+            "gpt-6-luna",
+            "gpt-5.6-terra",
+            "gpt-5.5",
+            "gpt-5.3-codex-spark"
+        ])
+    );
+    // The model in use stays reachable even when a newer one hides it.
+    assert!(hermes_chat::latest_models(
+        &owned(&CLAUDE_MODELS),
+        "claude-opus-4-8[1m]"
+    )
+    .contains(&"claude-opus-4-8[1m]".to_string()));
+}
+
+#[test]
+fn the_provider_in_use_comes_first() {
+    let options = flowflow::infrastructure::hermes::ModelOptions {
+        provider: "claude-subscription-directsdk-experimental".into(),
+        model: "claude-opus-5-5[1m]".into(),
+        providers: vec![
+            hermes_chat::ModelProvider {
+                slug: "openai-codex".into(),
+                name: "ChatGPT".into(),
+                models: owned(&CODEX_MODELS),
+            },
+            hermes_chat::ModelProvider {
+                slug: "claude-subscription-directsdk-experimental".into(),
+                name: "Claude".into(),
+                models: owned(&CLAUDE_MODELS),
+            },
+        ],
+    };
+    let menu = hermes_chat::menu_providers(
+        &options,
+        (
+            "claude-subscription-directsdk-experimental",
+            "claude-opus-5-5[1m]",
+        ),
+    );
+    assert_eq!(menu[0].slug, "claude-subscription-directsdk-experimental");
+    assert_eq!(menu[1].slug, "openai-codex");
+    // OpenAI's current lineup is the GPT-6 generation only.
+    assert_eq!(
+        menu[1].models,
+        owned(&["gpt-6.1-sol", "gpt-6-astra", "gpt-6-luna"])
+    );
+}
+
+#[test]
+fn each_model_offers_only_the_levels_hermes_accepts() {
+    let claude = "claude-subscription-directsdk-experimental";
+    assert_eq!(
+        hermes_chat::efforts_for(claude, "claude-opus-5-5[1m]"),
+        &["low", "medium", "high", "xhigh", "max"]
+    );
+    assert_eq!(
+        hermes_chat::efforts_for(claude, "claude-fable-5-1[1m]"),
+        &["low", "medium", "high", "xhigh", "max"]
+    );
+    assert_eq!(
+        hermes_chat::efforts_for(claude, "claude-haiku-4-5-20251001"),
+        &["low", "medium", "high", "xhigh"]
+    );
+    assert_eq!(
+        hermes_chat::efforts_for("openai-codex", "gpt-6.1-sol"),
+        &["low", "medium", "high", "xhigh", "max"]
+    );
+    assert_eq!(
+        hermes_chat::efforts_for("openai-codex", "gpt-6-luna"),
+        &["low", "medium", "high", "xhigh", "max"]
+    );
+    assert_eq!(
+        hermes_chat::efforts_for("openai-codex", "gpt-5.5"),
+        &["low", "medium", "high", "xhigh"]
+    );
+    assert!(hermes_chat::efforts_for("fireworks", "llama").is_empty());
+}
+
+#[test]
+fn a_conversation_thinks_at_medium_unless_told_otherwise() {
+    let claude = "claude-subscription-directsdk-experimental";
+    assert_eq!(
+        hermes_chat::effective_effort(None, claude, "claude-opus-5-5[1m]")
+            .as_deref(),
+        Some("medium")
+    );
+    assert_eq!(
+        hermes_chat::effective_effort(
+            Some("max"),
+            claude,
+            "claude-opus-5-5[1m]"
+        )
+        .as_deref(),
+        Some("max")
+    );
+    // Haiku has no "max": the pick falls back to the default.
+    assert_eq!(
+        hermes_chat::effective_effort(
+            Some("max"),
+            claude,
+            "claude-haiku-4-5-20251001"
+        )
+        .as_deref(),
+        Some("medium")
+    );
+    assert_eq!(
+        hermes_chat::effective_effort(None, "fireworks", "llama"),
+        None
+    );
 }

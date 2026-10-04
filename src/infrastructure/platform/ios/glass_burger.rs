@@ -29,7 +29,13 @@ use objc2_ui_kit::{
 fn has_menu(id: &str) -> bool {
     matches!(
         id,
-        "note-more" | "chat-more" | "note-plus" | "chat-plus" | "chats-plus"
+        "note-more"
+            | "chat-more"
+            | "note-plus"
+            | "chat-plus"
+            | "chats-plus"
+            | "hermes-model"
+            | "chat-pick"
     )
 }
 
@@ -37,7 +43,10 @@ fn has_menu(id: &str) -> bool {
 // the native button over it is clear and only reports the menu opening. The
 // Chats tab's "New conversation" row works the same way.
 fn is_plus(id: &str) -> bool {
-    matches!(id, "note-plus" | "chat-plus" | "chats-plus")
+    matches!(
+        id,
+        "note-plus" | "chat-plus" | "chats-plus" | "hermes-model"
+    )
 }
 
 define_class!(
@@ -239,6 +248,7 @@ fn configuration(
         let id = match id {
             "note-plus" => "note-plus",
             "chats-plus" => "chats-plus",
+            "hermes-model" => "hermes-model",
             _ => "chat-plus",
         };
         return Some((id, config));
@@ -266,7 +276,8 @@ fn configuration(
                 "chat-more"
             }
         }
-        "chat" => {
+        // "chat-pick": the same pill, opening the notes-or-Hermes menu.
+        "chat" | "chat-pick" => {
             config.setImage(Some(&chat_ai(mtm, 22.0)));
             config.setImagePadding(6.0);
             config.setBaseForegroundColor(Some(&orange_dark()));
@@ -292,7 +303,11 @@ fn configuration(
                 )
             };
             config.setAttributedTitle(Some(&title));
-            "chat"
+            if id == "chat" {
+                "chat"
+            } else {
+                "chat-pick"
+            }
         }
         "fab" => {
             // fab.rs: the same thin orange plus (100 viewBox at 42px, stroke 4).
@@ -507,11 +522,12 @@ pub fn place(
         // Only the pill: the discs keep their square anchor, or the glass
         // insets stretch them into a rounded rectangle.
         let need = b.button.intrinsicContentSize().width;
-        let (x, w) = if visible && b.id == "chat" && need > w {
-            (x - (need - w), need)
-        } else {
-            (x, w)
-        };
+        let (x, w) =
+            if visible && (b.id == "chat" || b.id == "chat-pick") && need > w {
+                (x - (need - w), need)
+            } else {
+                (x, w)
+            };
         b.base = CGRect::new(CGPoint::new(x, y), CGSize::new(w, h));
         b.button.setHidden(!visible);
         b.badge.setHidden(!dot);

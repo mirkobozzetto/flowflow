@@ -278,8 +278,10 @@ pub fn use_screenshot_watcher(app: AppState, db: Signal<Arc<Database>>) {
 /// A tapped share link (flowflow://share/{code}) opens the read-only view.
 /// Same mailbox as the record deep link, scoped by prefix.
 pub fn use_share_deeplink_watcher(app: AppState, db: Signal<Arc<Database>>) {
+    use crate::application::hermes_chat;
     use crate::domain::share::{parse_share_link, SHARE_LINK_PREFIX};
     use crate::domain::space::{parse_space_link, SPACE_LINK_PREFIX};
+    use crate::ui::state::SettingsSection;
     use_future(move || {
         let mut app = app;
         async move {
@@ -313,6 +315,22 @@ pub fn use_share_deeplink_watcher(app: AppState, db: Signal<Arc<Database>>) {
                                     .set((app.notes_version)() + 1);
                             }
                             Err(e) => eprintln!("[space] join deeplink: {e}"),
+                        }
+                    }
+                }
+                // A scanned Hermes QR code fills the Hermes card and tests it.
+                if let Some(uri) =
+                    crate::infrastructure::sync::deeplink::take_matching(
+                        hermes_chat::LINK_PREFIX,
+                    )
+                {
+                    if let Some((url, key)) = hermes_chat::parse_link(&uri) {
+                        if hermes_chat::link(&db(), &url, &key).is_ok() {
+                            crate::ui::settings::hermes::test_on_open();
+                            app.sidebar_open.set(false);
+                            app.view.set(View::SettingsSection(
+                                SettingsSection::Connections,
+                            ));
                         }
                     }
                 }

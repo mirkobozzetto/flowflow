@@ -138,6 +138,58 @@ pub fn parse_run_event(data: &str) -> Option<(i64, RunEvent)> {
     Some((seq, event))
 }
 
+/// A provider the user is signed in to, with the models it offers.
+#[derive(Debug, Clone, PartialEq)]
+pub struct ModelProvider {
+    pub slug: String,
+    pub name: String,
+    pub models: Vec<String>,
+}
+
+/// Hermes' default (provider, model) and every usable alternative.
+#[derive(Debug, Clone, PartialEq, Default)]
+pub struct ModelOptions {
+    pub provider: String,
+    pub model: String,
+    pub providers: Vec<ModelProvider>,
+}
+
+/// `/api/model/options`, keeping only providers that can answer.
+pub fn parse_model_options(v: &serde_json::Value) -> ModelOptions {
+    let s = |v: &serde_json::Value, k: &str| {
+        v.get(k)
+            .and_then(|x| x.as_str())
+            .unwrap_or_default()
+            .to_string()
+    };
+    let providers = v
+        .get("providers")
+        .and_then(|p| p.as_array())
+        .into_iter()
+        .flatten()
+        .filter(|p| {
+            p.get("authenticated").and_then(|a| a.as_bool()) == Some(true)
+        })
+        .map(|p| ModelProvider {
+            slug: s(p, "slug"),
+            name: s(p, "name"),
+            models: p
+                .get("models")
+                .and_then(|m| m.as_array())
+                .into_iter()
+                .flatten()
+                .filter_map(|m| m.as_str().map(String::from))
+                .collect(),
+        })
+        .filter(|p| !p.models.is_empty())
+        .collect();
+    ModelOptions {
+        provider: s(v, "provider"),
+        model: s(v, "model"),
+        providers,
+    }
+}
+
 fn run_state(v: &serde_json::Value) -> RunState {
     let text = |k: &str| {
         v.get(k)
@@ -258,19 +310,57 @@ impl HermesClient {
         Ok(page.data)
     }
 
-    /// Starts a turn on the session; it runs on the server whatever happens
-    /// to this connection.
+    async fn json_at(
+        &self,
+        path: &str,
+    ) -> Result<serde_json::Value, HermesError> {
+        checked(self.get(path).timeout(REQUEST_TIMEOUT).send().await)
+            .await?
+            .json()
+            .await
+            .map_err(|e| HermesError::Server(e.to_string()))
+    }
+
+    pub async fn model_options(&self) -> Result<ModelOptions, HermesError> {
+        Ok(parse_model_options(
+            &self.json_at("/api/model/options").await?,
+        ))
+    }
+
+    /// Length of a list endpoint (`data` array or bare array).
+    pub async fn count(&self, path: &str) -> Result<usize, HermesError> {
+        let v = self.json_at(path).await?;
+        Ok(v.get("data")
+            .or_else(|| v.get("jobs"))
+            .unwrap_or(&v)
+            .as_array()
+            .map_or(0, Vec::len))
+    }
+
+    /// Starts a turn on the session, on the chosen (provider, model) and
+    /// reasoning effort or Hermes' own defaults; it runs on the server
+    /// whatever happens to this connection.
     pub async fn start_run(
         &self,
         session_id: &str,
         input: &str,
+        model: Option<(&str, &str)>,
+        effort: Option<&str>,
     ) -> Result<String, HermesError> {
+        let mut body = serde_json::json!({
+            "input": input,
+            "session_id": session_id,
+        });
+        if let Some((provider, model)) = model {
+            body["provider"] = provider.into();
+            body["model"] = model.into();
+        }
+        if let Some(effort) = effort {
+            body["model_options"] = serde_json::json!({ "reasoning": { "enabled": true, "effort": effort } });
+        }
         let resp = checked(
             self.post("/v1/runs")
-                .json(&serde_json::json!({
-                    "input": input,
-                    "session_id": session_id,
-                }))
+                .json(&body)
                 .timeout(REQUEST_TIMEOUT)
                 .send()
                 .await,
