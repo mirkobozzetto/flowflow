@@ -222,6 +222,11 @@ pub fn link(db: &Database, url: &str, key: &str) -> Result<(), String> {
     db.set_setting(KEY_SETTING, key)
 }
 
+/// An address and a key are saved: the Hermes choice is worth offering.
+pub fn configured(db: &Database) -> bool {
+    HermesClient::from_db(db).is_ok()
+}
+
 /// Reachable and the key accepted, for the Settings test.
 pub async fn check(url: &str, key: &str) -> Result<(), HermesError> {
     HermesClient::new(url, key)?.check().await

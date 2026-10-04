@@ -2,6 +2,7 @@ use crate::application::i18n::t;
 use crate::domain::ChatScope;
 use crate::infrastructure::persistence::Database;
 use crate::infrastructure::platform::{haptic, haptic_prepare};
+use crate::ui::chat::new_chat_menu::{NativeNewChatMenu, NewChatChoices};
 use crate::ui::icons::*;
 use crate::ui::{AppState, SidebarTab, View};
 use dioxus::prelude::*;
@@ -33,6 +34,9 @@ pub fn TopBar() -> Element {
         );
     let show_back = (is_inner && !is_chat && !is_hermes) || chat_from_detail;
     let lang = (app.current_lang)();
+    let hermes_linked = crate::application::hermes_chat::configured(&db());
+    let native_glass = super::glass_burger::native_glass();
+    let mut pick_open = use_signal(|| false);
 
     let thread_title = |id: &str| {
         db().get_thread(id)
@@ -256,20 +260,36 @@ pub fn TopBar() -> Element {
                 }
             } else if !is_inner {
                 // Chat pill (#177): native glass on iOS 26, like the burger.
-                button {
-                    "data-glass": "chat",
-                    class: "glass-disc relative h-12 -my-0.5 pl-3.5 pr-5 shrink-0 flex items-center gap-1.5 rounded-full text-[15px] font-medium text-ios-orange-dark",
-                    onpointerdown: move |_| haptic_prepare("light"),
-                    onclick: move |_| {
-                        haptic("light");
-                        app.show_folder_picker.set(false);
-                        app.sidebar_tab.set(SidebarTab::Chats);
-                        app.chat_scope.set(None);
-                        app.previous_view.set(Some(View::NotesList));
-                        app.view.set(View::Chat { conversation_id: None });
-                    },
-                    IconChatAi { size: 22 }
-                    span { "Chat" }
+                // With Hermes linked it asks first: your notes or Hermes.
+                div { class: "relative shrink-0",
+                    if hermes_linked && native_glass {
+                        NativeNewChatMenu { anchor: "chat-pick" }
+                    }
+                    button {
+                        "data-glass": if hermes_linked { "chat-pick" } else { "chat" },
+                        class: "glass-disc relative h-12 -my-0.5 pl-3.5 pr-5 shrink-0 flex items-center gap-1.5 rounded-full text-[15px] font-medium text-ios-orange-dark",
+                        onpointerdown: move |_| haptic_prepare("light"),
+                        onclick: move |_| {
+                            haptic("light");
+                            app.show_folder_picker.set(false);
+                            if hermes_linked {
+                                pick_open.set(!pick_open());
+                                return;
+                            }
+                            app.sidebar_tab.set(SidebarTab::Chats);
+                            app.chat_scope.set(None);
+                            app.previous_view.set(Some(View::NotesList));
+                            app.view.set(View::Chat { conversation_id: None });
+                        },
+                        IconChatAi { size: 22 }
+                        span { "Chat" }
+                    }
+                    if pick_open() {
+                        div { class: "fixed inset-0 z-40", onclick: move |_| pick_open.set(false) }
+                        div { class: "absolute right-0 top-full mt-2 {crate::ui::kit::MENU_PANEL}",
+                            NewChatChoices { on_pick: move |_| pick_open.set(false) }
+                        }
+                    }
                 }
             }
         }
