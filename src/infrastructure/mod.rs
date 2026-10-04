@@ -1,6 +1,7 @@
 pub mod audio;
 pub mod backend;
 pub mod chatgpt_auth;
+pub mod hermes;
 pub mod llm;
 pub mod mcp;
 pub mod persistence;

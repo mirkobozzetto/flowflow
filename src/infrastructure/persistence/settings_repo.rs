@@ -11,6 +11,7 @@ pub const SENSITIVE_SETTINGS: &[&str] = &[
     "anthropic_api_key",
     "soniox_api_key",
     "exa_api_key",
+    "hermes_api_key",
     "sync_static_privkey",
     "sync_static_pubkey",
     "backend_device_privkey",

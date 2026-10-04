@@ -1,0 +1,337 @@
+//! FlowFlow as a Hermes channel, through Hermes' own API server. A Hermes
+//! session holds the conversation history; a run keeps going on the server
+//! while the phone sleeps and can be followed again from its event log.
+
+use crate::infrastructure::persistence::Database;
+use serde::Deserialize;
+use std::time::Duration;
+
+pub const URL_SETTING: &str = "hermes_url";
+pub const KEY_SETTING: &str = "hermes_api_key";
+
+const CONNECT_TIMEOUT: Duration = Duration::from_secs(8);
+const REQUEST_TIMEOUT: Duration = Duration::from_secs(20);
+// Session ids FlowFlow mints, so its sessions read apart from Telegram's.
+const SESSION_PREFIX: &str = "flowflow_";
+
+#[derive(Debug, Clone, PartialEq)]
+pub enum HermesError {
+    NotConfigured,
+    Unreachable,
+    KeyRefused,
+    NotFound,
+    Server(String),
+}
+
+/// One event of a run, as the chat needs it.
+#[derive(Debug, Clone, PartialEq)]
+pub enum RunEvent {
+    Delta(String),
+    ToolStarted { tool: String, preview: String },
+    ToolDone { tool: String, failed: bool },
+    Completed(String),
+    Failed(String),
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub enum RunState {
+    Running,
+    Completed(String),
+    Failed(String),
+}
+
+#[derive(Debug, Clone, Deserialize)]
+pub struct HermesMessage {
+    pub role: String,
+    #[serde(default)]
+    pub content: Option<serde_json::Value>,
+    #[serde(default)]
+    pub tool_calls: Option<Vec<ToolCall>>,
+}
+
+#[derive(Debug, Clone, Deserialize)]
+pub struct ToolCall {
+    pub function: ToolFunction,
+}
+
+#[derive(Debug, Clone, Deserialize)]
+pub struct ToolFunction {
+    pub name: String,
+    #[serde(default)]
+    pub arguments: serde_json::Value,
+}
+
+impl HermesMessage {
+    pub fn text(&self) -> String {
+        match &self.content {
+            Some(serde_json::Value::String(s)) => s.clone(),
+            Some(serde_json::Value::Array(parts)) => parts
+                .iter()
+                .filter_map(|p| p.get("text").and_then(|t| t.as_str()))
+                .collect::<Vec<_>>()
+                .join(""),
+            _ => String::new(),
+        }
+    }
+}
+
+/// Address as typed in Settings, made a base URL: https by default, no
+/// trailing slash.
+pub fn normalize_base(raw: &str) -> String {
+    let trimmed = raw.trim().trim_end_matches('/');
+    if trimmed.is_empty() || trimmed.contains("://") {
+        trimmed.to_string()
+    } else {
+        format!("https://{trimmed}")
+    }
+}
+
+/// Takes every complete SSE frame out of `buf` and returns its `data`
+/// payloads; comments (keepalives) and partial frames are left alone.
+pub fn drain_sse_data(buf: &mut String) -> Vec<String> {
+    let mut out = Vec::new();
+    while let Some(end) = buf.find("\n\n") {
+        let frame: String = buf.drain(..end + 2).collect();
+        let data: Vec<&str> = frame
+            .lines()
+            .filter_map(|l| l.strip_prefix("data:"))
+            .map(|d| d.strip_prefix(' ').unwrap_or(d))
+            .collect();
+        if !data.is_empty() {
+            out.push(data.join("\n"));
+        }
+    }
+    out
+}
+
+/// A run event payload to its sequence number and meaning; events the chat
+/// does not show (reasoning, interim commentary, approvals) are None.
+pub fn parse_run_event(data: &str) -> Option<(i64, RunEvent)> {
+    let v: serde_json::Value = serde_json::from_str(data).ok()?;
+    let seq = v.get("seq").and_then(|s| s.as_i64()).unwrap_or(-1);
+    let s = |k: &str| {
+        v.get(k)
+            .and_then(|x| x.as_str())
+            .unwrap_or_default()
+            .to_string()
+    };
+    let event = match v.get("event")?.as_str()? {
+        "message.delta" => RunEvent::Delta(s("delta")),
+        "tool.started" => RunEvent::ToolStarted {
+            tool: s("tool"),
+            preview: s("preview"),
+        },
+        "tool.completed" => RunEvent::ToolDone {
+            tool: s("tool"),
+            failed: v.get("error").and_then(|e| e.as_bool()).unwrap_or(false),
+        },
+        "tool.failed" => RunEvent::ToolDone {
+            tool: s("tool"),
+            failed: true,
+        },
+        "run.completed" => RunEvent::Completed(s("output")),
+        "run.failed" | "run.cancelled" | "run.interrupted" => {
+            RunEvent::Failed(s("error"))
+        }
+        _ => return None,
+    };
+    Some((seq, event))
+}
+
+fn run_state(v: &serde_json::Value) -> RunState {
+    let text = |k: &str| {
+        v.get(k)
+            .and_then(|x| x.as_str())
+            .unwrap_or_default()
+            .to_string()
+    };
+    match v.get("status").and_then(|s| s.as_str()).unwrap_or_default() {
+        "completed" => RunState::Completed(text("output")),
+        "failed" | "cancelled" | "interrupted" => {
+            RunState::Failed(text("error"))
+        }
+        _ => RunState::Running,
+    }
+}
+
+fn transport(e: reqwest::Error) -> HermesError {
+    if e.is_connect() || e.is_timeout() || e.is_request() {
+        HermesError::Unreachable
+    } else {
+        HermesError::Server(e.to_string())
+    }
+}
+
+async fn checked(
+    sent: Result<reqwest::Response, reqwest::Error>,
+) -> Result<reqwest::Response, HermesError> {
+    let resp = sent.map_err(transport)?;
+    match resp.status().as_u16() {
+        200..=299 => Ok(resp),
+        401 | 403 => Err(HermesError::KeyRefused),
+        404 => Err(HermesError::NotFound),
+        code => {
+            let body = resp.text().await.unwrap_or_default();
+            Err(HermesError::Server(format!("{code}: {body}")))
+        }
+    }
+}
+
+pub struct HermesClient {
+    base: String,
+    key: String,
+    http: reqwest::Client,
+}
+
+impl HermesClient {
+    pub fn new(base: &str, key: &str) -> Result<Self, HermesError> {
+        let base = normalize_base(base);
+        let key = key.trim().to_string();
+        if base.is_empty() || key.is_empty() {
+            return Err(HermesError::NotConfigured);
+        }
+        let http = reqwest::Client::builder()
+            .connect_timeout(CONNECT_TIMEOUT)
+            .build()
+            .map_err(|e| HermesError::Server(e.to_string()))?;
+        Ok(Self { base, key, http })
+    }
+
+    pub fn from_db(db: &Database) -> Result<Self, HermesError> {
+        Self::new(
+            &db.get_setting(URL_SETTING).unwrap_or_default(),
+            &db.get_setting(KEY_SETTING).unwrap_or_default(),
+        )
+    }
+
+    fn get(&self, path: &str) -> reqwest::RequestBuilder {
+        self.http
+            .get(format!("{}{path}", self.base))
+            .bearer_auth(&self.key)
+    }
+
+    fn post(&self, path: &str) -> reqwest::RequestBuilder {
+        self.http
+            .post(format!("{}{path}", self.base))
+            .bearer_auth(&self.key)
+    }
+
+    /// Reachable and the key accepted.
+    pub async fn check(&self) -> Result<(), HermesError> {
+        checked(self.get("/v1/models").timeout(REQUEST_TIMEOUT).send().await)
+            .await
+            .map(|_| ())
+    }
+
+    pub async fn create_session(&self) -> Result<String, HermesError> {
+        let id = format!("{SESSION_PREFIX}{}", uuid::Uuid::new_v4().simple());
+        checked(
+            self.post("/api/sessions")
+                .json(&serde_json::json!({ "id": id }))
+                .timeout(REQUEST_TIMEOUT)
+                .send()
+                .await,
+        )
+        .await?;
+        Ok(id)
+    }
+
+    pub async fn messages(
+        &self,
+        session_id: &str,
+    ) -> Result<Vec<HermesMessage>, HermesError> {
+        #[derive(Deserialize)]
+        struct Page {
+            data: Vec<HermesMessage>,
+        }
+        let resp = checked(
+            self.get(&format!("/api/sessions/{session_id}/messages"))
+                .timeout(REQUEST_TIMEOUT)
+                .send()
+                .await,
+        )
+        .await?;
+        let page: Page = resp
+            .json()
+            .await
+            .map_err(|e| HermesError::Server(e.to_string()))?;
+        Ok(page.data)
+    }
+
+    /// Starts a turn on the session; it runs on the server whatever happens
+    /// to this connection.
+    pub async fn start_run(
+        &self,
+        session_id: &str,
+        input: &str,
+    ) -> Result<String, HermesError> {
+        let resp = checked(
+            self.post("/v1/runs")
+                .json(&serde_json::json!({
+                    "input": input,
+                    "session_id": session_id,
+                }))
+                .timeout(REQUEST_TIMEOUT)
+                .send()
+                .await,
+        )
+        .await?;
+        let v: serde_json::Value = resp
+            .json()
+            .await
+            .map_err(|e| HermesError::Server(e.to_string()))?;
+        v.get("run_id")
+            .and_then(|r| r.as_str())
+            .map(String::from)
+            .ok_or_else(|| HermesError::Server("no run_id".into()))
+    }
+
+    pub async fn run_state(
+        &self,
+        run_id: &str,
+    ) -> Result<RunState, HermesError> {
+        let resp = checked(
+            self.get(&format!("/v1/runs/{run_id}"))
+                .timeout(REQUEST_TIMEOUT)
+                .send()
+                .await,
+        )
+        .await?;
+        let v: serde_json::Value = resp
+            .json()
+            .await
+            .map_err(|e| HermesError::Server(e.to_string()))?;
+        Ok(run_state(&v))
+    }
+
+    /// Streams the run's events after `after_seq` (-1: from the start, the
+    /// server replays what it kept) until the server closes the stream.
+    pub async fn follow_run(
+        &self,
+        run_id: &str,
+        after_seq: i64,
+        mut on_event: impl FnMut(i64, RunEvent),
+    ) -> Result<(), HermesError> {
+        use futures::StreamExt;
+        let mut req = self.get(&format!("/v1/runs/{run_id}/events"));
+        if after_seq >= 0 {
+            req = req.header("Last-Event-ID", after_seq.to_string());
+        }
+        let resp = checked(req.send().await).await?;
+        let stream = resp.bytes_stream();
+        tokio::pin!(stream);
+        let mut buf = String::new();
+        while let Some(chunk) = stream.next().await {
+            let chunk = chunk.map_err(transport)?;
+            buf.push_str(
+                &String::from_utf8_lossy(&chunk).replace("\r\n", "\n"),
+            );
+            for data in drain_sse_data(&mut buf) {
+                if let Some((seq, event)) = parse_run_event(&data) {
+                    on_event(seq, event);
+                }
+            }
+        }
+        Ok(())
+    }
+}
