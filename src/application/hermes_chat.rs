@@ -6,7 +6,8 @@ use crate::infrastructure::hermes::{HermesClient, HermesMessage, RunState};
 use crate::infrastructure::persistence::Database;
 
 pub use crate::infrastructure::hermes::{
-    HermesError, RunEvent, KEY_SETTING, URL_SETTING,
+    HermesError, ModelOptions, ModelProvider, RunEvent, KEY_SETTING,
+    URL_SETTING,
 };
 
 /// The link the kit's QR code carries: flowflow://hermes?url=…&key=…
@@ -205,12 +206,110 @@ pub fn pending(db: &Database, session_id: &str) -> Option<(String, String)> {
     db.hermes_pending_run(session_id)
 }
 
-/// Sends a question. The first one opens the Hermes session and the local
-/// conversation. Returns the session and the run to follow.
+fn model_key(session_id: &str) -> String {
+    format!("hermes_model:{session_id}")
+}
+
+/// The (provider, model) picked for a conversation; None follows Hermes'
+/// own default. Device-local, like the conversation itself.
+pub fn chosen_model(
+    db: &Database,
+    session_id: &str,
+) -> Option<(String, String)> {
+    let raw = db.get_setting(&model_key(session_id))?;
+    let (provider, model) = raw.split_once('\t')?;
+    Some((provider.to_string(), model.to_string()))
+}
+
+pub fn choose_model(
+    db: &Database,
+    session_id: &str,
+    provider: &str,
+    model: &str,
+) -> Result<(), String> {
+    db.set_setting(&model_key(session_id), &format!("{provider}\t{model}"))
+}
+
+pub async fn model_options(db: &Database) -> Result<ModelOptions, HermesError> {
+    HermesClient::from_db(db)?.model_options().await
+}
+
+/// What the empty conversation shows: skills and scheduled tasks counted on
+/// Hermes; a list it cannot serve is left out rather than shown as zero.
+pub async fn counts(db: &Database) -> (Option<usize>, Option<usize>) {
+    let Ok(client) = HermesClient::from_db(db) else {
+        return (None, None);
+    };
+    let (skills, jobs) =
+        futures::join!(client.count("/v1/skills"), client.count("/api/jobs"));
+    (skills.ok(), jobs.ok())
+}
+
+/// "claude-opus-5-5[1m]" reads "Opus 5.5", "gpt-6.1-sol" reads "GPT-6.1 Sol".
+pub fn model_label(id: &str) -> String {
+    let id = id.split('[').next().unwrap_or(id);
+    let words = |rest: &str| -> Vec<String> {
+        let mut out: Vec<String> = Vec::new();
+        for part in rest.split('-').filter(|p| !p.is_empty()) {
+            // A trailing release date (20251001) says nothing to a reader.
+            if part.len() == 8 && part.chars().all(|c| c.is_ascii_digit()) {
+                continue;
+            }
+            match out.last_mut() {
+                Some(last)
+                    if part.chars().all(|c| c.is_ascii_digit())
+                        && last
+                            .chars()
+                            .last()
+                            .is_some_and(|c| c.is_ascii_digit()) =>
+                {
+                    last.push('.');
+                    last.push_str(part);
+                }
+                Some(last) if part.chars().all(|c| c.is_ascii_digit()) => {
+                    last.push(' ');
+                    last.push_str(part);
+                }
+                _ => {
+                    let mut c = part.chars();
+                    let first = c.next().map(|f| f.to_uppercase().to_string());
+                    out.push(first.unwrap_or_default() + c.as_str());
+                }
+            }
+        }
+        out
+    };
+    if let Some(rest) = id.strip_prefix("claude-") {
+        return words(rest).join(" ");
+    }
+    if let Some(rest) = id.strip_prefix("gpt-") {
+        let mut parts = rest.splitn(2, '-');
+        let version = parts.next().unwrap_or_default();
+        let tail = words(parts.next().unwrap_or_default()).join(" ");
+        return format!("GPT-{version} {tail}").trim().to_string();
+    }
+    id.to_string()
+}
+
+/// A provider as the menu names it: the family, without the plumbing.
+pub fn provider_label(slug: &str, name: &str) -> String {
+    if slug.contains("claude") || slug.contains("anthropic") {
+        "Claude".into()
+    } else if slug.contains("codex") || slug.contains("openai") {
+        "ChatGPT".into()
+    } else {
+        name.split(" (").next().unwrap_or(name).to_string()
+    }
+}
+
+/// Sends a question, on the model picked for the conversation if any. The
+/// first one opens the Hermes session and the local conversation. Returns
+/// the session and the run to follow.
 pub async fn send(
     db: &Database,
     session_id: Option<String>,
     text: &str,
+    model: Option<(String, String)>,
 ) -> Result<(String, String), HermesError> {
     let client = HermesClient::from_db(db)?;
     let session_id = match session_id {
@@ -220,10 +319,20 @@ pub async fn send(
             let title: String = text.chars().take(TITLE_CHARS).collect();
             db.create_hermes_conversation(&id, &title)
                 .map_err(HermesError::Server)?;
+            if let Some((provider, name)) = &model {
+                let _ = choose_model(db, &id, provider, name);
+            }
             id
         }
     };
-    let run_id = client.start_run(&session_id, text).await?;
+    let pick = model.or_else(|| chosen_model(db, &session_id));
+    let run_id = client
+        .start_run(
+            &session_id,
+            text,
+            pick.as_ref().map(|(p, m)| (p.as_str(), m.as_str())),
+        )
+        .await?;
     let _ =
         db.set_hermes_pending_run(&session_id, Some((run_id.as_str(), text)));
     let _ = db.touch_hermes_conversation(&session_id);

@@ -295,9 +295,10 @@ async fn the_first_question_opens_a_flowflow_session_then_a_run() {
     let db = open_db(&dir);
     configure(&db, &base);
 
-    let (session, run) = hermes_chat::send(&db, None, "Quelle heure est-il ?")
-        .await
-        .unwrap();
+    let (session, run) =
+        hermes_chat::send(&db, None, "Quelle heure est-il ?", None)
+            .await
+            .unwrap();
 
     assert!(session.starts_with("flowflow_"));
     assert_eq!(run, "run_1");

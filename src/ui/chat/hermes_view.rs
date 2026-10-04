@@ -190,7 +190,7 @@ pub fn HermesChatView() -> Element {
                 spawn(async move {
                     let database = db();
                     let current = session.peek().clone();
-                    match hermes_chat::send(&database, current.clone(), &q).await {
+                    match hermes_chat::send(&database, current.clone(), &q, None).await {
                         Ok((sid, run_id)) => {
                             if current.is_none() {
                                 session.set(Some(sid.clone()));
