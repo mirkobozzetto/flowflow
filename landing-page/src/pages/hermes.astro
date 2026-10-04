@@ -1,0 +1,117 @@
+---
+import "../styles/global.css";
+import "../styles/hermes-link.css";
+
+const KIT = "/downloads/FlowFlow-Hermes-kit-2026-10-04.zip";
+---
+
+<!doctype html>
+<html lang="fr">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="robots" content="noindex,nofollow" />
+    <title>Ton Hermes dans FlowFlow</title>
+    <meta name="description" content="Relie ton agent Hermes à FlowFlow et parle-lui depuis l’onglet Chats : un script, un QR code, c’est fait." />
+    <link rel="canonical" href="https://flowflow.be/hermes" />
+    <link rel="icon" type="image/png" href="/logo.png" />
+  </head>
+  <body>
+    <div class="container">
+      <nav class="hl-nav" aria-label="Navigation principale">
+        <a class="hl-brand" href="https://flowflow.be/fr/"><img src="/logo.png" alt="" />FlowFlow</a>
+        <div class="hl-nav-links">
+          <a href="/hermes/espaces">Espaces</a>
+          <a class="btn-primary" href="#relier">Relier mon Hermes</a>
+        </div>
+      </nav>
+    </div>
+
+    <header class="hl-hero">
+      <div class="hl-glow"></div>
+      <div class="hl-pair">
+        <img src="/logo.png" alt="FlowFlow" width="128" height="128" />
+        <img src="/images/hermes-agent.png" alt="Hermes" width="128" height="128" />
+      </div>
+      <h1>Ton Hermes dans FlowFlow</h1>
+      <p>Parle à ton agent Hermes depuis l’onglet Chats.</p>
+      <div class="hl-ctas">
+        <a class="btn-primary" href="#relier">Relier mon Hermes</a>
+        <a class="btn-ghost" href="/hermes/espaces">Lui donner un espace</a>
+      </div>
+    </header>
+
+    <main>
+      <section class="hl-link" id="relier">
+        <h2>Relier ton Hermes en trois étapes</h2>
+        <p>Une seule fois. Ensuite, Hermes est dans tes Chats.</p>
+        <div class="hl-panels">
+          <article class="hl-panel">
+            <div class="hl-num">01</div>
+            <h3>Lance le script</h3>
+            <p>Dans un terminal, sur la machine de Hermes, depuis le <a href={KIT} download>kit Hermes</a>.</p>
+            <div class="hl-visual">
+              <div class="hl-term" aria-label="Sortie du script">
+                <div class="cmd">sh scripts/enable-flowflow-chat.sh</div>
+                <div><span class="ok">ok</span> accès activé, clé créée</div>
+                <div><span class="ok">ok</span> Hermes redémarré</div>
+                <div class="hl-qr"><img src="/images/hermes-link-qr.svg" alt="Exemple de QR code de liaison" width="112" height="112" /><span>Scanne ce code<br />avec ton iPhone.</span></div>
+              </div>
+            </div>
+          </article>
+          <article class="hl-panel">
+            <div class="hl-num">02</div>
+            <h3>Scanne le code</h3>
+            <p>Avec l’appareil photo de l’iPhone. FlowFlow s’ouvre et teste la liaison.</p>
+            <div class="hl-visual">
+              <div class="hl-mini" aria-hidden="true">
+                <div class="hl-screen">
+                  <h5><img class="hl-face" src="/images/hermes-agent.png" alt="" width="18" height="18" />Hermes</h5>
+                  <label>Adresse</label>
+                  <div class="hl-field">https://hermes.ton-reseau.ts.net:8642</div>
+                  <label>Clé</label>
+                  <div class="hl-field">••••••••••••••••••••••</div>
+                  <div class="hl-btn">Enregistrer et tester</div>
+                  <p class="hl-good">Hermes répond.</p>
+                </div>
+              </div>
+            </div>
+          </article>
+          <article class="hl-panel">
+            <div class="hl-num">03</div>
+            <h3>Ouvre une conversation</h3>
+            <p>Chats, puis « Nouvelle conversation », puis « Avec Hermes ».</p>
+            <div class="hl-visual">
+              <div class="hl-mini" aria-hidden="true">
+                <div class="hl-screen">
+                  <div class="hl-row">+ Nouvelle conversation</div>
+                  <div class="hl-menu">
+                    <div><span><b>Avec tes notes</b><small>Cherche et répond, rien ne sort</small></span><img src="/logo.png" alt="" width="18" height="18" style="border-radius:5px" /></div>
+                    <div><span><b>Avec Hermes</b><small>Agit pour toi : web, emails, devis</small></span><img class="hl-face" src="/images/hermes-agent.png" alt="" width="18" height="18" /></div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </article>
+        </div>
+        <div class="hl-needs">
+          <span><b>Il te faut :</b> Tailscale sur l’iPhone et sur la machine de Hermes, et qrencode pour le QR code.</span>
+          <span>Pas de compte FlowFlow nécessaire. La clé reste sur ton iPhone.</span>
+        </div>
+        <div class="hl-fix">
+          <div><b>« Hermes est injoignable. »</b><span>Allume Tailscale sur l’iPhone.</span></div>
+          <div><b>« Hermes refuse la clé enregistrée. »</b><span>Relance le script et scanne le code.</span></div>
+        </div>
+      </section>
+
+      <section class="hl-spaces" id="espaces">
+        <a href="/hermes/espaces">
+          <div><b>Donner un espace de notes à Hermes</b><span>Il lit et écrit dans l’espace que tu choisis, avec un jeton que tu peux révoquer.</span></div>
+          <i>Voir le guide →</i>
+        </a>
+      </section>
+    </main>
+
+    <footer class="hl-footer"><span>FlowFlow</span><span>Ton Hermes dans FlowFlow</span></footer>
+  </body>
+</html>
