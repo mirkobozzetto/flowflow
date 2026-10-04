@@ -46,6 +46,16 @@ pub fn local_job_running(queues: &HashMap<String, VecDeque<Job>>) -> bool {
     })
 }
 
+/// A job a screen lock would interrupt: a local transcription, or a Soniox
+/// upload, whose connection iOS cuts when it suspends the app.
+pub fn job_needs_screen_on(queues: &HashMap<String, VecDeque<Job>>) -> bool {
+    local_job_running(queues)
+        || queues.values().filter_map(VecDeque::front).any(|j| {
+            j.provider == SttProvider::Soniox
+                && matches!(j.status, JobStatus::Queued | JobStatus::Uploading)
+        })
+}
+
 pub(super) fn front_job(reg: &Mutex<Registry>, note_id: &str) -> Option<Job> {
     reg.lock()
         .unwrap()

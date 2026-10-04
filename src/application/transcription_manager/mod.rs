@@ -2,7 +2,7 @@ mod background;
 mod job;
 mod processing;
 
-pub use job::{local_job_running, Job, JobStatus};
+pub use job::{job_needs_screen_on, local_job_running, Job, JobStatus};
 
 use crate::infrastructure::persistence::pending_transcription_repo::PendingTranscription;
 
