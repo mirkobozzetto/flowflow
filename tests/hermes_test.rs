@@ -380,3 +380,24 @@ async fn a_run_the_server_forgot_ends_the_follow() {
         .unwrap();
     assert_eq!(hermes_chat::pending(&db, "flowflow_b"), None);
 }
+
+#[test]
+fn a_linking_qr_code_carries_the_address_and_the_key() {
+    let link = "flowflow://hermes?url=https%3A%2F%2Fsrv.tailnet.ts.net%3A8642&key=k_0123456789abcdef";
+    assert_eq!(
+        hermes_chat::parse_link(link),
+        Some((
+            "https://srv.tailnet.ts.net:8642".to_string(),
+            "k_0123456789abcdef".to_string()
+        ))
+    );
+    assert_eq!(
+        hermes_chat::parse_link("flowflow://hermes?url=https%3A%2F%2Fx"),
+        None
+    );
+    assert_eq!(
+        hermes_chat::parse_link("flowflow://share/abc?url=a&key=b"),
+        None
+    );
+    assert_eq!(hermes_chat::parse_link("https://hermes?url=a&key=b"), None);
+}

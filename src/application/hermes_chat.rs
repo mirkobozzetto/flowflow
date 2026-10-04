@@ -9,6 +9,9 @@ pub use crate::infrastructure::hermes::{
     HermesError, RunEvent, KEY_SETTING, URL_SETTING,
 };
 
+/// The link the kit's QR code carries: flowflow://hermes?url=…&key=…
+pub const LINK_PREFIX: &str = "flowflow://hermes";
+
 const TITLE_CHARS: usize = 50;
 const STEP_DETAIL_CHARS: usize = 80;
 // A dropped stream is followed again; after this many failed checks in a row
@@ -153,6 +156,29 @@ pub fn turns(messages: &[HermesMessage]) -> Vec<HermesTurn> {
         });
     }
     out
+}
+
+/// Address and key carried by a linking QR code; None for any other link.
+pub fn parse_link(uri: &str) -> Option<(String, String)> {
+    let parsed = url::Url::parse(uri.trim()).ok()?;
+    if parsed.scheme() != "flowflow" || parsed.host_str() != Some("hermes") {
+        return None;
+    }
+    let (mut base, mut key) = (String::new(), String::new());
+    for (name, value) in parsed.query_pairs() {
+        match name.as_ref() {
+            "url" => base = value.trim().to_string(),
+            "key" => key = value.trim().to_string(),
+            _ => {}
+        }
+    }
+    (!base.is_empty() && !key.is_empty()).then_some((base, key))
+}
+
+/// Saves the address and key a linking QR code brought.
+pub fn link(db: &Database, url: &str, key: &str) -> Result<(), String> {
+    db.set_setting(URL_SETTING, url)?;
+    db.set_setting(KEY_SETTING, key)
 }
 
 /// Reachable and the key accepted, for the Settings test.
