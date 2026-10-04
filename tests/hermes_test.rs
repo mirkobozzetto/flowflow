@@ -506,3 +506,124 @@ fn back_to_back_calls_of_one_tool_fold_into_one_step() {
     );
     assert_eq!(hermes_chat::tool_key("yb_send_sticker"), None);
 }
+
+/// Model lists read from Hermes on 2026-10-05.
+const CLAUDE_MODELS: [&str; 6] = [
+    "claude-sonnet-5[1m]",
+    "claude-haiku-4-5-20251001",
+    "claude-opus-5-5[1m]",
+    "claude-opus-5[1m]",
+    "claude-opus-4-8[1m]",
+    "claude-fable-5-1[1m]",
+];
+const CODEX_MODELS: [&str; 16] = [
+    "gpt-6.1-sol",
+    "gpt-6.1-sol-900k",
+    "gpt-6-astra",
+    "gpt-6-astra-900k",
+    "gpt-6-sol",
+    "gpt-6-sol-900k",
+    "gpt-6-luna",
+    "gpt-6-luna-900k",
+    "gpt-5.6-sol",
+    "gpt-5.6-sol-900k",
+    "gpt-5.6-terra",
+    "gpt-5.6-terra-900k",
+    "gpt-5.6-luna",
+    "gpt-5.6-luna-900k",
+    "gpt-5.5",
+    "gpt-5.3-codex-spark",
+];
+
+fn owned(list: &[&str]) -> Vec<String> {
+    list.iter().map(|s| s.to_string()).collect()
+}
+
+#[test]
+fn the_menu_keeps_the_newest_model_of_each_family() {
+    assert_eq!(
+        hermes_chat::latest_models(&owned(&CLAUDE_MODELS), ""),
+        owned(&[
+            "claude-opus-5-5[1m]",
+            "claude-fable-5-1[1m]",
+            "claude-sonnet-5[1m]",
+            "claude-haiku-4-5-20251001"
+        ])
+    );
+    assert_eq!(
+        hermes_chat::latest_models(&owned(&CODEX_MODELS), ""),
+        owned(&[
+            "gpt-6.1-sol",
+            "gpt-6-astra",
+            "gpt-6-luna",
+            "gpt-5.6-terra",
+            "gpt-5.5",
+            "gpt-5.3-codex-spark"
+        ])
+    );
+    // The model in use stays reachable even when a newer one hides it.
+    assert!(hermes_chat::latest_models(
+        &owned(&CLAUDE_MODELS),
+        "claude-opus-4-8[1m]"
+    )
+    .contains(&"claude-opus-4-8[1m]".to_string()));
+}
+
+#[test]
+fn the_provider_in_use_comes_first() {
+    let options = flowflow::infrastructure::hermes::ModelOptions {
+        provider: "claude-subscription-directsdk-experimental".into(),
+        model: "claude-opus-5-5[1m]".into(),
+        providers: vec![
+            hermes_chat::ModelProvider {
+                slug: "openai-codex".into(),
+                name: "ChatGPT".into(),
+                models: owned(&CODEX_MODELS),
+            },
+            hermes_chat::ModelProvider {
+                slug: "claude-subscription-directsdk-experimental".into(),
+                name: "Claude".into(),
+                models: owned(&CLAUDE_MODELS),
+            },
+        ],
+    };
+    let menu = hermes_chat::menu_providers(
+        &options,
+        (
+            "claude-subscription-directsdk-experimental",
+            "claude-opus-5-5[1m]",
+        ),
+    );
+    assert_eq!(menu[0].slug, "claude-subscription-directsdk-experimental");
+    assert_eq!(menu[1].slug, "openai-codex");
+}
+
+#[test]
+fn each_model_offers_only_the_levels_hermes_accepts() {
+    let claude = "claude-subscription-directsdk-experimental";
+    assert_eq!(
+        hermes_chat::efforts_for(claude, "claude-opus-5-5[1m]"),
+        &["off", "low", "medium", "high", "xhigh", "max"]
+    );
+    assert_eq!(
+        hermes_chat::efforts_for(claude, "claude-fable-5-1[1m]"),
+        &["low", "medium", "high", "xhigh", "max"]
+    );
+    assert_eq!(
+        hermes_chat::efforts_for(claude, "claude-haiku-4-5-20251001"),
+        &["off", "low", "medium", "high", "xhigh"]
+    );
+    assert_eq!(
+        hermes_chat::efforts_for("openai-codex", "gpt-6.1-sol"),
+        &["low", "medium", "high", "xhigh", "max"]
+    );
+    assert_eq!(
+        hermes_chat::efforts_for("openai-codex", "gpt-6-luna"),
+        &["off", "low", "medium", "high", "xhigh", "max"]
+    );
+    assert_eq!(
+        hermes_chat::efforts_for("openai-codex", "gpt-5.5"),
+        &["off", "low", "medium", "high", "xhigh"]
+    );
+    assert!(hermes_chat::efforts_for("fireworks", "llama").is_empty());
+}
