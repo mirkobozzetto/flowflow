@@ -459,17 +459,30 @@ fn only_signed_in_providers_offer_models() {
 }
 
 #[test]
-fn a_conversation_keeps_the_model_picked_for_it() {
+fn a_pick_stays_with_its_conversation_and_starts_the_next_ones() {
     let dir = tempdir().unwrap();
     let db = open_db(&dir);
     assert_eq!(hermes_chat::chosen_model(&db, "flowflow_a"), None);
     hermes_chat::choose_model(&db, "flowflow_a", "openai-codex", "gpt-6.1-sol")
         .unwrap();
+    hermes_chat::choose_effort(&db, "flowflow_a", "high").unwrap();
+    // A new conversation starts on the latest pick, level included.
+    assert_eq!(
+        hermes_chat::chosen_model(&db, "flowflow_b"),
+        Some(("openai-codex".into(), "gpt-6.1-sol".into()))
+    );
+    assert_eq!(
+        hermes_chat::chosen_effort(&db, "flowflow_b").as_deref(),
+        Some("high")
+    );
+    // A later pick elsewhere leaves this conversation's own pick alone.
+    let claude = "claude-subscription-directsdk-experimental";
+    hermes_chat::choose_model(&db, "flowflow_c", claude, "claude-opus-5-5[1m]")
+        .unwrap();
     assert_eq!(
         hermes_chat::chosen_model(&db, "flowflow_a"),
         Some(("openai-codex".into(), "gpt-6.1-sol".into()))
     );
-    assert!(hermes_chat::chosen_model(&db, "flowflow_b").is_some());
 }
 
 #[test]
