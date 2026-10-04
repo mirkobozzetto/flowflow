@@ -45,7 +45,7 @@
 .hl-screen label { display: block; margin: 7px 0 3px; font-size: 9.5px; font-weight: 500; color: var(--stone-700); }
 .hl-field { border: 1px solid var(--stone-200); border-radius: 7px; padding: 6px 8px; font-size: 9.5px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; background: #fff; }
 .hl-btn { margin-top: 10px; padding: 8px; border-radius: 10px; background: var(--orange); color: #fff; text-align: center; font-size: 10.5px; font-weight: 500; }
-.hl-good { margin: 8px 0 0; color: #248a3d; font-size: 10.5px; }
+.hl-panel .hl-good { margin: 8px 0 0; color: #248a3d; font-size: 10.5px; }
 .hl-row { padding: 8px 6px; font-size: 11px; font-weight: 500; color: var(--orange-dark); }
 .hl-menu { margin-top: 6px; border-radius: 16px; background: var(--warm-white); border: 1px solid var(--stone-200); box-shadow: 0 16px 30px -18px rgb(22 19 17 / 0.45); }
 .hl-menu div { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 9px 10px; }
