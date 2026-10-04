@@ -1,6 +1,8 @@
 mod actions;
 mod bot_bubble;
 mod empty_state;
+mod hermes_reply;
+mod hermes_view;
 pub(crate) mod mention_menu;
 mod menu;
 pub(crate) mod models;
@@ -16,5 +18,7 @@ pub(crate) mod approval_card;
 pub(crate) mod reminder_card;
 
 pub use actions::md_to_html;
+pub(crate) use hermes_view::problem_text as hermes_problem_text;
+pub use hermes_view::HermesChatView;
 pub use sources_accordion::NoteWebSources;
 pub use view::ChatView;

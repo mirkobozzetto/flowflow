@@ -667,3 +667,27 @@ chat-tools-connection-unavailable = Connexion impossible à vérifier
 # Native overflow controls
 note-menu-options = Options de la note
 chat-menu-options = Options de la conversation
+
+# Hermes chats
+new-chat-with-notes = Avec tes notes
+new-chat-with-notes-hint = Cherche et répond, rien ne sort
+new-chat-with-hermes = Avec Hermes
+new-chat-with-hermes-hint = Agit pour toi : web, emails, devis
+hermes-title = Hermes
+hermes-empty-title = Chat avec Hermes
+hermes-empty-hint = Demande-lui d'agir : web, emails, documents.
+hermes-input-placeholder = Demande à Hermes…
+hermes-steps-one = 1 étape
+hermes-steps-many = { $count } étapes
+hermes-not-configured = Hermes n'est pas encore relié à FlowFlow.
+hermes-unreachable = Hermes est injoignable. Vérifie son adresse et ton réseau.
+hermes-key-refused = Hermes refuse la clé enregistrée.
+hermes-failed = Hermes n'a pas pu répondre : { $error }
+hermes-open-settings = Ouvrir les Réglages
+hermes-settings-title = Hermes
+hermes-settings-hint = Ton propre agent Hermes. L'adresse et la clé restent sur cet appareil.
+hermes-settings-url = Adresse
+hermes-settings-key = Clé
+hermes-settings-test = Enregistrer et tester
+hermes-settings-testing = Test en cours…
+hermes-settings-ok = Hermes répond.

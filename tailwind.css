@@ -323,6 +323,10 @@
     margin-left: 0;
     margin-right: 0;
 }
+/* No "+" (the Hermes chat): the field starts at the capsule's edge. */
+.composer-capsule[data-plain="true"] .composer-field {
+    margin-left: 0;
+}
 .composer-plus {
     transition: transform 280ms var(--ease-soft), background-color 180ms;
 }

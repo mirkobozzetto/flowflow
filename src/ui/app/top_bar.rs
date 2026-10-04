@@ -14,6 +14,7 @@ pub fn TopBar() -> Element {
     let is_detail = matches!((app.view)(), View::NoteDetail { .. });
     let is_thread = matches!((app.view)(), View::ThreadDetail { .. });
     let is_chat = matches!((app.view)(), View::Chat { .. });
+    let is_hermes = matches!((app.view)(), View::HermesChat { .. });
     let is_settings =
         matches!((app.view)(), View::Settings | View::SettingsSection(_));
     let is_sync_pairing = matches!((app.view)(), View::SyncPairing);
@@ -21,6 +22,7 @@ pub fn TopBar() -> Element {
     let is_inner = is_detail
         || is_thread
         || is_chat
+        || is_hermes
         || is_settings
         || is_sync_pairing
         || is_shared;
@@ -29,7 +31,7 @@ pub fn TopBar() -> Element {
             (app.previous_view)(),
             Some(View::NoteDetail { .. }) | Some(View::ThreadDetail { .. })
         );
-    let show_back = (is_inner && !is_chat) || chat_from_detail;
+    let show_back = (is_inner && !is_chat && !is_hermes) || chat_from_detail;
     let lang = (app.current_lang)();
 
     let thread_title = |id: &str| {
@@ -88,6 +90,7 @@ pub fn TopBar() -> Element {
             Some(ChatScope::Thread(ref tid)) => thread_title(tid),
             None => t(&lang, "top-bar-all-notes"),
         },
+        View::HermesChat { .. } => t(&lang, "hermes-title"),
         View::SharedView { .. } => t(&lang, "share-open-title"),
         View::Settings => t(&lang, "sidebar-settings"),
         View::SettingsSection(section) => t(&lang, section.title_key()),
@@ -154,7 +157,7 @@ pub fn TopBar() -> Element {
                             return;
                         }
                         app.show_folder_picker.set(false);
-                        app.sidebar_tab.set(if is_chat {
+                        app.sidebar_tab.set(if is_chat || is_hermes {
                             SidebarTab::Chats
                         } else {
                             SidebarTab::Notes
@@ -209,6 +212,11 @@ pub fn TopBar() -> Element {
                         class: if thread_theme.is_some() { "text-ios-orange-dark" } else { "text-stone-400" },
                         {thread_theme.clone().unwrap_or_else(|| t(&lang, "thread-theme-none"))}
                     }
+                }
+            } else if is_hermes {
+                div { class: "flex-1 min-w-0 flex items-center gap-2",
+                    HermesAgentIcon { size: 26 }
+                    span { class: "min-w-0 truncate text-lg font-semibold tracking-[-0.01em] text-stone-900", "{title}" }
                 }
             } else {
                 span { class: "text-lg font-semibold tracking-[-0.01em] text-stone-900 flex-1", "{title}" }

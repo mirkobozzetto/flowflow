@@ -94,6 +94,8 @@ pub enum View {
     NoteDetail { note_id: String },
     ThreadDetail { thread_id: String },
     Chat { conversation_id: Option<String> },
+    // A conversation with Hermes; None until its first message opens one.
+    HermesChat { session_id: Option<String> },
     // Read-only view of someone else's share, opened from a link (0001)
     SharedView { code: String },
     Settings,
