@@ -670,9 +670,7 @@ chat-menu-options = Conversation options
 
 # Hermes chats
 new-chat-with-notes = With your notes
-new-chat-with-notes-hint = Searches and answers, nothing leaves
 new-chat-with-hermes = With Hermes
-new-chat-with-hermes-hint = Acts for you: web, emails, quotes
 hermes-title = Hermes
 hermes-input-placeholder = Ask Hermes…
 hermes-steps-one = 1 step

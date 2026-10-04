@@ -7,6 +7,7 @@ mod hermes_view;
 pub(crate) mod mention_menu;
 mod menu;
 pub(crate) mod models;
+pub(crate) mod new_chat_menu;
 mod sources_accordion;
 pub(crate) mod tools_menu;
 mod trace_accordion;

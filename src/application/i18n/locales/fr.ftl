@@ -670,9 +670,7 @@ chat-menu-options = Options de la conversation
 
 # Hermes chats
 new-chat-with-notes = Avec tes notes
-new-chat-with-notes-hint = Cherche et répond, rien ne sort
 new-chat-with-hermes = Avec Hermes
-new-chat-with-hermes-hint = Agit pour toi : web, emails, devis
 hermes-title = Hermes
 hermes-input-placeholder = Demande à Hermes…
 hermes-steps-one = 1 étape
