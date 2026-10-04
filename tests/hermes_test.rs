@@ -596,6 +596,11 @@ fn the_provider_in_use_comes_first() {
     );
     assert_eq!(menu[0].slug, "claude-subscription-directsdk-experimental");
     assert_eq!(menu[1].slug, "openai-codex");
+    // OpenAI's current lineup is the GPT-6 generation only.
+    assert_eq!(
+        menu[1].models,
+        owned(&["gpt-6.1-sol", "gpt-6-astra", "gpt-6-luna"])
+    );
 }
 
 #[test]

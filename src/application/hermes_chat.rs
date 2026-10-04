@@ -387,13 +387,24 @@ pub fn menu_providers(
     let mut providers: Vec<ModelProvider> = options
         .providers
         .iter()
-        .map(|p| ModelProvider {
-            slug: p.slug.clone(),
-            name: p.name.clone(),
-            models: latest_models(
-                &p.models,
-                if p.slug == in_use.0 { in_use.1 } else { "" },
-            ),
+        .map(|p| {
+            let keep = if p.slug == in_use.0 { in_use.1 } else { "" };
+            let mut models = latest_models(&p.models, keep);
+            // OpenAI re-releases its tiers (Sol, Luna...) each generation:
+            // only the newest generation is current. Claude tiers (Opus,
+            // Sonnet, Haiku) move on their own, so each keeps its newest.
+            if p.slug.contains("codex") || p.slug.contains("openai") {
+                let major = |m: &String| {
+                    family_and_version(m).1.first().copied().unwrap_or(0)
+                };
+                let newest = models.iter().map(major).max().unwrap_or(0);
+                models.retain(|m| major(m) == newest || m == keep);
+            }
+            ModelProvider {
+                slug: p.slug.clone(),
+                name: p.name.clone(),
+                models,
+            }
         })
         .collect();
     providers.sort_by_key(|p| p.slug != in_use.0);
