@@ -214,10 +214,7 @@ pub fn TopBar() -> Element {
                     }
                 }
             } else if is_hermes {
-                div { class: "flex-1 min-w-0 flex items-center gap-2",
-                    HermesAgentIcon { size: 26 }
-                    span { class: "min-w-0 truncate text-lg font-semibold tracking-[-0.01em] text-stone-900", "{title}" }
-                }
+                crate::ui::chat::HermesModelTitle {}
             } else {
                 span { class: "text-lg font-semibold tracking-[-0.01em] text-stone-900 flex-1", "{title}" }
             }

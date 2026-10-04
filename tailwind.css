@@ -156,7 +156,7 @@
     position: relative;
 }
 /* iOS 26: a native Liquid Glass button sits on the anchor (glass_burger.ts). */
-[data-glass][data-glass-on]:not([data-glass$="-plus"]) {
+[data-glass][data-glass-on]:not([data-glass$="-plus"], [data-glass="hermes-model"]) {
     opacity: 0;
 }
 /* Until the glass layer has placed its buttons, keep the web anchors out of
@@ -164,7 +164,7 @@
    The composer's "+" stays drawn by the web: its native button is clear. */
 :root:not([data-glass-ready])
     [data-glass-wait="true"]
-    [data-glass]:not([data-glass$="-plus"]) {
+    [data-glass]:not([data-glass$="-plus"], [data-glass="hermes-model"]) {
     opacity: 0;
 }
 

@@ -29,7 +29,12 @@ use objc2_ui_kit::{
 fn has_menu(id: &str) -> bool {
     matches!(
         id,
-        "note-more" | "chat-more" | "note-plus" | "chat-plus" | "chats-plus"
+        "note-more"
+            | "chat-more"
+            | "note-plus"
+            | "chat-plus"
+            | "chats-plus"
+            | "hermes-model"
     )
 }
 
@@ -37,7 +42,10 @@ fn has_menu(id: &str) -> bool {
 // the native button over it is clear and only reports the menu opening. The
 // Chats tab's "New conversation" row works the same way.
 fn is_plus(id: &str) -> bool {
-    matches!(id, "note-plus" | "chat-plus" | "chats-plus")
+    matches!(
+        id,
+        "note-plus" | "chat-plus" | "chats-plus" | "hermes-model"
+    )
 }
 
 define_class!(
@@ -239,6 +247,7 @@ fn configuration(
         let id = match id {
             "note-plus" => "note-plus",
             "chats-plus" => "chats-plus",
+            "hermes-model" => "hermes-model",
             _ => "chat-plus",
         };
         return Some((id, config));
