@@ -83,6 +83,46 @@ impl LiveReply {
     }
 }
 
+/// Translation key naming a Hermes tool for a reader; None keeps the raw
+/// name (a tool this list does not know yet).
+pub fn tool_key(tool: &str) -> Option<&'static str> {
+    Some(match tool {
+        "read_file" => "hermes-tool-read-file",
+        "write_file" => "hermes-tool-write-file",
+        "patch" => "hermes-tool-patch",
+        "search_files" => "hermes-tool-search-files",
+        "terminal" => "hermes-tool-terminal",
+        "execute_code" => "hermes-tool-execute-code",
+        "web_search" => "hermes-tool-web-search",
+        "web_extract" => "hermes-tool-web-extract",
+        "x_search" => "hermes-tool-x-search",
+        "session_search" => "hermes-tool-session-search",
+        "memory" => "hermes-tool-memory",
+        "skill_view" | "skills_list" => "hermes-tool-skill",
+        "todo_list" => "hermes-tool-todo",
+        "vision_analyze" => "hermes-tool-vision",
+        "image_generate" => "hermes-tool-image",
+        _ => return None,
+    })
+}
+
+/// Back-to-back calls of one tool fold into one step and a count; the
+/// first call's detail stands for the group.
+pub fn grouped(steps: &[HermesStep]) -> Vec<(HermesStep, usize)> {
+    let mut out: Vec<(HermesStep, usize)> = Vec::new();
+    for step in steps {
+        match out.last_mut() {
+            Some((last, n)) if last.tool == step.tool => {
+                *n += 1;
+                last.running |= step.running;
+                last.failed |= step.failed;
+            }
+            _ => out.push((step.clone(), 1)),
+        }
+    }
+    out
+}
+
 fn clip(s: &str) -> String {
     let line = s.lines().next().unwrap_or_default().trim();
     if line.chars().count() > STEP_DETAIL_CHARS {

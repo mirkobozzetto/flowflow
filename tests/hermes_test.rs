@@ -402,3 +402,107 @@ fn a_linking_qr_code_carries_the_address_and_the_key() {
     );
     assert_eq!(hermes_chat::parse_link("https://hermes?url=a&key=b"), None);
 }
+
+#[test]
+fn model_ids_read_like_their_product_names() {
+    assert_eq!(hermes_chat::model_label("claude-opus-5-5[1m]"), "Opus 5.5");
+    assert_eq!(
+        hermes_chat::model_label("claude-haiku-4-5-20251001"),
+        "Haiku 4.5"
+    );
+    assert_eq!(hermes_chat::model_label("claude-sonnet-5[1m]"), "Sonnet 5");
+    assert_eq!(hermes_chat::model_label("gpt-6.1-sol"), "GPT-6.1 Sol");
+    assert_eq!(
+        hermes_chat::model_label("gpt-6-astra-900k"),
+        "GPT-6 Astra 900k"
+    );
+    assert_eq!(hermes_chat::model_label("llama-local"), "llama-local");
+    assert_eq!(
+        hermes_chat::provider_label(
+            "claude-subscription-directsdk-experimental",
+            "Claude Subscription DirectSDK (Experimental)"
+        ),
+        "Claude"
+    );
+    assert_eq!(
+        hermes_chat::provider_label(
+            "openai-codex",
+            "ChatGPT or Codex Subscription"
+        ),
+        "ChatGPT"
+    );
+    assert_eq!(
+        hermes_chat::provider_label("fireworks", "Fireworks AI (beta)"),
+        "Fireworks AI"
+    );
+}
+
+/// Shape captured from /api/model/options on 2026-10-05, trimmed.
+#[test]
+fn only_signed_in_providers_offer_models() {
+    let raw = serde_json::json!({
+        "provider": "claude-subscription-directsdk-experimental",
+        "model": "claude-opus-5-5[1m]",
+        "providers": [
+            {"slug": "nous", "name": "Nous Portal", "authenticated": false, "models": []},
+            {"slug": "openai-codex", "name": "ChatGPT or Codex Subscription", "authenticated": true, "models": ["gpt-6.1-sol", "gpt-6-astra"]},
+            {"slug": "claude-subscription-directsdk-experimental", "name": "Claude Subscription DirectSDK (Experimental)", "authenticated": true, "models": ["claude-sonnet-5[1m]", "claude-opus-5-5[1m]"]}
+        ]
+    });
+    let options = flowflow::infrastructure::hermes::parse_model_options(&raw);
+    assert_eq!(options.model, "claude-opus-5-5[1m]");
+    assert_eq!(options.providers.len(), 2);
+    assert_eq!(
+        options.providers[0].models,
+        vec!["gpt-6.1-sol", "gpt-6-astra"]
+    );
+}
+
+#[test]
+fn a_conversation_keeps_the_model_picked_for_it() {
+    let dir = tempdir().unwrap();
+    let db = open_db(&dir);
+    assert_eq!(hermes_chat::chosen_model(&db, "flowflow_a"), None);
+    hermes_chat::choose_model(&db, "flowflow_a", "openai-codex", "gpt-6.1-sol")
+        .unwrap();
+    assert_eq!(
+        hermes_chat::chosen_model(&db, "flowflow_a"),
+        Some(("openai-codex".into(), "gpt-6.1-sol".into()))
+    );
+    assert_eq!(hermes_chat::chosen_model(&db, "flowflow_b"), None);
+}
+
+#[test]
+fn back_to_back_calls_of_one_tool_fold_into_one_step() {
+    let step = |tool: &str| hermes_chat::HermesStep {
+        tool: tool.into(),
+        detail: format!("{tool} detail"),
+        running: false,
+        failed: false,
+    };
+    let steps = vec![
+        step("session_search"),
+        step("read_file"),
+        step("read_file"),
+        step("read_file"),
+        step("web_search"),
+        step("read_file"),
+    ];
+    let grouped = hermes_chat::grouped(&steps);
+    let shape: Vec<(&str, usize)> =
+        grouped.iter().map(|(s, n)| (s.tool.as_str(), *n)).collect();
+    assert_eq!(
+        shape,
+        vec![
+            ("session_search", 1),
+            ("read_file", 3),
+            ("web_search", 1),
+            ("read_file", 1)
+        ]
+    );
+    assert_eq!(
+        hermes_chat::tool_key("read_file"),
+        Some("hermes-tool-read-file")
+    );
+    assert_eq!(hermes_chat::tool_key("yb_send_sticker"), None);
+}
