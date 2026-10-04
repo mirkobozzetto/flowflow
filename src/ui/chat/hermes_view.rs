@@ -125,6 +125,10 @@ pub fn HermesChatView() -> Element {
             sid.as_deref()
                 .and_then(|s| hermes_chat::chosen_model(&db.peek(), s)),
         );
+        app.hermes_effort.set(
+            sid.as_deref()
+                .and_then(|s| hermes_chat::chosen_effort(&db.peek(), s)),
+        );
         spawn(async move {
             let database = db();
             let options = hermes_chat::model_options(&database).await;
@@ -235,7 +239,8 @@ pub fn HermesChatView() -> Element {
                     let database = db();
                     let current = session.peek().clone();
                     let pick = app.hermes_pick.peek().clone();
-                    match hermes_chat::send(&database, current.clone(), &q, pick).await {
+                    let effort = app.hermes_effort.peek().clone();
+                    match hermes_chat::send(&database, current.clone(), &q, pick, effort).await {
                         Ok((sid, run_id)) => {
                             if current.is_none() {
                                 session.set(Some(sid.clone()));

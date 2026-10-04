@@ -337,14 +337,15 @@ impl HermesClient {
             .map_or(0, Vec::len))
     }
 
-    /// Starts a turn on the session, on the chosen (provider, model) or
-    /// Hermes' own default; it runs on the server whatever happens to this
-    /// connection.
+    /// Starts a turn on the session, on the chosen (provider, model) and
+    /// reasoning effort or Hermes' own defaults; it runs on the server
+    /// whatever happens to this connection.
     pub async fn start_run(
         &self,
         session_id: &str,
         input: &str,
         model: Option<(&str, &str)>,
+        effort: Option<&str>,
     ) -> Result<String, HermesError> {
         let mut body = serde_json::json!({
             "input": input,
@@ -353,6 +354,15 @@ impl HermesClient {
         if let Some((provider, model)) = model {
             body["provider"] = provider.into();
             body["model"] = model.into();
+        }
+        // Hermes' reasoning knob: "off" turns thinking off, any other
+        // level is an effort (low .. max).
+        if let Some(effort) = effort {
+            body["model_options"] = if effort == "off" {
+                serde_json::json!({ "reasoning": { "enabled": false } })
+            } else {
+                serde_json::json!({ "reasoning": { "enabled": true, "effort": effort } })
+            };
         }
         let resp = checked(
             self.post("/v1/runs")

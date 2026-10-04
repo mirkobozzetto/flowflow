@@ -275,6 +275,131 @@ pub fn choose_model(
     db.set_setting(&model_key(session_id), &format!("{provider}\t{model}"))
 }
 
+/// Hermes' reasoning levels, from thinking off to the most effort; "max"
+/// only exists on Claude.
+pub const EFFORTS: &[&str] = &["off", "low", "medium", "high", "xhigh", "max"];
+
+/// The reasoning levels a model accepts, as Hermes routes them; none for a
+/// provider whose levels Hermes does not publish. Mirrors Hermes'
+/// agent/reasoning_effort.py (Codex) and agent/anthropic_adapter.py (Claude),
+/// which its API does not expose.
+pub fn efforts_for(provider: &str, model: &str) -> &'static [&'static str] {
+    const FULL: &[&str] = &["off", "low", "medium", "high", "xhigh", "max"];
+    const NO_OFF: &[&str] = &["low", "medium", "high", "xhigh", "max"];
+    const NO_MAX: &[&str] = &["off", "low", "medium", "high", "xhigh"];
+    const NO_XHIGH: &[&str] = &["off", "low", "medium", "high", "max"];
+    let m = model.to_lowercase();
+    if provider.contains("codex") || provider.contains("openai") {
+        if m.starts_with("gpt-6-astra") || m.starts_with("gpt-6.1-sol") {
+            NO_OFF
+        } else if m.contains("gpt-5.6")
+            || m.starts_with("gpt-6-sol")
+            || m.starts_with("gpt-6-luna")
+        {
+            FULL
+        } else {
+            NO_MAX
+        }
+    } else if provider.contains("claude") || provider.contains("anthropic") {
+        let legacy = ["claude-3", "-4-0", "-4-1", "-4-5", "-4-2025"]
+            .iter()
+            .any(|s| m.contains(s));
+        if legacy {
+            NO_MAX
+        } else if m.contains("claude-fable") {
+            NO_OFF
+        } else if m.contains("-4-6") {
+            NO_XHIGH
+        } else {
+            FULL
+        }
+    } else {
+        &[]
+    }
+}
+
+fn effort_key(session_id: &str) -> String {
+    format!("hermes_effort:{session_id}")
+}
+
+/// The reasoning level picked for a conversation; None follows Hermes.
+pub fn chosen_effort(db: &Database, session_id: &str) -> Option<String> {
+    db.get_setting(&effort_key(session_id))
+        .filter(|e| EFFORTS.contains(&e.as_str()))
+}
+
+pub fn choose_effort(
+    db: &Database,
+    session_id: &str,
+    effort: &str,
+) -> Result<(), String> {
+    db.set_setting(&effort_key(session_id), effort)
+}
+
+// "claude-opus-5-5[1m]" -> ("claude-opus", [5, 5]); "gpt-6.1-sol" ->
+// ("gpt-sol", [6, 1]). Release dates and context suffixes are not versions.
+fn family_and_version(id: &str) -> (String, Vec<u32>) {
+    let id = id.split('[').next().unwrap_or(id);
+    let mut family = Vec::new();
+    let mut version = Vec::new();
+    for part in id.split('-') {
+        if part.len() == 8 && part.chars().all(|c| c.is_ascii_digit()) {
+            continue;
+        }
+        let numbers: Vec<u32> =
+            part.split('.').map_while(|n| n.parse().ok()).collect();
+        if numbers.len() == part.split('.').count() && !numbers.is_empty() {
+            version.extend(numbers);
+        } else {
+            family.push(part);
+        }
+    }
+    (family.join("-"), version)
+}
+
+/// The newest model of each family, newest first; long-context twins
+/// ("-900k") stay out, the model in use always stays in.
+pub fn latest_models(models: &[String], keep: &str) -> Vec<String> {
+    let mut best: Vec<(String, Vec<u32>, String)> = Vec::new();
+    for m in models.iter().filter(|m| !m.ends_with("-900k")) {
+        let (family, version) = family_and_version(m);
+        match best.iter_mut().find(|(f, _, _)| *f == family) {
+            Some(entry) if version > entry.1 => {
+                *entry = (family, version, m.clone())
+            }
+            Some(_) => {}
+            None => best.push((family, version, m.clone())),
+        }
+    }
+    best.sort_by(|a, b| b.1.cmp(&a.1));
+    let mut out: Vec<String> = best.into_iter().map(|(_, _, m)| m).collect();
+    if models.iter().any(|m| m == keep) && !out.iter().any(|m| m == keep) {
+        out.push(keep.to_string());
+    }
+    out
+}
+
+/// The menu's providers: the one in use first, each with its newest models.
+pub fn menu_providers(
+    options: &ModelOptions,
+    in_use: (&str, &str),
+) -> Vec<ModelProvider> {
+    let mut providers: Vec<ModelProvider> = options
+        .providers
+        .iter()
+        .map(|p| ModelProvider {
+            slug: p.slug.clone(),
+            name: p.name.clone(),
+            models: latest_models(
+                &p.models,
+                if p.slug == in_use.0 { in_use.1 } else { "" },
+            ),
+        })
+        .collect();
+    providers.sort_by_key(|p| p.slug != in_use.0);
+    providers
+}
+
 pub async fn model_options(db: &Database) -> Result<ModelOptions, HermesError> {
     HermesClient::from_db(db)?.model_options().await
 }
@@ -355,6 +480,7 @@ pub async fn send(
     session_id: Option<String>,
     text: &str,
     model: Option<(String, String)>,
+    effort: Option<String>,
 ) -> Result<(String, String), HermesError> {
     let client = HermesClient::from_db(db)?;
     let session_id = match session_id {
@@ -367,15 +493,20 @@ pub async fn send(
             if let Some((provider, name)) = &model {
                 let _ = choose_model(db, &id, provider, name);
             }
+            if let Some(e) = &effort {
+                let _ = choose_effort(db, &id, e);
+            }
             id
         }
     };
     let pick = model.or_else(|| chosen_model(db, &session_id));
+    let effort = effort.or_else(|| chosen_effort(db, &session_id));
     let run_id = client
         .start_run(
             &session_id,
             text,
             pick.as_ref().map(|(p, m)| (p.as_str(), m.as_str())),
+            effort.as_deref(),
         )
         .await?;
     let _ =

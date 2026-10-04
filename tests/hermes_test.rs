@@ -296,7 +296,7 @@ async fn the_first_question_opens_a_flowflow_session_then_a_run() {
     configure(&db, &base);
 
     let (session, run) =
-        hermes_chat::send(&db, None, "Quelle heure est-il ?", None)
+        hermes_chat::send(&db, None, "Quelle heure est-il ?", None, None)
             .await
             .unwrap();
 

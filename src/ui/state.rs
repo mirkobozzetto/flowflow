@@ -172,6 +172,7 @@ pub struct AppState {
     // which shows and changes it, and the chat, which sends with it.
     pub hermes_models: Signal<Option<ModelOptions>>,
     pub hermes_pick: Signal<Option<(String, String)>>,
+    pub hermes_effort: Signal<Option<String>>,
 }
 
 impl AppState {
@@ -232,6 +233,7 @@ impl AppState {
             share_request: Signal::new(None),
             hermes_models: Signal::new(None),
             hermes_pick: Signal::new(None),
+            hermes_effort: Signal::new(None),
         }
     }
 }
