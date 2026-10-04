@@ -1,5 +1,6 @@
 use crate::application::hermes_chat::{
-    self, efforts_for, menu_providers, model_label, provider_label,
+    self, effective_effort, efforts_for, menu_providers, model_label,
+    provider_label,
 };
 use crate::application::i18n::t;
 use crate::infrastructure::persistence::Database;
@@ -13,32 +14,33 @@ use std::sync::Arc;
 // Native glass anchor of the model menu (glass_burger.rs, glass_burger.ts).
 const ANCHOR: &str = "hermes-model";
 
-fn open_session(app: AppState) -> Option<String> {
+// The open conversation, or the latest-pick slot before its first message.
+fn pick_slot(app: AppState) -> String {
     match (app.view)() {
-        View::HermesChat { session_id } => session_id,
-        _ => None,
+        View::HermesChat {
+            session_id: Some(sid),
+        } => sid,
+        _ => hermes_chat::LAST_PICK.to_string(),
     }
 }
 
 fn pick_model(mut app: AppState, db: &Database, provider: &str, model: &str) {
     app.hermes_pick
         .set(Some((provider.to_string(), model.to_string())));
-    // A level the new model does not accept falls back to Hermes' default.
-    let kept = (app.hermes_effort)()
-        .filter(|e| efforts_for(provider, model).contains(&e.as_str()));
+    // A level the new model does not accept falls back to the default.
+    let current = (app.hermes_effort)();
+    let kept = effective_effort(current.as_deref(), provider, model);
     app.hermes_effort.set(kept.clone());
-    if let Some(sid) = open_session(app) {
-        let _ = hermes_chat::choose_model(db, &sid, provider, model);
-        let _ =
-            hermes_chat::choose_effort(db, &sid, kept.as_deref().unwrap_or(""));
+    let slot = pick_slot(app);
+    let _ = hermes_chat::choose_model(db, &slot, provider, model);
+    if let Some(e) = &kept {
+        let _ = hermes_chat::choose_effort(db, &slot, e);
     }
 }
 
 fn pick_effort(mut app: AppState, db: &Database, effort: &str) {
     app.hermes_effort.set(Some(effort.to_string()));
-    if let Some(sid) = open_session(app) {
-        let _ = hermes_chat::choose_effort(db, &sid, effort);
-    }
+    let _ = hermes_chat::choose_effort(db, &pick_slot(app), effort);
 }
 
 fn effort_label(lang: &str, effort: &str) -> String {
@@ -61,8 +63,10 @@ pub fn HermesModelTitle() -> Element {
         (None, Some(o)) => (o.provider.clone(), o.model.clone()),
         (None, None) => (String::new(), String::new()),
     };
-    let effort = (app.hermes_effort)();
+    let effort =
+        effective_effort((app.hermes_effort)().as_deref(), &provider, &model);
     let levels = efforts_for(&provider, &model);
+    let mut others_open = use_signal(|| false);
     let providers = options
         .as_ref()
         .map(|o| menu_providers(o, (&provider, &model)))
@@ -104,8 +108,10 @@ pub fn HermesModelTitle() -> Element {
             }
             if menu_ready && native {
                 div { hidden: true, "data-native-menu": ANCHOR, "data-native-context": "hermes",
-                    for p in providers.iter() {
-                        div { key: "{p.slug}", "data-native-submenu": "", "data-native-inline": "",
+                    for (i, p) in providers.iter().enumerate() {
+                        // The provider in use is listed; the others fold into
+                        // their own submenu.
+                        div { key: "{p.slug}", "data-native-submenu": "", "data-native-inline": (i == 0).then_some(""),
                             "data-native-title": provider_label(&p.slug, &p.name),
                             for m in p.models.iter() {
                                 button {
@@ -141,11 +147,24 @@ pub fn HermesModelTitle() -> Element {
             if open() && menu_ready {
                 div { class: "fixed inset-0 z-40", onclick: move |_| open.set(false) }
                 div { class: "absolute left-8 top-full mt-2 max-h-[60vh] overflow-y-auto {kit::MENU_PANEL}",
-                    for p in providers.iter() {
-                        p { key: "{p.slug}", class: "px-3 pt-2 pb-1 text-xs font-semibold text-stone-500",
-                            {provider_label(&p.slug, &p.name)}
+                    for (i, p) in providers.iter().enumerate() {
+                        if i == 0 {
+                            p { key: "{p.slug}", class: "px-3 pt-2 pb-1 text-xs font-semibold text-stone-500",
+                                {provider_label(&p.slug, &p.name)}
+                            }
+                        } else {
+                            button {
+                                key: "{p.slug}",
+                                class: kit::MENU_ITEM,
+                                onclick: move |_| others_open.set(!others_open()),
+                                span { class: "flex-1", {provider_label(&p.slug, &p.name)} }
+                                span {
+                                    class: if others_open() { "inline-flex text-stone-400 rotate-90 transition-transform duration-180" } else { "inline-flex text-stone-400 transition-transform duration-180" },
+                                    IconCaretRight { size: 12 }
+                                }
+                            }
                         }
-                        for m in p.models.iter() {
+                        for m in p.models.iter().filter(|_| i == 0 || others_open()) {
                             button {
                                 key: "{p.slug}{m}",
                                 class: kit::MENU_ITEM,

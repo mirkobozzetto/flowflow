@@ -469,7 +469,7 @@ fn a_conversation_keeps_the_model_picked_for_it() {
         hermes_chat::chosen_model(&db, "flowflow_a"),
         Some(("openai-codex".into(), "gpt-6.1-sol".into()))
     );
-    assert_eq!(hermes_chat::chosen_model(&db, "flowflow_b"), None);
+    assert!(hermes_chat::chosen_model(&db, "flowflow_b").is_some());
 }
 
 #[test]
@@ -608,7 +608,7 @@ fn each_model_offers_only_the_levels_hermes_accepts() {
     let claude = "claude-subscription-directsdk-experimental";
     assert_eq!(
         hermes_chat::efforts_for(claude, "claude-opus-5-5[1m]"),
-        &["off", "low", "medium", "high", "xhigh", "max"]
+        &["low", "medium", "high", "xhigh", "max"]
     );
     assert_eq!(
         hermes_chat::efforts_for(claude, "claude-fable-5-1[1m]"),
@@ -616,7 +616,7 @@ fn each_model_offers_only_the_levels_hermes_accepts() {
     );
     assert_eq!(
         hermes_chat::efforts_for(claude, "claude-haiku-4-5-20251001"),
-        &["off", "low", "medium", "high", "xhigh"]
+        &["low", "medium", "high", "xhigh"]
     );
     assert_eq!(
         hermes_chat::efforts_for("openai-codex", "gpt-6.1-sol"),
@@ -624,11 +624,44 @@ fn each_model_offers_only_the_levels_hermes_accepts() {
     );
     assert_eq!(
         hermes_chat::efforts_for("openai-codex", "gpt-6-luna"),
-        &["off", "low", "medium", "high", "xhigh", "max"]
+        &["low", "medium", "high", "xhigh", "max"]
     );
     assert_eq!(
         hermes_chat::efforts_for("openai-codex", "gpt-5.5"),
-        &["off", "low", "medium", "high", "xhigh"]
+        &["low", "medium", "high", "xhigh"]
     );
     assert!(hermes_chat::efforts_for("fireworks", "llama").is_empty());
+}
+
+#[test]
+fn a_conversation_thinks_at_medium_unless_told_otherwise() {
+    let claude = "claude-subscription-directsdk-experimental";
+    assert_eq!(
+        hermes_chat::effective_effort(None, claude, "claude-opus-5-5[1m]")
+            .as_deref(),
+        Some("medium")
+    );
+    assert_eq!(
+        hermes_chat::effective_effort(
+            Some("max"),
+            claude,
+            "claude-opus-5-5[1m]"
+        )
+        .as_deref(),
+        Some("max")
+    );
+    // Haiku has no "max": the pick falls back to the default.
+    assert_eq!(
+        hermes_chat::effective_effort(
+            Some("max"),
+            claude,
+            "claude-haiku-4-5-20251001"
+        )
+        .as_deref(),
+        Some("medium")
+    );
+    assert_eq!(
+        hermes_chat::effective_effort(None, "fireworks", "llama"),
+        None
+    );
 }

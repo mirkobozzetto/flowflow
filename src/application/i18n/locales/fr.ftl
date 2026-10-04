@@ -704,7 +704,6 @@ hermes-tool-vision = Analyse d’image
 hermes-tool-image = Création d’image
 hermes-facts-skills = { $count } skills
 hermes-facts-jobs = { $count } tâches planifiées
-hermes-effort-off = Désactivée
 hermes-effort-low = Faible
 hermes-effort-medium = Moyenne
 hermes-effort-high = Élevée

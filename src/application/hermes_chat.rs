@@ -257,45 +257,48 @@ fn model_key(session_id: &str) -> String {
 
 /// The (provider, model) picked for a conversation; None follows Hermes'
 /// own default. Device-local, like the conversation itself.
+/// Stands for "no conversation yet": the latest pick lives under it, and
+/// every conversation without its own pick starts from it.
+pub const LAST_PICK: &str = "last";
+
 pub fn chosen_model(
     db: &Database,
     session_id: &str,
 ) -> Option<(String, String)> {
-    let raw = db.get_setting(&model_key(session_id))?;
+    let raw = db
+        .get_setting(&model_key(session_id))
+        .or_else(|| db.get_setting(&model_key(LAST_PICK)))?;
     let (provider, model) = raw.split_once('\t')?;
     Some((provider.to_string(), model.to_string()))
 }
 
+/// Keeps the pick for the conversation and as the next one's start.
 pub fn choose_model(
     db: &Database,
     session_id: &str,
     provider: &str,
     model: &str,
 ) -> Result<(), String> {
-    db.set_setting(&model_key(session_id), &format!("{provider}\t{model}"))
+    let value = format!("{provider}\t{model}");
+    db.set_setting(&model_key(LAST_PICK), &value)?;
+    db.set_setting(&model_key(session_id), &value)
 }
 
-/// Hermes' reasoning levels, from thinking off to the most effort; "max"
-/// only exists on Claude.
-pub const EFFORTS: &[&str] = &["off", "low", "medium", "high", "xhigh", "max"];
+/// Hermes' reasoning levels, from the least to the most effort.
+pub const EFFORTS: &[&str] = &["low", "medium", "high", "xhigh", "max"];
 
 /// The reasoning levels a model accepts, as Hermes routes them; none for a
 /// provider whose levels Hermes does not publish. Mirrors Hermes'
 /// agent/reasoning_effort.py (Codex) and agent/anthropic_adapter.py (Claude),
 /// which its API does not expose.
 pub fn efforts_for(provider: &str, model: &str) -> &'static [&'static str] {
-    const FULL: &[&str] = &["off", "low", "medium", "high", "xhigh", "max"];
-    const NO_OFF: &[&str] = &["low", "medium", "high", "xhigh", "max"];
-    const NO_MAX: &[&str] = &["off", "low", "medium", "high", "xhigh"];
-    const NO_XHIGH: &[&str] = &["off", "low", "medium", "high", "max"];
+    // Thinking is never turned off from the app: every level thinks.
+    const FULL: &[&str] = &["low", "medium", "high", "xhigh", "max"];
+    const NO_MAX: &[&str] = &["low", "medium", "high", "xhigh"];
+    const NO_XHIGH: &[&str] = &["low", "medium", "high", "max"];
     let m = model.to_lowercase();
     if provider.contains("codex") || provider.contains("openai") {
-        if m.starts_with("gpt-6-astra") || m.starts_with("gpt-6.1-sol") {
-            NO_OFF
-        } else if m.contains("gpt-5.6")
-            || m.starts_with("gpt-6-sol")
-            || m.starts_with("gpt-6-luna")
-        {
+        if m.starts_with("gpt-6") || m.contains("gpt-5.6") {
             FULL
         } else {
             NO_MAX
@@ -306,8 +309,6 @@ pub fn efforts_for(provider: &str, model: &str) -> &'static [&'static str] {
             .any(|s| m.contains(s));
         if legacy {
             NO_MAX
-        } else if m.contains("claude-fable") {
-            NO_OFF
         } else if m.contains("-4-6") {
             NO_XHIGH
         } else {
@@ -318,6 +319,23 @@ pub fn efforts_for(provider: &str, model: &str) -> &'static [&'static str] {
     }
 }
 
+/// The level a conversation starts on when nothing was picked.
+pub const DEFAULT_EFFORT: &str = "medium";
+
+/// The level a turn runs on: the one picked if the model accepts it, else
+/// the default, else none for a model whose levels are unknown.
+pub fn effective_effort(
+    chosen: Option<&str>,
+    provider: &str,
+    model: &str,
+) -> Option<String> {
+    let levels = efforts_for(provider, model);
+    chosen
+        .filter(|e| levels.contains(e))
+        .or_else(|| levels.contains(&DEFAULT_EFFORT).then_some(DEFAULT_EFFORT))
+        .map(String::from)
+}
+
 fn effort_key(session_id: &str) -> String {
     format!("hermes_effort:{session_id}")
 }
@@ -326,13 +344,19 @@ fn effort_key(session_id: &str) -> String {
 pub fn chosen_effort(db: &Database, session_id: &str) -> Option<String> {
     db.get_setting(&effort_key(session_id))
         .filter(|e| EFFORTS.contains(&e.as_str()))
+        .or_else(|| {
+            db.get_setting(&effort_key(LAST_PICK))
+                .filter(|e| EFFORTS.contains(&e.as_str()))
+        })
 }
 
+/// Keeps the level for the conversation and as the next one's start.
 pub fn choose_effort(
     db: &Database,
     session_id: &str,
     effort: &str,
 ) -> Result<(), String> {
+    db.set_setting(&effort_key(LAST_PICK), effort)?;
     db.set_setting(&effort_key(session_id), effort)
 }
 

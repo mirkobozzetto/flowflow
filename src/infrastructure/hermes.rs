@@ -355,14 +355,8 @@ impl HermesClient {
             body["provider"] = provider.into();
             body["model"] = model.into();
         }
-        // Hermes' reasoning knob: "off" turns thinking off, any other
-        // level is an effort (low .. max).
         if let Some(effort) = effort {
-            body["model_options"] = if effort == "off" {
-                serde_json::json!({ "reasoning": { "enabled": false } })
-            } else {
-                serde_json::json!({ "reasoning": { "enabled": true, "effort": effort } })
-            };
+            body["model_options"] = serde_json::json!({ "reasoning": { "enabled": true, "effort": effort } });
         }
         let resp = checked(
             self.post("/v1/runs")

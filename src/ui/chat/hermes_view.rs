@@ -121,14 +121,11 @@ pub fn HermesChatView() -> Element {
         turns.set(Vec::new());
         live.set(None);
         problem.set(None);
-        app.hermes_pick.set(
-            sid.as_deref()
-                .and_then(|s| hermes_chat::chosen_model(&db.peek(), s)),
-        );
-        app.hermes_effort.set(
-            sid.as_deref()
-                .and_then(|s| hermes_chat::chosen_effort(&db.peek(), s)),
-        );
+        let slot = sid.as_deref().unwrap_or(hermes_chat::LAST_PICK);
+        app.hermes_pick
+            .set(hermes_chat::chosen_model(&db.peek(), slot));
+        app.hermes_effort
+            .set(hermes_chat::chosen_effort(&db.peek(), slot));
         spawn(async move {
             let database = db();
             let options = hermes_chat::model_options(&database).await;
@@ -239,7 +236,14 @@ pub fn HermesChatView() -> Element {
                     let database = db();
                     let current = session.peek().clone();
                     let pick = app.hermes_pick.peek().clone();
-                    let effort = app.hermes_effort.peek().clone();
+                    let (provider, model) = pick.clone()
+                        .or_else(|| app.hermes_models.peek().as_ref().map(|o| (o.provider.clone(), o.model.clone())))
+                        .unwrap_or_default();
+                    let effort = hermes_chat::effective_effort(
+                        app.hermes_effort.peek().as_deref(),
+                        &provider,
+                        &model,
+                    );
                     match hermes_chat::send(&database, current.clone(), &q, pick, effort).await {
                         Ok((sid, run_id)) => {
                             if current.is_none() {
