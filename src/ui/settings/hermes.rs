@@ -4,14 +4,14 @@ use crate::infrastructure::persistence::Database;
 use crate::ui::chat::hermes_problem_text;
 use crate::ui::AppState;
 use dioxus::prelude::*;
-use std::sync::atomic::{AtomicBool, Ordering};
-use std::sync::Arc;
+use std::sync::{Arc, Mutex};
 
-// Set when a scanned QR code filled the fields: the card tests on opening.
-static TEST_ON_OPEN: AtomicBool = AtomicBool::new(false);
+// Address and key a scanned QR code brought, shown in the card until the
+// person tests them: a link alone never replaces a saved Hermes.
+static OFFERED: Mutex<Option<(String, String)>> = Mutex::new(None);
 
-pub(crate) fn test_on_open() {
-    TEST_ON_OPEN.store(true, Ordering::Relaxed);
+pub(crate) fn offer_link(url: String, key: String) {
+    *OFFERED.lock().unwrap_or_else(|e| e.into_inner()) = Some((url, key));
 }
 
 #[derive(Clone, PartialEq)]
@@ -29,10 +29,16 @@ pub fn HermesSettings() -> Element {
     let db: Signal<Arc<Database>> = use_context();
     let app: AppState = use_context();
     let lang = (app.current_lang)();
-    let mut url =
-        use_signal(|| db().get_setting(URL_SETTING).unwrap_or_default());
-    let mut key =
-        use_signal(|| db().get_setting(KEY_SETTING).unwrap_or_default());
+    let offered =
+        use_hook(|| OFFERED.lock().unwrap_or_else(|e| e.into_inner()).take());
+    let (first_url, first_key) = offered.clone().unwrap_or_else(|| {
+        (
+            db().get_setting(URL_SETTING).unwrap_or_default(),
+            db().get_setting(KEY_SETTING).unwrap_or_default(),
+        )
+    });
+    let mut url = use_signal(|| first_url);
+    let mut key = use_signal(|| first_key);
     let mut probe = use_signal(|| Probe::Idle);
 
     // Saves the fields, then asks Hermes; one sentence says how it went.
@@ -49,11 +55,6 @@ pub fn HermesSettings() -> Element {
             });
         });
     };
-    use_effect(move || {
-        if TEST_ON_OPEN.swap(false, Ordering::Relaxed) {
-            test();
-        }
-    });
 
     rsx! {
         div { class: "space-y-3",
@@ -62,6 +63,9 @@ pub fn HermesSettings() -> Element {
                 h2 { class: "text-lg font-semibold text-stone-900", {t(&lang, "hermes-settings-title")} }
             }
             p { class: "text-xs text-stone-500 leading-relaxed", {t(&lang, "hermes-settings-hint")} }
+            if offered.is_some() && probe() == Probe::Idle {
+                p { class: "text-sm text-stone-700 leading-relaxed", {t(&lang, "hermes-settings-offered")} }
+            }
             div {
                 label { class: "block text-sm font-medium text-stone-700 mb-1", {t(&lang, "hermes-settings-url")} }
                 input {

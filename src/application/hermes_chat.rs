@@ -213,13 +213,9 @@ pub fn parse_link(uri: &str) -> Option<(String, String)> {
             _ => {}
         }
     }
-    (!base.is_empty() && !key.is_empty()).then_some((base, key))
-}
-
-/// Saves the address and key a linking QR code brought.
-pub fn link(db: &Database, url: &str, key: &str) -> Result<(), String> {
-    db.set_setting(URL_SETTING, url)?;
-    db.set_setting(KEY_SETTING, key)
+    // The key travels to this address: only an encrypted one is accepted.
+    let https = url::Url::parse(&base).is_ok_and(|u| u.scheme() == "https");
+    (https && !key.is_empty()).then_some((base, key))
 }
 
 /// An address and a key are saved: the Hermes choice is worth offering.
