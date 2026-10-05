@@ -24,7 +24,7 @@ Voice notes that answer back
 
 ```
 Speak, and FlowFlow writes it down, titles it, files it and lets you ask
-your notes anything. Now with a voice capsule and Liquid Glass on iOS 26.
+your notes anything. New: talk to your own Hermes Agent.
 ```
 
 **Keywords** (100, comma-separated)
@@ -42,7 +42,8 @@ CAPTURE
 One composer for notes and chat. Type, or tap the mic: a voice capsule
 records, transcribes and puts the text back where you were typing.
 Transcribe in the cloud, or fully offline with a Whisper model on your
-iPhone. A personal dictionary spells your names and jargon right.
+iPhone. Hour-long recordings finish, even with the screen locked. A
+personal dictionary spells your names and jargon right.
 
 ASK YOUR NOTES
 Chat with everything you wrote. Answers cite the notes they come from, and
@@ -61,6 +62,8 @@ server in between. Back everything up in one archive and restore it safely.
 SHARE AND COLLABORATE
 Publish a note or a thread behind a link you can revoke. Share a theme into
 a team space, or give Hermes Agent scoped, revocable access to one space.
+Run your own Hermes Agent? Link it with one QR code and talk to it from the
+Chats tab.
 
 ACT, NOT JUST RECORD
 Turn "call the bank tomorrow at 10" into a reminder. Install verified
@@ -81,6 +84,9 @@ approval:
 
 Setup: Settings > AI, paste both keys. Offline transcription works without
 any key after downloading a model in Settings > Transcription.
+Chats > New conversation > With Hermes needs the user's own self-hosted
+Hermes Agent on a private Tailscale network: it cannot be reached from
+review and is optional. Everything else works without it.
 Microphone permission is requested on the first recording. Please limit
 testing to about 10 transcriptions or questions.
 ```
@@ -99,7 +105,7 @@ Notes vocales qui répondent
 
 ```
 Parlez : FlowFlow écrit, titre, range, et vous laisse interroger vos notes.
-Nouveau : une capsule vocale et le Liquid Glass sur iOS 26.
+Nouveau : parlez à votre propre Hermes Agent.
 ```
 
 **Mots-clés** (100)
@@ -118,7 +124,8 @@ CAPTURER
 Un seul champ pour les notes et le chat. Tapez, ou touchez le micro : une
 capsule vocale enregistre, transcrit et replace le texte là où vous
 écriviez. Transcription dans le cloud, ou entièrement hors ligne avec un
-modèle Whisper sur votre iPhone. Un dictionnaire personnel orthographie
+modèle Whisper sur votre iPhone. Les enregistrements d'une heure vont au
+bout, même écran verrouillé. Un dictionnaire personnel orthographie
 correctement vos noms et votre jargon.
 
 INTERROGER VOS NOTES
@@ -140,7 +147,8 @@ en sécurité.
 PARTAGER ET COLLABORER
 Publiez une note ou un fil derrière un lien révocable. Partagez un thème
 dans un espace d'équipe, ou donnez à Hermes Agent un accès limité et
-révocable à un espace.
+révocable à un espace. Vous avez votre propre Hermes Agent ? Liez-le avec
+un QR code et parlez-lui depuis l'onglet Chats.
 
 AGIR, PAS SEULEMENT NOTER
 « Appeler la banque demain à 10 h » devient un rappel. Installez des agents
