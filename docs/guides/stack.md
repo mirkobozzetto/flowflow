@@ -4,7 +4,7 @@ Pinned versions and the reason each one is pinned. Update this file when a depen
 moves; `CLAUDE.md` links here rather than carrying the list, so the always-loaded
 context stays small.
 
-- Dioxus 0.7 (CLI dx 0.7.7)
+- Dioxus 0.8.0-alpha.1 (CLI dx 0.8.0-alpha.1)
 - cpal 0.17 (audio I/O via CoreAudio on iOS)
 - hound 3.5 (WAV file writing)
 - reqwest 0.13 (HTTP client, multipart + JSON, unified with rig-core)

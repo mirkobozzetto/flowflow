@@ -10,8 +10,12 @@
   const lastPlace = new Map;
   const shown = new Map;
   const lastMenu = new Map;
+  const MENU_IDS = ["note-more", "chat-more", "note-plus", "chat-plus", "chats-plus", "hermes-model", "chat-pick"];
+  w.__ffMenuOpen = (open) => {
+    document.querySelectorAll('[data-glass$="-plus"]').forEach((a) => a.toggleAttribute("data-native-open", open));
+  };
   w.__ffMenuPick = (id, context, action) => {
-    if (id !== "note-more" && id !== "chat-more")
+    if (!MENU_IDS.includes(id))
       return;
     const anchor = document.querySelector(`[data-glass="${id}"]`);
     const root = document.querySelector(`[data-native-menu="${id}"]`);
@@ -25,22 +29,103 @@
     if (button && !button.disabled)
       button.click();
   };
+  const ICON_PT = 22;
+  const ICON_SCALE = 3;
+  const drawn = new Map;
+  async function raster(holder) {
+    const node = holder.firstElementChild;
+    const size = ICON_PT * ICON_SCALE;
+    let src;
+    if (node instanceof HTMLImageElement) {
+      src = node.src;
+    } else if (node instanceof SVGSVGElement) {
+      const svg = node.cloneNode(true);
+      svg.setAttribute("xmlns", "http://www.w3.org/2000/svg");
+      svg.setAttribute("width", String(size));
+      svg.setAttribute("height", String(size));
+      svg.style.color = getComputedStyle(holder).color;
+      src = "data:image/svg+xml;charset=utf-8," + encodeURIComponent(new XMLSerializer().serializeToString(svg));
+    } else {
+      return;
+    }
+    const disc = holder.dataset.nativeIcon === "disc";
+    const key = (disc ? "disc|" : "") + src;
+    const hit = drawn.get(key);
+    if (hit)
+      return hit;
+    try {
+      const img = new Image;
+      img.src = src;
+      await img.decode();
+      const canvas = document.createElement("canvas");
+      canvas.width = canvas.height = size;
+      const ctx = canvas.getContext("2d");
+      let box = size;
+      if (disc) {
+        ctx.fillStyle = "#1c1917";
+        ctx.beginPath();
+        ctx.arc(size / 2, size / 2, size / 2, 0, Math.PI * 2);
+        ctx.fill();
+        box = size * 0.5;
+      }
+      const w2 = img.naturalWidth || size;
+      const h = img.naturalHeight || size;
+      const k = box / Math.max(w2, h);
+      ctx.drawImage(img, (size - w2 * k) / 2, (size - h * k) / 2, w2 * k, h * k);
+      const url = canvas.toDataURL("image/png");
+      drawn.set(key, url);
+      return url;
+    } catch {
+      return;
+    }
+  }
+  function items(el, icons) {
+    const out = [];
+    const iconOf = (item, owner) => {
+      const holder = owner.querySelector(":scope > [data-native-icon]");
+      if (holder)
+        icons.push([item, holder]);
+      return item;
+    };
+    for (const child of Array.from(el.children)) {
+      if (child.dataset.nativeIcon !== undefined)
+        continue;
+      if (child.dataset.nativeAction !== undefined) {
+        const button = child;
+        out.push(iconOf({
+          id: button.dataset.nativeAction,
+          title: button.dataset.nativeTitle ?? button.textContent?.trim() ?? "",
+          symbol: button.dataset.nativeSymbol ?? "ellipsis",
+          subtitle: button.dataset.nativeSubtitle,
+          disabled: button.disabled,
+          destructive: button.hasAttribute("data-native-destructive"),
+          checked: button.dataset.nativeChecked === "true"
+        }, button));
+      } else if (child.dataset.nativeSubmenu !== undefined) {
+        out.push(iconOf({
+          title: child.dataset.nativeTitle ?? "",
+          symbol: child.dataset.nativeSymbol ?? "",
+          inline: child.hasAttribute("data-native-inline"),
+          children: items(child, icons)
+        }, child));
+      } else {
+        out.push(...items(child, icons));
+      }
+    }
+    return out;
+  }
   function menuFor(id, anchor) {
-    if (id !== "note-more" && id !== "chat-more")
+    if (!MENU_IDS.includes(id))
       return null;
     const root = document.querySelector(`[data-native-menu="${id}"]`);
-    return {
+    const icons = [];
+    const menu = {
       id,
       context: root?.dataset.nativeContext ?? "",
       label: anchor.getAttribute("aria-label") ?? "",
-      items: root ? Array.from(root.querySelectorAll("[data-native-action]")).map((button) => ({
-        id: button.dataset.nativeAction,
-        title: button.textContent?.trim() ?? "",
-        symbol: button.dataset.nativeSymbol ?? "ellipsis",
-        disabled: button.disabled,
-        destructive: button.hasAttribute("data-native-destructive")
-      })) : []
+      items: root ? items(root, icons) : []
     };
+    return { menu, icons };
   }
   const ready = () => {
     document.documentElement.dataset.glassReady = "1";
@@ -66,11 +151,13 @@
     const seen = new Set;
     document.querySelectorAll("[data-glass]").forEach((a) => {
       const id = a.dataset.glass;
-      const menu = menuFor(id, a);
+      const found = menuFor(id, a);
+      const menu = found?.menu;
       seen.add(id);
       const r = a.getBoundingClientRect();
       let visible = shown.get(id) ?? false;
-      if (Math.abs(dx) < 0.5) {
+      const under = !!a.closest(".sb-under");
+      if (Math.abs(dx) < 0.5 || under && Math.abs(dx - travel()) < 0.5) {
         const hit = document.elementFromPoint(r.left + r.width / 2, r.top + r.height / 2);
         visible = r.width > 0 && !!hit && (a.contains(hit) || !!hit.closest("[data-glass-pass]"));
       }
@@ -84,11 +171,16 @@
       const y = r.top - (vv ? vv.offsetTop : 0);
       const dot = a.querySelector("[data-badge]") ? 1 : 0;
       post(id, [x, y, r.width, r.height, travel(), visible ? 1 : 0, dot]);
-      if (menu) {
+      if (found && menu) {
         const json = JSON.stringify(menu);
         if (lastMenu.get(id) !== json) {
           lastMenu.set(id, json);
-          send("menu " + json);
+          Promise.all(found.icons.map(async ([item, holder]) => {
+            item.image = await raster(holder);
+          })).then(() => {
+            if (lastMenu.get(id) === json)
+              send("menu " + JSON.stringify(menu));
+          });
         }
       }
     });
@@ -153,11 +245,12 @@
     subtree: true,
     attributes: true,
     characterData: true,
-    attributeFilter: ["class", "disabled", "hidden", "data-native-context", "aria-label"]
+    attributeFilter: ["class", "disabled", "hidden", "data-native-context", "data-native-checked", "aria-label"]
   });
   window.addEventListener("resize", schedule);
   window.visualViewport?.addEventListener("resize", schedule);
   window.visualViewport?.addEventListener("scroll", schedule);
+  document.addEventListener("scroll", schedule, true);
   document.addEventListener("transitionend", schedule, true);
   watchCard();
   schedule();

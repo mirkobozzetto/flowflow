@@ -1,6 +1,6 @@
 use crate::application::note_persistence::append_transcription_to_note;
 use crate::application::transcription_manager::{
-    JobStatus, TranscriptionManager,
+    job_needs_screen_on, JobStatus, TranscriptionManager,
 };
 use crate::infrastructure::persistence::Database;
 use crate::infrastructure::sync::engine::SyncEngine;
@@ -19,10 +19,20 @@ pub fn use_transcription_watcher(
         let db = db();
         let mut app = app;
         async move {
+            // Auto-lock would background the app: a local job pauses, a Soniox
+            // upload is cut. iOS re-enables it on every return to the
+            // foreground, so it is asserted on each tick while a job runs, not
+            // only once.
+            let mut awake = false;
             loop {
                 let snap = manager.snapshot();
                 if *app.transcription_jobs.peek() != snap {
                     app.transcription_jobs.set(snap.clone());
+                }
+                let running = job_needs_screen_on(&snap);
+                if running || awake {
+                    crate::infrastructure::platform::keep_screen_awake(running);
+                    awake = running;
                 }
                 let current = (app.current_note_id)();
                 let viewing_note =
@@ -268,8 +278,10 @@ pub fn use_screenshot_watcher(app: AppState, db: Signal<Arc<Database>>) {
 /// A tapped share link (flowflow://share/{code}) opens the read-only view.
 /// Same mailbox as the record deep link, scoped by prefix.
 pub fn use_share_deeplink_watcher(app: AppState, db: Signal<Arc<Database>>) {
+    use crate::application::hermes_chat;
     use crate::domain::share::{parse_share_link, SHARE_LINK_PREFIX};
     use crate::domain::space::{parse_space_link, SPACE_LINK_PREFIX};
+    use crate::ui::state::SettingsSection;
     use_future(move || {
         let mut app = app;
         async move {
@@ -304,6 +316,21 @@ pub fn use_share_deeplink_watcher(app: AppState, db: Signal<Arc<Database>>) {
                             }
                             Err(e) => eprintln!("[space] join deeplink: {e}"),
                         }
+                    }
+                }
+                // A scanned Hermes QR code fills the Hermes card; nothing is
+                // saved until the person taps Test, since any link can say so.
+                if let Some(uri) =
+                    crate::infrastructure::sync::deeplink::take_matching(
+                        hermes_chat::LINK_PREFIX,
+                    )
+                {
+                    if let Some((url, key)) = hermes_chat::parse_link(&uri) {
+                        crate::ui::settings::hermes::offer_link(url, key);
+                        app.sidebar_open.set(false);
+                        app.view.set(View::SettingsSection(
+                            SettingsSection::Connections,
+                        ));
                     }
                 }
                 futures_timer::Delay::new(std::time::Duration::from_millis(

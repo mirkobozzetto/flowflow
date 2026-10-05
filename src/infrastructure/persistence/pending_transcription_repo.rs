@@ -1,3 +1,4 @@
+use crate::domain::Word;
 use crate::infrastructure::persistence::Database;
 
 pub struct PendingTranscription {
@@ -9,6 +10,13 @@ pub struct PendingTranscription {
     /// The recorded clip this job belongs to. `None` for an import, which has
     /// no `note_audios` row to anchor word timings to.
     pub audio_id: Option<String>,
+}
+
+/// Where a local job stopped. `file_path` tells which recording it belongs to.
+pub struct LocalProgress {
+    pub file_path: Option<String>,
+    pub done_ms: u32,
+    pub words: Vec<Word>,
 }
 
 impl Database {
@@ -42,6 +50,35 @@ impl Database {
         Ok(())
     }
 
+    /// Written before the upload, so a job killed mid-upload is sent again on
+    /// the next launch. `add_pending_transcription` replaces it once Soniox
+    /// has the file.
+    pub fn add_pending_soniox_upload(
+        &self,
+        note_id: &str,
+        file_path: &str,
+        audio_id: Option<&str>,
+    ) -> Result<(), String> {
+        let conn = self.conn();
+        conn.execute(
+            "INSERT INTO pending_transcriptions
+                (note_id, transcription_id, soniox_file_id, provider,
+                 file_path, audio_id)
+             VALUES (?1, NULL, NULL, 'soniox', ?2, ?3)
+             ON CONFLICT(note_id) DO UPDATE SET
+                transcription_id = excluded.transcription_id,
+                soniox_file_id = excluded.soniox_file_id,
+                provider = excluded.provider,
+                file_path = excluded.file_path,
+                audio_id = excluded.audio_id",
+            rusqlite::params![note_id, file_path, audio_id],
+        )
+        .map_err(|e| format!("Add pending soniox upload: {e}"))?;
+        Ok(())
+    }
+
+    /// Leaves `done_ms` and `words_json` alone on conflict: a resumed job
+    /// re-registers itself and must keep its progress.
     pub fn add_pending_local_transcription(
         &self,
         note_id: &str,
@@ -88,6 +125,51 @@ impl Database {
         })
         .map(|rows| rows.flatten().collect())
         .unwrap_or_default()
+    }
+
+    pub fn save_local_progress(
+        &self,
+        note_id: &str,
+        done_ms: u32,
+        words: &[Word],
+    ) -> Result<(), String> {
+        let json = serde_json::to_string(words)
+            .map_err(|e| format!("Encode local progress: {e}"))?;
+        self.conn()
+            .execute(
+                "UPDATE pending_transcriptions SET done_ms = ?2, words_json = ?3
+                 WHERE note_id = ?1",
+                rusqlite::params![note_id, done_ms, json],
+            )
+            .map_err(|e| format!("Save local progress: {e}"))?;
+        Ok(())
+    }
+
+    pub fn local_progress(&self, note_id: &str) -> Option<LocalProgress> {
+        let (file_path, done_ms, json) = self
+            .conn()
+            .query_row(
+                "SELECT file_path, done_ms, words_json FROM pending_transcriptions
+                 WHERE note_id = ?1 AND provider = 'whisper_local'",
+                [note_id],
+                |row| {
+                    Ok((
+                        row.get::<_, Option<String>>(0)?,
+                        row.get::<_, u32>(1)?,
+                        row.get::<_, Option<String>>(2)?,
+                    ))
+                },
+            )
+            .ok()?;
+        let words = match json {
+            Some(j) => serde_json::from_str(&j).ok()?,
+            None => Vec::new(),
+        };
+        Some(LocalProgress {
+            file_path,
+            done_ms,
+            words,
+        })
     }
 
     pub fn delete_pending_transcription(

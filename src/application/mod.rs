@@ -20,6 +20,7 @@ pub mod constants;
 pub mod device_naming;
 pub mod embed;
 pub mod error;
+pub mod hermes_chat;
 pub mod i18n;
 pub mod intent;
 pub mod mention;

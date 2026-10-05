@@ -106,6 +106,10 @@ Guided account onboarding with Premium, a simpler account home showing collabora
 
 One `+` popover in notes and chat (#180). A single composer for notes and chat with a voice capsule that records, transcribes and hands the text back (#181, #184). On iPhone the menu lies under the screen, which slides aside as a card, with iOS 26 Liquid Glass controls and swipe from anywhere (#182, #184). Theme search in the sidebar and title picker with remembered folds, native iOS options menus and dialogs, glass composer and UIKit keyboard height (#186). Mac DMG notarized, with the microphone entitlement it lacked. Release notes: [release/2.1.0.md](release/2.1.0.md).
 
+## 2026-10 - Hermes chat, long recordings (#189-#207)
+
+The composer's `+` becomes a native iOS menu with "Discuss this note" and "Add to a thread", drawn with the app's own icons (#189, #191). Long local Whisper transcriptions survive lock, crash and restart in resumable one-minute chunks (#197), keep running with the screen off on iOS 26 (#201), and cut each chunk at a silence so no word is lost or repeated (#205). Soniox uploads go up as AAC and resume after a kill (#204). Talk to your own Hermes Agent from the Chats tab (#206), linked by QR code, with a model and reasoning picker (#207). Part of release 2.1.0.
+
 ## Track board (archive)
 
 The original build order. Kept for reference; all of it shipped and is described in

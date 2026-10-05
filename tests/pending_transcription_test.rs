@@ -117,3 +117,22 @@ fn test_pending_transcription_upsert_replaces() {
     assert_eq!(rows[0].transcription_id.as_deref(), Some("tr-new"));
     assert_eq!(rows[0].soniox_file_id.as_deref(), Some("file-new"));
 }
+
+#[test]
+fn local_progress_survives_the_job_registering_again() {
+    use flowflow::domain::Word;
+    let (db, _dir) = open_test_db();
+    let words = vec![Word::new("bonjour", 61_000, 61_400, 0.9)];
+
+    db.add_pending_local_transcription("note-l", "/old/rec.wav", Some("a1"))
+        .expect("add local");
+    db.save_local_progress("note-l", 115_000, &words)
+        .expect("save progress");
+    db.add_pending_local_transcription("note-l", "/new/rec.wav", Some("a1"))
+        .expect("re-register");
+
+    let progress = db.local_progress("note-l").expect("progress");
+    assert_eq!(progress.done_ms, 115_000);
+    assert_eq!(progress.words, words);
+    assert_eq!(progress.file_path.as_deref(), Some("/new/rec.wav"));
+}

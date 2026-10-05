@@ -1,7 +1,7 @@
 use super::animations::{slide_style, Slide};
 use crate::ui::app::fab::FloatingActionButton;
 use crate::ui::app::top_bar::TopBar;
-use crate::ui::chat::ChatView;
+use crate::ui::chat::{ChatView, HermesChatView};
 use crate::ui::notes::attachment_modal::AttachmentModal;
 use crate::ui::notes::folder_picker;
 use crate::ui::notes::note_list::NotesList;
@@ -154,6 +154,15 @@ pub fn AppRouter(index_rebuilding: Signal<bool>) -> Element {
                             style: slide_style(Slide::Right, (app.sliding_out)()),
                             div { class: "w-full flex-1 flex flex-col min-h-0",
                                 ChatView {}
+                            }
+                        }
+                    }
+                    if matches!((app.view)(), View::HermesChat { .. }) {
+                        div {
+                            class: "absolute inset-0 flex flex-col min-h-0 bg-stone-100",
+                            style: slide_style(Slide::Right, (app.sliding_out)()),
+                            div { class: "w-full flex-1 flex flex-col min-h-0",
+                                HermesChatView {}
                             }
                         }
                     }

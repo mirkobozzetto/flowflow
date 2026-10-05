@@ -1,5 +1,7 @@
 use crate::application::i18n::t;
+use crate::domain::conversation::Conversation;
 use crate::infrastructure::persistence::Database;
+use crate::ui::chat::new_chat_menu::{NativeNewChatMenu, NewChatChoices};
 use crate::ui::delete_confirm::DeleteConfirm;
 use crate::ui::icons::*;
 use crate::ui::kit;
@@ -9,38 +11,64 @@ use std::sync::Arc;
 
 #[component]
 pub fn ConversationSection() -> Element {
-    let mut app: AppState = use_context();
+    let app: AppState = use_context();
     let db: Signal<Arc<Database>> = use_context();
     let mut chat_query = use_signal(String::new);
     let lang = (app.current_lang)();
 
+    // Notes chats and Hermes chats in one list, most recent first; the flag
+    // says who answers.
     let conversations = use_memo(move || {
         let _sv = (app.sync_data_version)();
-        let all = db().list_conversations().unwrap_or_default();
+        let database = db();
+        let mut all: Vec<(Conversation, bool)> = database
+            .list_conversations()
+            .unwrap_or_default()
+            .into_iter()
+            .map(|c| (c, false))
+            .chain(
+                database
+                    .list_hermes_conversations()
+                    .unwrap_or_default()
+                    .into_iter()
+                    .map(|c| (c, true)),
+            )
+            .collect();
+        all.sort_by(|a, b| b.0.modified_at.cmp(&a.0.modified_at));
         let q = chat_query().to_lowercase();
         if q.is_empty() {
             return all;
         }
         all.into_iter()
-            .filter(|c| c.title.to_lowercase().contains(&q))
+            .filter(|(c, _)| c.title.to_lowercase().contains(&q))
             .collect()
     });
 
     let has_query = !chat_query().is_empty();
+    let native_menu = crate::ui::app::native_glass();
+    let mut menu_open = use_signal(|| false);
 
     rsx! {
-        button {
-            class: "flex items-center gap-2 w-full px-2 py-3 text-sm font-medium text-ios-orange-dark rounded-lg min-h-[44px] mb-2 hover:bg-ios-orange-50 transition-colors duration-150",
-            onclick: move |_| {
-                app.sidebar_open.set(false);
-                app.chat_scope.set(None);
-                crate::ui::sidebar::navigate_with_slide(
-                    app,
-                    View::Chat { conversation_id: None },
-                );
-            },
-            IconPlus { size: 16 }
-            {t(&lang, "sidebar-new-conversation")}
+        div { class: "relative mb-2",
+            if native_menu {
+                NativeNewChatMenu { anchor: "chats-plus" }
+            }
+            button {
+                // iOS 26: a clear native button over this row opens the
+                // UIMenu mirrored from NativeNewChatMenu.
+                "data-glass": native_menu.then_some("chats-plus"),
+                "aria-label": t(&lang, "sidebar-new-conversation"),
+                class: "flex items-center gap-2 w-full px-2 py-3 text-sm font-medium text-ios-orange-dark rounded-lg min-h-[44px] hover:bg-ios-orange-50 transition-colors duration-150",
+                onclick: move |_| menu_open.set(!menu_open()),
+                IconPlus { size: 16 }
+                {t(&lang, "sidebar-new-conversation")}
+            }
+            if menu_open() {
+                div { class: "fixed inset-0 z-40", onclick: move |_| menu_open.set(false) }
+                div { class: "absolute left-0 top-full mt-1 {kit::MENU_PANEL}",
+                    NewChatChoices { on_pick: move |_| menu_open.set(false) }
+                }
+            }
         }
         div { class: "relative mb-2",
             div { class: "absolute left-3 top-1/2 -translate-y-1/2 text-stone-400",
@@ -69,16 +97,14 @@ pub fn ConversationSection() -> Element {
                 }
             }
         }
-        for conv in conversations() {
-            ConversationItem { key: "{conv.id}", conv: conv }
+        for (conv, hermes) in conversations() {
+            ConversationItem { key: "{conv.id}", conv, hermes }
         }
     }
 }
 
 #[component]
-fn ConversationItem(
-    conv: crate::domain::conversation::Conversation,
-) -> Element {
+fn ConversationItem(conv: Conversation, hermes: bool) -> Element {
     let mut app: AppState = use_context();
     let db: Signal<Arc<Database>> = use_context();
     let mut confirm_delete = use_signal(|| false);
@@ -91,10 +117,15 @@ fn ConversationItem(
     let menu_open =
         (app.row_menu)() == Some(RowMenu::Conversation(conv.id.clone()));
 
-    let is_selected = matches!(
-        (app.view)(),
-        View::Chat { conversation_id: Some(ref id) } if id == &conv.id
-    );
+    let is_selected = match (app.view)() {
+        View::Chat {
+            conversation_id: Some(ref id),
+        } => !hermes && id == &conv.id,
+        View::HermesChat {
+            session_id: Some(ref id),
+        } => hermes && id == &conv.id,
+        _ => false,
+    };
     let conv_id_nav = conv.id.clone();
     let conv_id_menu = conv.id.clone();
     let conv_id_rename = conv.id.clone();
@@ -127,7 +158,7 @@ fn ConversationItem(
                     },
                     onkeypress: move |evt| {
                         if evt.key() == Key::Enter && !edit_name().trim().is_empty() {
-                            let _ = db().update_conversation_title(&conv_id_rename, edit_name().trim());
+                            rename(&db(), &conv_id_rename, edit_name().trim(), hermes);
                             editing.set(false);
                             app.invalidate_data();
                         }
@@ -142,7 +173,7 @@ fn ConversationItem(
                     },
                     onclick: move |_| {
                         if !edit_name().trim().is_empty() {
-                            let _ = db().update_conversation_title(&conv_id_rename2, edit_name().trim());
+                            rename(&db(), &conv_id_rename2, edit_name().trim(), hermes);
                             editing.set(false);
                             app.invalidate_data();
                         }
@@ -166,13 +197,31 @@ fn ConversationItem(
                     onclick: move |_| {
                         app.row_menu.set(None);
                         app.sidebar_open.set(false);
+                        let id = Some(conv_id_nav.clone());
                         crate::ui::sidebar::navigate_with_slide(
                             app,
-                            View::Chat { conversation_id: Some(conv_id_nav.clone()) },
+                            if hermes {
+                                View::HermesChat { session_id: id }
+                            } else {
+                                View::Chat { conversation_id: id }
+                            },
                         );
                     },
-                    p { class: "text-sm line-clamp-1", "{title}" }
-                    p { class: "text-xs text-stone-500 mt-0.5", "{date}" }
+                    div { class: "flex items-center gap-2.5",
+                        if hermes {
+                            HermesAgentIcon { size: 20 }
+                        } else {
+                            img {
+                                src: asset!("/assets/flowflow-icon-64.png"),
+                                class: "w-5 h-5 shrink-0 object-contain",
+                                alt: "FlowFlow",
+                            }
+                        }
+                        div { class: "min-w-0",
+                            p { class: "text-sm line-clamp-1", "{title}" }
+                            p { class: "text-xs text-stone-500 mt-0.5", "{date}" }
+                        }
+                    }
                 }
                 button {
                     class: "w-11 h-11 flex items-center justify-center text-stone-400 hover:text-stone-600 transition-all duration-150",
@@ -215,7 +264,11 @@ fn ConversationItem(
                                     app.row_menu.set(None);
                                     let cid = conv_id_del.clone();
                                     spawn(async move {
-                                        let _ = db().delete_conversation(&cid);
+                                        let _ = if hermes {
+                                            db().delete_hermes_conversation(&cid)
+                                        } else {
+                                            db().delete_conversation(&cid)
+                                        };
                                         app.invalidate_data();
                                     });
                                 },
@@ -243,4 +296,12 @@ fn ConversationItem(
             }
         }
     }
+}
+
+fn rename(db: &Database, id: &str, title: &str, hermes: bool) {
+    let _ = if hermes {
+        db.rename_hermes_conversation(id, title)
+    } else {
+        db.update_conversation_title(id, title)
+    };
 }

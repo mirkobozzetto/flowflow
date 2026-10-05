@@ -2,6 +2,7 @@ mod account;
 mod backup;
 mod connections;
 mod general;
+pub(crate) mod hermes;
 mod intelligence;
 mod privacy;
 mod shortcuts;

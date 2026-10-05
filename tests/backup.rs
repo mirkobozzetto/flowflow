@@ -1053,6 +1053,7 @@ mod scrub_const_tests {
             "openai_api_key",
             "anthropic_api_key",
             "soniox_api_key",
+            "hermes_api_key",
             "sync_static_privkey",
             "sync_static_pubkey",
         ] {

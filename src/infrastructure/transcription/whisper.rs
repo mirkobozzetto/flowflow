@@ -1,3 +1,4 @@
+use super::gpu_gate::{self, Engine};
 use super::hesitations::clean_hesitations_words;
 use crate::domain::transcript::words_from_span;
 use crate::domain::{Dictionary, Transcript, Word};
@@ -10,32 +11,50 @@ use whisper_rs::{
 
 static WHISPER_LOCK: Semaphore = Semaphore::const_new(1);
 
+// A chunk is the unit of progress: a pause, a crash or a kill loses at most
+// the one in flight.
+const CHUNK_MS: u32 = 60_000;
+// A chunk ends in the quietest stretch of its last seconds, so no word is cut
+// in two and every word it decodes is kept. Word timestamps drift too much to
+// place the seam.
+const SEAM_SEARCH_MS: u32 = 10_000;
+const SEAM_FRAME_MS: u32 = 100;
+const SAMPLES_PER_MS: usize = 16;
+
 // Load the model once and reuse it across transcriptions. Building a WhisperContext loads the full
 // (hundreds of MB) model from disk and inits the Metal backend; doing that on every call was the
 // multi-second warm-up felt before each transcription. The per-inference state stays cheap and is
-// created fresh each call. Keyed by model path so switching the model in Settings reloads it.
-type ContextCache = Mutex<Option<(PathBuf, Arc<WhisperContext>)>>;
+// created fresh each call. Keyed by model path so switching the model in Settings reloads it,
+// and by engine: a GPU context cannot run on the CPU.
+type ContextCache = Mutex<Option<(PathBuf, Engine, Arc<WhisperContext>)>>;
 static CONTEXT_CACHE: LazyLock<ContextCache> =
     LazyLock::new(|| Mutex::new(None));
 
-fn cached_context(model: &Path) -> Result<Arc<WhisperContext>, String> {
+fn cached_context(
+    model: &Path,
+    engine: Engine,
+) -> Result<Arc<WhisperContext>, String> {
     let mut cache = CONTEXT_CACHE.lock().unwrap();
-    if let Some((path, ctx)) = cache.as_ref() {
-        if path == model {
+    if let Some((path, cached, ctx)) = cache.as_ref() {
+        if path == model && *cached == engine {
             return Ok(ctx.clone());
         }
     }
+    // Two copies of a model this size would crowd a phone in the background,
+    // where memory is reclaimed first: the old one goes before the new loads.
+    *cache = None;
     let model_str = model
         .to_str()
         .ok_or_else(|| "non-utf8 model path".to_string())?;
+    let mut params = WhisperContextParameters::default();
+    if engine == Engine::Cpu {
+        params.use_gpu(false);
+    }
     let ctx = Arc::new(
-        WhisperContext::new_with_params(
-            model_str,
-            WhisperContextParameters::default(),
-        )
-        .map_err(|e| format!("Whisper model load: {e}"))?,
+        WhisperContext::new_with_params(model_str, params)
+            .map_err(|e| format!("Whisper model load: {e}"))?,
     );
-    *cache = Some((model.to_path_buf(), ctx.clone()));
+    *cache = Some((model.to_path_buf(), engine, ctx.clone()));
     Ok(ctx)
 }
 
@@ -72,6 +91,19 @@ impl WhisperLocal {
         path: &Path,
         language: Option<&str>,
     ) -> Result<Transcript, String> {
+        self.transcribe_from(path, language, Checkpoint::default(), |_| {})
+            .await
+    }
+
+    /// Transcribes from `from.done_ms` on, reporting every finished chunk so
+    /// the caller can persist where to resume.
+    pub async fn transcribe_from(
+        &self,
+        path: &Path,
+        language: Option<&str>,
+        from: Checkpoint,
+        mut on_chunk: impl FnMut(&Checkpoint) + Send + 'static,
+    ) -> Result<Transcript, String> {
         let _permit = WHISPER_LOCK
             .acquire()
             .await
@@ -80,7 +112,13 @@ impl WhisperLocal {
         let audio_path = path.to_path_buf();
         let lang = language.map(str::to_string);
         let raw = tokio::task::spawn_blocking(move || {
-            run_whisper(&model, &audio_path, lang.as_deref())
+            run_whisper(
+                &model,
+                &audio_path,
+                lang.as_deref(),
+                from,
+                &mut on_chunk,
+            )
         })
         .await
         .map_err(|e| format!("Whisper task: {e}"))??;
@@ -89,39 +127,12 @@ impl WhisperLocal {
     }
 }
 
-pub async fn bench(
-    model_path: PathBuf,
-    wav: PathBuf,
-) -> Result<String, String> {
-    let _permit = WHISPER_LOCK
-        .acquire()
-        .await
-        .map_err(|e| format!("Whisper lock: {e}"))?;
-    tokio::task::spawn_blocking(move || {
-        let audio = load_wav_mono_16k(&wav)?;
-        let audio_secs = audio.len() as f32 / 16_000.0;
-        let started = std::time::Instant::now();
-        let text = Transcript::new(run_whisper(&model_path, &wav, None)?).text();
-        let elapsed_ms = started.elapsed().as_millis();
-        let rss_mb = peak_rss_mb();
-        let preview: String = text.chars().take(120).collect();
-        Ok(format!(
-            "{audio_secs:.0}s audio -> {elapsed_ms} ms, RSS {rss_mb} MB\n{preview}"
-        ))
-    })
-    .await
-    .map_err(|e| format!("Whisper task: {e}"))?
-}
-
-fn peak_rss_mb() -> u64 {
-    unsafe {
-        let mut usage: libc::rusage = std::mem::zeroed();
-        if libc::getrusage(libc::RUSAGE_SELF, &mut usage) == 0 {
-            (usage.ru_maxrss as u64) / 1_048_576
-        } else {
-            0
-        }
-    }
+/// How far a transcription got: raw words (before hesitation and dictionary
+/// passes) with absolute timings, and the audio position they cover.
+#[derive(Debug, Clone, Default, PartialEq)]
+pub struct Checkpoint {
+    pub done_ms: u32,
+    pub words: Vec<Word>,
 }
 
 /// One word per segment: whisper.cpp wraps segments after decoding, so this only
@@ -145,18 +156,91 @@ fn run_whisper(
     model: &Path,
     wav: &Path,
     language: Option<&str>,
+    mut progress: Checkpoint,
+    on_chunk: &mut dyn FnMut(&Checkpoint),
 ) -> Result<Vec<Word>, String> {
-    let ctx = cached_context(model)?;
-    let audio = load_wav_mono_16k(wav)?;
-    if audio.is_empty() {
+    let total_ms = wav_duration_ms(wav)?;
+    if total_ms == 0 {
         return Err("Empty audio".to_string());
     }
+    while progress.done_ms < total_ms {
+        let start_ms = progress.done_ms;
+        let end_ms = start_ms.saturating_add(CHUNK_MS).min(total_ms);
+        let mut audio = load_wav_mono_16k_range(wav, start_ms, end_ms)?;
+        let next_ms = if end_ms >= total_ms {
+            total_ms
+        } else {
+            let cut = quiet_cut(&audio);
+            let cut_ms = start_ms + (cut / SAMPLES_PER_MS) as u32;
+            if cut_ms > start_ms {
+                audio.truncate(cut);
+                cut_ms
+            } else {
+                end_ms
+            }
+        };
+        let busy = gpu_gate::enter();
+        let ctx = cached_context(model, busy.engine)?;
+        let started = std::time::Instant::now();
+        let Some(words) = infer(&ctx, busy.engine, &audio, language, start_ms)?
+        else {
+            continue;
+        };
+        eprintln!(
+            "[whisper] chunk {start_ms}-{next_ms} ms on {:?} in {} ms",
+            busy.engine,
+            started.elapsed().as_millis()
+        );
+        drop(busy);
+        progress.words.extend(words);
+        progress.done_ms = next_ms;
+        on_chunk(&progress);
+    }
+    Ok(progress.words)
+}
+
+/// Where to end a chunk of 16 kHz audio: the middle of the quietest
+/// `SEAM_FRAME_MS` frame in its last `SEAM_SEARCH_MS`. Energy is relative, with
+/// no threshold: some stretch is always the quietest, even in a noisy room.
+pub fn quiet_cut(audio: &[f32]) -> usize {
+    let frame = SEAM_FRAME_MS as usize * SAMPLES_PER_MS;
+    let from = audio
+        .len()
+        .saturating_sub(SEAM_SEARCH_MS as usize * SAMPLES_PER_MS);
+    audio[from..]
+        .chunks_exact(frame)
+        .map(|f| f.iter().map(|s| s * s).sum::<f32>())
+        .enumerate()
+        .min_by(|(_, a), (_, b)| a.total_cmp(b))
+        .map_or(audio.len(), |(i, _)| from + i * frame + frame / 2)
+}
+
+/// `None` when `engine` had to stop mid-inference: the same audio runs again
+/// on whichever engine `gpu_gate` allows next.
+fn infer(
+    ctx: &WhisperContext,
+    engine: Engine,
+    audio: &[f32],
+    language: Option<&str>,
+    offset_ms: u32,
+) -> Result<Option<Vec<Word>>, String> {
     let mut state = ctx
         .create_state()
         .map_err(|e| format!("Whisper state: {e}"))?;
-    state
-        .full(word_params(language), &audio)
-        .map_err(|e| format!("Whisper inference: {e}"))?;
+    let mut params = word_params(language);
+    // whisper-rs 0.16 reads the callback back under the wrong type: only a
+    // capture-free function survives it, a closure's captures come back as
+    // garbage and abort at random.
+    match engine {
+        Engine::Gpu => params.set_abort_callback_safe(gpu_must_stop),
+        Engine::Cpu => params.set_abort_callback_safe(cpu_must_stop),
+    }
+    if let Err(e) = state.full(params, audio) {
+        if gpu_gate::must_stop(engine) {
+            return Ok(None);
+        }
+        return Err(format!("Whisper inference: {e}"));
+    }
 
     // Everything at or above the end-of-transcript id is a special or timestamp
     // token. Under max_len(1) a segment holds one word, so those are a large
@@ -173,8 +257,10 @@ fn run_whisper(
         if text.is_empty() {
             continue;
         }
-        let start_ms = centiseconds_to_ms(segment.start_timestamp());
-        let end_ms = centiseconds_to_ms(segment.end_timestamp()).max(start_ms);
+        let start_ms =
+            offset_ms + centiseconds_to_ms(segment.start_timestamp());
+        let end_ms = (offset_ms + centiseconds_to_ms(segment.end_timestamp()))
+            .max(start_ms);
         words.extend(words_from_span(
             text,
             start_ms,
@@ -182,7 +268,15 @@ fn run_whisper(
             segment_confidence(&segment, first_special),
         ));
     }
-    Ok(words)
+    Ok(Some(words))
+}
+
+fn gpu_must_stop() -> bool {
+    gpu_gate::must_stop(Engine::Gpu)
+}
+
+fn cpu_must_stop() -> bool {
+    gpu_gate::must_stop(Engine::Cpu)
 }
 
 fn centiseconds_to_ms(centiseconds: i64) -> u32 {
@@ -223,29 +317,57 @@ pub fn mean_text_probability(
 }
 
 pub fn load_wav_mono_16k(path: &Path) -> Result<Vec<f32>, String> {
+    load_wav_mono_16k_range(path, 0, u32::MAX)
+}
+
+pub fn wav_duration_ms(path: &Path) -> Result<u32, String> {
     let reader =
         hound::WavReader::open(path).map_err(|e| format!("WAV open: {e}"))?;
+    let rate = u64::from(reader.spec().sample_rate.max(1));
+    Ok((u64::from(reader.duration()) * 1000 / rate) as u32)
+}
+
+/// Decodes `[start_ms, end_ms)` only: an hour-long recording is never held in
+/// memory whole.
+pub fn load_wav_mono_16k_range(
+    path: &Path,
+    start_ms: u32,
+    end_ms: u32,
+) -> Result<Vec<f32>, String> {
+    let mut reader =
+        hound::WavReader::open(path).map_err(|e| format!("WAV open: {e}"))?;
     let spec = reader.spec();
+    let rate = u64::from(spec.sample_rate);
+    let frames = u64::from(reader.duration());
+    let first = (u64::from(start_ms) * rate / 1000).min(frames);
+    let last = (u64::from(end_ms) * rate / 1000).min(frames);
+    reader
+        .seek(first as u32)
+        .map_err(|e| format!("WAV seek: {e}"))?;
+    let channels = spec.channels.max(1) as usize;
+    let count = (last - first) as usize * channels;
     let samples: Vec<f32> = match spec.sample_format {
         hound::SampleFormat::Float => reader
-            .into_samples::<f32>()
+            .samples::<f32>()
+            .take(count)
             .collect::<Result<_, _>>()
             .map_err(|e| format!("WAV decode: {e}"))?,
         hound::SampleFormat::Int if spec.bits_per_sample <= 16 => reader
-            .into_samples::<i16>()
+            .samples::<i16>()
+            .take(count)
             .map(|s| s.map(|v| f32::from(v) / 32768.0))
             .collect::<Result<_, _>>()
             .map_err(|e| format!("WAV decode: {e}"))?,
         hound::SampleFormat::Int => {
             let scale = (1i64 << (spec.bits_per_sample - 1)) as f32;
             reader
-                .into_samples::<i32>()
+                .samples::<i32>()
+                .take(count)
                 .map(|s| s.map(|v| v as f32 / scale))
                 .collect::<Result<_, _>>()
                 .map_err(|e| format!("WAV decode: {e}"))?
         }
     };
-    let channels = spec.channels.max(1) as usize;
     let mono: Vec<f32> = if channels == 1 {
         samples
     } else {

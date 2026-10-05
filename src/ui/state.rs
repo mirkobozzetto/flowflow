@@ -1,4 +1,5 @@
 use crate::application::agent_activation::PaletteAgent;
+use crate::application::hermes_chat::ModelOptions;
 use crate::application::transcription_manager::Job;
 use crate::domain::Attachment;
 use crate::domain::ChatScope;
@@ -94,6 +95,8 @@ pub enum View {
     NoteDetail { note_id: String },
     ThreadDetail { thread_id: String },
     Chat { conversation_id: Option<String> },
+    // A conversation with Hermes; None until its first message opens one.
+    HermesChat { session_id: Option<String> },
     // Read-only view of someone else's share, opened from a link (0001)
     SharedView { code: String },
     Settings,
@@ -164,6 +167,12 @@ pub struct AppState {
     // Source id (note or thread) a menu asked to share; consumed by
     // ShareSection, which scrolls into view, publishes and copies the link.
     pub share_request: Signal<Option<String>>,
+    // The open Hermes conversation's models (read from Hermes) and the one
+    // picked for it, None following Hermes' default. Shared by the top bar,
+    // which shows and changes it, and the chat, which sends with it.
+    pub hermes_models: Signal<Option<ModelOptions>>,
+    pub hermes_pick: Signal<Option<(String, String)>>,
+    pub hermes_effort: Signal<Option<String>>,
 }
 
 impl AppState {
@@ -222,6 +231,9 @@ impl AppState {
             picker_kb_down: Signal::new(0),
             picker_kb_commit: Signal::new(0),
             share_request: Signal::new(None),
+            hermes_models: Signal::new(None),
+            hermes_pick: Signal::new(None),
+            hermes_effort: Signal::new(None),
         }
     }
 }

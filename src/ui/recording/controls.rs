@@ -1,4 +1,4 @@
-use crate::application::i18n::t;
+use crate::application::i18n::{t, t_args};
 use crate::application::transcribe_audio::transcribe_file;
 use crate::application::transcription_manager::{
     JobStatus, TranscriptionManager,
@@ -206,6 +206,28 @@ pub fn VoiceCapsule(
             })
         })
     });
+
+    // A long local job reports how far it got; the label carries it.
+    let transcribing_label = tracked()
+        .and_then(|(nid, aid)| {
+            (app.transcription_jobs)().get(&nid).and_then(|q| {
+                q.iter().find_map(|j| match &j.status {
+                    JobStatus::Polling {
+                        percent: Some(p), ..
+                    } if j.audio_id.as_deref() == Some(aid.as_str()) => {
+                        Some(*p)
+                    }
+                    _ => None,
+                })
+            })
+        })
+        .map_or(transcribing_label, |p| {
+            t_args(
+                &lang,
+                "audio-transcribing-percent",
+                &[("percent", &p.to_string())],
+            )
+        });
 
     let recording_state = (app.recording_state)();
     let is_paused = recording_state == RecordingState::Paused;

@@ -45,7 +45,13 @@ fn a_soniox_row_resumes_as_a_polling_job_without_a_local_file() {
         .expect("job");
 
     assert_eq!(job.provider, SttProvider::Soniox);
-    assert_eq!(job.status, JobStatus::Polling { elapsed_s: 0 });
+    assert_eq!(
+        job.status,
+        JobStatus::Polling {
+            elapsed_s: 0,
+            percent: None
+        }
+    );
     assert_eq!(job.transcription_id.as_deref(), Some("tr-1"));
     assert_eq!(job.audio_id.as_deref(), Some("aud-2"));
     assert!(job.file_path.as_os_str().is_empty());

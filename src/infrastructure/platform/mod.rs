@@ -15,6 +15,14 @@ pub fn haptic_prepare(kind: &str) {
     let _ = kind;
 }
 
+/// Stops the screen from auto-locking; main thread only, a no-op off iOS.
+pub fn keep_screen_awake(on: bool) {
+    #[cfg(target_os = "ios")]
+    ios::keep_screen_awake(on);
+    #[cfg(not(target_os = "ios"))]
+    let _ = on;
+}
+
 #[cfg(target_os = "ios")]
 mod ios_haptics {
     use objc2::rc::Retained;
@@ -90,6 +98,9 @@ pub mod ios;
 
 #[cfg(target_os = "macos")]
 pub mod macos;
+
+#[cfg(any(target_os = "ios", target_os = "macos"))]
+pub mod aac;
 
 #[cfg(any(target_os = "ios", target_os = "macos"))]
 pub mod parsers;

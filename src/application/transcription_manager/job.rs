@@ -8,7 +8,11 @@ use std::sync::Mutex;
 pub enum JobStatus {
     Queued,
     Uploading,
-    Polling { elapsed_s: u32 },
+    /// `percent` is known only for a local job, which runs chunk by chunk.
+    Polling {
+        elapsed_s: u32,
+        percent: Option<u8>,
+    },
     Done(Transcript),
     Failed(String),
 }
@@ -32,6 +36,24 @@ pub struct Job {
 pub(super) struct Registry {
     pub(super) queues: HashMap<String, VecDeque<Job>>,
     pub(super) active: HashSet<String>,
+}
+
+/// A local job is running, or about to, on some note.
+pub fn local_job_running(queues: &HashMap<String, VecDeque<Job>>) -> bool {
+    queues.values().filter_map(VecDeque::front).any(|j| {
+        j.provider == SttProvider::WhisperLocal
+            && matches!(j.status, JobStatus::Queued | JobStatus::Polling { .. })
+    })
+}
+
+/// A job a screen lock would interrupt: a local transcription, or a Soniox
+/// upload, whose connection iOS cuts when it suspends the app.
+pub fn job_needs_screen_on(queues: &HashMap<String, VecDeque<Job>>) -> bool {
+    local_job_running(queues)
+        || queues.values().filter_map(VecDeque::front).any(|j| {
+            j.provider == SttProvider::Soniox
+                && matches!(j.status, JobStatus::Queued | JobStatus::Uploading)
+        })
 }
 
 pub(super) fn front_job(reg: &Mutex<Registry>, note_id: &str) -> Option<Job> {

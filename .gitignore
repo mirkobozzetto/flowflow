@@ -44,3 +44,8 @@ dist/
 # Specs kept local-only: on disk for me + Claude Code, not tracked, not on the remote.
 docs/rfcs/
 docs/prd/
+
+# Private specs: kept on disk, never committed
+docs/brief/
+docs/proposals/
+.worktrees/
