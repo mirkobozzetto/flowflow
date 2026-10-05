@@ -32,6 +32,10 @@ No manual searching. No folders to dig through. Just talk, and find it later.
 - Live 60fps waveform, pause/resume, Dynamic Island live timer; the capsule
   stays on screen until the text is ready, with retry if a transcription fails
 - Cloud (Soniox) or fully offline transcription with local Whisper models
+- Long recordings finish: local Whisper works in one-minute chunks cut at a
+  silence, saves after each one and resumes after a lock, crash or kill; on
+  iOS 26 it keeps going with the screen off, its progress on the Lock Screen
+- Soniox uploads go up compressed (AAC) and are sent again after a kill or lock
 - Personal dictionary: your names and brands spelled right, everywhere
 
 **Ask your notes**
@@ -61,12 +65,22 @@ No manual searching. No folders to dig through. Just talk, and find it later.
 
 - "Pick up the kids at 5pm" becomes a calendar event, one tap to confirm
 - Notes as actions: the assistant executes with your connected tools, every write holds for approval
-- One `+` menu in notes and chat: tools, agents and connectors, with live
-  connection state and each product's own icon
+- One `+` menu in notes and chat, native on iOS 26: discuss this note, add
+  it to a thread, tools, agents and connectors, with live connection state
+  and each product's own icon
 - Scoped agents: installed packages are verified and pinned, each capability
   checked against its owner, every native action confirmed before it runs
 - Governed connectors (Google Sheets), each through its own MCP peer;
   groundwork for a signed-agent marketplace
+
+**Talk to your Hermes Agent**
+
+- Chats > New conversation > With Hermes: your own
+  [Hermes Agent](https://github.com/NousResearch/hermes-agent) answers, its
+  tool calls folded into one "N steps" row
+- Link it by scanning one QR code; Hermes stays on your private Tailscale network
+- Pick the model and reasoning level under the title; a reply keeps running
+  when you leave the app and is there when you come back
 
 **Share a space with Hermes Agent**
 
@@ -97,6 +111,9 @@ Ask    → Embed query → Hybrid search (BM25 + vector)  ∥  Web search (Exa, 
 
 Sync   → Save → debounced trigger → Noise-encrypted LAN session → version-vector merge → UI refresh < 1 s
 
+Hermes → question → your Hermes API server (HTTPS, Tailscale only) → streamed run → steps + answer
+  chat   history stays in the Hermes session; FlowFlow keeps a pointer on the device
+
 Hermes → mcps_ token (one space, read or read_write) → MCP tools on api.flowflow.be/v1/mcp-spaces
          → notes and threads written by the agent → pulled by every member device
 
@@ -106,7 +123,18 @@ Backup → Export scrubbed SQLite snapshot + WAV + manifest (zip) → share
 
 ## Hermes Agent
 
-FlowFlow ships a Hermes skill in [`skills/flowflow-spaces`](skills/flowflow-spaces/).
+**Chat with it.** On the Hermes host, with Tailscale on both machines:
+
+```sh
+./scripts/enable-flowflow-chat.sh
+```
+
+It turns on Hermes' API server, exposes it on your Tailscale network only and
+prints a QR code. Scan it with the iPhone camera: FlowFlow opens Settings >
+Connections > Hermes with the address and key filled in. Check the address,
+then tap **Save and test**. Step by step: [flowflow.be/hermes](https://flowflow.be/hermes/).
+
+**Share a space with it.** FlowFlow ships a Hermes skill in [`skills/flowflow-spaces`](skills/flowflow-spaces/).
 Install it on the Hermes host, store the one-time token in `~/.hermes/.env`,
 and add one MCP server per shared space:
 
@@ -133,18 +161,18 @@ Full walkthrough, safety rules, rotation and revocation:
 
 Mainly Rust: the app itself is Rust end to end, UI included, with a few
 deliberate exceptions where another tool does the job better - a small
-TypeScript layer for webview gestures, two Swift packages for the Live
-Activity, and the web sites in Astro.
+TypeScript layer for webview gestures and the native menu bridge, Swift for
+the Live Activity and background transcription, and the web sites in Astro.
 
 | Part | Stack |
 | ---- | ----- |
-| App (`src/`) | Rust: [Dioxus 0.7](https://github.com/DioxusLabs/dioxus), [rig](https://github.com/0xPlaygrounds/rig), [LanceDB](https://lancedb.com), [rusqlite](https://github.com/rusqlite/rusqlite), [snow](https://github.com/mcginty/snow) (Noise XXpsk3), [cpal](https://github.com/RustAudio/cpal), [whisper-rs](https://github.com/tazz4843/whisper-rs), [tokio](https://tokio.rs), Tailwind CSS v4 |
-| Webview gestures | ~13 KB of TypeScript (`src/ui/hooks/*.ts`), compiled by `make js` |
-| Live Activity | Swift (`src/ios/widget`, `src/ios/plugin`), bridged via FFI |
+| App (`src/`) | Rust: [Dioxus 0.8 alpha](https://github.com/DioxusLabs/dioxus), [rig](https://github.com/0xPlaygrounds/rig), [LanceDB](https://lancedb.com), [rusqlite](https://github.com/rusqlite/rusqlite), [snow](https://github.com/mcginty/snow) (Noise XXpsk3), [cpal](https://github.com/RustAudio/cpal), [whisper-rs](https://github.com/tazz4843/whisper-rs), [tokio](https://tokio.rs), Tailwind CSS v4 |
+| Webview glue | ~32 KB of TypeScript (gestures in `src/ui/hooks/*.ts`, native menu bridge in `src/ui/app/glass_burger.ts`), compiled by `make js` |
+| iOS extras | Swift (`src/ios/widget`, `src/ios/plugin`): Live Activity, background transcription task, bridged via FFI |
 | Account site (`account/`) | Astro - passkeys, plan and devices at account.flowflow.be |
 | Landing (`landing-page/`) | Astro - flowflow.be |
 | Backend | Rust (separate repo) - accounts, entitlements, governed connector proxy |
-| AI services | OpenAI (embeddings + API-key chat), ChatGPT subscription (chat), Anthropic (chat), Soniox (cloud STT), Exa (web search) |
+| AI services | OpenAI (embeddings + API-key chat), ChatGPT subscription (chat), Anthropic (chat), Soniox (cloud STT), Exa (web search), your own Hermes Agent (chat) |
 | Targets | iOS 16+ (aarch64-apple-ios), macOS (Apple Silicon) |
 
 ## Build
@@ -180,6 +208,7 @@ Full command list in the [Makefile](Makefile).
 | [docs/INDEX.md](docs/INDEX.md) | Product, architecture, dev guides, App Store |
 | [docs/FEATURES.md](docs/FEATURES.md) | The full feature tour |
 | [docs/HISTORY.md](docs/HISTORY.md) | Every milestone, chronologically |
+| [flowflow.be/hermes](https://flowflow.be/hermes/) | Link your Hermes Agent to the chat by QR code |
 | [Hermes Agent guide](docs/guides/hermes-flowflow.md) | Connect one FlowFlow space to Hermes through MCP |
 
 ## Tests

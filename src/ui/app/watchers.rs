@@ -318,20 +318,19 @@ pub fn use_share_deeplink_watcher(app: AppState, db: Signal<Arc<Database>>) {
                         }
                     }
                 }
-                // A scanned Hermes QR code fills the Hermes card and tests it.
+                // A scanned Hermes QR code fills the Hermes card; nothing is
+                // saved until the person taps Test, since any link can say so.
                 if let Some(uri) =
                     crate::infrastructure::sync::deeplink::take_matching(
                         hermes_chat::LINK_PREFIX,
                     )
                 {
                     if let Some((url, key)) = hermes_chat::parse_link(&uri) {
-                        if hermes_chat::link(&db(), &url, &key).is_ok() {
-                            crate::ui::settings::hermes::test_on_open();
-                            app.sidebar_open.set(false);
-                            app.view.set(View::SettingsSection(
-                                SettingsSection::Connections,
-                            ));
-                        }
+                        crate::ui::settings::hermes::offer_link(url, key);
+                        app.sidebar_open.set(false);
+                        app.view.set(View::SettingsSection(
+                            SettingsSection::Connections,
+                        ));
                     }
                 }
                 futures_timer::Delay::new(std::time::Duration::from_millis(

@@ -125,7 +125,7 @@ src/
 
 ## Styling
 
-- **Tailwind CSS V4** via Dioxus 0.7 auto-detection
+- **Tailwind CSS V4** via Dioxus auto-detection
 - `tailwind.css` at project root = input file
 - `dx serve` auto-compiles to `assets/tailwind.css`
 - Custom colors: `ios-green` (#34c759), `ios-red` (#ff3b30), `ios-blue` (#007aff)
@@ -157,7 +157,7 @@ RAG Chat Pipeline:
 ## Stack Versions
 
 Pinned versions and why: `docs/guides/stack.md`. Key constraints to keep in mind:
-Dioxus 0.7, Rust 1.94.1, `IPHONEOS_DEPLOYMENT_TARGET=16.0` (required by
+Dioxus 0.8.0-alpha.1, Rust 1.94.1, `IPHONEOS_DEPLOYMENT_TARGET=16.0` (required by
 lancedb/zstd-sys), and arrow-array/arrow-schema must match lancedb's arrow version.
 
 ## Commands (use Makefile)

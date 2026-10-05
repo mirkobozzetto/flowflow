@@ -257,17 +257,44 @@ pub fn find_saved_note(
 }
 
 pub fn md_to_html(md: &str) -> String {
-    use pulldown_cmark::{html, Options, Parser};
+    use pulldown_cmark::{html, Event, Options, Parser, Tag};
     // GFM tables/strikethrough/tasklists are off by default in pulldown-cmark, so a `| a | b |`
     // table from the agent rendered as raw piped text. Enable them.
     let mut opts = Options::empty();
     opts.insert(Options::ENABLE_TABLES);
     opts.insert(Options::ENABLE_STRIKETHROUGH);
     opts.insert(Options::ENABLE_TASKLISTS);
-    let parser = Parser::new_ext(md, opts);
+    // Agent, Hermes and shared-note text is untrusted and lands in innerHTML:
+    // raw HTML shows as text, and a link only keeps a harmless scheme.
+    let parser = Parser::new_ext(md, opts).map(|event| match event {
+        Event::Html(raw) | Event::InlineHtml(raw) => Event::Text(raw),
+        Event::Start(Tag::Link {
+            link_type,
+            dest_url,
+            title,
+            id,
+        }) if !is_safe_href(&dest_url) => Event::Start(Tag::Link {
+            link_type,
+            dest_url: "".into(),
+            title,
+            id,
+        }),
+        other => other,
+    });
     let mut html_output = String::new();
     html::push_html(&mut html_output, parser);
     html_output
+}
+
+fn is_safe_href(href: &str) -> bool {
+    let Some((scheme, _)) = href.split_once(':') else {
+        return true;
+    };
+    scheme.contains(['/', '?', '#'])
+        || matches!(
+            scheme.to_ascii_lowercase().as_str(),
+            "http" | "https" | "mailto" | "tel" | "flowflow"
+        )
 }
 
 #[allow(clippy::too_many_arguments)]

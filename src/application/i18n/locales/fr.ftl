@@ -682,6 +682,7 @@ hermes-failed = Hermes n'a pas pu répondre : { $error }
 hermes-open-settings = Ouvrir les Réglages
 hermes-settings-title = Hermes
 hermes-settings-hint = Ton propre agent Hermes. L'adresse et la clé restent sur cet appareil.
+hermes-settings-offered = Lien reçu par QR code. Vérifie l'adresse, puis touche Enregistrer et tester.
 hermes-settings-url = Adresse
 hermes-settings-key = Clé
 hermes-settings-test = Enregistrer et tester

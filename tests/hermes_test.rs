@@ -401,6 +401,12 @@ fn a_linking_qr_code_carries_the_address_and_the_key() {
         None
     );
     assert_eq!(hermes_chat::parse_link("https://hermes?url=a&key=b"), None);
+    assert_eq!(
+        hermes_chat::parse_link(
+            "flowflow://hermes?url=http%3A%2F%2Fevil.example%3A8642&key=k"
+        ),
+        None
+    );
 }
 
 #[test]
