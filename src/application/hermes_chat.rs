@@ -462,8 +462,8 @@ pub async fn counts(db: &Database) -> (Option<usize>, Option<usize>) {
         return (None, None);
     };
     let (skills, jobs) =
-        futures::join!(client.count("/v1/skills"), client.count("/api/jobs"));
-    (skills.ok(), jobs.ok())
+        futures::join!(client.skills(), client.count("/api/jobs"));
+    (skills.ok().map(|s| s.len()), jobs.ok())
 }
 
 /// "claude-opus-5-5[1m]" reads "Opus 5.5", "gpt-6.1-sol" reads "GPT-6.1 Sol".

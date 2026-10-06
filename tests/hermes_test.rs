@@ -131,6 +131,33 @@ fn a_question_read_back_shows_attachment_names_never_their_body() {
 }
 
 #[test]
+fn skills_come_from_the_api_or_the_dashboard_page() {
+    use flowflow::infrastructure::hermes::{
+        dashboard_base, dashboard_token, parse_skills,
+    };
+    assert_eq!(
+        dashboard_base("https://srv.tailnet.ts.net:8642").as_deref(),
+        Some("https://srv.tailnet.ts.net")
+    );
+    let page = r#"<script>window.__HERMES_SESSION_TOKEN__="AbC-12_x";window.__HERMES_BASE_PATH__=""</script>"#;
+    assert_eq!(dashboard_token(page).as_deref(), Some("AbC-12_x"));
+    assert_eq!(dashboard_token("<html></html>"), None);
+    // Dashboard shape: a bare array, a switched-off skill left out.
+    let dashboard: serde_json::Value = serde_json::from_str(
+        r#"[{"name": "codex", "description": "Delegate coding", "category": "autonomous-ai-agents", "enabled": true},
+            {"name": "claude-code", "description": "", "category": "autonomous-ai-agents", "enabled": false}]"#,
+    )
+    .unwrap();
+    let names: Vec<String> = parse_skills(&dashboard)
+        .into_iter()
+        .map(|s| s.name)
+        .collect();
+    assert_eq!(names, vec!["codex"]);
+    let api = serde_json::json!({"object": "list", "data": [{"name": "obsidian", "category": "note-taking"}]});
+    assert_eq!(parse_skills(&api)[0].name, "obsidian");
+}
+
+#[test]
 fn a_live_reply_streams_text_and_closes_its_steps() {
     let mut reply = LiveReply::default();
     for data in [TOOL_STARTED, TOOL_COMPLETED] {
