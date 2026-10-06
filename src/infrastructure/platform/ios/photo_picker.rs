@@ -105,15 +105,20 @@ fn presenter(mtm: MainThreadMarker) -> Option<Retained<UIViewController>> {
 fn reduce(image: &UIImage, mtm: MainThreadMarker) -> Vec<u8> {
     let size = unsafe { image.size() };
     let k = (MAX_SIDE / size.width.max(size.height)).min(1.0);
-    let target = CGSize::new((size.width * k).round(), (size.height * k).round());
-    let format = UIGraphicsImageRendererFormat::defaultFormat();
+    let target =
+        CGSize::new((size.width * k).round(), (size.height * k).round());
+    let format = UIGraphicsImageRendererFormat::preferredFormat();
     format.setScale(1.0);
-    let renderer =
-        UIGraphicsImageRenderer::initWithSize_format(mtm.alloc(), target, &format);
+    let renderer = UIGraphicsImageRenderer::initWithSize_format(
+        mtm.alloc(),
+        target,
+        &format,
+    );
     let image = image.retain();
-    let draw = RcBlock::new(move |_ctx: NonNull<UIGraphicsImageRendererContext>| {
-        image.drawInRect(CGRect::new(CGPoint::new(0.0, 0.0), target));
-    });
+    let draw =
+        RcBlock::new(move |_ctx: NonNull<UIGraphicsImageRendererContext>| {
+            image.drawInRect(CGRect::new(CGPoint::new(0.0, 0.0), target));
+        });
     let data = unsafe {
         renderer.JPEGDataWithCompressionQuality_actions(
             JPEG_QUALITY,
@@ -144,7 +149,9 @@ async fn load(provider: &AnyObject) -> Option<Vec<u8>> {
 
 /// Photos chosen in the library, as (name, JPEG); empty when cancelled.
 pub async fn pick_photos() -> Vec<(String, Vec<u8>)> {
-    let Some(mtm) = MainThreadMarker::new() else { return Vec::new() };
+    let Some(mtm) = MainThreadMarker::new() else {
+        return Vec::new();
+    };
     let classes = (
         AnyClass::get(c"PHPickerConfiguration"),
         AnyClass::get(c"PHPickerFilter"),
@@ -154,7 +161,9 @@ pub async fn pick_photos() -> Vec<(String, Vec<u8>)> {
     else {
         return Vec::new();
     };
-    let Some(presenter) = presenter(mtm) else { return Vec::new() };
+    let Some(presenter) = presenter(mtm) else {
+        return Vec::new();
+    };
     let (tx, rx) = oneshot::channel();
     let delegate: Retained<PhotosDelegate> = {
         let this = PhotosDelegate::alloc(mtm).set_ivars(Cell::new(Some(tx)));
@@ -165,7 +174,8 @@ pub async fn pick_photos() -> Vec<(String, Vec<u8>)> {
         let _: () = msg_send![&*config, setSelectionLimit: PICK_LIMIT];
         let filter: *mut AnyObject = msg_send![filter_class, imagesFilter];
         let _: () = msg_send![&*config, setFilter: filter];
-        let picker: Allocated<UIViewController> = msg_send![picker_class, alloc];
+        let picker: Allocated<UIViewController> =
+            msg_send![picker_class, alloc];
         let picker: Retained<UIViewController> =
             msg_send![picker, initWithConfiguration: &*config];
         let _: () = msg_send![&*picker, setDelegate: &*delegate];
@@ -177,7 +187,9 @@ pub async fn pick_photos() -> Vec<(String, Vec<u8>)> {
     for (i, provider) in providers.iter().enumerate() {
         let name: Option<Retained<NSString>> =
             unsafe { msg_send![&**provider, suggestedName] };
-        let Some(bytes) = load(provider).await else { continue };
+        let Some(bytes) = load(provider).await else {
+            continue;
+        };
         let Some(image) = UIImage::imageWithData(&NSData::with_bytes(&bytes))
         else {
             continue;
