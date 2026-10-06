@@ -22,6 +22,8 @@
 
     go(id) {
       $$(".mk-layer.is-on").forEach((l) => l.classList.remove("is-on"));
+      $$(".mk-menu-layer, .mk-alert-layer").forEach((l) => l.remove());
+      $$("[data-open='true']").forEach((a) => a.removeAttribute("data-open"));
       $$(".mk-screen").forEach((s) => s.classList.toggle("is-on", s.id === id));
       $$(".mk-bar button").forEach((b) => b.setAttribute("aria-pressed", b.dataset.go === id));
     },
