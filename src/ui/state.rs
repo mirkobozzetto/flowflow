@@ -1,5 +1,6 @@
 use crate::application::agent_activation::PaletteAgent;
 use crate::application::hermes_chat::ModelOptions;
+use crate::application::hermes_message::Attachment;
 use crate::application::transcription_manager::Job;
 use crate::domain::Attachment;
 use crate::domain::ChatScope;
@@ -173,6 +174,9 @@ pub struct AppState {
     pub hermes_models: Signal<Option<ModelOptions>>,
     pub hermes_pick: Signal<Option<(String, String)>>,
     pub hermes_effort: Signal<Option<String>>,
+    // What the next Hermes question carries: filled by the "+" menus and by
+    // a note's "Send to Hermes", emptied when the question leaves.
+    pub hermes_attachments: Signal<Vec<Attachment>>,
 }
 
 impl AppState {
@@ -234,6 +238,7 @@ impl AppState {
             hermes_models: Signal::new(None),
             hermes_pick: Signal::new(None),
             hermes_effort: Signal::new(None),
+            hermes_attachments: Signal::new(Vec::new()),
         }
     }
 }
