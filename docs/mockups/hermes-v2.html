@@ -1,0 +1,572 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Hermes v2</title>
+<link rel="stylesheet" href="kit/app.css">
+<link rel="stylesheet" href="kit/phone.css">
+<script src="kit/icons.js"></script>
+<script src="kit/kit.js"></script>
+</head>
+<body>
+
+<div class="mk-bar">
+  <button data-go="hermes">Chat Hermes</button>
+  <button data-go="note">Une note</button>
+  <button data-act="reset">Recommencer</button>
+</div>
+
+<div class="mk-phone bg-warm-white">
+  <div class="mk-island"></div>
+  <div class="mk-status bg-warm-white"><span>9:41</span><span>●●● ▮</span></div>
+
+  <!-- Hermes chat -->
+  <section class="mk-screen" id="hermes">
+    <div class="flex items-center px-4 py-3 bg-warm-white border-b border-stone-200 gap-3 min-h-[44px] shadow-card">
+      <div data-go="note" class="glass-disc relative w-12 h-12 -my-0.5 shrink-0 flex items-center justify-center rounded-full text-stone-800"><i data-i="IconArrowLeft" data-s="22"></i></div>
+      <div class="min-w-0 flex flex-col justify-center">
+        <span class="text-lg font-semibold tracking-[-0.01em] text-stone-900 leading-tight truncate">Hermes</span>
+        <span data-open="model-menu" class="self-start inline-flex items-center gap-1 text-xs leading-tight text-ios-orange-dark active:opacity-70"><span id="model-label">Opus 5.5 · Moyenne</span><span class="inline-flex rotate-90"><i data-i="IconCaretRight" data-s="10"></i></span></span>
+      </div>
+    </div>
+
+    <div class="mk-scroll px-4 pt-4" id="thread">
+      <div id="empty" class="flex flex-col items-center justify-center px-6 h-full">
+        <img src="../../assets/hermes-agent.png" width="96" height="96" class="mb-6 rounded-full object-cover">
+        <p class="text-stone-900 font-semibold text-base mb-1">Hermes</p>
+        <p class="text-stone-400 text-sm text-center">Opus 5.5 · <span data-open="skills-sheet" class="text-ios-orange-dark">99 skills</span> · <span data-open="jobs-sheet" class="text-ios-orange-dark">6 tâches planifiées</span></p>
+      </div>
+      <div id="turns" class="space-y-3 pb-4"></div>
+    </div>
+
+    <div class="mk-dock">
+      <div id="chips" class="flex flex-wrap gap-1.5 px-1 pb-2 empty:hidden"></div>
+      <div id="capsule" class="composer-capsule composer-glass relative h-[60px] rounded-[30px] border border-stone-300/80">
+        <div class="absolute left-[6px] bottom-[6px]">
+          <button id="plus" data-act="plus" class="composer-plus pressable w-[46px] h-[46px] rounded-full flex items-center justify-center text-stone-600 transition-transform duration-180"><i data-i="IconPlus" data-s="24"></i></button>
+        </div>
+        <textarea id="field" rows="1" placeholder="Écris à Hermes…" class="composer-field absolute top-2 left-1.5 right-1.5 max-h-40 bg-transparent border-0 px-1.5 py-[11px] text-[16px] leading-[1.4] outline-none text-stone-900 placeholder:text-stone-400 resize-none overflow-y-auto"></textarea>
+        <button id="primary" data-act="primary" class="pressable absolute right-[5px] bottom-[5px] w-[50px] h-[50px] rounded-full bg-ios-orange text-white flex items-center justify-center"><i data-i="IconMic" data-s="22"></i></button>
+      </div>
+    </div>
+
+    <!-- "+" menu -->
+    <div class="mk-layer" id="plus-menu">
+      <div class="mk-backdrop" data-act="plus"></div>
+      <div class="absolute left-2 bottom-[100px] z-50 w-[300px] bg-warm-white border border-stone-200 rounded-2xl shadow-menu overflow-hidden">
+        <div class="p-1.5">
+          <button data-act="menu-open" data-target="notes-sheet" class="w-full flex items-center gap-3 px-3 py-2 min-h-[48px] rounded-lg text-left hover:bg-stone-100 active:bg-stone-100">
+            <span class="w-7 h-7 shrink-0 flex items-center justify-center text-stone-500"><i data-i="IconNote" data-s="22"></i></span>
+            <span class="flex-1 min-w-0 text-sm font-medium text-stone-800">Une note</span>
+            <span class="text-stone-400"><i data-i="IconCaretRight" data-s="16"></i></span>
+          </button>
+          <button data-act="add-photo" class="w-full flex items-center gap-3 px-3 py-2 min-h-[48px] rounded-lg text-left hover:bg-stone-100 active:bg-stone-100">
+            <span class="w-7 h-7 shrink-0 flex items-center justify-center text-stone-500"><i data-i="PhImage" data-s="22"></i></span>
+            <span class="flex-1 min-w-0 text-sm font-medium text-stone-800">Photos</span>
+          </button>
+          <button data-act="add-photo" data-camera="1" class="w-full flex items-center gap-3 px-3 py-2 min-h-[48px] rounded-lg text-left hover:bg-stone-100 active:bg-stone-100">
+            <span class="w-7 h-7 shrink-0 flex items-center justify-center text-stone-500"><i data-i="PhCamera" data-s="22"></i></span>
+            <span class="flex-1 min-w-0 text-sm font-medium text-stone-800">Appareil photo</span>
+          </button>
+          <button data-act="add-file" class="w-full flex items-center gap-3 px-3 py-2 min-h-[48px] rounded-lg text-left hover:bg-stone-100 active:bg-stone-100">
+            <span class="w-7 h-7 shrink-0 flex items-center justify-center text-stone-500"><i data-i="IconFileArrowUp" data-s="22"></i></span>
+            <span class="flex-1 min-w-0"><span class="block text-sm font-medium text-stone-800">Fichier</span><span class="block text-xs text-stone-400">PDF, Word, texte : le contenu part</span></span>
+          </button>
+          <button data-act="menu-open" data-target="link-sheet" class="w-full flex items-center gap-3 px-3 py-2 min-h-[48px] rounded-lg text-left hover:bg-stone-100 active:bg-stone-100">
+            <span class="w-7 h-7 shrink-0 flex items-center justify-center text-stone-500"><i data-i="IconLink" data-s="22"></i></span>
+            <span class="flex-1 min-w-0 text-sm font-medium text-stone-800">Lien</span>
+          </button>
+          <div class="h-px bg-stone-200 mx-3 my-2"></div>
+          <button data-act="menu-open" data-target="prompts-sheet" class="w-full flex items-center gap-3 px-3 py-2 min-h-[48px] rounded-lg text-left hover:bg-stone-100 active:bg-stone-100">
+            <span class="w-7 h-7 shrink-0 flex items-center justify-center text-stone-500"><i data-i="PhChatText" data-s="22"></i></span>
+            <span class="flex-1 min-w-0 text-sm font-medium text-stone-800">Modèles de prompts</span>
+            <span class="text-stone-400"><i data-i="IconCaretRight" data-s="16"></i></span>
+          </button>
+          <button data-act="menu-open" data-target="skills-sheet" class="w-full flex items-center gap-3 px-3 py-2 min-h-[48px] rounded-lg text-left hover:bg-stone-100 active:bg-stone-100">
+            <span class="w-7 h-7 shrink-0 flex items-center justify-center text-stone-500"><i data-i="PhSparkle" data-s="22"></i></span>
+            <span class="flex-1 min-w-0"><span class="block text-sm font-medium text-stone-800">Skills</span><span class="block text-xs text-stone-400">99 installés</span></span>
+            <span class="text-stone-400"><i data-i="IconCaretRight" data-s="16"></i></span>
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Model menu -->
+    <div class="mk-layer" id="model-menu">
+      <div class="mk-backdrop" data-close></div>
+      <div class="absolute left-16 top-[60px] z-50 min-w-[220px] bg-warm-white border border-stone-200 rounded-xl shadow-menu p-1">
+        <p class="px-3 pt-2 pb-1 text-xs font-semibold text-stone-500">Claude</p>
+        <button data-act="pick-model" data-v="Opus 5.5" class="w-full flex items-center gap-2.5 px-3 py-2.5 min-h-[40px] rounded-lg text-sm text-stone-800 text-left hover:bg-stone-100">Opus 5.5</button>
+        <button data-act="pick-model" data-v="Sonnet 5.5" class="w-full flex items-center gap-2.5 px-3 py-2.5 min-h-[40px] rounded-lg text-sm text-stone-800 text-left hover:bg-stone-100">Sonnet 5.5</button>
+        <button data-act="pick-model" data-v="Haiku 4.5" class="w-full flex items-center gap-2.5 px-3 py-2.5 min-h-[40px] rounded-lg text-sm text-stone-800 text-left hover:bg-stone-100">Haiku 4.5</button>
+        <div class="h-px bg-stone-100 my-1 mx-2"></div>
+        <p class="px-3 pt-2 pb-1 text-xs font-semibold text-stone-500">Réflexion</p>
+        <button data-act="pick-effort" data-v="Basse" class="w-full flex items-center gap-2.5 px-3 py-2.5 min-h-[40px] rounded-lg text-sm text-stone-800 text-left hover:bg-stone-100">Basse</button>
+        <button data-act="pick-effort" data-v="Moyenne" class="w-full flex items-center gap-2.5 px-3 py-2.5 min-h-[40px] rounded-lg text-sm text-stone-800 text-left hover:bg-stone-100">Moyenne</button>
+        <button data-act="pick-effort" data-v="Haute" class="w-full flex items-center gap-2.5 px-3 py-2.5 min-h-[40px] rounded-lg text-sm text-stone-800 text-left hover:bg-stone-100">Haute</button>
+      </div>
+    </div>
+
+    <!-- Notes picker -->
+    <div class="mk-layer" id="notes-sheet">
+      <div class="mk-backdrop bg-black/35" data-close></div>
+      <div class="mk-sheet bg-warm-white rounded-t-2xl shadow-menu">
+        <div class="flex items-center justify-between px-4 py-3 border-b border-stone-100">
+          <p class="text-sm font-semibold text-stone-900">Joindre une note</p>
+          <button data-close class="w-11 h-11 flex items-center justify-center rounded-full active:bg-stone-100 text-stone-500 -mr-2"><i data-i="IconX" data-s="20"></i></button>
+        </div>
+        <div class="mk-scroll p-3 pb-8 space-y-2" id="notes-list"></div>
+      </div>
+    </div>
+
+    <!-- Skills -->
+    <div class="mk-layer" id="skills-sheet">
+      <div class="mk-backdrop bg-black/35" data-close></div>
+      <div class="mk-sheet bg-warm-white rounded-t-2xl shadow-menu" style="height: 80%;">
+        <div class="flex items-center justify-between px-4 py-3 border-b border-stone-100">
+          <p class="text-sm font-semibold text-stone-900">Skills <span class="text-stone-400 font-normal" id="skills-count"></span></p>
+          <button data-close class="w-11 h-11 flex items-center justify-center rounded-full active:bg-stone-100 text-stone-500 -mr-2"><i data-i="IconX" data-s="20"></i></button>
+        </div>
+        <div class="px-4 pt-3 pb-1">
+          <div class="relative">
+            <span class="absolute left-3 top-1/2 -translate-y-1/2 text-stone-400"><i data-i="IconMagnifyingGlass" data-s="16"></i></span>
+            <input id="skill-search" placeholder="Chercher un skill" class="w-full bg-warm-white border border-stone-200 rounded-lg pl-9 pr-3 py-2.5 text-sm outline-none text-stone-900 placeholder-stone-400 focus:border-ios-orange-dark focus:ring-[3px] focus:ring-ios-orange-50">
+          </div>
+        </div>
+        <div class="mk-scroll px-2 pb-8" id="skills-list"></div>
+      </div>
+    </div>
+
+    <!-- Prompt templates -->
+    <div class="mk-layer" id="prompts-sheet">
+      <div class="mk-backdrop bg-black/35" data-close></div>
+      <div class="mk-sheet bg-warm-white rounded-t-2xl shadow-menu">
+        <div class="flex items-center justify-between px-4 py-3 border-b border-stone-100">
+          <p class="text-sm font-semibold text-stone-900">Modèles de prompts</p>
+          <button data-close class="w-11 h-11 flex items-center justify-center rounded-full active:bg-stone-100 text-stone-500 -mr-2"><i data-i="IconX" data-s="20"></i></button>
+        </div>
+        <div class="mk-scroll p-2 pb-8" id="prompts-list"></div>
+      </div>
+    </div>
+
+    <!-- Link -->
+    <div class="mk-layer" id="link-sheet">
+      <div class="mk-backdrop bg-black/35" data-close></div>
+      <div class="mk-sheet bg-warm-white rounded-t-2xl shadow-menu">
+        <div class="flex items-center justify-between px-4 py-3 border-b border-stone-100">
+          <p class="text-sm font-semibold text-stone-900">Joindre un lien</p>
+          <button data-close class="w-11 h-11 flex items-center justify-center rounded-full active:bg-stone-100 text-stone-500 -mr-2"><i data-i="IconX" data-s="20"></i></button>
+        </div>
+        <div class="p-4 pb-10 space-y-3">
+          <input id="link-field" value="https://www.lesoir.be/economie" class="w-full bg-warm-white border border-stone-200 rounded-lg px-3 py-2.5 text-sm outline-none text-stone-900 placeholder-stone-400 focus:border-ios-orange-dark focus:ring-[3px] focus:ring-ios-orange-50">
+          <button data-act="add-link" class="pressable w-full min-h-[44px] flex items-center justify-center rounded-xl bg-ios-orange text-white text-sm font-medium hover:bg-ios-orange-dark">Joindre</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Scheduled jobs -->
+    <div class="mk-layer" id="jobs-sheet">
+      <div class="mk-backdrop bg-black/35" data-close></div>
+      <div class="mk-sheet bg-warm-white rounded-t-2xl shadow-menu" style="height: 80%;">
+        <div class="flex items-center justify-between px-4 py-3 border-b border-stone-100">
+          <p class="text-sm font-semibold text-stone-900">Tâches planifiées</p>
+          <button data-close class="w-11 h-11 flex items-center justify-center rounded-full active:bg-stone-100 text-stone-500 -mr-2"><i data-i="IconX" data-s="20"></i></button>
+        </div>
+        <div class="mk-scroll p-4 pb-10 space-y-2" id="jobs-list"></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Note -->
+  <section class="mk-screen" id="note">
+    <div class="flex items-center px-4 py-3 bg-warm-white border-b border-stone-200 gap-3 min-h-[44px] shadow-card">
+      <div class="glass-disc relative w-12 h-12 -my-0.5 shrink-0 flex items-center justify-center rounded-full text-stone-800"><i data-i="IconArrowLeft" data-s="22"></i></div>
+      <span class="flex-1 min-w-0 truncate text-lg font-semibold tracking-[-0.01em] text-stone-900">Réunion client 3 oct.</span>
+      <div data-open="note-menu" class="glass-disc relative w-12 h-12 -my-0.5 shrink-0 flex items-center justify-center rounded-full text-stone-800"><i data-i="IconDotsThree" data-s="22"></i></div>
+    </div>
+    <div class="mk-scroll px-5 pt-5">
+      <div class="space-y-3 text-[15px] leading-relaxed text-stone-800">
+        <p>Le client veut une refonte du site avant janvier. Budget autour de 8 000 €.</p>
+        <p>Deux interlocuteurs : la directrice et le responsable marketing. Elle veut voir trois lots séparés, lui veut surtout le blog.</p>
+        <p>À envoyer cette semaine : une proposition en trois lots, avec un planning.</p>
+      </div>
+      <div class="flex flex-wrap gap-1.5 mt-5">
+        <span class="h-7 px-2.5 flex items-center rounded-full bg-stone-100 text-xs text-stone-600">client</span>
+        <span class="h-7 px-2.5 flex items-center rounded-full bg-stone-100 text-xs text-stone-600">devis</span>
+      </div>
+    </div>
+    <div class="mk-dock">
+      <div class="composer-capsule composer-glass relative h-[60px] rounded-[30px] border border-stone-300/80">
+        <div class="absolute left-[6px] bottom-[6px]">
+          <button data-open="note-plus" class="composer-plus pressable w-[46px] h-[46px] rounded-full flex items-center justify-center text-stone-600"><i data-i="IconPlus" data-s="24"></i></button>
+        </div>
+        <div class="absolute left-[60px] right-[64px] top-0 bottom-0 flex items-center text-[16px] text-stone-400">Ajouter à la note…</div>
+        <div class="absolute right-[5px] bottom-[5px] w-[50px] h-[50px] rounded-full bg-ios-orange text-white flex items-center justify-center"><i data-i="IconMic" data-s="22"></i></div>
+      </div>
+    </div>
+
+    <div class="mk-layer" id="note-menu">
+      <div class="mk-backdrop" data-close></div>
+      <div class="absolute right-3 top-[64px] z-50 min-w-[230px] bg-warm-white border border-stone-200 rounded-xl shadow-menu p-1">
+        <button data-act="toast" data-msg="Note copiée" class="w-full flex items-center gap-2.5 px-3 py-2.5 min-h-[40px] rounded-lg text-sm text-stone-800 text-left hover:bg-stone-100"><i data-i="IconCopy" data-s="18"></i>Copier</button>
+        <button data-act="toast" data-msg="Feuille de partage" class="w-full flex items-center gap-2.5 px-3 py-2.5 min-h-[40px] rounded-lg text-sm text-stone-800 text-left hover:bg-stone-100"><i data-i="IconExport" data-s="18"></i>Partager</button>
+        <button data-act="toast" data-msg="Chat des notes, centré sur cette note" class="w-full flex items-center gap-2.5 px-3 py-2.5 min-h-[40px] rounded-lg text-sm text-stone-800 text-left hover:bg-stone-100"><i data-i="IconChatAi" data-s="18"></i>Discuter de cette note</button>
+        <button data-act="note-to-hermes" class="w-full flex items-center gap-2.5 px-3 py-2.5 min-h-[40px] rounded-lg text-sm text-stone-800 text-left hover:bg-stone-100"><img src="../../assets/hermes-agent.png" width="18" height="18" class="rounded-full object-cover">Envoyer à Hermes</button>
+        <div class="h-px bg-stone-100 my-1 mx-2"></div>
+        <button data-act="toast" data-msg="Supprimer ?" class="w-full flex items-center gap-2.5 px-3 py-2.5 min-h-[40px] rounded-lg text-sm text-ios-red-dark text-left hover:bg-ios-red-50"><i data-i="IconTrash" data-s="18"></i>Supprimer</button>
+      </div>
+    </div>
+
+    <div class="mk-layer" id="note-plus">
+      <div class="mk-backdrop" data-close></div>
+      <div class="absolute left-2 bottom-[100px] z-50 w-[300px] bg-warm-white border border-stone-200 rounded-2xl shadow-menu overflow-hidden">
+        <div class="p-1.5">
+          <button data-act="toast" data-msg="Chat des notes, centré sur cette note" class="w-full flex items-center gap-3 px-3 py-2 min-h-[48px] rounded-lg text-left hover:bg-stone-100">
+            <span class="w-7 h-7 shrink-0 flex items-center justify-center text-stone-500"><i data-i="IconChatAi" data-s="22"></i></span>
+            <span class="flex-1 min-w-0 text-sm font-medium text-stone-800">Discuter de cette note</span>
+          </button>
+          <button data-act="note-to-hermes" class="w-full flex items-center gap-3 px-3 py-2 min-h-[48px] rounded-lg text-left hover:bg-stone-100">
+            <span class="w-7 h-7 shrink-0 flex items-center justify-center"><img src="../../assets/hermes-agent.png" width="22" height="22" class="rounded-full object-cover"></span>
+            <span class="flex-1 min-w-0 text-sm font-medium text-stone-800">Envoyer à Hermes</span>
+          </button>
+          <button data-act="toast" data-msg="Choisir un fil" class="w-full flex items-center gap-3 px-3 py-2 min-h-[48px] rounded-lg text-left hover:bg-stone-100">
+            <span class="w-7 h-7 shrink-0 flex items-center justify-center text-stone-500"><i data-i="IconCardsThree" data-s="22"></i></span>
+            <span class="flex-1 min-w-0 text-sm font-medium text-stone-800">Ajouter à un fil</span>
+            <span class="text-stone-400"><i data-i="IconCaretRight" data-s="16"></i></span>
+          </button>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <div class="mk-toast"></div>
+  <div class="mk-home"></div>
+</div>
+
+<script>
+const { $, $$ } = Mock;
+const HERMES_FACE = "../../assets/hermes-agent.png";
+
+const NOTES = [
+  ["Réunion client 3 oct.", "Le client veut une refonte du site avant janvier…"],
+  ["Idées LinkedIn", "Trois posts sur la dictée hors ligne…"],
+  ["Appel comptable", "TVA du trimestre, factures de septembre…"],
+  ["Courses", "Pain, café, piles AA…"],
+];
+const SKILLS = [
+  ["E-mail", "email-inbox-triage", "Trier la boîte de réception et proposer des réponses"],
+  ["E-mail", "himalaya", "Lire et envoyer des e-mails depuis le serveur"],
+  ["GitHub", "github-code-review", "Relire une pull request et commenter"],
+  ["GitHub", "github-auth", "Connecter un compte GitHub"],
+  ["Business", "freelance-client-proposals", "Rédiger une proposition commerciale"],
+  ["Business", "sales-prospecting", "Trouver et qualifier des prospects"],
+  ["Notes", "obsidian", "Lire et écrire dans ton coffre Obsidian"],
+  ["Apple", "apple-reminders", "Créer des rappels Apple"],
+  ["Apple", "apple-notes", "Lire et écrire des notes Apple"],
+  ["Agents", "claude-code", "Confier une tâche de code à Claude Code"],
+  ["Agents", "codex", "Confier une tâche de code à Codex"],
+  ["Création", "architecture-diagram", "Dessiner un schéma d'architecture"],
+  ["Recherche", "web-research", "Chercher et résumer des sources sur le web"],
+  ["Productivité", "concise-decision-workflows", "Trancher vite entre plusieurs options"],
+];
+const PROMPTS = [
+  ["Résumer", "Résume ce que je t'envoie en 5 points."],
+  ["Proposition client", "Fais-moi une proposition en trois lots, avec un planning."],
+  ["Script", "Écris le script qui sauvegarde mes notes chaque nuit."],
+];
+const JOBS = [
+  ["Point quotidien global du matin", "Du lundi au vendredi, 5 h et 6 h", true],
+  ["Trois posts LinkedIn par semaine", "Lundi, mercredi, vendredi à 5 h 30", true],
+  ["Veille quotidienne missions et réseau", "Tous les jours à 7 h", false],
+  ["Daily prospection et closing", "Du lundi au vendredi à 13 h", false],
+  ["Préparation cold call du jeudi", "Mercredi à 13 h", false],
+  ["Veille éditoriale tech quotidienne", "Tous les jours à 5 h", false],
+];
+
+let chips = [];
+let running = null;
+let model = "Opus 5.5", effort = "Moyenne";
+
+const ROW = "w-full flex items-center gap-3 px-3 py-2 min-h-[52px] rounded-lg text-left hover:bg-stone-100 active:bg-stone-100";
+
+function scrollDown() { const t = $("#thread"); t.scrollTop = t.scrollHeight; }
+
+function refreshPrimary() {
+  const p = $("#primary");
+  const ready = $("#field").value.trim() || chips.length;
+  const icon = running ? "IconStop" : ready ? "IconArrowUp" : "IconMic";
+  p.className = "pressable absolute right-[5px] bottom-[5px] w-[50px] h-[50px] rounded-full text-white flex items-center justify-center " + (running ? "bg-stone-900" : "bg-ios-orange");
+  p.innerHTML = `<i data-i="${icon}" data-s="${running ? 20 : 22}"></i>`;
+  Mock.icons(p);
+}
+
+// Chips above the field: what goes with the question.
+const CHIP_STYLE = {
+  note: ["IconNote", "bg-stone-100 text-stone-700"],
+  photo: ["PhImage", "bg-stone-100 text-stone-700"],
+  file: ["IconFileArrowUp", "bg-stone-100 text-stone-700"],
+  link: ["IconLink", "bg-stone-100 text-stone-700"],
+  skill: ["PhSparkle", "bg-ios-orange-50 text-ios-orange-dark"],
+};
+function renderChips() {
+  const box = $("#chips");
+  box.innerHTML = "";
+  chips.forEach((c, i) => {
+    const [icon, tone] = CHIP_STYLE[c.kind];
+    const el = Mock.html(`<span class="h-8 pl-2 pr-1 flex items-center gap-1.5 rounded-full text-xs font-medium ${tone}">
+      <i data-i="${icon}" data-s="14"></i><span class="max-w-[180px] truncate">${c.label}</span>
+      <button data-act="drop-chip" data-k="${i}" class="w-6 h-6 flex items-center justify-center opacity-60"><i data-i="IconX" data-s="12"></i></button></span>`);
+    box.appendChild(el);
+  });
+  refreshPrimary();
+}
+function addChip(kind, label) {
+  chips.push({ kind, label });
+  renderChips();
+  $$(".mk-layer.is-on").forEach((l) => l.classList.remove("is-on"));
+  setPlus(false);
+}
+function setPlus(open) {
+  $("#plus-menu").classList.toggle("is-on", open);
+  $("#plus").classList.toggle("rotate-45", open);
+  $("#plus").classList.toggle("bg-stone-200/70", open);
+}
+
+function fillLists() {
+  $("#notes-list").innerHTML = "";
+  NOTES.forEach(([title, body]) => {
+    $("#notes-list").appendChild(Mock.html(`<button data-act="pick-note" data-v="${title}" class="w-full text-left bg-warm-white p-4 border border-stone-200 rounded-xl">
+      <p class="font-semibold text-base tracking-[-0.01em] text-stone-900 truncate">${title}</p>
+      <p class="text-sm text-stone-500 truncate mt-1">${body}</p></button>`));
+  });
+  renderSkills("");
+  $("#prompts-list").innerHTML = "";
+  PROMPTS.forEach(([title, text]) => {
+    $("#prompts-list").appendChild(Mock.html(`<button data-act="pick-prompt" data-v="${text}" class="${ROW}">
+      <span class="w-7 h-7 shrink-0 flex items-center justify-center text-stone-500"><i data-i="PhChatText" data-s="20"></i></span>
+      <span class="flex-1 min-w-0"><span class="block text-sm font-medium text-stone-800">${title}</span><span class="block text-xs text-stone-400 truncate">${text}</span></span></button>`));
+  });
+  renderJobs();
+}
+
+function renderSkills(q) {
+  const list = $("#skills-list");
+  list.innerHTML = "";
+  const hits = SKILLS.filter(([cat, name, desc]) => (cat + name + desc).toLowerCase().includes(q.toLowerCase()));
+  $("#skills-count").textContent = hits.length + (q ? " trouvés" : " sur 99");
+  let last = "";
+  hits.forEach(([cat, name, desc]) => {
+    if (cat !== last) {
+      list.appendChild(Mock.html(`<p class="px-3 pt-4 pb-1 text-xs font-medium text-stone-400 uppercase tracking-[0.08em]">${cat}</p>`));
+      last = cat;
+    }
+    const picked = chips.some((c) => c.kind === "skill" && c.label === name);
+    list.appendChild(Mock.html(`<button data-act="pick-skill" data-v="${name}" class="${ROW}">
+      <span class="w-7 h-7 shrink-0 flex items-center justify-center text-stone-500"><i data-i="PhSparkle" data-s="20"></i></span>
+      <span class="flex-1 min-w-0"><span class="block text-sm font-medium text-stone-800">${name}</span><span class="block text-xs text-stone-400 truncate">${desc}</span></span>
+      <span class="${picked ? "text-ios-orange-dark" : "text-stone-400"}"><i data-i="${picked ? "IconCheck" : "IconPlus"}" data-s="18"></i></span></button>`));
+  });
+  if (!hits.length) list.appendChild(Mock.html(`<p class="px-3 py-6 text-sm text-stone-400 text-center">Aucun skill pour « ${q} »</p>`));
+}
+
+function renderJobs() {
+  const box = $("#jobs-list");
+  box.innerHTML = "";
+  JOBS.forEach(([name, when, on], i) => {
+    box.appendChild(Mock.html(`<div class="p-3 bg-warm-white border border-stone-200 rounded-xl ${on ? "" : "opacity-60"}">
+      <div class="flex items-start gap-2">
+        <span class="mt-0.5 ${on ? "text-ios-orange-dark" : "text-stone-400"}"><i data-i="${on ? "PhClock" : "PhPause"}" data-s="18"></i></span>
+        <div class="flex-1 min-w-0"><p class="text-sm font-semibold text-stone-800">${name}</p><p class="text-xs text-stone-500">${on ? "" : "En pause · "}${when}</p></div>
+      </div>
+      <div class="mt-3 flex gap-2">
+        <button data-act="toggle-job" data-k="${i}" class="pressable flex-1 h-9 flex items-center justify-center rounded-lg bg-stone-100 text-stone-900 text-sm font-medium hover:bg-stone-200">${on ? "Mettre en pause" : "Reprendre"}</button>
+        <button data-act="toast" data-msg="« ${name} » lancée" class="pressable flex-1 h-9 flex items-center justify-center rounded-lg bg-ios-orange text-white text-sm font-medium hover:bg-ios-orange-dark">Lancer maintenant</button>
+      </div></div>`));
+  });
+}
+
+// One Hermes reply, streamed word by word, with steps and an optional pause
+// for approval in the middle.
+function replyFor(q) {
+  if (/script/i.test(q)) {
+    return {
+      think: "Il veut une sauvegarde nocturne. Un script shell suffit, puis une tâche planifiée à 3 h.",
+      steps: [["Écriture d'un fichier", "backup.sh"], ["Tâche planifiée", "tous les jours à 3 h"]],
+      parts: [
+        "<p>Voilà le script. Il tourne à 3 h et garde les 7 dernières copies.</p>",
+        { code: '#!/bin/sh\ndest=~/backups/$(date +%F)\nmkdir -p "$dest"\ncp -R ~/notes "$dest"\nls -1d ~/backups/* | head -n -7 | xargs rm -rf' },
+        "<p>Je l'ai aussi ajouté en tâche planifiée.</p>",
+      ],
+    };
+  }
+  return {
+    think: "La note donne le budget et les deux interlocuteurs. Trois lots, le blog à part pour le responsable marketing.",
+    steps: [["Lecture de la note", "Réunion client 3 oct."], ["Skill", "freelance-client-proposals"]],
+    parts: [
+      "<p>Voici la proposition en trois lots, sous les 8 000 € :</p>",
+      "<table><thead><tr><th>Lot</th><th>Contenu</th><th>Délai</th></tr></thead><tbody><tr><td>1</td><td>Maquettes et contenu</td><td>3 sem.</td></tr><tr><td>2</td><td>Site et blog</td><td>4 sem.</td></tr><tr><td>3</td><td>Mise en ligne, formation</td><td>1 sem.</td></tr></tbody></table>",
+      { approval: { title: "Envoyer un e-mail", tool: "himalaya", fields: [["À", "directrice@client.be"], ["Objet", "Proposition refonte du site"]] } },
+      "<p>Envoyé à 21 h 32. Je te préviens quand elle répond.</p>",
+    ],
+  };
+}
+
+function bubble(q, attached) {
+  const extra = attached.length ? `<div class="flex justify-end mt-1"><span class="text-xs text-stone-400">${attached.map((c) => c.label).join(" · ")}</span></div>` : "";
+  return Mock.html(`<div><div class="flex justify-end" style="animation: fadeInUp 0.15s ease-out;">
+    <div class="bg-stone-900 text-white rounded-2xl rounded-br-md px-4 py-2.5 max-w-[80%] text-sm leading-relaxed break-words">${q || "…"}</div></div>${extra}</div>`);
+}
+
+function replyShell() {
+  return Mock.html(`<div class="flex justify-start items-start gap-2" style="animation: fadeInUp 0.15s ease-out;">
+    <div class="mt-1 shrink-0"><img src="${HERMES_FACE}" width="20" height="20" class="rounded-full object-cover"></div>
+    <div class="min-w-0 flex-1 py-1">
+      <div class="r-think hidden"></div>
+      <div class="r-dots flex items-center gap-1.5 h-6">${["0s", "0.12s", "0.24s"].map((d) => `<span class="w-1.5 h-1.5 rounded-full bg-stone-400" style="animation: typingDot 1.2s ease-in-out ${d} infinite;"></span>`).join("")}</div>
+      <div class="r-text text-sm text-stone-900 leading-relaxed break-words prose prose-sm"></div>
+      <div class="r-steps"></div>
+    </div></div>`);
+}
+
+function thinkRow(text, secs) {
+  return Mock.html(`<div><button data-act="fold" class="w-full min-h-[32px] flex items-center gap-1.5 text-xs font-medium text-stone-500">
+    <i data-i="PhBrain" data-s="14"></i>Réflexion · ${secs} s<span class="fold-caret text-stone-400 transition-transform duration-180"><i data-i="IconCaretRight" data-s="12"></i></span></button>
+    <div class="fold-body hidden pl-5 pb-2 text-xs text-stone-500 leading-relaxed">${text}</div></div>`);
+}
+
+function stepsRow(steps) {
+  const label = steps.map((s) => s[0]).join(" · ");
+  return Mock.html(`<div class="mt-2 pt-2 border-t border-stone-200/70">
+    <button data-act="fold" class="pressable w-full min-h-[40px] flex items-center justify-between">
+      <span class="text-xs font-medium text-stone-500">${label}</span>
+      <span class="fold-caret text-stone-400 transition-transform duration-180"><i data-i="IconCaretRight" data-s="14"></i></span></button>
+    <div class="fold-body hidden flex-col gap-1.5 mt-1">${steps.map(([t, d]) => `<div class="flex items-baseline gap-2 text-xs min-w-0"><span class="shrink-0 font-medium text-stone-700">${t}</span><span class="min-w-0 truncate text-stone-400">${d}</span></div>`).join("")}</div></div>`);
+}
+
+function codeBlock(code) {
+  const el = Mock.html(`<div class="relative"><pre><code></code></pre>
+    <button data-act="copy-code" class="absolute top-2 right-2 h-7 px-2 flex items-center gap-1 rounded-md bg-warm-white border border-stone-200 text-xs text-stone-600 not-prose"><i data-i="IconCopy" data-s="13"></i><span>Copier</span></button></div>`);
+  el.querySelector("code").textContent = code;
+  return el;
+}
+
+function approvalCard(a, onDecide) {
+  const el = Mock.html(`<div class="mt-2 p-3 bg-warm-white border border-stone-200 rounded-xl not-prose">
+    <div class="flex items-center gap-2 text-ios-orange-dark"><i data-i="PhTerminalWindow" data-s="18"></i><span class="text-sm font-semibold text-stone-800">Hermes demande ton accord</span></div>
+    <div class="mt-0.5 text-xs text-stone-500">${a.title} · ${a.tool}</div>
+    <div class="mt-2 space-y-1">${a.fields.map(([k, v]) => `<div class="flex gap-2 text-sm"><span class="shrink-0 text-stone-400">${k}</span><span class="text-stone-700 break-words">${v}</span></div>`).join("")}</div>
+    <div class="a-buttons mt-3 flex gap-2">
+      <button class="a-yes pressable flex-1 min-h-[44px] rounded-xl bg-ios-orange text-white font-medium text-sm hover:bg-ios-orange-dark">Autoriser</button>
+      <button class="a-no pressable flex-1 min-h-[44px] rounded-xl bg-stone-100 text-stone-700 font-medium text-sm hover:bg-stone-200">Refuser</button>
+    </div></div>`);
+  const decide = (ok) => {
+    el.querySelector(".a-buttons").outerHTML = `<div class="mt-2 text-xs ${ok ? "text-ios-green" : "text-stone-400"}">${ok ? "Autorisé" : "Refusé"}</div>`;
+    onDecide(ok);
+  };
+  el.querySelector(".a-yes").onclick = () => decide(true);
+  el.querySelector(".a-no").onclick = () => decide(false);
+  return el;
+}
+
+function send() {
+  const q = $("#field").value.trim();
+  if (!q && !chips.length) return;
+  $("#empty").classList.add("hidden");
+  const attached = chips.slice();
+  $("#turns").appendChild(bubble(q, attached));
+  $("#field").value = "";
+  chips = [];
+  renderChips();
+
+  const plan = replyFor(q + attached.map((c) => c.label).join(" "));
+  const shell = replyShell();
+  $("#turns").appendChild(shell);
+  scrollDown();
+
+  const text = shell.querySelector(".r-text");
+  const queue = plan.parts.slice();
+  let timer = null;
+  running = { stop() { clearTimeout(timer); finish("stopped"); } };
+  refreshPrimary();
+
+  const finish = (how) => {
+    shell.querySelector(".r-dots").remove();
+    if (how === "stopped") text.appendChild(Mock.html(`<p class="text-xs italic text-stone-400 not-prose">Réponse arrêtée.</p>`));
+    if (how === "refused") text.appendChild(Mock.html(`<p>D'accord, je ne l'envoie pas. Le brouillon reste ici.</p>`));
+    shell.querySelector(".r-steps").appendChild(stepsRow(plan.steps));
+    running = null;
+    refreshPrimary();
+    scrollDown();
+  };
+
+  // Writes one HTML part word by word, then moves on.
+  const typePart = (html, done) => {
+    const holder = Mock.html(html);
+    const words = holder.textContent.split(" ");
+    if (holder.tagName !== "P") { text.appendChild(holder); scrollDown(); return done(); }
+    const p = document.createElement("p");
+    text.appendChild(p);
+    let i = 0;
+    const tick = () => {
+      p.textContent = words.slice(0, ++i).join(" ");
+      scrollDown();
+      timer = setTimeout(i < words.length ? tick : done, 55);
+    };
+    tick();
+  };
+
+  const next = () => {
+    const part = queue.shift();
+    if (!part) return finish("done");
+    if (typeof part === "string") return typePart(part, next);
+    if (part.code) { text.appendChild(codeBlock(part.code)); scrollDown(); timer = setTimeout(next, 400); return; }
+    if (part.approval) {
+      shell.querySelector(".r-dots").classList.add("hidden");
+      text.appendChild(approvalCard(part.approval, (ok) => {
+        shell.querySelector(".r-dots").classList.remove("hidden");
+        if (!ok) { queue.length = 0; return finish("refused"); }
+        timer = setTimeout(next, 500);
+      }));
+      scrollDown();
+    }
+  };
+
+  timer = setTimeout(() => {
+    const think = shell.querySelector(".r-think");
+    think.replaceWith(thinkRow(plan.think, 8));
+    timer = setTimeout(next, 500);
+  }, 900);
+}
+
+Object.assign(Mock.act, {
+  plus() { setPlus(!$("#plus-menu").classList.contains("is-on")); },
+  "menu-open"(el) { setPlus(false); Mock.open(el.dataset.target); if (el.dataset.target === "skills-sheet") { renderSkills($("#skill-search").value); } },
+  "add-photo"(el) { addChip("photo", el.dataset.camera ? "Photo prise" : "Tableau blanc.jpg"); },
+  "add-file"() { addChip("file", "Cahier des charges.pdf"); },
+  "add-link"() { addChip("link", $("#link-field").value.replace(/^https?:\/\//, "")); },
+  "pick-note"(el) { addChip("note", el.dataset.v); },
+  "pick-skill"(el) { if (!chips.some((c) => c.kind === "skill" && c.label === el.dataset.v)) addChip("skill", el.dataset.v); else Mock.close(el); },
+  "pick-prompt"(el) { $("#field").value = el.dataset.v; Mock.close(el); refreshPrimary(); $("#field").focus(); },
+  "drop-chip"(el) { chips.splice(+el.dataset.k, 1); renderChips(); },
+  primary() { if (running) return running.stop(); if ($("#field").value.trim() || chips.length) return send(); Mock.toast("Dictée : parle, le texte arrive ici"); },
+  fold(el) { const box = el.parentElement; box.querySelector(".fold-body").classList.toggle("hidden"); box.querySelector(".fold-body").classList.toggle("flex"); box.querySelector(".fold-caret").classList.toggle("rotate-90"); },
+  "copy-code"(el) { navigator.clipboard?.writeText(el.parentElement.querySelector("code").textContent); el.querySelector("span").textContent = "Copié"; setTimeout(() => (el.querySelector("span").textContent = "Copier"), 1400); },
+  "toggle-job"(el) { const j = JOBS[+el.dataset.k]; j[2] = !j[2]; renderJobs(); Mock.toast(j[2] ? "Reprise" : "En pause"); },
+  "pick-model"(el) { model = el.dataset.v; $("#model-label").textContent = model + " · " + effort; Mock.close(el); },
+  "pick-effort"(el) { effort = el.dataset.v; $("#model-label").textContent = model + " · " + effort; Mock.close(el); },
+  toast(el) { Mock.close(el); Mock.toast(el.dataset.msg); },
+  "note-to-hermes"(el) { Mock.close(el); Mock.go("hermes"); chips = chips.filter((c) => c.label !== "Réunion client 3 oct."); addChip("note", "Réunion client 3 oct."); $("#field").focus(); },
+  reset() { location.reload(); },
+});
+
+$("#field").addEventListener("input", refreshPrimary);
+$("#field").addEventListener("keydown", (e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); Mock.act.primary(); } });
+$("#skill-search").addEventListener("input", (e) => renderSkills(e.target.value));
+
+fillLists();
+Mock.start("hermes");
+refreshPrimary();
+</script>
+</body>
+</html>

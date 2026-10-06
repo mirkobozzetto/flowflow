@@ -64,7 +64,3 @@ body {
 
 [data-go], [data-open], [data-close], [data-act] { cursor: pointer; }
 i[data-i] { display: inline-flex; font-style: normal; }
-
-/* Classes the app never uses as-is, so the compiled sheet lacks them. */
-.bg-stone-200\/70 { background: color-mix(in oklab, var(--color-stone-200) 70%, transparent); }
-.rotate-45 { rotate: 45deg; }
