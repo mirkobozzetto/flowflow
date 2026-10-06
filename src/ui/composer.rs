@@ -237,6 +237,8 @@ pub fn Composer(
                         if let Some(list) = attachments.filter(|a| !a.read().is_empty()) {
                             AttachmentChips { list }
                         }
+                        // The voice layer covers the capsule, never the chips.
+                        div { class: "relative",
                         div { class: capsule,
                             "data-hidden": !is_idle,
                             "data-landed": landed(),
@@ -336,6 +338,7 @@ pub fn Composer(
                                 "data-leaving": is_idle,
                                 VoiceCapsule { pending_audio, transcribe_only: chat || hermes, commit_on_transcribed }
                             }
+                        }
                         }
                     }
                 }
