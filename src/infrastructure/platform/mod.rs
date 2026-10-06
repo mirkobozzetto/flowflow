@@ -130,3 +130,23 @@ pub fn open_url(url: &str) {
 
 #[cfg(not(any(target_os = "ios", target_os = "macos")))]
 pub fn open_url(_url: &str) {}
+
+/// Photos chosen for a Hermes question, reduced to JPEGs: (name, bytes).
+pub async fn pick_photos() -> Vec<(String, Vec<u8>)> {
+    #[cfg(target_os = "ios")]
+    return ios::pick_photos().await;
+    #[cfg(target_os = "macos")]
+    return macos::pick_photos();
+    #[allow(unreachable_code)]
+    Vec::new()
+}
+
+/// A photo taken now, on a device with a camera.
+pub async fn take_photo() -> Option<(String, Vec<u8>)> {
+    #[cfg(target_os = "ios")]
+    return ios::take_photo().await;
+    #[allow(unreachable_code)]
+    None
+}
+
+pub const HAS_CAMERA: bool = cfg!(target_os = "ios");

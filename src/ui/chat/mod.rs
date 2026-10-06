@@ -1,13 +1,17 @@
 mod actions;
+pub(crate) mod attachment_chips;
 mod bot_bubble;
 mod empty_state;
+pub(crate) mod hermes_attach;
 mod hermes_model_menu;
 mod hermes_reply;
+pub(crate) mod hermes_tools_menu;
 mod hermes_view;
 pub(crate) mod mention_menu;
 mod menu;
 pub(crate) mod models;
 pub(crate) mod new_chat_menu;
+pub(crate) mod skill_suggest;
 mod sources_accordion;
 pub(crate) mod tools_menu;
 mod trace_accordion;

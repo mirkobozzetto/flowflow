@@ -1,6 +1,7 @@
 use crate::application::hermes_chat::{
     self, HermesError, HermesTurn, LiveReply,
 };
+use crate::application::hermes_message::{self, Asked, Attachment};
 use crate::application::i18n::{t, t_args};
 use crate::infrastructure::persistence::Database;
 use crate::ui::chat::empty_state::ChatEmptyState;
@@ -32,12 +33,12 @@ pub(crate) fn problem_text(lang: &str, e: &HermesError) -> String {
 fn facts_line(
     lang: &str,
     app: AppState,
-    counts: Option<(Option<usize>, Option<usize>)>,
+    jobs: Option<usize>,
 ) -> Option<String> {
     let options = (app.hermes_models)()?;
     let model = (app.hermes_pick)().map(|(_, m)| m).unwrap_or(options.model);
     let mut parts = vec![hermes_chat::model_label(&model)];
-    let (skills, jobs) = counts.unwrap_or_default();
+    let skills = (app.hermes_skills)().and_then(|s| s.ok()).map(|s| s.len());
     if let Some(n) = skills.filter(|n| *n > 0) {
         parts.push(t_args(
             lang,
@@ -73,9 +74,17 @@ pub fn HermesChatView() -> Element {
     let mut turns: Signal<Vec<HermesTurn>> = use_signal(Vec::new);
     let mut live: Signal<Option<LiveReply>> = use_signal(|| None);
     let mut problem: Signal<Option<HermesError>> = use_signal(|| None);
-    // (skills, scheduled tasks) on Hermes, for the empty conversation.
-    let mut counts: Signal<Option<(Option<usize>, Option<usize>)>> =
-        use_signal(|| None);
+    // Scheduled tasks on Hermes, for the empty conversation.
+    let mut jobs: Signal<Option<usize>> = use_signal(|| None);
+    // The skills, read once per opening of the Hermes chat: the "+" menu,
+    // "/" and the suggested skills all draw on them.
+    use_hook(move || {
+        app.hermes_skills.set(None);
+        spawn(async move {
+            app.hermes_skills
+                .set(Some(hermes_chat::skills(&db()).await));
+        });
+    });
     let input = use_signal(String::new);
     let pending_audio: Signal<Option<(String, f64)>> = use_signal(|| None);
 
@@ -139,7 +148,7 @@ pub fn HermesChatView() -> Element {
                         return;
                     }
                 }
-                counts.set(Some(hermes_chat::counts(&database).await));
+                jobs.set(hermes_chat::jobs_count(&database).await);
                 return;
             };
             app.hermes_models.set(options.ok());
@@ -150,15 +159,16 @@ pub fn HermesChatView() -> Element {
                     return;
                 }
             }
-            if let Some((run_id, question)) =
+            if let Some((run_id, message)) =
                 hermes_chat::pending(&database, &sid)
             {
-                let asked = turns.peek().iter().rev().find_map(|t| match t {
-                    HermesTurn::User(q) => Some(q.clone()),
+                let asked = hermes_message::split(&message);
+                let last = turns.peek().iter().rev().find_map(|t| match t {
+                    HermesTurn::User(a) => Some(a.question.clone()),
                     _ => None,
                 });
-                if asked.as_deref() != Some(question.as_str()) {
-                    turns.write().push(HermesTurn::User(question));
+                if last.as_deref() != Some(asked.question.as_str()) {
+                    turns.write().push(HermesTurn::User(asked));
                 }
                 track(sid, run_id);
             }
@@ -195,13 +205,13 @@ pub fn HermesChatView() -> Element {
                     }
                 }
                 if is_empty && problem().is_none() {
-                    ChatEmptyState { hermes: true, facts: facts_line(&lang, app, counts()) }
+                    ChatEmptyState { hermes: true, facts: facts_line(&lang, app, jobs()) }
                 } else {
                     div { class: "space-y-3",
                         for (i, turn) in turns().into_iter().enumerate() {
                             match turn {
-                                HermesTurn::User(text) => rsx! {
-                                    div { key: "{i}", UserBubble { text, ink: true } }
+                                HermesTurn::User(a) => rsx! {
+                                    div { key: "{i}", UserBubble { text: a.question, ink: true, attachments: a.attachments, skills: a.skills } }
                                 },
                                 HermesTurn::Reply { text, steps } => rsx! {
                                     div { key: "{i}", HermesReply { text, steps } }
@@ -225,12 +235,21 @@ pub fn HermesChatView() -> Element {
             input: input,
             disabled: busy,
             pending_audio: pending_audio,
+            attachments: app.hermes_attachments,
             on_commit: move |q: String| {
                 if live.peek().as_ref().is_some_and(|r| !r.done) {
                     return;
                 }
+                let sent: Vec<Attachment> = app.hermes_attachments.take();
                 problem.set(None);
-                turns.write().push(HermesTurn::User(q.clone()));
+                let (skills, others): (Vec<&Attachment>, Vec<&Attachment>) =
+                    sent.iter().partition(|a| matches!(a, Attachment::Skill { .. }));
+                let names = |list: Vec<&Attachment>| list.iter().map(|a| a.label().to_string()).collect();
+                turns.write().push(HermesTurn::User(Asked {
+                    question: q.clone(),
+                    attachments: names(others),
+                    skills: names(skills),
+                }));
                 live.set(Some(LiveReply::default()));
                 spawn(async move {
                     let database = db();
@@ -244,7 +263,7 @@ pub fn HermesChatView() -> Element {
                         &provider,
                         &model,
                     );
-                    match hermes_chat::send(&database, current.clone(), &q, pick, effort).await {
+                    match hermes_chat::send(&database, current.clone(), &q, &sent, pick, effort).await {
                         Ok((sid, run_id)) => {
                             if current.is_none() {
                                 session.set(Some(sid.clone()));

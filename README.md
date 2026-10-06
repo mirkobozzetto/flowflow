@@ -29,6 +29,8 @@ No manual searching. No folders to dig through. Just talk, and find it later.
 
 - One composer for notes and chat: type, or tap the mic and a dark voice
   capsule records, transcribes and hands the text back where you were typing
+- Once there is something to send, the orange mic stretches into a pill with
+  a send button, so you can dictate again and the words land after your text
 - Live 60fps waveform, pause/resume, Dynamic Island live timer; the capsule
   stays on screen until the text is ready, with retry if a transcription fails
 - Cloud (Soniox) or fully offline transcription with local Whisper models
@@ -81,6 +83,11 @@ No manual searching. No folders to dig through. Just talk, and find it later.
 - Link it by scanning one QR code; Hermes stays on your private Tailscale network
 - Pick the model and reasoning level under the title; a reply keeps running
   when you leave the app and is there when you come back
+- Attach photos (or take one), a PDF, Word or text file from the `+`: Hermes
+  sees the photos, reads the file's text
+- Your Hermes skills in the `+`, most used first, then by category; type `/`
+  or a word that names a skill and it is suggested, one tap to call it
+- Send to Hermes from any note: a new conversation opens with the note attached
 
 **Share a space with Hermes Agent**
 
@@ -111,8 +118,9 @@ Ask    → Embed query → Hybrid search (BM25 + vector)  ∥  Web search (Exa, 
 
 Sync   → Save → debounced trigger → Noise-encrypted LAN session → version-vector merge → UI refresh < 1 s
 
-Hermes → question → your Hermes API server (HTTPS, Tailscale only) → streamed run → steps + answer
-  chat   history stays in the Hermes session; FlowFlow keeps a pointer on the device
+Hermes → question + photos (image parts) + files and notes (text) + skills (named)
+  chat   → your Hermes API server (HTTPS, Tailscale only) → streamed run → steps + answer
+         history stays in the Hermes session; FlowFlow keeps a pointer on the device
 
 Hermes → mcps_ token (one space, read or read_write) → MCP tools on api.flowflow.be/v1/mcp-spaces
          → notes and threads written by the agent → pulled by every member device

@@ -275,6 +275,19 @@ pub fn NoteMenu(
                         IconArrowUpRight { size: 16 }
                         {t(&lang, "share-publish-note")}
                     }
+                    if crate::application::hermes_chat::configured(&db()) {
+                        button {
+                            class: kit::MENU_ITEM,
+                            "data-native-action": "send-hermes",
+                            "data-native-symbol": "paperplane",
+                            onclick: {
+                                let note_id = note_id.clone();
+                                move |_| crate::ui::chat::hermes_attach::send_note(app, &db(), &note_id)
+                            },
+                            HermesAgentIcon { size: 16 }
+                            {t(&lang, "note-send-to-hermes")}
+                        }
+                    }
                     div { class: kit::MENU_SEP }
                     if in_thread {
                         button {

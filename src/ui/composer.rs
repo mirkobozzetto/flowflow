@@ -1,7 +1,13 @@
+use crate::application::hermes_message::Attachment;
 use crate::application::i18n::t;
 use crate::infrastructure::audio::{AudioRecorder, RecordingState};
 use crate::infrastructure::platform::{haptic, haptic_prepare};
+use crate::ui::chat::attachment_chips::AttachmentChips;
+use crate::ui::chat::hermes_tools_menu::{
+    HermesToolsMenu, NativeHermesToolsMenu,
+};
 use crate::ui::chat::mention_menu::{MentionMenu, MentionedNote};
+use crate::ui::chat::skill_suggest::SkillSuggest;
 use crate::ui::chat::tools_menu::{NativeToolsMenu, ToolsMenu};
 use crate::ui::icons::*;
 use crate::ui::recording::{start_recording, VoiceCapsule};
@@ -65,6 +71,9 @@ pub fn Composer(
     /// Chat only: the notes mentioned with "@" in the field.
     #[props(default)]
     mentions: Option<Signal<Vec<MentionedNote>>>,
+    /// Hermes only: what goes with the question, as chips above the field.
+    #[props(default)]
+    attachments: Option<Signal<Vec<Attachment>>>,
 ) -> Element {
     let mut app: AppState = use_context();
     let recorder: Signal<Arc<Mutex<AudioRecorder>>> = use_context();
@@ -83,6 +92,8 @@ pub fn Composer(
     let mut voice_in = use_signal(|| false);
     let landed = use_signal(|| false);
     let sent = use_signal(|| false);
+    // The pill snapping back into a ball before dictation unrolls from it.
+    let mut balling = use_signal(|| false);
 
     let recording_state = (app.recording_state)();
     let is_idle = recording_state == RecordingState::Idle
@@ -118,6 +129,8 @@ pub fn Composer(
                 ))
                 .await;
                 voice_leaving.set(false);
+                // The capsule rolled back into the ball: it stretches again.
+                balling.set(false);
             });
         }
     });
@@ -130,7 +143,8 @@ pub fn Composer(
             signal.set(false);
         });
     };
-    let menu_open = if chat {
+    // Hermes and the notes chat never share a screen: they share the flag.
+    let menu_open = if chat || hermes {
         (app.show_tools_menu)()
     } else {
         (app.show_note_tools_menu)()
@@ -138,11 +152,14 @@ pub fn Composer(
     let show_mention = chat && (app.show_mention_menu)();
     // iOS 26+: a native menu over the "+" replaces the web popover.
     let native_menu = crate::ui::app::native_glass();
-    let empty = input().trim().is_empty();
+    let attached = attachments.is_some_and(|a| !a.read().is_empty());
+    // An attachment alone is enough to send.
+    let empty = input().trim().is_empty() && !attached;
 
     let mut commit = move || {
         let text = input().trim().to_string();
-        if text.is_empty() || disabled {
+        let attached = attachments.is_some_and(|a| !a.peek().is_empty());
+        if (text.is_empty() && !attached) || disabled {
             return;
         }
         input.set(String::new());
@@ -174,8 +191,11 @@ pub fn Composer(
                 commit();
             } else {
                 flash(landed);
+                // No focus here: iOS opens the keyboard only for a finger, and
+                // a focused field reserves the keyboard's height anyway
+                // (keyboard/inset.rs), leaving the bar stranded mid-screen.
                 dioxus::document::eval(&format!(
-                    "requestAnimationFrame(() => {{ {AUTOSIZE} var f = document.querySelector('.composer-field'); if (f) f.focus(); }});"
+                    "requestAnimationFrame(() => {{ {AUTOSIZE} }});"
                 ));
             }
         }
@@ -219,25 +239,36 @@ pub fn Composer(
                         MentionMenu { input, mentions, query: mention_query() }
                     }
                     div { class: "composer-stack relative flex-1 min-w-0",
+                        if let (true, Some(e)) = (hermes, (app.hermes_attach_error)()) {
+                            p { class: "px-2 pb-2 text-xs text-ios-red", role: "alert", "{e}" }
+                        }
+                        if hermes {
+                            SkillSuggest { input }
+                        }
+                        if let Some(list) = attachments.filter(|a| !a.read().is_empty()) {
+                            AttachmentChips { list }
+                        }
+                        // The voice layer covers the capsule, never the chips.
+                        div { class: "relative",
                         div { class: capsule,
                             "data-hidden": !is_idle,
                             "data-landed": landed(),
-                            "data-plain": hermes,
                             div { class: "absolute left-[6px] bottom-[6px]",
-                                hidden: hermes,
-                                if native_menu && !hermes {
+                                if native_menu && hermes {
+                                    NativeHermesToolsMenu {}
+                                } else if native_menu {
                                     NativeToolsMenu { note: !chat }
                                 }
                                 button {
                                     class: "composer-plus pressable w-[46px] h-[46px] rounded-full flex items-center justify-center text-stone-600 hover:bg-stone-200/70",
-                                    "data-glass": (native_menu && !hermes).then_some(if chat { "chat-plus" } else { "note-plus" }),
+                                    "data-glass": native_menu.then_some(if hermes { "hermes-plus" } else if chat { "chat-plus" } else { "note-plus" }),
                                     "data-open": menu_open,
                                     "aria-label": t(&lang, "chat-tools-tooltip"),
                                     "aria-expanded": menu_open,
                                     disabled: disabled,
                                     onclick: move |_| {
                                         app.show_mention_menu.set(false);
-                                        if chat {
+                                        if chat || hermes {
                                             app.show_tools_menu.set(!(app.show_tools_menu)());
                                         } else {
                                             app.show_note_tools_menu.set(!(app.show_note_tools_menu)());
@@ -245,7 +276,9 @@ pub fn Composer(
                                     },
                                     IconPlus { size: 24 }
                                 }
-                                if menu_open {
+                                if menu_open && hermes {
+                                    HermesToolsMenu {}
+                                } else if menu_open {
                                     ToolsMenu { note: !chat }
                                 }
                             }
@@ -288,34 +321,56 @@ pub fn Composer(
                                     }
                                 },
                             }
-                            button {
-                                class: "composer-primary pressable press-grow absolute right-[5px] bottom-[5px] w-[50px] h-[50px] rounded-full bg-ios-orange text-white flex items-center justify-center overflow-hidden disabled:opacity-50",
-                                "data-has-text": !empty,
+                            // The orange disc is the mic; with something to send
+                            // it stretches into a pill holding the send disc, and
+                            // snaps back into a ball when the mic is tapped there.
+                            div {
+                                class: "composer-actions absolute right-[5px] bottom-[5px]",
+                                "data-ready": !empty,
+                                "data-ball": balling(),
                                 "data-sent": sent(),
-                                "aria-label": t(&lang, if empty { "recording-dictate" } else if chat || hermes { "chat-send" } else { "composer-append" }),
-                                disabled: disabled,
-                                onpointerdown: move |_| if empty { haptic_prepare("medium") } else { haptic_prepare("soft") },
-                                onclick: move |_| {
-                                    if empty {
+                                "data-disabled": disabled,
+                                button {
+                                    class: "composer-act composer-act-mic pressable",
+                                    "aria-label": t(&lang, "recording-dictate"),
+                                    disabled: disabled,
+                                    onpointerdown: move |_| haptic_prepare("medium"),
+                                    onclick: move |_| {
                                         haptic("medium");
+                                        if empty {
+                                            start_recording(recorder, app);
+                                            return;
+                                        }
+                                        // Ball and recording start together: the
+                                        // capsule unrolls from the ball at once.
+                                        balling.set(true);
                                         start_recording(recorder, app);
-                                    } else {
+                                    },
+                                    IconMic { size: 22 }
+                                }
+                                button {
+                                    class: "composer-act composer-act-send pressable",
+                                    "aria-label": t(&lang, if chat || hermes { "chat-send" } else { "composer-append" }),
+                                    disabled: disabled || empty,
+                                    onpointerdown: move |_| haptic_prepare("soft"),
+                                    onclick: move |_| {
                                         haptic("soft");
                                         commit();
-                                    }
-                                },
-                                span { class: "composer-icon composer-icon-mic absolute inset-0 flex items-center justify-center", IconMic { size: 22 } }
-                                span { class: "composer-icon composer-icon-send absolute inset-0 flex items-center justify-center", IconArrowUp { size: 22 } }
+                                    },
+                                    IconArrowUp { size: 22 }
+                                }
                             }
                         }
                         if !is_idle || voice_leaving() {
                             // Enter/exit are CSS transitions driven by Rust flags:
                             // data-in flips one tick after mount, data-leaving on exit.
-                            div { class: "voice-layer absolute inset-0",
+                            // One line high, at the bottom, whatever the text's height.
+                            div { class: "voice-layer absolute inset-x-0 bottom-0 h-[60px]",
                                 "data-in": voice_in() && !is_idle,
                                 "data-leaving": is_idle,
                                 VoiceCapsule { pending_audio, transcribe_only: chat || hermes, commit_on_transcribed }
                             }
+                        }
                         }
                     }
                 }

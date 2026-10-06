@@ -3,6 +3,42 @@ use std::sync::Mutex;
 
 static PLAYER: Mutex<Option<Child>> = Mutex::new(None);
 
+// Longest side of a photo sent to Hermes, the same as on iOS.
+const PHOTO_MAX_SIDE: &str = "1568";
+const PHOTO_TYPES: &[&str] =
+    &["jpg", "jpeg", "png", "heic", "gif", "webp", "tiff"];
+
+/// Photos chosen in a file dialog, redrawn by sips as (name, JPEG).
+pub fn pick_photos() -> Vec<(String, Vec<u8>)> {
+    let Some(paths) = rfd::FileDialog::new()
+        .add_filter("Images", PHOTO_TYPES)
+        .pick_files()
+    else {
+        return Vec::new();
+    };
+    paths
+        .iter()
+        .filter_map(|path| {
+            let out = std::env::temp_dir().join(format!(
+                "flowflow-{}.jpg",
+                uuid::Uuid::new_v4().simple()
+            ));
+            let reduced = std::process::Command::new("/usr/bin/sips")
+                .args(["-Z", PHOTO_MAX_SIDE, "-s", "format", "jpeg"])
+                .args(["-s", "formatOptions", "80"])
+                .arg(path)
+                .arg("--out")
+                .arg(&out)
+                .output()
+                .is_ok_and(|o| o.status.success());
+            let bytes = reduced.then(|| std::fs::read(&out).ok()).flatten();
+            let _ = std::fs::remove_file(&out);
+            let stem = path.file_stem()?.to_string_lossy().to_string();
+            Some((format!("{stem}.jpg"), bytes?))
+        })
+        .collect()
+}
+
 pub fn open_calendar_at(
     year: Option<i32>,
     month: Option<i32>,

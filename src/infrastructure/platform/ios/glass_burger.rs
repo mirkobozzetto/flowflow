@@ -34,6 +34,7 @@ fn has_menu(id: &str) -> bool {
             | "note-plus"
             | "chat-plus"
             | "chats-plus"
+            | "hermes-plus"
             | "hermes-model"
             | "chat-pick"
     )
@@ -45,7 +46,11 @@ fn has_menu(id: &str) -> bool {
 fn is_plus(id: &str) -> bool {
     matches!(
         id,
-        "note-plus" | "chat-plus" | "chats-plus" | "hermes-model"
+        "note-plus"
+            | "chat-plus"
+            | "chats-plus"
+            | "hermes-plus"
+            | "hermes-model"
     )
 }
 
@@ -248,6 +253,7 @@ fn configuration(
         let id = match id {
             "note-plus" => "note-plus",
             "chats-plus" => "chats-plus",
+            "hermes-plus" => "hermes-plus",
             "hermes-model" => "hermes-model",
             _ => "chat-plus",
         };

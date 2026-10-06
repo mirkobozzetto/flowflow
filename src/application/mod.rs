@@ -21,6 +21,8 @@ pub mod device_naming;
 pub mod embed;
 pub mod error;
 pub mod hermes_chat;
+pub mod hermes_message;
+pub mod hermes_skills;
 pub mod i18n;
 pub mod intent;
 pub mod mention;

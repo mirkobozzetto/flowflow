@@ -12,6 +12,7 @@ mod notes;
 mod onboarding;
 mod recording;
 mod settings;
+pub(crate) mod sf_icon;
 mod shared;
 mod sidebar;
 mod state;
