@@ -3,7 +3,7 @@ mod audio_player;
 mod audio_section;
 mod dates;
 mod detail;
-mod menu;
+pub(crate) mod menu;
 mod note_actions;
 pub(crate) mod note_tools_menu;
 mod related;

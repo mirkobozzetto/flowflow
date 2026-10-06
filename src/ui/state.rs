@@ -177,6 +177,8 @@ pub struct AppState {
     // What the next Hermes question carries: filled by the "+" menus and by
     // a note's "Send to Hermes", emptied when the question leaves.
     pub hermes_attachments: Signal<Vec<HermesAttachment>>,
+    // Why the last attachment did not make it, shown above the field.
+    pub hermes_attach_error: Signal<Option<String>>,
 }
 
 impl AppState {
@@ -239,6 +241,7 @@ impl AppState {
             hermes_pick: Signal::new(None),
             hermes_effort: Signal::new(None),
             hermes_attachments: Signal::new(Vec::new()),
+            hermes_attach_error: Signal::new(None),
         }
     }
 }
