@@ -46,6 +46,9 @@ pub fn mention_fragment(s: &str) -> Option<String> {
 // radius transition in CSS), the buttons stay anchored to its bottom and the
 // field slides to full width on the second line. The caret never moves: the
 // box comes to it.
+// How long the pill takes to snap into a ball before dictation starts.
+const BALL_MS: u64 = 200;
+
 const AUTOSIZE: &str = r#"
     var ta = document.querySelector('.composer-field');
     var cap = ta && ta.closest('.composer-capsule');
@@ -92,6 +95,8 @@ pub fn Composer(
     let mut voice_in = use_signal(|| false);
     let landed = use_signal(|| false);
     let sent = use_signal(|| false);
+    // The pill snapping back into a ball before dictation unrolls from it.
+    let mut balling = use_signal(|| false);
 
     let recording_state = (app.recording_state)();
     let is_idle = recording_state == RecordingState::Idle
@@ -127,6 +132,8 @@ pub fn Composer(
                 ))
                 .await;
                 voice_leaving.set(false);
+                // The capsule rolled back into the ball: it stretches again.
+                balling.set(false);
             });
         }
     });
@@ -314,24 +321,45 @@ pub fn Composer(
                                     }
                                 },
                             }
-                            button {
-                                class: "composer-primary pressable press-grow absolute right-[5px] bottom-[5px] w-[50px] h-[50px] rounded-full bg-ios-orange text-white flex items-center justify-center overflow-hidden disabled:opacity-50",
-                                "data-has-text": !empty,
+                            // The orange disc is the mic; with something to send
+                            // it stretches into a pill holding the send disc, and
+                            // snaps back into a ball when the mic is tapped there.
+                            div {
+                                class: "composer-actions absolute right-[5px] bottom-[5px]",
+                                "data-ready": !empty,
+                                "data-ball": balling(),
                                 "data-sent": sent(),
-                                "aria-label": t(&lang, if empty { "recording-dictate" } else if chat || hermes { "chat-send" } else { "composer-append" }),
-                                disabled: disabled,
-                                onpointerdown: move |_| if empty { haptic_prepare("medium") } else { haptic_prepare("soft") },
-                                onclick: move |_| {
-                                    if empty {
+                                "data-disabled": disabled,
+                                button {
+                                    class: "composer-act composer-act-mic pressable",
+                                    "aria-label": t(&lang, "recording-dictate"),
+                                    disabled: disabled,
+                                    onpointerdown: move |_| haptic_prepare("medium"),
+                                    onclick: move |_| {
                                         haptic("medium");
-                                        start_recording(recorder, app);
-                                    } else {
+                                        if empty {
+                                            start_recording(recorder, app);
+                                            return;
+                                        }
+                                        balling.set(true);
+                                        spawn(async move {
+                                            futures_timer::Delay::new(std::time::Duration::from_millis(BALL_MS)).await;
+                                            start_recording(recorder, app);
+                                        });
+                                    },
+                                    IconMic { size: 22 }
+                                }
+                                button {
+                                    class: "composer-act composer-act-send pressable",
+                                    "aria-label": t(&lang, if chat || hermes { "chat-send" } else { "composer-append" }),
+                                    disabled: disabled || empty,
+                                    onpointerdown: move |_| haptic_prepare("soft"),
+                                    onclick: move |_| {
                                         haptic("soft");
                                         commit();
-                                    }
-                                },
-                                span { class: "composer-icon composer-icon-mic absolute inset-0 flex items-center justify-center", IconMic { size: 22 } }
-                                span { class: "composer-icon composer-icon-send absolute inset-0 flex items-center justify-center", IconArrowUp { size: 22 } }
+                                    },
+                                    IconArrowUp { size: 22 }
+                                }
                             }
                         }
                         if !is_idle || voice_leaving() {

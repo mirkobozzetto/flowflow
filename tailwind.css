@@ -323,10 +323,6 @@
     margin-left: 0;
     margin-right: 0;
 }
-/* No "+" (the Hermes chat): the field starts at the capsule's edge. */
-.composer-capsule[data-plain="true"] .composer-field {
-    margin-left: 0;
-}
 .composer-plus {
     transition: transform 280ms var(--ease-soft), background-color 180ms;
 }
@@ -335,17 +331,82 @@
     transform: rotate(45deg);
     background: var(--color-stone-200);
 }
-.composer-icon {
-    transition: transform 260ms var(--ease-soft), opacity 160ms;
+/* The orange disc is the mic. With something to send it stretches left
+   into a pill (spring) holding a white send disc; a tap on the mic snaps
+   it back into a ball, from which the dictation capsule unrolls. */
+.composer-actions {
+    --spring: cubic-bezier(0.34, 1.56, 0.64, 1);
+    width: 50px;
+    height: 50px;
+    border-radius: 9999px;
+    overflow: hidden;
+    background: var(--color-ios-orange);
+    box-shadow: 0 6px 16px -8px --alpha(var(--color-ios-orange) / 60%);
+    transition: width 500ms var(--spring);
 }
-.composer-icon-send { transform: scale(0.4) rotate(-45deg); opacity: 0; }
-.composer-primary[data-has-text="true"] .composer-icon-mic {
-    transform: scale(0.4) rotate(45deg);
+.composer-actions[data-ready="true"] {
+    width: 100px;
+}
+.composer-actions[data-ready="true"][data-ball="true"] {
+    width: 50px;
+    transition: width 200ms cubic-bezier(0.5, 0, 0.2, 1.3);
+}
+.composer-actions[data-disabled="true"] {
+    opacity: 0.5;
+}
+.composer-act {
+    position: absolute;
+    top: 0;
+    width: 50px;
+    height: 50px;
+    border-radius: 9999px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: white;
+}
+.composer-act-mic {
+    left: 0;
+}
+.composer-act-send {
+    top: 5px;
+    right: 5px;
+    width: 40px;
+    height: 40px;
+    background: white;
+    color: var(--color-ios-orange);
+    box-shadow: 0 2px 8px rgba(120, 30, 0, 0.22);
     opacity: 0;
+    transform: scale(0.3) rotate(-60deg);
+    pointer-events: none;
+    transition: opacity 200ms, transform 450ms var(--spring);
 }
-.composer-primary[data-has-text="true"] .composer-icon-send {
-    transform: none;
+.composer-actions[data-ready="true"] .composer-act-send {
     opacity: 1;
+    transform: none;
+    pointer-events: auto;
+    transition-delay: 120ms;
+}
+.composer-actions[data-ball="true"] .composer-act-send {
+    opacity: 0;
+    transform: scale(0.3);
+    transition: opacity 100ms, transform 100ms;
+}
+.composer-actions[data-ball="true"] .composer-act-mic {
+    animation: composer-ball 240ms ease-out;
+}
+@keyframes composer-ball {
+    45% { transform: scale(0.82); }
+}
+/* One line: the field stops before the pill. */
+.composer-capsule:not([data-multi="true"]):has(.composer-actions[data-ready="true"]) .composer-field {
+    margin-right: 104px;
+}
+@media (prefers-reduced-motion: reduce) {
+    .composer-actions,
+    .composer-act-send {
+        transition-duration: 1ms;
+    }
 }
 .composer-capsule[data-hidden="true"] {
     opacity: 0;
@@ -355,7 +416,7 @@
 .composer-capsule[data-landed="true"] .composer-field {
     animation: fadeInUp 220ms var(--ease-soft) both;
 }
-.composer-primary[data-sent="true"] {
+.composer-actions[data-sent="true"] {
     animation: composer-sent 200ms var(--ease-soft);
 }
 @keyframes composer-sent {
