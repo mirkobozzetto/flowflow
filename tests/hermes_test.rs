@@ -1,6 +1,7 @@
 use flowflow::application::hermes_chat::{
     self, HermesError, HermesTurn, LiveReply, RunEvent,
 };
+use flowflow::application::hermes_message::Asked;
 use flowflow::infrastructure::hermes::{
     drain_sse_data, normalize_base, parse_run_event, HermesMessage,
 };
@@ -75,7 +76,10 @@ fn session_history_folds_tool_calls_into_the_reply_steps() {
     assert_eq!(turns.len(), 2);
     assert_eq!(
         turns[0],
-        HermesTurn::User("Lance la commande date dans le terminal.".into())
+        HermesTurn::User(Asked {
+            question: "Lance la commande date dans le terminal.".into(),
+            ..Asked::default()
+        })
     );
     let HermesTurn::Reply { text, steps } = &turns[1] else {
         panic!("expected a reply");
@@ -85,6 +89,67 @@ fn session_history_folds_tool_calls_into_the_reply_steps() {
     assert_eq!(steps[0].tool, "terminal");
     assert_eq!(steps[0].detail, "date");
     assert!(!steps[0].running);
+}
+
+#[test]
+fn a_question_read_back_shows_attachment_names_never_their_body() {
+    use flowflow::application::hermes_message::{compose, split, Attachment};
+    let attachments = [
+        Attachment::Photo {
+            name: "Tableau.jpg".into(),
+            jpeg: vec![1, 2, 3],
+        },
+        Attachment::File {
+            name: "Devis \"v2\".pdf".into(),
+            text: "Total 4 200 €".into(),
+        },
+        Attachment::Skill {
+            name: "github-code-review".into(),
+        },
+    ];
+    let (text, images) = compose("Résume ça", &attachments);
+    assert!(
+        text.contains("Total 4 200 €") && text.contains("github-code-review")
+    );
+    assert_eq!(images, vec!["data:image/jpeg;base64,AQID".to_string()]);
+    assert_eq!(
+        split(&text),
+        Asked {
+            question: "Résume ça".into(),
+            attachments: vec!["Tableau.jpg".into(), "Devis \"v2\".pdf".into()],
+            skills: vec!["github-code-review".into()],
+        }
+    );
+    let (alone, _) = compose("", &attachments[1..2]);
+    assert_eq!(split(&alone).question, "");
+    assert_eq!(split("Juste une question").question, "Juste une question");
+}
+
+#[test]
+fn skills_come_from_the_api_or_the_dashboard_page() {
+    use flowflow::infrastructure::hermes::{
+        dashboard_base, dashboard_token, parse_skills,
+    };
+    assert_eq!(
+        dashboard_base("https://srv.tailnet.ts.net:8642").as_deref(),
+        Some("https://srv.tailnet.ts.net")
+    );
+    let page = r#"<script>window.__HERMES_SESSION_TOKEN__="AbC-12_x";window.__HERMES_BASE_PATH__=""</script>"#;
+    assert_eq!(dashboard_token(page).as_deref(), Some("AbC-12_x"));
+    assert_eq!(dashboard_token("<html></html>"), None);
+    // Dashboard shape: a bare array, a switched-off skill left out.
+    let dashboard: serde_json::Value = serde_json::from_str(
+        r#"[{"name": "codex", "description": "Delegate coding", "category": "autonomous-ai-agents", "enabled": true},
+            {"name": "claude-code", "description": "", "category": "autonomous-ai-agents", "enabled": false}]"#,
+    )
+    .unwrap();
+    let names: Vec<String> = parse_skills(&dashboard)
+        .into_iter()
+        .map(|s| s.name)
+        .collect();
+    assert_eq!(names, vec!["codex"]);
+    let api = serde_json::json!({"object": "list", "data": [{"name": "obsidian", "category": "note-taking"}]});
+    assert_eq!(parse_skills(&api)[0].name, "obsidian");
 }
 
 #[test]
@@ -296,7 +361,7 @@ async fn the_first_question_opens_a_flowflow_session_then_a_run() {
     configure(&db, &base);
 
     let (session, run) =
-        hermes_chat::send(&db, None, "Quelle heure est-il ?", None, None)
+        hermes_chat::send(&db, None, "Quelle heure est-il ?", &[], None, None)
             .await
             .unwrap();
 
@@ -683,4 +748,50 @@ fn a_conversation_thinks_at_medium_unless_told_otherwise() {
         hermes_chat::effective_effort(None, "fireworks", "llama"),
         None
     );
+}
+
+#[test]
+fn typed_words_and_a_slash_find_the_skill_meant() {
+    use flowflow::application::hermes_skills::{
+        by_category, most_used, named, slash_matches, slash_query, strip_slash,
+    };
+    use flowflow::infrastructure::hermes::Skill;
+    let skill = |name: &str, category: &str, usage: u32| Skill {
+        name: name.into(),
+        description: String::new(),
+        category: category.into(),
+        usage,
+    };
+    let skills = vec![
+        skill("hermes-agent", "autonomous-ai-agents", 9),
+        skill("hermes-model-routing", "autonomous-ai-agents", 2),
+        skill("obsidian", "note-taking", 4),
+        skill("github-code-review", "github", 3),
+        skill("github", "software-development", 1),
+    ];
+    let names =
+        |list: Vec<Skill>| list.into_iter().map(|s| s.name).collect::<Vec<_>>();
+    // Accents fold, the most used comes first.
+    assert_eq!(
+        names(named(&skills, "Demande à Hermès de", &[])),
+        ["hermes-agent", "hermes-model-routing"]
+    );
+    // The word being typed suggests from its third letter.
+    assert_eq!(
+        names(named(&skills, "range ça dans obs", &[])),
+        ["obsidian"]
+    );
+    // A common name part never stands for its skill, a taken one is left out.
+    assert!(named(&skills, "fais une review du code ", &[]).is_empty());
+    assert!(named(&skills, "obsidian ", &["obsidian".into()]).is_empty());
+    // "/" at the start or after a space opens the matches, a path does not.
+    assert_eq!(slash_query("Fais une revue /git").as_deref(), Some("git"));
+    assert_eq!(slash_query("/usr/local"), None);
+    assert_eq!(
+        names(slash_matches(&skills, "git")),
+        ["github-code-review", "github"]
+    );
+    assert_eq!(strip_slash("Fais une revue /git"), "Fais une revue ");
+    assert_eq!(names(most_used(&skills))[0], "hermes-agent");
+    assert_eq!(by_category(&skills)[0].0, "autonomous-ai-agents");
 }

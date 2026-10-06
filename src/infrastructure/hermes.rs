@@ -190,6 +190,50 @@ pub fn parse_model_options(v: &serde_json::Value) -> ModelOptions {
     }
 }
 
+/// A skill installed on Hermes.
+#[derive(Debug, Clone, PartialEq, Deserialize)]
+pub struct Skill {
+    pub name: String,
+    #[serde(default)]
+    pub description: String,
+    #[serde(default)]
+    pub category: String,
+    /// How often Hermes used it; only the dashboard list counts.
+    #[serde(default)]
+    pub usage: u32,
+}
+
+/// `/v1/skills` (`{"data": [...]}`) or the dashboard's `/api/skills` (a bare
+/// array); a skill switched off in Hermes is left out.
+pub fn parse_skills(v: &serde_json::Value) -> Vec<Skill> {
+    v.get("data")
+        .unwrap_or(v)
+        .as_array()
+        .into_iter()
+        .flatten()
+        .filter(|s| s.get("enabled").and_then(|e| e.as_bool()) != Some(false))
+        .filter_map(|s| serde_json::from_value::<Skill>(s.clone()).ok())
+        .filter(|s| !s.name.trim().is_empty())
+        .collect()
+}
+
+// The dashboard sits on the API host's default HTTPS port (the kit's
+// `tailscale serve`); its skills list works where the API's /v1/skills fails
+// on current Hermes releases (upstream issue 132317).
+// ponytail: port assumed; add a setting if a setup serves it elsewhere.
+pub fn dashboard_base(api_base: &str) -> Option<String> {
+    let mut url = url::Url::parse(api_base).ok()?;
+    url.set_port(None).ok()?;
+    Some(url.as_str().trim_end_matches('/').to_string())
+}
+
+/// The session token the dashboard writes into its own page for its web app.
+pub fn dashboard_token(page: &str) -> Option<String> {
+    let rest = page.split("__HERMES_SESSION_TOKEN__=\"").nth(1)?;
+    let token = rest.split('"').next()?;
+    (!token.is_empty()).then(|| token.to_string())
+}
+
 fn run_state(v: &serde_json::Value) -> RunState {
     let text = |k: &str| {
         v.get(k)
@@ -337,16 +381,66 @@ impl HermesClient {
             .map_or(0, Vec::len))
     }
 
+    /// Installed skills, in Hermes' own order: the API's list, else the
+    /// dashboard's, read the way its web app reads it.
+    pub async fn skills(&self) -> Result<Vec<Skill>, HermesError> {
+        match self.json_at("/v1/skills").await {
+            Ok(v) => Ok(parse_skills(&v)),
+            Err(api) => self.dashboard_skills().await.map_err(|_| api),
+        }
+    }
+
+    async fn dashboard_skills(&self) -> Result<Vec<Skill>, HermesError> {
+        let base = dashboard_base(&self.base).ok_or(HermesError::NotFound)?;
+        let page = checked(
+            self.http
+                .get(format!("{base}/"))
+                .timeout(REQUEST_TIMEOUT)
+                .send()
+                .await,
+        )
+        .await?
+        .text()
+        .await
+        .map_err(|e| HermesError::Server(e.to_string()))?;
+        let token = dashboard_token(&page).ok_or(HermesError::KeyRefused)?;
+        let list: serde_json::Value = checked(
+            self.http
+                .get(format!("{base}/api/skills"))
+                .header("X-Hermes-Session-Token", token)
+                .timeout(REQUEST_TIMEOUT)
+                .send()
+                .await,
+        )
+        .await?
+        .json()
+        .await
+        .map_err(|e| HermesError::Server(e.to_string()))?;
+        Ok(parse_skills(&list))
+    }
+
     /// Starts a turn on the session, on the chosen (provider, model) and
     /// reasoning effort or Hermes' own defaults; it runs on the server
-    /// whatever happens to this connection.
+    /// whatever happens to this connection. Images (data URLs) ride along
+    /// as parts of the user message.
     pub async fn start_run(
         &self,
         session_id: &str,
         input: &str,
+        images: &[String],
         model: Option<(&str, &str)>,
         effort: Option<&str>,
     ) -> Result<String, HermesError> {
+        let input = if images.is_empty() {
+            serde_json::json!(input)
+        } else {
+            let mut parts =
+                vec![serde_json::json!({ "type": "text", "text": input })];
+            parts.extend(images.iter().map(|url| {
+                serde_json::json!({ "type": "image_url", "image_url": { "url": url } })
+            }));
+            serde_json::json!([{ "role": "user", "content": parts }])
+        };
         let mut body = serde_json::json!({
             "input": input,
             "session_id": session_id,

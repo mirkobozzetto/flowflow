@@ -2,11 +2,12 @@
 //! session; FlowFlow keeps a pointer to it and follows the running turn,
 //! which survives the app being suspended or killed.
 
+use crate::application::hermes_message::{self, Asked, Attachment};
 use crate::infrastructure::hermes::{HermesClient, HermesMessage, RunState};
 use crate::infrastructure::persistence::Database;
 
 pub use crate::infrastructure::hermes::{
-    HermesError, ModelOptions, ModelProvider, RunEvent, KEY_SETTING,
+    HermesError, ModelOptions, ModelProvider, RunEvent, Skill, KEY_SETTING,
     URL_SETTING,
 };
 
@@ -30,7 +31,8 @@ pub struct HermesStep {
 
 #[derive(Clone, Debug, PartialEq)]
 pub enum HermesTurn {
-    User(String),
+    /// The question typed and what went with it.
+    User(Asked),
     Reply {
         text: String,
         steps: Vec<HermesStep>,
@@ -166,7 +168,7 @@ pub fn turns(messages: &[HermesMessage]) -> Vec<HermesTurn> {
                         steps: std::mem::take(&mut steps),
                     });
                 }
-                out.push(HermesTurn::User(m.text()));
+                out.push(HermesTurn::User(hermes_message::split(&m.text())));
             }
             "assistant" => {
                 let calls = m.tool_calls.as_deref().unwrap_or_default();
@@ -435,15 +437,19 @@ pub async fn model_options(db: &Database) -> Result<ModelOptions, HermesError> {
     HermesClient::from_db(db)?.model_options().await
 }
 
-/// What the empty conversation shows: skills and scheduled tasks counted on
-/// Hermes; a list it cannot serve is left out rather than shown as zero.
-pub async fn counts(db: &Database) -> (Option<usize>, Option<usize>) {
-    let Ok(client) = HermesClient::from_db(db) else {
-        return (None, None);
-    };
-    let (skills, jobs) =
-        futures::join!(client.count("/v1/skills"), client.count("/api/jobs"));
-    (skills.ok(), jobs.ok())
+/// The skills installed on Hermes.
+pub async fn skills(db: &Database) -> Result<Vec<Skill>, HermesError> {
+    HermesClient::from_db(db)?.skills().await
+}
+
+/// Scheduled tasks counted on Hermes, for the empty conversation; None when
+/// Hermes cannot serve the list rather than a zero.
+pub async fn jobs_count(db: &Database) -> Option<usize> {
+    HermesClient::from_db(db)
+        .ok()?
+        .count("/api/jobs")
+        .await
+        .ok()
 }
 
 /// "claude-opus-5-5[1m]" reads "Opus 5.5", "gpt-6.1-sol" reads "GPT-6.1 Sol".
@@ -503,22 +509,25 @@ pub fn provider_label(slug: &str, name: &str) -> String {
     }
 }
 
-/// Sends a question, on the model picked for the conversation if any. The
-/// first one opens the Hermes session and the local conversation. Returns
-/// the session and the run to follow.
+/// Sends a question and its attachments, on the model picked for the
+/// conversation if any. The first one opens the Hermes session and the local
+/// conversation. Returns the session and the run to follow.
 pub async fn send(
     db: &Database,
     session_id: Option<String>,
-    text: &str,
+    question: &str,
+    attachments: &[Attachment],
     model: Option<(String, String)>,
     effort: Option<String>,
 ) -> Result<(String, String), HermesError> {
     let client = HermesClient::from_db(db)?;
+    let (text, images) = hermes_message::compose(question, attachments);
     let session_id = match session_id {
         Some(id) => id,
         None => {
             let id = client.create_session().await?;
-            let title: String = text.chars().take(TITLE_CHARS).collect();
+            let title =
+                hermes_message::title(question, attachments, TITLE_CHARS);
             db.create_hermes_conversation(&id, &title)
                 .map_err(HermesError::Server)?;
             if let Some((provider, name)) = &model {
@@ -535,13 +544,14 @@ pub async fn send(
     let run_id = client
         .start_run(
             &session_id,
-            text,
+            &text,
+            &images,
             pick.as_ref().map(|(p, m)| (p.as_str(), m.as_str())),
             effort.as_deref(),
         )
         .await?;
     let _ =
-        db.set_hermes_pending_run(&session_id, Some((run_id.as_str(), text)));
+        db.set_hermes_pending_run(&session_id, Some((run_id.as_str(), &text)));
     let _ = db.touch_hermes_conversation(&session_id);
     Ok((session_id, run_id))
 }

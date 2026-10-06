@@ -10,7 +10,7 @@
   const lastPlace = new Map;
   const shown = new Map;
   const lastMenu = new Map;
-  const MENU_IDS = ["note-more", "chat-more", "note-plus", "chat-plus", "chats-plus", "hermes-model", "chat-pick"];
+  const MENU_IDS = ["note-more", "chat-more", "note-plus", "chat-plus", "chats-plus", "hermes-plus", "hermes-model", "chat-pick"];
   w.__ffMenuOpen = (open) => {
     document.querySelectorAll('[data-glass$="-plus"]').forEach((a) => a.toggleAttribute("data-native-open", open));
   };
@@ -105,6 +105,7 @@
         out.push(iconOf({
           title: child.dataset.nativeTitle ?? "",
           symbol: child.dataset.nativeSymbol ?? "",
+          subtitle: child.dataset.nativeSubtitle,
           inline: child.hasAttribute("data-native-inline"),
           children: items(child, icons)
         }, child));
