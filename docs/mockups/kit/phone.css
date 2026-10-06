@@ -1,0 +1,70 @@
+/* Loaded after assets/tailwind.css. The app pins html/body for iOS (fixed,
+   overflow hidden); a mockup page must scroll like any page. */
+html, body {
+  position: static;
+  overflow: auto;
+  height: auto;
+  width: auto;
+}
+body {
+  margin: 0;
+  padding: 32px 16px 64px;
+  background: #e7e5e4;
+  font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", sans-serif;
+  -webkit-font-smoothing: antialiased;
+}
+
+.mk-bar { display: flex; flex-wrap: wrap; gap: 8px; justify-content: center; margin-bottom: 24px; }
+.mk-bar button {
+  height: 34px; padding: 0 14px; border-radius: 999px; border: 1px solid #d6d3d1;
+  background: #fafaf9; color: #44403c; font-size: 13px; font-weight: 500; cursor: pointer;
+}
+.mk-bar button[aria-pressed="true"] { background: #1c1917; border-color: #1c1917; color: #fff; }
+
+.mk-phone {
+  width: 390px; height: 844px; margin: 0 auto; position: relative; overflow: hidden;
+  border-radius: 54px; border: 10px solid #1c1c1e;
+  box-shadow: 0 0 0 2px #3a3a3c, 0 30px 60px -20px rgba(0, 0, 0, .45);
+  display: flex; flex-direction: column;
+}
+.mk-island {
+  position: absolute; top: 11px; left: 50%; transform: translateX(-50%);
+  width: 122px; height: 35px; border-radius: 20px; background: #000; z-index: 90;
+}
+.mk-status {
+  height: 54px; flex: none; display: flex; align-items: flex-end; justify-content: space-between;
+  padding: 0 32px 8px; font-size: 16px; font-weight: 600; color: #1c1917;
+}
+.mk-home {
+  position: absolute; bottom: 8px; left: 50%; transform: translateX(-50%);
+  width: 134px; height: 5px; border-radius: 3px; background: #1c1917; z-index: 90;
+}
+
+/* One screen at a time inside the phone. */
+.mk-screen { display: none; position: absolute; inset: 54px 0 0; flex-direction: column; }
+.mk-screen.is-on { display: flex; }
+.mk-scroll { flex: 1; overflow-y: auto; overscroll-behavior: contain; scrollbar-width: none; }
+.mk-scroll::-webkit-scrollbar { display: none; }
+.mk-dock { flex: none; padding: 8px 8px 30px; }
+
+/* Layers: menus and sheets open over the screen. */
+.mk-layer { display: none; }
+.mk-layer.is-on { display: block; }
+.mk-backdrop { position: absolute; inset: 0; z-index: 40; }
+.mk-sheet {
+  position: absolute; left: 0; right: 0; bottom: 0; z-index: 50; max-height: 82%;
+  display: flex; flex-direction: column;
+}
+.mk-toast {
+  position: absolute; left: 50%; bottom: 120px; transform: translateX(-50%); z-index: 95;
+  background: #1c1917; color: #fff; font-size: 13px; padding: 8px 14px; border-radius: 999px;
+  opacity: 0; transition: opacity .2s; pointer-events: none; white-space: nowrap;
+}
+.mk-toast.is-on { opacity: 1; }
+
+[data-go], [data-open], [data-close], [data-act] { cursor: pointer; }
+i[data-i] { display: inline-flex; font-style: normal; }
+
+/* Classes the app never uses as-is, so the compiled sheet lacks them. */
+.bg-stone-200\/70 { background: color-mix(in oklab, var(--color-stone-200) 70%, transparent); }
+.rotate-45 { rotate: 45deg; }
