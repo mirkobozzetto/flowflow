@@ -11,6 +11,7 @@ pub(crate) mod mention_menu;
 mod menu;
 pub(crate) mod models;
 pub(crate) mod new_chat_menu;
+pub(crate) mod skill_suggest;
 mod sources_accordion;
 pub(crate) mod tools_menu;
 mod trace_accordion;

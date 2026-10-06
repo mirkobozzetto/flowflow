@@ -7,6 +7,7 @@ use crate::ui::chat::hermes_tools_menu::{
     HermesToolsMenu, NativeHermesToolsMenu,
 };
 use crate::ui::chat::mention_menu::{MentionMenu, MentionedNote};
+use crate::ui::chat::skill_suggest::SkillSuggest;
 use crate::ui::chat::tools_menu::{NativeToolsMenu, ToolsMenu};
 use crate::ui::icons::*;
 use crate::ui::recording::{start_recording, VoiceCapsule};
@@ -233,6 +234,9 @@ pub fn Composer(
                     div { class: "composer-stack relative flex-1 min-w-0",
                         if let (true, Some(e)) = (hermes, (app.hermes_attach_error)()) {
                             p { class: "px-2 pb-2 text-xs text-ios-red", role: "alert", "{e}" }
+                        }
+                        if hermes {
+                            SkillSuggest { input }
                         }
                         if let Some(list) = attachments.filter(|a| !a.read().is_empty()) {
                             AttachmentChips { list }
