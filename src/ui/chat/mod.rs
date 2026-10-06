@@ -5,6 +5,7 @@ mod empty_state;
 pub(crate) mod hermes_attach;
 mod hermes_model_menu;
 mod hermes_reply;
+pub(crate) mod hermes_tools_menu;
 mod hermes_view;
 pub(crate) mod mention_menu;
 mod menu;
