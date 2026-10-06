@@ -803,3 +803,16 @@
         color: oklch(0.48 0.16 50);
     }
 }
+
+/* An SF Symbol mask (ui/sf_icon.rs) tinted by the text colour. */
+.sf-icon {
+    display: inline-block;
+    flex: none;
+    background-color: currentColor;
+    -webkit-mask-position: center;
+    -webkit-mask-size: contain;
+    -webkit-mask-repeat: no-repeat;
+    mask-position: center;
+    mask-size: contain;
+    mask-repeat: no-repeat;
+}

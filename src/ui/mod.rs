@@ -8,6 +8,7 @@ pub mod hooks;
 pub mod icons;
 mod keyboard;
 pub(crate) mod kit;
+pub(crate) mod sf_icon;
 mod notes;
 mod onboarding;
 mod recording;
