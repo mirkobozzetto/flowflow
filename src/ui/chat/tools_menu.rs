@@ -130,6 +130,8 @@ fn ToolsMenuBody(note: bool) -> Element {
         .unwrap_or(false);
     let agents = crate::application::agent_activation::palette_entries(&db());
     let _ = (app.notes_version)();
+    let hermes_linked =
+        note && crate::application::hermes_chat::configured(&db());
     let note_id = note
         .then(|| (app.current_note_id)())
         .flatten()
@@ -189,6 +191,17 @@ fn ToolsMenuBody(note: bool) -> Element {
                     span { class: MENU_ICON, IconChatAi { size: 22 } }
                     span { class: "flex-1 min-w-0",
                         span { class: ROW_TITLE, {t(&lang, "note-chat-entry")} }
+                    }
+                }
+                if hermes_linked {
+                    button {
+                        class: MENU_ROW,
+                        onclick: {
+                            let nid = nid.clone();
+                            move |_| crate::ui::chat::hermes_attach::send_note(app, &db(), &nid)
+                        },
+                        span { class: MENU_ICON, HermesAgentIcon { size: 22 } }
+                        span { class: ROW_TITLE, {t(&lang, "note-send-to-hermes")} }
                     }
                 }
                 if let Some(tid) = in_thread.clone() {
@@ -394,6 +407,8 @@ pub fn NativeToolsMenu(note: bool) -> Element {
     let lang = (app.current_lang)();
     let _ = (app.notes_version)();
     let agents = crate::application::agent_activation::palette_entries(&db());
+    let hermes_linked =
+        note && crate::application::hermes_chat::configured(&db());
     let connections = use_connections();
     let connectors = connections
         .read()
@@ -437,6 +452,18 @@ pub fn NativeToolsMenu(note: bool) -> Element {
                         },
                         NativeIcon { IconChatAi { size: 22 } }
                         {t(&lang, "note-chat-entry")}
+                    }
+                    if hermes_linked {
+                        button {
+                            "data-native-action": "send-hermes",
+                            "data-native-symbol": "paperplane",
+                            onclick: {
+                                let nid = nid.clone();
+                                move |_| crate::ui::chat::hermes_attach::send_note(app, &db(), &nid)
+                            },
+                            NativeIcon { HermesAgentIcon { size: 22 } }
+                            {t(&lang, "note-send-to-hermes")}
+                        }
                     }
                     if let Some(tid) = in_thread {
                         button {

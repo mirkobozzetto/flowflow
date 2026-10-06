@@ -20,6 +20,34 @@ fn close(mut app: AppState) {
     app.hermes_attach_error.set(None);
 }
 
+/// A new Hermes conversation with the note attached, the field ready.
+pub(crate) fn send_note(mut app: AppState, db: &Database, note_id: &str) {
+    let Some(note) = db.get_note(note_id).ok().flatten() else {
+        return;
+    };
+    let lang = (app.current_lang)();
+    let title = note
+        .title
+        .filter(|t| !t.trim().is_empty())
+        .unwrap_or_else(|| t(&lang, "note-card-untitled"));
+    app.show_note_menu.set(false);
+    app.show_note_tools_menu.set(false);
+    app.sidebar_tab.set(crate::ui::SidebarTab::Chats);
+    app.hermes_attach_error.set(None);
+    app.hermes_attachments.set(vec![Attachment::Note {
+        title,
+        text: note.content,
+    }]);
+    app.previous_view.set(Some(crate::ui::View::NoteDetail {
+        note_id: note_id.to_string(),
+    }));
+    app.view
+        .set(crate::ui::View::HermesChat { session_id: None });
+    document::eval(
+        "requestAnimationFrame(() => document.querySelector('.composer-field')?.focus());",
+    );
+}
+
 /// Adds what is not attached yet; the same name is never attached twice.
 pub(crate) fn attach(mut app: AppState, items: Vec<Attachment>) {
     let mut list = app.hermes_attachments.write();
