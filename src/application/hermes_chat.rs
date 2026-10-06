@@ -2,7 +2,7 @@
 //! session; FlowFlow keeps a pointer to it and follows the running turn,
 //! which survives the app being suspended or killed.
 
-use crate::application::hermes_message::{self, Attachment};
+use crate::application::hermes_message::{self, Asked, Attachment};
 use crate::infrastructure::hermes::{HermesClient, HermesMessage, RunState};
 use crate::infrastructure::persistence::Database;
 
@@ -31,11 +31,8 @@ pub struct HermesStep {
 
 #[derive(Clone, Debug, PartialEq)]
 pub enum HermesTurn {
-    /// The question typed and the names of what was attached to it.
-    User {
-        text: String,
-        attachments: Vec<String>,
-    },
+    /// The question typed and what went with it.
+    User(Asked),
     Reply {
         text: String,
         steps: Vec<HermesStep>,
@@ -171,8 +168,7 @@ pub fn turns(messages: &[HermesMessage]) -> Vec<HermesTurn> {
                         steps: std::mem::take(&mut steps),
                     });
                 }
-                let (text, attachments) = hermes_message::split(&m.text());
-                out.push(HermesTurn::User { text, attachments });
+                out.push(HermesTurn::User(hermes_message::split(&m.text())));
             }
             "assistant" => {
                 let calls = m.tool_calls.as_deref().unwrap_or_default();

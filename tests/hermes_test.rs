@@ -1,6 +1,7 @@
 use flowflow::application::hermes_chat::{
     self, HermesError, HermesTurn, LiveReply, RunEvent,
 };
+use flowflow::application::hermes_message::Asked;
 use flowflow::infrastructure::hermes::{
     drain_sse_data, normalize_base, parse_run_event, HermesMessage,
 };
@@ -75,10 +76,10 @@ fn session_history_folds_tool_calls_into_the_reply_steps() {
     assert_eq!(turns.len(), 2);
     assert_eq!(
         turns[0],
-        HermesTurn::User {
-            text: "Lance la commande date dans le terminal.".into(),
-            attachments: vec![],
-        }
+        HermesTurn::User(Asked {
+            question: "Lance la commande date dans le terminal.".into(),
+            ..Asked::default()
+        })
     );
     let HermesTurn::Reply { text, steps } = &turns[1] else {
         panic!("expected a reply");
@@ -113,21 +114,15 @@ fn a_question_read_back_shows_attachment_names_never_their_body() {
     assert_eq!(images, vec!["data:image/jpeg;base64,AQID".to_string()]);
     assert_eq!(
         split(&text),
-        (
-            "Résume ça".to_string(),
-            vec![
-                "Tableau.jpg".into(),
-                "Devis \"v2\".pdf".into(),
-                "github-code-review".into()
-            ]
-        )
+        Asked {
+            question: "Résume ça".into(),
+            attachments: vec!["Tableau.jpg".into(), "Devis \"v2\".pdf".into()],
+            skills: vec!["github-code-review".into()],
+        }
     );
     let (alone, _) = compose("", &attachments[1..2]);
-    assert_eq!(split(&alone).0, "");
-    assert_eq!(
-        split("Juste une question"),
-        ("Juste une question".into(), vec![])
-    );
+    assert_eq!(split(&alone).question, "");
+    assert_eq!(split("Juste une question").question, "Juste une question");
 }
 
 #[test]
@@ -753,4 +748,50 @@ fn a_conversation_thinks_at_medium_unless_told_otherwise() {
         hermes_chat::effective_effort(None, "fireworks", "llama"),
         None
     );
+}
+
+#[test]
+fn typed_words_and_a_slash_find_the_skill_meant() {
+    use flowflow::application::hermes_skills::{
+        by_category, most_used, named, slash_matches, slash_query, strip_slash,
+    };
+    use flowflow::infrastructure::hermes::Skill;
+    let skill = |name: &str, category: &str, usage: u32| Skill {
+        name: name.into(),
+        description: String::new(),
+        category: category.into(),
+        usage,
+    };
+    let skills = vec![
+        skill("hermes-agent", "autonomous-ai-agents", 9),
+        skill("hermes-model-routing", "autonomous-ai-agents", 2),
+        skill("obsidian", "note-taking", 4),
+        skill("github-code-review", "github", 3),
+        skill("github", "software-development", 1),
+    ];
+    let names =
+        |list: Vec<Skill>| list.into_iter().map(|s| s.name).collect::<Vec<_>>();
+    // Accents fold, the most used comes first.
+    assert_eq!(
+        names(named(&skills, "Demande à Hermès de", &[])),
+        ["hermes-agent", "hermes-model-routing"]
+    );
+    // The word being typed suggests from its third letter.
+    assert_eq!(
+        names(named(&skills, "range ça dans obs", &[])),
+        ["obsidian"]
+    );
+    // A common name part never stands for its skill, a taken one is left out.
+    assert!(named(&skills, "fais une review du code ", &[]).is_empty());
+    assert!(named(&skills, "obsidian ", &["obsidian".into()]).is_empty());
+    // "/" at the start or after a space opens the matches, a path does not.
+    assert_eq!(slash_query("Fais une revue /git").as_deref(), Some("git"));
+    assert_eq!(slash_query("/usr/local"), None);
+    assert_eq!(
+        names(slash_matches(&skills, "git")),
+        ["github-code-review", "github"]
+    );
+    assert_eq!(strip_slash("Fais une revue /git"), "Fais une revue ");
+    assert_eq!(names(most_used(&skills))[0], "hermes-agent");
+    assert_eq!(by_category(&skills)[0].0, "autonomous-ai-agents");
 }

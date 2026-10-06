@@ -1,7 +1,7 @@
 use crate::application::hermes_chat::{
     self, HermesError, HermesTurn, LiveReply,
 };
-use crate::application::hermes_message::{self, Attachment};
+use crate::application::hermes_message::{self, Asked, Attachment};
 use crate::application::i18n::{t, t_args};
 use crate::infrastructure::persistence::Database;
 use crate::ui::chat::empty_state::ChatEmptyState;
@@ -162,13 +162,13 @@ pub fn HermesChatView() -> Element {
             if let Some((run_id, message)) =
                 hermes_chat::pending(&database, &sid)
             {
-                let (text, attachments) = hermes_message::split(&message);
-                let asked = turns.peek().iter().rev().find_map(|t| match t {
-                    HermesTurn::User { text, .. } => Some(text.clone()),
+                let asked = hermes_message::split(&message);
+                let last = turns.peek().iter().rev().find_map(|t| match t {
+                    HermesTurn::User(a) => Some(a.question.clone()),
                     _ => None,
                 });
-                if asked.as_deref() != Some(text.as_str()) {
-                    turns.write().push(HermesTurn::User { text, attachments });
+                if last.as_deref() != Some(asked.question.as_str()) {
+                    turns.write().push(HermesTurn::User(asked));
                 }
                 track(sid, run_id);
             }
@@ -210,8 +210,8 @@ pub fn HermesChatView() -> Element {
                     div { class: "space-y-3",
                         for (i, turn) in turns().into_iter().enumerate() {
                             match turn {
-                                HermesTurn::User { text, attachments } => rsx! {
-                                    div { key: "{i}", UserBubble { text, ink: true, attachments } }
+                                HermesTurn::User(a) => rsx! {
+                                    div { key: "{i}", UserBubble { text: a.question, ink: true, attachments: a.attachments, skills: a.skills } }
                                 },
                                 HermesTurn::Reply { text, steps } => rsx! {
                                     div { key: "{i}", HermesReply { text, steps } }
@@ -242,10 +242,14 @@ pub fn HermesChatView() -> Element {
                 }
                 let sent: Vec<Attachment> = app.hermes_attachments.take();
                 problem.set(None);
-                turns.write().push(HermesTurn::User {
-                    text: q.clone(),
-                    attachments: sent.iter().map(|a| a.label().to_string()).collect(),
-                });
+                let (skills, others): (Vec<&Attachment>, Vec<&Attachment>) =
+                    sent.iter().partition(|a| matches!(a, Attachment::Skill { .. }));
+                let names = |list: Vec<&Attachment>| list.iter().map(|a| a.label().to_string()).collect();
+                turns.write().push(HermesTurn::User(Asked {
+                    question: q.clone(),
+                    attachments: names(others),
+                    skills: names(skills),
+                }));
                 live.set(Some(LiveReply::default()));
                 spawn(async move {
                     let database = db();

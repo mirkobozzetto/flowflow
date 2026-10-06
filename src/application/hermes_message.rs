@@ -95,23 +95,53 @@ pub fn compose(
     (text, images)
 }
 
-/// A sent message read back: the question typed and the attachment names.
-pub fn split(message: &str) -> (String, Vec<String>) {
+/// A sent message read back.
+#[derive(Clone, Debug, Default, PartialEq)]
+pub struct Asked {
+    pub question: String,
+    /// Photos, files and notes, by name.
+    pub attachments: Vec<String>,
+    /// Skills called on purpose.
+    pub skills: Vec<String>,
+}
+
+pub fn split(message: &str) -> Asked {
     let start = if message.starts_with(OPEN) {
         Some(0)
     } else {
         message.find(&format!("\n\n{OPEN}"))
     };
     let Some(start) = start else {
-        return (message.to_string(), Vec::new());
+        return Asked {
+            question: message.to_string(),
+            ..Asked::default()
+        };
     };
-    let names = message[start..]
+    let mut asked = Asked {
+        question: message[..start].trim().to_string(),
+        ..Asked::default()
+    };
+    for rest in message[start..]
         .lines()
         .filter_map(|l| l.strip_prefix(OPEN))
-        .filter_map(|rest| rest.split_once("name=\"").map(|(_, n)| n))
-        .filter_map(|n| n.split_once('"').map(|(n, _)| unescape(n)))
-        .collect();
-    (message[..start].trim().to_string(), names)
+    {
+        let Some((kind, rest)) = rest.split_once('"') else {
+            continue;
+        };
+        let Some(name) = rest
+            .split_once("name=\"")
+            .and_then(|(_, n)| n.split_once('"'))
+            .map(|(n, _)| unescape(n))
+        else {
+            continue;
+        };
+        if kind == "skill" {
+            asked.skills.push(name);
+        } else {
+            asked.attachments.push(name);
+        }
+    }
+    asked
 }
 
 /// A conversation's title: the question, else what was attached.
