@@ -316,12 +316,6 @@
   .top-\[60\%\] {
     top: 60%;
   }
-  .top-\[60px\] {
-    top: 60px;
-  }
-  .top-\[64px\] {
-    top: 64px;
-  }
   .top-full {
     top: 100%;
   }
@@ -355,9 +349,6 @@
   .right-\[5px\] {
     right: 5px;
   }
-  .right-\[64px\] {
-    right: 64px;
-  }
   .bottom-0 {
     bottom: calc(var(--spacing) * 0);
   }
@@ -384,9 +375,6 @@
   }
   .bottom-\[6px\] {
     bottom: 6px;
-  }
-  .bottom-\[100px\] {
-    bottom: 100px;
   }
   .bottom-full {
     bottom: 100%;
@@ -418,9 +406,6 @@
   .left-8 {
     left: calc(var(--spacing) * 8);
   }
-  .left-16 {
-    left: calc(var(--spacing) * 16);
-  }
   .left-\[1px\] {
     left: 1px;
   }
@@ -435,9 +420,6 @@
   }
   .left-\[10px\] {
     left: 10px;
-  }
-  .left-\[60px\] {
-    left: 60px;
   }
   .z-2 {
     z-index: 2;
@@ -898,6 +880,9 @@
   .max-h-\[60vh\] {
     max-height: 60vh;
   }
+  .max-h-\[80\%\] {
+    max-height: 80%;
+  }
   .max-h-\[100px\] {
     max-height: 100px;
   }
@@ -913,6 +898,9 @@
   .min-h-12\.5 {
     min-height: calc(var(--spacing) * 12.5);
   }
+  .min-h-\[28px\] {
+    min-height: 28px;
+  }
   .min-h-\[32px\] {
     min-height: 32px;
   }
@@ -927,9 +915,6 @@
   }
   .min-h-\[48px\] {
     min-height: 48px;
-  }
-  .min-h-\[52px\] {
-    min-height: 52px;
   }
   .min-h-\[60px\] {
     min-height: 60px;
@@ -1063,9 +1048,6 @@
   .w-\[200px\] {
     width: 200px;
   }
-  .w-\[300px\] {
-    width: 300px;
-  }
   .w-\[390px\] {
     width: 390px;
   }
@@ -1138,8 +1120,8 @@
   .max-w-\[85\%\] {
     max-width: 85%;
   }
-  .max-w-\[180px\] {
-    max-width: 180px;
+  .max-w-\[170px\] {
+    max-width: 170px;
   }
   .max-w-\[200px\] {
     max-width: 200px;
@@ -1185,12 +1167,6 @@
   }
   .min-w-\[200px\] {
     min-width: 200px;
-  }
-  .min-w-\[220px\] {
-    min-width: 220px;
-  }
-  .min-w-\[230px\] {
-    min-width: 230px;
   }
   .flex-1 {
     flex: 1;
@@ -2077,12 +2053,6 @@
       background-color: color-mix(in oklab, var(--color-stone-200) 60%, transparent);
     }
   }
-  .bg-stone-200\/70 {
-    background-color: color-mix(in srgb, oklch(92.3% 0.003 48.717) 70%, transparent);
-    @supports (color: color-mix(in lab, red, red)) {
-      background-color: color-mix(in oklab, var(--color-stone-200) 70%, transparent);
-    }
-  }
   .bg-stone-300 {
     background-color: var(--color-stone-300);
   }
@@ -2268,9 +2238,6 @@
   .py-5\.5 {
     padding-block: calc(var(--spacing) * 5.5);
   }
-  .py-6 {
-    padding-block: calc(var(--spacing) * 6);
-  }
   .py-8 {
     padding-block: calc(var(--spacing) * 8);
   }
@@ -2361,9 +2328,6 @@
   }
   .pr-2 {
     padding-right: calc(var(--spacing) * 2);
-  }
-  .pr-3 {
-    padding-right: calc(var(--spacing) * 3);
   }
   .pr-4 {
     padding-right: calc(var(--spacing) * 4);
@@ -2849,6 +2813,9 @@
   }
   .underline {
     text-decoration-line: underline;
+  }
+  .decoration-stone-300 {
+    text-decoration-color: var(--color-stone-300);
   }
   .decoration-white\/50 {
     text-decoration-color: color-mix(in srgb, #fff 50%, transparent);
