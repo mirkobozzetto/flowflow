@@ -1,6 +1,7 @@
 use crate::application::hermes_chat::{
     self, HermesError, HermesTurn, LiveReply,
 };
+use crate::application::hermes_message::{self, Attachment};
 use crate::application::i18n::{t, t_args};
 use crate::infrastructure::persistence::Database;
 use crate::ui::chat::empty_state::ChatEmptyState;
@@ -150,15 +151,16 @@ pub fn HermesChatView() -> Element {
                     return;
                 }
             }
-            if let Some((run_id, question)) =
+            if let Some((run_id, message)) =
                 hermes_chat::pending(&database, &sid)
             {
+                let (text, attachments) = hermes_message::split(&message);
                 let asked = turns.peek().iter().rev().find_map(|t| match t {
-                    HermesTurn::User(q) => Some(q.clone()),
+                    HermesTurn::User { text, .. } => Some(text.clone()),
                     _ => None,
                 });
-                if asked.as_deref() != Some(question.as_str()) {
-                    turns.write().push(HermesTurn::User(question));
+                if asked.as_deref() != Some(text.as_str()) {
+                    turns.write().push(HermesTurn::User { text, attachments });
                 }
                 track(sid, run_id);
             }
@@ -200,8 +202,8 @@ pub fn HermesChatView() -> Element {
                     div { class: "space-y-3",
                         for (i, turn) in turns().into_iter().enumerate() {
                             match turn {
-                                HermesTurn::User(text) => rsx! {
-                                    div { key: "{i}", UserBubble { text, ink: true } }
+                                HermesTurn::User { text, attachments } => rsx! {
+                                    div { key: "{i}", UserBubble { text, ink: true, attachments } }
                                 },
                                 HermesTurn::Reply { text, steps } => rsx! {
                                     div { key: "{i}", HermesReply { text, steps } }
@@ -225,12 +227,17 @@ pub fn HermesChatView() -> Element {
             input: input,
             disabled: busy,
             pending_audio: pending_audio,
+            attachments: app.hermes_attachments,
             on_commit: move |q: String| {
                 if live.peek().as_ref().is_some_and(|r| !r.done) {
                     return;
                 }
+                let sent: Vec<Attachment> = app.hermes_attachments.take();
                 problem.set(None);
-                turns.write().push(HermesTurn::User(q.clone()));
+                turns.write().push(HermesTurn::User {
+                    text: q.clone(),
+                    attachments: sent.iter().map(|a| a.label().to_string()).collect(),
+                });
                 live.set(Some(LiveReply::default()));
                 spawn(async move {
                     let database = db();
@@ -244,7 +251,7 @@ pub fn HermesChatView() -> Element {
                         &provider,
                         &model,
                     );
-                    match hermes_chat::send(&database, current.clone(), &q, pick, effort).await {
+                    match hermes_chat::send(&database, current.clone(), &q, &sent, pick, effort).await {
                         Ok((sid, run_id)) => {
                             if current.is_none() {
                                 session.set(Some(sid.clone()));

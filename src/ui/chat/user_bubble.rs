@@ -11,7 +11,11 @@ pub fn UserBubble(
     attachments: Vec<String>,
 ) -> Element {
     let tone = if ink { "bg-stone-900" } else { "bg-ios-orange" };
-    let text = if text.trim().is_empty() { "…".to_string() } else { text };
+    let text = if text.trim().is_empty() {
+        "…".to_string()
+    } else {
+        text
+    };
     rsx! {
         div { style: "animation: fadeInUp 0.15s ease-out;",
             div { class: "flex justify-end",

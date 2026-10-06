@@ -1,6 +1,8 @@
+use crate::application::hermes_message::Attachment;
 use crate::application::i18n::t;
 use crate::infrastructure::audio::{AudioRecorder, RecordingState};
 use crate::infrastructure::platform::{haptic, haptic_prepare};
+use crate::ui::chat::attachment_chips::AttachmentChips;
 use crate::ui::chat::mention_menu::{MentionMenu, MentionedNote};
 use crate::ui::chat::tools_menu::{NativeToolsMenu, ToolsMenu};
 use crate::ui::icons::*;
@@ -65,6 +67,9 @@ pub fn Composer(
     /// Chat only: the notes mentioned with "@" in the field.
     #[props(default)]
     mentions: Option<Signal<Vec<MentionedNote>>>,
+    /// Hermes only: what goes with the question, as chips above the field.
+    #[props(default)]
+    attachments: Option<Signal<Vec<Attachment>>>,
 ) -> Element {
     let mut app: AppState = use_context();
     let recorder: Signal<Arc<Mutex<AudioRecorder>>> = use_context();
@@ -138,11 +143,14 @@ pub fn Composer(
     let show_mention = chat && (app.show_mention_menu)();
     // iOS 26+: a native menu over the "+" replaces the web popover.
     let native_menu = crate::ui::app::native_glass();
-    let empty = input().trim().is_empty();
+    let attached = attachments.is_some_and(|a| !a.read().is_empty());
+    // An attachment alone is enough to send.
+    let empty = input().trim().is_empty() && !attached;
 
     let mut commit = move || {
         let text = input().trim().to_string();
-        if text.is_empty() || disabled {
+        let attached = attachments.is_some_and(|a| !a.peek().is_empty());
+        if (text.is_empty() && !attached) || disabled {
             return;
         }
         input.set(String::new());
@@ -219,6 +227,9 @@ pub fn Composer(
                         MentionMenu { input, mentions, query: mention_query() }
                     }
                     div { class: "composer-stack relative flex-1 min-w-0",
+                        if let Some(list) = attachments.filter(|a| !a.read().is_empty()) {
+                            AttachmentChips { list }
+                        }
                         div { class: capsule,
                             "data-hidden": !is_idle,
                             "data-landed": landed(),

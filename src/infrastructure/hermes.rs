@@ -190,6 +190,27 @@ pub fn parse_model_options(v: &serde_json::Value) -> ModelOptions {
     }
 }
 
+/// A skill installed on Hermes.
+#[derive(Debug, Clone, PartialEq, Deserialize)]
+pub struct Skill {
+    pub name: String,
+    #[serde(default)]
+    pub description: String,
+    #[serde(default)]
+    pub category: String,
+}
+
+/// `/v1/skills`: `{"data": [{name, description, category}]}`.
+pub fn parse_skills(v: &serde_json::Value) -> Vec<Skill> {
+    v.get("data")
+        .and_then(|d| d.as_array())
+        .into_iter()
+        .flatten()
+        .filter_map(|s| serde_json::from_value::<Skill>(s.clone()).ok())
+        .filter(|s| !s.name.trim().is_empty())
+        .collect()
+}
+
 fn run_state(v: &serde_json::Value) -> RunState {
     let text = |k: &str| {
         v.get(k)
@@ -337,16 +358,33 @@ impl HermesClient {
             .map_or(0, Vec::len))
     }
 
+    /// Installed skills, in Hermes' own order.
+    pub async fn skills(&self) -> Result<Vec<Skill>, HermesError> {
+        Ok(parse_skills(&self.json_at("/v1/skills").await?))
+    }
+
     /// Starts a turn on the session, on the chosen (provider, model) and
     /// reasoning effort or Hermes' own defaults; it runs on the server
-    /// whatever happens to this connection.
+    /// whatever happens to this connection. Images (data URLs) ride along
+    /// as parts of the user message.
     pub async fn start_run(
         &self,
         session_id: &str,
         input: &str,
+        images: &[String],
         model: Option<(&str, &str)>,
         effort: Option<&str>,
     ) -> Result<String, HermesError> {
+        let input = if images.is_empty() {
+            serde_json::json!(input)
+        } else {
+            let mut parts =
+                vec![serde_json::json!({ "type": "text", "text": input })];
+            parts.extend(images.iter().map(|url| {
+                serde_json::json!({ "type": "image_url", "image_url": { "url": url } })
+            }));
+            serde_json::json!([{ "role": "user", "content": parts }])
+        };
         let mut body = serde_json::json!({
             "input": input,
             "session_id": session_id,

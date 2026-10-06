@@ -1,4 +1,5 @@
 mod actions;
+pub(crate) mod attachment_chips;
 mod bot_bubble;
 mod empty_state;
 mod hermes_model_menu;

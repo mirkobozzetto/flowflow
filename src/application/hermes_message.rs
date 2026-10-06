@@ -10,12 +10,23 @@ const OPEN: &str = "<attachment kind=\"";
 #[derive(Clone, Debug, PartialEq)]
 pub enum Attachment {
     /// A photo Hermes looks at, already reduced to a JPEG.
-    Photo { name: String, jpeg: Vec<u8> },
+    Photo {
+        name: String,
+        jpeg: Vec<u8>,
+    },
     /// A file's text, extracted on the device.
-    File { name: String, text: String },
-    Note { title: String, text: String },
+    File {
+        name: String,
+        text: String,
+    },
+    Note {
+        title: String,
+        text: String,
+    },
     /// A skill installed on Hermes, for it to load.
-    Skill { name: String },
+    Skill {
+        name: String,
+    },
 }
 
 impl Attachment {
@@ -104,7 +115,11 @@ pub fn split(message: &str) -> (String, Vec<String>) {
 }
 
 /// A conversation's title: the question, else what was attached.
-pub fn title(question: &str, attachments: &[Attachment], chars: usize) -> String {
+pub fn title(
+    question: &str,
+    attachments: &[Attachment],
+    chars: usize,
+) -> String {
     let source = match question.trim() {
         "" => attachments
             .iter()

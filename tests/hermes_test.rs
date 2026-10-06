@@ -75,7 +75,10 @@ fn session_history_folds_tool_calls_into_the_reply_steps() {
     assert_eq!(turns.len(), 2);
     assert_eq!(
         turns[0],
-        HermesTurn::User("Lance la commande date dans le terminal.".into())
+        HermesTurn::User {
+            text: "Lance la commande date dans le terminal.".into(),
+            attachments: vec![],
+        }
     );
     let HermesTurn::Reply { text, steps } = &turns[1] else {
         panic!("expected a reply");
@@ -85,6 +88,46 @@ fn session_history_folds_tool_calls_into_the_reply_steps() {
     assert_eq!(steps[0].tool, "terminal");
     assert_eq!(steps[0].detail, "date");
     assert!(!steps[0].running);
+}
+
+#[test]
+fn a_question_read_back_shows_attachment_names_never_their_body() {
+    use flowflow::application::hermes_message::{compose, split, Attachment};
+    let attachments = [
+        Attachment::Photo {
+            name: "Tableau.jpg".into(),
+            jpeg: vec![1, 2, 3],
+        },
+        Attachment::File {
+            name: "Devis \"v2\".pdf".into(),
+            text: "Total 4 200 €".into(),
+        },
+        Attachment::Skill {
+            name: "github-code-review".into(),
+        },
+    ];
+    let (text, images) = compose("Résume ça", &attachments);
+    assert!(
+        text.contains("Total 4 200 €") && text.contains("github-code-review")
+    );
+    assert_eq!(images, vec!["data:image/jpeg;base64,AQID".to_string()]);
+    assert_eq!(
+        split(&text),
+        (
+            "Résume ça".to_string(),
+            vec![
+                "Tableau.jpg".into(),
+                "Devis \"v2\".pdf".into(),
+                "github-code-review".into()
+            ]
+        )
+    );
+    let (alone, _) = compose("", &attachments[1..2]);
+    assert_eq!(split(&alone).0, "");
+    assert_eq!(
+        split("Juste une question"),
+        ("Juste une question".into(), vec![])
+    );
 }
 
 #[test]
@@ -296,7 +339,7 @@ async fn the_first_question_opens_a_flowflow_session_then_a_run() {
     configure(&db, &base);
 
     let (session, run) =
-        hermes_chat::send(&db, None, "Quelle heure est-il ?", None, None)
+        hermes_chat::send(&db, None, "Quelle heure est-il ?", &[], None, None)
             .await
             .unwrap();
 
