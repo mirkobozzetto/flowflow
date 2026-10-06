@@ -3,7 +3,7 @@ use crate::application::i18n::{t, t_args};
 use crate::infrastructure::platform::HAS_CAMERA;
 use crate::ui::chat::hermes_attach::{self, use_skills, SkillGroups};
 use crate::ui::chat::tools_menu::{
-    MENU_ICON, MENU_ROW, ROW_SUB, ROW_TITLE, SECTION, SEP,
+    NativeIcon, MENU_ICON, MENU_ROW, ROW_SUB, ROW_TITLE, SECTION, SEP,
 };
 use crate::ui::icons::*;
 use crate::ui::AppState;
@@ -135,6 +135,87 @@ pub fn HermesToolsMenu() -> Element {
                         }
                     } else {
                         p { class: "px-3 py-2 text-sm text-stone-500", role: "status", "{summary}" }
+                    }
+                }
+            }
+        }
+    }
+}
+
+/// The same entries for the native iOS 26 menu (glass_burger.ts mirrors this
+/// hidden tree); each category is a titled group of the Skills submenu.
+#[component]
+pub fn NativeHermesToolsMenu() -> Element {
+    let app: AppState = use_context();
+    let lang = (app.current_lang)();
+    let skills = use_skills();
+    let skills = skills.read();
+    let summary = skills_summary(&lang, skills.as_ref());
+
+    rsx! {
+        div { hidden: true, "data-native-menu": "hermes-plus", "data-native-context": "hermes",
+            div { "data-native-submenu": "", "data-native-inline": "",
+                button {
+                    "data-native-action": "photos",
+                    "data-native-symbol": "photo",
+                    onclick: move |_| hermes_attach::pick_photos(app),
+                    NativeIcon { IconImage { size: 22 } }
+                    {t(&lang, "hermes-attach-photos")}
+                }
+                if HAS_CAMERA {
+                    button {
+                        "data-native-action": "camera",
+                        "data-native-symbol": "camera",
+                        onclick: move |_| hermes_attach::take_photo(app),
+                        NativeIcon { IconCamera { size: 22 } }
+                        {t(&lang, "hermes-attach-camera")}
+                    }
+                }
+                button {
+                    "data-native-action": "file",
+                    "data-native-symbol": "doc",
+                    "data-native-subtitle": t(&lang, "hermes-attach-file-hint"),
+                    onclick: move |_| hermes_attach::pick_file(app),
+                    NativeIcon { IconFileArrowUp { size: 22 } }
+                    {t(&lang, "hermes-attach-file")}
+                }
+            }
+            div { "data-native-submenu": "", "data-native-inline": "",
+                div {
+                    "data-native-submenu": "",
+                    "data-native-title": t(&lang, "hermes-attach-skills"),
+                    "data-native-subtitle": "{summary}",
+                    "data-native-symbol": "",
+                    if let Some(Ok(groups)) = skills.as_ref() {
+                        for (category, list) in groups.iter() {
+                            div {
+                                key: "{category}",
+                                "data-native-submenu": "",
+                                "data-native-inline": "",
+                                "data-native-title": category_label(&lang, category),
+                                for skill in list.iter() {
+                                    button {
+                                        key: "{skill.name}",
+                                        "data-native-action": "skill:{skill.name}",
+                                        "data-native-symbol": "",
+                                        "data-native-subtitle": "{skill.description}",
+                                        "data-native-checked": skill_attached(app, &skill.name).to_string(),
+                                        onclick: {
+                                            let name = skill.name.clone();
+                                            move |_| hermes_attach::toggle_skill(app, &name)
+                                        },
+                                        "{skill.name}"
+                                    }
+                                }
+                            }
+                        }
+                    } else {
+                        button {
+                            "data-native-action": "skills-status",
+                            "data-native-symbol": "",
+                            disabled: true,
+                            "{summary}"
+                        }
                     }
                 }
             }

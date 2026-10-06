@@ -3,6 +3,9 @@ use crate::application::i18n::t;
 use crate::infrastructure::audio::{AudioRecorder, RecordingState};
 use crate::infrastructure::platform::{haptic, haptic_prepare};
 use crate::ui::chat::attachment_chips::AttachmentChips;
+use crate::ui::chat::hermes_tools_menu::{
+    HermesToolsMenu, NativeHermesToolsMenu,
+};
 use crate::ui::chat::mention_menu::{MentionMenu, MentionedNote};
 use crate::ui::chat::tools_menu::{NativeToolsMenu, ToolsMenu};
 use crate::ui::icons::*;
@@ -135,7 +138,8 @@ pub fn Composer(
             signal.set(false);
         });
     };
-    let menu_open = if chat {
+    // Hermes and the notes chat never share a screen: they share the flag.
+    let menu_open = if chat || hermes {
         (app.show_tools_menu)()
     } else {
         (app.show_note_tools_menu)()
@@ -227,28 +231,31 @@ pub fn Composer(
                         MentionMenu { input, mentions, query: mention_query() }
                     }
                     div { class: "composer-stack relative flex-1 min-w-0",
+                        if let (true, Some(e)) = (hermes, (app.hermes_attach_error)()) {
+                            p { class: "px-2 pb-2 text-xs text-ios-red", role: "alert", "{e}" }
+                        }
                         if let Some(list) = attachments.filter(|a| !a.read().is_empty()) {
                             AttachmentChips { list }
                         }
                         div { class: capsule,
                             "data-hidden": !is_idle,
                             "data-landed": landed(),
-                            "data-plain": hermes,
                             div { class: "absolute left-[6px] bottom-[6px]",
-                                hidden: hermes,
-                                if native_menu && !hermes {
+                                if native_menu && hermes {
+                                    NativeHermesToolsMenu {}
+                                } else if native_menu {
                                     NativeToolsMenu { note: !chat }
                                 }
                                 button {
                                     class: "composer-plus pressable w-[46px] h-[46px] rounded-full flex items-center justify-center text-stone-600 hover:bg-stone-200/70",
-                                    "data-glass": (native_menu && !hermes).then_some(if chat { "chat-plus" } else { "note-plus" }),
+                                    "data-glass": native_menu.then_some(if hermes { "hermes-plus" } else if chat { "chat-plus" } else { "note-plus" }),
                                     "data-open": menu_open,
                                     "aria-label": t(&lang, "chat-tools-tooltip"),
                                     "aria-expanded": menu_open,
                                     disabled: disabled,
                                     onclick: move |_| {
                                         app.show_mention_menu.set(false);
-                                        if chat {
+                                        if chat || hermes {
                                             app.show_tools_menu.set(!(app.show_tools_menu)());
                                         } else {
                                             app.show_note_tools_menu.set(!(app.show_note_tools_menu)());
@@ -256,7 +263,9 @@ pub fn Composer(
                                     },
                                     IconPlus { size: 24 }
                                 }
-                                if menu_open {
+                                if menu_open && hermes {
+                                    HermesToolsMenu {}
+                                } else if menu_open {
                                     ToolsMenu { note: !chat }
                                 }
                             }

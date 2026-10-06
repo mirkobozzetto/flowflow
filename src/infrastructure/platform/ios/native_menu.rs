@@ -97,6 +97,9 @@ fn element(
             &NSArray::from_retained_slice(&children),
             mtm,
         );
+        if !item.subtitle.is_empty() {
+            menu.setSubtitle(Some(&NSString::from_str(&item.subtitle)));
+        }
         return Retained::into_super(menu);
     }
     // JSON-encode arguments, never interpolate note/user text as JS.
