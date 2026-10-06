@@ -36,7 +36,7 @@ pub fn SkillSuggest(input: Signal<String>) -> Element {
     if let Some(query) = slash_query(&text) {
         let hits = slash_matches(&skills, &query);
         return rsx! {
-            div { class: "glass-panel absolute bottom-full left-0 right-0 mb-2 z-40 max-h-80 overflow-y-auto p-2 popover-pop",
+            div { class: "glass-panel absolute bottom-full left-0 right-0 mb-2 z-40 max-h-80 overflow-y-auto overscroll-contain p-2 popover-pop",
                 p { class: SECTION, {t(&lang, "hermes-attach-skills")} }
                 if hits.is_empty() {
                     p { class: "px-3 py-2 text-sm text-stone-500", {t(&lang, "hermes-skills-no-match")} }
