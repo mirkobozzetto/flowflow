@@ -441,29 +441,19 @@ pub async fn model_options(db: &Database) -> Result<ModelOptions, HermesError> {
     HermesClient::from_db(db)?.model_options().await
 }
 
-/// Installed skills grouped by category, categories in Hermes' order.
-pub async fn skills(
-    db: &Database,
-) -> Result<Vec<(String, Vec<Skill>)>, HermesError> {
-    let mut groups: Vec<(String, Vec<Skill>)> = Vec::new();
-    for skill in HermesClient::from_db(db)?.skills().await? {
-        match groups.iter_mut().find(|(c, _)| *c == skill.category) {
-            Some((_, list)) => list.push(skill),
-            None => groups.push((skill.category.clone(), vec![skill])),
-        }
-    }
-    Ok(groups)
+/// The skills installed on Hermes.
+pub async fn skills(db: &Database) -> Result<Vec<Skill>, HermesError> {
+    HermesClient::from_db(db)?.skills().await
 }
 
-/// What the empty conversation shows: skills and scheduled tasks counted on
-/// Hermes; a list it cannot serve is left out rather than shown as zero.
-pub async fn counts(db: &Database) -> (Option<usize>, Option<usize>) {
-    let Ok(client) = HermesClient::from_db(db) else {
-        return (None, None);
-    };
-    let (skills, jobs) =
-        futures::join!(client.skills(), client.count("/api/jobs"));
-    (skills.ok().map(|s| s.len()), jobs.ok())
+/// Scheduled tasks counted on Hermes, for the empty conversation; None when
+/// Hermes cannot serve the list rather than a zero.
+pub async fn jobs_count(db: &Database) -> Option<usize> {
+    HermesClient::from_db(db)
+        .ok()?
+        .count("/api/jobs")
+        .await
+        .ok()
 }
 
 /// "claude-opus-5-5[1m]" reads "Opus 5.5", "gpt-6.1-sol" reads "GPT-6.1 Sol".

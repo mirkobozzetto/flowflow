@@ -33,12 +33,12 @@ pub(crate) fn problem_text(lang: &str, e: &HermesError) -> String {
 fn facts_line(
     lang: &str,
     app: AppState,
-    counts: Option<(Option<usize>, Option<usize>)>,
+    jobs: Option<usize>,
 ) -> Option<String> {
     let options = (app.hermes_models)()?;
     let model = (app.hermes_pick)().map(|(_, m)| m).unwrap_or(options.model);
     let mut parts = vec![hermes_chat::model_label(&model)];
-    let (skills, jobs) = counts.unwrap_or_default();
+    let skills = (app.hermes_skills)().and_then(|s| s.ok()).map(|s| s.len());
     if let Some(n) = skills.filter(|n| *n > 0) {
         parts.push(t_args(
             lang,
@@ -74,9 +74,17 @@ pub fn HermesChatView() -> Element {
     let mut turns: Signal<Vec<HermesTurn>> = use_signal(Vec::new);
     let mut live: Signal<Option<LiveReply>> = use_signal(|| None);
     let mut problem: Signal<Option<HermesError>> = use_signal(|| None);
-    // (skills, scheduled tasks) on Hermes, for the empty conversation.
-    let mut counts: Signal<Option<(Option<usize>, Option<usize>)>> =
-        use_signal(|| None);
+    // Scheduled tasks on Hermes, for the empty conversation.
+    let mut jobs: Signal<Option<usize>> = use_signal(|| None);
+    // The skills, read once per opening of the Hermes chat: the "+" menu,
+    // "/" and the suggested skills all draw on them.
+    use_hook(move || {
+        app.hermes_skills.set(None);
+        spawn(async move {
+            app.hermes_skills
+                .set(Some(hermes_chat::skills(&db()).await));
+        });
+    });
     let input = use_signal(String::new);
     let pending_audio: Signal<Option<(String, f64)>> = use_signal(|| None);
 
@@ -140,7 +148,7 @@ pub fn HermesChatView() -> Element {
                         return;
                     }
                 }
-                counts.set(Some(hermes_chat::counts(&database).await));
+                jobs.set(hermes_chat::jobs_count(&database).await);
                 return;
             };
             app.hermes_models.set(options.ok());
@@ -197,7 +205,7 @@ pub fn HermesChatView() -> Element {
                     }
                 }
                 if is_empty && problem().is_none() {
-                    ChatEmptyState { hermes: true, facts: facts_line(&lang, app, counts()) }
+                    ChatEmptyState { hermes: true, facts: facts_line(&lang, app, jobs()) }
                 } else {
                     div { class: "space-y-3",
                         for (i, turn) in turns().into_iter().enumerate() {

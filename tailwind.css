@@ -816,3 +816,15 @@
     mask-size: contain;
     mask-repeat: no-repeat;
 }
+
+/* Liquid Glass panel over the composer ("/" skill matches): the look of the
+   iOS 26 menus the app shows natively. */
+.glass-panel {
+    border-radius: 28px;
+    background: --alpha(var(--color-warm-white) / 72%);
+    -webkit-backdrop-filter: blur(28px) saturate(1.8);
+    backdrop-filter: blur(28px) saturate(1.8);
+    box-shadow:
+        0 0 0 0.5px rgba(0, 0, 0, 0.07),
+        0 18px 48px rgba(0, 0, 0, 0.18);
+}

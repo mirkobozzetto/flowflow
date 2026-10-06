@@ -1,18 +1,20 @@
-use crate::application::hermes_chat::{self, HermesError, Skill};
 use crate::application::hermes_message::Attachment;
 use crate::application::i18n::t;
 use crate::infrastructure::persistence::Database;
 use crate::infrastructure::platform;
 use crate::ui::AppState;
 use dioxus::prelude::*;
-use std::sync::Arc;
 
-pub(crate) type SkillGroups = Result<Vec<(String, Vec<Skill>)>, HermesError>;
-
-/// The skills installed on Hermes, read when the menu mounts.
-pub(crate) fn use_skills() -> Resource<SkillGroups> {
-    let db: Signal<Arc<Database>> = use_context();
-    use_resource(move || async move { hermes_chat::skills(&db()).await })
+/// The names of the skills already attached to the next question.
+pub(crate) fn taken_skills(app: AppState) -> Vec<String> {
+    app.hermes_attachments
+        .read()
+        .iter()
+        .filter_map(|a| match a {
+            Attachment::Skill { name } => Some(name.clone()),
+            _ => None,
+        })
+        .collect()
 }
 
 fn close(mut app: AppState) {

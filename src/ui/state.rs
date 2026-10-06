@@ -1,5 +1,7 @@
 use crate::application::agent_activation::PaletteAgent;
-use crate::application::hermes_chat::ModelOptions;
+use crate::application::hermes_chat::{
+    HermesError, ModelOptions, Skill as HermesSkill,
+};
 use crate::application::hermes_message::Attachment as HermesAttachment;
 use crate::application::transcription_manager::Job;
 use crate::domain::Attachment;
@@ -179,6 +181,8 @@ pub struct AppState {
     pub hermes_attachments: Signal<Vec<HermesAttachment>>,
     // Why the last attachment did not make it, shown above the field.
     pub hermes_attach_error: Signal<Option<String>>,
+    // The skills on Hermes, read when its chat opens; None while reading.
+    pub hermes_skills: Signal<Option<Result<Vec<HermesSkill>, HermesError>>>,
 }
 
 impl AppState {
@@ -242,6 +246,7 @@ impl AppState {
             hermes_effort: Signal::new(None),
             hermes_attachments: Signal::new(Vec::new()),
             hermes_attach_error: Signal::new(None),
+            hermes_skills: Signal::new(None),
         }
     }
 }

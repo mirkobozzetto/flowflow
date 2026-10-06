@@ -14,13 +14,54 @@ const PART_FROM: usize = 4;
 
 // Parts of a skill name too common to mean the skill on their own.
 const COMMON: &[&str] = &[
-    "agent", "agents", "action", "actions", "items", "code", "review", "plan",
-    "content", "video", "music", "design", "search", "monitor", "pipeline",
-    "writing", "paper", "debugging", "development", "service", "apps", "web",
-    "meeting", "notes", "skill", "authoring", "workflow", "workflows",
-    "routing", "model", "documents", "document", "recovery", "page", "news",
-    "management", "repo", "issues", "issue", "system", "reading", "feeds",
-    "driven", "test", "inspection", "inspect", "serving", "harness",
+    "agent",
+    "agents",
+    "action",
+    "actions",
+    "items",
+    "code",
+    "review",
+    "plan",
+    "content",
+    "video",
+    "music",
+    "design",
+    "search",
+    "monitor",
+    "pipeline",
+    "writing",
+    "paper",
+    "debugging",
+    "development",
+    "service",
+    "apps",
+    "web",
+    "meeting",
+    "notes",
+    "skill",
+    "authoring",
+    "workflow",
+    "workflows",
+    "routing",
+    "model",
+    "documents",
+    "document",
+    "recovery",
+    "page",
+    "news",
+    "management",
+    "repo",
+    "issues",
+    "issue",
+    "system",
+    "reading",
+    "feeds",
+    "driven",
+    "test",
+    "inspection",
+    "inspect",
+    "serving",
+    "harness",
     "proposals",
 ];
 
@@ -104,9 +145,14 @@ pub fn category_symbol(category: &str) -> &'static str {
 /// The "/frag" ending the text (at its start or after a space).
 pub fn slash_query(text: &str) -> Option<String> {
     let at = text.rfind('/')?;
-    let before_ok = text[..at].chars().next_back().is_none_or(char::is_whitespace);
+    let before_ok = text[..at]
+        .chars()
+        .next_back()
+        .is_none_or(char::is_whitespace);
     let frag = &text[at + 1..];
-    let word = frag.chars().all(|c| c.is_alphanumeric() || c == '-' || c == '_');
+    let word = frag
+        .chars()
+        .all(|c| c.is_alphanumeric() || c == '-' || c == '_');
     (before_ok && word).then(|| fold(frag))
 }
 
@@ -122,7 +168,9 @@ pub fn strip_slash(text: &str) -> String {
 pub fn slash_matches(skills: &[Skill], query: &str) -> Vec<Skill> {
     let mut hits: Vec<Skill> = skills
         .iter()
-        .filter(|s| fold(&s.name).contains(query) || fold(&s.category).contains(query))
+        .filter(|s| {
+            fold(&s.name).contains(query) || fold(&s.category).contains(query)
+        })
         .cloned()
         .collect();
     hits.sort_by(|a, b| {
@@ -148,13 +196,17 @@ fn name_parts(name: &str) -> Vec<String> {
 /// part of it, or the word being typed as a prefix. Never one already taken.
 pub fn named(skills: &[Skill], text: &str, taken: &[String]) -> Vec<Skill> {
     let folded = fold(text);
-    let mut words: Vec<&str> = folded.split(|c: char| !c.is_alphanumeric()).collect();
+    let mut words: Vec<&str> =
+        folded.split(|c: char| !c.is_alphanumeric()).collect();
     let typing = if folded.ends_with(char::is_alphanumeric) {
         words.pop().unwrap_or_default()
     } else {
         ""
     };
-    let done: Vec<&str> = words.into_iter().filter(|w| w.chars().count() >= 3).collect();
+    let done: Vec<&str> = words
+        .into_iter()
+        .filter(|w| w.chars().count() >= 3)
+        .collect();
     let mut hits: Vec<Skill> = skills
         .iter()
         .filter(|s| !taken.contains(&s.name))
