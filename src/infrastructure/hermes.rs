@@ -198,6 +198,9 @@ pub struct Skill {
     pub description: String,
     #[serde(default)]
     pub category: String,
+    /// How often Hermes used it; only the dashboard list counts.
+    #[serde(default)]
+    pub usage: u32,
 }
 
 /// `/v1/skills` (`{"data": [...]}`) or the dashboard's `/api/skills` (a bare
