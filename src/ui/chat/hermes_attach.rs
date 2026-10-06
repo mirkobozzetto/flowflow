@@ -43,11 +43,10 @@ pub(crate) fn send_note(mut app: AppState, db: &Database, note_id: &str) {
     app.previous_view.set(Some(crate::ui::View::NoteDetail {
         note_id: note_id.to_string(),
     }));
+    // No focus: from a menu iOS would not open the keyboard, yet the field
+    // would reserve its height and strand the bar mid-screen.
     app.view
         .set(crate::ui::View::HermesChat { session_id: None });
-    document::eval(
-        "requestAnimationFrame(() => document.querySelector('.composer-field')?.focus());",
-    );
 }
 
 /// Adds what is not attached yet; the same name is never attached twice.

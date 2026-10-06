@@ -46,9 +46,6 @@ pub fn mention_fragment(s: &str) -> Option<String> {
 // radius transition in CSS), the buttons stay anchored to its bottom and the
 // field slides to full width on the second line. The caret never moves: the
 // box comes to it.
-// How long the pill takes to snap into a ball before dictation starts.
-const BALL_MS: u64 = 200;
-
 const AUTOSIZE: &str = r#"
     var ta = document.querySelector('.composer-field');
     var cap = ta && ta.closest('.composer-capsule');
@@ -194,8 +191,11 @@ pub fn Composer(
                 commit();
             } else {
                 flash(landed);
+                // No focus here: iOS opens the keyboard only for a finger, and
+                // a focused field reserves the keyboard's height anyway
+                // (keyboard/inset.rs), leaving the bar stranded mid-screen.
                 dioxus::document::eval(&format!(
-                    "requestAnimationFrame(() => {{ {AUTOSIZE} var f = document.querySelector('.composer-field'); if (f) f.focus(); }});"
+                    "requestAnimationFrame(() => {{ {AUTOSIZE} }});"
                 ));
             }
         }
@@ -341,11 +341,10 @@ pub fn Composer(
                                             start_recording(recorder, app);
                                             return;
                                         }
+                                        // Ball and recording start together: the
+                                        // capsule unrolls from the ball at once.
                                         balling.set(true);
-                                        spawn(async move {
-                                            futures_timer::Delay::new(std::time::Duration::from_millis(BALL_MS)).await;
-                                            start_recording(recorder, app);
-                                        });
+                                        start_recording(recorder, app);
                                     },
                                     IconMic { size: 22 }
                                 }
@@ -365,7 +364,8 @@ pub fn Composer(
                         if !is_idle || voice_leaving() {
                             // Enter/exit are CSS transitions driven by Rust flags:
                             // data-in flips one tick after mount, data-leaving on exit.
-                            div { class: "voice-layer absolute inset-0",
+                            // One line high, at the bottom, whatever the text's height.
+                            div { class: "voice-layer absolute inset-x-0 bottom-0 h-[60px]",
                                 "data-in": voice_in() && !is_idle,
                                 "data-leaving": is_idle,
                                 VoiceCapsule { pending_audio, transcribe_only: chat || hermes, commit_on_transcribed }

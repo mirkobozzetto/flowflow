@@ -45,12 +45,15 @@ pub fn SkillSuggest(input: Signal<String>) -> Element {
                     button {
                         key: "{skill.name}",
                         class: MENU_ROW,
+                        // Keeps the field focused (and the keyboard up) while
+                        // the row is tapped: refocusing later would strand
+                        // the bar (keyboard/inset.rs).
+                        onpointerdown: |e| e.prevent_default(),
                         onclick: {
                             let name = skill.name.clone();
                             move |_| {
                                 input.set(strip_slash(&input()));
                                 light(app, &name);
-                                document::eval("document.querySelector('.composer-field')?.focus()");
                             }
                         },
                         span { class: "{MENU_ICON} text-stone-500", SfIcon { name: category_symbol(&skill.category), size: 20 } }
@@ -72,6 +75,7 @@ pub fn SkillSuggest(input: Signal<String>) -> Element {
                         key: "{skill.name}",
                         class: "composer-glass pressable inline-flex items-center gap-1.5 pl-2.5 pr-3 py-1.5 rounded-full border border-stone-300/80 text-stone-700 text-xs font-medium",
                         style: "animation: fadeInUp 0.18s ease-out;",
+                        onpointerdown: |e| e.prevent_default(),
                         onclick: {
                             let name = skill.name.clone();
                             move |_| light(app, &name)
