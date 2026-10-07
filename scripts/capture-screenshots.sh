@@ -4,7 +4,8 @@
 #   scripts/capture-screenshots.sh en /tmp/flowflow-demo-en.db
 #
 # Needs a debug simulator build (docs/release/) and a demo store from
-# `cargo run --example demo_store`, so no personal note reaches a screenshot.
+# `cargo run --example demo_store` and its fake Hermes, so no personal
+# note, Hermes address or skill reaches a screenshot.
 # Each screen is set up by the debug-only screenshot watcher
 # (src/ui/app/watchers.rs), which reads a `shot` file next to the store.
 # Output: screenshots/<version>/<lang>/NN.png.
