@@ -202,15 +202,16 @@ pub fn Composer(
     });
 
     // The + palette drops a ready-to-run command here ("lance <alias>"): PREFILL the
-    // input so the user can complete it and send deliberately.
+    // input so the user can complete it and send deliberately. The screenshot
+    // watcher types into Hermes' field the same way.
     use_effect(move || {
-        if !chat {
+        if !chat && !hermes {
             return;
         }
         if let Some(cmd) = (app.pending_chat_input)() {
             app.pending_chat_input.set(None);
             if !cmd.trim().is_empty() {
-                input.set(format!("{cmd} "));
+                input.set(if chat { format!("{cmd} ") } else { cmd });
             }
         }
     });

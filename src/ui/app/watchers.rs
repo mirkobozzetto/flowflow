@@ -207,7 +207,9 @@ pub fn use_record_deeplink_watcher(
 /// up for the App Store screenshots (scripts/capture-screenshots.sh): the
 /// simulator runs headless and cannot be tapped, and a URL would raise an
 /// "Open in FlowFlow?" alert. home, record, menu, note, edit (the note with
-/// its title focused), chat, hermes (the latest Hermes conversation).
+/// its title focused), chat, hermes (the latest Hermes conversation),
+/// hermes-new. Lines after the screen: `photo=<file next to the store>`
+/// attached to the Hermes question, `text=<words>` typed in its field.
 #[cfg(debug_assertions)]
 pub fn use_screenshot_watcher(app: AppState, db: Signal<Arc<Database>>) {
     use_future(move || {
@@ -220,11 +222,17 @@ pub fn use_screenshot_watcher(app: AppState, db: Signal<Arc<Database>>) {
                 .await;
                 let file = crate::infrastructure::persistence::db_path()
                     .with_file_name("shot");
-                let Ok(screen) = std::fs::read_to_string(&file) else {
+                let Ok(shot) = std::fs::read_to_string(&file) else {
                     continue;
                 };
                 let _ = std::fs::remove_file(&file);
-                let screen = screen.trim();
+                let mut lines = shot.lines();
+                let screen = lines.next().unwrap_or_default().trim();
+                let args: Vec<(&str, &str)> =
+                    lines.filter_map(|l| l.split_once('=')).collect();
+                let arg = |key: &str| {
+                    args.iter().find(|(k, _)| *k == key).map(|(_, v)| *v)
+                };
                 if screen == "record" {
                     crate::infrastructure::sync::deeplink::push(
                         "flowflow://record".to_string(),
@@ -246,6 +254,7 @@ pub fn use_screenshot_watcher(app: AppState, db: Signal<Arc<Database>>) {
                 app.sidebar_open.set(screen == "menu");
                 app.show_tools_menu.set(false);
                 app.show_note_tools_menu.set(false);
+                app.hermes_attachments.set(Vec::new());
                 // Through the list first, so a mounted detail is rebuilt.
                 app.view.set(View::NotesList);
                 futures_timer::Delay::new(std::time::Duration::from_millis(60))
@@ -268,14 +277,32 @@ pub fn use_screenshot_watcher(app: AppState, db: Signal<Arc<Database>>) {
                     "chat" => app.view.set(View::Chat {
                         conversation_id: chat,
                     }),
-                    "hermes" => app.view.set(View::HermesChat {
-                        session_id: db
+                    "hermes" | "hermes-new" => {
+                        let latest = db
                             .peek()
                             .list_hermes_conversations()
                             .ok()
                             .and_then(|c| c.into_iter().next())
-                            .map(|c| c.id),
-                    }),
+                            .map(|c| c.id);
+                        app.view.set(View::HermesChat {
+                            session_id: latest.filter(|_| screen == "hermes"),
+                        });
+                        if let Some(name) = arg("photo") {
+                            if let Ok(jpeg) =
+                                std::fs::read(file.with_file_name(name))
+                            {
+                                app.hermes_attachments.set(vec![
+                                    crate::application::hermes_message::Attachment::Photo {
+                                        name: name.to_string(),
+                                        jpeg,
+                                    },
+                                ]);
+                            }
+                        }
+                        if let Some(text) = arg("text") {
+                            app.pending_chat_input.set(Some(text.to_string()));
+                        }
+                    }
                     _ => {}
                 }
             }
