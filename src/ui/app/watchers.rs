@@ -207,7 +207,7 @@ pub fn use_record_deeplink_watcher(
 /// up for the App Store screenshots (scripts/capture-screenshots.sh): the
 /// simulator runs headless and cannot be tapped, and a URL would raise an
 /// "Open in FlowFlow?" alert. home, record, menu, note, edit (the note with
-/// its title focused), chat.
+/// its title focused), chat, hermes (the latest Hermes conversation).
 #[cfg(debug_assertions)]
 pub fn use_screenshot_watcher(app: AppState, db: Signal<Arc<Database>>) {
     use_future(move || {
@@ -267,6 +267,14 @@ pub fn use_screenshot_watcher(app: AppState, db: Signal<Arc<Database>>) {
                     }
                     "chat" => app.view.set(View::Chat {
                         conversation_id: chat,
+                    }),
+                    "hermes" => app.view.set(View::HermesChat {
+                        session_id: db
+                            .peek()
+                            .list_hermes_conversations()
+                            .ok()
+                            .and_then(|c| c.into_iter().next())
+                            .map(|c| c.id),
                     }),
                     _ => {}
                 }
