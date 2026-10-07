@@ -53,6 +53,23 @@ scripts/frame-screenshots.sh fr
 
 Upload the `store/` frames, not the raw captures.
 
+## Promo video (site, social)
+
+A 35 s vertical promo per locale, edited from the same simulator clips:
+`screenshots/<version>/promo/`. The editing project lives outside this repo
+(`~/code/flowflow-videos`, Remotion): scenes in `src/scenes.ts`, every music
+prompt tried in `music/CATALOG.md`.
+
+```bash
+# Clips: one per feature, raw takes into the video project
+scripts/capture-screenshots.sh en /tmp/flowflow-demo-en.db ~/code/flowflow-videos/public/clips
+ONLY="first-note" scripts/capture-screenshots.sh ...   # retake one clip
+
+# In ~/code/flowflow-videos
+scripts/prep-clips.sh en fr
+npx remotion render promo-fr out/flowflow-promo-fr.mp4
+```
+
 ## Mirko checks before uploading
 
 - [ ] Every screenshot and preview: no personal data, no real key or address.
@@ -66,4 +83,4 @@ Upload the `store/` frames, not the raw captures.
 | Release | Screenshots | Previews | Notes |
 | --- | --- | --- | --- |
 | 2.1.0 | 5 per locale, `screenshots/2.1.0/` | none | Prepared, never submitted. |
-| 2.1.1 | 8 per locale, captioned, `screenshots/2.1.1/<lang>/store/` | 2 per locale: dictation, Hermes reading a photo | First submission of the 2.1 line. Skills shown through `/`: the native `+` menu cannot open headless. |
+| 2.1.1 | 8 per locale, captioned, `screenshots/2.1.1/<lang>/store/` | 2 per locale: dictation, Hermes reading a photo | First submission of the 2.1 line. Skills shown through `/`: the native `+` menu cannot open headless. Plus a 35 s promo per locale in `promo/` (funk track, Remotion). |
