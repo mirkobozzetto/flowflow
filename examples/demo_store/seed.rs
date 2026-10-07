@@ -1,6 +1,7 @@
-// Demo store for App Store screenshots, no personal data:
-//   cargo run --example demo_store -- /tmp/flowflow-demo-en.db en   (or fr)
+// The demo store: themes, notes, a notes chat and the Hermes conversations.
+use crate::{HERMES_KEY, HERMES_URL, SESSIONS};
 use flowflow::domain::{NewFolder, NewTextNote};
+use flowflow::infrastructure::hermes::{KEY_SETTING, URL_SETTING};
 use flowflow::infrastructure::persistence::Database;
 use std::path::PathBuf;
 
@@ -10,6 +11,8 @@ struct Demo {
     chat_title: &'static str,
     question: &'static str,
     answer: &'static str,
+    /// Hermes conversation titles, in `SESSIONS` order.
+    hermes_titles: [&'static str; 2],
 }
 
 const EN: Demo = Demo {
@@ -44,6 +47,10 @@ const EN: Demo = Demo {
     chat_title: "What is left before the launch?",
     question: "What is left before the launch?",
     answer: "Three things remain:\n\n1. **Press kit**, due Friday.\n2. **Onboarding**: beta testers found it too long, cut the third screen.\n3. **Pricing** stays under wraps until the keynote.\n\nThe beta opens on the 6th for the waitlist.",
+    hermes_titles: [
+        "Plan a 3-day weekend in Lisbon",
+        "What's left before the launch?",
+    ],
 };
 
 const FR: Demo = Demo {
@@ -78,15 +85,24 @@ const FR: Demo = Demo {
     chat_title: "Que reste-t-il avant le lancement ?",
     question: "Que reste-t-il avant le lancement ?",
     answer: "Il reste trois choses :\n\n1. **Le dossier de presse**, prévu vendredi.\n2. **L'accueil** : les bêta-testeurs le trouvent trop long, supprimer le troisième écran.\n3. **Les prix** restent secrets jusqu'à la keynote.\n\nLa bêta ouvre le 6 pour la liste d'attente.",
+    hermes_titles: [
+        "Un week-end de 3 jours à Lisbonne",
+        "Que reste-t-il avant le lancement ?",
+    ],
 };
 
-fn main() {
-    let args: Vec<String> = std::env::args().collect();
-    let (path, lang) = (PathBuf::from(&args[1]), args[2].as_str());
+/// `fresh`: a first launch, the welcome screen and no note yet.
+pub fn run(path: PathBuf, lang: &str, fresh: bool) {
     let demo = if lang == "fr" { &FR } else { &EN };
     let _ = std::fs::remove_file(&path);
     let db = Database::open_at(path).expect("open demo store");
     db.set_setting("language", lang).unwrap();
+    db.set_setting(URL_SETTING, HERMES_URL).unwrap();
+    db.set_setting(KEY_SETTING, HERMES_KEY).unwrap();
+    if fresh {
+        println!("seeded {lang}: first launch");
+        return;
+    }
     db.set_setting("ai_consent", "true").unwrap();
 
     let mut theme_ids: Vec<String> = Vec::new();
@@ -136,9 +152,15 @@ fn main() {
         Some(&serde_json::to_string(&sources).unwrap()),
     )
     .unwrap();
+
+    for (session, title) in SESSIONS.iter().zip(demo.hermes_titles) {
+        db.create_hermes_conversation(session, title).unwrap();
+        std::thread::sleep(std::time::Duration::from_millis(20));
+    }
     println!(
-        "seeded {lang}: {} themes, {} notes, 1 chat",
+        "seeded {lang}: {} themes, {} notes, 1 chat, {} Hermes chats",
         theme_ids.len(),
-        note_ids.len()
+        note_ids.len(),
+        SESSIONS.len()
     );
 }
