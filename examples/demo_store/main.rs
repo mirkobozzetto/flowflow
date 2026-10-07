@@ -1,5 +1,6 @@
 // Demo data for the App Store captures, no personal data anywhere:
 //   cargo run --example demo_store -- /tmp/flowflow-demo-en.db en   (or fr)
+//   cargo run --example demo_store -- /tmp/flowflow-fresh-en.db en fresh
 //   cargo run --example demo_store -- hermes en                     (or fr)
 // The first seeds a store; the second serves a fake Hermes the store points
 // at, so no real Hermes address, key, skill or history reaches a frame.
@@ -14,7 +15,8 @@ const SESSIONS: [&str; 2] = ["flowflow_demo_lisbon", "flowflow_demo_launch"];
 
 fn main() {
     let args: Vec<String> = std::env::args().collect();
-    let usage = "usage: demo_store <store.db> en|fr | demo_store hermes en|fr";
+    let usage =
+        "usage: demo_store <store.db> en|fr [fresh] | demo_store hermes en|fr";
     let (first, lang) = match (args.get(1), args.get(2)) {
         (Some(first), Some(lang)) if lang == "en" || lang == "fr" => {
             (first.as_str(), lang.as_str())
@@ -24,6 +26,10 @@ fn main() {
     if first == "hermes" {
         hermes::serve(lang);
     } else {
-        seed::run(first.into(), lang);
+        seed::run(
+            first.into(),
+            lang,
+            args.get(3).is_some_and(|a| a == "fresh"),
+        );
     }
 }

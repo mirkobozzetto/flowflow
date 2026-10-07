@@ -91,14 +91,19 @@ const FR: Demo = Demo {
     ],
 };
 
-pub fn run(path: PathBuf, lang: &str) {
+/// `fresh`: a first launch, the welcome screen and no note yet.
+pub fn run(path: PathBuf, lang: &str, fresh: bool) {
     let demo = if lang == "fr" { &FR } else { &EN };
     let _ = std::fs::remove_file(&path);
     let db = Database::open_at(path).expect("open demo store");
     db.set_setting("language", lang).unwrap();
-    db.set_setting("ai_consent", "true").unwrap();
     db.set_setting(URL_SETTING, HERMES_URL).unwrap();
     db.set_setting(KEY_SETTING, HERMES_KEY).unwrap();
+    if fresh {
+        println!("seeded {lang}: first launch");
+        return;
+    }
+    db.set_setting("ai_consent", "true").unwrap();
 
     let mut theme_ids: Vec<String> = Vec::new();
     for (name, parent) in demo.themes {
