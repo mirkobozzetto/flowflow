@@ -207,8 +207,10 @@ pub fn use_record_deeplink_watcher(
 /// up for the App Store screenshots (scripts/capture-screenshots.sh): the
 /// simulator runs headless and cannot be tapped, and a URL would raise an
 /// "Open in FlowFlow?" alert. home, record, menu, note, edit (the note with
-/// its title focused), chat, hermes (the latest Hermes conversation),
-/// hermes-new, tap (`selector=<css>` clicked, the screen kept). Lines after
+/// its title focused), chat, settings (`section=account|ai|transcription|
+/// connections`), hermes (the latest Hermes conversation),
+/// hermes-new, tap (`selector=<css>` or the button showing `label=<text>`
+/// clicked, the screen kept). Lines after
 /// the screen: `photo=<file next to the store>` attached to the Hermes
 /// question, `text=<words>` typed in its field.
 #[cfg(debug_assertions)]
@@ -245,6 +247,12 @@ pub fn use_screenshot_watcher(app: AppState, db: Signal<Arc<Database>>) {
                     if let Some(selector) = arg("selector") {
                         dioxus::document::eval(&format!(
                             "document.querySelector({selector:?})?.click();"
+                        ));
+                    }
+                    // The innermost button whose text holds the label.
+                    if let Some(label) = arg("label") {
+                        dioxus::document::eval(&format!(
+                            "[...document.querySelectorAll('button')].reverse().find(b => b.textContent.includes({label:?}))?.click();"
                         ));
                     }
                     continue;
@@ -287,6 +295,22 @@ pub fn use_screenshot_watcher(app: AppState, db: Signal<Arc<Database>>) {
                     "chat" => app.view.set(View::Chat {
                         conversation_id: chat,
                     }),
+                    "settings" => {
+                        use crate::ui::state::SettingsSection as S;
+                        app.view.set(
+                            match arg("section").unwrap_or_default() {
+                                "account" => View::SettingsSection(S::Account),
+                                "ai" => View::SettingsSection(S::Intelligence),
+                                "transcription" => {
+                                    View::SettingsSection(S::Transcription)
+                                }
+                                "connections" => {
+                                    View::SettingsSection(S::Connections)
+                                }
+                                _ => View::Settings,
+                            },
+                        );
+                    }
                     "hermes" | "hermes-new" => {
                         let latest = db
                             .peek()
