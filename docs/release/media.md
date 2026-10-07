@@ -39,14 +39,19 @@ export PATH="$HOME/.rustup/toolchains/stable-aarch64-apple-darwin/bin:$PATH"
 make restore-ios-toml
 set -a && . ./.env && set +a && IPHONEOS_DEPLOYMENT_TARGET=16.0 dx build --platform ios
 
-# Screenshots: iPhone 17 Pro Max, 6.9", headless, every slot set up by a
-# debug-only watcher -> screenshots/<version>/<lang>/NN.png
+# Screenshots and previews: iPhone 17 Pro Max, 6.9", headless, every slot
+# set up by a debug-only watcher, Hermes served by the demo's fake server
+# -> screenshots/<version>/<lang>/NN.png and preview-*.mp4 (886 x 1920)
 scripts/capture-screenshots.sh en /tmp/flowflow-demo-en.db
 scripts/capture-screenshots.sh fr /tmp/flowflow-demo-fr.db
 
-# App preview: record the booted simulator, then cut to 15-30 s at 886 x 1920
-xcrun simctl io booted recordVideo --codec=h264 /tmp/preview-en.mov
+# Captions above each screenshot, one per line in
+# screenshots/<version>/captions-<lang>.txt -> <lang>/store/NN.png
+scripts/frame-screenshots.sh en
+scripts/frame-screenshots.sh fr
 ```
+
+Upload the `store/` frames, not the raw captures.
 
 ## Mirko checks before uploading
 
@@ -61,4 +66,4 @@ xcrun simctl io booted recordVideo --codec=h264 /tmp/preview-en.mov
 | Release | Screenshots | Previews | Notes |
 | --- | --- | --- | --- |
 | 2.1.0 | 5 per locale, `screenshots/2.1.0/` | none | Prepared, never submitted. |
-| 2.1.1 | planned, see [2.1.1.md](2.1.1.md) | planned | First submission of the 2.1 line. |
+| 2.1.1 | 8 per locale, captioned, `screenshots/2.1.1/<lang>/store/` | 2 per locale: dictation, Hermes reading a photo | First submission of the 2.1 line. Skills shown through `/`: the native `+` menu cannot open headless. |
