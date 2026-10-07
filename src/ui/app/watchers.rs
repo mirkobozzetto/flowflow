@@ -208,8 +208,9 @@ pub fn use_record_deeplink_watcher(
 /// simulator runs headless and cannot be tapped, and a URL would raise an
 /// "Open in FlowFlow?" alert. home, record, menu, note, edit (the note with
 /// its title focused), chat, hermes (the latest Hermes conversation),
-/// hermes-new. Lines after the screen: `photo=<file next to the store>`
-/// attached to the Hermes question, `text=<words>` typed in its field.
+/// hermes-new, tap (`selector=<css>` clicked, the screen kept). Lines after
+/// the screen: `photo=<file next to the store>` attached to the Hermes
+/// question, `text=<words>` typed in its field.
 #[cfg(debug_assertions)]
 pub fn use_screenshot_watcher(app: AppState, db: Signal<Arc<Database>>) {
     use_future(move || {
@@ -237,6 +238,15 @@ pub fn use_screenshot_watcher(app: AppState, db: Signal<Arc<Database>>) {
                     crate::infrastructure::sync::deeplink::push(
                         "flowflow://record".to_string(),
                     );
+                    continue;
+                }
+                // A tap on what is on screen, for the previews: no reset.
+                if screen == "tap" {
+                    if let Some(selector) = arg("selector") {
+                        dioxus::document::eval(&format!(
+                            "document.querySelector({selector:?})?.click();"
+                        ));
+                    }
                     continue;
                 }
                 let note = db
