@@ -331,6 +331,20 @@ pub fn turns(messages: &[HermesMessage]) -> Vec<HermesTurn> {
     out
 }
 
+/// Hermes' history does not record the user's answers: the live reply's
+/// receipts move onto the reply read back in its place.
+// ponytail: kept in memory only; reopening the conversation drops them.
+pub fn keep_receipts(history: &mut [HermesTurn], live: &LiveReply) {
+    let receipts = live
+        .steps
+        .iter()
+        .filter(|s| s.tool.starts_with(RECEIPT_TOOL))
+        .cloned();
+    if let Some(HermesTurn::Reply { steps, .. }) = history.last_mut() {
+        steps.extend(receipts);
+    }
+}
+
 /// Address and key carried by a linking QR code; None for any other link.
 pub fn parse_link(uri: &str) -> Option<(String, String)> {
     let parsed = url::Url::parse(uri.trim()).ok()?;

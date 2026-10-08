@@ -1048,3 +1048,22 @@ fn an_expired_request_once_seen_closes_into_a_receipt() {
     assert!(reply.approvals.is_empty());
     assert_eq!(reply.steps.last().unwrap().tool, "approval.expired");
 }
+
+#[test]
+fn receipts_stay_on_the_reply_once_the_history_is_read_back() {
+    let messages: Vec<HermesMessage> =
+        serde_json::from_str(SESSION_MESSAGES).unwrap();
+    let mut history = hermes_chat::turns(&messages);
+    let mut reply = LiveReply::default();
+    reply.apply(parse_run_event(TOOL_STARTED).unwrap().1);
+    reply.apply(parse_run_event(APPROVAL_REQUEST).unwrap().1);
+    reply.apply(parse_run_event(APPROVAL_RESPONDED).unwrap().1);
+
+    hermes_chat::keep_receipts(&mut history, &reply);
+
+    let Some(HermesTurn::Reply { steps, .. }) = history.last() else {
+        panic!("the last turn is a reply");
+    };
+    assert_eq!(steps.last().unwrap().tool, "approval.once");
+    assert_eq!(steps.iter().filter(|s| s.tool == "terminal").count(), 1);
+}
