@@ -909,3 +909,85 @@ fn an_unanswered_request_expires_when_its_tool_or_the_run_ends() {
     reply.apply(RunEvent::Completed("Pas de réponse.".into()));
     assert_eq!(reply.approvals[0].status, ApprovalStatus::Expired);
 }
+
+#[tokio::test]
+async fn an_answer_goes_to_hermes_with_its_request_id() {
+    let seen = Arc::new(Mutex::new(Vec::new()));
+    let base = serve(Script {
+        responses: vec![
+            (
+                "POST /v1/runs/run_a1/approval",
+                json(
+                    "200 OK",
+                    r#"{"object": "hermes.run.approval_response", "run_id": "run_a1", "choice": "once", "request_id": "4f1c2a9e8b7d4c3fa1e2b3c4d5e6f708", "resolved": 1}"#,
+                ),
+            ),
+            (
+                "POST /v1/runs/run_a1/approval",
+                json(
+                    "409 Conflict",
+                    r#"{"error": {"message": "Run has no pending approval: run_a1", "type": "invalid_request_error", "code": "approval_not_pending"}}"#,
+                ),
+            ),
+        ],
+        seen: seen.clone(),
+    })
+    .await;
+    let dir = tempdir().unwrap();
+    let db = open_db(&dir);
+    configure(&db, &base);
+    let id = request(APPROVAL_REQUEST).request_id;
+
+    assert_eq!(
+        hermes_chat::answer(&db, "run_a1", &id, "once").await,
+        Ok(())
+    );
+    let sent: serde_json::Value = serde_json::from_str(
+        seen.lock().unwrap()[0].split("\r\n\r\n").nth(1).unwrap(),
+    )
+    .unwrap();
+    assert_eq!(
+        sent,
+        serde_json::json!({"choice": "once", "request_id": id})
+    );
+    assert_eq!(
+        hermes_chat::answer(&db, "run_a1", &id, "once").await,
+        Err(HermesError::ApprovalGone),
+        "already answered or timed out"
+    );
+}
+
+#[test]
+fn a_tap_sends_once_and_an_expired_answer_says_so() {
+    let id = request(APPROVAL_REQUEST).request_id;
+    let mut reply = LiveReply::default();
+    reply.apply(parse_run_event(TOOL_STARTED).unwrap().1);
+    reply.apply(parse_run_event(APPROVAL_REQUEST).unwrap().1);
+    assert!(reply.sending(&id), "the first tap sends");
+    assert!(!reply.sending(&id), "a second tap does not");
+    // The tool ends before the answer comes back: the answer decides.
+    reply.apply(parse_run_event(TOOL_COMPLETED).unwrap().1);
+    assert_eq!(reply.approvals[0].status, ApprovalStatus::Sending);
+    reply.answered(&id, "once", &Err(HermesError::ApprovalGone));
+    assert_eq!(reply.approvals[0].status, ApprovalStatus::Expired);
+
+    let mut reply = LiveReply::default();
+    reply.apply(parse_run_event(APPROVAL_REQUEST).unwrap().1);
+    reply.sending(&id);
+    reply.answered(&id, "deny", &Err(HermesError::Unreachable));
+    assert_eq!(
+        reply.approvals[0].status,
+        ApprovalStatus::Asked,
+        "a lost answer can be sent again"
+    );
+    reply.sending(&id);
+    reply.answered(&id, "deny", &Ok(()));
+    assert!(reply.approvals.is_empty());
+    assert_eq!(reply.steps.last().unwrap().tool, "approval.deny");
+    // Hermes' own confirmation of that answer adds no second receipt.
+    reply.apply(RunEvent::ApprovalResolved {
+        request_id: id.clone(),
+        choice: "deny".into(),
+    });
+    assert_eq!(reply.steps.len(), 1);
+}

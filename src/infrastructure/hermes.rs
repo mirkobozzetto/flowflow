@@ -21,6 +21,8 @@ pub enum HermesError {
     KeyRefused,
     NotFound,
     Server(String),
+    /// The approval was already answered, or Hermes stopped waiting for it.
+    ApprovalGone,
 }
 
 /// One event of a run, as the chat needs it.
@@ -495,6 +497,28 @@ impl HermesClient {
             .and_then(|r| r.as_str())
             .map(String::from)
             .ok_or_else(|| HermesError::Server("no run_id".into()))
+    }
+
+    /// The user's answer to one approval request of a run.
+    pub async fn answer_approval(
+        &self,
+        run_id: &str,
+        request_id: &str,
+        choice: &str,
+    ) -> Result<(), HermesError> {
+        let sent = self
+            .post(&format!("/v1/runs/{run_id}/approval"))
+            .json(&serde_json::json!({ "choice": choice, "request_id": request_id }))
+            .timeout(REQUEST_TIMEOUT)
+            .send()
+            .await;
+        if sent
+            .as_ref()
+            .is_ok_and(|r| r.status() == reqwest::StatusCode::CONFLICT)
+        {
+            return Err(HermesError::ApprovalGone);
+        }
+        checked(sent).await.map(|_| ())
     }
 
     pub async fn run_state(

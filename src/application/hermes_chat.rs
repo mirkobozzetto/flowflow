@@ -151,6 +151,48 @@ impl LiveReply {
             }
         }
     }
+
+    /// Marks a request as being answered; false when it already is, or is
+    /// no longer asked, so a second tap sends nothing.
+    pub fn sending(&mut self, request_id: &str) -> bool {
+        match self.approvals.iter_mut().find(|a| {
+            a.request.request_id == request_id
+                && a.status == ApprovalStatus::Asked
+        }) {
+            Some(a) => {
+                a.status = ApprovalStatus::Sending;
+                true
+            }
+            None => false,
+        }
+    }
+
+    /// What Hermes made of an answer: taken, gone (it stopped waiting), or
+    /// lost on the way, in which case it can be sent again.
+    pub fn answered(
+        &mut self,
+        request_id: &str,
+        choice: &str,
+        result: &Result<(), HermesError>,
+    ) {
+        match result {
+            Ok(()) => self.resolve(request_id, choice),
+            Err(e) => {
+                let status = if *e == HermesError::ApprovalGone {
+                    ApprovalStatus::Expired
+                } else {
+                    ApprovalStatus::Asked
+                };
+                if let Some(a) = self
+                    .approvals
+                    .iter_mut()
+                    .find(|a| a.request.request_id == request_id)
+                {
+                    a.status = status;
+                }
+            }
+        }
+    }
 }
 
 /// Translation key naming a Hermes tool for a reader; None keeps the raw
@@ -649,6 +691,18 @@ pub async fn send(
         db.set_hermes_pending_run(&session_id, Some((run_id.as_str(), &text)));
     let _ = db.touch_hermes_conversation(&session_id);
     Ok((session_id, run_id))
+}
+
+/// Sends the user's choice for one approval request of a running turn.
+pub async fn answer(
+    db: &Database,
+    run_id: &str,
+    request_id: &str,
+    choice: &str,
+) -> Result<(), HermesError> {
+    HermesClient::from_db(db)?
+        .answer_approval(run_id, request_id, choice)
+        .await
 }
 
 /// Follows a run to its end, picking the stream up again after a drop (the

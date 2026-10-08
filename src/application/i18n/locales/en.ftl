@@ -679,6 +679,7 @@ hermes-not-configured = Hermes is not linked to FlowFlow yet.
 hermes-unreachable = Hermes cannot be reached. Check its address and your network.
 hermes-key-refused = Hermes refuses the saved key.
 hermes-failed = Hermes could not answer: { $error }
+hermes-approval-expired = Expired, the command did not run.
 hermes-open-settings = Open Settings
 hermes-settings-title = Hermes
 hermes-settings-hint = Your own Hermes agent. The address and key stay on this device.
