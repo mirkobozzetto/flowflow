@@ -1,52 +1,63 @@
 use crate::application::hermes_chat::{ApprovalStatus, PendingApproval};
 use crate::application::i18n::{t, t_args};
-use crate::infrastructure::platform::haptic;
-use crate::ui::icons::HermesAgentIcon;
+use crate::infrastructure::platform::{haptic, haptic_prepare};
+use crate::ui::icons::{HermesAgentIcon, IconCheck};
 use dioxus::prelude::*;
+use std::time::Duration;
 
-const CTA: &str = "pressable w-full h-[52px] rounded-full text-[17px] font-semibold tracking-[-0.01em] active:scale-[0.97] transition-transform disabled:opacity-55";
+/// How long an answer Hermes took stays on its button before the alert goes.
+pub const CONFIRM_HOLD: Duration = Duration::from_millis(650);
+
+const CTA: &str = "alert-cta w-full h-[52px] rounded-full text-[17px] font-semibold tracking-[-0.01em] flex items-center justify-center gap-1.5";
+
+#[derive(Clone, Copy, PartialEq)]
+enum Tone {
+    Primary,
+    Secondary,
+    Plain,
+}
 
 /// Hermes waits on the user's go for a command: an alert over the chat,
-/// offering only the choices Hermes allows for it. Closing it answers
-/// nothing; the pill under the reply opens it again.
+/// offering only the choices Hermes allows for it. `answer` is the choice
+/// on its way, `done` once Hermes took it. Closing answers nothing; the
+/// pill under the reply opens it again.
 #[component]
 pub fn HermesApprovalAlert(
     approval: PendingApproval,
     total: usize,
     lang: String,
+    answer: Option<&'static str>,
+    done: bool,
     on_answer: EventHandler<&'static str>,
     on_close: EventHandler<()>,
 ) -> Element {
     let mut wide = use_signal(|| false);
-    let mut chosen: Signal<Option<&'static str>> = use_signal(|| None);
-    let request = approval.request.clone();
-    let sending = approval.status == ApprovalStatus::Sending;
-    let expired = approval.status == ApprovalStatus::Expired;
+    let request = approval.request;
+    let expired =
+        approval.status == ApprovalStatus::Expired && answer.is_none();
     let offered = |c: &str| request.choices.iter().any(|x| x == c);
     let (program, args) = request
         .command
         .split_once(' ')
         .unwrap_or((request.command.as_str(), ""));
-    let mut pick = move |choice: &'static str| {
-        haptic("light");
-        chosen.set(Some(choice));
-        on_answer.call(choice);
-    };
-    let label = |choice: &str, idle: &str, busy: &str| {
-        t(
-            &lang,
-            if sending && chosen() == Some(choice) {
-                busy
-            } else {
-                idle
-            },
-        )
+    let button = |choice: &'static str, idle: &'static str, tone: Tone| {
+        rsx! {
+            AlertButton {
+                choice,
+                idle,
+                tone,
+                answer,
+                done,
+                lang: lang.clone(),
+                on_pick: move |c| on_answer.call(c),
+            }
+        }
     };
     rsx! {
         div {
             class: "fixed inset-0 z-50 flex items-center justify-center px-6 bg-stone-900/20 backdrop-fade",
             onclick: move |_| {
-                if !sending {
+                if answer.is_none() {
                     on_close.call(());
                 }
             },
@@ -99,31 +110,66 @@ pub fn HermesApprovalAlert(
                 } else {
                     div { class: "mt-4 flex flex-col gap-2",
                         if offered("once") {
-                            button {
-                                class: "{CTA} bg-ios-orange text-white",
-                                disabled: sending,
-                                onclick: move |_| pick("once"),
-                                {label("once", "hermes-approval-run", "hermes-approval-running")}
-                            }
+                            {button("once", "hermes-approval-run", Tone::Primary)}
                         }
                         if offered("session") {
-                            button {
-                                class: "{CTA} bg-stone-900/5 text-stone-900 !text-[15px]",
-                                disabled: sending,
-                                onclick: move |_| pick("session"),
-                                {label("session", "hermes-approval-session", "hermes-approval-running")}
-                            }
+                            {button("session", "hermes-approval-session", Tone::Secondary)}
                         }
                         if offered("deny") {
-                            button {
-                                class: "{CTA} text-stone-600 !font-medium",
-                                disabled: sending,
-                                onclick: move |_| pick("deny"),
-                                {label("deny", "hermes-approval-deny", "hermes-approval-denying")}
-                            }
+                            {button("deny", "hermes-approval-deny", Tone::Plain)}
                         }
                     }
                 }
+            }
+        }
+    }
+}
+
+// One choice: idle, on its way ("Exécution…"), or taken ("✓ Exécutée");
+// while one choice is out, the others step back.
+#[component]
+fn AlertButton(
+    choice: &'static str,
+    idle: &'static str,
+    tone: Tone,
+    answer: Option<&'static str>,
+    done: bool,
+    lang: String,
+    on_pick: EventHandler<&'static str>,
+) -> Element {
+    let mine = answer == Some(choice);
+    let look = match tone {
+        Tone::Primary => "bg-ios-orange text-white",
+        Tone::Secondary => "bg-stone-900/5 text-stone-900 !text-[15px]",
+        Tone::Plain => "text-stone-600 !font-medium",
+    };
+    let fade = if answer.is_some() && !mine {
+        "opacity-30"
+    } else {
+        ""
+    };
+    let busy = if choice == "deny" {
+        "hermes-approval-denying"
+    } else {
+        "hermes-approval-running"
+    };
+    rsx! {
+        button {
+            class: "{CTA} {look} {fade}",
+            disabled: answer.is_some(),
+            "data-done": if mine && done { "1" },
+            onpointerdown: move |_| haptic_prepare("light"),
+            onclick: move |_| {
+                haptic("light");
+                on_pick.call(choice);
+            },
+            if mine && done {
+                IconCheck { size: 18 }
+                {t(&lang, &format!("hermes-receipt-{choice}"))}
+            } else if mine {
+                {t(&lang, busy)}
+            } else {
+                {t(&lang, idle)}
             }
         }
     }

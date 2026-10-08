@@ -1,5 +1,5 @@
 use crate::application::hermes_chat::{
-    self, ApprovalStatus, HermesError, HermesTurn, LiveReply,
+    self, ApprovalStatus, HermesError, HermesTurn, LiveReply, PendingApproval,
 };
 use crate::application::hermes_message::{self, Asked, Attachment};
 use crate::application::i18n::{t, t_args};
@@ -7,7 +7,7 @@ use crate::infrastructure::persistence::Database;
 use crate::infrastructure::platform::haptic;
 use crate::ui::chat::empty_state::ChatEmptyState;
 use crate::ui::chat::hermes_approval::{
-    HermesApprovalAlert, HermesApprovalPill,
+    HermesApprovalAlert, HermesApprovalPill, CONFIRM_HOLD,
 };
 use crate::ui::chat::hermes_reply::HermesReply;
 use crate::ui::chat::user_bubble::UserBubble;
@@ -61,6 +61,15 @@ fn facts_line(
     Some(parts.join(" · "))
 }
 
+// The answer on its way, kept on screen until Hermes took it and a beat after.
+#[derive(Clone, PartialEq)]
+struct Answering {
+    approval: PendingApproval,
+    total: usize,
+    choice: &'static str,
+    done: bool,
+}
+
 fn view_session(view: &View) -> Option<Option<String>> {
     match view {
         View::HermesChat { session_id } => Some(session_id.clone()),
@@ -83,6 +92,7 @@ pub fn HermesChatView() -> Element {
     // closed without answering.
     let mut run: Signal<Option<String>> = use_signal(|| None);
     let mut closed: Signal<Option<String>> = use_signal(|| None);
+    let mut answering: Signal<Option<Answering>> = use_signal(|| None);
     // Scheduled tasks on Hermes, for the empty conversation.
     let mut jobs: Signal<Option<usize>> = use_signal(|| None);
     // The skills, read once per opening of the Hermes chat: the "+" menu,
@@ -119,7 +129,10 @@ pub fn HermesChatView() -> Element {
             if live.peek().as_ref().is_some_and(|r| r.error.is_some()) {
                 return;
             }
-            if let Ok(fresh) = hermes_chat::history(&database, &sid).await {
+            if let Ok(mut fresh) = hermes_chat::history(&database, &sid).await {
+                if let Some(reply) = live.peek().as_ref() {
+                    hermes_chat::keep_receipts(&mut fresh, reply);
+                }
                 turns.set(fresh);
                 live.set(None);
             }
@@ -194,23 +207,39 @@ pub fn HermesChatView() -> Element {
     });
 
     // One tap sends one answer; what Hermes makes of it lands on the reply.
-    let mut answer = move |request_id: String, choice: &'static str| {
+    // The alert stays on its own copy of the request until the answer has
+    // shown on its button, whatever the stream does meanwhile.
+    let mut answer = move |approval: PendingApproval,
+                           total: usize,
+                           choice: &'static str| {
         let Some(run_id) = run.peek().clone() else {
             return;
         };
-        if !live
-            .write()
-            .as_mut()
-            .is_some_and(|r| r.sending(&request_id))
+        let id = approval.request.request_id.clone();
+        if answering.peek().is_some()
+            || !live.write().as_mut().is_some_and(|r| r.sending(&id))
         {
             return;
         }
+        answering.set(Some(Answering {
+            approval,
+            total,
+            choice,
+            done: false,
+        }));
         spawn(async move {
-            let result =
-                hermes_chat::answer(&db(), &run_id, &request_id, choice).await;
+            let result = hermes_chat::answer(&db(), &run_id, &id, choice).await;
             if let Some(reply) = live.write().as_mut() {
-                reply.answered(&request_id, choice, &result);
+                reply.answered(&id, choice, &result);
             }
+            if result.is_ok() {
+                if let Some(a) = answering.write().as_mut() {
+                    a.done = true;
+                }
+                haptic("soft");
+                futures_timer::Delay::new(CONFIRM_HOLD).await;
+            }
+            answering.set(None);
         });
     };
     let mut acknowledge = move |request_id: String| {
@@ -226,6 +255,14 @@ pub fn HermesChatView() -> Element {
     let alert_open = asking.as_ref().is_some_and(|(a, _)| {
         closed().as_deref() != Some(a.request.request_id.as_str())
     });
+    let alert = answering()
+        .map(|a| (a.approval, a.total, Some(a.choice), a.done))
+        .or_else(|| {
+            asking
+                .clone()
+                .filter(|_| alert_open)
+                .map(|(a, total)| (a, total, None, false))
+        });
 
     let busy = live().is_some_and(|r| !r.done);
     let is_empty = turns().is_empty() && live().is_none();
@@ -270,7 +307,7 @@ pub fn HermesChatView() -> Element {
                                 live: !reply.done,
                             }
                         }
-                        if let Some((a, _)) = asking.clone().filter(|_| !alert_open) {
+                        if let Some((a, _)) = asking.clone().filter(|_| alert.is_none()) {
                             div { class: "pl-7 -mt-1",
                                 HermesApprovalPill {
                                     expired: a.status == ApprovalStatus::Expired,
@@ -283,15 +320,17 @@ pub fn HermesChatView() -> Element {
                 }
             }
         }
-        if let Some((a, total)) = asking.filter(|_| alert_open) {
+        if let Some((a, total, sent, done)) = alert {
             HermesApprovalAlert {
                 key: "{a.request.request_id}",
                 approval: a.clone(),
                 total,
                 lang: lang.clone(),
+                answer: sent,
+                done,
                 on_answer: {
-                    let id = a.request.request_id.clone();
-                    move |choice: &'static str| answer(id.clone(), choice)
+                    let a = a.clone();
+                    move |choice: &'static str| answer(a.clone(), total, choice)
                 },
                 on_close: {
                     let id = a.request.request_id.clone();
