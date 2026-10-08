@@ -733,6 +733,11 @@ pub async fn follow(
         }
         match client.run_state(run_id).await {
             Ok(RunState::Running) => misses = 0,
+            // The request may have left the server's replay: read it back.
+            Ok(RunState::WaitingForApproval(request)) => {
+                misses = 0;
+                on_event(RunEvent::ApprovalRequested(request));
+            }
             Ok(RunState::Completed(output)) => {
                 on_event(RunEvent::Completed(output));
                 break;

@@ -991,3 +991,45 @@ fn a_tap_sends_once_and_an_expired_answer_says_so() {
     });
     assert_eq!(reply.steps.len(), 1);
 }
+
+#[tokio::test]
+async fn a_request_read_back_after_a_drop_shows_again() {
+    let started = r#"{"event": "tool.started", "run_id": "run_a1", "tool": "terminal", "preview": "git clone https://github.com/mirkobozzetto/flowflow-videos", "seq": 0}"#;
+    // The run's status while it waits, as `_set_run_status` stores it.
+    let waiting = format!(
+        r#"{{"object": "hermes.run", "run_id": "run_a1", "status": "waiting_for_approval", "updated_at": 1791489000.2, "created_at": 1791488990.0, "last_event": "approval.request", "approval": {APPROVAL_REQUEST}}}"#
+    );
+    let completed = r#"{"event": "run.completed", "run_id": "run_a1", "output": "Cloné.", "seq": 6}"#;
+    let seen = Arc::new(Mutex::new(Vec::new()));
+    let base = serve(Script {
+        responses: vec![
+            // The phone sleeps while Hermes waits: the stream drops.
+            ("GET /v1/runs/run_a1/events", sse(&[started])),
+            ("GET /v1/runs/run_a1 ", json("200 OK", &waiting)),
+            (
+                "GET /v1/runs/run_a1/events",
+                sse(&[APPROVAL_RESPONDED, completed]),
+            ),
+        ],
+        seen,
+    })
+    .await;
+    let dir = tempdir().unwrap();
+    let db = open_db(&dir);
+    configure(&db, &base);
+    db.create_hermes_conversation("flowflow_a", "Clone")
+        .unwrap();
+
+    let mut events = Vec::new();
+    hermes_chat::follow(&db, "flowflow_a", "run_a1", |e| events.push(e))
+        .await
+        .unwrap();
+
+    assert!(events
+        .contains(&RunEvent::ApprovalRequested(request(APPROVAL_REQUEST))));
+    let mut reply = LiveReply::default();
+    events.into_iter().for_each(|e| reply.apply(e));
+    assert!(reply.approvals.is_empty());
+    assert_eq!(reply.steps.last().unwrap().tool, "approval.once");
+    assert!(reply.done);
+}

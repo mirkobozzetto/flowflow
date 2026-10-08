@@ -55,6 +55,7 @@ pub struct ApprovalRequest {
 #[derive(Debug, Clone, PartialEq)]
 pub enum RunState {
     Running,
+    WaitingForApproval(ApprovalRequest),
     Completed(String),
     Failed(String),
 }
@@ -272,6 +273,10 @@ fn run_state(v: &serde_json::Value) -> RunState {
         "failed" | "cancelled" | "interrupted" => {
             RunState::Failed(text("error"))
         }
+        "waiting_for_approval" => v
+            .get("approval")
+            .and_then(|a| serde_json::from_value(a.clone()).ok())
+            .map_or(RunState::Running, RunState::WaitingForApproval),
         _ => RunState::Running,
     }
 }
