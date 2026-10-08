@@ -7,8 +7,8 @@ use crate::infrastructure::hermes::{HermesClient, HermesMessage, RunState};
 use crate::infrastructure::persistence::Database;
 
 pub use crate::infrastructure::hermes::{
-    HermesError, ModelOptions, ModelProvider, RunEvent, Skill, KEY_SETTING,
-    URL_SETTING,
+    ApprovalRequest, HermesError, ModelOptions, ModelProvider, RunEvent, Skill,
+    KEY_SETTING, URL_SETTING,
 };
 
 /// The link the kit's QR code carries: flowflow://hermes?url=…&key=…
@@ -39,11 +39,34 @@ pub enum HermesTurn {
     },
 }
 
+#[derive(Clone, Debug, PartialEq)]
+pub enum ApprovalStatus {
+    Asked,
+    Sending,
+    /// Hermes stopped waiting: the command did not run.
+    Expired,
+}
+
+/// A request for the user's go, on screen until it is answered.
+#[derive(Clone, Debug, PartialEq)]
+pub struct PendingApproval {
+    pub request: ApprovalRequest,
+    pub status: ApprovalStatus,
+    // The step running when Hermes asked: Hermes asks from inside the tool,
+    // so that step ending unanswered means it gave up waiting.
+    step: Option<usize>,
+}
+
+/// An answered request stays in the steps as a receipt, under this tool name
+/// followed by the choice ("approval.once").
+pub const RECEIPT_TOOL: &str = "approval.";
+
 /// The reply being written while a run is live.
 #[derive(Clone, Debug, Default, PartialEq)]
 pub struct LiveReply {
     pub text: String,
     pub steps: Vec<HermesStep>,
+    pub approvals: Vec<PendingApproval>,
     pub error: Option<String>,
     pub done: bool,
 }
@@ -61,14 +84,12 @@ impl LiveReply {
                 })
             }
             RunEvent::ToolDone { tool, failed } => {
-                if let Some(step) = self
-                    .steps
-                    .iter_mut()
-                    .rev()
-                    .find(|s| s.running && s.tool == tool)
+                if let Some(i) =
+                    self.steps.iter().rposition(|s| s.running && s.tool == tool)
                 {
-                    step.running = false;
-                    step.failed = failed;
+                    self.steps[i].running = false;
+                    self.steps[i].failed = failed;
+                    self.expire(|a| a.step == Some(i));
                 }
             }
             RunEvent::Completed(output) => {
@@ -76,10 +97,57 @@ impl LiveReply {
                     self.text = output;
                 }
                 self.done = true;
+                self.expire(|_| true);
             }
             RunEvent::Failed(error) => {
                 self.error = Some(error);
                 self.done = true;
+                self.expire(|_| true);
+            }
+            RunEvent::ApprovalRequested(request) => {
+                let known = self
+                    .approvals
+                    .iter()
+                    .any(|a| a.request.request_id == request.request_id);
+                if !known {
+                    let step = self.steps.iter().rposition(|s| s.running);
+                    self.approvals.push(PendingApproval {
+                        request,
+                        status: ApprovalStatus::Asked,
+                        step,
+                    });
+                }
+            }
+            RunEvent::ApprovalResolved { request_id, choice } => {
+                self.resolve(&request_id, &choice)
+            }
+        }
+    }
+
+    // An answer always wins over an expiry seen first: the tool can end
+    // before the answer's own confirmation arrives.
+    fn resolve(&mut self, request_id: &str, choice: &str) {
+        let Some(i) = self
+            .approvals
+            .iter()
+            .position(|a| a.request.request_id == request_id)
+        else {
+            return;
+        };
+        let answered = self.approvals.remove(i);
+        self.steps.push(HermesStep {
+            tool: format!("{RECEIPT_TOOL}{choice}"),
+            detail: clip(&answered.request.command),
+            running: false,
+            failed: choice == "deny",
+        });
+    }
+
+    // A request being answered is left alone: its answer decides.
+    fn expire(&mut self, which: impl Fn(&PendingApproval) -> bool) {
+        for a in self.approvals.iter_mut() {
+            if a.status == ApprovalStatus::Asked && which(a) {
+                a.status = ApprovalStatus::Expired;
             }
         }
     }
