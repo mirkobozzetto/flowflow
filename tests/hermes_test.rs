@@ -1033,3 +1033,18 @@ async fn a_request_read_back_after_a_drop_shows_again() {
     assert_eq!(reply.steps.last().unwrap().tool, "approval.once");
     assert!(reply.done);
 }
+
+#[test]
+fn an_expired_request_once_seen_closes_into_a_receipt() {
+    let id = request(APPROVAL_REQUEST).request_id;
+    let mut reply = LiveReply::default();
+    reply.apply(parse_run_event(TOOL_STARTED).unwrap().1);
+    reply.apply(parse_run_event(APPROVAL_REQUEST).unwrap().1);
+    reply.acknowledge(&id);
+    assert_eq!(reply.approvals.len(), 1, "a live request is not dismissed");
+
+    reply.apply(parse_run_event(TOOL_COMPLETED).unwrap().1);
+    reply.acknowledge(&id);
+    assert!(reply.approvals.is_empty());
+    assert_eq!(reply.steps.last().unwrap().tool, "approval.expired");
+}

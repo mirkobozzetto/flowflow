@@ -61,6 +61,16 @@ pub struct PendingApproval {
 /// followed by the choice ("approval.once").
 pub const RECEIPT_TOOL: &str = "approval.";
 
+// A command that did not run ("deny", "expired") reads as a failed step.
+fn receipt(outcome: &str, command: &str) -> HermesStep {
+    HermesStep {
+        tool: format!("{RECEIPT_TOOL}{outcome}"),
+        detail: clip(command),
+        running: false,
+        failed: matches!(outcome, "deny" | "expired"),
+    }
+}
+
 /// The reply being written while a run is live.
 #[derive(Clone, Debug, Default, PartialEq)]
 pub struct LiveReply {
@@ -135,12 +145,7 @@ impl LiveReply {
             return;
         };
         let answered = self.approvals.remove(i);
-        self.steps.push(HermesStep {
-            tool: format!("{RECEIPT_TOOL}{choice}"),
-            detail: clip(&answered.request.command),
-            running: false,
-            failed: choice == "deny",
-        });
+        self.steps.push(receipt(choice, &answered.request.command));
     }
 
     // A request being answered is left alone: its answer decides.
@@ -149,6 +154,17 @@ impl LiveReply {
             if a.status == ApprovalStatus::Asked && which(a) {
                 a.status = ApprovalStatus::Expired;
             }
+        }
+    }
+
+    /// The user saw an expired request: it leaves the screen for a receipt.
+    pub fn acknowledge(&mut self, request_id: &str) {
+        if let Some(i) = self.approvals.iter().position(|a| {
+            a.request.request_id == request_id
+                && a.status == ApprovalStatus::Expired
+        }) {
+            let gone = self.approvals.remove(i);
+            self.steps.push(receipt("expired", &gone.request.command));
         }
     }
 
@@ -214,6 +230,10 @@ pub fn tool_key(tool: &str) -> Option<&'static str> {
         "todo_list" => "hermes-tool-todo",
         "vision_analyze" => "hermes-tool-vision",
         "image_generate" => "hermes-tool-image",
+        "approval.once" => "hermes-receipt-once",
+        "approval.session" | "approval.always" => "hermes-receipt-session",
+        "approval.deny" => "hermes-receipt-deny",
+        "approval.expired" => "hermes-receipt-expired",
         _ => return None,
     })
 }
