@@ -1,10 +1,14 @@
 use crate::application::hermes_chat::{
-    self, HermesError, HermesTurn, LiveReply,
+    self, ApprovalStatus, HermesError, HermesTurn, LiveReply,
 };
 use crate::application::hermes_message::{self, Asked, Attachment};
 use crate::application::i18n::{t, t_args};
 use crate::infrastructure::persistence::Database;
+use crate::infrastructure::platform::haptic;
 use crate::ui::chat::empty_state::ChatEmptyState;
+use crate::ui::chat::hermes_approval::{
+    HermesApprovalAlert, HermesApprovalPill,
+};
 use crate::ui::chat::hermes_reply::HermesReply;
 use crate::ui::chat::user_bubble::UserBubble;
 use crate::ui::composer::{Composer, ComposerRole};
@@ -75,6 +79,10 @@ pub fn HermesChatView() -> Element {
     let mut turns: Signal<Vec<HermesTurn>> = use_signal(Vec::new);
     let mut live: Signal<Option<LiveReply>> = use_signal(|| None);
     let mut problem: Signal<Option<HermesError>> = use_signal(|| None);
+    // The run the live reply follows, and the request whose alert the user
+    // closed without answering.
+    let mut run: Signal<Option<String>> = use_signal(|| None);
+    let mut closed: Signal<Option<String>> = use_signal(|| None);
     // Scheduled tasks on Hermes, for the empty conversation.
     let mut jobs: Signal<Option<usize>> = use_signal(|| None);
     // The skills, read once per opening of the Hermes chat: the "+" menu,
@@ -93,6 +101,7 @@ pub fn HermesChatView() -> Element {
     // history. A failed run keeps its reply on screen with the reason.
     let mut track = move |sid: String, run_id: String| {
         live.set(Some(LiveReply::default()));
+        run.set(Some(run_id.clone()));
         spawn(async move {
             let database = db();
             let followed =
@@ -184,6 +193,40 @@ pub fn HermesChatView() -> Element {
         );
     });
 
+    // One tap sends one answer; what Hermes makes of it lands on the reply.
+    let mut answer = move |request_id: String, choice: &'static str| {
+        let Some(run_id) = run.peek().clone() else {
+            return;
+        };
+        if !live
+            .write()
+            .as_mut()
+            .is_some_and(|r| r.sending(&request_id))
+        {
+            return;
+        }
+        spawn(async move {
+            let result =
+                hermes_chat::answer(&db(), &run_id, &request_id, choice).await;
+            if let Some(reply) = live.write().as_mut() {
+                reply.answered(&request_id, choice, &result);
+            }
+        });
+    };
+    let mut acknowledge = move |request_id: String| {
+        haptic("light");
+        if let Some(reply) = live.write().as_mut() {
+            reply.acknowledge(&request_id);
+        }
+    };
+    // The first request still on screen, with how many wait in all.
+    let asking = live().filter(|r| !r.done).and_then(|r| {
+        r.approvals.first().cloned().map(|a| (a, r.approvals.len()))
+    });
+    let alert_open = asking.as_ref().is_some_and(|(a, _)| {
+        closed().as_deref() != Some(a.request.request_id.as_str())
+    });
+
     let busy = live().is_some_and(|r| !r.done);
     let is_empty = turns().is_empty() && live().is_none();
 
@@ -227,8 +270,40 @@ pub fn HermesChatView() -> Element {
                                 live: !reply.done,
                             }
                         }
+                        if let Some((a, _)) = asking.clone().filter(|_| !alert_open) {
+                            div { class: "pl-7 -mt-1",
+                                HermesApprovalPill {
+                                    expired: a.status == ApprovalStatus::Expired,
+                                    lang: lang.clone(),
+                                    onclick: move |_| closed.set(None),
+                                }
+                            }
+                        }
                     }
                 }
+            }
+        }
+        if let Some((a, total)) = asking.filter(|_| alert_open) {
+            HermesApprovalAlert {
+                key: "{a.request.request_id}",
+                approval: a.clone(),
+                total,
+                lang: lang.clone(),
+                on_answer: {
+                    let id = a.request.request_id.clone();
+                    move |choice: &'static str| answer(id.clone(), choice)
+                },
+                on_close: {
+                    let id = a.request.request_id.clone();
+                    let expired = a.status == ApprovalStatus::Expired;
+                    move |_| {
+                        if expired {
+                            acknowledge(id.clone());
+                        } else {
+                            closed.set(Some(id.clone()));
+                        }
+                    }
+                },
             }
         }
         Composer {
