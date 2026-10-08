@@ -422,7 +422,8 @@ impl HermesClient {
     /// Starts a turn on the session, on the chosen (provider, model) and
     /// reasoning effort or Hermes' own defaults; it runs on the server
     /// whatever happens to this connection. Images (data URLs) ride along
-    /// as parts of the user message.
+    /// as parts of the user message; `instructions` frame this turn only and
+    /// are never stored as a message.
     pub async fn start_run(
         &self,
         session_id: &str,
@@ -430,6 +431,7 @@ impl HermesClient {
         images: &[String],
         model: Option<(&str, &str)>,
         effort: Option<&str>,
+        instructions: &str,
     ) -> Result<String, HermesError> {
         let input = if images.is_empty() {
             serde_json::json!(input)
@@ -444,6 +446,7 @@ impl HermesClient {
         let mut body = serde_json::json!({
             "input": input,
             "session_id": session_id,
+            "instructions": instructions,
         });
         if let Some((provider, model)) = model {
             body["provider"] = provider.into();

@@ -376,6 +376,27 @@ async fn the_first_question_opens_a_flowflow_session_then_a_run() {
     );
     let heads = seen.lock().unwrap();
     assert!(heads[1].contains(&format!("\"session_id\":\"{session}\"")));
+
+    // Hermes is told who it talks to, beside the question, never inside it.
+    let body: serde_json::Value =
+        serde_json::from_str(heads[1].split("\r\n\r\n").nth(1).unwrap())
+            .unwrap();
+    assert_eq!(body["input"], "Quelle heure est-il ?");
+    let told = body["instructions"].as_str().unwrap();
+    assert!(told.contains(&format!("FlowFlow {}", env!("CARGO_PKG_VERSION"))));
+    assert!(told.contains("Mac"));
+    assert!(told.contains("tables"));
+}
+
+#[test]
+fn hermes_is_told_it_talks_to_flowflow_on_a_narrow_phone() {
+    let phone = hermes_chat::client_instructions(true, "fr");
+    assert!(phone.contains("iPhone"));
+    assert!(phone.contains("narrow"));
+    assert!(phone.contains("Markdown"));
+    assert!(phone.contains("fr"));
+    let mac = hermes_chat::client_instructions(false, "en");
+    assert!(mac.contains("Mac") && !mac.contains("narrow"));
 }
 
 #[tokio::test]

@@ -509,6 +509,29 @@ pub fn provider_label(slug: &str, name: &str) -> String {
     }
 }
 
+/// What Hermes is told about the app it answers through. Hermes tells every
+/// API client to write plain text; this client renders Markdown.
+pub fn client_instructions(phone: bool, lang: &str) -> String {
+    let (device, screen) = if phone {
+        (
+            "iPhone",
+            "The screen is a narrow phone: keep tables to 3 short columns, \
+             prefer lists for wide data, keep code lines short.",
+        )
+    } else {
+        ("Mac", "The screen is a desktop window.")
+    };
+    format!(
+        "You are talking to the user through FlowFlow {} on {device}, a \
+         voice notes app. Its chat renders GitHub-flavored Markdown \
+         (headings, lists, bold, links, code blocks, and tables with the \
+         |---| separator row), so the plain-text rule for API clients does \
+         not apply here: use Markdown where it helps. {screen} The app is \
+         set to the \"{lang}\" language.",
+        env!("CARGO_PKG_VERSION")
+    )
+}
+
 /// Sends a question and its attachments, on the model picked for the
 /// conversation if any. The first one opens the Hermes session and the local
 /// conversation. Returns the session and the run to follow.
@@ -548,6 +571,10 @@ pub async fn send(
             &images,
             pick.as_ref().map(|(p, m)| (p.as_str(), m.as_str())),
             effort.as_deref(),
+            &client_instructions(
+                cfg!(target_os = "ios"),
+                &crate::application::i18n::ui_lang(db),
+            ),
         )
         .await?;
     let _ =
