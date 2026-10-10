@@ -277,6 +277,17 @@ pub fn TopBar() -> Element {
                     },
                     IconDotsThree { size: 22 }
                 }
+            } else if is_hermes && hermes_linked {
+                button {
+                    "data-glass": "hermes-more",
+                    class: "glass-disc relative w-11 h-11 shrink-0 flex items-center justify-center rounded-full text-stone-700",
+                    "aria-label": t(&lang, "chat-menu-options"),
+                    onclick: move |_| {
+                        let cur = (app.show_hermes_menu)();
+                        app.show_hermes_menu.set(!cur);
+                    },
+                    IconDotsThree { size: 22 }
+                }
             } else if is_jobs {
                 button {
                     class: "glass-disc relative w-11 h-11 shrink-0 flex items-center justify-center rounded-full text-stone-800",

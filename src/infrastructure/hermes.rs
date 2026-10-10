@@ -468,16 +468,6 @@ impl HermesClient {
         ))
     }
 
-    /// Length of a list endpoint (`data` array or bare array).
-    pub async fn count(&self, path: &str) -> Result<usize, HermesError> {
-        let v = self.json_at(path).await?;
-        Ok(v.get("data")
-            .or_else(|| v.get("jobs"))
-            .unwrap_or(&v)
-            .as_array()
-            .map_or(0, Vec::len))
-    }
-
     /// Every scheduled task; Hermes leaves paused ones out unless asked.
     pub async fn jobs(&self) -> Result<Vec<HermesJob>, HermesError> {
         Ok(parse_jobs(

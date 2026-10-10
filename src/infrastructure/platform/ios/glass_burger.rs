@@ -32,6 +32,7 @@ fn has_menu(id: &str) -> bool {
         "note-more"
             | "chat-more"
             | "job-more"
+            | "hermes-more"
             | "note-plus"
             | "chat-plus"
             | "chats-plus"
@@ -275,11 +276,12 @@ fn configuration(
             )));
             "burger"
         }
-        "note-more" | "chat-more" | "job-more" => {
+        "note-more" | "chat-more" | "job-more" | "hermes-more" => {
             config.setImage(symbol("ellipsis", 20.0, &stone_800()).as_deref());
             match id {
                 "note-more" => "note-more",
                 "job-more" => "job-more",
+                "hermes-more" => "hermes-more",
                 _ => "chat-more",
             }
         }

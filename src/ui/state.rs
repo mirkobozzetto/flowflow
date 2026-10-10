@@ -193,6 +193,8 @@ pub struct AppState {
     // The "+" of the tasks list opens the new-task sheet.
     pub hermes_job_form: Signal<bool>,
     pub show_job_menu: Signal<bool>,
+    // The "…" of the Hermes chat.
+    pub show_hermes_menu: Signal<bool>,
 }
 
 impl AppState {
@@ -260,6 +262,7 @@ impl AppState {
             hermes_jobs: Signal::new(None),
             hermes_job_form: Signal::new(false),
             show_job_menu: Signal::new(false),
+            show_hermes_menu: Signal::new(false),
         }
     }
 }

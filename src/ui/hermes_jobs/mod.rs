@@ -3,11 +3,15 @@
 
 mod alert;
 mod card;
+mod entries;
 mod form;
 mod job_view;
 mod list;
 mod menu;
 
+pub use entries::{
+    facts_link, known_count, new_task, HermesMoreMenu, JobsEntries,
+};
 pub use job_view::HermesJobView;
 pub use list::HermesJobsView;
 
@@ -24,6 +28,6 @@ pub fn open(mut app: AppState) {
 }
 
 /// Reads the tasks again; the list on screen stays until the new one lands.
-async fn reload(mut app: AppState, db: &Database) {
+pub async fn reload(mut app: AppState, db: &Database) {
     app.hermes_jobs.set(Some(hermes_jobs::list(db).await));
 }
