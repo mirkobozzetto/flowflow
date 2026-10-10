@@ -56,6 +56,7 @@ fn client(db: &Database) -> Result<BackendClient, PushError> {
 /// Asks iOS for permission and a token, then hands the token to the server.
 pub async fn enable(db: &Database) -> Result<(), PushError> {
     let token = device_token().await?;
+    eprintln!("[push] APNs token received ({} chars)", token.len());
     register(db, &token).await
 }
 
