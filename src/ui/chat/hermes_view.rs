@@ -33,13 +33,9 @@ pub(crate) fn problem_text(lang: &str, e: &HermesError) -> String {
     }
 }
 
-// "Opus 5.5 · 99 skills · 4 tâches planifiées": what this Hermes runs on and
-// what it can draw on; a count Hermes cannot serve is left out.
-fn facts_line(
-    lang: &str,
-    app: AppState,
-    jobs: Option<usize>,
-) -> Option<String> {
+// "Opus 5.5 · 99 skills": what this Hermes runs on and what it can draw on;
+// a count Hermes cannot serve is left out.
+fn facts_line(lang: &str, app: AppState) -> Option<String> {
     let options = (app.hermes_models)()?;
     let model = (app.hermes_pick)().map(|(_, m)| m).unwrap_or(options.model);
     let mut parts = vec![hermes_chat::model_label(&model)];
@@ -48,13 +44,6 @@ fn facts_line(
         parts.push(t_args(
             lang,
             "hermes-facts-skills",
-            &[("count", &n.to_string())],
-        ));
-    }
-    if let Some(n) = jobs.filter(|n| *n > 0) {
-        parts.push(t_args(
-            lang,
-            "hermes-facts-jobs",
             &[("count", &n.to_string())],
         ));
     }
@@ -286,7 +275,12 @@ pub fn HermesChatView() -> Element {
                     }
                 }
                 if is_empty && problem().is_none() {
-                    ChatEmptyState { hermes: true, facts: facts_line(&lang, app, jobs()) }
+                    ChatEmptyState {
+                        hermes: true,
+                        facts: facts_line(&lang, app),
+                        jobs: jobs().filter(|n| *n > 0).map(|n| t_args(&lang, "hermes-facts-jobs", &[("count", &n.to_string())])),
+                        on_jobs: move |_| crate::ui::hermes_jobs::open(app),
+                    }
                 } else {
                     div { class: "space-y-3",
                         for (i, turn) in turns().into_iter().enumerate() {

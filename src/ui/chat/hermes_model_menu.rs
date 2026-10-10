@@ -142,6 +142,12 @@ pub fn HermesModelTitle() -> Element {
                             }
                         }
                     }
+                    button {
+                        "data-native-action": "jobs",
+                        "data-native-symbol": "clock",
+                        onclick: move |_| crate::ui::hermes_jobs::open(app),
+                        {t(&lang, "hermes-jobs-title")}
+                    }
                 }
             }
             if open() && menu_ready {
@@ -204,6 +210,16 @@ pub fn HermesModelTitle() -> Element {
                                 {effort_label(&lang, e)}
                             }
                         }
+                    }
+                    div { class: kit::MENU_SEP }
+                    button {
+                        class: kit::MENU_ITEM,
+                        onclick: move |_| {
+                            open.set(false);
+                            crate::ui::hermes_jobs::open(app);
+                        },
+                        span { class: "w-4 shrink-0" }
+                        {t(&lang, "hermes-jobs-title")}
                     }
                 }
             }
