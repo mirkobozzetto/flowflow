@@ -7,6 +7,7 @@ use crate::application::transcription_manager::Job;
 use crate::domain::Attachment;
 use crate::domain::ChatScope;
 use crate::infrastructure::audio::RecordingState;
+use crate::infrastructure::hermes::HermesJob;
 use dioxus::prelude::*;
 use std::collections::{HashMap, HashSet, VecDeque};
 
@@ -100,6 +101,9 @@ pub enum View {
     Chat { conversation_id: Option<String> },
     // A conversation with Hermes; None until its first message opens one.
     HermesChat { session_id: Option<String> },
+    // Hermes' scheduled tasks, and one of them with its last result.
+    HermesJobs,
+    HermesJob { job_id: String },
     // Read-only view of someone else's share, opened from a link (0001)
     SharedView { code: String },
     Settings,
@@ -183,6 +187,12 @@ pub struct AppState {
     pub hermes_attach_error: Signal<Option<String>>,
     // The skills on Hermes, read when its chat opens; None while reading.
     pub hermes_skills: Signal<Option<Result<Vec<HermesSkill>, HermesError>>>,
+    // Hermes' scheduled tasks as last read, shared by the list, a task's
+    // screen and the top bar; None before the first read.
+    pub hermes_jobs: Signal<Option<Result<Vec<HermesJob>, HermesError>>>,
+    // The "+" of the tasks list opens the new-task sheet.
+    pub hermes_job_form: Signal<bool>,
+    pub show_job_menu: Signal<bool>,
 }
 
 impl AppState {
@@ -247,6 +257,9 @@ impl AppState {
             hermes_attachments: Signal::new(Vec::new()),
             hermes_attach_error: Signal::new(None),
             hermes_skills: Signal::new(None),
+            hermes_jobs: Signal::new(None),
+            hermes_job_form: Signal::new(false),
+            show_job_menu: Signal::new(false),
         }
     }
 }

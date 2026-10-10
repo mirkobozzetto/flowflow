@@ -101,6 +101,14 @@ pub fn hermes_schedule(freq: &Frequency, shift: i32) -> String {
     }
 }
 
+/// The picked frequency in words, as the list will show it.
+pub fn frequency_text(lang: &str, freq: &Frequency) -> String {
+    match *freq {
+        Frequency::EveryHours(h) => every_text(lang, h * 60),
+        _ => cron_text(lang, &hermes_schedule(freq, 0), 0).unwrap_or_default(),
+    }
+}
+
 /// Creates the job on Hermes. A Hermes without jobs does not tell its clock:
 /// the job then starts on the phone's, and moves once Hermes' answer shows
 /// its own.
@@ -160,7 +168,24 @@ pub fn next_run_text<Tz: TimeZone>(
     if job.paused() {
         return None;
     }
-    let at = DateTime::parse_from_rfc3339(job.next_run_at.as_deref()?)
+    moment_text(lang, job.next_run_at.as_deref()?, now)
+}
+
+/// "Hier à 8 h": when the last run started, on the phone's clock.
+pub fn last_run_text<Tz: TimeZone>(
+    lang: &str,
+    job: &HermesJob,
+    now: &DateTime<Tz>,
+) -> Option<String> {
+    moment_text(lang, job.last_run_at.as_deref()?, now)
+}
+
+fn moment_text<Tz: TimeZone>(
+    lang: &str,
+    iso: &str,
+    now: &DateTime<Tz>,
+) -> Option<String> {
+    let at = DateTime::parse_from_rfc3339(iso)
         .ok()?
         .with_timezone(&now.timezone());
     let time = clock(lang, (at.hour() * 60 + at.minute()) as i32);
@@ -168,9 +193,10 @@ pub fn next_run_text<Tz: TimeZone>(
         t_args(lang, "hermes-job-on", &[("when", &when), ("time", &time)])
     };
     Some(match (at.date_naive() - now.date_naive()).num_days() {
-        ..=0 => t_args(lang, "hermes-job-today", &[("time", &time)]),
+        -1 => t_args(lang, "hermes-job-yesterday", &[("time", &time)]),
+        0 => t_args(lang, "hermes-job-today", &[("time", &time)]),
         1 => t_args(lang, "hermes-job-tomorrow", &[("time", &time)]),
-        2..=6 => on(capitalize(weekday_name(lang, at.weekday()))),
+        -6..=6 => on(capitalize(weekday_name(lang, at.weekday()))),
         _ => on(format!("{} {}", at.day(), month_abbr(lang, at.month()))),
     })
 }

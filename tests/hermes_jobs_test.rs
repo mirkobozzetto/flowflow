@@ -415,3 +415,18 @@ async fn a_new_job_on_a_known_clock_is_created_once() {
     .unwrap();
     assert_eq!(job.id, "n2");
 }
+
+#[test]
+fn the_last_run_reads_as_a_day_and_an_hour() {
+    use hermes_jobs::last_run_text;
+    let now =
+        DateTime::parse_from_rfc3339("2026-10-10T12:00:00+02:00").unwrap();
+    // Last ran 2026-10-09T06:00:06Z, 8 h in Brussels.
+    assert_eq!(
+        last_run_text("fr", &job("Point quotidien"), &now).unwrap(),
+        "Hier à 8 h"
+    );
+    let mut never = job("Point quotidien");
+    never.last_run_at = None;
+    assert_eq!(last_run_text("fr", &never, &now), None);
+}

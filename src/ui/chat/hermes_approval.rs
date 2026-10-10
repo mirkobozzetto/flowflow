@@ -8,7 +8,7 @@ use std::time::Duration;
 /// How long an answer Hermes took stays on its button before the alert goes.
 pub const CONFIRM_HOLD: Duration = Duration::from_millis(650);
 
-const CTA: &str = "alert-cta w-full h-[52px] rounded-full text-[17px] font-semibold tracking-[-0.01em] flex items-center justify-center gap-1.5";
+pub(crate) const CTA: &str = "alert-cta w-full h-[52px] rounded-full text-[17px] font-semibold tracking-[-0.01em] flex items-center justify-center gap-1.5";
 
 #[derive(Clone, Copy, PartialEq)]
 enum Tone {
