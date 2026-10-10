@@ -122,7 +122,8 @@ fn a_schedule_it_cannot_say_keeps_hermes_words() {
 
 #[test]
 fn the_next_run_reads_as_a_day_and_an_hour() {
-    let now = DateTime::parse_from_rfc3339("2026-10-10T12:00:00+02:00").unwrap();
+    let now =
+        DateTime::parse_from_rfc3339("2026-10-10T12:00:00+02:00").unwrap();
     let next = |iso: &str| {
         let mut j = job("Point quotidien");
         j.next_run_at = Some(iso.into());
@@ -198,7 +199,10 @@ async fn each_action_reaches_its_hermes_route() {
             ("POST /api/jobs/7455526871f4/pause ", json("200 OK", job)),
             ("POST /api/jobs/7455526871f4/resume ", json("200 OK", job)),
             ("POST /api/jobs/7455526871f4/run ", json("200 OK", job)),
-            ("DELETE /api/jobs/7455526871f4 ", json("200 OK", r#"{"ok": true}"#)),
+            (
+                "DELETE /api/jobs/7455526871f4 ",
+                json("200 OK", r#"{"ok": true}"#),
+            ),
         ],
         seen: seen.clone(),
     })
@@ -269,7 +273,9 @@ async fn the_last_result_is_the_newest_run_s_last_answer() {
     let dir = tempdir().unwrap();
     let db = linked_db(&dir, &base);
     assert_eq!(
-        hermes_jobs::latest_result(&db, "aac1dd36a390").await.unwrap(),
+        hermes_jobs::latest_result(&db, "aac1dd36a390")
+            .await
+            .unwrap(),
         Some("À relire est plein : aucun post créé.".to_string())
     );
 }
@@ -287,7 +293,9 @@ async fn a_job_that_never_ran_has_no_result() {
     let dir = tempdir().unwrap();
     let db = linked_db(&dir, &base);
     assert_eq!(
-        hermes_jobs::latest_result(&db, "de8dae5d216d").await.unwrap(),
+        hermes_jobs::latest_result(&db, "de8dae5d216d")
+            .await
+            .unwrap(),
         None
     );
 }
@@ -297,13 +305,22 @@ fn a_picked_frequency_becomes_a_hermes_schedule() {
     use chrono::Weekday;
     use hermes_jobs::{hermes_schedule, Frequency};
     // 7:00 in Brussels summer is 5:00 on UTC Hermes.
-    assert_eq!(hermes_schedule(&Frequency::Daily { at: 7 * 60 }, 120), "0 5 * * *");
+    assert_eq!(
+        hermes_schedule(&Frequency::Daily { at: 7 * 60 }, 120),
+        "0 5 * * *"
+    );
     assert_eq!(
         hermes_schedule(&Frequency::Weekdays { at: 7 * 60 + 30 }, 120),
         "30 5 * * 1-5"
     );
     assert_eq!(
-        hermes_schedule(&Frequency::Weekly { day: Weekday::Sun, at: 9 * 60 }, 120),
+        hermes_schedule(
+            &Frequency::Weekly {
+                day: Weekday::Sun,
+                at: 9 * 60
+            },
+            120
+        ),
         "0 7 * * 0"
     );
     // 1:00 in Brussels is the evening before on Hermes.
@@ -312,7 +329,13 @@ fn a_picked_frequency_becomes_a_hermes_schedule() {
         "0 23 * * 0-4"
     );
     assert_eq!(
-        hermes_schedule(&Frequency::Weekly { day: Weekday::Mon, at: 60 }, 120),
+        hermes_schedule(
+            &Frequency::Weekly {
+                day: Weekday::Mon,
+                at: 60
+            },
+            120
+        ),
         "0 23 * * 0"
     );
     assert_eq!(hermes_schedule(&Frequency::EveryHours(6), 120), "every 6h");
@@ -350,7 +373,10 @@ async fn a_new_job_lands_on_the_phone_s_clock_even_on_an_empty_hermes() {
         &db,
         "Revue",
         "Fais la revue de la semaine.",
-        &Frequency::Weekly { day: chrono::Weekday::Fri, at: 7 * 60 },
+        &Frequency::Weekly {
+            day: chrono::Weekday::Fri,
+            at: 7 * 60,
+        },
         &[],
         &brussels(),
     )
@@ -378,7 +404,10 @@ async fn a_new_job_on_a_known_clock_is_created_once() {
         &db,
         "Revue",
         "Fais la revue de la semaine.",
-        &Frequency::Weekly { day: chrono::Weekday::Fri, at: 7 * 60 },
+        &Frequency::Weekly {
+            day: chrono::Weekday::Fri,
+            at: 7 * 60,
+        },
         &jobs(),
         &brussels(),
     )

@@ -235,7 +235,10 @@ fn cron_text(lang: &str, expr: &str, shift: i32) -> Option<String> {
             t_args(
                 lang,
                 "hermes-job-days",
-                &[("days", &capitalize(&join(lang, &names))), ("times", &times)],
+                &[
+                    ("days", &capitalize(&join(lang, &names))),
+                    ("times", &times),
+                ],
             )
         }
         d => t_args(
