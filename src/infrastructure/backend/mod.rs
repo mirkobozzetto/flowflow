@@ -6,6 +6,7 @@
 
 pub mod onboarding;
 pub mod profile;
+mod push;
 mod scoped;
 pub mod shares;
 pub mod spaces;

@@ -8,6 +8,7 @@ mod native_menu;
 mod photo_picker;
 mod picker;
 mod player;
+pub mod push;
 pub mod reminders;
 mod share;
 pub mod sync_ffi;
