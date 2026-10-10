@@ -67,6 +67,62 @@ pub async fn latest_result(
         .find(|t| !t.trim().is_empty()))
 }
 
+/// A frequency picked in the app, `at` in minutes after midnight on the
+/// phone's clock.
+#[derive(Debug, Clone, PartialEq)]
+pub enum Frequency {
+    Daily { at: u32 },
+    Weekdays { at: u32 },
+    Weekly { day: Weekday, at: u32 },
+    EveryHours(u32),
+}
+
+/// The schedule Hermes reads for `freq`, on its clock `shift` minutes behind
+/// the phone's; a time pushed across midnight takes the days with it.
+// ponytail: one fixed offset; a cron on a UTC Hermes drifts an hour across
+// daylight saving (Mirko's morning brief lists both hours for that).
+pub fn hermes_schedule(freq: &Frequency, shift: i32) -> String {
+    let cron = |at: u32, days: &dyn Fn(i32) -> String| {
+        let t = at as i32 - shift;
+        let (t, moved) = (t.rem_euclid(DAY_MINUTES), t.div_euclid(DAY_MINUTES));
+        format!("{} {} * * {}", t % 60, t / 60, days(moved))
+    };
+    match *freq {
+        Frequency::Daily { at } => cron(at, &|_| "*".into()),
+        Frequency::Weekdays { at } => {
+            cron(at, &|d| format!("{}-{}", 1 + d, 5 + d))
+        }
+        Frequency::Weekly { day, at } => cron(at, &|d| {
+            (day.num_days_from_sunday() as i32 + d)
+                .rem_euclid(7)
+                .to_string()
+        }),
+        Frequency::EveryHours(h) => format!("every {h}h"),
+    }
+}
+
+/// Creates the job on Hermes. A Hermes without jobs does not tell its clock:
+/// the job then starts on the phone's, and moves once Hermes' answer shows
+/// its own.
+pub async fn create<Tz: TimeZone>(
+    db: &Database,
+    name: &str,
+    prompt: &str,
+    freq: &Frequency,
+    known: &[HermesJob],
+    tz: &Tz,
+) -> Result<HermesJob, HermesError> {
+    let client = HermesClient::from_db(db)?;
+    let sent = hermes_schedule(freq, clock_shift(known, tz));
+    let job = client.create_job(name, prompt, &sent).await?;
+    let fixed =
+        hermes_schedule(freq, clock_shift(std::slice::from_ref(&job), tz));
+    if fixed == sent {
+        return Ok(job);
+    }
+    client.update_schedule(&job.id, &fixed).await
+}
+
 /// Minutes the phone's clock is ahead of Hermes', read at a job's next run:
 /// Hermes writes next runs in its own zone, and its API says nothing else
 /// of that zone.

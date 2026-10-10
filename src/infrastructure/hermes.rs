@@ -360,6 +360,16 @@ async fn checked(
     }
 }
 
+// `{"job": {...}}`, what Hermes answers to a change on one job.
+async fn job_from(resp: reqwest::Response) -> Result<HermesJob, HermesError> {
+    let v: serde_json::Value = resp
+        .json()
+        .await
+        .map_err(|e| HermesError::Server(e.to_string()))?;
+    serde_json::from_value(v.get("job").cloned().unwrap_or(v))
+        .map_err(|e| HermesError::Server(e.to_string()))
+}
+
 pub struct HermesClient {
     base: String,
     key: String,
@@ -489,6 +499,47 @@ impl HermesClient {
         )
         .await
         .map(|_| ())
+    }
+
+    /// A new job delivering where Hermes keeps it by default (`local`).
+    pub async fn create_job(
+        &self,
+        name: &str,
+        prompt: &str,
+        schedule: &str,
+    ) -> Result<HermesJob, HermesError> {
+        let body = serde_json::json!({ "name": name, "prompt": prompt, "schedule": schedule });
+        job_from(
+            checked(
+                self.post("/api/jobs")
+                    .json(&body)
+                    .timeout(REQUEST_TIMEOUT)
+                    .send()
+                    .await,
+            )
+            .await?,
+        )
+        .await
+    }
+
+    pub async fn update_schedule(
+        &self,
+        job_id: &str,
+        schedule: &str,
+    ) -> Result<HermesJob, HermesError> {
+        job_from(
+            checked(
+                self.http
+                    .patch(format!("{}/api/jobs/{job_id}", self.base))
+                    .bearer_auth(&self.key)
+                    .json(&serde_json::json!({ "schedule": schedule }))
+                    .timeout(REQUEST_TIMEOUT)
+                    .send()
+                    .await,
+            )
+            .await?,
+        )
+        .await
     }
 
     pub async fn delete_job(&self, job_id: &str) -> Result<(), HermesError> {
