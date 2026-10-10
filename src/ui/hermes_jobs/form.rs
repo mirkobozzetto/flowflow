@@ -11,7 +11,10 @@ use crate::ui::AppState;
 use chrono::{Local, Weekday};
 use dioxus::prelude::*;
 use std::sync::Arc;
+use std::time::Duration;
 
+// The sheet slides back down this long before it goes.
+const LEAVE: Duration = Duration::from_millis(220);
 const DEFAULT_AT: u32 = 7 * 60;
 const DEFAULT_HOURS: u32 = 6;
 const MAX_HOURS: u32 = 24;
@@ -44,6 +47,18 @@ fn minutes(hhmm: &str) -> Option<u32> {
     Some(h.parse::<u32>().ok()? * 60 + m.parse::<u32>().ok()?)
 }
 
+// Slides the sheet down, then hands over: closed, or the task created.
+fn leave(mut leaving: Signal<bool>, then: impl FnOnce() + 'static) {
+    if *leaving.peek() {
+        return;
+    }
+    leaving.set(true);
+    spawn(async move {
+        futures_timer::Delay::new(LEAVE).await;
+        then();
+    });
+}
+
 /// A new task: a name, what Hermes does, and a frequency picked without
 /// writing cron. The time field opens the iOS wheel on the iPhone.
 #[component]
@@ -62,6 +77,7 @@ pub fn NewJobSheet(
     let mut hours = use_signal(|| DEFAULT_HOURS);
     let mut sending = use_signal(|| false);
     let mut error: Signal<Option<String>> = use_signal(|| None);
+    let leaving = use_signal(|| false);
     let freq = match pick() {
         Pick::Daily => Frequency::Daily { at: at() },
         Pick::Weekdays => Frequency::Weekdays { at: at() },
@@ -99,7 +115,7 @@ pub fn NewJobSheet(
                     Ok(job) => {
                         haptic("soft");
                         super::reload(app, &database).await;
-                        on_created.call(job);
+                        leave(leaving, move || on_created.call(job));
                     }
                     Err(e) => {
                         sending.set(false);
@@ -122,22 +138,23 @@ pub fn NewJobSheet(
     rsx! {
         div {
             class: "fixed inset-0 z-50 bg-stone-900/20 backdrop-fade",
+            style: if leaving() { "opacity: 0; transition: opacity 0.22s ease-in;" },
             onclick: move |_| {
                 if !sending() {
-                    on_close.call(());
+                    leave(leaving, move || on_close.call(()));
                 }
             },
         }
         div {
             class: "glass-panel fixed left-2 right-2 z-50 rounded-[38px] px-5 pt-[18px] pb-5 max-h-[calc(100%-70px)] overflow-y-auto lg:left-[max(0.5rem,calc((100%-30rem)/2))] lg:right-[max(0.5rem,calc((100%-30rem)/2))]",
-            style: "bottom: calc(8px + var(--keyboard-inset, 0px)); animation: slideInUp 0.26s cubic-bezier(0.3, 1.25, 0.4, 1);",
+            style: if leaving() { "bottom: calc(8px + var(--keyboard-inset, 0px)); animation: slideOutDown 0.22s ease-in forwards;" } else { "bottom: calc(8px + var(--keyboard-inset, 0px)); animation: slideInUp 0.26s cubic-bezier(0.3, 1.25, 0.4, 1);" },
             div { class: "flex items-center gap-2.5",
                 HermesAgentIcon { size: 28 }
                 span { class: "text-[15px] font-semibold text-stone-900", {t(&lang, "hermes-jobs-new")} }
                 button {
                     class: "ml-auto glass-disc relative w-9 h-9 -mr-1 flex items-center justify-center rounded-full text-stone-500",
                     "aria-label": t(&lang, "hermes-job-cancel"),
-                    onclick: move |_| on_close.call(()),
+                    onclick: move |_| leave(leaving, move || on_close.call(())),
                     IconX { size: 16 }
                 }
             }
