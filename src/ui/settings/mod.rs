@@ -3,6 +3,7 @@ mod backup;
 mod connections;
 mod general;
 pub(crate) mod hermes;
+mod hermes_push;
 mod intelligence;
 mod privacy;
 mod shortcuts;
