@@ -14,6 +14,7 @@ pub use list::HermesJobsView;
 use crate::application::hermes_jobs;
 use crate::infrastructure::persistence::Database;
 use crate::ui::{AppState, View};
+use dioxus::prelude::*;
 
 /// Opens the tasks list from wherever Hermes is, which the back button
 /// returns to.

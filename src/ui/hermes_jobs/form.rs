@@ -25,7 +25,8 @@ const WEEK: [Weekday; 7] = [
     Weekday::Sun,
 ];
 const FIELD: &str = "w-full rounded-[14px] bg-stone-900/5 px-3.5 py-3 text-base text-stone-900 outline-none placeholder-stone-400";
-const CHOICE: &str = "min-h-[44px] rounded-[14px] text-[15px] transition-colors duration-150";
+const CHOICE: &str =
+    "min-h-[44px] rounded-[14px] text-[15px] transition-colors duration-150";
 const ON: &str = "bg-ios-orange text-white font-semibold";
 const OFF: &str = "bg-stone-900/5 text-stone-700";
 
@@ -64,12 +65,14 @@ pub fn NewJobSheet(
     let freq = match pick() {
         Pick::Daily => Frequency::Daily { at: at() },
         Pick::Weekdays => Frequency::Weekdays { at: at() },
-        Pick::Weekly => Frequency::Weekly { day: day(), at: at() },
+        Pick::Weekly => Frequency::Weekly {
+            day: day(),
+            at: at(),
+        },
         Pick::Every => Frequency::EveryHours(hours()),
     };
-    let ready = !name().trim().is_empty()
-        && !prompt().trim().is_empty()
-        && !sending();
+    let ready =
+        !name().trim().is_empty() && !prompt().trim().is_empty() && !sending();
     let create = {
         let (freq, lang) = (freq.clone(), lang.clone());
         move |_| {
