@@ -58,11 +58,11 @@ pub fn JobsEntries(class: &'static str, on_pick: EventHandler<()>) -> Element {
                 on_pick.call(());
                 super::open(app);
             },
-            span { class: "w-6 shrink-0 flex justify-center", SfIcon { name: "clock", size: 20 } }
+            span { class: "w-7 shrink-0 flex justify-center text-stone-500", SfIcon { name: "clock", size: 20 } }
             span { class: "flex-1 flex flex-col gap-0.5 min-w-0 text-left",
-                span { {t(&lang, "hermes-jobs-title")} }
+                span { class: "text-sm text-stone-800", {t(&lang, "hermes-jobs-title")} }
                 if let Some(c) = &count {
-                    span { class: "text-xs text-stone-500", "{c}" }
+                    span { class: "text-xs text-stone-400", "{c}" }
                 }
             }
         }
@@ -75,8 +75,8 @@ pub fn JobsEntries(class: &'static str, on_pick: EventHandler<()>) -> Element {
                 on_pick.call(());
                 new_task(app);
             },
-            span { class: "w-6 shrink-0 flex justify-center", IconPlus { size: 18 } }
-            span { class: "flex-1 text-left", {t(&lang, "hermes-jobs-new")} }
+            span { class: "w-7 shrink-0 flex justify-center text-stone-500", IconPlus { size: 18 } }
+            span { class: "flex-1 text-left text-sm text-stone-800", {t(&lang, "hermes-jobs-new")} }
         }
     }
 }
