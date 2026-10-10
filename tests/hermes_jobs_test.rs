@@ -291,3 +291,98 @@ async fn a_job_that_never_ran_has_no_result() {
         None
     );
 }
+
+#[test]
+fn a_picked_frequency_becomes_a_hermes_schedule() {
+    use chrono::Weekday;
+    use hermes_jobs::{hermes_schedule, Frequency};
+    // 7:00 in Brussels summer is 5:00 on UTC Hermes.
+    assert_eq!(hermes_schedule(&Frequency::Daily { at: 7 * 60 }, 120), "0 5 * * *");
+    assert_eq!(
+        hermes_schedule(&Frequency::Weekdays { at: 7 * 60 + 30 }, 120),
+        "30 5 * * 1-5"
+    );
+    assert_eq!(
+        hermes_schedule(&Frequency::Weekly { day: Weekday::Sun, at: 9 * 60 }, 120),
+        "0 7 * * 0"
+    );
+    // 1:00 in Brussels is the evening before on Hermes.
+    assert_eq!(
+        hermes_schedule(&Frequency::Weekdays { at: 60 }, 120),
+        "0 23 * * 0-4"
+    );
+    assert_eq!(
+        hermes_schedule(&Frequency::Weekly { day: Weekday::Mon, at: 60 }, 120),
+        "0 23 * * 0"
+    );
+    assert_eq!(hermes_schedule(&Frequency::EveryHours(6), 120), "every 6h");
+}
+
+#[test]
+fn a_created_schedule_reads_back_as_picked() {
+    use hermes_jobs::{hermes_schedule, Frequency};
+    let picked = Frequency::Weekdays { at: 7 * 60 };
+    assert_eq!(
+        schedule_text("fr", &cron(&hermes_schedule(&picked, 120)), 120),
+        "Du lundi au vendredi à 7 h"
+    );
+}
+
+#[tokio::test]
+async fn a_new_job_lands_on_the_phone_s_clock_even_on_an_empty_hermes() {
+    use hermes_jobs::Frequency;
+    // Nothing tells the clock of a Hermes without jobs: the job is created on
+    // the phone's clock, then moved once Hermes' answer shows its own.
+    let created = r#"{"job": {"id": "n1", "name": "Revue", "schedule": {"kind": "cron", "expr": "0 7 * * 5", "display": "0 7 * * 5"}, "enabled": true, "state": "scheduled", "next_run_at": "2026-10-16T07:00:00+00:00"}}"#;
+    let moved = r#"{"job": {"id": "n1", "name": "Revue", "schedule": {"kind": "cron", "expr": "0 5 * * 5", "display": "0 5 * * 5"}, "enabled": true, "state": "scheduled", "next_run_at": "2026-10-16T05:00:00+00:00"}}"#;
+    let seen = Arc::new(Mutex::new(Vec::new()));
+    let base = serve(Script {
+        responses: vec![
+            ("POST /api/jobs ", json("200 OK", created)),
+            ("PATCH /api/jobs/n1 ", json("200 OK", moved)),
+        ],
+        seen: seen.clone(),
+    })
+    .await;
+    let dir = tempdir().unwrap();
+    let db = linked_db(&dir, &base);
+    let job = hermes_jobs::create(
+        &db,
+        "Revue",
+        "Fais la revue de la semaine.",
+        &Frequency::Weekly { day: chrono::Weekday::Fri, at: 7 * 60 },
+        &[],
+        &brussels(),
+    )
+    .await
+    .unwrap();
+    assert_eq!(job.schedule.expr.as_deref(), Some("0 5 * * 5"));
+    let seen = seen.lock().unwrap();
+    assert!(seen[0].contains(r#""schedule":"0 7 * * 5""#));
+    assert!(seen[0].contains(r#""prompt":"Fais la revue de la semaine.""#));
+    assert!(seen[1].contains(r#""schedule":"0 5 * * 5""#));
+}
+
+#[tokio::test]
+async fn a_new_job_on_a_known_clock_is_created_once() {
+    use hermes_jobs::Frequency;
+    let created = r#"{"job": {"id": "n2", "name": "Revue", "schedule": {"kind": "cron", "expr": "0 5 * * 5", "display": "0 5 * * 5"}, "next_run_at": "2026-10-16T05:00:00+00:00"}}"#;
+    let base = serve(Script {
+        responses: vec![("POST /api/jobs ", json("200 OK", created))],
+        seen: Arc::new(Mutex::new(Vec::new())),
+    })
+    .await;
+    let dir = tempdir().unwrap();
+    let db = linked_db(&dir, &base);
+    let job = hermes_jobs::create(
+        &db,
+        "Revue",
+        "Fais la revue de la semaine.",
+        &Frequency::Weekly { day: chrono::Weekday::Fri, at: 7 * 60 },
+        &jobs(),
+        &brussels(),
+    )
+    .await
+    .unwrap();
+    assert_eq!(job.id, "n2");
+}
