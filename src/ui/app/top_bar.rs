@@ -118,7 +118,10 @@ pub fn TopBar() -> Element {
         div { class: "flex items-center px-4 py-3 bg-warm-white border-b border-stone-200 sticky top-0 z-30 gap-3 min-h-[44px] shadow-card",
             if show_back {
                 button {
-                    class: "min-w-[44px] min-h-[44px] flex items-center justify-center rounded-[10px] text-stone-700 hover:text-stone-900 hover:bg-stone-100 transition-colors duration-150",
+                    // Native glass back button on iOS 26 (glass_burger.rs).
+                    "data-glass": "back",
+                    class: "glass-disc relative w-12 h-12 -my-0.5 shrink-0 flex items-center justify-center rounded-full text-stone-800",
+                    "aria-label": t(&lang, "shortcut-back"),
                     onclick: move |_| {
                         app.show_folder_picker.set(false);
                         // A task goes back to the list, which keeps where it
@@ -290,6 +293,7 @@ pub fn TopBar() -> Element {
                 }
             } else if is_jobs {
                 button {
+                    "data-glass": "jobs-new",
                     class: "glass-disc relative w-11 h-11 shrink-0 flex items-center justify-center rounded-full text-stone-800",
                     "aria-label": t(&lang, "hermes-jobs-new"),
                     onpointerdown: move |_| haptic_prepare("light"),

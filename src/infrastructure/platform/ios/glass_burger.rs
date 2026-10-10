@@ -318,6 +318,16 @@ fn configuration(
                 "chat-pick"
             }
         }
+        "back" => {
+            config.setImage(
+                symbol("chevron.backward", 20.0, &stone_800()).as_deref(),
+            );
+            "back"
+        }
+        "jobs-new" => {
+            config.setImage(symbol("plus", 20.0, &stone_800()).as_deref());
+            "jobs-new"
+        }
         "fab" => {
             // fab.rs: the same thin orange plus (100 viewBox at 42px, stroke 4).
             config.setImage(Some(&strokes(
