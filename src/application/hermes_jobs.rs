@@ -25,6 +25,48 @@ pub async fn list(db: &Database) -> Result<Vec<HermesJob>, HermesError> {
     HermesClient::from_db(db)?.jobs().await
 }
 
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub enum JobAction {
+    Pause,
+    Resume,
+    RunNow,
+    Delete,
+}
+
+/// One action on a job, done on Hermes; the list is read again after it.
+pub async fn act(
+    db: &Database,
+    job_id: &str,
+    action: JobAction,
+) -> Result<(), HermesError> {
+    let client = HermesClient::from_db(db)?;
+    match action {
+        JobAction::Pause => client.job_action(job_id, "pause").await,
+        JobAction::Resume => client.job_action(job_id, "resume").await,
+        JobAction::RunNow => client.job_action(job_id, "run").await,
+        JobAction::Delete => client.delete_job(job_id).await,
+    }
+}
+
+/// What Hermes answered on the job's last run; None before its first.
+pub async fn latest_result(
+    db: &Database,
+    job_id: &str,
+) -> Result<Option<String>, HermesError> {
+    let client = HermesClient::from_db(db)?;
+    let Some(session) = client.last_run_session(job_id).await? else {
+        return Ok(None);
+    };
+    Ok(client
+        .messages(&session)
+        .await?
+        .iter()
+        .rev()
+        .filter(|m| m.role == "assistant")
+        .map(|m| m.text())
+        .find(|t| !t.trim().is_empty()))
+}
+
 /// Minutes the phone's clock is ahead of Hermes', read at a job's next run:
 /// Hermes writes next runs in its own zone, and its API says nothing else
 /// of that zone.

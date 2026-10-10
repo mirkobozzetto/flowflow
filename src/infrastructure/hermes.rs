@@ -475,6 +475,53 @@ impl HermesClient {
         ))
     }
 
+    /// `pause`, `resume` or `run` on one job.
+    pub async fn job_action(
+        &self,
+        job_id: &str,
+        verb: &str,
+    ) -> Result<(), HermesError> {
+        checked(
+            self.post(&format!("/api/jobs/{job_id}/{verb}"))
+                .timeout(REQUEST_TIMEOUT)
+                .send()
+                .await,
+        )
+        .await
+        .map(|_| ())
+    }
+
+    pub async fn delete_job(&self, job_id: &str) -> Result<(), HermesError> {
+        checked(
+            self.http
+                .delete(format!("{}/api/jobs/{job_id}", self.base))
+                .bearer_auth(&self.key)
+                .timeout(REQUEST_TIMEOUT)
+                .send()
+                .await,
+        )
+        .await
+        .map(|_| ())
+    }
+
+    /// The newest session a job's run left, `cron_{job_id}_{time}`.
+    // ponytail: newest 200 cron sessions; a job silent for longer reads as
+    // never run until Hermes lets the list filter by job.
+    pub async fn last_run_session(
+        &self,
+        job_id: &str,
+    ) -> Result<Option<String>, HermesError> {
+        let prefix = format!("cron_{job_id}_");
+        let v = self.json_at("/api/sessions?source=cron&limit=200").await?;
+        Ok(v.get("data")
+            .and_then(|d| d.as_array())
+            .into_iter()
+            .flatten()
+            .filter_map(|s| s.get("id")?.as_str())
+            .find(|id| id.starts_with(&prefix))
+            .map(String::from))
+    }
+
     /// Installed skills, in Hermes' own order: the API's list, else the
     /// dashboard's, read the way its web app reads it.
     pub async fn skills(&self) -> Result<Vec<Skill>, HermesError> {
