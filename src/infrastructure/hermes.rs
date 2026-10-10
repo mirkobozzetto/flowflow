@@ -261,6 +261,62 @@ pub fn dashboard_token(page: &str) -> Option<String> {
     (!token.is_empty()).then(|| token.to_string())
 }
 
+/// When a scheduled task runs: a cron expression in Hermes' own zone, or an
+/// interval in minutes; `display` is Hermes' own wording.
+#[derive(Debug, Clone, PartialEq, Deserialize)]
+pub struct JobSchedule {
+    #[serde(default)]
+    pub kind: String,
+    #[serde(default)]
+    pub expr: Option<String>,
+    #[serde(default)]
+    pub minutes: Option<u32>,
+    #[serde(default)]
+    pub display: String,
+}
+
+fn enabled() -> bool {
+    true
+}
+
+/// A task Hermes runs on its own schedule.
+#[derive(Debug, Clone, PartialEq, Deserialize)]
+pub struct HermesJob {
+    pub id: String,
+    #[serde(default)]
+    pub name: String,
+    pub schedule: JobSchedule,
+    #[serde(default = "enabled")]
+    pub enabled: bool,
+    #[serde(default)]
+    pub state: String,
+    /// In Hermes' zone, with its offset.
+    #[serde(default)]
+    pub next_run_at: Option<String>,
+    #[serde(default)]
+    pub last_run_at: Option<String>,
+    /// "ok", an error kind, or None before the first run.
+    #[serde(default)]
+    pub last_status: Option<String>,
+}
+
+impl HermesJob {
+    pub fn paused(&self) -> bool {
+        !self.enabled || self.state == "paused"
+    }
+}
+
+/// `/api/jobs` (`{"jobs": [...]}`).
+pub fn parse_jobs(v: &serde_json::Value) -> Vec<HermesJob> {
+    v.get("jobs")
+        .unwrap_or(v)
+        .as_array()
+        .into_iter()
+        .flatten()
+        .filter_map(|j| serde_json::from_value(j.clone()).ok())
+        .collect()
+}
+
 fn run_state(v: &serde_json::Value) -> RunState {
     let text = |k: &str| {
         v.get(k)
@@ -410,6 +466,13 @@ impl HermesClient {
             .unwrap_or(&v)
             .as_array()
             .map_or(0, Vec::len))
+    }
+
+    /// Every scheduled task; Hermes leaves paused ones out unless asked.
+    pub async fn jobs(&self) -> Result<Vec<HermesJob>, HermesError> {
+        Ok(parse_jobs(
+            &self.json_at("/api/jobs?include_disabled=true").await?,
+        ))
     }
 
     /// Installed skills, in Hermes' own order: the API's list, else the
