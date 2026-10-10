@@ -31,6 +31,8 @@ fn has_menu(id: &str) -> bool {
         id,
         "note-more"
             | "chat-more"
+            | "job-more"
+            | "hermes-more"
             | "note-plus"
             | "chat-plus"
             | "chats-plus"
@@ -274,12 +276,13 @@ fn configuration(
             )));
             "burger"
         }
-        "note-more" | "chat-more" => {
+        "note-more" | "chat-more" | "job-more" | "hermes-more" => {
             config.setImage(symbol("ellipsis", 20.0, &stone_800()).as_deref());
-            if id == "note-more" {
-                "note-more"
-            } else {
-                "chat-more"
+            match id {
+                "note-more" => "note-more",
+                "job-more" => "job-more",
+                "hermes-more" => "hermes-more",
+                _ => "chat-more",
             }
         }
         // "chat-pick": the same pill, opening the notes-or-Hermes menu.
@@ -314,6 +317,16 @@ fn configuration(
             } else {
                 "chat-pick"
             }
+        }
+        "back" => {
+            config.setImage(
+                symbol("chevron.backward", 20.0, &stone_800()).as_deref(),
+            );
+            "back"
+        }
+        "jobs-new" => {
+            config.setImage(symbol("plus", 20.0, &stone_800()).as_deref());
+            "jobs-new"
         }
         "fab" => {
             // fab.rs: the same thin orange plus (100 viewBox at 42px, stroke 4).

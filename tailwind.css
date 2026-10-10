@@ -808,6 +808,14 @@
             opacity: 1;
         }
     }
+    @keyframes slideOutDown {
+        from {
+            transform: translateY(0);
+        }
+        to {
+            transform: translateY(calc(100% + 16px));
+        }
+    }
     @keyframes slideInUp {
         from {
             transform: translateY(100%);

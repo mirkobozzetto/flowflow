@@ -586,16 +586,6 @@ pub async fn skills(db: &Database) -> Result<Vec<Skill>, HermesError> {
     HermesClient::from_db(db)?.skills().await
 }
 
-/// Scheduled tasks counted on Hermes, for the empty conversation; None when
-/// Hermes cannot serve the list rather than a zero.
-pub async fn jobs_count(db: &Database) -> Option<usize> {
-    HermesClient::from_db(db)
-        .ok()?
-        .count("/api/jobs")
-        .await
-        .ok()
-}
-
 /// "claude-opus-5-5[1m]" reads "Opus 5.5", "gpt-6.1-sol" reads "GPT-6.1 Sol".
 pub fn model_label(id: &str) -> String {
     let id = id.split('[').next().unwrap_or(id);

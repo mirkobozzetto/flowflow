@@ -30,6 +30,7 @@ fn mask(name: &str) -> Asset {
         }
         "hammer" => asset!("/assets/sf/hammer.png"),
         "globe" => asset!("/assets/sf/globe.png"),
+        "clock" => asset!("/assets/sf/clock.png"),
         _ => asset!("/assets/sf/sparkles.png"),
     }
 }

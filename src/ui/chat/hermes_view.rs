@@ -12,6 +12,7 @@ use crate::ui::chat::hermes_approval::{
 use crate::ui::chat::hermes_reply::HermesReply;
 use crate::ui::chat::user_bubble::UserBubble;
 use crate::ui::composer::{Composer, ComposerRole};
+use crate::ui::hermes_jobs::{self, HermesMoreMenu};
 use crate::ui::state::{SettingsSection, View};
 use crate::ui::AppState;
 use dioxus::prelude::*;
@@ -33,13 +34,9 @@ pub(crate) fn problem_text(lang: &str, e: &HermesError) -> String {
     }
 }
 
-// "Opus 5.5 · 99 skills · 4 tâches planifiées": what this Hermes runs on and
-// what it can draw on; a count Hermes cannot serve is left out.
-fn facts_line(
-    lang: &str,
-    app: AppState,
-    jobs: Option<usize>,
-) -> Option<String> {
+// "Opus 5.5 · 99 skills": what this Hermes runs on and what it can draw on;
+// a count Hermes cannot serve is left out.
+fn facts_line(lang: &str, app: AppState) -> Option<String> {
     let options = (app.hermes_models)()?;
     let model = (app.hermes_pick)().map(|(_, m)| m).unwrap_or(options.model);
     let mut parts = vec![hermes_chat::model_label(&model)];
@@ -48,13 +45,6 @@ fn facts_line(
         parts.push(t_args(
             lang,
             "hermes-facts-skills",
-            &[("count", &n.to_string())],
-        ));
-    }
-    if let Some(n) = jobs.filter(|n| *n > 0) {
-        parts.push(t_args(
-            lang,
-            "hermes-facts-jobs",
             &[("count", &n.to_string())],
         ));
     }
@@ -93,15 +83,17 @@ pub fn HermesChatView() -> Element {
     let mut run: Signal<Option<String>> = use_signal(|| None);
     let mut closed: Signal<Option<String>> = use_signal(|| None);
     let mut answering: Signal<Option<Answering>> = use_signal(|| None);
-    // Scheduled tasks on Hermes, for the empty conversation.
-    let mut jobs: Signal<Option<usize>> = use_signal(|| None);
-    // The skills, read once per opening of the Hermes chat: the "+" menu,
-    // "/" and the suggested skills all draw on them.
+    // The skills and the scheduled tasks, read once per opening of the
+    // Hermes chat: the "+" and "…" menus, "/", the suggested skills and the
+    // line under Hermes' face all draw on them.
     use_hook(move || {
         app.hermes_skills.set(None);
         spawn(async move {
             app.hermes_skills
                 .set(Some(hermes_chat::skills(&db()).await));
+        });
+        spawn(async move {
+            crate::ui::hermes_jobs::reload(app, &db()).await;
         });
     });
     let input = use_signal(String::new);
@@ -163,7 +155,7 @@ pub fn HermesChatView() -> Element {
             let options = hermes_chat::model_options(&database).await;
             let Some(sid) = sid else {
                 // A new conversation: the options read doubles as the
-                // reachability check, the counts fill the empty screen.
+                // reachability check.
                 match options {
                     Ok(o) => app.hermes_models.set(Some(o)),
                     Err(e) => {
@@ -171,7 +163,6 @@ pub fn HermesChatView() -> Element {
                         return;
                     }
                 }
-                jobs.set(hermes_chat::jobs_count(&database).await);
                 return;
             };
             app.hermes_models.set(options.ok());
@@ -286,7 +277,18 @@ pub fn HermesChatView() -> Element {
                     }
                 }
                 if is_empty && problem().is_none() {
-                    ChatEmptyState { hermes: true, facts: facts_line(&lang, app, jobs()) }
+                    ChatEmptyState {
+                        hermes: true,
+                        facts: facts_line(&lang, app),
+                        jobs: hermes_jobs::known_count(app).map(|n| hermes_jobs::facts_link(&lang, n)),
+                        on_jobs: move |_| {
+                            if hermes_jobs::known_count(app) == Some(0) {
+                                hermes_jobs::new_task(app);
+                            } else {
+                                hermes_jobs::open(app);
+                            }
+                        },
+                    }
                 } else {
                     div { class: "space-y-3",
                         for (i, turn) in turns().into_iter().enumerate() {
@@ -345,6 +347,7 @@ pub fn HermesChatView() -> Element {
                 },
             }
         }
+        HermesMoreMenu {}
         Composer {
             role: ComposerRole::AskHermes,
             input: input,

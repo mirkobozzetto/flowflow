@@ -9,7 +9,9 @@ use flowflow::infrastructure::hermes::{
 use flowflow::infrastructure::persistence::Database;
 use std::sync::{Arc, Mutex};
 use tempfile::tempdir;
-use tokio::io::{AsyncReadExt, AsyncWriteExt};
+
+mod support;
+use support::{json, serve, Script};
 
 /// Real payloads captured from the Hermes API server on 2026-10-04.
 const TOOL_STARTED: &str = r#"{"event": "tool.started", "run_id": "run_678a", "timestamp": 1791146491.09, "tool": "terminal", "preview": "date", "seq": 0}"#;
@@ -221,13 +223,6 @@ fn hermes_conversations_stay_on_the_device() {
     assert!(db.list_hermes_conversations().unwrap().is_empty());
 }
 
-/// A scripted Hermes: each accepted connection gets the next response whose
-/// path matches; the request heads are kept for assertions.
-struct Script {
-    responses: Vec<(&'static str, String)>,
-    seen: Arc<Mutex<Vec<String>>>,
-}
-
 fn sse(frames: &[&str]) -> String {
     let body: String = frames
         .iter()
@@ -239,61 +234,6 @@ fn sse(frames: &[&str]) -> String {
         })
         .collect();
     format!("HTTP/1.1 200 OK\r\nContent-Type: text/event-stream\r\nConnection: close\r\n\r\n: open\n\n{body}")
-}
-
-fn json(status: &str, body: &str) -> String {
-    format!(
-        "HTTP/1.1 {status}\r\nContent-Type: application/json\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{body}",
-        body.len()
-    )
-}
-
-// Head and body may arrive in separate reads: read up to Content-Length.
-async fn read_request(stream: &mut tokio::net::TcpStream) -> String {
-    let mut raw = Vec::new();
-    let mut chunk = [0u8; 4096];
-    loop {
-        let n = stream.read(&mut chunk).await.unwrap();
-        raw.extend_from_slice(&chunk[..n]);
-        let text = String::from_utf8_lossy(&raw).to_string();
-        if let Some(end) = text.find("\r\n\r\n") {
-            let length = text[..end]
-                .lines()
-                .find_map(|l| {
-                    l.to_ascii_lowercase()
-                        .strip_prefix("content-length:")
-                        .map(|v| v.trim().parse::<usize>().unwrap_or(0))
-                })
-                .unwrap_or(0);
-            if raw.len() >= end + 4 + length || n == 0 {
-                return text;
-            }
-        } else if n == 0 {
-            return text;
-        }
-    }
-}
-
-async fn serve(script: Script) -> String {
-    let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
-    let base = format!("http://{}", listener.local_addr().unwrap());
-    tokio::spawn(async move {
-        let mut responses = script.responses;
-        while !responses.is_empty() {
-            let (mut stream, _) = listener.accept().await.unwrap();
-            let head = read_request(&mut stream).await;
-            let line = head.lines().next().unwrap_or_default().to_string();
-            script.seen.lock().unwrap().push(head);
-            let at = responses
-                .iter()
-                .position(|(prefix, _)| line.starts_with(prefix))
-                .unwrap_or_else(|| panic!("unexpected request {line}"));
-            let (_, response) = responses.remove(at);
-            stream.write_all(response.as_bytes()).await.unwrap();
-            let _ = stream.shutdown().await;
-        }
-    });
-    base
 }
 
 fn configure(db: &Database, base: &str) {

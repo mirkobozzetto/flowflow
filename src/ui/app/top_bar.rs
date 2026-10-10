@@ -16,6 +16,8 @@ pub fn TopBar() -> Element {
     let is_thread = matches!((app.view)(), View::ThreadDetail { .. });
     let is_chat = matches!((app.view)(), View::Chat { .. });
     let is_hermes = matches!((app.view)(), View::HermesChat { .. });
+    let is_jobs = matches!((app.view)(), View::HermesJobs);
+    let is_job = matches!((app.view)(), View::HermesJob { .. });
     let is_settings =
         matches!((app.view)(), View::Settings | View::SettingsSection(_));
     let is_sync_pairing = matches!((app.view)(), View::SyncPairing);
@@ -24,6 +26,8 @@ pub fn TopBar() -> Element {
         || is_thread
         || is_chat
         || is_hermes
+        || is_jobs
+        || is_job
         || is_settings
         || is_sync_pairing
         || is_shared;
@@ -98,6 +102,12 @@ pub fn TopBar() -> Element {
             None => t(&lang, "top-bar-all-notes"),
         },
         View::HermesChat { .. } => t(&lang, "hermes-title"),
+        View::HermesJobs => t(&lang, "hermes-jobs-title"),
+        View::HermesJob { ref job_id } => (app.hermes_jobs)()
+            .and_then(|r| r.ok())
+            .and_then(|jobs| jobs.into_iter().find(|j| &j.id == job_id))
+            .map(|j| j.name)
+            .unwrap_or_default(),
         View::SharedView { .. } => t(&lang, "share-open-title"),
         View::Settings => t(&lang, "sidebar-settings"),
         View::SettingsSection(section) => t(&lang, section.title_key()),
@@ -108,9 +118,18 @@ pub fn TopBar() -> Element {
         div { class: "flex items-center px-4 py-3 bg-warm-white border-b border-stone-200 sticky top-0 z-30 gap-3 min-h-[44px] shadow-card",
             if show_back {
                 button {
-                    class: "min-w-[44px] min-h-[44px] flex items-center justify-center rounded-[10px] text-stone-700 hover:text-stone-900 hover:bg-stone-100 transition-colors duration-150",
+                    // Native glass back button on iOS 26 (glass_burger.rs).
+                    "data-glass": "back",
+                    class: "glass-disc relative w-12 h-12 -my-0.5 shrink-0 flex items-center justify-center rounded-full text-stone-800",
+                    "aria-label": t(&lang, "shortcut-back"),
                     onclick: move |_| {
                         app.show_folder_picker.set(false);
+                        // A task goes back to the list, which keeps where it
+                        // was opened from.
+                        if matches!((app.view)(), View::HermesJob { .. }) {
+                            app.view.set(View::HermesJobs);
+                            return;
+                        }
                         let target = (app.previous_view)()
                             .unwrap_or(View::NotesList);
                         // Note -> note back needs the NotesList bounce, else the
@@ -258,6 +277,40 @@ pub fn TopBar() -> Element {
                         app.show_folder_picker.set(false);
                         let cur = (app.show_chat_menu)();
                         app.show_chat_menu.set(!cur);
+                    },
+                    IconDotsThree { size: 22 }
+                }
+            } else if is_hermes && hermes_linked {
+                button {
+                    "data-glass": "hermes-more",
+                    class: "glass-disc relative w-11 h-11 shrink-0 flex items-center justify-center rounded-full text-stone-700",
+                    "aria-label": t(&lang, "chat-menu-options"),
+                    onclick: move |_| {
+                        let cur = (app.show_hermes_menu)();
+                        app.show_hermes_menu.set(!cur);
+                    },
+                    IconDotsThree { size: 22 }
+                }
+            } else if is_jobs {
+                button {
+                    "data-glass": "jobs-new",
+                    class: "glass-disc relative w-11 h-11 shrink-0 flex items-center justify-center rounded-full text-stone-800",
+                    "aria-label": t(&lang, "hermes-jobs-new"),
+                    onpointerdown: move |_| haptic_prepare("light"),
+                    onclick: move |_| {
+                        haptic("light");
+                        app.hermes_job_form.set(true);
+                    },
+                    IconPlus { size: 22 }
+                }
+            } else if is_job {
+                button {
+                    "data-glass": "job-more",
+                    class: "glass-disc relative w-11 h-11 shrink-0 flex items-center justify-center rounded-full text-stone-700",
+                    "aria-label": t(&lang, "hermes-jobs-actions"),
+                    onclick: move |_| {
+                        let cur = (app.show_job_menu)();
+                        app.show_job_menu.set(!cur);
                     },
                     IconDotsThree { size: 22 }
                 }

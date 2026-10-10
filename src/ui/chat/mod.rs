@@ -2,7 +2,7 @@ mod actions;
 pub(crate) mod attachment_chips;
 mod bot_bubble;
 mod empty_state;
-mod hermes_approval;
+pub(crate) mod hermes_approval;
 pub(crate) mod hermes_attach;
 mod hermes_model_menu;
 mod hermes_reply;
@@ -26,6 +26,7 @@ pub(crate) mod reminder_card;
 
 pub use actions::md_to_html;
 pub use hermes_model_menu::HermesModelTitle;
+pub(crate) use hermes_reply::HermesReply;
 pub(crate) use hermes_view::problem_text as hermes_problem_text;
 pub use hermes_view::HermesChatView;
 pub use sources_accordion::NoteWebSources;

@@ -261,6 +261,62 @@ pub fn dashboard_token(page: &str) -> Option<String> {
     (!token.is_empty()).then(|| token.to_string())
 }
 
+/// When a scheduled task runs: a cron expression in Hermes' own zone, or an
+/// interval in minutes; `display` is Hermes' own wording.
+#[derive(Debug, Clone, PartialEq, Deserialize)]
+pub struct JobSchedule {
+    #[serde(default)]
+    pub kind: String,
+    #[serde(default)]
+    pub expr: Option<String>,
+    #[serde(default)]
+    pub minutes: Option<u32>,
+    #[serde(default)]
+    pub display: String,
+}
+
+fn enabled() -> bool {
+    true
+}
+
+/// A task Hermes runs on its own schedule.
+#[derive(Debug, Clone, PartialEq, Deserialize)]
+pub struct HermesJob {
+    pub id: String,
+    #[serde(default)]
+    pub name: String,
+    pub schedule: JobSchedule,
+    #[serde(default = "enabled")]
+    pub enabled: bool,
+    #[serde(default)]
+    pub state: String,
+    /// In Hermes' zone, with its offset.
+    #[serde(default)]
+    pub next_run_at: Option<String>,
+    #[serde(default)]
+    pub last_run_at: Option<String>,
+    /// "ok", an error kind, or None before the first run.
+    #[serde(default)]
+    pub last_status: Option<String>,
+}
+
+impl HermesJob {
+    pub fn paused(&self) -> bool {
+        !self.enabled || self.state == "paused"
+    }
+}
+
+/// `/api/jobs` (`{"jobs": [...]}`).
+pub fn parse_jobs(v: &serde_json::Value) -> Vec<HermesJob> {
+    v.get("jobs")
+        .unwrap_or(v)
+        .as_array()
+        .into_iter()
+        .flatten()
+        .filter_map(|j| serde_json::from_value(j.clone()).ok())
+        .collect()
+}
+
 fn run_state(v: &serde_json::Value) -> RunState {
     let text = |k: &str| {
         v.get(k)
@@ -302,6 +358,16 @@ async fn checked(
             Err(HermesError::Server(format!("{code}: {body}")))
         }
     }
+}
+
+// `{"job": {...}}`, what Hermes answers to a change on one job.
+async fn job_from(resp: reqwest::Response) -> Result<HermesJob, HermesError> {
+    let v: serde_json::Value = resp
+        .json()
+        .await
+        .map_err(|e| HermesError::Server(e.to_string()))?;
+    serde_json::from_value(v.get("job").cloned().unwrap_or(v))
+        .map_err(|e| HermesError::Server(e.to_string()))
 }
 
 pub struct HermesClient {
@@ -402,14 +468,99 @@ impl HermesClient {
         ))
     }
 
-    /// Length of a list endpoint (`data` array or bare array).
-    pub async fn count(&self, path: &str) -> Result<usize, HermesError> {
-        let v = self.json_at(path).await?;
+    /// Every scheduled task; Hermes leaves paused ones out unless asked.
+    pub async fn jobs(&self) -> Result<Vec<HermesJob>, HermesError> {
+        Ok(parse_jobs(
+            &self.json_at("/api/jobs?include_disabled=true").await?,
+        ))
+    }
+
+    /// `pause`, `resume` or `run` on one job.
+    pub async fn job_action(
+        &self,
+        job_id: &str,
+        verb: &str,
+    ) -> Result<(), HermesError> {
+        checked(
+            self.post(&format!("/api/jobs/{job_id}/{verb}"))
+                .timeout(REQUEST_TIMEOUT)
+                .send()
+                .await,
+        )
+        .await
+        .map(|_| ())
+    }
+
+    /// A new job delivering where Hermes keeps it by default (`local`).
+    pub async fn create_job(
+        &self,
+        name: &str,
+        prompt: &str,
+        schedule: &str,
+    ) -> Result<HermesJob, HermesError> {
+        let body = serde_json::json!({ "name": name, "prompt": prompt, "schedule": schedule });
+        job_from(
+            checked(
+                self.post("/api/jobs")
+                    .json(&body)
+                    .timeout(REQUEST_TIMEOUT)
+                    .send()
+                    .await,
+            )
+            .await?,
+        )
+        .await
+    }
+
+    pub async fn update_schedule(
+        &self,
+        job_id: &str,
+        schedule: &str,
+    ) -> Result<HermesJob, HermesError> {
+        job_from(
+            checked(
+                self.http
+                    .patch(format!("{}/api/jobs/{job_id}", self.base))
+                    .bearer_auth(&self.key)
+                    .json(&serde_json::json!({ "schedule": schedule }))
+                    .timeout(REQUEST_TIMEOUT)
+                    .send()
+                    .await,
+            )
+            .await?,
+        )
+        .await
+    }
+
+    pub async fn delete_job(&self, job_id: &str) -> Result<(), HermesError> {
+        checked(
+            self.http
+                .delete(format!("{}/api/jobs/{job_id}", self.base))
+                .bearer_auth(&self.key)
+                .timeout(REQUEST_TIMEOUT)
+                .send()
+                .await,
+        )
+        .await
+        .map(|_| ())
+    }
+
+    /// The newest session a job's run left, `cron_{job_id}_{time}`.
+    // ponytail: newest 200 cron sessions; a job silent for longer reads as
+    // never run until Hermes lets the list filter by job.
+    pub async fn last_run_session(
+        &self,
+        job_id: &str,
+    ) -> Result<Option<String>, HermesError> {
+        let prefix = format!("cron_{job_id}_");
+        let v = self.json_at("/api/sessions?source=cron&limit=200").await?;
         Ok(v.get("data")
-            .or_else(|| v.get("jobs"))
-            .unwrap_or(&v)
-            .as_array()
-            .map_or(0, Vec::len))
+            .and_then(|d| d.as_array())
+            .into_iter()
+            .flatten()
+            .filter_map(|s| s.get("id")?.as_str())
+            .find(|id| id.starts_with(&prefix))
+            .map(String::from))
     }
 
     /// Installed skills, in Hermes' own order: the API's list, else the
