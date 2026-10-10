@@ -65,6 +65,41 @@
 .press-grow:not(:disabled):active {
     transform: scale(1.06);
 }
+/* Alert buttons (Hermes approvals): the iOS button feel. Touch-down deepens
+   the fill and sinks the button, release springs it back; the answer Hermes
+   took lands on its button with one small bounce. */
+.alert-cta {
+    transition:
+        transform 380ms cubic-bezier(0.3, 1.6, 0.5, 1),
+        background-color 180ms,
+        opacity 200ms;
+}
+.alert-cta:not(:disabled):active {
+    transform: scale(0.955);
+    transition:
+        transform 90ms ease-out,
+        background-color 60ms;
+}
+.alert-cta.bg-ios-orange:not(:disabled):active {
+    background-color: var(--color-ios-orange-dark);
+}
+.alert-cta:not(.bg-ios-orange):not(:disabled):active {
+    background-color: --alpha(var(--color-stone-900) / 10%);
+}
+.alert-cta[data-done] {
+    animation: alert-done 320ms cubic-bezier(0.3, 1.5, 0.5, 1);
+}
+@keyframes alert-done {
+    0% {
+        transform: scale(0.955);
+    }
+    60% {
+        transform: scale(1.03);
+    }
+    100% {
+        transform: none;
+    }
+}
 
 /* iOS below lg (#177): the main view (.sb-card) slides aside as a card and
    reveals the menu (.sb-under) lying underneath, instead of a drawer sliding

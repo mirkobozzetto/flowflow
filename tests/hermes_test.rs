@@ -1,5 +1,6 @@
 use flowflow::application::hermes_chat::{
-    self, HermesError, HermesTurn, LiveReply, RunEvent,
+    self, ApprovalRequest, ApprovalStatus, HermesError, HermesTurn, LiveReply,
+    RunEvent,
 };
 use flowflow::application::hermes_message::Asked;
 use flowflow::infrastructure::hermes::{
@@ -376,6 +377,27 @@ async fn the_first_question_opens_a_flowflow_session_then_a_run() {
     );
     let heads = seen.lock().unwrap();
     assert!(heads[1].contains(&format!("\"session_id\":\"{session}\"")));
+
+    // Hermes is told who it talks to, beside the question, never inside it.
+    let body: serde_json::Value =
+        serde_json::from_str(heads[1].split("\r\n\r\n").nth(1).unwrap())
+            .unwrap();
+    assert_eq!(body["input"], "Quelle heure est-il ?");
+    let told = body["instructions"].as_str().unwrap();
+    assert!(told.contains(&format!("FlowFlow {}", env!("CARGO_PKG_VERSION"))));
+    assert!(told.contains("Mac"));
+    assert!(told.contains("tables"));
+}
+
+#[test]
+fn hermes_is_told_it_talks_to_flowflow_on_a_narrow_phone() {
+    let phone = hermes_chat::client_instructions(true, "fr");
+    assert!(phone.contains("iPhone"));
+    assert!(phone.contains("narrow"));
+    assert!(phone.contains("Markdown"));
+    assert!(phone.contains("fr"));
+    let mac = hermes_chat::client_instructions(false, "en");
+    assert!(mac.contains("Mac") && !mac.contains("narrow"));
 }
 
 #[tokio::test]
@@ -794,4 +816,254 @@ fn typed_words_and_a_slash_find_the_skill_meant() {
     assert_eq!(strip_slash("Fais une revue /git"), "Fais une revue ");
     assert_eq!(names(most_used(&skills))[0], "hermes-agent");
     assert_eq!(by_category(&skills)[0].0, "autonomous-ai-agents");
+}
+
+/// `approval.request` and `approval.responded` as the API server builds them
+/// (api_server.py `_approval_request_event`, api_server_runs.py
+/// `_handle_run_approval`, read on the VPS 2026-10-08).
+const APPROVAL_REQUEST: &str = r#"{"command": "git clone https://github.com/mirkobozzetto/flowflow-videos", "pattern_key": "git_clone", "pattern_keys": ["git_clone"], "description": "Clone a remote repository", "allow_permanent": false, "allow_session": true, "event": "approval.request", "run_id": "run_a1", "timestamp": 1791489000.1, "choices": ["once", "session", "deny"], "request_id": "4f1c2a9e8b7d4c3fa1e2b3c4d5e6f708", "seq": 3}"#;
+const APPROVAL_RESPONDED: &str = r#"{"event": "approval.responded", "run_id": "run_a1", "timestamp": 1791489004.2, "choice": "once", "request_id": "4f1c2a9e8b7d4c3fa1e2b3c4d5e6f708", "resolved": 1, "seq": 4}"#;
+const SECOND_REQUEST: &str = r#"{"command": "gh issue create --repo mirkobozzetto/flowflow --title Tables", "pattern_key": "gh_write", "pattern_keys": ["gh_write"], "description": "Publish on GitHub", "allow_permanent": false, "allow_session": false, "event": "approval.request", "run_id": "run_a1", "timestamp": 1791489001.3, "choices": ["once", "deny"], "request_id": "9a8b7c6d5e4f40312a1b2c3d4e5f6a7b", "seq": 5}"#;
+
+fn request(data: &str) -> ApprovalRequest {
+    match parse_run_event(data).unwrap().1 {
+        RunEvent::ApprovalRequested(r) => r,
+        other => panic!("not an approval request: {other:?}"),
+    }
+}
+
+#[test]
+fn approval_events_carry_the_command_the_reason_and_the_choices() {
+    assert_eq!(
+        parse_run_event(APPROVAL_REQUEST),
+        Some((
+            3,
+            RunEvent::ApprovalRequested(ApprovalRequest {
+                request_id: "4f1c2a9e8b7d4c3fa1e2b3c4d5e6f708".into(),
+                command:
+                    "git clone https://github.com/mirkobozzetto/flowflow-videos"
+                        .into(),
+                description: "Clone a remote repository".into(),
+                choices: vec!["once".into(), "session".into(), "deny".into()],
+            })
+        ))
+    );
+    assert_eq!(request(SECOND_REQUEST).choices, vec!["once", "deny"]);
+    assert_eq!(
+        parse_run_event(APPROVAL_RESPONDED),
+        Some((
+            4,
+            RunEvent::ApprovalResolved {
+                request_id: "4f1c2a9e8b7d4c3fa1e2b3c4d5e6f708".into(),
+                choice: "once".into(),
+            }
+        ))
+    );
+}
+
+#[test]
+fn requests_wait_in_order_and_leave_on_their_answer() {
+    let mut reply = LiveReply::default();
+    reply.apply(parse_run_event(TOOL_STARTED).unwrap().1);
+    for data in [APPROVAL_REQUEST, SECOND_REQUEST, APPROVAL_REQUEST] {
+        reply.apply(parse_run_event(data).unwrap().1);
+    }
+    let ids = |r: &LiveReply| -> Vec<String> {
+        r.approvals
+            .iter()
+            .map(|a| a.request.request_id.clone())
+            .collect()
+    };
+    assert_eq!(
+        ids(&reply),
+        vec![
+            request(APPROVAL_REQUEST).request_id,
+            request(SECOND_REQUEST).request_id
+        ],
+        "in order, a replayed request shown once"
+    );
+    assert!(reply
+        .approvals
+        .iter()
+        .all(|a| a.status == ApprovalStatus::Asked));
+
+    reply.apply(parse_run_event(APPROVAL_RESPONDED).unwrap().1);
+    assert_eq!(ids(&reply), vec![request(SECOND_REQUEST).request_id]);
+    let receipt = reply.steps.last().unwrap();
+    assert_eq!(receipt.tool, "approval.once");
+    assert_eq!(receipt.detail, request(APPROVAL_REQUEST).command);
+    assert!(!receipt.running && !receipt.failed);
+}
+
+#[test]
+fn an_unanswered_request_expires_when_its_tool_or_the_run_ends() {
+    let mut reply = LiveReply::default();
+    reply.apply(parse_run_event(TOOL_STARTED).unwrap().1);
+    reply.apply(parse_run_event(APPROVAL_REQUEST).unwrap().1);
+    // Hermes gave up waiting: the tool ends blocked, nothing was answered.
+    reply.apply(parse_run_event(TOOL_COMPLETED).unwrap().1);
+    assert_eq!(reply.approvals[0].status, ApprovalStatus::Expired);
+
+    let mut reply = LiveReply::default();
+    reply.apply(parse_run_event(SECOND_REQUEST).unwrap().1);
+    reply.apply(RunEvent::Completed("Pas de réponse.".into()));
+    assert_eq!(reply.approvals[0].status, ApprovalStatus::Expired);
+}
+
+#[tokio::test]
+async fn an_answer_goes_to_hermes_with_its_request_id() {
+    let seen = Arc::new(Mutex::new(Vec::new()));
+    let base = serve(Script {
+        responses: vec![
+            (
+                "POST /v1/runs/run_a1/approval",
+                json(
+                    "200 OK",
+                    r#"{"object": "hermes.run.approval_response", "run_id": "run_a1", "choice": "once", "request_id": "4f1c2a9e8b7d4c3fa1e2b3c4d5e6f708", "resolved": 1}"#,
+                ),
+            ),
+            (
+                "POST /v1/runs/run_a1/approval",
+                json(
+                    "409 Conflict",
+                    r#"{"error": {"message": "Run has no pending approval: run_a1", "type": "invalid_request_error", "code": "approval_not_pending"}}"#,
+                ),
+            ),
+        ],
+        seen: seen.clone(),
+    })
+    .await;
+    let dir = tempdir().unwrap();
+    let db = open_db(&dir);
+    configure(&db, &base);
+    let id = request(APPROVAL_REQUEST).request_id;
+
+    assert_eq!(
+        hermes_chat::answer(&db, "run_a1", &id, "once").await,
+        Ok(())
+    );
+    let sent: serde_json::Value = serde_json::from_str(
+        seen.lock().unwrap()[0].split("\r\n\r\n").nth(1).unwrap(),
+    )
+    .unwrap();
+    assert_eq!(
+        sent,
+        serde_json::json!({"choice": "once", "request_id": id})
+    );
+    assert_eq!(
+        hermes_chat::answer(&db, "run_a1", &id, "once").await,
+        Err(HermesError::ApprovalGone),
+        "already answered or timed out"
+    );
+}
+
+#[test]
+fn a_tap_sends_once_and_an_expired_answer_says_so() {
+    let id = request(APPROVAL_REQUEST).request_id;
+    let mut reply = LiveReply::default();
+    reply.apply(parse_run_event(TOOL_STARTED).unwrap().1);
+    reply.apply(parse_run_event(APPROVAL_REQUEST).unwrap().1);
+    assert!(reply.sending(&id), "the first tap sends");
+    assert!(!reply.sending(&id), "a second tap does not");
+    // The tool ends before the answer comes back: the answer decides.
+    reply.apply(parse_run_event(TOOL_COMPLETED).unwrap().1);
+    assert_eq!(reply.approvals[0].status, ApprovalStatus::Sending);
+    reply.answered(&id, "once", &Err(HermesError::ApprovalGone));
+    assert_eq!(reply.approvals[0].status, ApprovalStatus::Expired);
+
+    let mut reply = LiveReply::default();
+    reply.apply(parse_run_event(APPROVAL_REQUEST).unwrap().1);
+    reply.sending(&id);
+    reply.answered(&id, "deny", &Err(HermesError::Unreachable));
+    assert_eq!(
+        reply.approvals[0].status,
+        ApprovalStatus::Asked,
+        "a lost answer can be sent again"
+    );
+    reply.sending(&id);
+    reply.answered(&id, "deny", &Ok(()));
+    assert!(reply.approvals.is_empty());
+    assert_eq!(reply.steps.last().unwrap().tool, "approval.deny");
+    // Hermes' own confirmation of that answer adds no second receipt.
+    reply.apply(RunEvent::ApprovalResolved {
+        request_id: id.clone(),
+        choice: "deny".into(),
+    });
+    assert_eq!(reply.steps.len(), 1);
+}
+
+#[tokio::test]
+async fn a_request_read_back_after_a_drop_shows_again() {
+    let started = r#"{"event": "tool.started", "run_id": "run_a1", "tool": "terminal", "preview": "git clone https://github.com/mirkobozzetto/flowflow-videos", "seq": 0}"#;
+    // The run's status while it waits, as `_set_run_status` stores it.
+    let waiting = format!(
+        r#"{{"object": "hermes.run", "run_id": "run_a1", "status": "waiting_for_approval", "updated_at": 1791489000.2, "created_at": 1791488990.0, "last_event": "approval.request", "approval": {APPROVAL_REQUEST}}}"#
+    );
+    let completed = r#"{"event": "run.completed", "run_id": "run_a1", "output": "Cloné.", "seq": 6}"#;
+    let seen = Arc::new(Mutex::new(Vec::new()));
+    let base = serve(Script {
+        responses: vec![
+            // The phone sleeps while Hermes waits: the stream drops.
+            ("GET /v1/runs/run_a1/events", sse(&[started])),
+            ("GET /v1/runs/run_a1 ", json("200 OK", &waiting)),
+            (
+                "GET /v1/runs/run_a1/events",
+                sse(&[APPROVAL_RESPONDED, completed]),
+            ),
+        ],
+        seen,
+    })
+    .await;
+    let dir = tempdir().unwrap();
+    let db = open_db(&dir);
+    configure(&db, &base);
+    db.create_hermes_conversation("flowflow_a", "Clone")
+        .unwrap();
+
+    let mut events = Vec::new();
+    hermes_chat::follow(&db, "flowflow_a", "run_a1", |e| events.push(e))
+        .await
+        .unwrap();
+
+    assert!(events
+        .contains(&RunEvent::ApprovalRequested(request(APPROVAL_REQUEST))));
+    let mut reply = LiveReply::default();
+    events.into_iter().for_each(|e| reply.apply(e));
+    assert!(reply.approvals.is_empty());
+    assert_eq!(reply.steps.last().unwrap().tool, "approval.once");
+    assert!(reply.done);
+}
+
+#[test]
+fn an_expired_request_once_seen_closes_into_a_receipt() {
+    let id = request(APPROVAL_REQUEST).request_id;
+    let mut reply = LiveReply::default();
+    reply.apply(parse_run_event(TOOL_STARTED).unwrap().1);
+    reply.apply(parse_run_event(APPROVAL_REQUEST).unwrap().1);
+    reply.acknowledge(&id);
+    assert_eq!(reply.approvals.len(), 1, "a live request is not dismissed");
+
+    reply.apply(parse_run_event(TOOL_COMPLETED).unwrap().1);
+    reply.acknowledge(&id);
+    assert!(reply.approvals.is_empty());
+    assert_eq!(reply.steps.last().unwrap().tool, "approval.expired");
+}
+
+#[test]
+fn receipts_stay_on_the_reply_once_the_history_is_read_back() {
+    let messages: Vec<HermesMessage> =
+        serde_json::from_str(SESSION_MESSAGES).unwrap();
+    let mut history = hermes_chat::turns(&messages);
+    let mut reply = LiveReply::default();
+    reply.apply(parse_run_event(TOOL_STARTED).unwrap().1);
+    reply.apply(parse_run_event(APPROVAL_REQUEST).unwrap().1);
+    reply.apply(parse_run_event(APPROVAL_RESPONDED).unwrap().1);
+
+    hermes_chat::keep_receipts(&mut history, &reply);
+
+    let Some(HermesTurn::Reply { steps, .. }) = history.last() else {
+        panic!("the last turn is a reply");
+    };
+    assert_eq!(steps.last().unwrap().tool, "approval.once");
+    assert_eq!(steps.iter().filter(|s| s.tool == "terminal").count(), 1);
 }

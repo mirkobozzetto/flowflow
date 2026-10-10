@@ -21,6 +21,8 @@ pub enum HermesError {
     KeyRefused,
     NotFound,
     Server(String),
+    /// The approval was already answered, or Hermes stopped waiting for it.
+    ApprovalGone,
 }
 
 /// One event of a run, as the chat needs it.
@@ -31,11 +33,29 @@ pub enum RunEvent {
     ToolDone { tool: String, failed: bool },
     Completed(String),
     Failed(String),
+    ApprovalRequested(ApprovalRequest),
+    ApprovalResolved { request_id: String, choice: String },
+}
+
+/// A command Hermes will not run without the user's go; the server redacts
+/// secrets from it before it leaves.
+#[derive(Debug, Clone, PartialEq, Deserialize)]
+pub struct ApprovalRequest {
+    #[serde(default)]
+    pub request_id: String,
+    #[serde(default)]
+    pub command: String,
+    #[serde(default)]
+    pub description: String,
+    /// What the user may answer: "once", "session", "always", "deny".
+    #[serde(default)]
+    pub choices: Vec<String>,
 }
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum RunState {
     Running,
+    WaitingForApproval(ApprovalRequest),
     Completed(String),
     Failed(String),
 }
@@ -105,7 +125,7 @@ pub fn drain_sse_data(buf: &mut String) -> Vec<String> {
 }
 
 /// A run event payload to its sequence number and meaning; events the chat
-/// does not show (reasoning, interim commentary, approvals) are None.
+/// does not show (reasoning, interim commentary) are None.
 pub fn parse_run_event(data: &str) -> Option<(i64, RunEvent)> {
     let v: serde_json::Value = serde_json::from_str(data).ok()?;
     let seq = v.get("seq").and_then(|s| s.as_i64()).unwrap_or(-1);
@@ -133,6 +153,13 @@ pub fn parse_run_event(data: &str) -> Option<(i64, RunEvent)> {
         "run.failed" | "run.cancelled" | "run.interrupted" => {
             RunEvent::Failed(s("error"))
         }
+        "approval.request" => {
+            RunEvent::ApprovalRequested(serde_json::from_value(v.clone()).ok()?)
+        }
+        "approval.responded" => RunEvent::ApprovalResolved {
+            request_id: s("request_id"),
+            choice: s("choice"),
+        },
         _ => return None,
     };
     Some((seq, event))
@@ -246,6 +273,10 @@ fn run_state(v: &serde_json::Value) -> RunState {
         "failed" | "cancelled" | "interrupted" => {
             RunState::Failed(text("error"))
         }
+        "waiting_for_approval" => v
+            .get("approval")
+            .and_then(|a| serde_json::from_value(a.clone()).ok())
+            .map_or(RunState::Running, RunState::WaitingForApproval),
         _ => RunState::Running,
     }
 }
@@ -422,7 +453,8 @@ impl HermesClient {
     /// Starts a turn on the session, on the chosen (provider, model) and
     /// reasoning effort or Hermes' own defaults; it runs on the server
     /// whatever happens to this connection. Images (data URLs) ride along
-    /// as parts of the user message.
+    /// as parts of the user message; `instructions` frame this turn only and
+    /// are never stored as a message.
     pub async fn start_run(
         &self,
         session_id: &str,
@@ -430,6 +462,7 @@ impl HermesClient {
         images: &[String],
         model: Option<(&str, &str)>,
         effort: Option<&str>,
+        instructions: &str,
     ) -> Result<String, HermesError> {
         let input = if images.is_empty() {
             serde_json::json!(input)
@@ -444,6 +477,7 @@ impl HermesClient {
         let mut body = serde_json::json!({
             "input": input,
             "session_id": session_id,
+            "instructions": instructions,
         });
         if let Some((provider, model)) = model {
             body["provider"] = provider.into();
@@ -468,6 +502,28 @@ impl HermesClient {
             .and_then(|r| r.as_str())
             .map(String::from)
             .ok_or_else(|| HermesError::Server("no run_id".into()))
+    }
+
+    /// The user's answer to one approval request of a run.
+    pub async fn answer_approval(
+        &self,
+        run_id: &str,
+        request_id: &str,
+        choice: &str,
+    ) -> Result<(), HermesError> {
+        let sent = self
+            .post(&format!("/v1/runs/{run_id}/approval"))
+            .json(&serde_json::json!({ "choice": choice, "request_id": request_id }))
+            .timeout(REQUEST_TIMEOUT)
+            .send()
+            .await;
+        if sent
+            .as_ref()
+            .is_ok_and(|r| r.status() == reqwest::StatusCode::CONFLICT)
+        {
+            return Err(HermesError::ApprovalGone);
+        }
+        checked(sent).await.map(|_| ())
     }
 
     pub async fn run_state(
