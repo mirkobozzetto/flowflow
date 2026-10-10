@@ -31,6 +31,7 @@ fn has_menu(id: &str) -> bool {
         id,
         "note-more"
             | "chat-more"
+            | "job-more"
             | "note-plus"
             | "chat-plus"
             | "chats-plus"
@@ -274,12 +275,12 @@ fn configuration(
             )));
             "burger"
         }
-        "note-more" | "chat-more" => {
+        "note-more" | "chat-more" | "job-more" => {
             config.setImage(symbol("ellipsis", 20.0, &stone_800()).as_deref());
-            if id == "note-more" {
-                "note-more"
-            } else {
-                "chat-more"
+            match id {
+                "note-more" => "note-more",
+                "job-more" => "job-more",
+                _ => "chat-more",
             }
         }
         // "chat-pick": the same pill, opening the notes-or-Hermes menu.

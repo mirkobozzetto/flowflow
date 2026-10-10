@@ -10,7 +10,7 @@
   const lastPlace = new Map;
   const shown = new Map;
   const lastMenu = new Map;
-  const MENU_IDS = ["note-more", "chat-more", "note-plus", "chat-plus", "chats-plus", "hermes-plus", "hermes-model", "chat-pick"];
+  const MENU_IDS = ["note-more", "chat-more", "job-more", "note-plus", "chat-plus", "chats-plus", "hermes-plus", "hermes-model", "chat-pick"];
   w.__ffMenuOpen = (open) => {
     document.querySelectorAll('[data-glass$="-plus"]').forEach((a) => a.toggleAttribute("data-native-open", open));
   };
