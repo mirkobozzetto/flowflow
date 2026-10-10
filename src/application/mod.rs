@@ -29,6 +29,7 @@ pub mod intent;
 pub mod mention;
 pub mod note_persistence;
 pub mod profile;
+pub mod push;
 pub mod rag;
 pub mod related;
 pub mod reminders;
