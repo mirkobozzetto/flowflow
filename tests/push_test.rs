@@ -9,10 +9,13 @@ use std::sync::{Arc, Mutex};
 use support::{json, serve, Script};
 use tempfile::tempdir;
 
-const TOKEN: &str = "aa11aa11aa11aa11aa11aa11aa11aa11aa11aa11aa11aa11aa11aa11aa11aa11";
+const TOKEN: &str =
+    "aa11aa11aa11aa11aa11aa11aa11aa11aa11aa11aa11aa11aa11aa11aa11aa11";
 
 fn empty(status: &str) -> String {
-    format!("HTTP/1.1 {status}\r\nContent-Length: 0\r\nConnection: close\r\n\r\n")
+    format!(
+        "HTTP/1.1 {status}\r\nContent-Length: 0\r\nConnection: close\r\n\r\n"
+    )
 }
 
 // A device that already holds a live session: no auth handshake in the script.
@@ -37,14 +40,19 @@ async fn device(
 #[tokio::test]
 async fn registering_sends_the_token_and_turns_notifications_on() {
     let dir = tempdir().unwrap();
-    let (db, seen) =
-        device(&dir, vec![("POST /v1/push/devices", empty("204 No Content"))])
-            .await;
+    let (db, seen) = device(
+        &dir,
+        vec![("POST /v1/push/devices", empty("204 No Content"))],
+    )
+    .await;
 
     push::register(&db, TOKEN).await.unwrap();
 
     let request = seen.lock().unwrap()[0].clone();
-    assert!(request.contains(&format!(r#""token":"{TOKEN}""#)), "{request}");
+    assert!(
+        request.contains(&format!(r#""token":"{TOKEN}""#)),
+        "{request}"
+    );
     // Tests build in debug, like `make all`: a development profile, sandbox APNs.
     assert!(request.contains(r#""environment":"sandbox""#), "{request}");
     assert!(push::is_enabled(&db));
@@ -78,7 +86,10 @@ async fn notifications_stay_on_while_the_server_still_holds_the_token() {
             ("POST /v1/push/devices", empty("204 No Content")),
             (
                 "DELETE /v1/push/devices",
-                json("500 Internal Server Error", r#"{"error":"internal error"}"#),
+                json(
+                    "500 Internal Server Error",
+                    r#"{"error":"internal error"}"#,
+                ),
             ),
         ],
     )
@@ -94,7 +105,10 @@ async fn a_test_alert_waits_long_enough_to_close_the_app() {
     let dir = tempdir().unwrap();
     let (db, seen) = device(
         &dir,
-        vec![("POST /v1/push/test", json("202 Accepted", r#"{"devices":1}"#))],
+        vec![(
+            "POST /v1/push/test",
+            json("202 Accepted", r#"{"devices":1}"#),
+        )],
     )
     .await;
 
@@ -111,7 +125,10 @@ async fn a_test_alert_waits_long_enough_to_close_the_app() {
 #[tokio::test]
 async fn the_servers_refusals_read_as_reasons() {
     for (response, expected) in [
-        (json("403 Forbidden", r#"{"error":"forbidden"}"#), PushError::NotPremium),
+        (
+            json("403 Forbidden", r#"{"error":"forbidden"}"#),
+            PushError::NotPremium,
+        ),
         (
             json("409 Conflict", r#"{"error":"no_push_device"}"#),
             PushError::NoDevice,
@@ -122,7 +139,8 @@ async fn the_servers_refusals_read_as_reasons() {
         ),
     ] {
         let dir = tempdir().unwrap();
-        let (db, _) = device(&dir, vec![("POST /v1/push/test", response)]).await;
+        let (db, _) =
+            device(&dir, vec![("POST /v1/push/test", response)]).await;
 
         assert_eq!(push::send_test(&db, "Test").await, Err(expected));
     }

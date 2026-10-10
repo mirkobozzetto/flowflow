@@ -32,7 +32,9 @@ impl From<BackendError> for PushError {
     fn from(e: BackendError) -> Self {
         match &e {
             BackendError::Status(403, _) => PushError::NotPremium,
-            BackendError::Status(409, body) if body.contains("no_push_device") => {
+            BackendError::Status(409, body)
+                if body.contains("no_push_device") =>
+            {
                 PushError::NoDevice
             }
             BackendError::Status(409, body)

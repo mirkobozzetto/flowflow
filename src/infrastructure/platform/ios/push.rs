@@ -24,8 +24,7 @@ extern "C" fn on_reply(ok: bool, text: *const c_char) {
     let text = unsafe { CStr::from_ptr(text) }
         .to_string_lossy()
         .into_owned();
-    if let Some(tx) = PENDING.lock().unwrap_or_else(|e| e.into_inner()).take()
-    {
+    if let Some(tx) = PENDING.lock().unwrap_or_else(|e| e.into_inner()).take() {
         let _ = tx.send(if ok { Ok(text) } else { Err(text) });
     }
 }
