@@ -187,3 +187,107 @@ async fn the_list_asks_hermes_for_paused_jobs_too() {
         .to_ascii_lowercase()
         .contains("authorization: bearer k_0123456789abcdef"));
 }
+
+#[tokio::test]
+async fn each_action_reaches_its_hermes_route() {
+    use hermes_jobs::JobAction;
+    let job = r#"{"job": {"id": "7455526871f4", "name": "Point", "schedule": {"kind": "cron", "expr": "0 5 * * *", "display": "0 5 * * *"}}}"#;
+    let seen = Arc::new(Mutex::new(Vec::new()));
+    let base = serve(Script {
+        responses: vec![
+            ("POST /api/jobs/7455526871f4/pause ", json("200 OK", job)),
+            ("POST /api/jobs/7455526871f4/resume ", json("200 OK", job)),
+            ("POST /api/jobs/7455526871f4/run ", json("200 OK", job)),
+            ("DELETE /api/jobs/7455526871f4 ", json("200 OK", r#"{"ok": true}"#)),
+        ],
+        seen: seen.clone(),
+    })
+    .await;
+    let dir = tempdir().unwrap();
+    let db = linked_db(&dir, &base);
+    for action in [
+        JobAction::Pause,
+        JobAction::Resume,
+        JobAction::RunNow,
+        JobAction::Delete,
+    ] {
+        hermes_jobs::act(&db, "7455526871f4", action).await.unwrap();
+    }
+    assert_eq!(seen.lock().unwrap().len(), 4);
+}
+
+#[tokio::test]
+async fn a_job_gone_from_hermes_says_so() {
+    let base = serve(Script {
+        responses: vec![(
+            "POST /api/jobs/gone/pause ",
+            json("404 Not Found", r#"{"error": "Job not found"}"#),
+        )],
+        seen: Arc::new(Mutex::new(Vec::new())),
+    })
+    .await;
+    let dir = tempdir().unwrap();
+    let db = linked_db(&dir, &base);
+    assert_eq!(
+        hermes_jobs::act(&db, "gone", hermes_jobs::JobAction::Pause).await,
+        Err(hermes_chat::HermesError::NotFound)
+    );
+}
+
+/// `GET /api/sessions?source=cron` as Hermes answered it on 2026-10-10,
+/// newest activity first, fields cut to what matters.
+const CRON_SESSIONS: &str = r#"{"object": "list", "data": [
+  {"id": "cron_a3601b8d2229_20261009_130013", "source": "cron", "title": "Point de fin de journée · Oct 09 13:00", "started_at": 1791550821.67, "ended_at": 1791550856.17, "end_reason": "cron_complete", "message_count": 12},
+  {"id": "cron_aac1dd36a390_20261009_053006", "source": "cron", "title": "Trois posts LinkedIn par semaine · Oct 09 05:30", "started_at": 1791523808.71, "ended_at": 1791523820.94, "end_reason": "cron_complete", "message_count": 4},
+  {"id": "cron_aac1dd36a390_20261007_053005", "source": "cron", "title": "Trois posts LinkedIn par semaine · Oct 07 05:30", "started_at": 1791351008.22, "ended_at": 1791351016.20, "end_reason": "cron_complete", "message_count": 4}
+], "limit": 200, "offset": 0, "has_more": false}"#;
+
+/// That run's messages, the skill text and the tool output cut.
+const CRON_MESSAGES: &str = r#"{"object": "list", "session_id": "cron_aac1dd36a390_20261009_053006", "data": [
+  {"role": "user", "content": "[IMPORTANT: The user has invoked the \"mirko-editorial-system\" skill…]"},
+  {"role": "assistant", "content": null, "tool_calls": [{"id": "call_1", "type": "function", "function": {"name": "terminal", "arguments": "{}"}}]},
+  {"role": "tool", "content": "{\"output\": \"{\\\"ok\\\":true,\\\"items\\\":[]}\"}"},
+  {"role": "assistant", "content": "À relire est plein : aucun post créé."}
+]}"#;
+
+#[tokio::test]
+async fn the_last_result_is_the_newest_run_s_last_answer() {
+    let base = serve(Script {
+        responses: vec![
+            (
+                "GET /api/sessions?source=cron&limit=200 ",
+                json("200 OK", CRON_SESSIONS),
+            ),
+            (
+                "GET /api/sessions/cron_aac1dd36a390_20261009_053006/messages ",
+                json("200 OK", CRON_MESSAGES),
+            ),
+        ],
+        seen: Arc::new(Mutex::new(Vec::new())),
+    })
+    .await;
+    let dir = tempdir().unwrap();
+    let db = linked_db(&dir, &base);
+    assert_eq!(
+        hermes_jobs::latest_result(&db, "aac1dd36a390").await.unwrap(),
+        Some("À relire est plein : aucun post créé.".to_string())
+    );
+}
+
+#[tokio::test]
+async fn a_job_that_never_ran_has_no_result() {
+    let base = serve(Script {
+        responses: vec![(
+            "GET /api/sessions?source=cron&limit=200 ",
+            json("200 OK", CRON_SESSIONS),
+        )],
+        seen: Arc::new(Mutex::new(Vec::new())),
+    })
+    .await;
+    let dir = tempdir().unwrap();
+    let db = linked_db(&dir, &base);
+    assert_eq!(
+        hermes_jobs::latest_result(&db, "de8dae5d216d").await.unwrap(),
+        None
+    );
+}
