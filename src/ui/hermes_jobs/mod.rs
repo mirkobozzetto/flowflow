@@ -29,6 +29,27 @@ pub fn open(mut app: AppState) {
     app.view.set(View::HermesJobs);
 }
 
+/// A tapped task notification: the task it names, or the list. Read again
+/// first, the result that just arrived is newer than the list in memory.
+pub async fn open_linked(mut app: AppState, db: &Database, link: &str) {
+    reload(app, db).await;
+    let job_id = match &*app.hermes_jobs.peek() {
+        Some(Ok(list)) => {
+            hermes_jobs::linked_job(link, list).map(|j| j.id.clone())
+        }
+        _ => None,
+    };
+    let here = app.view.peek().clone();
+    if !matches!(here, View::HermesJobs | View::HermesJob { .. }) {
+        app.previous_view.set(Some(here));
+    }
+    app.sidebar_open.set(false);
+    app.view.set(match job_id {
+        Some(job_id) => View::HermesJob { job_id },
+        None => View::HermesJobs,
+    });
+}
+
 /// Reads the tasks again; the list on screen stays until the new one lands.
 pub async fn reload(mut app: AppState, db: &Database) {
     app.hermes_jobs.set(Some(hermes_jobs::list(db).await));

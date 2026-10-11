@@ -25,6 +25,20 @@ pub async fn list(db: &Database) -> Result<Vec<HermesJob>, HermesError> {
     HermesClient::from_db(db)?.jobs().await
 }
 
+/// What a tapped task notification opens: flowflow://hermes/jobs?name=…
+pub const JOB_LINK_PREFIX: &str = "flowflow://hermes/jobs";
+
+/// The task a notification link names. Hermes titles a result with the
+/// task's name, or its id when it has none.
+pub fn linked_job<'a>(
+    link: &str,
+    jobs: &'a [HermesJob],
+) -> Option<&'a HermesJob> {
+    let url = url::Url::parse(link).ok()?;
+    let (_, name) = url.query_pairs().find(|(key, _)| key == "name")?;
+    jobs.iter().find(|j| j.name.trim() == name || j.id == name)
+}
+
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub enum JobAction {
     Pause,

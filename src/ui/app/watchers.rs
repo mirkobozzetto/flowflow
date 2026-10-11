@@ -387,6 +387,14 @@ pub fn use_share_deeplink_watcher(app: AppState, db: Signal<Arc<Database>>) {
                         }
                     }
                 }
+                // Before the QR code below, whose prefix it shares.
+                if let Some(uri) =
+                    crate::infrastructure::sync::deeplink::take_matching(
+                        crate::application::hermes_jobs::JOB_LINK_PREFIX,
+                    )
+                {
+                    crate::ui::hermes_jobs::open_linked(app, &db(), &uri).await;
+                }
                 // A scanned Hermes QR code fills the Hermes card; nothing is
                 // saved until the person taps Test, since any link can say so.
                 if let Some(uri) =
