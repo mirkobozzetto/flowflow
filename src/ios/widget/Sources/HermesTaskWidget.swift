@@ -48,34 +48,6 @@ private struct Face: View {
     }
 }
 
-// Hermes' face, with an orange dot that pulses while he works and a check
-// once he has answered.
-private struct HermesBadge: View {
-    let context: ActivityViewContext<HermesTaskAttributes>
-    var size: CGFloat
-    var body: some View {
-        ZStack(alignment: .bottomTrailing) {
-            Face(size: size)
-            Group {
-                if context.running {
-                    if #available(iOS 17.0, *) {
-                        Image(systemName: "circle.fill")
-                            .symbolEffect(.pulse, options: .repeating)
-                    } else {
-                        Image(systemName: "circle.fill")
-                    }
-                } else {
-                    Image(systemName: "checkmark.circle.fill")
-                }
-            }
-            .font(.system(size: size * 0.38, weight: .bold))
-            .foregroundStyle(flowOrange)
-            .background(Circle().fill(.black).padding(-1.5))
-            .offset(x: size * 0.06, y: size * 0.06)
-        }
-    }
-}
-
 private struct Working: View {
     var body: some View {
         HStack(spacing: 3) {
@@ -97,7 +69,10 @@ private struct Clock: View {
             if context.running {
                 Text(context.started, style: .timer)
             } else {
-                Text(context.took)
+                HStack(spacing: 4) {
+                    Image(systemName: "checkmark")
+                    Text(context.took)
+                }
             }
         }
         .monospacedDigit()
@@ -134,7 +109,7 @@ struct HermesTaskLiveActivity: Widget {
     var body: some WidgetConfiguration {
         ActivityConfiguration(for: HermesTaskAttributes.self) { context in
             HStack(alignment: .center, spacing: 12) {
-                HermesBadge(context: context, size: 40)
+                Face(size: 40)
                 Headline(context: context)
                 Spacer(minLength: 8)
                 Clock(context: context).font(.subheadline.weight(.semibold))
@@ -147,7 +122,7 @@ struct HermesTaskLiveActivity: Widget {
         } dynamicIsland: { context in
             DynamicIsland {
                 DynamicIslandExpandedRegion(.leading) {
-                    HermesBadge(context: context, size: 44)
+                    Face(size: 44)
                         .padding(.leading, 4)
                 }
                 DynamicIslandExpandedRegion(.trailing) {
@@ -160,13 +135,22 @@ struct HermesTaskLiveActivity: Widget {
                         .frame(maxWidth: .infinity, alignment: .leading)
                 }
             } compactLeading: {
-                HermesBadge(context: context, size: 22)
+                Face(size: 22)
             } compactTrailing: {
-                Clock(context: context)
-                    .font(.caption.weight(.semibold))
-                    .frame(maxWidth: 44, alignment: .trailing)
+                // Who on the left, where it stands on the right.
+                Group {
+                    if context.running {
+                        Text(context.started, style: .timer)
+                            .monospacedDigit()
+                            .frame(maxWidth: 44, alignment: .trailing)
+                    } else {
+                        Image(systemName: "checkmark")
+                    }
+                }
+                .font(.caption.weight(.semibold))
+                .foregroundStyle(flowOrange)
             } minimal: {
-                HermesBadge(context: context, size: 22)
+                Face(size: 22)
             }
             .widgetURL(context.taskLink)
             .keylineTint(flowOrange)
