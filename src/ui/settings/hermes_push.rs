@@ -7,7 +7,7 @@ use std::sync::Arc;
 
 const TEST_BUTTON: &str = "w-full min-h-[44px] px-3 rounded-xl border border-stone-200 bg-warm-white flex items-center justify-center gap-2 text-sm font-medium text-stone-600 active:bg-stone-100 transition-colors disabled:opacity-45";
 
-fn problem_text(lang: &str, e: &PushError) -> String {
+pub(crate) fn push_problem_text(lang: &str, e: &PushError) -> String {
     t(
         lang,
         match e {
@@ -47,7 +47,7 @@ pub fn HermesNotifications() -> Element {
             };
             match result {
                 Ok(()) => enabled.set(turning_on),
-                Err(e) => line.set(Some(problem_text(&lang, &e))),
+                Err(e) => line.set(Some(push_problem_text(&lang, &e))),
             }
             busy.set(false);
         });
@@ -65,7 +65,7 @@ pub fn HermesNotifications() -> Element {
                     "push-test-sent",
                     &[("secs", &TEST_DELAY_SECS.to_string())],
                 ),
-                Err(e) => problem_text(&lang, &e),
+                Err(e) => push_problem_text(&lang, &e),
             }));
             busy.set(false);
         });

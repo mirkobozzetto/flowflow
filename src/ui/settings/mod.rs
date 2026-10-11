@@ -12,6 +12,8 @@ mod storage;
 mod tab_pins;
 mod transcription;
 
+pub(crate) use hermes_push::push_problem_text;
+
 use crate::application::backup as backup_service;
 use crate::application::i18n::t;
 use crate::infrastructure::persistence::Database;
