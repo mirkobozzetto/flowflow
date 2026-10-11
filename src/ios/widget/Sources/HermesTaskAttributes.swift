@@ -5,6 +5,7 @@ import Foundation
 struct HermesTaskAttributes: ActivityAttributes {
     public struct ContentState: Codable, Hashable {
         var startedAt: Double
+        var endedAt: Double?
         var result: String?
     }
 

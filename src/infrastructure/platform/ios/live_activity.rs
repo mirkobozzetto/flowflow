@@ -98,3 +98,20 @@ pub fn observe_hermes() -> Option<UnboundedReceiver<HermesEvent>> {
     };
     Some(rx)
 }
+
+const HERMES_FACE: &[u8] = include_bytes!("../../../../assets/hermes-face.png");
+
+/// The widget draws Hermes' face from the shared container; it cannot read
+/// the app's own assets.
+pub fn share_hermes_face() {
+    let Some(dir) = super::app_group_dir() else {
+        return;
+    };
+    let path = dir.join("hermes-face.png");
+    if std::fs::read(&path).is_ok_and(|b| b == HERMES_FACE) {
+        return;
+    }
+    if let Err(e) = std::fs::write(&path, HERMES_FACE) {
+        eprintln!("[live] Hermes face not shared: {e}");
+    }
+}

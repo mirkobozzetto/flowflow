@@ -7,6 +7,7 @@ struct HermesTaskAttributes: ActivityAttributes {
     public struct ContentState: Codable, Hashable {
         // Unix seconds: ActivityKit decodes a pushed Date as seconds since 2001.
         var startedAt: Double
+        var endedAt: Double?
         // None while the task runs; empty when it ended without a result.
         var result: String?
     }
