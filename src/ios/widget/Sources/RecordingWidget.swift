@@ -97,6 +97,7 @@ struct RecordingWidgetBundle: WidgetBundle {
     @WidgetBundleBuilder
     private func widgets() -> some Widget {
         RecordingLiveActivity()
+        HermesTaskLiveActivity()
         LockRecordWidget()
         if #available(iOS 18.0, *) {
             RecordControl()
