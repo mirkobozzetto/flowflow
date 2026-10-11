@@ -3,8 +3,10 @@ import UIKit
 import UserNotifications
 
 public typealias PushReply = @convention(c) (Bool, UnsafePointer<CChar>) -> Void
+public typealias PushTap = @convention(c) (UnsafePointer<CChar>) -> Void
 
 private var pendingReply: PushReply?
+private var onTap: PushTap?
 private var delegateReady = false
 
 private func answer(_ ok: Bool, _ text: String) {
@@ -49,6 +51,22 @@ private final class Presenter: NSObject, UNUserNotificationCenterDelegate {
     ) {
         completionHandler([.banner, .list, .sound])
     }
+
+    // The notification service extension names the task in `job`; without
+    // it the tap opens the tasks list.
+    func userNotificationCenter(
+        _ center: UNUserNotificationCenter,
+        didReceive response: UNNotificationResponse,
+        withCompletionHandler completionHandler: @escaping () -> Void
+    ) {
+        var link = "flowflow://hermes/jobs"
+        if let job = response.notification.request.content.userInfo["job"] as? String,
+           let name = job.addingPercentEncoding(withAllowedCharacters: .alphanumerics) {
+            link += "?name=\(name)"
+        }
+        link.withCString { onTap?($0) }
+        completionHandler()
+    }
 }
 
 // The center keeps its delegate weakly.
@@ -60,7 +78,6 @@ public func pushRegister(_ reply: PushReply) {
     DispatchQueue.main.async {
         pendingReply = reply
         addDelegateCallbacks()
-        UNUserNotificationCenter.current().delegate = presenter
         UNUserNotificationCenter.current().requestAuthorization(options: [.alert, .sound, .badge]) { granted, _ in
             DispatchQueue.main.async {
                 if granted {
@@ -71,4 +88,12 @@ public func pushRegister(_ reply: PushReply) {
             }
         }
     }
+}
+
+/// Called at launch: iOS hands the tap that opened the app only to a delegate
+/// set before launching ends.
+@_cdecl("flowflow_push_observe_taps")
+public func pushObserveTaps(_ tap: PushTap) {
+    onTap = tap
+    UNUserNotificationCenter.current().delegate = presenter
 }

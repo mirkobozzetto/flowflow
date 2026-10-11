@@ -5,6 +5,7 @@ use tokio::sync::oneshot;
 
 extern "C" {
     fn flowflow_push_register(reply: extern "C" fn(bool, *const c_char));
+    fn flowflow_push_observe_taps(tap: extern "C" fn(*const c_char));
 }
 
 // APNs answers in a second or two; without a network it never answers.
@@ -41,4 +42,18 @@ pub async fn device_token() -> Result<String, TokenError> {
         Ok(Err(_)) => Err(TokenError::Failed("superseded".into())),
         Err(_) => Err(TokenError::Failed("no answer from APNs".into())),
     }
+}
+
+extern "C" fn on_tap(link: *const c_char) {
+    let link = unsafe { CStr::from_ptr(link) }
+        .to_string_lossy()
+        .into_owned();
+    eprintln!("[push] notification tapped: {link}");
+    crate::infrastructure::sync::deeplink::push(link);
+}
+
+/// A tapped notification becomes a deep link. Also the link anchor that keeps
+/// the Swift file in the binary.
+pub fn observe_taps() {
+    unsafe { flowflow_push_observe_taps(on_tap) };
 }
