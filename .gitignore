@@ -7,6 +7,8 @@
 *.xcuserstate
 !tools/provision-renew/template/RenewApp.xcodeproj/
 !tools/provision-renew/template/RenewApp.xcodeproj/**
+!src/ios/notification-service/NotificationService.xcodeproj/
+!src/ios/notification-service/NotificationService.xcodeproj/**
 flowflow/
 .env
 assets/tailwind.css
