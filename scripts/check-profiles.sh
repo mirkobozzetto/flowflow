@@ -62,6 +62,9 @@ report_one() {
 echo "Provisioning profiles:"
 report_one "app"    "$APP_BUNDLE_ID"
 report_one "widget" "$WIDGET_BUNDLE_ID"
+for bundle in $(bash "$(dirname "$0")/extension-bundle-ids.sh"); do
+    report_one "ext" "$bundle"
+done
 
 if [ "$CRITICAL" -eq 1 ]; then
     echo "[check-profiles] CRITICAL: at least one profile expired or expiring < $((THRESHOLD_SEC / 3600))h"
