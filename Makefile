@@ -58,7 +58,7 @@ ddev:
 
 ddev-build:
 	set -a && . ./.env && IPHONEOS_DEPLOYMENT_TARGET=16.0 dx build --platform ios --device true
-	bash scripts/build-share-ext.sh debug
+	bash scripts/build-extensions.sh debug
 	bash scripts/sign-widget.sh debug
 	bash scripts/inject-url-scheme.sh || true
 	bash scripts/inject-icon.sh || true
@@ -82,7 +82,7 @@ clean-stale:
 
 all: clean-stale js restore-ios-toml ensure-profiles
 	set -a && . ./.env && IPHONEOS_DEPLOYMENT_TARGET=16.0 dx build --platform ios --device true
-	bash scripts/build-share-ext.sh debug
+	bash scripts/build-extensions.sh debug
 	bash scripts/sign-widget.sh debug
 	bash scripts/inject-url-scheme.sh
 	bash scripts/inject-icon.sh
@@ -282,7 +282,7 @@ appstore:
 	echo "Using main profile: $$MAIN_PROFILE"; \
 	cp "$$MAIN_PROFILE" target/dx/flowflow/release/ios/Flowflow.app/embedded.mobileprovision
 	@echo ">> Building share extension for release..."
-	bash scripts/build-share-ext.sh release
+	bash scripts/build-extensions.sh release
 	@echo ">> Syncing share extension version..."
 	@SPLIST=target/dx/flowflow/release/ios/Flowflow.app/PlugIns/ShareExt.appex/Info.plist; \
 	plutil -replace CFBundleShortVersionString -string $(APPSTORE_VERSION) $$SPLIST; \
