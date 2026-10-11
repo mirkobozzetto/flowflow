@@ -16,11 +16,12 @@ pub use entries::{
 pub use job_view::HermesJobView;
 pub use list::HermesJobsView;
 
-use crate::application::hermes_jobs;
+use crate::application::{hermes_jobs, hermes_live};
 use crate::infrastructure::hermes::HermesJob;
 use crate::infrastructure::persistence::Database;
 use crate::ui::{AppState, View};
 use dioxus::prelude::*;
+use std::sync::Arc;
 
 /// Opens the tasks list from wherever Hermes is, which the back button
 /// returns to.
@@ -31,7 +32,7 @@ pub fn open(mut app: AppState) {
 
 /// A tapped task notification: the task it names, or the list. Read again
 /// first, the result that just arrived is newer than the list in memory.
-pub async fn open_linked(mut app: AppState, db: &Database, link: &str) {
+pub async fn open_linked(mut app: AppState, db: &Arc<Database>, link: &str) {
     reload(app, db).await;
     let job_id = match &*app.hermes_jobs.peek() {
         Some(Ok(list)) => {
@@ -51,8 +52,14 @@ pub async fn open_linked(mut app: AppState, db: &Database, link: &str) {
 }
 
 /// Reads the tasks again; the list on screen stays until the new one lands.
-pub async fn reload(mut app: AppState, db: &Database) {
-    app.hermes_jobs.set(Some(hermes_jobs::list(db).await));
+/// Their next runs go to the server, which starts their Live Activities.
+pub async fn reload(mut app: AppState, db: &Arc<Database>) {
+    let jobs = hermes_jobs::list(db).await;
+    if let Ok(list) = &jobs {
+        let (db, list) = (db.clone(), list.clone());
+        spawn(async move { hermes_live::sync(&db, &list).await });
+    }
+    app.hermes_jobs.set(Some(jobs));
 }
 
 // Hermes' API restarts right after FlowFlow is first set up: the job Hermes

@@ -27,6 +27,9 @@ pub fn run_boot_effects(db: &std::sync::Arc<Database>) {
         dioxus::prelude::spawn(async move {
             crate::application::push::refresh(&push_db).await;
         });
+        dioxus::prelude::spawn(crate::application::hermes_live::follow(
+            db.clone(),
+        ));
     }
 }
 
