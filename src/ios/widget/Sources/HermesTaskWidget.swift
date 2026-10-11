@@ -76,6 +76,28 @@ private struct Clock: View {
             }
         }
         .monospacedDigit()
+        .lineLimit(1)
+        .fixedSize()
+        .foregroundStyle(flowOrange)
+    }
+}
+
+// The island's side regions are narrow: one short thing only, or iOS wraps it
+// into a column.
+private struct Status: View {
+    let context: ActivityViewContext<HermesTaskAttributes>
+    var body: some View {
+        Group {
+            if context.running {
+                Text(context.started, style: .timer)
+                    .monospacedDigit()
+                    .lineLimit(1)
+                    .multilineTextAlignment(.trailing)
+                    .frame(maxWidth: 52, alignment: .trailing)
+            } else {
+                Image(systemName: "checkmark")
+            }
+        }
         .foregroundStyle(flowOrange)
     }
 }
@@ -126,7 +148,7 @@ struct HermesTaskLiveActivity: Widget {
                         .padding(.leading, 4)
                 }
                 DynamicIslandExpandedRegion(.trailing) {
-                    Clock(context: context)
+                    Status(context: context)
                         .font(.headline)
                         .padding(.trailing, 4)
                 }
@@ -138,17 +160,8 @@ struct HermesTaskLiveActivity: Widget {
                 Face(size: 22)
             } compactTrailing: {
                 // Who on the left, where it stands on the right.
-                Group {
-                    if context.running {
-                        Text(context.started, style: .timer)
-                            .monospacedDigit()
-                            .frame(maxWidth: 44, alignment: .trailing)
-                    } else {
-                        Image(systemName: "checkmark")
-                    }
-                }
-                .font(.caption.weight(.semibold))
-                .foregroundStyle(flowOrange)
+                Status(context: context)
+                    .font(.caption.weight(.semibold))
             } minimal: {
                 Face(size: 22)
             }
