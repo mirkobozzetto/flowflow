@@ -1,10 +1,11 @@
 use super::menu::JobMenuItems;
+use crate::application::hermes_delivery::delivers_to_flowflow;
 use crate::application::hermes_jobs::{
     next_run_text, schedule_text, status_text, JobAction,
 };
 use crate::application::i18n::{t, t_args};
 use crate::infrastructure::hermes::HermesJob;
-use crate::ui::icons::IconDotsThree;
+use crate::ui::icons::{IconBell, IconDotsThree};
 use crate::ui::kit;
 use crate::ui::AppState;
 use dioxus::prelude::*;
@@ -45,8 +46,17 @@ pub fn JobCard(
             class: "relative bg-warm-white pl-4 pr-1 py-3 border border-stone-200 rounded-xl mb-2.5 cursor-pointer flex items-start gap-1",
             onclick: move |_| on_open.call(()),
             div { class: if paused { "flex-1 min-w-0 pt-0.5 opacity-60" } else { "flex-1 min-w-0 pt-0.5" },
-                h3 { class: "truncate font-semibold text-base tracking-[-0.01em] text-stone-900",
-                    "{job.name}"
+                h3 { class: "flex items-center gap-1.5 min-w-0",
+                    span { class: "truncate font-semibold text-base tracking-[-0.01em] text-stone-900",
+                        "{job.name}"
+                    }
+                    if delivers_to_flowflow(&job) {
+                        span {
+                            class: "shrink-0 text-ios-orange",
+                            "aria-label": t(&lang, "hermes-job-flowflow-badge"),
+                            IconBell { size: 14 }
+                        }
+                    }
                 }
                 p { class: "text-stone-600 text-sm mt-0.5",
                     {schedule_text(&lang, &job.schedule, shift)}

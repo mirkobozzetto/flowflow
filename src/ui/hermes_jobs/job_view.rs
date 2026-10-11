@@ -1,6 +1,10 @@
 use super::alert::JobAlert;
 use super::card::JobStatus;
+use super::flowflow::{delivery_problem_text, FlowFlowSwitch};
 use super::menu::JobMenuItems;
+use crate::application::hermes_delivery::{
+    self, delivers_to_flowflow, telegram_too,
+};
 use crate::application::hermes_jobs::{
     self, clock_shift, last_run_text, next_run_text, schedule_text, JobAction,
 };
@@ -38,6 +42,9 @@ pub fn HermesJobView() -> Element {
     let mut result: Signal<Option<Result<Option<String>, HermesError>>> =
         use_signal(|| None);
     let mut asking: Signal<Option<JobAction>> = use_signal(|| None);
+    // The state asked for while Hermes and the server are told.
+    let mut delivering: Signal<Option<bool>> = use_signal(|| None);
+    let mut delivery_error: Signal<Option<String>> = use_signal(|| None);
     use_hook({
         let id = job_id.clone();
         move || {
@@ -70,6 +77,27 @@ pub fn HermesJobView() -> Element {
         next_run_text(&lang, &job, &now).unwrap_or_default()
     };
     let failed = job.last_status.as_deref().is_some_and(|s| s != "ok");
+    let flowflow = delivering().unwrap_or_else(|| delivers_to_flowflow(&job));
+    let deliver_job = job.clone();
+    let toggle_flowflow = move |_| {
+        if delivering().is_some() {
+            return;
+        }
+        let target = !flowflow;
+        delivering.set(Some(target));
+        delivery_error.set(None);
+        let job = deliver_job.clone();
+        spawn(async move {
+            let lang = (app.current_lang)();
+            match hermes_delivery::set(&db(), &job, target).await {
+                Ok(updated) => super::replace(app, updated),
+                Err(e) => {
+                    delivery_error.set(Some(delivery_problem_text(&lang, &e)))
+                }
+            }
+            delivering.set(None);
+        });
+    };
 
     rsx! {
         div { class: "h-full overflow-y-auto px-4 pt-4 safe-pb-40 lg:px-[max(1rem,calc((100%-48rem)/2))]",
@@ -83,6 +111,19 @@ pub fn HermesJobView() -> Element {
                         }
                         JobStatus { job: job.clone(), lang: lang.clone() }
                     }
+                }
+                div { class: "h-px bg-stone-200 !my-3" }
+                FlowFlowSwitch {
+                    on: flowflow,
+                    busy: delivering().is_some(),
+                    lang: lang.clone(),
+                    class: "min-h-[44px] -my-1.5".to_string(),
+                    onclick: toggle_flowflow,
+                }
+                if let Some(problem) = delivery_error() {
+                    p { class: "text-[13px] leading-snug text-stone-500", "{problem}" }
+                } else if flowflow && telegram_too(&job) {
+                    p { class: "text-[13px] text-stone-500", {t(&lang, "hermes-job-telegram-too")} }
                 }
             }
             if failed {

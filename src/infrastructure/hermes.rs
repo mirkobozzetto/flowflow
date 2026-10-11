@@ -298,6 +298,33 @@ pub struct HermesJob {
     /// "ok", an error kind, or None before the first run.
     #[serde(default)]
     pub last_status: Option<String>,
+    /// Where each run's answer goes, comma-separated; `local` keeps it.
+    #[serde(default, deserialize_with = "destinations")]
+    pub deliver: String,
+    /// Where the job was made; `origin` in `deliver` sends there.
+    #[serde(default)]
+    pub origin: Option<JobOrigin>,
+}
+
+#[derive(Debug, Clone, PartialEq, Deserialize)]
+pub struct JobOrigin {
+    #[serde(default)]
+    pub platform: String,
+}
+
+// Jobs made by MCP clients or edited by hand keep `deliver` as a list.
+fn destinations<'de, D: serde::Deserializer<'de>>(
+    d: D,
+) -> Result<String, D::Error> {
+    Ok(match serde_json::Value::deserialize(d)? {
+        serde_json::Value::String(s) => s,
+        serde_json::Value::Array(items) => items
+            .iter()
+            .filter_map(|v| v.as_str())
+            .collect::<Vec<_>>()
+            .join(","),
+        _ => String::new(),
+    })
 }
 
 impl HermesJob {
@@ -397,6 +424,10 @@ impl HermesClient {
         )
     }
 
+    pub fn key(&self) -> &str {
+        &self.key
+    }
+
     fn get(&self, path: &str) -> reqwest::RequestBuilder {
         self.http
             .get(format!("{}{path}", self.base))
@@ -491,14 +522,18 @@ impl HermesClient {
         .map(|_| ())
     }
 
-    /// A new job delivering where Hermes keeps it by default (`local`).
+    /// A new job; without `deliver`, Hermes keeps its answers (`local`).
     pub async fn create_job(
         &self,
         name: &str,
         prompt: &str,
         schedule: &str,
+        deliver: Option<&str>,
     ) -> Result<HermesJob, HermesError> {
-        let body = serde_json::json!({ "name": name, "prompt": prompt, "schedule": schedule });
+        let mut body = serde_json::json!({ "name": name, "prompt": prompt, "schedule": schedule });
+        if let Some(deliver) = deliver {
+            body["deliver"] = deliver.into();
+        }
         job_from(
             checked(
                 self.post("/api/jobs")
@@ -517,12 +552,30 @@ impl HermesClient {
         job_id: &str,
         schedule: &str,
     ) -> Result<HermesJob, HermesError> {
+        self.patch_job(job_id, serde_json::json!({ "schedule": schedule }))
+            .await
+    }
+
+    pub async fn update_deliver(
+        &self,
+        job_id: &str,
+        deliver: &str,
+    ) -> Result<HermesJob, HermesError> {
+        self.patch_job(job_id, serde_json::json!({ "deliver": deliver }))
+            .await
+    }
+
+    async fn patch_job(
+        &self,
+        job_id: &str,
+        body: serde_json::Value,
+    ) -> Result<HermesJob, HermesError> {
         job_from(
             checked(
                 self.http
                     .patch(format!("{}/api/jobs/{job_id}", self.base))
                     .bearer_auth(&self.key)
-                    .json(&serde_json::json!({ "schedule": schedule }))
+                    .json(&body)
                     .timeout(REQUEST_TIMEOUT)
                     .send()
                     .await,
@@ -572,7 +625,8 @@ impl HermesClient {
         }
     }
 
-    async fn dashboard_skills(&self) -> Result<Vec<Skill>, HermesError> {
+    /// The dashboard's address and the session token its page carries.
+    async fn dashboard(&self) -> Result<(String, String), HermesError> {
         let base = dashboard_base(&self.base).ok_or(HermesError::NotFound)?;
         let page = checked(
             self.http
@@ -586,6 +640,11 @@ impl HermesClient {
         .await
         .map_err(|e| HermesError::Server(e.to_string()))?;
         let token = dashboard_token(&page).ok_or(HermesError::KeyRefused)?;
+        Ok((base, token))
+    }
+
+    async fn dashboard_skills(&self) -> Result<Vec<Skill>, HermesError> {
+        let (base, token) = self.dashboard().await?;
         let list: serde_json::Value = checked(
             self.http
                 .get(format!("{base}/api/skills"))
@@ -599,6 +658,38 @@ impl HermesClient {
         .await
         .map_err(|e| HermesError::Server(e.to_string()))?;
         Ok(parse_skills(&list))
+    }
+
+    /// Writes settings into Hermes' `.env` through its dashboard (its API
+    /// has no such route), then restarts its gateway, which reads them at
+    /// start. The API restarts with it: a few seconds without Hermes.
+    pub async fn configure(
+        &self,
+        settings: &[(&str, String)],
+    ) -> Result<(), HermesError> {
+        let (base, token) = self.dashboard().await?;
+        for (key, value) in settings {
+            checked(
+                self.http
+                    .put(format!("{base}/api/env"))
+                    .header("X-Hermes-Session-Token", &token)
+                    .json(&serde_json::json!({ "key": key, "value": value }))
+                    .timeout(REQUEST_TIMEOUT)
+                    .send()
+                    .await,
+            )
+            .await?;
+        }
+        // The dashboard goes down with the gateway and can drop this very
+        // request (a 502 through its proxy): the settings are written by now.
+        let _ = self
+            .http
+            .post(format!("{base}/api/gateway/restart"))
+            .header("X-Hermes-Session-Token", &token)
+            .timeout(REQUEST_TIMEOUT)
+            .send()
+            .await;
+        Ok(())
     }
 
     /// Starts a turn on the session, on the chosen (provider, model) and

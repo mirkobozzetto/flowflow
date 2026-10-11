@@ -1,10 +1,12 @@
-use crate::application::hermes_jobs::{self, frequency_text, Frequency};
+use super::flowflow::{delivery_problem_text, FlowFlowSwitch};
+use crate::application::hermes_delivery;
+use crate::application::hermes_jobs::{frequency_text, Frequency};
 use crate::application::i18n::{t, weekday_name};
+use crate::application::push;
 use crate::infrastructure::hermes::HermesJob;
 use crate::infrastructure::persistence::Database;
 use crate::infrastructure::platform::{haptic, haptic_prepare};
 use crate::ui::chat::hermes_approval::CTA;
-use crate::ui::chat::hermes_problem_text;
 use crate::ui::icons::{HermesAgentIcon, IconX};
 use crate::ui::kit;
 use crate::ui::AppState;
@@ -76,6 +78,8 @@ pub fn NewJobSheet(
     let mut day = use_signal(|| Weekday::Mon);
     let mut hours = use_signal(|| DEFAULT_HOURS);
     let mut sending = use_signal(|| false);
+    let mut to_flowflow = use_signal(|| false);
+    let mut asking_ios = use_signal(|| false);
     let mut error: Signal<Option<String>> = use_signal(|| None);
     let leaving = use_signal(|| false);
     let freq = match pick() {
@@ -102,13 +106,14 @@ pub fn NewJobSheet(
                     Some(Ok(list)) => list.clone(),
                     _ => Vec::new(),
                 };
-                let made = hermes_jobs::create(
+                let made = hermes_delivery::create(
                     &database,
                     name.peek().trim(),
                     prompt.peek().trim(),
                     &freq,
                     &known,
                     &Local,
+                    *to_flowflow.peek(),
                 )
                 .await;
                 match made {
@@ -119,7 +124,7 @@ pub fn NewJobSheet(
                     }
                     Err(e) => {
                         sending.set(false);
-                        error.set(Some(hermes_problem_text(&lang, &e)));
+                        error.set(Some(delivery_problem_text(&lang, &e)));
                     }
                 }
             });
@@ -223,6 +228,32 @@ pub fn NewJobSheet(
                 }
             }
             p { class: "mt-3 text-sm text-stone-500 text-center", {frequency_text(&lang, &freq)} }
+            FlowFlowSwitch {
+                on: to_flowflow(),
+                busy: asking_ios() || sending(),
+                lang: lang.clone(),
+                class: "mt-3 rounded-[18px] bg-stone-900/5 px-4 min-h-[52px]".to_string(),
+                onclick: move |_| {
+                    if to_flowflow() {
+                        to_flowflow.set(false);
+                        return;
+                    }
+                    error.set(None);
+                    if push::is_enabled(&db()) {
+                        to_flowflow.set(true);
+                        return;
+                    }
+                    asking_ios.set(true);
+                    spawn(async move {
+                        let lang = (app.current_lang)();
+                        match push::enable(&db()).await {
+                            Ok(()) => to_flowflow.set(true),
+                            Err(e) => error.set(Some(crate::ui::settings::push_problem_text(&lang, &e))),
+                        }
+                        asking_ios.set(false);
+                    });
+                },
+            }
             if let Some(err) = error() {
                 p { class: "mt-2 text-[13px] leading-snug text-ios-red-dark text-center", "{err}" }
             }
