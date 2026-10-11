@@ -39,12 +39,28 @@ private func addDelegateCallbacks() {
     )
 }
 
+// iOS drops a notification that lands while the app is open unless the app
+// asks to show it; a Hermes result is worth seeing either way.
+private final class Presenter: NSObject, UNUserNotificationCenterDelegate {
+    func userNotificationCenter(
+        _ center: UNUserNotificationCenter,
+        willPresent notification: UNNotification,
+        withCompletionHandler completionHandler: @escaping (UNNotificationPresentationOptions) -> Void
+    ) {
+        completionHandler([.banner, .list, .sound])
+    }
+}
+
+// The center keeps its delegate weakly.
+private let presenter = Presenter()
+
 /// Replies once: the hex token, or `denied` when the person refuses.
 @_cdecl("flowflow_push_register")
 public func pushRegister(_ reply: PushReply) {
     DispatchQueue.main.async {
         pendingReply = reply
         addDelegateCallbacks()
+        UNUserNotificationCenter.current().delegate = presenter
         UNUserNotificationCenter.current().requestAuthorization(options: [.alert, .sound, .badge]) { granted, _ in
             DispatchQueue.main.async {
                 if granted {
