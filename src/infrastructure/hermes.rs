@@ -680,16 +680,16 @@ impl HermesClient {
             )
             .await?;
         }
-        checked(
-            self.http
-                .post(format!("{base}/api/gateway/restart"))
-                .header("X-Hermes-Session-Token", &token)
-                .timeout(REQUEST_TIMEOUT)
-                .send()
-                .await,
-        )
-        .await
-        .map(|_| ())
+        // The dashboard goes down with the gateway and can drop this very
+        // request (a 502 through its proxy): the settings are written by now.
+        let _ = self
+            .http
+            .post(format!("{base}/api/gateway/restart"))
+            .header("X-Hermes-Session-Token", &token)
+            .timeout(REQUEST_TIMEOUT)
+            .send()
+            .await;
+        Ok(())
     }
 
     /// Starts a turn on the session, on the chosen (provider, model) and
