@@ -7,6 +7,7 @@
 pub mod onboarding;
 pub mod profile;
 mod push;
+pub use push::ScheduledJob;
 mod scoped;
 pub mod shares;
 pub mod spaces;

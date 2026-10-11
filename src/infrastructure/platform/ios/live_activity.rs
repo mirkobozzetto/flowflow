@@ -1,3 +1,9 @@
+use std::ffi::{c_char, CStr};
+use std::sync::OnceLock;
+use tokio::sync::mpsc::{
+    unbounded_channel, UnboundedReceiver, UnboundedSender,
+};
+
 extern "C" {
     fn flowflow_start_live_activity(started_at_unix: i64, is_paused: bool);
     fn flowflow_update_live_activity(started_at_unix: i64, is_paused: bool);
@@ -44,5 +50,68 @@ pub fn end() {
 pub fn cleanup_orphans() {
     unsafe {
         flowflow_cleanup_live_activities();
+    }
+}
+
+extern "C" {
+    fn flowflow_hermes_activities_observe(
+        start: extern "C" fn(*const c_char),
+        token: extern "C" fn(*const c_char, *const c_char),
+    );
+}
+
+pub enum HermesEvent {
+    StartToken(String),
+    ActivityToken { job_id: String, token: String },
+}
+
+static HERMES_EVENTS: OnceLock<UnboundedSender<HermesEvent>> = OnceLock::new();
+
+fn text(ptr: *const c_char) -> String {
+    unsafe { CStr::from_ptr(ptr) }
+        .to_string_lossy()
+        .into_owned()
+}
+
+extern "C" fn on_start_token(token: *const c_char) {
+    if let Some(tx) = HERMES_EVENTS.get() {
+        let _ = tx.send(HermesEvent::StartToken(text(token)));
+    }
+}
+
+extern "C" fn on_activity_token(job_id: *const c_char, token: *const c_char) {
+    if let Some(tx) = HERMES_EVENTS.get() {
+        let _ = tx.send(HermesEvent::ActivityToken {
+            job_id: text(job_id),
+            token: text(token),
+        });
+    }
+}
+
+/// ActivityKit's tokens for Hermes task activities, as they come. None
+/// when already observed: one launch, one observer.
+pub fn observe_hermes() -> Option<UnboundedReceiver<HermesEvent>> {
+    let (tx, rx) = unbounded_channel();
+    HERMES_EVENTS.set(tx).ok()?;
+    unsafe {
+        flowflow_hermes_activities_observe(on_start_token, on_activity_token)
+    };
+    Some(rx)
+}
+
+const HERMES_FACE: &[u8] = include_bytes!("../../../../assets/hermes-face.png");
+
+/// The widget draws Hermes' face from the shared container; it cannot read
+/// the app's own assets.
+pub fn share_hermes_face() {
+    let Some(dir) = super::app_group_dir() else {
+        return;
+    };
+    let path = dir.join("hermes-face.png");
+    if std::fs::read(&path).is_ok_and(|b| b == HERMES_FACE) {
+        return;
+    }
+    if let Err(e) = std::fs::write(&path, HERMES_FACE) {
+        eprintln!("[live] Hermes face not shared: {e}");
     }
 }

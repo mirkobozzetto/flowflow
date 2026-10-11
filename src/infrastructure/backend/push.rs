@@ -18,6 +18,26 @@ struct Linked {
     listening: bool,
 }
 
+/// A FlowFlow-delivered task and its next run, in unix seconds.
+#[derive(serde::Serialize, Debug, Clone, PartialEq)]
+pub struct ScheduledJob {
+    pub id: String,
+    pub name: String,
+    pub next_run_at: i64,
+}
+
+#[derive(serde::Serialize)]
+struct Schedules<'a> {
+    start_token: &'a str,
+    jobs: &'a [ScheduledJob],
+}
+
+#[derive(serde::Serialize)]
+struct ActivityToken<'a> {
+    job_id: &'a str,
+    token: &'a str,
+}
+
 #[derive(serde::Serialize)]
 struct TestAlert<'a> {
     body: &'a str,
@@ -67,6 +87,37 @@ impl BackendClient {
             .authed(db, |c, t| c.post(&url).bearer_auth(t).json(&body))
             .await?;
         Ok(Self::read_json::<Linked>(resp).await?.listening)
+    }
+
+    /// The server starts each task's Live Activity on this device at its
+    /// next run, through `start_token`, ActivityKit's push-to-start token.
+    pub async fn push_schedules(
+        &self,
+        db: &Database,
+        start_token: &str,
+        jobs: &[ScheduledJob],
+    ) -> Result<(), BackendError> {
+        let url = format!("{}/v1/push/schedules", self.base_url);
+        let body = Schedules { start_token, jobs };
+        let resp = self
+            .authed(db, |c, t| c.post(&url).bearer_auth(t).json(&body))
+            .await?;
+        Self::expect_success(resp).await
+    }
+
+    /// The token that lets the server end a started activity.
+    pub async fn report_activity(
+        &self,
+        db: &Database,
+        job_id: &str,
+        token: &str,
+    ) -> Result<(), BackendError> {
+        let url = format!("{}/v1/push/activities", self.base_url);
+        let body = ActivityToken { job_id, token };
+        let resp = self
+            .authed(db, |c, t| c.post(&url).bearer_auth(t).json(&body))
+            .await?;
+        Self::expect_success(resp).await
     }
 
     /// The server sends `body` to every device of the account after
