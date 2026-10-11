@@ -25,7 +25,13 @@ final class NotificationService: UNNotificationServiceExtension {
             if let error {
                 NSLog("[hermes-notification] donation failed: \(error.localizedDescription)")
             }
-            contentHandler((try? content.updating(from: intent)) ?? content)
+            do {
+                contentHandler(try content.updating(from: intent))
+                NSLog("[hermes-notification] shown as a message from Hermes")
+            } catch {
+                NSLog("[hermes-notification] left as a plain alert: \(error.localizedDescription)")
+                contentHandler(content)
+            }
         }
     }
 }

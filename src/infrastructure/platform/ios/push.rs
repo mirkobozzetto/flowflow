@@ -48,6 +48,7 @@ extern "C" fn on_tap(link: *const c_char) {
     let link = unsafe { CStr::from_ptr(link) }
         .to_string_lossy()
         .into_owned();
+    eprintln!("[push] notification tapped: {link}");
     crate::infrastructure::sync::deeplink::push(link);
 }
 
