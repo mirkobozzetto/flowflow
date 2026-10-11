@@ -20,7 +20,10 @@ fn job(name_start: &str) -> HermesJob {
 fn turning_flowflow_on_adds_it_next_to_the_other_destinations() {
     assert_eq!(hermes_delivery::with_flowflow("local", true), "ntfy");
     assert_eq!(hermes_delivery::with_flowflow("", true), "ntfy");
-    assert_eq!(hermes_delivery::with_flowflow("origin", true), "origin,ntfy");
+    assert_eq!(
+        hermes_delivery::with_flowflow("origin", true),
+        "origin,ntfy"
+    );
     assert_eq!(
         hermes_delivery::with_flowflow("origin,ntfy", true),
         "origin,ntfy"
@@ -75,7 +78,10 @@ fn hermes_gets_the_settings_of_its_ntfy_module() {
     assert_eq!(
         hermes_delivery::hermes_env(&link, "https://api.flowflow.be/"),
         vec![
-            ("NTFY_SERVER_URL", "https://api.flowflow.be/ntfy".to_string()),
+            (
+                "NTFY_SERVER_URL",
+                "https://api.flowflow.be/ntfy".to_string()
+            ),
             ("NTFY_TOPIC", link.topic.clone()),
             ("NTFY_TOKEN", link.token.clone()),
             ("NTFY_MARKDOWN", "true".to_string()),
@@ -89,7 +95,10 @@ async fn the_destinations_change_on_hermes() {
     let updated = r#"{"job": {"id": "7455526871f4", "name": "Point", "deliver": "origin,ntfy", "schedule": {"kind": "cron", "expr": "0 5 * * *", "display": "0 5 * * *"}}}"#;
     let seen = Arc::new(Mutex::new(Vec::new()));
     let base = serve(Script {
-        responses: vec![("PATCH /api/jobs/7455526871f4 ", json("200 OK", updated))],
+        responses: vec![(
+            "PATCH /api/jobs/7455526871f4 ",
+            json("200 OK", updated),
+        )],
         seen: seen.clone(),
     })
     .await;

@@ -119,10 +119,11 @@ pub async fn create<Tz: TimeZone>(
     freq: &Frequency,
     known: &[HermesJob],
     tz: &Tz,
+    deliver: Option<&str>,
 ) -> Result<HermesJob, HermesError> {
     let client = HermesClient::from_db(db)?;
     let sent = hermes_schedule(freq, clock_shift(known, tz));
-    let job = client.create_job(name, prompt, &sent).await?;
+    let job = client.create_job(name, prompt, &sent, deliver).await?;
     let fixed =
         hermes_schedule(freq, clock_shift(std::slice::from_ref(&job), tz));
     if fixed == sent {
