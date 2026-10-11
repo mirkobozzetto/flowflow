@@ -14,6 +14,11 @@ private struct HermesMark: View {
 
 private extension ActivityViewContext<HermesTaskAttributes> {
     var started: Date { Date(timeIntervalSince1970: state.startedAt) }
+    // A tap opens the task, as the result's notification does.
+    var taskLink: URL? {
+        let name = attributes.name.addingPercentEncoding(withAllowedCharacters: .alphanumerics) ?? ""
+        return URL(string: "flowflow://hermes/jobs?name=\(name)")
+    }
     var running: Bool { state.result == nil && !isStale }
     // The server ends a task without a result after 30 minutes, with an
     // empty one; a stale activity whose end never came reads the same.
@@ -59,6 +64,7 @@ struct HermesTaskLiveActivity: Widget {
             }
             .padding(.horizontal, 20)
             .padding(.vertical, 12)
+            .widgetURL(context.taskLink)
         } dynamicIsland: { context in
             DynamicIsland {
                 DynamicIslandExpandedRegion(.leading) {
@@ -87,6 +93,7 @@ struct HermesTaskLiveActivity: Widget {
             } minimal: {
                 HermesMark(size: 12, done: !context.running)
             }
+            .widgetURL(context.taskLink)
         }
     }
 }
