@@ -432,3 +432,24 @@ fn the_last_run_reads_as_a_day_and_an_hour() {
     never.last_run_at = None;
     assert_eq!(last_run_text("fr", &never, &now), None);
 }
+
+#[test]
+fn a_tapped_notification_opens_the_task_it_names() {
+    use hermes_jobs::linked_job;
+    let all = jobs();
+    // The notification service extension builds the link from the alert
+    // title, which is the task's name as Hermes wraps it.
+    let link = "flowflow://hermes/jobs?name=Point%20quotidien%20global%20du%20matin%20%E2%80%94%20Mirko";
+    assert_eq!(linked_job(link, &all).unwrap().id, "7455526871f4");
+    // A task without a name is wrapped with its id.
+    assert_eq!(
+        linked_job("flowflow://hermes/jobs?name=de8dae5d216d", &all)
+            .unwrap()
+            .id,
+        "de8dae5d216d"
+    );
+    assert!(linked_job("flowflow://hermes/jobs", &all).is_none());
+    assert!(linked_job("flowflow://hermes/jobs?name=Gone", &all).is_none());
+    // The Hermes QR code shares the prefix; it is not a task link.
+    assert!(hermes_chat::parse_link(link).is_none());
+}
