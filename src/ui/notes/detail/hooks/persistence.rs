@@ -7,14 +7,11 @@ use dioxus::prelude::*;
 use std::sync::Arc;
 
 /// Finish a committed deletion without redirecting a newer view.
-pub fn use_delete_exit(
-    mut app: AppState,
-    local_note_id: Signal<String>,
-    deleted: Signal<bool>,
-) {
+pub fn use_delete_exit(mut app: AppState, deleted: Signal<bool>) {
     use_effect(move || {
         if deleted() {
-            let deleted_id = local_note_id.peek().clone();
+            // The view, not the note id: a new note's composer keeps an empty id.
+            let shown = app.view.peek().clone();
             app.sliding_out.set(true);
             // spawn_forever: NoteDetail can unmount mid-delay (e.g. a sync-driven
             // rerender); a cancelled scope task would leave sliding_out stuck true.
@@ -24,8 +21,7 @@ pub fn use_delete_exit(
                 ))
                 .await;
                 app.sliding_out.set(false);
-                if matches!((app.view)(), crate::ui::View::NoteDetail { note_id } if note_id == deleted_id)
-                {
+                if (app.view)() == shown {
                     app.view.set(crate::ui::View::NotesList);
                 }
             });

@@ -11,6 +11,17 @@ pub mod kit;
 mod ui {
     pub use super::{clipboard, delete_confirm, kit};
     pub use flowflow::ui::{icons, AppState, NoteMenuPage, RowMenu, View};
+    // The real module is crate-private; the menu only needs the name here.
+    pub mod chat {
+        pub mod hermes_attach {
+            pub fn send_note(
+                _: flowflow::ui::AppState,
+                _: &flowflow::infrastructure::persistence::Database,
+                _: &str,
+            ) {
+            }
+        }
+    }
 }
 #[path = "../src/ui/notes/menu.rs"]
 mod note_menu;
@@ -170,7 +181,7 @@ fn detail_host() -> Element {
     let note_id = use_signal(|| fixture.note_id.clone());
     let audio = use_signal(|| None);
     *fixture.editor.borrow_mut() = Some(content);
-    note_persistence_hooks::use_delete_exit(app, note_id, deleted);
+    note_persistence_hooks::use_delete_exit(app, deleted);
     note_persistence_hooks::use_save_on_drop(
         app,
         db,

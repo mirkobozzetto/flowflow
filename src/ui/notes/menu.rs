@@ -184,14 +184,15 @@ pub fn NoteMenu(
                 if (app.current_note_id)().as_deref() == Some(&note_id) {
                     app.current_note_id.set(None);
                 }
-                if matches!((app.view)(), crate::ui::View::NoteDetail { note_id: ref id } if id == &note_id)
+                // The detail is keyed by its view, so a live `deleted` means it
+                // is still on screen, even as the new-note composer whose view
+                // id stays empty after its note is created.
+                if let Ok(mut flag) = deleted.try_write() {
+                    *flag = true;
+                } else if matches!((app.view)(), crate::ui::View::NoteDetail { note_id: ref id } if id == &note_id)
                 {
-                    if let Ok(mut flag) = deleted.try_write() {
-                        *flag = true;
-                    } else {
-                        // The user reopened this note in a new detail scope.
-                        app.view.set(crate::ui::View::NotesList);
-                    }
+                    // The user reopened this note in a new detail scope.
+                    app.view.set(crate::ui::View::NotesList);
                 }
             });
         }
