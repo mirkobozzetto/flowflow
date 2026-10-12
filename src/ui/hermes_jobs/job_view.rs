@@ -76,6 +76,18 @@ pub fn HermesJobView() -> Element {
             });
         }
     });
+    // A task gone from the list read again (deleted here or elsewhere)
+    // leaves nothing to show: back to the list.
+    use_effect({
+        let id = job_id.clone();
+        move || {
+            if let Some(Ok(list)) = (app.hermes_jobs)() {
+                if !list.iter().any(|j| j.id == id) {
+                    app.view.set(View::HermesJobs);
+                }
+            }
+        }
+    });
     let list = match (app.hermes_jobs)() {
         Some(Ok(list)) => list,
         _ => Vec::new(),
