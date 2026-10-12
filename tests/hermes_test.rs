@@ -4,7 +4,8 @@ use flowflow::application::hermes_chat::{
 };
 use flowflow::application::hermes_message::Asked;
 use flowflow::infrastructure::hermes::{
-    drain_sse_data, normalize_base, parse_run_event, HermesMessage,
+    drain_sse_data, normalize_base, parse_capabilities, parse_run_event,
+    Capabilities, HermesMessage,
 };
 use flowflow::infrastructure::persistence::Database;
 use std::sync::{Arc, Mutex};
@@ -24,6 +25,13 @@ const SESSION_MESSAGES: &str = r#"[
   {"id": 3, "session_id": "api_1", "role": "tool", "tool_name": "terminal", "content": "{\"output\": \"Sun Oct  4 20:41:31 UTC 2026\", \"exit_code\": 0}", "timestamp": 1791146491.8},
   {"id": 4, "session_id": "api_1", "role": "assistant", "content": "Il est 20:41:31 UTC sur le serveur.", "timestamp": 1791146494.7}
 ]"#;
+
+/// Captured from the Hermes API server on 2026-10-12: the line written before
+/// a tool, the end of a stopped run, the run controls it offers.
+const INTERIM: &str = r#"{"event": "message.interim", "run_id": "run_8216", "timestamp": 1791831388.67, "text": "First I'll run uname -a to get the kernel and system details.", "already_streamed": false, "seq": 1}"#;
+const INTERIM_STREAMED: &str = r#"{"event": "message.interim", "run_id": "run_8216", "timestamp": 1791831388.67, "text": "Already in the answer.", "already_streamed": true, "seq": 2}"#;
+const CANCELLED: &str = r#"{"event": "run.cancelled", "run_id": "run_be3f", "timestamp": 1791831453.39, "completed": false, "partial": false, "interrupted": true, "turn_exit_reason": "interrupted_by_user", "seq": 3}"#;
+const CAPABILITIES: &str = r#"{"object": "hermes.api_server.capabilities", "features": {"run_submission": true, "run_stop": true, "run_steer": true, "run_approval_response": true}}"#;
 
 fn open_db(dir: &tempfile::TempDir) -> Database {
     Database::open_at(dir.path().join("flowflow_test.db")).expect("open_at")
@@ -69,6 +77,38 @@ fn run_events_map_to_what_the_chat_shows() {
         ))
     );
     assert_eq!(parse_run_event(REASONING), None);
+}
+
+#[test]
+fn a_live_run_shows_hermes_lines_and_reads_a_stop_as_stopped() {
+    assert_eq!(
+        parse_run_event(INTERIM),
+        Some((
+            1,
+            RunEvent::Interim(
+                "First I'll run uname -a to get the kernel and system details."
+                    .into()
+            )
+        ))
+    );
+    assert_eq!(parse_run_event(INTERIM_STREAMED), None);
+    assert_eq!(parse_run_event(CANCELLED), Some((3, RunEvent::Stopped)));
+}
+
+#[test]
+fn run_controls_follow_what_hermes_advertises() {
+    let v: serde_json::Value = serde_json::from_str(CAPABILITIES).unwrap();
+    assert_eq!(
+        parse_capabilities(&v),
+        Capabilities {
+            stop: true,
+            steer: true
+        }
+    );
+    assert_eq!(
+        parse_capabilities(&serde_json::json!({ "features": {} })),
+        Capabilities::default()
+    );
 }
 
 #[test]

@@ -679,6 +679,7 @@ hermes-not-configured = Hermes n'est pas encore relié à FlowFlow.
 hermes-unreachable = Hermes est injoignable. Vérifie son adresse et ton réseau.
 hermes-key-refused = Hermes refuse la clé enregistrée.
 hermes-failed = Hermes n'a pas pu répondre : { $error }
+hermes-run-ended = La tâche de Hermes est déjà terminée.
 hermes-run-failed-alert = Hermes n'a pas pu finir. Ouvre la conversation pour voir où il s'est arrêté.
 hermes-approval-expired = Expiré, la commande n'a pas tourné.
 hermes-approval-title = Hermes veut lancer une commande

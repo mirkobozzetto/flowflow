@@ -27,6 +27,7 @@ pub(crate) fn problem_text(lang: &str, e: &HermesError) -> String {
         HermesError::KeyRefused => t(lang, "hermes-key-refused"),
         HermesError::NotFound => t(lang, "hermes-unreachable"),
         HermesError::ApprovalGone => t(lang, "hermes-approval-expired"),
+        HermesError::NotRunning => t(lang, "hermes-run-ended"),
         HermesError::Server(msg) => crate::application::i18n::t_args(
             lang,
             "hermes-failed",

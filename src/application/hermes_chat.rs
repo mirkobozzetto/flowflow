@@ -116,6 +116,11 @@ impl LiveReply {
                 self.done = true;
                 self.expire(|_| true);
             }
+            RunEvent::Interim(_) => {}
+            RunEvent::Stopped => {
+                self.done = true;
+                self.expire(|_| true);
+            }
             RunEvent::ApprovalRequested(request) => {
                 let known = self
                     .approvals
@@ -792,7 +797,9 @@ pub async fn follow(
                 last = last.max(seq);
                 ended |= matches!(
                     event,
-                    RunEvent::Completed(_) | RunEvent::Failed(_)
+                    RunEvent::Completed(_)
+                        | RunEvent::Failed(_)
+                        | RunEvent::Stopped
                 );
                 on_event(event);
             })
@@ -813,6 +820,10 @@ pub async fn follow(
             }
             Ok(RunState::Failed(error)) => {
                 on_event(RunEvent::Failed(error));
+                break;
+            }
+            Ok(RunState::Stopped) => {
+                on_event(RunEvent::Stopped);
                 break;
             }
             // The server no longer knows the run (restarted): the session
