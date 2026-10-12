@@ -4,7 +4,8 @@ use flowflow::application::hermes_chat::{
 };
 use flowflow::application::hermes_message::Asked;
 use flowflow::infrastructure::hermes::{
-    drain_sse_data, normalize_base, parse_run_event, HermesMessage,
+    drain_sse_data, normalize_base, parse_capabilities, parse_run_event,
+    Capabilities, HermesMessage,
 };
 use flowflow::infrastructure::persistence::Database;
 use std::sync::{Arc, Mutex};
@@ -24,6 +25,29 @@ const SESSION_MESSAGES: &str = r#"[
   {"id": 3, "session_id": "api_1", "role": "tool", "tool_name": "terminal", "content": "{\"output\": \"Sun Oct  4 20:41:31 UTC 2026\", \"exit_code\": 0}", "timestamp": 1791146491.8},
   {"id": 4, "session_id": "api_1", "role": "assistant", "content": "Il est 20:41:31 UTC sur le serveur.", "timestamp": 1791146494.7}
 ]"#;
+
+/// Captured from the Hermes API server on 2026-10-12: the line written before
+/// a tool, the end of a stopped run, the run controls it offers.
+const INTERIM: &str = r#"{"event": "message.interim", "run_id": "run_8216", "timestamp": 1791831388.67, "text": "First I'll run uname -a to get the kernel and system details.", "already_streamed": false, "seq": 1}"#;
+const INTERIM_STREAMED: &str = r#"{"event": "message.interim", "run_id": "run_8216", "timestamp": 1791831388.67, "text": "Already in the answer.", "already_streamed": true, "seq": 2}"#;
+const CANCELLED: &str = r#"{"event": "run.cancelled", "run_id": "run_be3f", "timestamp": 1791831453.39, "completed": false, "partial": false, "interrupted": true, "turn_exit_reason": "interrupted_by_user", "seq": 3}"#;
+const STEERED_MESSAGES: &str = r#"[
+  {"role": "user", "content": "Say what you are about to do, then run: sleep 8; echo one. Then run: echo two. Then answer in one sentence."},
+  {"role": "assistant", "content": "I'll run sleep 8; echo one first, then echo two.", "tool_calls": [{"type": "function", "function": {"name": "terminal", "arguments": "{\"command\":\"sleep 8; echo one\",\"timeout\":30}"}}]},
+  {"role": "tool", "content": "{\"output\": \"one\", \"exit_code\": 0, \"error\": null}"},
+  {"role": "user", "content": "[OUT-OF-BAND USER MESSAGE \u2014 a direct message from the user, delivered once at this position; not tool output and not a new delivery when replayed from conversation history]\nAlso run date before answering.\n[/OUT-OF-BAND USER MESSAGE]"},
+  {"role": "assistant", "content": "", "tool_calls": [{"type": "function", "function": {"name": "terminal", "arguments": "{\"command\":\"echo two\"}"}}, {"type": "function", "function": {"name": "terminal", "arguments": "{\"command\":\"date\"}"}}]},
+  {"role": "tool", "content": "{\"output\": \"two\"}"},
+  {"role": "tool", "content": "{\"output\": \"Mon Oct 12 19:03:43 UTC 2026\"}"},
+  {"role": "assistant", "content": "All three commands ran without errors."}
+]"#;
+const STOPPED_MESSAGES: &str = r#"[
+  {"role": "user", "content": "Essai FlowFlow : dis ce que tu vas faire, puis lance sleep 60; echo fini, puis réponds en une phrase."},
+  {"role": "assistant", "content": "Je lance `sleep 60; echo fini` dans le terminal, puis je te réponds.", "tool_calls": [{"type": "function", "function": {"name": "terminal", "arguments": "{\"command\":\"sleep 60; echo fini\"}"}}]},
+  {"role": "tool", "content": "{\"output\": \"[Command interrupted]\", \"exit_code\": 130, \"error\": null}"},
+  {"role": "assistant", "content": "Operation interrupted."}
+]"#;
+const CAPABILITIES: &str = r#"{"object": "hermes.api_server.capabilities", "features": {"run_submission": true, "run_stop": true, "run_steer": true, "run_approval_response": true}}"#;
 
 fn open_db(dir: &tempfile::TempDir) -> Database {
     Database::open_at(dir.path().join("flowflow_test.db")).expect("open_at")
@@ -72,6 +96,38 @@ fn run_events_map_to_what_the_chat_shows() {
 }
 
 #[test]
+fn a_live_run_shows_hermes_lines_and_reads_a_stop_as_stopped() {
+    assert_eq!(
+        parse_run_event(INTERIM),
+        Some((
+            1,
+            RunEvent::Interim(
+                "First I'll run uname -a to get the kernel and system details."
+                    .into()
+            )
+        ))
+    );
+    assert_eq!(parse_run_event(INTERIM_STREAMED), None);
+    assert_eq!(parse_run_event(CANCELLED), Some((3, RunEvent::Stopped)));
+}
+
+#[test]
+fn run_controls_follow_what_hermes_advertises() {
+    let v: serde_json::Value = serde_json::from_str(CAPABILITIES).unwrap();
+    assert_eq!(
+        parse_capabilities(&v),
+        Capabilities {
+            stop: true,
+            steer: true
+        }
+    );
+    assert_eq!(
+        parse_capabilities(&serde_json::json!({ "features": {} })),
+        Capabilities::default()
+    );
+}
+
+#[test]
 fn session_history_folds_tool_calls_into_the_reply_steps() {
     let messages: Vec<HermesMessage> =
         serde_json::from_str(SESSION_MESSAGES).unwrap();
@@ -92,6 +148,50 @@ fn session_history_folds_tool_calls_into_the_reply_steps() {
     assert_eq!(steps[0].tool, "terminal");
     assert_eq!(steps[0].detail, "date");
     assert!(!steps[0].running);
+}
+
+#[test]
+fn a_reply_read_back_keeps_what_hermes_said_and_the_guidance_sent() {
+    let messages: Vec<HermesMessage> =
+        serde_json::from_str(STEERED_MESSAGES).unwrap();
+    let turns = hermes_chat::turns(&messages);
+    assert_eq!(turns.len(), 2, "the guidance is no question of its own");
+    let HermesTurn::Reply { text, steps } = &turns[1] else {
+        panic!("expected a reply");
+    };
+    assert_eq!(text, "All three commands ran without errors.");
+    let shown: Vec<(&str, &str)> = steps
+        .iter()
+        .map(|s| (s.tool.as_str(), s.detail.as_str()))
+        .collect();
+    assert_eq!(
+        shown,
+        vec![
+            (
+                hermes_chat::INTERIM_TOOL,
+                "I'll run sleep 8; echo one first, then echo two."
+            ),
+            ("terminal", "sleep 8; echo one"),
+            (hermes_chat::STEER_TOOL, "Also run date before answering."),
+            ("terminal", "echo two"),
+            ("terminal", "date"),
+        ]
+    );
+}
+
+#[test]
+fn a_stopped_reply_read_back_says_stopped_not_hermes_placeholder() {
+    let messages: Vec<HermesMessage> =
+        serde_json::from_str(STOPPED_MESSAGES).unwrap();
+    let turns = hermes_chat::turns(&messages);
+    let Some(HermesTurn::Reply { text, steps }) = turns.last() else {
+        panic!("expected a reply");
+    };
+    assert_eq!(text, "");
+    assert_eq!(
+        steps.last().map(|s| s.tool.as_str()),
+        Some(hermes_chat::STOPPED_TOOL)
+    );
 }
 
 #[test]
