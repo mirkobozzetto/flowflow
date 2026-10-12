@@ -794,9 +794,18 @@ pub async fn send(
     #[cfg(target_os = "ios")]
     {
         let lang = crate::application::i18n::ui_lang(db);
+        // The conversation's name, as the Chats list shows it.
+        let title = db
+            .list_hermes_conversations()
+            .ok()
+            .and_then(|all| all.into_iter().find(|c| c.id == session_id))
+            .map(|c| c.title)
+            .unwrap_or_else(|| {
+                hermes_message::title(question, attachments, TITLE_CHARS)
+            });
         let label = serde_json::json!({
             "session": session_id,
-            "title": hermes_message::title(question, attachments, TITLE_CHARS),
+            "title": title,
             "failed": crate::application::i18n::t(&lang, "hermes-run-failed-alert"),
         });
         crate::infrastructure::platform::ios::hermes_watch::watch_run(
