@@ -3,10 +3,15 @@ use sha2::{Digest, Sha256};
 use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Mutex;
+use std::time::Duration;
 
 static DOWNLOAD_ACTIVE: AtomicBool = AtomicBool::new(false);
 static DOWNLOAD_PROGRESS: Mutex<Option<(String, u64, u64)>> = Mutex::new(None);
 static DOWNLOAD_ERROR: Mutex<Option<String>> = Mutex::new(None);
+
+const DOWNLOAD_READ_TIMEOUT: Duration = Duration::from_secs(30);
+const DOWNLOAD_RETRY_DELAY: Duration = Duration::from_secs(2);
+const DOWNLOAD_MAX_STALLED_ATTEMPTS: u32 = 5;
 
 pub fn download_progress() -> Option<(String, u64, u64)> {
     DOWNLOAD_PROGRESS.lock().unwrap().clone()
@@ -163,10 +168,8 @@ pub async fn download(
     check_disk_guardrail(available, entry.bytes)?;
     let target = dir.join(entry.filename);
     let part = part_path(&target);
-    if let Err(e) = stream_to_part(entry, &part, &mut progress).await {
-        let _ = std::fs::remove_file(&part);
-        return Err(e);
-    }
+    // A cut stream keeps its .part: the next attempt or tap resumes it.
+    fetch_part(entry, &part, &mut progress).await?;
     let verify_part = part.clone();
     let verify = tokio::task::spawn_blocking(move || {
         verify_file(&verify_part, entry.bytes, entry.sha256)
@@ -174,46 +177,109 @@ pub async fn download(
     .await
     .map_err(|e| format!("Vérification: {e}"))?;
     if let Err(e) = verify {
+        eprintln!(
+            "[whisper-dl] {}: verify failed, part dropped: {e}",
+            entry.id
+        );
         let _ = std::fs::remove_file(&part);
         return Err(e);
     }
     std::fs::rename(&part, &target)
         .map_err(|e| format!("Finalisation modèle: {e}"))?;
+    eprintln!("[whisper-dl] {}: done, sha256 ok", entry.id);
     Ok(())
 }
 
-async fn stream_to_part(
+fn part_len(part: &Path) -> u64 {
+    std::fs::metadata(part).map(|m| m.len()).unwrap_or(0)
+}
+
+// iOS suspends a backgrounded app and kills its sockets: each attempt holds
+// the ~30 s background grace, and a cut resumes from the .part length.
+async fn fetch_part(
     entry: &WhisperCatalogEntry,
     part: &Path,
+    progress: &mut impl FnMut(u64, u64),
+) -> Result<(), String> {
+    let client = reqwest::Client::builder()
+        .connect_timeout(Duration::from_secs(30))
+        // A socket killed during suspension can hang silently on resume.
+        .read_timeout(DOWNLOAD_READ_TIMEOUT)
+        .build()
+        .map_err(|e| format!("Client HTTP: {e}"))?;
+    let mut stalled = 0;
+    loop {
+        let have = part_len(part);
+        if have >= entry.bytes {
+            return Ok(());
+        }
+        eprintln!(
+            "[whisper-dl] {}: attempt from {have}/{}",
+            entry.id, entry.bytes
+        );
+        #[cfg(target_os = "ios")]
+        let _bg = crate::infrastructure::platform::ios::sync_ffi::BackgroundTaskGuard::begin();
+        let attempt =
+            stream_to_part(&client, entry, part, have, progress).await;
+        let now = part_len(part);
+        if now >= entry.bytes {
+            return Ok(());
+        }
+        let cause = attempt
+            .err()
+            .unwrap_or_else(|| "flux terminé avant la fin".to_string());
+        eprintln!(
+            "[whisper-dl] {}: cut at {now}/{}: {cause}",
+            entry.id, entry.bytes
+        );
+        stalled = if now > have { 0 } else { stalled + 1 };
+        if stalled >= DOWNLOAD_MAX_STALLED_ATTEMPTS {
+            return Err(cause);
+        }
+        tokio::time::sleep(DOWNLOAD_RETRY_DELAY).await;
+    }
+}
+
+async fn stream_to_part(
+    client: &reqwest::Client,
+    entry: &WhisperCatalogEntry,
+    part: &Path,
+    have: u64,
     progress: &mut impl FnMut(u64, u64),
 ) -> Result<(), String> {
     use futures::StreamExt;
     use std::io::Write;
 
-    let client = reqwest::Client::builder()
-        .connect_timeout(std::time::Duration::from_secs(30))
-        .build()
-        .map_err(|e| format!("Client HTTP: {e}"))?;
-    let resp = client
-        .get(entry.url)
+    let mut req = client.get(entry.url);
+    if have > 0 {
+        req = req.header(reqwest::header::RANGE, format!("bytes={have}-"));
+    }
+    let resp = req
         .send()
         .await
         .map_err(|e| format!("Téléchargement: {e}"))?;
-    if !resp.status().is_success() {
-        return Err(format!("Téléchargement échoué ({})", resp.status()));
+    let status = resp.status();
+    eprintln!("[whisper-dl] {}: http {status}", entry.id);
+    let resumed = status == reqwest::StatusCode::PARTIAL_CONTENT;
+    if !status.is_success() {
+        return Err(format!("Téléchargement échoué ({status})"));
     }
-    let total = resp.content_length().unwrap_or(entry.bytes);
-    let mut file = std::fs::File::create(part)
-        .map_err(|e| format!("Fichier temporaire: {e}"))?;
+    // A 200 to a range request means the server ignored it: start over.
+    let mut file = if resumed {
+        std::fs::OpenOptions::new().append(true).open(part)
+    } else {
+        std::fs::File::create(part)
+    }
+    .map_err(|e| format!("Fichier temporaire: {e}"))?;
     let stream = resp.bytes_stream();
     tokio::pin!(stream);
-    let mut done: u64 = 0;
+    let mut done = if resumed { have } else { 0 };
     while let Some(chunk) = stream.next().await {
         let chunk = chunk.map_err(|e| format!("Flux interrompu: {e}"))?;
         file.write_all(&chunk)
             .map_err(|e| format!("Écriture modèle: {e}"))?;
         done += chunk.len() as u64;
-        progress(done, total);
+        progress(done, entry.bytes);
     }
     file.flush().map_err(|e| format!("Écriture modèle: {e}"))?;
     Ok(())
