@@ -250,6 +250,8 @@
   });
   document.addEventListener("visibilitychange", () => {
     send("wake " + document.visibilityState);
+    if (document.visibilityState === "visible")
+      schedule();
   });
   window.addEventListener("resize", schedule);
   window.visualViewport?.addEventListener("resize", schedule);
