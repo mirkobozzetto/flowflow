@@ -31,6 +31,16 @@ const SESSION_MESSAGES: &str = r#"[
 const INTERIM: &str = r#"{"event": "message.interim", "run_id": "run_8216", "timestamp": 1791831388.67, "text": "First I'll run uname -a to get the kernel and system details.", "already_streamed": false, "seq": 1}"#;
 const INTERIM_STREAMED: &str = r#"{"event": "message.interim", "run_id": "run_8216", "timestamp": 1791831388.67, "text": "Already in the answer.", "already_streamed": true, "seq": 2}"#;
 const CANCELLED: &str = r#"{"event": "run.cancelled", "run_id": "run_be3f", "timestamp": 1791831453.39, "completed": false, "partial": false, "interrupted": true, "turn_exit_reason": "interrupted_by_user", "seq": 3}"#;
+const STEERED_MESSAGES: &str = r#"[
+  {"role": "user", "content": "Say what you are about to do, then run: sleep 8; echo one. Then run: echo two. Then answer in one sentence."},
+  {"role": "assistant", "content": "I'll run sleep 8; echo one first, then echo two.", "tool_calls": [{"type": "function", "function": {"name": "terminal", "arguments": "{\"command\":\"sleep 8; echo one\",\"timeout\":30}"}}]},
+  {"role": "tool", "content": "{\"output\": \"one\", \"exit_code\": 0, \"error\": null}"},
+  {"role": "user", "content": "[OUT-OF-BAND USER MESSAGE \u2014 a direct message from the user, delivered once at this position; not tool output and not a new delivery when replayed from conversation history]\nAlso run date before answering.\n[/OUT-OF-BAND USER MESSAGE]"},
+  {"role": "assistant", "content": "", "tool_calls": [{"type": "function", "function": {"name": "terminal", "arguments": "{\"command\":\"echo two\"}"}}, {"type": "function", "function": {"name": "terminal", "arguments": "{\"command\":\"date\"}"}}]},
+  {"role": "tool", "content": "{\"output\": \"two\"}"},
+  {"role": "tool", "content": "{\"output\": \"Mon Oct 12 19:03:43 UTC 2026\"}"},
+  {"role": "assistant", "content": "All three commands ran without errors."}
+]"#;
 const CAPABILITIES: &str = r#"{"object": "hermes.api_server.capabilities", "features": {"run_submission": true, "run_stop": true, "run_steer": true, "run_approval_response": true}}"#;
 
 fn open_db(dir: &tempfile::TempDir) -> Database {
@@ -132,6 +142,35 @@ fn session_history_folds_tool_calls_into_the_reply_steps() {
     assert_eq!(steps[0].tool, "terminal");
     assert_eq!(steps[0].detail, "date");
     assert!(!steps[0].running);
+}
+
+#[test]
+fn a_reply_read_back_keeps_what_hermes_said_and_the_guidance_sent() {
+    let messages: Vec<HermesMessage> =
+        serde_json::from_str(STEERED_MESSAGES).unwrap();
+    let turns = hermes_chat::turns(&messages);
+    assert_eq!(turns.len(), 2, "the guidance is no question of its own");
+    let HermesTurn::Reply { text, steps } = &turns[1] else {
+        panic!("expected a reply");
+    };
+    assert_eq!(text, "All three commands ran without errors.");
+    let shown: Vec<(&str, &str)> = steps
+        .iter()
+        .map(|s| (s.tool.as_str(), s.detail.as_str()))
+        .collect();
+    assert_eq!(
+        shown,
+        vec![
+            (
+                hermes_chat::INTERIM_TOOL,
+                "I'll run sleep 8; echo one first, then echo two."
+            ),
+            ("terminal", "sleep 8; echo one"),
+            (hermes_chat::STEER_TOOL, "Also run date before answering."),
+            ("terminal", "echo two"),
+            ("terminal", "date"),
+        ]
+    );
 }
 
 #[test]
