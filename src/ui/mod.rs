@@ -20,7 +20,7 @@ mod state;
 mod sync;
 mod thread;
 
-pub use chat::md_to_html;
+pub use chat::{md_blocks, md_to_html, MdBlock};
 pub use state::{
     AppState, NoteFilters, NoteMenuPage, RowMenu, SettingsSection, SidebarTab,
     View,

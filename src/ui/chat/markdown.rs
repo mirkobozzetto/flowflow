@@ -1,5 +1,5 @@
 use pulldown_cmark::{
-    html, CowStr, Event, LinkType, Options, Parser, Tag, TagEnd,
+    html, CodeBlockKind, CowStr, Event, LinkType, Options, Parser, Tag, TagEnd,
 };
 use regex::Regex;
 use std::sync::LazyLock;
@@ -12,11 +12,144 @@ const TABLE_CLOSE: &str = "</div></div>";
 
 static BARE_URL: LazyLock<Regex> =
     LazyLock::new(|| Regex::new(r#"https?://[^\s<>"]+"#).unwrap());
+// How Hermes names a file it made (gateway/platforms/base.py,
+// MEDIA_TAG_CLEANUP_RE): a quoted path, or an absolute or ~/ path that ends
+// in an extension.
+static MEDIA: LazyLock<Regex> = LazyLock::new(|| {
+    Regex::new(
+        r#"MEDIA:\s*(?:`([^`\n]+)`|"([^"\n]+)"|'([^'\n]+)'|((?:~/|/)\S+\.[A-Za-z0-9]{1,8}))"#,
+    )
+    .unwrap()
+});
+
+/// A reply cut where the UI renders something richer than HTML: a code block
+/// with its copy button, a file card.
+#[derive(Debug, Clone, PartialEq)]
+pub enum MdBlock {
+    Html(String),
+    Code { lang: String, code: String },
+    File { name: String, kind: String },
+}
 
 pub fn md_to_html(md: &str) -> String {
     let mut out = String::new();
     html::push_html(&mut out, events(md).into_iter());
     out
+}
+
+/// Only top-level blocks are cut out: a code block or a file inside a list
+/// keeps its plain HTML rendering.
+pub fn md_blocks(md: &str) -> Vec<MdBlock> {
+    let mut blocks = Vec::new();
+    let mut html = Vec::new();
+    let mut block = Vec::new();
+    let mut depth = 0usize;
+    for event in events(md) {
+        match &event {
+            Event::Start(_) => depth += 1,
+            Event::End(_) => depth -= 1,
+            _ => {}
+        }
+        if depth == 0 && block.is_empty() {
+            html.push(event);
+            continue;
+        }
+        block.push(event);
+        if depth > 0 {
+            continue;
+        }
+        let parts = top_level(std::mem::take(&mut block));
+        match parts {
+            Ok(events) => html.extend(events),
+            Err(parts) => {
+                flush_html(&mut html, &mut blocks);
+                blocks.extend(parts);
+            }
+        }
+    }
+    flush_html(&mut html, &mut blocks);
+    blocks
+}
+
+/// `Ok` keeps the block as HTML, `Err` replaces it by richer parts.
+fn top_level(block: Vec<Event<'_>>) -> Result<Vec<Event<'_>>, Vec<MdBlock>> {
+    match block.first() {
+        Some(Event::Start(Tag::CodeBlock(kind))) => {
+            let lang = match kind {
+                CodeBlockKind::Fenced(info) => {
+                    info.split_whitespace().next().unwrap_or("").to_string()
+                }
+                CodeBlockKind::Indented => String::new(),
+            };
+            let code: String = block
+                .iter()
+                .filter_map(|e| match e {
+                    Event::Text(t) => Some(t.as_ref()),
+                    _ => None,
+                })
+                .collect();
+            let code = code.trim_end_matches('\n').to_string();
+            Err(vec![MdBlock::Code { lang, code }])
+        }
+        Some(Event::Start(Tag::Paragraph)) => {
+            let text: String = block
+                .iter()
+                .filter_map(|e| match e {
+                    Event::Text(t) | Event::Code(t) => Some(t.as_ref()),
+                    Event::SoftBreak | Event::HardBreak => Some(" "),
+                    _ => None,
+                })
+                .collect();
+            let files: Vec<MdBlock> = MEDIA
+                .captures_iter(&text)
+                .filter_map(|c| (1..=4).find_map(|i| c.get(i)))
+                .map(|path| file(path.as_str()))
+                .collect();
+            if files.is_empty() {
+                return Ok(block);
+            }
+            let rest = MEDIA.replace_all(&text, "");
+            let rest = rest.trim();
+            let mut parts = Vec::new();
+            if !rest.is_empty() {
+                let mut html = String::new();
+                html::push_html(
+                    &mut html,
+                    [
+                        Event::Start(Tag::Paragraph),
+                        Event::Text(rest.into()),
+                        Event::End(TagEnd::Paragraph),
+                    ]
+                    .into_iter(),
+                );
+                parts.push(MdBlock::Html(html));
+            }
+            parts.extend(files);
+            Err(parts)
+        }
+        _ => Ok(block),
+    }
+}
+
+fn file(path: &str) -> MdBlock {
+    let name = path.trim().rsplit(['/', '\\']).next().unwrap_or(path);
+    let kind = name
+        .rsplit_once('.')
+        .map(|(_, ext)| ext.to_ascii_uppercase())
+        .unwrap_or_default();
+    MdBlock::File {
+        name: name.to_string(),
+        kind,
+    }
+}
+
+fn flush_html(html: &mut Vec<Event<'_>>, blocks: &mut Vec<MdBlock>) {
+    if html.is_empty() {
+        return;
+    }
+    let mut out = String::new();
+    html::push_html(&mut out, html.drain(..));
+    blocks.push(MdBlock::Html(out));
 }
 
 fn events(md: &str) -> Vec<Event<'_>> {

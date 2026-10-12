@@ -29,6 +29,6 @@ pub use hermes_model_menu::HermesModelTitle;
 pub(crate) use hermes_reply::HermesReply;
 pub(crate) use hermes_view::problem_text as hermes_problem_text;
 pub use hermes_view::HermesChatView;
-pub use markdown::md_to_html;
+pub use markdown::{md_blocks, md_to_html, MdBlock};
 pub use sources_accordion::NoteWebSources;
 pub use view::ChatView;
