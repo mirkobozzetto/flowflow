@@ -36,10 +36,13 @@ pub fn TopBar() -> Element {
             (app.previous_view)(),
             Some(View::NoteDetail { .. }) | Some(View::ThreadDetail { .. })
         );
+    let hermes_from_job = is_hermes
+        && matches!((app.previous_view)(), Some(View::HermesJob { .. }));
     // A note being created keeps the burger: there is nothing to go back to.
     let is_new_note = matches!((app.view)(), View::NoteDetail { ref note_id } if note_id.is_empty());
     let show_back = (is_inner && !is_chat && !is_hermes && !is_new_note)
-        || chat_from_detail;
+        || chat_from_detail
+        || hermes_from_job;
     let lang = (app.current_lang)();
     let hermes_linked = crate::application::hermes_chat::configured(&db());
     let native_glass = super::glass_burger::native_glass();

@@ -2,16 +2,20 @@ use super::alert::JobAlert;
 use super::card::JobStatus;
 use super::flowflow::{delivery_problem_text, FlowFlowSwitch};
 use super::menu::JobMenuItems;
+use crate::application::hermes_chat;
 use crate::application::hermes_delivery::{
     self, delivers_to_flowflow, telegram_too,
 };
 use crate::application::hermes_jobs::{
     self, clock_shift, last_run_text, next_run_text, schedule_text, JobAction,
+    RunResult,
 };
+use crate::application::hermes_message::Attachment;
 use crate::application::i18n::t;
 use crate::infrastructure::hermes::HermesError;
 use crate::infrastructure::persistence::Database;
 use crate::ui::chat::{hermes_problem_text, HermesReply};
+use crate::ui::composer::{Composer, ComposerRole};
 use crate::ui::kit;
 use crate::ui::{AppState, View};
 use chrono::Local;
@@ -29,7 +33,8 @@ fn Fact(label: String, children: Element) -> Element {
 }
 
 /// One task: when it runs, how it last went, and what Hermes answered then,
-/// shown as a Hermes reply. "…" in the top bar opens its actions.
+/// shown as a Hermes reply, answered with the Hermes chat's own field. "…"
+/// in the top bar opens its actions.
 #[component]
 pub fn HermesJobView() -> Element {
     let mut app: AppState = use_context();
@@ -39,8 +44,12 @@ pub fn HermesJobView() -> Element {
         View::HermesJob { job_id } => job_id,
         _ => String::new(),
     };
-    let mut result: Signal<Option<Result<Option<String>, HermesError>>> =
+    let mut result: Signal<Option<Result<Option<RunResult>, HermesError>>> =
         use_signal(|| None);
+    let mut input = use_signal(String::new);
+    let pending_audio: Signal<Option<(String, f64)>> = use_signal(|| None);
+    let mut replying = use_signal(|| false);
+    let mut reply_error: Signal<Option<HermesError>> = use_signal(|| None);
     let mut asking: Signal<Option<JobAction>> = use_signal(|| None);
     // The state asked for while Hermes and the server are told.
     let mut delivering: Signal<Option<bool>> = use_signal(|| None);
@@ -49,6 +58,13 @@ pub fn HermesJobView() -> Element {
         let id = job_id.clone();
         move || {
             app.show_job_menu.set(false);
+            // The "+" and "/" of the field draw on the skills.
+            if app.hermes_skills.peek().is_none() {
+                spawn(async move {
+                    app.hermes_skills
+                        .set(Some(hermes_chat::skills(&db()).await));
+                });
+            }
             spawn(async move {
                 let database = db();
                 if app.hermes_jobs.peek().is_none() {
@@ -99,8 +115,54 @@ pub fn HermesJobView() -> Element {
         });
     };
 
+    let run = match result() {
+        Some(Ok(Some(run))) => Some(run),
+        _ => None,
+    };
+    let task = job.name.clone();
+    let reply_to = run.clone();
+    let from = job.id.clone();
+    let send_reply = move |question: String| {
+        let Some(run) = reply_to.clone() else { return };
+        if replying() {
+            return;
+        }
+        let sent: Vec<Attachment> = app.hermes_attachments.take();
+        replying.set(true);
+        reply_error.set(None);
+        let (task, from) = (task.clone(), from.clone());
+        spawn(async move {
+            match hermes_jobs::reply(
+                &db(),
+                &task,
+                &run.session_id,
+                &question,
+                &sent,
+            )
+            .await
+            {
+                Ok(()) => {
+                    app.previous_view
+                        .set(Some(View::HermesJob { job_id: from }));
+                    app.view.set(View::HermesChat {
+                        session_id: Some(run.session_id),
+                    });
+                    app.invalidate_data();
+                }
+                Err(e) => {
+                    app.hermes_attachments.set(sent);
+                    input.set(question);
+                    reply_error.set(Some(e));
+                }
+            }
+            replying.set(false);
+        });
+    };
+
     rsx! {
-        div { class: "h-full overflow-y-auto px-4 pt-4 safe-pb-40 lg:px-[max(1rem,calc((100%-48rem)/2))]",
+        div {
+            class: "overflow-y-auto px-4 pt-4 safe-pb-40 lg:px-[max(1rem,calc((100%-48rem)/2))]",
+            style: "height: calc(100% - var(--keyboard-inset, 0px));",
             div { class: "bg-warm-white p-4 border border-stone-200 rounded-xl mb-4 space-y-2 text-sm",
                 Fact { label: t(&lang, "hermes-job-frequency"), "{schedule}" }
                 Fact { label: t(&lang, "hermes-job-next"), "{next}" }
@@ -137,7 +199,20 @@ pub fn HermesJobView() -> Element {
                 Some(Ok(None)) => rsx! {
                     p { class: "pt-6 text-sm text-stone-400 text-center", {t(&lang, "hermes-job-no-result")} }
                 },
-                Some(Ok(Some(text))) => rsx! { HermesReply { text, steps: Vec::new() } },
+                Some(Ok(Some(run))) => rsx! { HermesReply { text: run.text, steps: Vec::new() } },
+            }
+            if let Some(e) = reply_error() {
+                p { class: "mt-3 text-sm text-stone-700 leading-relaxed", {hermes_problem_text(&lang, &e)} }
+            }
+        }
+        if run.is_some() {
+            Composer {
+                role: ComposerRole::AskHermes,
+                input,
+                disabled: replying(),
+                pending_audio,
+                attachments: app.hermes_attachments,
+                on_commit: send_reply,
             }
         }
         div {

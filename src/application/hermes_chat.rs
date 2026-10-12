@@ -384,7 +384,25 @@ pub async fn history(
     session_id: &str,
 ) -> Result<Vec<HermesTurn>, HermesError> {
     let client = HermesClient::from_db(db)?;
-    Ok(turns(&client.messages(session_id).await?))
+    Ok(session_turns(
+        session_id,
+        &client.messages(session_id).await?,
+    ))
+}
+
+/// A session's turns. A task run's session opens on the instructions Hermes
+/// gave itself, the skill text included: the chat starts on its result.
+pub fn session_turns(
+    session_id: &str,
+    messages: &[HermesMessage],
+) -> Vec<HermesTurn> {
+    let mut out = turns(messages);
+    if crate::application::hermes_jobs::run_of(session_id).is_some()
+        && matches!(out.first(), Some(HermesTurn::User(_)))
+    {
+        out.remove(0);
+    }
+    out
 }
 
 /// The question of a turn still running, so a reopened conversation can
