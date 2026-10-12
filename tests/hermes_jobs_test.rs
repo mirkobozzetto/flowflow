@@ -272,12 +272,12 @@ async fn the_last_result_is_the_newest_run_s_last_answer() {
     .await;
     let dir = tempdir().unwrap();
     let db = linked_db(&dir, &base);
-    assert_eq!(
-        hermes_jobs::latest_result(&db, "aac1dd36a390")
-            .await
-            .unwrap(),
-        Some("À relire est plein : aucun post créé.".to_string())
-    );
+    let run = hermes_jobs::latest_result(&db, "aac1dd36a390")
+        .await
+        .unwrap()
+        .unwrap();
+    assert_eq!(run.session_id, "cron_aac1dd36a390_20261009_053006");
+    assert_eq!(run.text, "À relire est plein : aucun post créé.");
 }
 
 #[tokio::test]
@@ -452,4 +452,142 @@ fn a_tapped_notification_opens_the_task_it_names() {
     assert!(linked_job("flowflow://hermes/jobs?name=Gone", &all).is_none());
     // The Hermes QR code shares the prefix; it is not a task link.
     assert!(hermes_chat::parse_link(link).is_none());
+}
+
+#[test]
+fn a_run_session_names_its_task_and_its_time_on_hermes() {
+    use chrono::NaiveDate;
+    use hermes_jobs::run_of;
+    assert_eq!(
+        run_of("cron_aac1dd36a390_20261009_053006"),
+        Some((
+            "aac1dd36a390",
+            NaiveDate::from_ymd_opt(2026, 10, 9)
+                .unwrap()
+                .and_hms_opt(5, 30, 6)
+                .unwrap()
+        ))
+    );
+    assert_eq!(run_of("flowflow_5e0b2c"), None);
+    assert_eq!(run_of("cron_aac1dd36a390"), None);
+    assert_eq!(run_of("cron__20261009_053006"), None);
+}
+
+#[test]
+fn a_run_reads_as_its_task_and_when_it_ran_here() {
+    use hermes_jobs::run_label;
+    let now =
+        DateTime::parse_from_rfc3339("2026-10-12T09:00:00+02:00").unwrap();
+    // Hermes runs on UTC: 4:35 there is 6 h 35 in Brussels.
+    assert_eq!(
+        run_label("fr", "cron_de8dae5d216d_20261012_043508", &jobs(), &now)
+            .as_deref(),
+        Some("Suivi correctifs compaction Hermes · Aujourd'hui à 6 h 35")
+    );
+    assert_eq!(
+        run_label("fr", "cron_0123456789ab_20261012_043508", &jobs(), &now),
+        None
+    );
+    assert_eq!(run_label("fr", "flowflow_5e0b2c", &jobs(), &now), None);
+}
+
+/// The run of CRON_MESSAGES, then Mirko's reply and Hermes' answer to it.
+const CONTINUED_MESSAGES: &str = r#"{"object": "list", "session_id": "cron_aac1dd36a390_20261009_053006", "data": [
+  {"role": "user", "content": "[IMPORTANT: The user has invoked the \"mirko-editorial-system\" skill…]"},
+  {"role": "assistant", "content": "À relire est plein : aucun post créé."},
+  {"role": "user", "content": "Vide la file : publie les deux plus anciens."},
+  {"role": "assistant", "content": "C'est fait, deux posts publiés."}
+]}"#;
+
+#[tokio::test]
+async fn the_last_result_stays_the_run_s_answer_once_replied_to() {
+    let base = serve(Script {
+        responses: vec![
+            (
+                "GET /api/sessions?source=cron&limit=200 ",
+                json("200 OK", CRON_SESSIONS),
+            ),
+            (
+                "GET /api/sessions/cron_aac1dd36a390_20261009_053006/messages ",
+                json("200 OK", CONTINUED_MESSAGES),
+            ),
+        ],
+        seen: Arc::new(Mutex::new(Vec::new())),
+    })
+    .await;
+    let dir = tempdir().unwrap();
+    let db = linked_db(&dir, &base);
+    let run = hermes_jobs::latest_result(&db, "aac1dd36a390")
+        .await
+        .unwrap()
+        .unwrap();
+    assert_eq!(run.text, "À relire est plein : aucun post créé.");
+}
+
+#[tokio::test]
+async fn a_reply_goes_into_the_run_s_session_and_joins_the_chats() {
+    let seen = Arc::new(Mutex::new(Vec::new()));
+    let started = |id: &str| {
+        json(
+            "202 Accepted",
+            &format!(r#"{{"run_id": "{id}", "status": "started"}}"#),
+        )
+    };
+    let base = serve(Script {
+        responses: vec![
+            ("POST /v1/runs", started("run_7")),
+            ("POST /v1/runs", started("run_8")),
+        ],
+        seen: seen.clone(),
+    })
+    .await;
+    let dir = tempdir().unwrap();
+    let db = linked_db(&dir, &base);
+    let session = "cron_aac1dd36a390_20261009_053006";
+    let task = "Trois posts LinkedIn par semaine";
+
+    hermes_jobs::reply(&db, task, session, "Vide la file.", &[])
+        .await
+        .unwrap();
+
+    let body: serde_json::Value = serde_json::from_str(
+        seen.lock().unwrap()[0].split("\r\n\r\n").nth(1).unwrap(),
+    )
+    .unwrap();
+    assert_eq!(body["session_id"], session);
+    assert_eq!(body["input"], "Vide la file.");
+    assert_eq!(
+        hermes_chat::pending(&db, session),
+        Some(("run_7".into(), "Vide la file.".into()))
+    );
+    let listed = db.list_hermes_conversations().unwrap();
+    assert_eq!(listed.len(), 1);
+    assert_eq!(listed[0].id, session);
+    assert_eq!(listed[0].title, task);
+
+    // A second reply keeps the one conversation.
+    hermes_jobs::reply(&db, task, session, "Et le troisième ?", &[])
+        .await
+        .unwrap();
+    assert_eq!(db.list_hermes_conversations().unwrap().len(), 1);
+}
+
+#[tokio::test]
+async fn deleting_a_job_already_gone_is_done() {
+    // What Hermes answered to a second "Supprimer" on 2026-10-12.
+    let base = serve(Script {
+        responses: vec![(
+            "DELETE /api/jobs/ef48a28d440e ",
+            json("404 Not Found", r#"{"error": "Job not found"}"#),
+        )],
+        seen: Arc::new(Mutex::new(Vec::new())),
+    })
+    .await;
+    let dir = tempdir().unwrap();
+    let db = linked_db(&dir, &base);
+    assert_eq!(
+        hermes_jobs::act(&db, "ef48a28d440e", hermes_jobs::JobAction::Delete)
+            .await,
+        Ok(())
+    );
 }

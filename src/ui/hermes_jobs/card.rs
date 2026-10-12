@@ -10,6 +10,11 @@ use crate::ui::kit;
 use crate::ui::AppState;
 use dioxus::prelude::*;
 
+/// Height of the actions panel (three rows and a line), and the gap kept to
+/// the bottom of the screen: a card low on screen opens it higher.
+const MENU_H: u32 = 150;
+const EDGE: u32 = 12;
+
 /// How the last run went: a dot and a word.
 #[component]
 pub fn JobStatus(job: HermesJob, lang: String) -> Element {
@@ -41,6 +46,8 @@ pub fn JobCard(
     let lang = (app.current_lang)();
     let paused = job.paused();
     let next = next_run_text(&lang, &job, &chrono::Local::now());
+    // Where "…" was tapped: the panel opens under it, never past the bottom.
+    let mut tapped_y = use_signal(|| 0.0f64);
     rsx! {
         div {
             class: "relative bg-warm-white pl-4 pr-1 py-3 border border-stone-200 rounded-xl mb-2.5 cursor-pointer flex items-start gap-1",
@@ -79,13 +86,15 @@ pub fn JobCard(
                 "aria-label": t(&lang, "hermes-jobs-actions"),
                 onclick: move |e| {
                     e.stop_propagation();
+                    tapped_y.set(e.client_coordinates().y);
                     on_menu.call(());
                 },
                 IconDotsThree { size: 22 }
             }
             if menu_open {
                 div {
-                    class: "absolute right-2 top-12 {kit::MENU_PANEL}",
+                    class: "fixed right-5 {kit::MENU_PANEL}",
+                    style: "top: min({tapped_y() + 24.0}px, calc(100vh - {MENU_H}px - {EDGE}px - env(safe-area-inset-bottom)));",
                     onclick: move |e| e.stop_propagation(),
                     JobMenuItems { paused, lang: lang.clone(), on_pick }
                 }

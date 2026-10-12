@@ -30,23 +30,7 @@ fn ai_consent_granted() -> bool {
 }
 
 fn log(msg: &str) {
-    eprintln!("{msg}");
-    #[cfg(target_os = "ios")]
-    {
-        use std::ffi::CString;
-        extern "C" {
-            fn syslog(priority: i32, format: *const std::ffi::c_char, ...);
-        }
-        if let Ok(cmsg) = CString::new(format!("[FlowFlow] {msg}")) {
-            unsafe {
-                syslog(
-                    4,
-                    b"%s\0".as_ptr() as *const std::ffi::c_char,
-                    cmsg.as_ptr(),
-                );
-            }
-        }
-    }
+    crate::infrastructure::platform::device_log(msg);
 }
 
 pub(crate) async fn embed_note_core(

@@ -13,6 +13,7 @@ use crate::ui::chat::hermes_reply::HermesReply;
 use crate::ui::chat::user_bubble::UserBubble;
 use crate::ui::composer::{Composer, ComposerRole};
 use crate::ui::hermes_jobs::{self, HermesMoreMenu};
+use crate::ui::icons::IconBell;
 use crate::ui::state::{SettingsSection, View};
 use crate::ui::AppState;
 use dioxus::prelude::*;
@@ -256,6 +257,16 @@ pub fn HermesChatView() -> Element {
         });
 
     let busy = live().is_some_and(|r| !r.done);
+    // A task run's conversation opens on the task and when it ran.
+    let run_label = session().and_then(|sid| {
+        let jobs = (app.hermes_jobs)()?.ok()?;
+        crate::application::hermes_jobs::run_label(
+            &lang,
+            &sid,
+            &jobs,
+            &chrono::Local::now(),
+        )
+    });
     let is_empty = turns().is_empty() && live().is_none();
 
     rsx! {
@@ -291,6 +302,14 @@ pub fn HermesChatView() -> Element {
                     }
                 } else {
                     div { class: "space-y-3",
+                        if let Some(label) = run_label {
+                            div { class: "flex justify-center",
+                                span { class: "inline-flex items-center gap-1.5 px-3 h-7 rounded-full bg-stone-200/70 text-xs text-stone-600",
+                                    IconBell { size: 13 }
+                                    "{label}"
+                                }
+                            }
+                        }
                         for (i, turn) in turns().into_iter().enumerate() {
                             match turn {
                                 HermesTurn::User(a) => rsx! {

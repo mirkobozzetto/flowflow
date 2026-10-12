@@ -5,7 +5,7 @@ use crate::infrastructure::platform::{haptic, haptic_prepare};
 use crate::ui::chat::hermes_approval::{CONFIRM_HOLD, CTA};
 use crate::ui::chat::hermes_problem_text;
 use crate::ui::icons::{HermesAgentIcon, IconCheck};
-use crate::ui::{AppState, View};
+use crate::ui::AppState;
 use dioxus::prelude::*;
 use std::sync::Arc;
 
@@ -78,7 +78,7 @@ pub fn JobAlert(
     action: JobAction,
     on_close: EventHandler<()>,
 ) -> Element {
-    let mut app: AppState = use_context();
+    let app: AppState = use_context();
     let db: Signal<Arc<Database>> = use_context();
     let lang = (app.current_lang)();
     let mut phase = use_signal(|| Phase::Asking);
@@ -113,15 +113,16 @@ pub fn JobAlert(
                 }
                 phase.set(Phase::Done);
                 haptic("soft");
-                super::reload(app, &database).await;
+                // A deleted task leaves the list at once, and its screen
+                // with it (job_view.rs). Closing the alert ends this task:
+                // nothing may wait on it after.
+                if action == JobAction::Delete {
+                    super::forget(app, &id);
+                } else {
+                    super::reload(app, &database).await;
+                }
                 futures_timer::Delay::new(CONFIRM_HOLD).await;
                 on_close.call(());
-                // A deleted task's screen has nothing left to show.
-                if action == JobAction::Delete
-                    && matches!((app.view)(), View::HermesJob { .. })
-                {
-                    app.view.set(View::HermesJobs);
-                }
             });
         }
     };

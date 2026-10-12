@@ -1,12 +1,16 @@
 //! Hermes' scheduled tasks, read and steered from FlowFlow. Hermes keeps its
 //! schedules on its own clock; the phone shows them on the phone's.
 
+use crate::application::hermes_chat;
+use crate::application::hermes_message::Attachment;
 use crate::application::i18n::{month_abbr, t, t_args, weekday_name};
 use crate::infrastructure::hermes::{
     HermesClient, HermesError, HermesJob, JobSchedule,
 };
 use crate::infrastructure::persistence::Database;
-use chrono::{DateTime, Datelike, Offset, TimeZone, Timelike, Weekday};
+use chrono::{
+    DateTime, Datelike, NaiveDateTime, Offset, TimeZone, Timelike, Weekday,
+};
 
 const DAY_MINUTES: i32 = 24 * 60;
 // Cron numbers its weekdays from Sunday, 7 being Sunday again.
@@ -58,27 +62,109 @@ pub async fn act(
         JobAction::Pause => client.job_action(job_id, "pause").await,
         JobAction::Resume => client.job_action(job_id, "resume").await,
         JobAction::RunNow => client.job_action(job_id, "run").await,
-        JobAction::Delete => client.delete_job(job_id).await,
+        // Already gone (deleted twice, or elsewhere) is what was asked.
+        JobAction::Delete => match client.delete_job(job_id).await {
+            Err(HermesError::NotFound) => Ok(()),
+            done => done,
+        },
     }
 }
 
-/// What Hermes answered on the job's last run; None before its first.
+/// A job's last run: its session, and what Hermes answered in it.
+#[derive(Debug, Clone, PartialEq)]
+pub struct RunResult {
+    pub session_id: String,
+    pub text: String,
+}
+
+/// What Hermes answered on the job's last run; None before its first. A
+/// session replied to from FlowFlow goes on: the run's own answer is the
+/// last one before the first reply.
 pub async fn latest_result(
     db: &Database,
     job_id: &str,
-) -> Result<Option<String>, HermesError> {
+) -> Result<Option<RunResult>, HermesError> {
     let client = HermesClient::from_db(db)?;
     let Some(session) = client.last_run_session(job_id).await? else {
         return Ok(None);
     };
-    Ok(client
+    let text = client
         .messages(&session)
         .await?
         .iter()
-        .rev()
+        .skip_while(|m| m.role != "user")
+        .skip(1)
+        .take_while(|m| m.role != "user")
         .filter(|m| m.role == "assistant")
         .map(|m| m.text())
-        .find(|t| !t.trim().is_empty()))
+        .filter(|t| !t.trim().is_empty())
+        .last();
+    Ok(text.map(|text| RunResult {
+        session_id: session,
+        text,
+    }))
+}
+
+/// A reply to a run's result, sent in that run's session; the conversation
+/// joins the Hermes chats under the task's name. Hermes' own model and
+/// effort, as for the run itself.
+pub async fn reply(
+    db: &Database,
+    task: &str,
+    session_id: &str,
+    question: &str,
+    attachments: &[Attachment],
+) -> Result<(), HermesError> {
+    let listed = db
+        .list_hermes_conversations()
+        .map_err(HermesError::Server)?
+        .iter()
+        .any(|c| c.id == session_id);
+    if !listed {
+        db.create_hermes_conversation(session_id, task.trim())
+            .map_err(HermesError::Server)?;
+    }
+    hermes_chat::send(
+        db,
+        Some(session_id.to_string()),
+        question,
+        attachments,
+        None,
+        None,
+    )
+    .await
+    .map(|_| ())
+}
+
+/// The job and the time, on Hermes' clock, of a run's session
+/// `cron_{job_id}_{YYYYMMDD}_{HHMMSS}`; None for any other session.
+pub fn run_of(session_id: &str) -> Option<(&str, NaiveDateTime)> {
+    let mut parts = session_id.strip_prefix("cron_")?.rsplitn(3, '_');
+    let (time, date, job) = (parts.next()?, parts.next()?, parts.next()?);
+    let at =
+        NaiveDateTime::parse_from_str(&format!("{date}{time}"), "%Y%m%d%H%M%S")
+            .ok()?;
+    (!job.is_empty()).then_some((job, at))
+}
+
+/// "Revue du matin · Aujourd'hui à 7 h": the task a run's session belongs
+/// to and when it ran, on the phone's clock. None for any other session,
+/// or once the task is gone.
+pub fn run_label<Tz: TimeZone>(
+    lang: &str,
+    session_id: &str,
+    jobs: &[HermesJob],
+    now: &DateTime<Tz>,
+) -> Option<String> {
+    let (job_id, at) = run_of(session_id)?;
+    let job = jobs.iter().find(|j| j.id == job_id)?;
+    let hermes = jobs.iter().find_map(|j| {
+        let iso = j.next_run_at.as_deref().or(j.last_run_at.as_deref())?;
+        DateTime::parse_from_rfc3339(iso).ok().map(|d| *d.offset())
+    })?;
+    let at = hermes.from_local_datetime(&at).single()?;
+    let when = moment_text(lang, &at.to_rfc3339(), now)?;
+    Some(format!("{} · {when}", job.name.trim()))
 }
 
 /// A frequency picked in the app, `at` in minutes after midnight on the

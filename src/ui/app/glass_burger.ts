@@ -305,6 +305,12 @@
     characterData: true,
     attributeFilter: ["class", "disabled", "hidden", "data-native-context", "data-native-checked", "aria-label"],
   });
+  // A view switched while the app was away (a tapped notification) was
+  // judged on a hidden page: judge it again once the page shows.
+  document.addEventListener("visibilitychange", () => {
+    send("wake " + document.visibilityState);
+    if (document.visibilityState === "visible") schedule();
+  });
   window.addEventListener("resize", schedule);
   window.visualViewport?.addEventListener("resize", schedule);
   window.visualViewport?.addEventListener("scroll", schedule);

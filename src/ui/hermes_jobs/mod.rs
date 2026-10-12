@@ -40,6 +40,9 @@ pub async fn open_linked(mut app: AppState, db: &Arc<Database>, link: &str) {
         }
         _ => None,
     };
+    crate::infrastructure::platform::device_log(&format!(
+        "[hermes] notification opens task {job_id:?}"
+    ));
     let here = app.view.peek().clone();
     if !matches!(here, View::HermesJobs | View::HermesJob { .. }) {
         app.previous_view.set(Some(here));
@@ -69,5 +72,12 @@ fn replace(mut app: AppState, job: HermesJob) {
         if let Some(slot) = list.iter_mut().find(|j| j.id == job.id) {
             *slot = job;
         }
+    }
+}
+
+/// A task Hermes deleted leaves the list on screen at once.
+fn forget(mut app: AppState, job_id: &str) {
+    if let Some(Ok(list)) = app.hermes_jobs.write().as_mut() {
+        list.retain(|j| j.id != job_id);
     }
 }
