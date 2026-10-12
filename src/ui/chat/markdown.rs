@@ -111,7 +111,8 @@ fn top_level(block: Vec<Event<'_>>) -> Result<Vec<Event<'_>>, Vec<MdBlock>> {
             let rest = MEDIA.replace_all(&text, "");
             let rest = rest.trim();
             let mut parts = Vec::new();
-            if !rest.is_empty() {
+            // A lone "." left by "MEDIA:/x.pdf." is no sentence.
+            if rest.chars().any(char::is_alphanumeric) {
                 let mut html = String::new();
                 html::push_html(
                     &mut html,

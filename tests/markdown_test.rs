@@ -1,4 +1,4 @@
-use flowflow::ui::md_to_html;
+use flowflow::ui::{md_blocks, md_to_html, MdBlock};
 
 #[test]
 fn untrusted_markdown_cannot_inject_html_or_script_links() {
@@ -22,7 +22,8 @@ fn a_table_sits_in_its_own_scrolling_frame() {
         ),
         "{html}"
     );
-    assert!(html.trim_end().ends_with("</table></div></div>"), "{html}");
+    assert!(html.contains("</table>"), "{html}");
+    assert!(html.trim_end().ends_with("</div></div>"), "{html}");
     assert!(!html.contains("style="), "{html}");
 }
 
@@ -74,4 +75,51 @@ fn a_code_block_keeps_its_language() {
         html.contains(r#"<pre><code class="language-bash">echo &lt;hi&gt;"#),
         "{html}"
     );
+}
+
+#[test]
+fn a_top_level_code_block_is_cut_out_with_its_language() {
+    let blocks =
+        md_blocks("Run this:\n\n```bash title\necho hi\nls\n```\n\nDone.");
+    assert_eq!(blocks.len(), 3, "{blocks:?}");
+    assert!(matches!(&blocks[0], MdBlock::Html(h) if h.contains("Run this:")));
+    assert_eq!(
+        blocks[1],
+        MdBlock::Code {
+            lang: "bash".into(),
+            code: "echo hi\nls".into()
+        }
+    );
+    assert!(matches!(&blocks[2], MdBlock::Html(h) if h.contains("Done.")));
+}
+
+#[test]
+fn a_hermes_file_becomes_a_card_and_its_sentence_stays() {
+    let blocks = md_blocks(
+        "Le rapport : `MEDIA:/root/.hermes/reports/serveur-2026-10-12.pdf`",
+    );
+    assert_eq!(
+        blocks,
+        vec![
+            MdBlock::Html("<p>Le rapport :</p>\n".into()),
+            MdBlock::File {
+                name: "serveur-2026-10-12.pdf".into(),
+                kind: "PDF".into()
+            },
+        ]
+    );
+    let alone = md_blocks("MEDIA:~/out/chart.png.");
+    assert_eq!(
+        alone,
+        vec![MdBlock::File {
+            name: "chart.png".into(),
+            kind: "PNG".into()
+        }]
+    );
+}
+
+#[test]
+fn text_without_code_or_file_stays_one_html_block() {
+    let blocks = md_blocks("# T\n\n| a |\n|---|\n| 1 |\n\n- `x`\n");
+    assert_eq!(blocks.len(), 1, "{blocks:?}");
 }
