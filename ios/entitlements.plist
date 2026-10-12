@@ -13,5 +13,11 @@
     <array>
         <string>group.com.mirkobozzetto.flowflow</string>
     </array>
+    <key>aps-environment</key>
+    <string>production</string>
+    <key>com.apple.developer.usernotifications.time-sensitive</key>
+    <true/>
+    <key>com.apple.developer.usernotifications.communication</key>
+    <true/>
 </dict>
 </plist>

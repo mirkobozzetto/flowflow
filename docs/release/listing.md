@@ -2,7 +2,7 @@
 
 The living copy of every App Store Connect text field, English and French.
 Edit here first, then paste into ASC; per-release What's New texts live in
-the release files ([2.1.0.md](2.1.0.md)). Limits are Apple's; check lengths
+the release files ([2.1.1.md](2.1.1.md)). Limits are Apple's; check lengths
 before pasting.
 
 Fixed fields (unchanged since v1.0): name **FlowFlow**, bundle id
@@ -24,7 +24,8 @@ Voice notes that answer back
 
 ```
 Speak, and FlowFlow writes it down, titles it, files it and lets you ask
-your notes anything. New: talk to your own Hermes Agent.
+your notes anything. New: send photos, files and notes to your own Hermes
+Agent.
 ```
 
 **Keywords** (100, comma-separated)
@@ -63,7 +64,7 @@ SHARE AND COLLABORATE
 Publish a note or a thread behind a link you can revoke. Share a theme into
 a team space, or give Hermes Agent scoped, revocable access to one space.
 Run your own Hermes Agent? Link it with one QR code and talk to it from the
-Chats tab.
+Chats tab: send it photos, files and notes, and call its skills.
 
 ACT, NOT JUST RECORD
 Turn "call the bank tomorrow at 10" into a reminder. Install verified
@@ -105,7 +106,7 @@ Notes vocales qui répondent
 
 ```
 Parlez : FlowFlow écrit, titre, range, et vous laisse interroger vos notes.
-Nouveau : parlez à votre propre Hermes Agent.
+Nouveau : envoyez photos, fichiers et notes à votre propre Hermes Agent.
 ```
 
 **Mots-clés** (100)
@@ -148,7 +149,8 @@ PARTAGER ET COLLABORER
 Publiez une note ou un fil derrière un lien révocable. Partagez un thème
 dans un espace d'équipe, ou donnez à Hermes Agent un accès limité et
 révocable à un espace. Vous avez votre propre Hermes Agent ? Liez-le avec
-un QR code et parlez-lui depuis l'onglet Chats.
+un QR code et parlez-lui depuis l'onglet Chats : envoyez-lui photos,
+fichiers et notes, et appelez ses skills.
 
 AGIR, PAS SEULEMENT NOTER
 « Appeler la banque demain à 10 h » devient un rappel. Installez des agents

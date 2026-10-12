@@ -18,6 +18,8 @@ NSCalendarsFullAccessUsageDescription = "FlowFlow adds calendar events for the t
 NSCalendarsUsageDescription = "FlowFlow adds calendar events for the time ranges you confirm from your notes."
 NSLocalNetworkUsageDescription = "FlowFlow connects directly to your other paired devices on your local network to sync your notes, without any server."
 NSSupportsLiveActivities = true
+# Lets the notification service extension show Hermes as a sender.
+NSUserActivityTypes = ["INSendMessageIntent"]
 BGTaskSchedulerPermittedIdentifiers = ["com.mirkobozzetto.flowflow.transcription"]
 
 # iOS 27 SDK requires the UIScene life cycle (TN3187). tao >= 0.35 provides
@@ -35,10 +37,3 @@ display_name = "FlowFlow Recording"
 bundle_id_suffix = "recording-widget"
 deployment_target = "16.2"
 module_name = "RecordingPlugin"
-UIFileSharingEnabled = true
-LSSupportsOpeningDocumentsInPlace = true
-ITSAppUsesNonExemptEncryption = false
-LSRequiresIPhoneOS = true
-MinimumOSVersion = "16.0"
-CFBundleShortVersionString = "1.0.0"
-CFBundleVersion = "1"

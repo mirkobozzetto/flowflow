@@ -166,6 +166,24 @@ pub fn AppRouter(index_rebuilding: Signal<bool>) -> Element {
                             }
                         }
                     }
+                    if matches!((app.view)(), View::HermesJobs) {
+                        div {
+                            class: "absolute inset-0 flex flex-col min-h-0 bg-stone-100",
+                            style: slide_style(Slide::Right, (app.sliding_out)()),
+                            div { class: "w-full flex-1 flex flex-col min-h-0",
+                                crate::ui::hermes_jobs::HermesJobsView {}
+                            }
+                        }
+                    }
+                    if let View::HermesJob { job_id } = (app.view)() {
+                        div {
+                            class: "absolute inset-0 flex flex-col min-h-0 bg-stone-100",
+                            style: slide_style(Slide::Right, (app.sliding_out)()),
+                            div { class: "w-full flex-1 flex flex-col min-h-0",
+                                crate::ui::hermes_jobs::HermesJobView { key: "{job_id}" }
+                            }
+                        }
+                    }
                     if matches!(
                         (app.view)(),
                         View::Settings | View::SettingsSection(_)

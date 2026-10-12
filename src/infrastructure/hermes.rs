@@ -21,6 +21,8 @@ pub enum HermesError {
     KeyRefused,
     NotFound,
     Server(String),
+    /// The approval was already answered, or Hermes stopped waiting for it.
+    ApprovalGone,
 }
 
 /// One event of a run, as the chat needs it.
@@ -31,11 +33,29 @@ pub enum RunEvent {
     ToolDone { tool: String, failed: bool },
     Completed(String),
     Failed(String),
+    ApprovalRequested(ApprovalRequest),
+    ApprovalResolved { request_id: String, choice: String },
+}
+
+/// A command Hermes will not run without the user's go; the server redacts
+/// secrets from it before it leaves.
+#[derive(Debug, Clone, PartialEq, Deserialize)]
+pub struct ApprovalRequest {
+    #[serde(default)]
+    pub request_id: String,
+    #[serde(default)]
+    pub command: String,
+    #[serde(default)]
+    pub description: String,
+    /// What the user may answer: "once", "session", "always", "deny".
+    #[serde(default)]
+    pub choices: Vec<String>,
 }
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum RunState {
     Running,
+    WaitingForApproval(ApprovalRequest),
     Completed(String),
     Failed(String),
 }
@@ -105,7 +125,7 @@ pub fn drain_sse_data(buf: &mut String) -> Vec<String> {
 }
 
 /// A run event payload to its sequence number and meaning; events the chat
-/// does not show (reasoning, interim commentary, approvals) are None.
+/// does not show (reasoning, interim commentary) are None.
 pub fn parse_run_event(data: &str) -> Option<(i64, RunEvent)> {
     let v: serde_json::Value = serde_json::from_str(data).ok()?;
     let seq = v.get("seq").and_then(|s| s.as_i64()).unwrap_or(-1);
@@ -133,6 +153,13 @@ pub fn parse_run_event(data: &str) -> Option<(i64, RunEvent)> {
         "run.failed" | "run.cancelled" | "run.interrupted" => {
             RunEvent::Failed(s("error"))
         }
+        "approval.request" => {
+            RunEvent::ApprovalRequested(serde_json::from_value(v.clone()).ok()?)
+        }
+        "approval.responded" => RunEvent::ApprovalResolved {
+            request_id: s("request_id"),
+            choice: s("choice"),
+        },
         _ => return None,
     };
     Some((seq, event))
@@ -234,6 +261,89 @@ pub fn dashboard_token(page: &str) -> Option<String> {
     (!token.is_empty()).then(|| token.to_string())
 }
 
+/// When a scheduled task runs: a cron expression in Hermes' own zone, or an
+/// interval in minutes; `display` is Hermes' own wording.
+#[derive(Debug, Clone, PartialEq, Deserialize)]
+pub struct JobSchedule {
+    #[serde(default)]
+    pub kind: String,
+    #[serde(default)]
+    pub expr: Option<String>,
+    #[serde(default)]
+    pub minutes: Option<u32>,
+    #[serde(default)]
+    pub display: String,
+}
+
+fn enabled() -> bool {
+    true
+}
+
+/// A task Hermes runs on its own schedule.
+#[derive(Debug, Clone, PartialEq, Deserialize)]
+pub struct HermesJob {
+    pub id: String,
+    #[serde(default)]
+    pub name: String,
+    pub schedule: JobSchedule,
+    #[serde(default = "enabled")]
+    pub enabled: bool,
+    #[serde(default)]
+    pub state: String,
+    /// In Hermes' zone, with its offset.
+    #[serde(default)]
+    pub next_run_at: Option<String>,
+    #[serde(default)]
+    pub last_run_at: Option<String>,
+    /// "ok", an error kind, or None before the first run.
+    #[serde(default)]
+    pub last_status: Option<String>,
+    /// Where each run's answer goes, comma-separated; `local` keeps it.
+    #[serde(default, deserialize_with = "destinations")]
+    pub deliver: String,
+    /// Where the job was made; `origin` in `deliver` sends there.
+    #[serde(default)]
+    pub origin: Option<JobOrigin>,
+}
+
+#[derive(Debug, Clone, PartialEq, Deserialize)]
+pub struct JobOrigin {
+    #[serde(default)]
+    pub platform: String,
+}
+
+// Jobs made by MCP clients or edited by hand keep `deliver` as a list.
+fn destinations<'de, D: serde::Deserializer<'de>>(
+    d: D,
+) -> Result<String, D::Error> {
+    Ok(match serde_json::Value::deserialize(d)? {
+        serde_json::Value::String(s) => s,
+        serde_json::Value::Array(items) => items
+            .iter()
+            .filter_map(|v| v.as_str())
+            .collect::<Vec<_>>()
+            .join(","),
+        _ => String::new(),
+    })
+}
+
+impl HermesJob {
+    pub fn paused(&self) -> bool {
+        !self.enabled || self.state == "paused"
+    }
+}
+
+/// `/api/jobs` (`{"jobs": [...]}`).
+pub fn parse_jobs(v: &serde_json::Value) -> Vec<HermesJob> {
+    v.get("jobs")
+        .unwrap_or(v)
+        .as_array()
+        .into_iter()
+        .flatten()
+        .filter_map(|j| serde_json::from_value(j.clone()).ok())
+        .collect()
+}
+
 fn run_state(v: &serde_json::Value) -> RunState {
     let text = |k: &str| {
         v.get(k)
@@ -246,6 +356,10 @@ fn run_state(v: &serde_json::Value) -> RunState {
         "failed" | "cancelled" | "interrupted" => {
             RunState::Failed(text("error"))
         }
+        "waiting_for_approval" => v
+            .get("approval")
+            .and_then(|a| serde_json::from_value(a.clone()).ok())
+            .map_or(RunState::Running, RunState::WaitingForApproval),
         _ => RunState::Running,
     }
 }
@@ -273,6 +387,16 @@ async fn checked(
     }
 }
 
+// `{"job": {...}}`, what Hermes answers to a change on one job.
+async fn job_from(resp: reqwest::Response) -> Result<HermesJob, HermesError> {
+    let v: serde_json::Value = resp
+        .json()
+        .await
+        .map_err(|e| HermesError::Server(e.to_string()))?;
+    serde_json::from_value(v.get("job").cloned().unwrap_or(v))
+        .map_err(|e| HermesError::Server(e.to_string()))
+}
+
 pub struct HermesClient {
     base: String,
     key: String,
@@ -298,6 +422,10 @@ impl HermesClient {
             &db.get_setting(URL_SETTING).unwrap_or_default(),
             &db.get_setting(KEY_SETTING).unwrap_or_default(),
         )
+    }
+
+    pub fn key(&self) -> &str {
+        &self.key
     }
 
     fn get(&self, path: &str) -> reqwest::RequestBuilder {
@@ -371,14 +499,121 @@ impl HermesClient {
         ))
     }
 
-    /// Length of a list endpoint (`data` array or bare array).
-    pub async fn count(&self, path: &str) -> Result<usize, HermesError> {
-        let v = self.json_at(path).await?;
+    /// Every scheduled task; Hermes leaves paused ones out unless asked.
+    pub async fn jobs(&self) -> Result<Vec<HermesJob>, HermesError> {
+        Ok(parse_jobs(
+            &self.json_at("/api/jobs?include_disabled=true").await?,
+        ))
+    }
+
+    /// `pause`, `resume` or `run` on one job.
+    pub async fn job_action(
+        &self,
+        job_id: &str,
+        verb: &str,
+    ) -> Result<(), HermesError> {
+        checked(
+            self.post(&format!("/api/jobs/{job_id}/{verb}"))
+                .timeout(REQUEST_TIMEOUT)
+                .send()
+                .await,
+        )
+        .await
+        .map(|_| ())
+    }
+
+    /// A new job; without `deliver`, Hermes keeps its answers (`local`).
+    pub async fn create_job(
+        &self,
+        name: &str,
+        prompt: &str,
+        schedule: &str,
+        deliver: Option<&str>,
+    ) -> Result<HermesJob, HermesError> {
+        let mut body = serde_json::json!({ "name": name, "prompt": prompt, "schedule": schedule });
+        if let Some(deliver) = deliver {
+            body["deliver"] = deliver.into();
+        }
+        job_from(
+            checked(
+                self.post("/api/jobs")
+                    .json(&body)
+                    .timeout(REQUEST_TIMEOUT)
+                    .send()
+                    .await,
+            )
+            .await?,
+        )
+        .await
+    }
+
+    pub async fn update_schedule(
+        &self,
+        job_id: &str,
+        schedule: &str,
+    ) -> Result<HermesJob, HermesError> {
+        self.patch_job(job_id, serde_json::json!({ "schedule": schedule }))
+            .await
+    }
+
+    pub async fn update_deliver(
+        &self,
+        job_id: &str,
+        deliver: &str,
+    ) -> Result<HermesJob, HermesError> {
+        self.patch_job(job_id, serde_json::json!({ "deliver": deliver }))
+            .await
+    }
+
+    async fn patch_job(
+        &self,
+        job_id: &str,
+        body: serde_json::Value,
+    ) -> Result<HermesJob, HermesError> {
+        job_from(
+            checked(
+                self.http
+                    .patch(format!("{}/api/jobs/{job_id}", self.base))
+                    .bearer_auth(&self.key)
+                    .json(&body)
+                    .timeout(REQUEST_TIMEOUT)
+                    .send()
+                    .await,
+            )
+            .await?,
+        )
+        .await
+    }
+
+    pub async fn delete_job(&self, job_id: &str) -> Result<(), HermesError> {
+        checked(
+            self.http
+                .delete(format!("{}/api/jobs/{job_id}", self.base))
+                .bearer_auth(&self.key)
+                .timeout(REQUEST_TIMEOUT)
+                .send()
+                .await,
+        )
+        .await
+        .map(|_| ())
+    }
+
+    /// The newest session a job's run left, `cron_{job_id}_{time}`.
+    // ponytail: newest 200 cron sessions; a job silent for longer reads as
+    // never run until Hermes lets the list filter by job.
+    pub async fn last_run_session(
+        &self,
+        job_id: &str,
+    ) -> Result<Option<String>, HermesError> {
+        let prefix = format!("cron_{job_id}_");
+        let v = self.json_at("/api/sessions?source=cron&limit=200").await?;
         Ok(v.get("data")
-            .or_else(|| v.get("jobs"))
-            .unwrap_or(&v)
-            .as_array()
-            .map_or(0, Vec::len))
+            .and_then(|d| d.as_array())
+            .into_iter()
+            .flatten()
+            .filter_map(|s| s.get("id")?.as_str())
+            .find(|id| id.starts_with(&prefix))
+            .map(String::from))
     }
 
     /// Installed skills, in Hermes' own order: the API's list, else the
@@ -390,7 +625,8 @@ impl HermesClient {
         }
     }
 
-    async fn dashboard_skills(&self) -> Result<Vec<Skill>, HermesError> {
+    /// The dashboard's address and the session token its page carries.
+    async fn dashboard(&self) -> Result<(String, String), HermesError> {
         let base = dashboard_base(&self.base).ok_or(HermesError::NotFound)?;
         let page = checked(
             self.http
@@ -404,6 +640,11 @@ impl HermesClient {
         .await
         .map_err(|e| HermesError::Server(e.to_string()))?;
         let token = dashboard_token(&page).ok_or(HermesError::KeyRefused)?;
+        Ok((base, token))
+    }
+
+    async fn dashboard_skills(&self) -> Result<Vec<Skill>, HermesError> {
+        let (base, token) = self.dashboard().await?;
         let list: serde_json::Value = checked(
             self.http
                 .get(format!("{base}/api/skills"))
@@ -419,10 +660,43 @@ impl HermesClient {
         Ok(parse_skills(&list))
     }
 
+    /// Writes settings into Hermes' `.env` through its dashboard (its API
+    /// has no such route), then restarts its gateway, which reads them at
+    /// start. The API restarts with it: a few seconds without Hermes.
+    pub async fn configure(
+        &self,
+        settings: &[(&str, String)],
+    ) -> Result<(), HermesError> {
+        let (base, token) = self.dashboard().await?;
+        for (key, value) in settings {
+            checked(
+                self.http
+                    .put(format!("{base}/api/env"))
+                    .header("X-Hermes-Session-Token", &token)
+                    .json(&serde_json::json!({ "key": key, "value": value }))
+                    .timeout(REQUEST_TIMEOUT)
+                    .send()
+                    .await,
+            )
+            .await?;
+        }
+        // The dashboard goes down with the gateway and can drop this very
+        // request (a 502 through its proxy): the settings are written by now.
+        let _ = self
+            .http
+            .post(format!("{base}/api/gateway/restart"))
+            .header("X-Hermes-Session-Token", &token)
+            .timeout(REQUEST_TIMEOUT)
+            .send()
+            .await;
+        Ok(())
+    }
+
     /// Starts a turn on the session, on the chosen (provider, model) and
     /// reasoning effort or Hermes' own defaults; it runs on the server
     /// whatever happens to this connection. Images (data URLs) ride along
-    /// as parts of the user message.
+    /// as parts of the user message; `instructions` frame this turn only and
+    /// are never stored as a message.
     pub async fn start_run(
         &self,
         session_id: &str,
@@ -430,6 +704,7 @@ impl HermesClient {
         images: &[String],
         model: Option<(&str, &str)>,
         effort: Option<&str>,
+        instructions: &str,
     ) -> Result<String, HermesError> {
         let input = if images.is_empty() {
             serde_json::json!(input)
@@ -444,6 +719,7 @@ impl HermesClient {
         let mut body = serde_json::json!({
             "input": input,
             "session_id": session_id,
+            "instructions": instructions,
         });
         if let Some((provider, model)) = model {
             body["provider"] = provider.into();
@@ -468,6 +744,28 @@ impl HermesClient {
             .and_then(|r| r.as_str())
             .map(String::from)
             .ok_or_else(|| HermesError::Server("no run_id".into()))
+    }
+
+    /// The user's answer to one approval request of a run.
+    pub async fn answer_approval(
+        &self,
+        run_id: &str,
+        request_id: &str,
+        choice: &str,
+    ) -> Result<(), HermesError> {
+        let sent = self
+            .post(&format!("/v1/runs/{run_id}/approval"))
+            .json(&serde_json::json!({ "choice": choice, "request_id": request_id }))
+            .timeout(REQUEST_TIMEOUT)
+            .send()
+            .await;
+        if sent
+            .as_ref()
+            .is_ok_and(|r| r.status() == reqwest::StatusCode::CONFLICT)
+        {
+            return Err(HermesError::ApprovalGone);
+        }
+        checked(sent).await.map(|_| ())
     }
 
     pub async fn run_state(

@@ -44,6 +44,8 @@ fn main() {
     #[cfg(target_os = "ios")]
     flowflow::infrastructure::platform::ios::observe_launch_url();
     #[cfg(target_os = "ios")]
+    flowflow::infrastructure::platform::ios::push::observe_taps();
+    #[cfg(target_os = "ios")]
     flowflow::infrastructure::platform::ios::observe_keyboard();
     #[cfg(target_os = "ios")]
     flowflow::infrastructure::platform::ios::live_activity::cleanup_orphans();
@@ -55,6 +57,14 @@ fn main() {
                 .with_window(build_window())
                 .with_custom_index(INDEX_HTML.to_string())
                 .with_custom_event_handler(|event, _target| {
+                    // tao 0.35 drops the window after marking the loop terminated, and the
+                    // window's drop sends an event that tao rejects with a panic inside
+                    // applicationWillTerminate: every close from the app switcher aborted.
+                    // The process is ending anyway, so leave before that drop runs.
+                    #[cfg(target_os = "ios")]
+                    if let tao::event::Event::LoopDestroyed = event {
+                        std::process::exit(0);
+                    }
                     if let tao::event::Event::Opened { urls } = event {
                         for url in urls {
                             let s = url.as_str();

@@ -167,9 +167,16 @@ pub fn Composer(
         app.show_tools_menu.set(false);
         app.show_note_tools_menu.set(false);
         app.show_mention_menu.set(false);
-        dioxus::document::eval(AUTOSIZE);
         on_commit.call(text);
     };
+
+    // The field is fitted once its new text is on screen: an eval runs at
+    // once, the DOM edits only later, so fitting from a handler measures the
+    // text just sent and leaves the capsule tall over the conversation.
+    use_effect(move || {
+        input.read();
+        dioxus::document::eval(AUTOSIZE);
+    });
 
     // Dictation lands here: the square puts the text in the field for review,
     // the arrow commits it straight away.
@@ -190,27 +197,25 @@ pub fn Composer(
                 commit_on_transcribed.set(false);
                 commit();
             } else {
-                flash(landed);
                 // No focus here: iOS opens the keyboard only for a finger, and
                 // a focused field reserves the keyboard's height anyway
                 // (keyboard/inset.rs), leaving the bar stranded mid-screen.
-                dioxus::document::eval(&format!(
-                    "requestAnimationFrame(() => {{ {AUTOSIZE} }});"
-                ));
+                flash(landed);
             }
         }
     });
 
     // The + palette drops a ready-to-run command here ("lance <alias>"): PREFILL the
-    // input so the user can complete it and send deliberately.
+    // input so the user can complete it and send deliberately. The screenshot
+    // watcher types into Hermes' field the same way.
     use_effect(move || {
-        if !chat {
+        if !chat && !hermes {
             return;
         }
         if let Some(cmd) = (app.pending_chat_input)() {
             app.pending_chat_input.set(None);
             if !cmd.trim().is_empty() {
-                input.set(format!("{cmd} "));
+                input.set(if chat { format!("{cmd} ") } else { cmd });
             }
         }
     });
@@ -304,7 +309,6 @@ pub fn Composer(
                                             None => app.show_mention_menu.set(false),
                                         }
                                     }
-                                    dioxus::document::eval(AUTOSIZE);
                                 },
                                 onkeydown: move |evt| {
                                     if evt.key() == Key::Escape {

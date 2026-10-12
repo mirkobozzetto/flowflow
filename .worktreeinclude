@@ -1,3 +1,4 @@
 .env
 docs/brief/
 docs/proposals/
+src/ios/share/ShareExt.xcodeproj

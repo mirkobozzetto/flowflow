@@ -111,6 +111,9 @@ pub fn HermesSettings() -> Element {
                 },
                 _ => rsx! {},
             }
+            if cfg!(target_os = "ios") && hermes_chat::configured(&db()) {
+                super::hermes_push::HermesNotifications {}
+            }
         }
     }
 }

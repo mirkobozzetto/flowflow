@@ -8,6 +8,7 @@ mod native_menu;
 mod photo_picker;
 mod picker;
 mod player;
+pub mod push;
 pub mod reminders;
 mod share;
 pub mod sync_ffi;
@@ -179,6 +180,11 @@ pub fn take_pending_record() -> bool {
 /// extension enqueues content). None when the container is unavailable
 /// (entitlement missing - dev profile not renewed).
 pub fn app_group_inbox_dir() -> Option<PathBuf> {
+    app_group_dir().map(|dir| dir.join("shared-inbox"))
+}
+
+/// The container the app shares with its extensions.
+pub fn app_group_dir() -> Option<PathBuf> {
     unsafe {
         let group = objc2_foundation::NSString::from_str(
             "group.com.mirkobozzetto.flowflow",
@@ -197,7 +203,7 @@ pub fn app_group_inbox_dir() -> Option<PathBuf> {
         if path.is_null() {
             return None;
         }
-        Some(PathBuf::from((*path).to_string()).join("shared-inbox"))
+        Some(PathBuf::from((*path).to_string()))
     }
 }
 

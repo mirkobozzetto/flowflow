@@ -101,43 +101,43 @@ echo "[sign-widget] Signed $APPEX_DIR"
 
 rm -f "$ENTITLEMENTS"
 
-# Share extension appex (built by build-share-ext.sh), same signing dance.
-SHARE_BUNDLE_ID="com.mirkobozzetto.flowflow.share-ext"
-SHARE_APPEX="${APP_DIR}/PlugIns/ShareExt.appex"
-if [ -d "$SHARE_APPEX" ]; then
-    SHARE_PROFILE=""
+# Every other appex (built by build-extensions.sh), same signing dance.
+for EXT_APPEX in "${APP_DIR}"/PlugIns/*.appex; do
+    [ "$EXT_APPEX" = "$APPEX_DIR" ] && continue
+    EXT_BUNDLE_ID=$(/usr/libexec/PlistBuddy -c "Print :CFBundleIdentifier" "$EXT_APPEX/Info.plist")
+    EXT_PROFILE=""
     for f in ~/Library/Developer/Xcode/UserData/Provisioning\ Profiles/*.mobileprovision; do
         PROFILE_PLIST=$(security cms -D -i "$f" 2>/dev/null || true)
-        if echo "$PROFILE_PLIST" | grep -q "$SHARE_BUNDLE_ID"; then
+        if echo "$PROFILE_PLIST" | grep -q "$EXT_BUNDLE_ID"; then
             if [ "$MODE" = "release" ]; then
                 if echo "$PROFILE_PLIST" | grep -q "ProvisionedDevices"; then
                     continue
                 fi
-                SHARE_PROFILE="$f"
+                EXT_PROFILE="$f"
                 break
             else
                 if echo "$PROFILE_PLIST" | grep -q "ProvisionedDevices"; then
-                    SHARE_PROFILE="$f"
+                    EXT_PROFILE="$f"
                     break
                 fi
             fi
         fi
     done
-    if [ -z "$SHARE_PROFILE" ]; then
-        echo "[sign-widget] ERROR: no $PROFILE_PATTERN profile for $SHARE_BUNDLE_ID (run make renew)"
+    if [ -z "$EXT_PROFILE" ]; then
+        echo "[sign-widget] ERROR: no $PROFILE_PATTERN profile for $EXT_BUNDLE_ID (run make renew)"
         exit 1
     fi
-    echo "[sign-widget] Using share profile: $SHARE_PROFILE"
-    cp "$SHARE_PROFILE" "${SHARE_APPEX}/embedded.mobileprovision"
-    SHARE_ENTITLEMENTS="target/share-entitlements.plist"
-    rm -f "$SHARE_ENTITLEMENTS"
-    cat > "$SHARE_ENTITLEMENTS" <<PLIST
+    echo "[sign-widget] Using profile for $EXT_BUNDLE_ID: $EXT_PROFILE"
+    cp "$EXT_PROFILE" "${EXT_APPEX}/embedded.mobileprovision"
+    EXT_ENTITLEMENTS="target/extension-entitlements.plist"
+    rm -f "$EXT_ENTITLEMENTS"
+    cat > "$EXT_ENTITLEMENTS" <<PLIST
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
     <key>application-identifier</key>
-    <string>${TEAM_ID}.${SHARE_BUNDLE_ID}</string>
+    <string>${TEAM_ID}.${EXT_BUNDLE_ID}</string>
     <key>get-task-allow</key>
     <${GET_TASK_ALLOW}/>
     <key>com.apple.developer.team-identifier</key>
@@ -149,10 +149,10 @@ if [ -d "$SHARE_APPEX" ]; then
 </dict>
 </plist>
 PLIST
-    codesign --force --entitlements "$SHARE_ENTITLEMENTS" --sign "$SIGNING_ID" "$SHARE_APPEX"
-    rm -f "$SHARE_ENTITLEMENTS"
-    echo "[sign-widget] Signed $SHARE_APPEX"
-fi
+    codesign --force --entitlements "$EXT_ENTITLEMENTS" --sign "$SIGNING_ID" "$EXT_APPEX"
+    rm -f "$EXT_ENTITLEMENTS"
+    echo "[sign-widget] Signed $EXT_APPEX"
+done
 
 codesign --force --sign "$SIGNING_ID" --preserve-metadata=entitlements "$APP_DIR"
 echo "[sign-widget] Re-signed main app"

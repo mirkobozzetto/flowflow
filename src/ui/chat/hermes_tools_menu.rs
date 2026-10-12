@@ -8,6 +8,7 @@ use crate::ui::chat::hermes_attach::{self, taken_skills};
 use crate::ui::chat::tools_menu::{
     MENU_ICON, MENU_ROW, ROW_SUB, ROW_TITLE, SECTION, SEP,
 };
+use crate::ui::hermes_jobs::JobsEntries;
 use crate::ui::icons::{IconArrowLeft, IconCaretRight, IconCheck};
 use crate::ui::sf_icon::SfIcon;
 use crate::ui::AppState;
@@ -126,6 +127,11 @@ pub fn HermesToolsMenu() -> Element {
                         span { class: ROW_SUB, role: "status", "{summary}" }
                     }
                     span { class: "text-stone-400", IconCaretRight { size: 16 } }
+                }
+                div { class: SEP }
+                JobsEntries {
+                    class: MENU_ROW,
+                    on_pick: move |_| app.show_tools_menu.set(false),
                 }
             }
             div {
@@ -271,6 +277,9 @@ pub fn NativeHermesToolsMenu() -> Element {
                         }
                     }
                 }
+            }
+            div { "data-native-submenu": "", "data-native-inline": "",
+                JobsEntries { class: "", on_pick: move |_| {} }
             }
         }
     }

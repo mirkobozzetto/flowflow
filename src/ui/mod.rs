@@ -4,6 +4,7 @@ mod clipboard;
 mod composer;
 pub(crate) mod delete_confirm;
 mod folder_navigation;
+pub(crate) mod hermes_jobs;
 pub mod hooks;
 pub mod icons;
 mod keyboard;

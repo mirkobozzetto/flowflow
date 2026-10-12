@@ -1,0 +1,256 @@
+use super::alert::JobAlert;
+use super::card::JobStatus;
+use super::flowflow::{delivery_problem_text, FlowFlowSwitch};
+use super::menu::JobMenuItems;
+use crate::application::hermes_chat;
+use crate::application::hermes_delivery::{
+    self, delivers_to_flowflow, telegram_too,
+};
+use crate::application::hermes_jobs::{
+    self, clock_shift, last_run_text, next_run_text, schedule_text, JobAction,
+    RunResult,
+};
+use crate::application::hermes_message::Attachment;
+use crate::application::i18n::t;
+use crate::infrastructure::hermes::HermesError;
+use crate::infrastructure::persistence::Database;
+use crate::ui::chat::{hermes_problem_text, HermesReply};
+use crate::ui::composer::{Composer, ComposerRole};
+use crate::ui::kit;
+use crate::ui::{AppState, View};
+use chrono::Local;
+use dioxus::prelude::*;
+use std::sync::Arc;
+
+#[component]
+fn Fact(label: String, children: Element) -> Element {
+    rsx! {
+        div { class: "flex justify-between gap-3",
+            span { class: "text-stone-500 shrink-0", "{label}" }
+            span { class: "text-stone-900 text-right", {children} }
+        }
+    }
+}
+
+/// One task: when it runs, how it last went, and what Hermes answered then,
+/// shown as a Hermes reply, answered with the Hermes chat's own field. "…"
+/// in the top bar opens its actions.
+#[component]
+pub fn HermesJobView() -> Element {
+    let mut app: AppState = use_context();
+    let db: Signal<Arc<Database>> = use_context();
+    let lang = (app.current_lang)();
+    let job_id = match (app.view)() {
+        View::HermesJob { job_id } => job_id,
+        _ => String::new(),
+    };
+    let mut result: Signal<Option<Result<Option<RunResult>, HermesError>>> =
+        use_signal(|| None);
+    let mut input = use_signal(String::new);
+    let pending_audio: Signal<Option<(String, f64)>> = use_signal(|| None);
+    let mut replying = use_signal(|| false);
+    let mut reply_error: Signal<Option<HermesError>> = use_signal(|| None);
+    let mut asking: Signal<Option<JobAction>> = use_signal(|| None);
+    // The state asked for while Hermes and the server are told.
+    let mut delivering: Signal<Option<bool>> = use_signal(|| None);
+    let mut delivery_error: Signal<Option<String>> = use_signal(|| None);
+    use_hook({
+        let id = job_id.clone();
+        move || {
+            app.show_job_menu.set(false);
+            // The "+" and "/" of the field draw on the skills.
+            if app.hermes_skills.peek().is_none() {
+                spawn(async move {
+                    app.hermes_skills
+                        .set(Some(hermes_chat::skills(&db()).await));
+                });
+            }
+            spawn(async move {
+                let database = db();
+                if app.hermes_jobs.peek().is_none() {
+                    super::reload(app, &database).await;
+                }
+                result.set(Some(
+                    hermes_jobs::latest_result(&database, &id).await,
+                ));
+            });
+        }
+    });
+    // A task gone from the list read again (deleted here or elsewhere)
+    // leaves nothing to show: back to the list.
+    use_effect({
+        let id = job_id.clone();
+        move || {
+            if let Some(Ok(list)) = (app.hermes_jobs)() {
+                if !list.iter().any(|j| j.id == id) {
+                    app.view.set(View::HermesJobs);
+                }
+            }
+        }
+    });
+    let list = match (app.hermes_jobs)() {
+        Some(Ok(list)) => list,
+        _ => Vec::new(),
+    };
+    let shift = clock_shift(&list, &Local);
+    let Some(job) = list.into_iter().find(|j| j.id == job_id) else {
+        return rsx! {};
+    };
+    let now = Local::now();
+    let paused = job.paused();
+    let schedule = schedule_text(&lang, &job.schedule, shift);
+    let next = if paused {
+        t(&lang, "hermes-jobs-paused")
+    } else {
+        next_run_text(&lang, &job, &now).unwrap_or_default()
+    };
+    let failed = job.last_status.as_deref().is_some_and(|s| s != "ok");
+    let flowflow = delivering().unwrap_or_else(|| delivers_to_flowflow(&job));
+    let deliver_job = job.clone();
+    let toggle_flowflow = move |_| {
+        if delivering().is_some() {
+            return;
+        }
+        let target = !flowflow;
+        delivering.set(Some(target));
+        delivery_error.set(None);
+        let job = deliver_job.clone();
+        spawn(async move {
+            let lang = (app.current_lang)();
+            match hermes_delivery::set(&db(), &job, target).await {
+                Ok(updated) => super::replace(app, updated),
+                Err(e) => {
+                    delivery_error.set(Some(delivery_problem_text(&lang, &e)))
+                }
+            }
+            delivering.set(None);
+        });
+    };
+
+    let run = match result() {
+        Some(Ok(Some(run))) => Some(run),
+        _ => None,
+    };
+    let task = job.name.clone();
+    let reply_to = run.clone();
+    let from = job.id.clone();
+    let send_reply = move |question: String| {
+        let Some(run) = reply_to.clone() else { return };
+        if replying() {
+            return;
+        }
+        let sent: Vec<Attachment> = app.hermes_attachments.take();
+        replying.set(true);
+        reply_error.set(None);
+        let (task, from) = (task.clone(), from.clone());
+        spawn(async move {
+            match hermes_jobs::reply(
+                &db(),
+                &task,
+                &run.session_id,
+                &question,
+                &sent,
+            )
+            .await
+            {
+                Ok(()) => {
+                    app.previous_view
+                        .set(Some(View::HermesJob { job_id: from }));
+                    app.view.set(View::HermesChat {
+                        session_id: Some(run.session_id),
+                    });
+                    app.invalidate_data();
+                }
+                Err(e) => {
+                    app.hermes_attachments.set(sent);
+                    input.set(question);
+                    reply_error.set(Some(e));
+                }
+            }
+            replying.set(false);
+        });
+    };
+
+    rsx! {
+        div {
+            class: "overflow-y-auto px-4 pt-4 safe-pb-40 lg:px-[max(1rem,calc((100%-48rem)/2))]",
+            style: "height: calc(100% - var(--keyboard-inset, 0px));",
+            div { class: "bg-warm-white p-4 border border-stone-200 rounded-xl mb-4 space-y-2 text-sm",
+                Fact { label: t(&lang, "hermes-job-frequency"), "{schedule}" }
+                Fact { label: t(&lang, "hermes-job-next"), "{next}" }
+                Fact { label: t(&lang, "hermes-job-last"),
+                    span { class: "inline-flex items-center gap-1.5",
+                        if let Some(when) = last_run_text(&lang, &job, &now) {
+                            "{when} ·"
+                        }
+                        JobStatus { job: job.clone(), lang: lang.clone() }
+                    }
+                }
+                div { class: "h-px bg-stone-200 !my-3" }
+                FlowFlowSwitch {
+                    on: flowflow,
+                    busy: delivering().is_some(),
+                    lang: lang.clone(),
+                    class: "min-h-[44px] -my-1.5".to_string(),
+                    onclick: toggle_flowflow,
+                }
+                if let Some(problem) = delivery_error() {
+                    p { class: "text-[13px] leading-snug text-stone-500", "{problem}" }
+                } else if flowflow && telegram_too(&job) {
+                    p { class: "text-[13px] text-stone-500", {t(&lang, "hermes-job-telegram-too")} }
+                }
+            }
+            if failed {
+                p { class: "mb-3 text-sm text-ios-red-dark", {t(&lang, "hermes-job-last-failed")} }
+            }
+            match result() {
+                None => rsx! { HermesReply { text: String::new(), steps: Vec::new(), live: true } },
+                Some(Err(e)) => rsx! {
+                    p { class: "text-sm text-stone-700 leading-relaxed", {hermes_problem_text(&lang, &e)} }
+                },
+                Some(Ok(None)) => rsx! {
+                    p { class: "pt-6 text-sm text-stone-400 text-center", {t(&lang, "hermes-job-no-result")} }
+                },
+                Some(Ok(Some(run))) => rsx! { HermesReply { text: run.text, steps: Vec::new() } },
+            }
+            if let Some(e) = reply_error() {
+                p { class: "mt-3 text-sm text-stone-700 leading-relaxed", {hermes_problem_text(&lang, &e)} }
+            }
+        }
+        if run.is_some() {
+            Composer {
+                role: ComposerRole::AskHermes,
+                input,
+                disabled: replying(),
+                pending_audio,
+                attachments: app.hermes_attachments,
+                on_commit: send_reply,
+            }
+        }
+        div {
+            "data-native-menu": "job-more",
+            "data-native-context": "{job.id}",
+            hidden: !(app.show_job_menu)(),
+            div { class: "fixed inset-0 z-40", onclick: move |_| app.show_job_menu.set(false) }
+            div { class: "absolute right-4 top-1 {kit::MENU_PANEL}",
+                JobMenuItems {
+                    paused,
+                    lang: lang.clone(),
+                    on_pick: move |action| {
+                        app.show_job_menu.set(false);
+                        asking.set(Some(action));
+                    },
+                }
+            }
+        }
+        if let Some(action) = asking() {
+            JobAlert {
+                job_id: job.id.clone(),
+                name: job.name.clone(),
+                schedule,
+                action,
+                on_close: move |_| asking.set(None),
+            }
+        }
+    }
+}

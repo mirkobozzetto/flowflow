@@ -21,7 +21,7 @@
   const shown = new Map<string, boolean>();
   const lastMenu = new Map<string, string>();
 
-  const MENU_IDS = ["note-more", "chat-more", "note-plus", "chat-plus", "chats-plus", "hermes-plus", "hermes-model", "chat-pick"];
+  const MENU_IDS = ["note-more", "chat-more", "job-more", "hermes-more", "note-plus", "chat-plus", "chats-plus", "hermes-plus", "hermes-model", "chat-pick"];
 
   // The native menu opened or closed: the composer's "+" turns into a cross.
   w.__ffMenuOpen = (open: boolean) => {
@@ -304,6 +304,12 @@
     attributes: true,
     characterData: true,
     attributeFilter: ["class", "disabled", "hidden", "data-native-context", "data-native-checked", "aria-label"],
+  });
+  // A view switched while the app was away (a tapped notification) was
+  // judged on a hidden page: judge it again once the page shows.
+  document.addEventListener("visibilitychange", () => {
+    send("wake " + document.visibilityState);
+    if (document.visibilityState === "visible") schedule();
   });
   window.addEventListener("resize", schedule);
   window.visualViewport?.addEventListener("resize", schedule);

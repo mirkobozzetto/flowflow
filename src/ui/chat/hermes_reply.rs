@@ -83,7 +83,10 @@ fn HermesSteps(steps: Vec<HermesStep>, lang: String) -> Element {
                         for (i, (step, n)) in hermes_chat::grouped(&steps).into_iter().enumerate() {
                             div { key: "{i}", class: "flex items-baseline gap-2 text-xs min-w-0",
                                 span {
-                                    class: if step.failed {
+                                    // A command the user kept from running is no failure.
+                                    class: if step.failed && step.tool.starts_with(hermes_chat::RECEIPT_TOOL) {
+                                        "w-1.5 h-1.5 shrink-0 rounded-full bg-stone-300"
+                                    } else if step.failed {
                                         "w-1.5 h-1.5 shrink-0 rounded-full bg-ios-red"
                                     } else if step.running {
                                         "w-1.5 h-1.5 shrink-0 rounded-full bg-stone-400"

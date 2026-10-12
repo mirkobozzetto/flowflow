@@ -15,6 +15,55 @@ pub fn haptic_prepare(kind: &str) {
     let _ = kind;
 }
 
+/// Where `device_log` keeps its lines on iOS, read back from the Mac with
+/// `devicectl device copy from` once the phone is unlocked.
+#[cfg(target_os = "ios")]
+const DEVICE_LOG: &str = "Library/Caches/flowflow.log";
+// ponytail: one file, started over past this size.
+#[cfg(target_os = "ios")]
+const DEVICE_LOG_MAX: u64 = 512 * 1024;
+
+/// A line in the app's log. On iOS it also goes to the system log and to
+/// DEVICE_LOG: the console drops off as soon as the phone locks.
+pub fn device_log(msg: &str) {
+    eprintln!("{msg}");
+    #[cfg(target_os = "ios")]
+    {
+        use std::io::Write;
+        if let Ok(home) = std::env::var("HOME") {
+            let path = std::path::Path::new(&home).join(DEVICE_LOG);
+            let full = std::fs::metadata(&path)
+                .is_ok_and(|m| m.len() > DEVICE_LOG_MAX);
+            if let Ok(mut file) = std::fs::OpenOptions::new()
+                .create(true)
+                .append(!full)
+                .write(true)
+                .truncate(full)
+                .open(&path)
+            {
+                let at = chrono::Utc::now().format("%H:%M:%S%.3f");
+                let _ = writeln!(file, "{at} {msg}");
+            }
+        }
+    }
+    #[cfg(target_os = "ios")]
+    {
+        use std::ffi::CString;
+        extern "C" {
+            fn syslog(priority: i32, format: *const std::ffi::c_char, ...);
+        }
+        if let Ok(cmsg) = CString::new(format!("[FlowFlow] {msg}")) {
+            unsafe {
+                syslog(
+                    4,
+                    b"%s\0".as_ptr() as *const std::ffi::c_char,
+                    cmsg.as_ptr(),
+                );
+            }
+        }
+    }
+}
+
 /// Stops the screen from auto-locking; main thread only, a no-op off iOS.
 pub fn keep_screen_awake(on: bool) {
     #[cfg(target_os = "ios")]

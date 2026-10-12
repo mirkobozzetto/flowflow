@@ -11,7 +11,7 @@ use std::sync::Arc;
 
 #[component]
 pub fn ConversationSection() -> Element {
-    let app: AppState = use_context();
+    let mut app: AppState = use_context();
     let db: Signal<Arc<Database>> = use_context();
     let mut chat_query = use_signal(String::new);
     let lang = (app.current_lang)();
@@ -68,6 +68,24 @@ pub fn ConversationSection() -> Element {
                 div { class: "absolute left-0 top-full mt-1 {kit::MENU_PANEL}",
                     NewChatChoices { on_pick: move |_| menu_open.set(false) }
                 }
+            }
+        }
+        if crate::application::hermes_chat::configured(&db()) {
+            button {
+                class: "mb-2 flex items-center gap-2.5 w-full px-2 py-2.5 rounded-lg min-h-[44px] text-left hover:bg-stone-50 active:bg-stone-100 transition-colors duration-150",
+                onclick: move |_| {
+                    app.row_menu.set(None);
+                    app.sidebar_open.set(false);
+                    crate::ui::hermes_jobs::open(app);
+                },
+                span { class: "w-5 shrink-0 flex justify-center text-stone-600",
+                    crate::ui::sf_icon::SfIcon { name: "clock", size: 18 }
+                }
+                span { class: "flex-1 text-sm text-stone-900", {t(&lang, "hermes-jobs-title")} }
+                if let Some(n) = crate::ui::hermes_jobs::known_count(app).filter(|n| *n > 0) {
+                    span { class: "text-xs text-stone-400 tabular-nums", "{n}" }
+                }
+                span { class: "text-stone-300", IconCaretRight { size: 14 } }
             }
         }
         div { class: "relative mb-2",

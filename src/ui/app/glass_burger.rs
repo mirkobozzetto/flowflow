@@ -46,6 +46,12 @@ pub fn use_glass_burger() {
                     native::set_menu(json);
                     continue;
                 }
+                if let Some(state) = msg.strip_prefix("wake ") {
+                    crate::infrastructure::platform::device_log(&format!(
+                        "[glass] page {state}"
+                    ));
+                    continue;
+                }
                 let mut parts = msg.split(' ');
                 let kind = parts.next();
                 let id = if kind == Some("place") {

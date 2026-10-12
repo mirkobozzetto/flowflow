@@ -8,6 +8,10 @@ pub fn ChatEmptyState(
     /// Hermes: its model and counts, in place of a hint.
     #[props(default)]
     facts: Option<String>,
+    /// Hermes: "4 tâches planifiées", a link to the tasks.
+    #[props(default)]
+    jobs: Option<String>,
+    #[props(default)] on_jobs: EventHandler<()>,
 ) -> Element {
     let app: AppState = use_context();
     let lang = (app.current_lang)();
@@ -36,7 +40,19 @@ pub fn ChatEmptyState(
                 }
             }
             p { class: "text-stone-900 font-semibold text-base mb-1", "{title}" }
-            p { class: "text-stone-400 text-sm text-center min-h-5", "{hint}" }
+            p { class: "text-stone-400 text-sm text-center min-h-5",
+                "{hint}"
+                if let Some(label) = jobs {
+                    if !hint.is_empty() {
+                        " · "
+                    }
+                    button {
+                        class: "text-ios-orange-dark underline underline-offset-2 decoration-ios-orange/40 active:opacity-70",
+                        onclick: move |_| on_jobs.call(()),
+                        "{label}"
+                    }
+                }
+            }
         }
     }
 }

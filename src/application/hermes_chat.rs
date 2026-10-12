@@ -7,8 +7,8 @@ use crate::infrastructure::hermes::{HermesClient, HermesMessage, RunState};
 use crate::infrastructure::persistence::Database;
 
 pub use crate::infrastructure::hermes::{
-    HermesError, ModelOptions, ModelProvider, RunEvent, Skill, KEY_SETTING,
-    URL_SETTING,
+    ApprovalRequest, HermesError, ModelOptions, ModelProvider, RunEvent, Skill,
+    KEY_SETTING, URL_SETTING,
 };
 
 /// The link the kit's QR code carries: flowflow://hermes?url=…&key=…
@@ -39,11 +39,44 @@ pub enum HermesTurn {
     },
 }
 
+#[derive(Clone, Debug, PartialEq)]
+pub enum ApprovalStatus {
+    Asked,
+    Sending,
+    /// Hermes stopped waiting: the command did not run.
+    Expired,
+}
+
+/// A request for the user's go, on screen until it is answered.
+#[derive(Clone, Debug, PartialEq)]
+pub struct PendingApproval {
+    pub request: ApprovalRequest,
+    pub status: ApprovalStatus,
+    // The step running when Hermes asked: Hermes asks from inside the tool,
+    // so that step ending unanswered means it gave up waiting.
+    step: Option<usize>,
+}
+
+/// An answered request stays in the steps as a receipt, under this tool name
+/// followed by the choice ("approval.once").
+pub const RECEIPT_TOOL: &str = "approval.";
+
+// A command that did not run ("deny", "expired") reads as a failed step.
+fn receipt(outcome: &str, command: &str) -> HermesStep {
+    HermesStep {
+        tool: format!("{RECEIPT_TOOL}{outcome}"),
+        detail: clip(command),
+        running: false,
+        failed: matches!(outcome, "deny" | "expired"),
+    }
+}
+
 /// The reply being written while a run is live.
 #[derive(Clone, Debug, Default, PartialEq)]
 pub struct LiveReply {
     pub text: String,
     pub steps: Vec<HermesStep>,
+    pub approvals: Vec<PendingApproval>,
     pub error: Option<String>,
     pub done: bool,
 }
@@ -61,14 +94,12 @@ impl LiveReply {
                 })
             }
             RunEvent::ToolDone { tool, failed } => {
-                if let Some(step) = self
-                    .steps
-                    .iter_mut()
-                    .rev()
-                    .find(|s| s.running && s.tool == tool)
+                if let Some(i) =
+                    self.steps.iter().rposition(|s| s.running && s.tool == tool)
                 {
-                    step.running = false;
-                    step.failed = failed;
+                    self.steps[i].running = false;
+                    self.steps[i].failed = failed;
+                    self.expire(|a| a.step == Some(i));
                 }
             }
             RunEvent::Completed(output) => {
@@ -76,10 +107,105 @@ impl LiveReply {
                     self.text = output;
                 }
                 self.done = true;
+                self.expire(|_| true);
             }
             RunEvent::Failed(error) => {
                 self.error = Some(error);
                 self.done = true;
+                self.expire(|_| true);
+            }
+            RunEvent::ApprovalRequested(request) => {
+                let known = self
+                    .approvals
+                    .iter()
+                    .any(|a| a.request.request_id == request.request_id);
+                if !known {
+                    let step = self.steps.iter().rposition(|s| s.running);
+                    self.approvals.push(PendingApproval {
+                        request,
+                        status: ApprovalStatus::Asked,
+                        step,
+                    });
+                }
+            }
+            RunEvent::ApprovalResolved { request_id, choice } => {
+                self.resolve(&request_id, &choice)
+            }
+        }
+    }
+
+    // An answer always wins over an expiry seen first: the tool can end
+    // before the answer's own confirmation arrives.
+    fn resolve(&mut self, request_id: &str, choice: &str) {
+        let Some(i) = self
+            .approvals
+            .iter()
+            .position(|a| a.request.request_id == request_id)
+        else {
+            return;
+        };
+        let answered = self.approvals.remove(i);
+        self.steps.push(receipt(choice, &answered.request.command));
+    }
+
+    // A request being answered is left alone: its answer decides.
+    fn expire(&mut self, which: impl Fn(&PendingApproval) -> bool) {
+        for a in self.approvals.iter_mut() {
+            if a.status == ApprovalStatus::Asked && which(a) {
+                a.status = ApprovalStatus::Expired;
+            }
+        }
+    }
+
+    /// The user saw an expired request: it leaves the screen for a receipt.
+    pub fn acknowledge(&mut self, request_id: &str) {
+        if let Some(i) = self.approvals.iter().position(|a| {
+            a.request.request_id == request_id
+                && a.status == ApprovalStatus::Expired
+        }) {
+            let gone = self.approvals.remove(i);
+            self.steps.push(receipt("expired", &gone.request.command));
+        }
+    }
+
+    /// Marks a request as being answered; false when it already is, or is
+    /// no longer asked, so a second tap sends nothing.
+    pub fn sending(&mut self, request_id: &str) -> bool {
+        match self.approvals.iter_mut().find(|a| {
+            a.request.request_id == request_id
+                && a.status == ApprovalStatus::Asked
+        }) {
+            Some(a) => {
+                a.status = ApprovalStatus::Sending;
+                true
+            }
+            None => false,
+        }
+    }
+
+    /// What Hermes made of an answer: taken, gone (it stopped waiting), or
+    /// lost on the way, in which case it can be sent again.
+    pub fn answered(
+        &mut self,
+        request_id: &str,
+        choice: &str,
+        result: &Result<(), HermesError>,
+    ) {
+        match result {
+            Ok(()) => self.resolve(request_id, choice),
+            Err(e) => {
+                let status = if *e == HermesError::ApprovalGone {
+                    ApprovalStatus::Expired
+                } else {
+                    ApprovalStatus::Asked
+                };
+                if let Some(a) = self
+                    .approvals
+                    .iter_mut()
+                    .find(|a| a.request.request_id == request_id)
+                {
+                    a.status = status;
+                }
             }
         }
     }
@@ -104,6 +230,10 @@ pub fn tool_key(tool: &str) -> Option<&'static str> {
         "todo_list" => "hermes-tool-todo",
         "vision_analyze" => "hermes-tool-vision",
         "image_generate" => "hermes-tool-image",
+        "approval.once" => "hermes-receipt-once",
+        "approval.session" | "approval.always" => "hermes-receipt-session",
+        "approval.deny" => "hermes-receipt-deny",
+        "approval.expired" => "hermes-receipt-expired",
         _ => return None,
     })
 }
@@ -201,6 +331,20 @@ pub fn turns(messages: &[HermesMessage]) -> Vec<HermesTurn> {
     out
 }
 
+/// Hermes' history does not record the user's answers: the live reply's
+/// receipts move onto the reply read back in its place.
+// ponytail: kept in memory only; reopening the conversation drops them.
+pub fn keep_receipts(history: &mut [HermesTurn], live: &LiveReply) {
+    let receipts = live
+        .steps
+        .iter()
+        .filter(|s| s.tool.starts_with(RECEIPT_TOOL))
+        .cloned();
+    if let Some(HermesTurn::Reply { steps, .. }) = history.last_mut() {
+        steps.extend(receipts);
+    }
+}
+
 /// Address and key carried by a linking QR code; None for any other link.
 pub fn parse_link(uri: &str) -> Option<(String, String)> {
     let parsed = url::Url::parse(uri.trim()).ok()?;
@@ -240,7 +384,25 @@ pub async fn history(
     session_id: &str,
 ) -> Result<Vec<HermesTurn>, HermesError> {
     let client = HermesClient::from_db(db)?;
-    Ok(turns(&client.messages(session_id).await?))
+    Ok(session_turns(
+        session_id,
+        &client.messages(session_id).await?,
+    ))
+}
+
+/// A session's turns. A task run's session opens on the instructions Hermes
+/// gave itself, the skill text included: the chat starts on its result.
+pub fn session_turns(
+    session_id: &str,
+    messages: &[HermesMessage],
+) -> Vec<HermesTurn> {
+    let mut out = turns(messages);
+    if crate::application::hermes_jobs::run_of(session_id).is_some()
+        && matches!(out.first(), Some(HermesTurn::User(_)))
+    {
+        out.remove(0);
+    }
+    out
 }
 
 /// The question of a turn still running, so a reopened conversation can
@@ -442,16 +604,6 @@ pub async fn skills(db: &Database) -> Result<Vec<Skill>, HermesError> {
     HermesClient::from_db(db)?.skills().await
 }
 
-/// Scheduled tasks counted on Hermes, for the empty conversation; None when
-/// Hermes cannot serve the list rather than a zero.
-pub async fn jobs_count(db: &Database) -> Option<usize> {
-    HermesClient::from_db(db)
-        .ok()?
-        .count("/api/jobs")
-        .await
-        .ok()
-}
-
 /// "claude-opus-5-5[1m]" reads "Opus 5.5", "gpt-6.1-sol" reads "GPT-6.1 Sol".
 pub fn model_label(id: &str) -> String {
     let id = id.split('[').next().unwrap_or(id);
@@ -509,6 +661,29 @@ pub fn provider_label(slug: &str, name: &str) -> String {
     }
 }
 
+/// What Hermes is told about the app it answers through. Hermes tells every
+/// API client to write plain text; this client renders Markdown.
+pub fn client_instructions(phone: bool, lang: &str) -> String {
+    let (device, screen) = if phone {
+        (
+            "iPhone",
+            "The screen is a narrow phone: keep tables to 3 short columns, \
+             prefer lists for wide data, keep code lines short.",
+        )
+    } else {
+        ("Mac", "The screen is a desktop window.")
+    };
+    format!(
+        "You are talking to the user through FlowFlow {} on {device}, a \
+         voice notes app. Its chat renders GitHub-flavored Markdown \
+         (headings, lists, bold, links, code blocks, and tables with the \
+         |---| separator row), so the plain-text rule for API clients does \
+         not apply here: use Markdown where it helps. {screen} The app is \
+         set to the \"{lang}\" language.",
+        env!("CARGO_PKG_VERSION")
+    )
+}
+
 /// Sends a question and its attachments, on the model picked for the
 /// conversation if any. The first one opens the Hermes session and the local
 /// conversation. Returns the session and the run to follow.
@@ -548,12 +723,28 @@ pub async fn send(
             &images,
             pick.as_ref().map(|(p, m)| (p.as_str(), m.as_str())),
             effort.as_deref(),
+            &client_instructions(
+                cfg!(target_os = "ios"),
+                &crate::application::i18n::ui_lang(db),
+            ),
         )
         .await?;
     let _ =
         db.set_hermes_pending_run(&session_id, Some((run_id.as_str(), &text)));
     let _ = db.touch_hermes_conversation(&session_id);
     Ok((session_id, run_id))
+}
+
+/// Sends the user's choice for one approval request of a running turn.
+pub async fn answer(
+    db: &Database,
+    run_id: &str,
+    request_id: &str,
+    choice: &str,
+) -> Result<(), HermesError> {
+    HermesClient::from_db(db)?
+        .answer_approval(run_id, request_id, choice)
+        .await
 }
 
 /// Follows a run to its end, picking the stream up again after a drop (the
@@ -584,6 +775,11 @@ pub async fn follow(
         }
         match client.run_state(run_id).await {
             Ok(RunState::Running) => misses = 0,
+            // The request may have left the server's replay: read it back.
+            Ok(RunState::WaitingForApproval(request)) => {
+                misses = 0;
+                on_event(RunEvent::ApprovalRequested(request));
+            }
             Ok(RunState::Completed(output)) => {
                 on_event(RunEvent::Completed(output));
                 break;
