@@ -1,6 +1,6 @@
 use crate::application::hermes_chat::{self, HermesStep};
 use crate::application::i18n::{t, t_args};
-use crate::ui::chat::actions::md_to_html;
+use crate::ui::chat::markdown::md_to_html;
 use crate::ui::icons::{HermesAgentIcon, IconCaretRight};
 use crate::ui::AppState;
 use dioxus::prelude::*;
