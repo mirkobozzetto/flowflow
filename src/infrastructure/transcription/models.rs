@@ -196,7 +196,7 @@ fn part_len(part: &Path) -> u64 {
 
 // iOS suspends a backgrounded app and kills its sockets: each attempt holds
 // the ~30 s background grace, and a cut resumes from the .part length.
-async fn fetch_part(
+pub async fn fetch_part(
     entry: &WhisperCatalogEntry,
     part: &Path,
     progress: &mut impl FnMut(u64, u64),
