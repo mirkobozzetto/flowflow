@@ -41,6 +41,12 @@ const STEERED_MESSAGES: &str = r#"[
   {"role": "tool", "content": "{\"output\": \"Mon Oct 12 19:03:43 UTC 2026\"}"},
   {"role": "assistant", "content": "All three commands ran without errors."}
 ]"#;
+const STOPPED_MESSAGES: &str = r#"[
+  {"role": "user", "content": "Essai FlowFlow : dis ce que tu vas faire, puis lance sleep 60; echo fini, puis réponds en une phrase."},
+  {"role": "assistant", "content": "Je lance `sleep 60; echo fini` dans le terminal, puis je te réponds.", "tool_calls": [{"type": "function", "function": {"name": "terminal", "arguments": "{\"command\":\"sleep 60; echo fini\"}"}}]},
+  {"role": "tool", "content": "{\"output\": \"[Command interrupted]\", \"exit_code\": 130, \"error\": null}"},
+  {"role": "assistant", "content": "Operation interrupted."}
+]"#;
 const CAPABILITIES: &str = r#"{"object": "hermes.api_server.capabilities", "features": {"run_submission": true, "run_stop": true, "run_steer": true, "run_approval_response": true}}"#;
 
 fn open_db(dir: &tempfile::TempDir) -> Database {
@@ -170,6 +176,21 @@ fn a_reply_read_back_keeps_what_hermes_said_and_the_guidance_sent() {
             ("terminal", "echo two"),
             ("terminal", "date"),
         ]
+    );
+}
+
+#[test]
+fn a_stopped_reply_read_back_says_stopped_not_hermes_placeholder() {
+    let messages: Vec<HermesMessage> =
+        serde_json::from_str(STOPPED_MESSAGES).unwrap();
+    let turns = hermes_chat::turns(&messages);
+    let Some(HermesTurn::Reply { text, steps }) = turns.last() else {
+        panic!("expected a reply");
+    };
+    assert_eq!(text, "");
+    assert_eq!(
+        steps.last().map(|s| s.tool.as_str()),
+        Some(hermes_chat::STOPPED_TOOL)
     );
 }
 

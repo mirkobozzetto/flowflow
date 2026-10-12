@@ -195,6 +195,13 @@ pub fn HermesChatView() -> Element {
                 });
                 if last.as_deref() != Some(asked.question.as_str()) {
                     turns.write().push(HermesTurn::User(asked));
+                } else if matches!(
+                    turns.peek().last(),
+                    Some(HermesTurn::Reply { .. })
+                ) {
+                    // What Hermes stored of the running turn: the live reply,
+                    // replayed from the start, takes its place.
+                    turns.write().pop();
                 }
                 track(sid, run_id);
             }

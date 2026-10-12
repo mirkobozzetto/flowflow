@@ -73,6 +73,9 @@ pub const STOPPED_TOOL: &str = "hermes.stopped";
 // (agent/prompt_builder.py, format_steer_marker).
 const STEER_OPEN: &str = "[OUT-OF-BAND USER MESSAGE";
 const STEER_CLOSE: &str = "[/OUT-OF-BAND USER MESSAGE]";
+// What Hermes stores as the answer of a stopped turn; it treats it as noise
+// itself (gateway/run_turn.py).
+const STOPPED_ANSWER: &str = "Operation interrupted";
 
 fn note(tool: &str, detail: &str) -> HermesStep {
     HermesStep {
@@ -360,7 +363,13 @@ pub fn turns(messages: &[HermesMessage]) -> Vec<HermesTurn> {
                 let calls = m.tool_calls.as_deref().unwrap_or_default();
                 if calls.is_empty() {
                     let text = m.text();
-                    if !text.trim().is_empty() {
+                    if text.trim().starts_with(STOPPED_ANSWER) {
+                        steps.push(note(STOPPED_TOOL, ""));
+                        out.push(HermesTurn::Reply {
+                            text: String::new(),
+                            steps: std::mem::take(&mut steps),
+                        });
+                    } else if !text.trim().is_empty() {
                         out.push(HermesTurn::Reply {
                             text,
                             steps: std::mem::take(&mut steps),
@@ -391,17 +400,25 @@ pub fn turns(messages: &[HermesMessage]) -> Vec<HermesTurn> {
     out
 }
 
-/// Hermes' history records neither the user's answers nor a stop: the live
-/// reply's receipts move onto the reply read back in its place.
+/// Hermes' history does not record the user's answers, nor a stop that came
+/// before any answer: the live reply's receipts move onto the reply read
+/// back in its place.
 // ponytail: kept in memory only; reopening the conversation drops them.
 pub fn keep_receipts(history: &mut [HermesTurn], live: &LiveReply) {
-    let receipts = live
-        .steps
-        .iter()
-        .filter(|s| s.tool.starts_with(RECEIPT_TOOL) || s.tool == STOPPED_TOOL)
-        .cloned();
     if let Some(HermesTurn::Reply { steps, .. }) = history.last_mut() {
-        steps.extend(receipts);
+        let stopped = steps.last().is_some_and(|s| s.tool == STOPPED_TOOL);
+        let receipts = live.steps.iter().filter(|s| {
+            s.tool.starts_with(RECEIPT_TOOL)
+                || (s.tool == STOPPED_TOOL && !stopped)
+        });
+        let receipts: Vec<HermesStep> = receipts.cloned().collect();
+        // The stop stays last, after the answers given before it.
+        let at = if stopped {
+            steps.len() - 1
+        } else {
+            steps.len()
+        };
+        steps.splice(at..at, receipts);
     }
 }
 
