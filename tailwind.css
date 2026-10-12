@@ -862,12 +862,38 @@
     .prose li {
         margin: 0.15em 0;
     }
-    .prose table {
-        display: block;
-        width: 100%;
-        overflow-x: auto;
-        border-collapse: collapse;
+    /* A table sits in a framed box that scrolls on its own; the frame
+       carries the outer border, so the table hides its own. */
+    .prose .table-frame {
+        width: fit-content;
+        max-width: 100%;
         margin: 0.6em 0;
+        border: 1px solid oklch(0.9 0.01 60);
+        border-radius: 0.5em;
+        overflow: hidden;
+        background: var(--color-warm-white);
+    }
+    .prose .table-scroll {
+        overflow-x: auto;
+        scrollbar-width: none;
+        mask-image: linear-gradient(
+            to right,
+            transparent 0,
+            #000 var(--fade-l),
+            #000 calc(100% - var(--fade-r)),
+            transparent 100%
+        );
+        /* Only a box that can scroll has an active timeline: a table that
+           fits gets no fade. */
+        animation: table-edges linear both;
+        animation-timeline: scroll(self inline);
+    }
+    .prose .table-scroll::-webkit-scrollbar {
+        display: none;
+    }
+    .prose table {
+        border-collapse: collapse;
+        border-style: hidden;
         font-size: 0.9em;
     }
     .prose th,
@@ -875,11 +901,35 @@
         border: 1px solid oklch(0.9 0.01 60);
         padding: 0.35em 0.6em;
         text-align: left;
+        min-width: 7ch;
+        max-width: 22ch;
+        overflow-wrap: break-word;
+        vertical-align: top;
+    }
+    /* Figures keep to one line: GFM right or centre alignment marks them. */
+    .prose th[style*="right"],
+    .prose td[style*="right"],
+    .prose th[style*="center"],
+    .prose td[style*="center"] {
         white-space: nowrap;
     }
     .prose th {
         background: oklch(0.96 0.008 50);
         font-weight: 600;
+    }
+    .prose h1 {
+        font-weight: 600;
+        font-size: 1.2em;
+        margin: 0.9em 0 0.35em;
+    }
+    .prose h2 {
+        font-weight: 600;
+        font-size: 1.08em;
+        margin: 0.85em 0 0.3em;
+    }
+    .prose > :first-child,
+    .prose > :first-child > :first-child {
+        margin-top: 0;
     }
     .prose h3 {
         font-weight: 600;
@@ -903,8 +953,58 @@
         background: none;
         padding: 0;
     }
+    /* A code block with its bar: language, copy (ui/chat/code_block.rs). */
+    .prose .code-frame {
+        margin: 0.5em 0;
+        border-radius: 0.5em;
+        background: oklch(0.96 0.008 50);
+        overflow: hidden;
+    }
+    .prose .code-frame pre {
+        margin: 0;
+        border-radius: 0;
+        background: none;
+    }
+    .prose .code-head {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        height: 34px;
+        padding-left: 0.75em;
+        border-bottom: 1px solid oklch(0.9 0.01 60);
+    }
     .prose a {
         color: oklch(0.48 0.16 50);
+        overflow-wrap: anywhere;
+    }
+}
+
+/* The fade on the hidden edge of a scrolling table (.prose .table-scroll),
+   driven by its own scroll position. */
+@property --fade-l {
+    syntax: "<length>";
+    inherits: false;
+    initial-value: 0px;
+}
+@property --fade-r {
+    syntax: "<length>";
+    inherits: false;
+    initial-value: 0px;
+}
+@keyframes table-edges {
+    0% {
+        --fade-l: 0px;
+        --fade-r: 28px;
+    }
+    8% {
+        --fade-l: 28px;
+    }
+    92% {
+        --fade-r: 28px;
+    }
+    100% {
+        --fade-l: 28px;
+        --fade-r: 0px;
     }
 }
 
