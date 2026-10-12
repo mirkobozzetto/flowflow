@@ -682,6 +682,7 @@ hermes-failed = Hermes could not answer: { $error }
 hermes-stop = Stop
 hermes-input-steer = Tell Hermes while he works…
 hermes-stopped = Stopped.
+hermes-file-kind = { $kind } · on your Hermes
 hermes-step-steer = Your guidance
 hermes-run-ended = Hermes' task has already ended.
 hermes-run-failed-alert = Hermes could not finish. Open the conversation to see where it stopped.

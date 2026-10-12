@@ -1,6 +1,7 @@
 mod actions;
 pub(crate) mod attachment_chips;
 mod bot_bubble;
+mod code_block;
 mod empty_state;
 pub(crate) mod hermes_approval;
 pub(crate) mod hermes_attach;

@@ -1,7 +1,8 @@
 use crate::application::hermes_chat::{self, HermesStep};
 use crate::application::i18n::{t, t_args};
-use crate::ui::chat::markdown::md_to_html;
-use crate::ui::icons::{HermesAgentIcon, IconCaretRight};
+use crate::ui::chat::code_block::CodeBlock;
+use crate::ui::chat::markdown::{md_blocks, MdBlock};
+use crate::ui::icons::{HermesAgentIcon, IconCaretRight, IconFileArrowUp};
 use crate::ui::AppState;
 use dioxus::prelude::*;
 
@@ -28,11 +29,36 @@ pub fn HermesReply(
             div { class: "mt-1 shrink-0",
                 HermesAgentIcon { size: 20 }
             }
-            div { class: "min-w-0 max-w-[85%] py-1",
+            // No bubble around Hermes: the reply takes the whole width, so a
+            // wide table does too.
+            div { class: "min-w-0 flex-1 py-1",
                 if has_text {
-                    div {
-                        class: "text-sm text-stone-900 leading-relaxed break-words prose prose-sm",
-                        dangerous_inner_html: md_to_html(&text),
+                    div { class: "text-sm text-stone-900 leading-relaxed break-words prose prose-sm",
+                        for (i, block) in md_blocks(&text).into_iter().enumerate() {
+                            match block {
+                                MdBlock::Html(html) => rsx! {
+                                    div { key: "{i}", dangerous_inner_html: html }
+                                },
+                                MdBlock::Code { lang, code } => rsx! {
+                                    CodeBlock { key: "{i}", lang, code }
+                                },
+                                MdBlock::File { name, kind } => rsx! {
+                                    div {
+                                        key: "{i}",
+                                        class: "bg-warm-white border border-stone-200 rounded-xl h-[60px] flex items-center px-3 my-2",
+                                        div { class: "w-9 h-9 rounded-lg bg-warm-white border border-ios-orange/20 flex items-center justify-center flex-shrink-0 text-ios-orange-dark",
+                                            IconFileArrowUp { size: 18 }
+                                        }
+                                        div { class: "flex-1 min-w-0 ml-3",
+                                            div { class: "text-sm font-medium text-stone-900 truncate leading-tight", "{name}" }
+                                            div { class: "text-xs text-stone-400 leading-tight",
+                                                {t_args(&lang, "hermes-file-kind", &[("kind", &kind)])}
+                                            }
+                                        }
+                                    }
+                                },
+                            }
+                        }
                     }
                 }
                 if stopped {

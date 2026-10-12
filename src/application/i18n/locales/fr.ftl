@@ -682,6 +682,7 @@ hermes-failed = Hermes n'a pas pu répondre : { $error }
 hermes-stop = Arrêter
 hermes-input-steer = Écris à Hermes en route…
 hermes-stopped = Arrêté.
+hermes-file-kind = { $kind } · sur ton Hermes
 hermes-step-steer = Ta consigne
 hermes-run-ended = La tâche de Hermes est déjà terminée.
 hermes-run-failed-alert = Hermes n'a pas pu finir. Ouvre la conversation pour voir où il s'est arrêté.
