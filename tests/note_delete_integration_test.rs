@@ -11,6 +11,17 @@ pub mod kit;
 mod ui {
     pub use super::{clipboard, delete_confirm, kit};
     pub use flowflow::ui::{icons, AppState, NoteMenuPage, RowMenu, View};
+    // The real module is crate-private; the menu only needs the name here.
+    pub mod chat {
+        pub mod hermes_attach {
+            pub fn send_note(
+                _: flowflow::ui::AppState,
+                _: &flowflow::infrastructure::persistence::Database,
+                _: &str,
+            ) {
+            }
+        }
+    }
 }
 #[path = "../src/ui/notes/menu.rs"]
 mod note_menu;
