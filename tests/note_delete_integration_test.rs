@@ -170,7 +170,7 @@ fn detail_host() -> Element {
     let note_id = use_signal(|| fixture.note_id.clone());
     let audio = use_signal(|| None);
     *fixture.editor.borrow_mut() = Some(content);
-    note_persistence_hooks::use_delete_exit(app, note_id, deleted);
+    note_persistence_hooks::use_delete_exit(app, deleted);
     note_persistence_hooks::use_save_on_drop(
         app,
         db,
