@@ -387,13 +387,30 @@ pub fn use_share_deeplink_watcher(app: AppState, db: Signal<Arc<Database>>) {
                         }
                     }
                 }
-                // Before the QR code below, whose prefix it shares.
+                // Before the QR code below, whose prefix they share.
                 if let Some(uri) =
                     crate::infrastructure::sync::deeplink::take_matching(
                         crate::application::hermes_jobs::JOB_LINK_PREFIX,
                     )
                 {
                     crate::ui::hermes_jobs::open_linked(app, &db(), &uri).await;
+                }
+                if let Some(uri) =
+                    crate::infrastructure::sync::deeplink::take_matching(
+                        hermes_chat::CHAT_LINK_PREFIX,
+                    )
+                {
+                    let session = url::Url::parse(&uri).ok().and_then(|u| {
+                        u.query_pairs()
+                            .find(|(k, _)| k == "session")
+                            .map(|(_, v)| v.into_owned())
+                    });
+                    if let Some(session_id) = session {
+                        app.sidebar_open.set(false);
+                        app.view.set(View::HermesChat {
+                            session_id: Some(session_id),
+                        });
+                    }
                 }
                 // A scanned Hermes QR code fills the Hermes card; nothing is
                 // saved until the person taps Test, since any link can say so.

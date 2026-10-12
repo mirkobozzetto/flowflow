@@ -428,6 +428,10 @@ impl HermesClient {
         &self.key
     }
 
+    pub fn events_url(&self, run_id: &str) -> String {
+        format!("{}/v1/runs/{run_id}/events", self.base)
+    }
+
     fn get(&self, path: &str) -> reqwest::RequestBuilder {
         self.http
             .get(format!("{}{path}", self.base))
@@ -795,7 +799,10 @@ impl HermesClient {
         mut on_event: impl FnMut(i64, RunEvent),
     ) -> Result<(), HermesError> {
         use futures::StreamExt;
-        let mut req = self.get(&format!("/v1/runs/{run_id}/events"));
+        let mut req = self
+            .http
+            .get(self.events_url(run_id))
+            .bearer_auth(&self.key);
         if after_seq >= 0 {
             req = req.header("Last-Event-ID", after_seq.to_string());
         }

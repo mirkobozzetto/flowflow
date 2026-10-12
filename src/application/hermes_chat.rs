@@ -13,6 +13,8 @@ pub use crate::infrastructure::hermes::{
 
 /// The link the kit's QR code carries: flowflow://hermes?url=…&key=…
 pub const LINK_PREFIX: &str = "flowflow://hermes";
+/// What a tapped "Hermes finished" alert opens: flowflow://hermes/chat?session=…
+pub const CHAT_LINK_PREFIX: &str = "flowflow://hermes/chat";
 
 const TITLE_CHARS: usize = 50;
 const STEP_DETAIL_CHARS: usize = 80;
@@ -731,6 +733,20 @@ pub async fn send(
         .await?;
     let _ =
         db.set_hermes_pending_run(&session_id, Some((run_id.as_str(), &text)));
+    #[cfg(target_os = "ios")]
+    {
+        let lang = crate::application::i18n::ui_lang(db);
+        let label = serde_json::json!({
+            "session": session_id,
+            "title": hermes_message::title(question, attachments, TITLE_CHARS),
+            "failed": crate::application::i18n::t(&lang, "hermes-run-failed-alert"),
+        });
+        crate::infrastructure::platform::ios::hermes_watch::watch_run(
+            &client.events_url(&run_id),
+            client.key(),
+            &label.to_string(),
+        );
+    }
     let _ = db.touch_hermes_conversation(&session_id);
     Ok((session_id, run_id))
 }
