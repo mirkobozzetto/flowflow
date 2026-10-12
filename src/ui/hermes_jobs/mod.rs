@@ -40,7 +40,9 @@ pub async fn open_linked(mut app: AppState, db: &Arc<Database>, link: &str) {
         }
         _ => None,
     };
-    eprintln!("[hermes] notification opens task {job_id:?}");
+    crate::infrastructure::platform::device_log(&format!(
+        "[hermes] notification opens task {job_id:?}"
+    ));
     let here = app.view.peek().clone();
     if !matches!(here, View::HermesJobs | View::HermesJob { .. }) {
         app.previous_view.set(Some(here));

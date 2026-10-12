@@ -549,10 +549,10 @@ pub fn place(
             };
         b.base = CGRect::new(CGPoint::new(x, y), CGSize::new(w, h));
         if b.button.isHidden() == visible {
-            eprintln!(
+            crate::infrastructure::platform::device_log(&format!(
                 "[glass] {id} {}",
                 if visible { "shown" } else { "hidden" }
-            );
+            ));
         }
         b.button.setHidden(!visible);
         b.badge.setHidden(!dot);

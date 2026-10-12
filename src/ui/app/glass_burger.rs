@@ -47,7 +47,9 @@ pub fn use_glass_burger() {
                     continue;
                 }
                 if let Some(state) = msg.strip_prefix("wake ") {
-                    eprintln!("[glass] page {state}");
+                    crate::infrastructure::platform::device_log(&format!(
+                        "[glass] page {state}"
+                    ));
                     continue;
                 }
                 let mut parts = msg.split(' ');
