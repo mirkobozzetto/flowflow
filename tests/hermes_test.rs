@@ -1031,5 +1031,8 @@ fn a_task_run_opens_on_its_result_not_on_hermes_instructions() {
         HermesTurn::Reply { text, .. } if text.starts_with("Couvert et sec")
     ));
     // Any other conversation keeps its first question.
-    assert_eq!(hermes_chat::session_turns("flowflow_5e0b2c", &messages).len(), 4);
+    assert_eq!(
+        hermes_chat::session_turns("flowflow_5e0b2c", &messages).len(),
+        4
+    );
 }
