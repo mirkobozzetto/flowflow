@@ -190,6 +190,9 @@ pub fn HermesChatView() -> Element {
         });
     });
 
+    use_effect(move || hermes_chat::on_screen(session().as_deref()));
+    use_drop(|| hermes_chat::on_screen(None));
+
     use_effect(move || {
         let _ = turns().len();
         let _ = live().map(|r| (r.text.len(), r.steps.len()));

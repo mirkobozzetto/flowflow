@@ -2,6 +2,7 @@ use std::ffi::{c_char, CString};
 
 extern "C" {
     fn flowflow_hermes_watch_boot();
+    fn flowflow_hermes_watch_viewing(session: *const c_char);
     fn flowflow_hermes_watch_run(
         url: *const c_char,
         key: *const c_char,
@@ -27,4 +28,11 @@ pub fn watch_run(events_url: &str, key: &str, label: &str) {
     unsafe {
         flowflow_hermes_watch_run(url.as_ptr(), key.as_ptr(), label.as_ptr())
     };
+}
+
+/// The Hermes conversation on screen, empty for none: its alert stays quiet.
+pub fn viewing(session: &str) {
+    if let Ok(session) = CString::new(session) {
+        unsafe { flowflow_hermes_watch_viewing(session.as_ptr()) };
+    }
 }

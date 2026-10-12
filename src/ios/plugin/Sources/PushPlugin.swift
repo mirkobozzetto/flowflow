@@ -42,13 +42,18 @@ private func addDelegateCallbacks() {
 }
 
 // iOS drops a notification that lands while the app is open unless the app
-// asks to show it; a Hermes result is worth seeing either way.
+// asks to show it; a Hermes result is worth seeing either way, except on the
+// conversation already showing it.
 private final class Presenter: NSObject, UNUserNotificationCenterDelegate {
     func userNotificationCenter(
         _ center: UNUserNotificationCenter,
         willPresent notification: UNNotification,
         withCompletionHandler completionHandler: @escaping (UNNotificationPresentationOptions) -> Void
     ) {
+        let session = notification.request.content.userInfo["hermes_session"] as? String
+        if let session, !session.isEmpty, session == hermesViewingSession {
+            return completionHandler([])
+        }
         completionHandler([.banner, .list, .sound])
     }
 

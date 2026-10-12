@@ -16,6 +16,7 @@ let package = Package(
                 .linkedFramework("AppIntents"),
                 .linkedFramework("BackgroundTasks"),
                 .linkedFramework("Foundation"),
+                .linkedFramework("Intents"),
                 .linkedFramework("UIKit"),
                 .linkedFramework("UserNotifications"),
             ]

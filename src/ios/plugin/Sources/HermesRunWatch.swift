@@ -1,3 +1,4 @@
+import Intents
 import ObjectiveC
 import UIKit
 import UserNotifications
@@ -10,6 +11,32 @@ import UserNotifications
 private let identifier = (Bundle.main.bundleIdentifier ?? "flowflow") + ".hermes-runs"
 private var finishEvents: (() -> Void)?
 
+/// The Hermes conversation on screen: its own alert is not shown there.
+var hermesViewingSession = ""
+
+private let stamp: DateFormatter = {
+    let f = DateFormatter()
+    f.dateFormat = "HH:mm:ss.SSS"
+    f.timeZone = TimeZone(identifier: "UTC")
+    return f
+}()
+
+// Also into the app's log file (device_log): the console drops off once
+// the phone locks, which is when this runs.
+private func log(_ text: String) {
+    NSLog("[hermes-watch] %@", text)
+    let file = FileManager.default.urls(for: .cachesDirectory, in: .userDomainMask)[0]
+        .appendingPathComponent("flowflow.log")
+    let line = Data("\(stamp.string(from: Date())) [hermes-watch] \(text)\n".utf8)
+    if let handle = try? FileHandle(forWritingTo: file) {
+        handle.seekToEndOfFile()
+        handle.write(line)
+        try? handle.close()
+    } else {
+        try? line.write(to: file)
+    }
+}
+
 private final class Watcher: NSObject, URLSessionDownloadDelegate {
     // The file is gone once this returns: read it here.
     func urlSession(
@@ -20,14 +47,14 @@ private final class Watcher: NSObject, URLSessionDownloadDelegate {
         let stream = (try? String(contentsOf: location, encoding: .utf8)) ?? ""
         let status = (downloadTask.response as? HTTPURLResponse)?.statusCode ?? 0
         let label = downloadTask.taskDescription ?? ""
-        NSLog("[hermes-watch] run stream closed: HTTP %d, %d bytes", status, stream.utf8.count)
+        log("run stream closed: HTTP \(status), \(stream.utf8.count) bytes")
         guard status == 200 else { return }
         DispatchQueue.main.async { announce(stream, label) }
     }
 
     func urlSession(_ session: URLSession, task: URLSessionTask, didCompleteWithError error: Error?) {
         if let error {
-            NSLog("[hermes-watch] run stream lost: %@", error.localizedDescription)
+            log("run stream lost: \(error.localizedDescription)")
         }
     }
 
@@ -59,12 +86,9 @@ private struct Label: Decodable {
 }
 
 // The run's last word: its answer, or why it failed. A run the person
-// stopped needs no alert.
+// stopped needs no alert; one whose conversation is on screen shows none
+// (PushPlugin's presenter).
 private func announce(_ stream: String, _ raw: String) {
-    guard UIApplication.shared.applicationState != .active else {
-        NSLog("[hermes-watch] app open, no alert")
-        return
-    }
     guard let label = try? JSONDecoder().decode(Label.self, from: Data(raw.utf8)) else { return }
     var event = "", output = ""
     for line in stream.split(separator: "\n") where line.hasPrefix("data:") {
@@ -73,24 +97,67 @@ private func announce(_ stream: String, _ raw: String) {
         event = name
         output = json["output"] as? String ?? ""
     }
-    NSLog("[hermes-watch] run ended with %@", event)
+    log("run ended with \(event)")
     let body: String
     switch event {
-    case "run.completed": body = output.replacingOccurrences(of: "\n", with: " ")
+    case "run.completed": body = plain(output)
     case "run.failed", "run.interrupted": body = label.failed
     default: return
     }
     let content = UNMutableNotificationContent()
-    content.title = "Hermes"
+    content.title = label.title
     content.subtitle = label.title
     content.body = body
     content.sound = .default
-    content.threadIdentifier = "hermes"
     content.userInfo = ["hermes_session": label.session]
-    let request = UNNotificationRequest(identifier: label.session, content: content, trigger: nil)
-    UNUserNotificationCenter.current().add(request) { error in
-        NSLog("[hermes-watch] alert %@", error.map { $0.localizedDescription } ?? "shown")
+    // Shown as a message from Hermes, like his task results
+    // (NotificationService.swift): his face and name, the conversation below.
+    let intent = fromHermes(body)
+    let interaction = INInteraction(intent: intent, response: nil)
+    interaction.direction = .incoming
+    interaction.donate { _ in
+        let shown = (try? content.updating(from: intent)) ?? content
+        let request = UNNotificationRequest(identifier: label.session, content: shown, trigger: nil)
+        UNUserNotificationCenter.current().add(request) { error in
+            log("alert \(error.map { $0.localizedDescription } ?? "posted")")
+        }
     }
+}
+
+// One line, without the Markdown marks the chat renders.
+private func plain(_ text: String) -> String {
+    ["**", "__", "`", "#"].reduce(text) { $0.replacingOccurrences(of: $1, with: "") }
+        .split(whereSeparator: \.isNewline)
+        .map { $0.trimmingCharacters(in: .whitespaces) }
+        .filter { !$0.isEmpty }
+        .joined(separator: " ")
+}
+
+private func fromHermes(_ text: String) -> INSendMessageIntent {
+    let face = FileManager.default
+        .containerURL(forSecurityApplicationGroupIdentifier: "group.com.mirkobozzetto.flowflow")
+        .flatMap { try? Data(contentsOf: $0.appendingPathComponent("hermes-face.png")) }
+        .map { INImage(imageData: $0) }
+    let hermes = INPerson(
+        personHandle: INPersonHandle(value: "hermes", type: .unknown),
+        nameComponents: nil,
+        displayName: "Hermes",
+        image: face,
+        contactIdentifier: nil,
+        customIdentifier: "hermes"
+    )
+    let intent = INSendMessageIntent(
+        recipients: nil,
+        outgoingMessageType: .outgoingMessageText,
+        content: text,
+        speakableGroupName: nil,
+        conversationIdentifier: "hermes",
+        serviceName: nil,
+        sender: hermes,
+        attachments: nil
+    )
+    intent.setImage(face, forParameterNamed: \INSendMessageIntent.sender)
+    return intent
 }
 
 // tao's `AppDelegate` lacks the background session callback; it exists only
@@ -102,7 +169,7 @@ public func hermesWatchBoot() {
     ) { _ in
         guard let cls = NSClassFromString("AppDelegate") else { return }
         let handle: @convention(block) (AnyObject, UIApplication, NSString, @escaping () -> Void) -> Void = { _, _, id, done in
-            NSLog("[hermes-watch] woken for %@", id)
+            log("woken for \(id)")
             finishEvents = done
             _ = session
         }
@@ -116,6 +183,13 @@ public func hermesWatchBoot() {
     }
 }
 
+/// The Hermes conversation now on screen; empty when none is.
+@_cdecl("flowflow_hermes_watch_viewing")
+public func hermesWatchViewing(_ session: UnsafePointer<CChar>) {
+    let id = String(cString: session)
+    DispatchQueue.main.async { hermesViewingSession = id }
+}
+
 /// Follows one run until Hermes closes its stream. `label` is JSON:
 /// {"session", "title", "failed"}.
 @_cdecl("flowflow_hermes_watch_run")
@@ -127,5 +201,5 @@ public func hermesWatchRun(_ url: UnsafePointer<CChar>, _ key: UnsafePointer<CCh
     let task = session.downloadTask(with: request)
     task.taskDescription = String(cString: label)
     task.resume()
-    NSLog("[hermes-watch] following %@", target.path)
+    log("following \(target.path)")
 }

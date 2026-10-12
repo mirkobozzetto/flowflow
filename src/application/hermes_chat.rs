@@ -751,6 +751,17 @@ pub async fn send(
     Ok((session_id, run_id))
 }
 
+/// The conversation now on screen, None when the Hermes chat closes: a
+/// finished run's alert is not shown over its own answer.
+pub fn on_screen(session_id: Option<&str>) {
+    #[cfg(target_os = "ios")]
+    crate::infrastructure::platform::ios::hermes_watch::viewing(
+        session_id.unwrap_or_default(),
+    );
+    #[cfg(not(target_os = "ios"))]
+    let _ = session_id;
+}
+
 /// Sends the user's choice for one approval request of a running turn.
 pub async fn answer(
     db: &Database,
