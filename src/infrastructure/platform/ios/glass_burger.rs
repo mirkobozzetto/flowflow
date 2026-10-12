@@ -548,6 +548,12 @@ pub fn place(
                 (x, w)
             };
         b.base = CGRect::new(CGPoint::new(x, y), CGSize::new(w, h));
+        if b.button.isHidden() == visible {
+            eprintln!(
+                "[glass] {id} {}",
+                if visible { "shown" } else { "hidden" }
+            );
+        }
         b.button.setHidden(!visible);
         b.badge.setHidden(!dot);
         b.badge.setFrame(CGRect::new(

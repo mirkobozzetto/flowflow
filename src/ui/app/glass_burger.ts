@@ -305,6 +305,9 @@
     characterData: true,
     attributeFilter: ["class", "disabled", "hidden", "data-native-context", "data-native-checked", "aria-label"],
   });
+  document.addEventListener("visibilitychange", () => {
+    send("wake " + document.visibilityState);
+  });
   window.addEventListener("resize", schedule);
   window.visualViewport?.addEventListener("resize", schedule);
   window.visualViewport?.addEventListener("scroll", schedule);
