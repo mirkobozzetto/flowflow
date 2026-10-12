@@ -113,15 +113,14 @@ pub fn JobAlert(
                 }
                 phase.set(Phase::Done);
                 haptic("soft");
-                // A deleted task leaves the list read again, and its screen
-                // with it (job_view.rs): the answer shows first.
+                // A deleted task leaves the list at once, and its screen
+                // with it (job_view.rs). Closing the alert ends this task:
+                // nothing may wait on it after.
                 if action == JobAction::Delete {
-                    futures_timer::Delay::new(CONFIRM_HOLD).await;
-                    on_close.call(());
+                    super::forget(app, &id);
+                } else {
                     super::reload(app, &database).await;
-                    return;
                 }
-                super::reload(app, &database).await;
                 futures_timer::Delay::new(CONFIRM_HOLD).await;
                 on_close.call(());
             });

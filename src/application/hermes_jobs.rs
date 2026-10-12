@@ -62,7 +62,11 @@ pub async fn act(
         JobAction::Pause => client.job_action(job_id, "pause").await,
         JobAction::Resume => client.job_action(job_id, "resume").await,
         JobAction::RunNow => client.job_action(job_id, "run").await,
-        JobAction::Delete => client.delete_job(job_id).await,
+        // Already gone (deleted twice, or elsewhere) is what was asked.
+        JobAction::Delete => match client.delete_job(job_id).await {
+            Err(HermesError::NotFound) => Ok(()),
+            done => done,
+        },
     }
 }
 

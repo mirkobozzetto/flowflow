@@ -74,3 +74,10 @@ fn replace(mut app: AppState, job: HermesJob) {
         }
     }
 }
+
+/// A task Hermes deleted leaves the list on screen at once.
+fn forget(mut app: AppState, job_id: &str) {
+    if let Some(Ok(list)) = app.hermes_jobs.write().as_mut() {
+        list.retain(|j| j.id != job_id);
+    }
+}

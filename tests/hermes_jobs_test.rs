@@ -571,3 +571,23 @@ async fn a_reply_goes_into_the_run_s_session_and_joins_the_chats() {
         .unwrap();
     assert_eq!(db.list_hermes_conversations().unwrap().len(), 1);
 }
+
+#[tokio::test]
+async fn deleting_a_job_already_gone_is_done() {
+    // What Hermes answered to a second "Supprimer" on 2026-10-12.
+    let base = serve(Script {
+        responses: vec![(
+            "DELETE /api/jobs/ef48a28d440e ",
+            json("404 Not Found", r#"{"error": "Job not found"}"#),
+        )],
+        seen: Arc::new(Mutex::new(Vec::new())),
+    })
+    .await;
+    let dir = tempdir().unwrap();
+    let db = linked_db(&dir, &base);
+    assert_eq!(
+        hermes_jobs::act(&db, "ef48a28d440e", hermes_jobs::JobAction::Delete)
+            .await,
+        Ok(())
+    );
+}
