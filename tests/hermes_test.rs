@@ -1007,3 +1007,29 @@ fn receipts_stay_on_the_reply_once_the_history_is_read_back() {
     assert_eq!(steps.last().unwrap().tool, "approval.once");
     assert_eq!(steps.iter().filter(|s| s.tool == "terminal").count(), 1);
 }
+
+/// A task run's session as Hermes stores it (instructions cut), then a
+/// reply from FlowFlow.
+const RUN_MESSAGES: &str = r#"[
+  {"role": "user", "content": "[IMPORTANT: You are running as a scheduled cron job. DELIVERY: Your final response will be automatically delivered to the user…]"},
+  {"role": "assistant", "content": "Couvert et sec à Bruxelles, entre 10 et 19 °C."},
+  {"role": "user", "content": "Et demain ?"},
+  {"role": "assistant", "content": "Pareil, un peu plus doux."}
+]"#;
+
+#[test]
+fn a_task_run_opens_on_its_result_not_on_hermes_instructions() {
+    let messages: Vec<HermesMessage> =
+        serde_json::from_str(RUN_MESSAGES).unwrap();
+    let run = hermes_chat::session_turns(
+        "cron_e647b0411e8e_20261011_202127",
+        &messages,
+    );
+    assert_eq!(run.len(), 3);
+    assert!(matches!(
+        &run[0],
+        HermesTurn::Reply { text, .. } if text.starts_with("Couvert et sec")
+    ));
+    // Any other conversation keeps its first question.
+    assert_eq!(hermes_chat::session_turns("flowflow_5e0b2c", &messages).len(), 4);
+}
