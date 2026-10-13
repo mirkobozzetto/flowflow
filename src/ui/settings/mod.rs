@@ -1,5 +1,5 @@
 mod account;
-mod ai_card;
+pub(crate) mod ai_card;
 mod ai_claude;
 mod ai_exa;
 mod ai_openai;

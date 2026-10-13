@@ -196,6 +196,9 @@ pub struct AppState {
     pub hermes_models: Signal<Option<ModelOptions>>,
     pub hermes_pick: Signal<Option<(String, String)>>,
     pub hermes_effort: Signal<Option<String>>,
+    // Bumped when the notes chat's model or level is picked: the "+" menu
+    // and the empty chat re-read it.
+    pub chat_model_version: Signal<u32>,
     // What the next Hermes question carries: filled by the "+" menus and by
     // a note's "Send to Hermes", emptied when the question leaves.
     pub hermes_attachments: Signal<Vec<HermesAttachment>>,
@@ -272,6 +275,7 @@ impl AppState {
             hermes_models: Signal::new(None),
             hermes_pick: Signal::new(None),
             hermes_effort: Signal::new(None),
+            chat_model_version: Signal::new(0),
             hermes_attachments: Signal::new(Vec::new()),
             hermes_attach_error: Signal::new(None),
             hermes_skills: Signal::new(None),

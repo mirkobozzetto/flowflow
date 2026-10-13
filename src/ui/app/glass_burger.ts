@@ -21,7 +21,7 @@
   const shown = new Map<string, boolean>();
   const lastMenu = new Map<string, string>();
 
-  const MENU_IDS = ["note-more", "chat-more", "job-more", "hermes-more", "note-plus", "chat-plus", "chats-plus", "hermes-plus", "hermes-model", "chat-pick", "chat-source"];
+  const MENU_IDS = ["note-more", "chat-more", "job-more", "hermes-more", "note-plus", "chat-plus", "chats-plus", "hermes-plus", "hermes-model", "chat-pick", "chat-source", "chat-model"];
 
   // The native menu opened or closed: the composer's "+" turns into a cross.
   w.__ffMenuOpen = (open: boolean) => {

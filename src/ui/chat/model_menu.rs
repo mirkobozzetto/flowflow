@@ -36,7 +36,11 @@ fn level_label(lang: &str, level: &str) -> String {
 
 /// "Réflexion · Moyenne".
 pub(crate) fn level_line(lang: &str, pick: &ChatPick) -> String {
-    format!("{} · {}", t(lang, "hermes-effort"), level_label(lang, pick.level))
+    format!(
+        "{} · {}",
+        t(lang, "hermes-effort"),
+        level_label(lang, pick.level)
+    )
 }
 
 /// The pick the open conversation answers with; re-read after each choice.
@@ -67,7 +71,13 @@ fn other_levels(pick: &ChatPick) -> Vec<&'static str> {
     chat_model::models(pick.source)
         .iter()
         .find(|m| m.id == pick.model)
-        .map(|m| m.levels.iter().copied().filter(|l| *l != pick.level).collect())
+        .map(|m| {
+            m.levels
+                .iter()
+                .copied()
+                .filter(|l| *l != pick.level)
+                .collect()
+        })
         .unwrap_or_default()
 }
 

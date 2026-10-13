@@ -40,6 +40,9 @@ pub fn ChatEmptyState(
                 }
             }
             p { class: "text-stone-900 font-semibold text-base mb-1", "{title}" }
+            if !hermes {
+                super::model_menu::ModelLine {}
+            } else {
             p { class: "text-stone-400 text-sm text-center min-h-5",
                 "{hint}"
                 if let Some(label) = jobs {
@@ -52,6 +55,7 @@ pub fn ChatEmptyState(
                         "{label}"
                     }
                 }
+            }
             }
         }
     }

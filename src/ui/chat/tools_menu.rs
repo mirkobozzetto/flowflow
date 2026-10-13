@@ -27,6 +27,7 @@ enum Pane {
     Agents,
     Connectors,
     Threads,
+    Model,
 }
 
 /// The connectors of the linked account, fetched when the menu mounts.
@@ -174,6 +175,7 @@ fn ToolsMenuBody(note: bool) -> Element {
         expanded.set(true);
         haptic("selection");
     };
+    let pick = super::model_menu::use_pick();
 
     rsx! {
         div {
@@ -181,6 +183,25 @@ fn ToolsMenuBody(note: bool) -> Element {
             "data-away": expanded(),
             "aria-hidden": expanded(),
             "inert": expanded().then_some(""),
+            if !note {
+                button {
+                    class: MENU_ROW,
+                    onclick: move |_| enter(Pane::Model),
+                    span { class: MENU_ICON,
+                        crate::ui::settings::ai_card::BrandMark { brand: super::model_menu::brand(pick.source), size: 20 }
+                    }
+                    span { class: "flex-1 min-w-0",
+                        span { class: "block text-sm font-medium text-stone-800",
+                            {crate::application::hermes_chat::model_label(pick.model)}
+                        }
+                        span { class: "block text-xs text-stone-400",
+                            {super::model_menu::level_line(&lang, &pick)}
+                        }
+                    }
+                    span { class: "text-stone-400", IconCaretRight { size: 16 } }
+                }
+                div { class: SEP }
+            }
             if let Some(nid) = note_id.clone() {
                 button {
                     class: MENU_ROW,
@@ -306,11 +327,14 @@ fn ToolsMenuBody(note: bool) -> Element {
                         Pane::Agents => "chat-tools-section-agents",
                         Pane::Connectors => "chat-tools-section-connectors",
                         Pane::Threads => "thread-add-to",
+                        Pane::Model => "chat-model-title",
                     })}
                 }
             }
             div { class: "tools-list tools-scroll overflow-y-auto pr-1.5 pb-1",
-                if pane() == Pane::Threads {
+                if pane() == Pane::Model {
+                    super::model_menu::WebModelItems {}
+                } else if pane() == Pane::Threads {
                     if let Some(nid) = note_id.clone() {
                         button {
                             class: MENU_ROW,
@@ -435,12 +459,26 @@ pub fn NativeToolsMenu(note: bool) -> Element {
         .map(|k| !k.trim().is_empty())
         .unwrap_or(false);
     let context = note_id.clone().unwrap_or_else(|| "chat".to_string());
+    let pick = super::model_menu::use_pick();
 
     rsx! {
         div {
             hidden: true,
             "data-native-menu": if note { "note-plus" } else { "chat-plus" },
             "data-native-context": "{context}",
+            if !note {
+                div { "data-native-submenu": "", "data-native-inline": "",
+                    div {
+                        "data-native-submenu": "",
+                        "data-native-title": crate::application::hermes_chat::model_label(pick.model),
+                        "data-native-subtitle": super::model_menu::level_line(&lang, &pick),
+                        span { "data-native-icon": "",
+                            crate::ui::settings::ai_card::BrandMark { brand: super::model_menu::brand(pick.source), size: 22 }
+                        }
+                        super::model_menu::NativeModelItems {}
+                    }
+                }
+            }
             if let Some(nid) = note_id.clone() {
                 div { "data-native-submenu": "", "data-native-inline": "",
                     button {
