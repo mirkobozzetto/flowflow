@@ -24,6 +24,8 @@ pub enum Provider {
     OpenAi,
     Anthropic,
     ChatGpt,
+    #[cfg(debug_assertions)]
+    ClaudeSubscription,
 }
 
 impl Provider {
@@ -32,6 +34,19 @@ impl Provider {
             Provider::OpenAi => "openai",
             Provider::Anthropic => "anthropic",
             Provider::ChatGpt => "chatgpt",
+            #[cfg(debug_assertions)]
+            Provider::ClaudeSubscription => "claude_subscription",
+        }
+    }
+
+    /// A subscription answers the chat without an OpenAI key; embeddings
+    /// still need one.
+    pub fn is_subscription(self) -> bool {
+        match self {
+            Provider::ChatGpt => true,
+            #[cfg(debug_assertions)]
+            Provider::ClaudeSubscription => true,
+            Provider::OpenAi | Provider::Anthropic => false,
         }
     }
 }
@@ -50,6 +65,9 @@ impl FromStr for Provider {
             "openai" | "open_ai" | "open-ai" => Ok(Provider::OpenAi),
             "anthropic" | "claude" => Ok(Provider::Anthropic),
             "chatgpt" | "chat_gpt" | "subscription" => Ok(Provider::ChatGpt),
+            // A release build reads it as unknown: back to the OpenAI key.
+            #[cfg(debug_assertions)]
+            "claude_subscription" => Ok(Provider::ClaudeSubscription),
             _ => Err(()),
         }
     }
@@ -130,7 +148,7 @@ impl LlmClient {
             .or_else(|| std::env::var("OPENAI_API_KEY").ok())
             .or_else(|| crate::baked_key!("OPENAI_API_KEY"))
             .filter(|key| !key.is_empty() && key != "your_key_here");
-        if provider != Provider::ChatGpt && openai_key.is_none() {
+        if !provider.is_subscription() && openai_key.is_none() {
             return Err(LlmError::NotConfigured(crate::application::i18n::t(
                 &lang,
                 "llm-error-openai-key",
@@ -250,6 +268,20 @@ impl LlmClient {
                     .await
                     .map_err(|e| LlmError::Completion(e.to_string()))
             }
+            #[cfg(debug_assertions)]
+            Provider::ClaudeSubscription => {
+                let client = self.claude_subscription_client().await?;
+                let agent = client
+                    .agent(ANTHROPIC_CHAT_MODEL)
+                    .preamble(system)
+                    .temperature(0.3)
+                    .max_tokens(ANTHROPIC_MAX_TOKENS)
+                    .build();
+                agent
+                    .prompt(user_message)
+                    .await
+                    .map_err(|e| self.claude_subscription_error(e.to_string()))
+            }
         }
     }
 
@@ -260,6 +292,8 @@ impl LlmClient {
             Provider::OpenAi => openai_model,
             Provider::Anthropic => ANTHROPIC_CHAT_MODEL,
             Provider::ChatGpt => CHATGPT_CHAT_MODEL,
+            #[cfg(debug_assertions)]
+            Provider::ClaudeSubscription => ANTHROPIC_CHAT_MODEL,
         }
     }
 
@@ -285,6 +319,40 @@ impl LlmClient {
             })
             .build()
             .map_err(|e| LlmError::NotConfigured(e.to_string()))
+    }
+
+    #[cfg(debug_assertions)]
+    pub(crate) async fn claude_subscription_client(
+        &self,
+    ) -> Result<claude_code::ClaudeCodeClient, LlmError> {
+        use crate::infrastructure::claude_auth::{self, AccessError};
+        let token = claude_auth::access_token().await.map_err(|e| match e {
+            AccessError::NotConnected => {
+                LlmError::NotConfigured(crate::application::i18n::t(
+                    &self.lang,
+                    "llm-error-claude-auth",
+                ))
+            }
+            AccessError::Failed(error) => LlmError::Completion(error),
+        })?;
+        claude_code::client(&token)
+            .map_err(|e| LlmError::NotConfigured(e.to_string()))
+    }
+
+    /// Anthropic bills a third-party app's call as extra usage when it does
+    /// not fit the subscription: said plainly, never passed off as an answer.
+    #[cfg(debug_assertions)]
+    pub(crate) fn claude_subscription_error(&self, error: String) -> LlmError {
+        eprintln!("[claude] request failed: {error}");
+        if error.contains("429 Too Many Requests")
+            || error.to_ascii_lowercase().contains("extra usage")
+        {
+            return LlmError::NotConfigured(crate::application::i18n::t(
+                &self.lang,
+                "llm-error-claude-extra-usage",
+            ));
+        }
+        LlmError::Completion(error)
     }
 
     /// The single agent primitive: one prompt run over an explicit tool surface.
@@ -342,6 +410,33 @@ impl LlmClient {
         // Cloned before the hook is moved into the run: `schedule_reminder` renders as a
         // card, so it needs the same channel the hook reports status on.
         let tool_events = hook.events();
+        let llm = self.clone();
+        macro_rules! surface {
+            ($base:expr) => {{
+                let base = $base;
+                match (notes_tools.scope(), web_key) {
+                    (Some(scope), web) => {
+                        let b = base
+                            .tool(SearchNotes::new(llm.clone(), scope))
+                            .tool(CreateNote::new())
+                            .tool(SummarizeFolder::new(llm.clone()))
+                            .tool(ScheduleReminder::new(
+                                llm.clone(),
+                                tool_events.clone(),
+                            ));
+                        let b = match web {
+                            Some(key) => b.tool(SearchWeb::new(key)),
+                            None => b,
+                        };
+                        mount!(b, mcp)
+                    }
+                    (None, Some(key)) => {
+                        mount!(base.tool(SearchWeb::new(key)), mcp)
+                    }
+                    (None, None) => mount!(base, mcp),
+                }
+            }};
+        }
         match self.provider {
             Provider::OpenAi => {
                 let client = self.openai.as_ref().ok_or_else(|| {
@@ -350,31 +445,10 @@ impl LlmClient {
                         "llm-error-openai-key",
                     ))
                 })?;
-                let base = client
+                surface!(client
                     .agent(openai_model)
                     .preamble(preamble)
-                    .temperature(temperature);
-                match (notes_tools.scope(), web_key) {
-                    (Some(scope), web) => {
-                        let b = base
-                            .tool(SearchNotes::new(self.clone(), scope))
-                            .tool(CreateNote::new())
-                            .tool(SummarizeFolder::new(self.clone()))
-                            .tool(ScheduleReminder::new(
-                                self.clone(),
-                                tool_events.clone(),
-                            ));
-                        let b = match web {
-                            Some(key) => b.tool(SearchWeb::new(key)),
-                            None => b,
-                        };
-                        mount!(b, mcp)
-                    }
-                    (None, Some(key)) => {
-                        mount!(base.tool(SearchWeb::new(key)), mcp)
-                    }
-                    (None, None) => mount!(base, mcp),
-                }
+                    .temperature(temperature))
             }
             Provider::Anthropic => {
                 let client = self.anthropic.as_ref().ok_or_else(|| {
@@ -382,63 +456,36 @@ impl LlmClient {
                         "Anthropic client not initialized".into(),
                     )
                 })?;
-                let base = client
+                surface!(client
                     .agent(ANTHROPIC_CHAT_MODEL)
                     .preamble(preamble)
                     .temperature(temperature)
-                    .max_tokens(ANTHROPIC_MAX_TOKENS);
-                match (notes_tools.scope(), web_key) {
-                    (Some(scope), web) => {
-                        let b = base
-                            .tool(SearchNotes::new(self.clone(), scope))
-                            .tool(CreateNote::new())
-                            .tool(SummarizeFolder::new(self.clone()))
-                            .tool(ScheduleReminder::new(
-                                self.clone(),
-                                tool_events.clone(),
-                            ));
-                        let b = match web {
-                            Some(key) => b.tool(SearchWeb::new(key)),
-                            None => b,
-                        };
-                        mount!(b, mcp)
-                    }
-                    (None, Some(key)) => {
-                        mount!(base.tool(SearchWeb::new(key)), mcp)
-                    }
-                    (None, None) => mount!(base, mcp),
-                }
+                    .max_tokens(ANTHROPIC_MAX_TOKENS))
             }
             Provider::ChatGpt => {
                 let client = self.chatgpt_client().await?;
-                let base = client
+                surface!(client
                     .agent(CHATGPT_CHAT_MODEL)
                     .preamble(preamble)
                     .temperature(temperature)
                     .additional_params(serde_json::json!({
                         "reasoning": { "effort": CHATGPT_REASONING_EFFORT }
-                    }));
-                match (notes_tools.scope(), web_key) {
-                    (Some(scope), web) => {
-                        let b = base
-                            .tool(SearchNotes::new(self.clone(), scope))
-                            .tool(CreateNote::new())
-                            .tool(SummarizeFolder::new(self.clone()))
-                            .tool(ScheduleReminder::new(
-                                self.clone(),
-                                tool_events.clone(),
-                            ));
-                        let b = match web {
-                            Some(key) => b.tool(SearchWeb::new(key)),
-                            None => b,
-                        };
-                        mount!(b, mcp)
+                    })))
+            }
+            #[cfg(debug_assertions)]
+            Provider::ClaudeSubscription => {
+                let client = self.claude_subscription_client().await?;
+                let reply: Result<String, LlmError> = surface!(client
+                    .agent(ANTHROPIC_CHAT_MODEL)
+                    .preamble(preamble)
+                    .temperature(temperature)
+                    .max_tokens(ANTHROPIC_MAX_TOKENS));
+                reply.map_err(|e| match e {
+                    LlmError::Completion(error) => {
+                        self.claude_subscription_error(error)
                     }
-                    (None, Some(key)) => {
-                        mount!(base.tool(SearchWeb::new(key)), mcp)
-                    }
-                    (None, None) => mount!(base, mcp),
-                }
+                    other => other,
+                })
             }
         }
     }

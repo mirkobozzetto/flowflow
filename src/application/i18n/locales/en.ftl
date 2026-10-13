@@ -230,6 +230,8 @@ stt-error-file-missing = Audio file not found
 stt-background-progress = Transcribing: { $percent }%
 llm-error-openai-key = OpenAI API key not configured
 llm-error-chatgpt-auth = Connect ChatGPT in Settings > Intelligence
+llm-error-claude-auth = Connect Claude in Settings > Intelligence
+llm-error-claude-extra-usage = Claude refused this message: your subscription would bill it as extra usage. Try again later, or answer the chat with another source in Settings > Intelligence.
 
 sync-pairing-title = Pairing
 sync-show-code = Show a pairing code
