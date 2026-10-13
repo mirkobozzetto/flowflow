@@ -74,6 +74,13 @@ pub fn Composer(
     /// Hermes only: what goes with the question, as chips above the field.
     #[props(default)]
     attachments: Option<Signal<Vec<Attachment>>>,
+    /// Hermes only, while a run goes: the orange disc stops it instead of
+    /// dictating, and what is sent goes to the run.
+    #[props(default)]
+    on_stop: Option<EventHandler<()>>,
+    /// The stop is on its way: the disc waits for Hermes.
+    #[props(default)]
+    stopping: bool,
 ) -> Element {
     let mut app: AppState = use_context();
     let recorder: Signal<Arc<Mutex<AudioRecorder>>> = use_context();
@@ -222,7 +229,9 @@ pub fn Composer(
 
     let placeholder = t(
         &lang,
-        if hermes {
+        if on_stop.is_some() {
+            "hermes-input-steer"
+        } else if hermes {
             "hermes-input-placeholder"
         } else if chat {
             "chat-input-placeholder"
@@ -334,6 +343,24 @@ pub fn Composer(
                                 "data-ball": balling(),
                                 "data-sent": sent(),
                                 "data-disabled": disabled,
+                                if let Some(stop) = on_stop {
+                                    button {
+                                        class: "composer-act composer-act-mic pressable",
+                                        "aria-label": t(&lang, "hermes-stop"),
+                                        disabled: stopping,
+                                        onpointerdown: move |_| haptic_prepare("medium"),
+                                        onclick: move |_| {
+                                            haptic("medium");
+                                            stop.call(());
+                                        },
+                                        // The recording bar's own square.
+                                        if stopping {
+                                            span { class: "block w-[18px] h-[18px] rounded-full border-2 border-white/35 border-t-white animate-spin" }
+                                        } else {
+                                            span { class: "block w-[14px] h-[14px] rounded-[3px] bg-white" }
+                                        }
+                                    }
+                                } else {
                                 button {
                                     class: "composer-act composer-act-mic pressable",
                                     "aria-label": t(&lang, "recording-dictate"),
@@ -351,6 +378,7 @@ pub fn Composer(
                                         start_recording(recorder, app);
                                     },
                                     IconMic { size: 22 }
+                                }
                                 }
                                 button {
                                     class: "composer-act composer-act-send pressable",

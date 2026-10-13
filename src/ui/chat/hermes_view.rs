@@ -1,5 +1,6 @@
 use crate::application::hermes_chat::{
-    self, ApprovalStatus, HermesError, HermesTurn, LiveReply, PendingApproval,
+    self, ApprovalStatus, Capabilities, HermesError, HermesTurn, LiveReply,
+    PendingApproval,
 };
 use crate::application::hermes_message::{self, Asked, Attachment};
 use crate::application::i18n::{t, t_args};
@@ -27,6 +28,7 @@ pub(crate) fn problem_text(lang: &str, e: &HermesError) -> String {
         HermesError::KeyRefused => t(lang, "hermes-key-refused"),
         HermesError::NotFound => t(lang, "hermes-unreachable"),
         HermesError::ApprovalGone => t(lang, "hermes-approval-expired"),
+        HermesError::NotRunning => t(lang, "hermes-run-ended"),
         HermesError::Server(msg) => crate::application::i18n::t_args(
             lang,
             "hermes-failed",
@@ -84,11 +86,18 @@ pub fn HermesChatView() -> Element {
     let mut run: Signal<Option<String>> = use_signal(|| None);
     let mut closed: Signal<Option<String>> = use_signal(|| None);
     let mut answering: Signal<Option<Answering>> = use_signal(|| None);
+    // The run controls this Hermes offers (none until it says), and a stop
+    // on its way.
+    let mut caps = use_signal(Capabilities::default);
+    let mut stopping = use_signal(|| false);
     // The skills and the scheduled tasks, read once per opening of the
     // Hermes chat: the "+" and "…" menus, "/", the suggested skills and the
     // line under Hermes' face all draw on them.
     use_hook(move || {
         app.hermes_skills.set(None);
+        spawn(async move {
+            caps.set(hermes_chat::capabilities(&db()).await);
+        });
         spawn(async move {
             app.hermes_skills
                 .set(Some(hermes_chat::skills(&db()).await));
@@ -97,7 +106,7 @@ pub fn HermesChatView() -> Element {
             crate::ui::hermes_jobs::reload(app, &db()).await;
         });
     });
-    let input = use_signal(String::new);
+    let mut input = use_signal(String::new);
     let pending_audio: Signal<Option<(String, f64)>> = use_signal(|| None);
 
     // Follows a run to its end, then trades the live reply for the stored
@@ -105,6 +114,7 @@ pub fn HermesChatView() -> Element {
     let mut track = move |sid: String, run_id: String| {
         live.set(Some(LiveReply::default()));
         run.set(Some(run_id.clone()));
+        stopping.set(false);
         spawn(async move {
             let database = db();
             let followed =
@@ -114,6 +124,7 @@ pub fn HermesChatView() -> Element {
                     }
                 })
                 .await;
+            stopping.set(false);
             app.invalidate_data();
             if let Err(e) = followed {
                 problem.set(Some(e));
@@ -184,11 +195,21 @@ pub fn HermesChatView() -> Element {
                 });
                 if last.as_deref() != Some(asked.question.as_str()) {
                     turns.write().push(HermesTurn::User(asked));
+                } else if matches!(
+                    turns.peek().last(),
+                    Some(HermesTurn::Reply { .. })
+                ) {
+                    // What Hermes stored of the running turn: the live reply,
+                    // replayed from the start, takes its place.
+                    turns.write().pop();
                 }
                 track(sid, run_id);
             }
         });
     });
+
+    use_effect(move || hermes_chat::on_screen(session().as_deref()));
+    use_drop(|| hermes_chat::on_screen(None));
 
     use_effect(move || {
         let _ = turns().len();
@@ -370,11 +391,43 @@ pub fn HermesChatView() -> Element {
         Composer {
             role: ComposerRole::AskHermes,
             input: input,
-            disabled: busy,
+            // Without guidance Hermes cannot be written to mid-run.
+            disabled: busy && !caps().steer,
+            on_stop: (busy && caps().stop).then(|| EventHandler::new(move |_| {
+                let Some(run_id) = run.peek().clone() else {
+                    return;
+                };
+                stopping.set(true);
+                spawn(async move {
+                    if hermes_chat::stop(&db(), &run_id).await.is_err() {
+                        stopping.set(false);
+                    }
+                });
+            })),
+            stopping: stopping(),
             pending_audio: pending_audio,
             attachments: app.hermes_attachments,
             on_commit: move |q: String| {
+                // Mid-run, the words go to the running task; refused (it just
+                // ended) or lost, they come back to the field.
                 if live.peek().as_ref().is_some_and(|r| !r.done) {
+                    let Some(run_id) = run.peek().clone() else {
+                        return;
+                    };
+                    if q.trim().is_empty() {
+                        return;
+                    }
+                    spawn(async move {
+                        match hermes_chat::steer(&db(), &run_id, &q).await {
+                            Ok(()) => {
+                                haptic("soft");
+                                if let Some(reply) = live.write().as_mut() {
+                                    reply.steered(&q);
+                                }
+                            }
+                            Err(_) => input.set(q),
+                        }
+                    });
                     return;
                 }
                 let sent: Vec<Attachment> = app.hermes_attachments.take();

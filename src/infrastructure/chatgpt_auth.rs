@@ -1,3 +1,4 @@
+use crate::infrastructure::token_store::TokenStore;
 use base64::prelude::BASE64_URL_SAFE_NO_PAD;
 use base64::Engine;
 use serde::{Deserialize, Deserializer, Serialize};
@@ -13,6 +14,12 @@ const DEFAULT_POLL_INTERVAL_SECS: u64 = 5;
 const DEVICE_LOGIN_TIMEOUT: Duration = Duration::from_secs(15 * 60);
 const TOKEN_EXPIRY_SKEW_SECS: i64 = 60;
 const NOT_CONNECTED: &str = "ChatGPT is not connected";
+const STORE: TokenStore = TokenStore {
+    service: "com.flowflow.chatgpt",
+    account: "oauth",
+    path_env: "FLOWFLOW_CHATGPT_AUTH_PATH",
+    desktop_file: "chatgpt_auth.json",
+};
 
 #[derive(Clone, Debug)]
 pub struct DeviceLogin {
@@ -151,11 +158,11 @@ pub async fn poll_device_login(login: &DeviceLogin) -> Result<(), String> {
         .await
         .map_err(|error| error.to_string())?;
 
-    token_store::save(&build_token_record(tokens, None))
+    STORE.save(&build_token_record(tokens, None))
 }
 
 pub async fn access_context() -> Result<(String, Option<String>), String> {
-    let mut record = token_store::load()?.ok_or_else(not_connected)?;
+    let mut record = STORE.load::<TokenRecord>()?.ok_or_else(not_connected)?;
 
     if !token_expired(record.expires_at) {
         let account_id = record
@@ -165,7 +172,7 @@ pub async fn access_context() -> Result<(String, Option<String>), String> {
             .or_else(|| extract_account_id(Some(&record.access_token)));
         if account_id != record.account_id {
             record.account_id = account_id.clone();
-            token_store::save(&record)?;
+            STORE.save(&record)?;
         }
         return Ok((record.access_token, account_id));
     }
@@ -176,11 +183,11 @@ pub async fn access_context() -> Result<(String, Option<String>), String> {
         Ok(refreshed) => {
             let result =
                 (refreshed.access_token.clone(), refreshed.account_id.clone());
-            token_store::save(&refreshed)?;
+            STORE.save(&refreshed)?;
             Ok(result)
         }
         Err(RefreshError::Reauthenticate) => {
-            token_store::delete();
+            STORE.delete();
             Err(not_connected())
         }
         Err(RefreshError::Transport(error)) => Err(error),
@@ -188,13 +195,17 @@ pub async fn access_context() -> Result<(String, Option<String>), String> {
 }
 
 pub fn is_connected() -> bool {
-    token_store::load().ok().flatten().is_some_and(|record| {
-        !record.access_token.is_empty() || record.refresh_token.is_some()
-    })
+    STORE
+        .load::<TokenRecord>()
+        .ok()
+        .flatten()
+        .is_some_and(|record| {
+            !record.access_token.is_empty() || record.refresh_token.is_some()
+        })
 }
 
 pub fn disconnect() {
-    token_store::delete();
+    STORE.delete();
 }
 
 pub fn decode_jwt_claims(token: &str) -> serde_json::Value {
@@ -385,119 +396,5 @@ where
             .parse()
             .map(Some)
             .map_err(serde::de::Error::custom),
-    }
-}
-
-mod token_store {
-    use super::TokenRecord;
-    use std::io::ErrorKind;
-    use std::path::PathBuf;
-
-    const SERVICE: &str = "com.flowflow.chatgpt";
-    const ACCOUNT: &str = "oauth";
-
-    pub fn load() -> Result<Option<TokenRecord>, String> {
-        match auth_path() {
-            Some(path) => load_file(&path),
-            None => platform_load(),
-        }
-    }
-
-    pub fn save(record: &TokenRecord) -> Result<(), String> {
-        match auth_path() {
-            Some(path) => save_file(&path, record),
-            None => platform_save(record),
-        }
-    }
-
-    pub fn delete() {
-        if let Some(path) = auth_path() {
-            let _ = std::fs::remove_file(path);
-        } else {
-            platform_delete();
-        }
-    }
-
-    fn auth_path() -> Option<PathBuf> {
-        std::env::var_os("FLOWFLOW_CHATGPT_AUTH_PATH")
-            .filter(|path| !path.is_empty())
-            .map(PathBuf::from)
-    }
-
-    fn load_file(
-        path: &std::path::Path,
-    ) -> Result<Option<TokenRecord>, String> {
-        match std::fs::read(path) {
-            Ok(bytes) => serde_json::from_slice(&bytes)
-                .map(Some)
-                .map_err(|error| error.to_string()),
-            Err(error) if error.kind() == ErrorKind::NotFound => Ok(None),
-            Err(error) => Err(error.to_string()),
-        }
-    }
-
-    fn save_file(
-        path: &std::path::Path,
-        record: &TokenRecord,
-    ) -> Result<(), String> {
-        if let Some(parent) = path.parent() {
-            std::fs::create_dir_all(parent)
-                .map_err(|error| error.to_string())?;
-        }
-        let bytes =
-            serde_json::to_vec(record).map_err(|error| error.to_string())?;
-        std::fs::write(path, bytes).map_err(|error| error.to_string())
-    }
-
-    #[cfg(any(target_os = "macos", target_os = "ios"))]
-    fn platform_load() -> Result<Option<TokenRecord>, String> {
-        const ERR_SEC_ITEM_NOT_FOUND: i32 = -25300;
-        match security_framework::passwords::get_generic_password(
-            SERVICE, ACCOUNT,
-        ) {
-            Ok(bytes) => serde_json::from_slice(&bytes)
-                .map(Some)
-                .map_err(|error| error.to_string()),
-            Err(error) if error.code() == ERR_SEC_ITEM_NOT_FOUND => Ok(None),
-            Err(error) => Err(error.to_string()),
-        }
-    }
-
-    #[cfg(any(target_os = "macos", target_os = "ios"))]
-    fn platform_save(record: &TokenRecord) -> Result<(), String> {
-        let bytes =
-            serde_json::to_vec(record).map_err(|error| error.to_string())?;
-        security_framework::passwords::set_generic_password(
-            SERVICE, ACCOUNT, &bytes,
-        )
-        .map_err(|error| error.to_string())
-    }
-
-    #[cfg(any(target_os = "macos", target_os = "ios"))]
-    fn platform_delete() {
-        let _ = security_framework::passwords::delete_generic_password(
-            SERVICE, ACCOUNT,
-        );
-    }
-
-    #[cfg(not(any(target_os = "macos", target_os = "ios")))]
-    fn platform_load() -> Result<Option<TokenRecord>, String> {
-        load_file(&desktop_path())
-    }
-
-    #[cfg(not(any(target_os = "macos", target_os = "ios")))]
-    fn platform_save(record: &TokenRecord) -> Result<(), String> {
-        save_file(&desktop_path(), record)
-    }
-
-    #[cfg(not(any(target_os = "macos", target_os = "ios")))]
-    fn platform_delete() {
-        let _ = std::fs::remove_file(desktop_path());
-    }
-
-    #[cfg(not(any(target_os = "macos", target_os = "ios")))]
-    fn desktop_path() -> PathBuf {
-        crate::infrastructure::persistence::desktop_data_dir()
-            .join("chatgpt_auth.json")
     }
 }

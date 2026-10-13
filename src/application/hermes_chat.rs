@@ -7,12 +7,14 @@ use crate::infrastructure::hermes::{HermesClient, HermesMessage, RunState};
 use crate::infrastructure::persistence::Database;
 
 pub use crate::infrastructure::hermes::{
-    ApprovalRequest, HermesError, ModelOptions, ModelProvider, RunEvent, Skill,
-    KEY_SETTING, URL_SETTING,
+    ApprovalRequest, Capabilities, HermesError, ModelOptions, ModelProvider,
+    RunEvent, Skill, KEY_SETTING, URL_SETTING,
 };
 
 /// The link the kit's QR code carries: flowflow://hermes?url=…&key=…
 pub const LINK_PREFIX: &str = "flowflow://hermes";
+/// What a tapped "Hermes finished" alert opens: flowflow://hermes/chat?session=…
+pub const CHAT_LINK_PREFIX: &str = "flowflow://hermes/chat";
 
 const TITLE_CHARS: usize = 50;
 const STEP_DETAIL_CHARS: usize = 80;
@@ -60,6 +62,41 @@ pub struct PendingApproval {
 /// An answered request stays in the steps as a receipt, under this tool name
 /// followed by the choice ("approval.once").
 pub const RECEIPT_TOOL: &str = "approval.";
+/// What Hermes said it was about to do, between two tools.
+pub const INTERIM_TOOL: &str = "hermes.say";
+/// What the person told the running task.
+pub const STEER_TOOL: &str = "hermes.steer";
+/// The person stopped the run: its last step, kept like a receipt.
+pub const STOPPED_TOOL: &str = "hermes.stopped";
+
+// Hermes' own frame around a guidance message in the history
+// (agent/prompt_builder.py, format_steer_marker).
+const STEER_OPEN: &str = "[OUT-OF-BAND USER MESSAGE";
+const STEER_CLOSE: &str = "[/OUT-OF-BAND USER MESSAGE]";
+// What Hermes stores as the answer of a stopped turn; it treats it as noise
+// itself (gateway/run_turn.py).
+const STOPPED_ANSWER: &str = "Operation interrupted";
+
+fn note(tool: &str, detail: &str) -> HermesStep {
+    HermesStep {
+        tool: tool.into(),
+        detail: detail.trim().into(),
+        running: false,
+        failed: false,
+    }
+}
+
+/// A step that is not a tool call: a line from Hermes or from the person.
+pub fn is_note(step: &HermesStep) -> bool {
+    step.tool == INTERIM_TOOL || step.tool == STEER_TOOL
+}
+
+/// The guidance a person sent a running task, out of its frame.
+fn steer_text(message: &str) -> Option<String> {
+    let rest = message.trim().strip_prefix(STEER_OPEN)?;
+    let (_, body) = rest.split_once(']')?;
+    Some(body.split(STEER_CLOSE).next()?.trim().to_string())
+}
 
 // A command that did not run ("deny", "expired") reads as a failed step.
 fn receipt(outcome: &str, command: &str) -> HermesStep {
@@ -114,6 +151,18 @@ impl LiveReply {
                 self.done = true;
                 self.expire(|_| true);
             }
+            RunEvent::Interim(line) => {
+                self.steps.push(note(INTERIM_TOOL, &line))
+            }
+            RunEvent::Stopped => {
+                for step in self.steps.iter_mut().filter(|s| s.running) {
+                    step.running = false;
+                    step.failed = true;
+                }
+                self.steps.push(note(STOPPED_TOOL, ""));
+                self.done = true;
+                self.expire(|_| true);
+            }
             RunEvent::ApprovalRequested(request) => {
                 let known = self
                     .approvals
@@ -155,6 +204,11 @@ impl LiveReply {
                 a.status = ApprovalStatus::Expired;
             }
         }
+    }
+
+    /// Hermes took the person's guidance for the running task.
+    pub fn steered(&mut self, text: &str) {
+        self.steps.push(note(STEER_TOOL, text));
     }
 
     /// The user saw an expired request: it leaves the screen for a receipt.
@@ -239,12 +293,12 @@ pub fn tool_key(tool: &str) -> Option<&'static str> {
 }
 
 /// Back-to-back calls of one tool fold into one step and a count; the
-/// first call's detail stands for the group.
+/// first call's detail stands for the group. Lines never fold.
 pub fn grouped(steps: &[HermesStep]) -> Vec<(HermesStep, usize)> {
     let mut out: Vec<(HermesStep, usize)> = Vec::new();
     for step in steps {
         match out.last_mut() {
-            Some((last, n)) if last.tool == step.tool => {
+            Some((last, n)) if last.tool == step.tool && !is_note(step) => {
                 *n += 1;
                 last.running |= step.running;
                 last.failed |= step.failed;
@@ -285,13 +339,18 @@ fn step_detail(arguments: &serde_json::Value) -> String {
 }
 
 /// A Hermes session's messages as chat turns: one reply per question, the
-/// tools used on the way folded into its steps.
+/// tools used on the way folded into its steps with what Hermes said before
+/// each and the guidance the person sent meanwhile.
 pub fn turns(messages: &[HermesMessage]) -> Vec<HermesTurn> {
     let mut out = Vec::new();
     let mut steps: Vec<HermesStep> = Vec::new();
     for m in messages {
         match m.role.as_str() {
             "user" => {
+                if let Some(text) = steer_text(&m.text()) {
+                    steps.push(note(STEER_TOOL, &text));
+                    continue;
+                }
                 if !steps.is_empty() {
                     out.push(HermesTurn::Reply {
                         text: String::new(),
@@ -304,13 +363,23 @@ pub fn turns(messages: &[HermesMessage]) -> Vec<HermesTurn> {
                 let calls = m.tool_calls.as_deref().unwrap_or_default();
                 if calls.is_empty() {
                     let text = m.text();
-                    if !text.trim().is_empty() {
+                    if text.trim().starts_with(STOPPED_ANSWER) {
+                        steps.push(note(STOPPED_TOOL, ""));
+                        out.push(HermesTurn::Reply {
+                            text: String::new(),
+                            steps: std::mem::take(&mut steps),
+                        });
+                    } else if !text.trim().is_empty() {
                         out.push(HermesTurn::Reply {
                             text,
                             steps: std::mem::take(&mut steps),
                         });
                     }
                 } else {
+                    let said = m.text();
+                    if !said.trim().is_empty() {
+                        steps.push(note(INTERIM_TOOL, &said));
+                    }
                     steps.extend(calls.iter().map(|c| HermesStep {
                         tool: c.function.name.clone(),
                         detail: step_detail(&c.function.arguments),
@@ -331,17 +400,25 @@ pub fn turns(messages: &[HermesMessage]) -> Vec<HermesTurn> {
     out
 }
 
-/// Hermes' history does not record the user's answers: the live reply's
-/// receipts move onto the reply read back in its place.
+/// Hermes' history does not record the user's answers, nor a stop that came
+/// before any answer: the live reply's receipts move onto the reply read
+/// back in its place.
 // ponytail: kept in memory only; reopening the conversation drops them.
 pub fn keep_receipts(history: &mut [HermesTurn], live: &LiveReply) {
-    let receipts = live
-        .steps
-        .iter()
-        .filter(|s| s.tool.starts_with(RECEIPT_TOOL))
-        .cloned();
     if let Some(HermesTurn::Reply { steps, .. }) = history.last_mut() {
-        steps.extend(receipts);
+        let stopped = steps.last().is_some_and(|s| s.tool == STOPPED_TOOL);
+        let receipts = live.steps.iter().filter(|s| {
+            s.tool.starts_with(RECEIPT_TOOL)
+                || (s.tool == STOPPED_TOOL && !stopped)
+        });
+        let receipts: Vec<HermesStep> = receipts.cloned().collect();
+        // The stop stays last, after the answers given before it.
+        let at = if stopped {
+            steps.len() - 1
+        } else {
+            steps.len()
+        };
+        steps.splice(at..at, receipts);
     }
 }
 
@@ -731,8 +808,64 @@ pub async fn send(
         .await?;
     let _ =
         db.set_hermes_pending_run(&session_id, Some((run_id.as_str(), &text)));
+    #[cfg(target_os = "ios")]
+    {
+        let lang = crate::application::i18n::ui_lang(db);
+        // The conversation's name, as the Chats list shows it.
+        let title = db
+            .list_hermes_conversations()
+            .ok()
+            .and_then(|all| all.into_iter().find(|c| c.id == session_id))
+            .map(|c| c.title)
+            .unwrap_or_else(|| {
+                hermes_message::title(question, attachments, TITLE_CHARS)
+            });
+        let label = serde_json::json!({
+            "session": session_id,
+            "title": title,
+            "failed": crate::application::i18n::t(&lang, "hermes-run-failed-alert"),
+        });
+        crate::infrastructure::platform::ios::hermes_watch::watch_run(
+            &client.events_url(&run_id),
+            client.key(),
+            &label.to_string(),
+        );
+    }
     let _ = db.touch_hermes_conversation(&session_id);
     Ok((session_id, run_id))
+}
+
+/// The conversation now on screen, None when the Hermes chat closes: a
+/// finished run's alert is not shown over its own answer.
+pub fn on_screen(session_id: Option<&str>) {
+    #[cfg(target_os = "ios")]
+    crate::infrastructure::platform::ios::hermes_watch::viewing(
+        session_id.unwrap_or_default(),
+    );
+    #[cfg(not(target_os = "ios"))]
+    let _ = session_id;
+}
+
+/// Interrupts the running turn.
+pub async fn stop(db: &Database, run_id: &str) -> Result<(), HermesError> {
+    HermesClient::from_db(db)?.stop_run(run_id).await
+}
+
+/// Guidance for the running turn; `NotRunning` once it has ended.
+pub async fn steer(
+    db: &Database,
+    run_id: &str,
+    text: &str,
+) -> Result<(), HermesError> {
+    HermesClient::from_db(db)?.steer_run(run_id, text).await
+}
+
+/// The run controls the configured Hermes offers; none when it cannot say.
+pub async fn capabilities(db: &Database) -> Capabilities {
+    match HermesClient::from_db(db) {
+        Ok(client) => client.capabilities().await.unwrap_or_default(),
+        Err(_) => Capabilities::default(),
+    }
 }
 
 /// Sends the user's choice for one approval request of a running turn.
@@ -765,7 +898,9 @@ pub async fn follow(
                 last = last.max(seq);
                 ended |= matches!(
                     event,
-                    RunEvent::Completed(_) | RunEvent::Failed(_)
+                    RunEvent::Completed(_)
+                        | RunEvent::Failed(_)
+                        | RunEvent::Stopped
                 );
                 on_event(event);
             })
@@ -786,6 +921,10 @@ pub async fn follow(
             }
             Ok(RunState::Failed(error)) => {
                 on_event(RunEvent::Failed(error));
+                break;
+            }
+            Ok(RunState::Stopped) => {
+                on_event(RunEvent::Stopped);
                 break;
             }
             // The server no longer knows the run (restarted): the session

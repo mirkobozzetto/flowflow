@@ -42,25 +42,34 @@ private func addDelegateCallbacks() {
 }
 
 // iOS drops a notification that lands while the app is open unless the app
-// asks to show it; a Hermes result is worth seeing either way.
+// asks to show it; a Hermes result is worth seeing either way, except on the
+// conversation already showing it.
 private final class Presenter: NSObject, UNUserNotificationCenterDelegate {
     func userNotificationCenter(
         _ center: UNUserNotificationCenter,
         willPresent notification: UNNotification,
         withCompletionHandler completionHandler: @escaping (UNNotificationPresentationOptions) -> Void
     ) {
+        let session = notification.request.content.userInfo["hermes_session"] as? String
+        if let session, !session.isEmpty, session == hermesViewingSession {
+            return completionHandler([])
+        }
         completionHandler([.banner, .list, .sound])
     }
 
-    // The notification service extension names the task in `job`; without
-    // it the tap opens the tasks list.
+    // The notification service extension names the task in `job`, a
+    // finished chat run its conversation in `hermes_session`; without
+    // either the tap opens the tasks list.
     func userNotificationCenter(
         _ center: UNUserNotificationCenter,
         didReceive response: UNNotificationResponse,
         withCompletionHandler completionHandler: @escaping () -> Void
     ) {
         var link = "flowflow://hermes/jobs"
-        if let job = response.notification.request.content.userInfo["job"] as? String,
+        if let session = response.notification.request.content.userInfo["hermes_session"] as? String,
+           let id = session.addingPercentEncoding(withAllowedCharacters: .alphanumerics) {
+            link = "flowflow://hermes/chat?session=\(id)"
+        } else if let job = response.notification.request.content.userInfo["job"] as? String,
            let name = job.addingPercentEncoding(withAllowedCharacters: .alphanumerics) {
             link += "?name=\(name)"
         }

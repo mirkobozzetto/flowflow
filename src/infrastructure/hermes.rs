@@ -23,18 +23,33 @@ pub enum HermesError {
     Server(String),
     /// The approval was already answered, or Hermes stopped waiting for it.
     ApprovalGone,
+    /// The run no longer takes guidance: it ended or is stopping.
+    NotRunning,
 }
 
 /// One event of a run, as the chat needs it.
 #[derive(Debug, Clone, PartialEq)]
 pub enum RunEvent {
     Delta(String),
-    ToolStarted { tool: String, preview: String },
-    ToolDone { tool: String, failed: bool },
+    /// What Hermes says it is about to do, between two tools.
+    Interim(String),
+    ToolStarted {
+        tool: String,
+        preview: String,
+    },
+    ToolDone {
+        tool: String,
+        failed: bool,
+    },
     Completed(String),
     Failed(String),
+    /// The person stopped the run.
+    Stopped,
     ApprovalRequested(ApprovalRequest),
-    ApprovalResolved { request_id: String, choice: String },
+    ApprovalResolved {
+        request_id: String,
+        choice: String,
+    },
 }
 
 /// A command Hermes will not run without the user's go; the server redacts
@@ -58,6 +73,27 @@ pub enum RunState {
     WaitingForApproval(ApprovalRequest),
     Completed(String),
     Failed(String),
+    Stopped,
+}
+
+/// The run controls this Hermes offers; an older one offers none.
+#[derive(Debug, Clone, Copy, PartialEq, Default)]
+pub struct Capabilities {
+    pub stop: bool,
+    pub steer: bool,
+}
+
+/// `/v1/capabilities`; a feature it does not list is off.
+pub fn parse_capabilities(v: &serde_json::Value) -> Capabilities {
+    let on = |k: &str| {
+        v.pointer(&format!("/features/{k}"))
+            .and_then(|f| f.as_bool())
+            .unwrap_or(false)
+    };
+    Capabilities {
+        stop: on("run_stop"),
+        steer: on("run_steer"),
+    }
 }
 
 #[derive(Debug, Clone, Deserialize)]
@@ -125,7 +161,7 @@ pub fn drain_sse_data(buf: &mut String) -> Vec<String> {
 }
 
 /// A run event payload to its sequence number and meaning; events the chat
-/// does not show (reasoning, interim commentary) are None.
+/// does not show (reasoning, which repeats the interim line) are None.
 pub fn parse_run_event(data: &str) -> Option<(i64, RunEvent)> {
     let v: serde_json::Value = serde_json::from_str(data).ok()?;
     let seq = v.get("seq").and_then(|s| s.as_i64()).unwrap_or(-1);
@@ -137,6 +173,14 @@ pub fn parse_run_event(data: &str) -> Option<(i64, RunEvent)> {
     };
     let event = match v.get("event")?.as_str()? {
         "message.delta" => RunEvent::Delta(s("delta")),
+        // Already streamed: the line is in the answer text.
+        "message.interim"
+            if v.get("already_streamed").and_then(|a| a.as_bool())
+                == Some(true) =>
+        {
+            return None
+        }
+        "message.interim" => RunEvent::Interim(s("text")),
         "tool.started" => RunEvent::ToolStarted {
             tool: s("tool"),
             preview: s("preview"),
@@ -150,9 +194,8 @@ pub fn parse_run_event(data: &str) -> Option<(i64, RunEvent)> {
             failed: true,
         },
         "run.completed" => RunEvent::Completed(s("output")),
-        "run.failed" | "run.cancelled" | "run.interrupted" => {
-            RunEvent::Failed(s("error"))
-        }
+        "run.cancelled" => RunEvent::Stopped,
+        "run.failed" | "run.interrupted" => RunEvent::Failed(s("error")),
         "approval.request" => {
             RunEvent::ApprovalRequested(serde_json::from_value(v.clone()).ok()?)
         }
@@ -353,9 +396,8 @@ fn run_state(v: &serde_json::Value) -> RunState {
     };
     match v.get("status").and_then(|s| s.as_str()).unwrap_or_default() {
         "completed" => RunState::Completed(text("output")),
-        "failed" | "cancelled" | "interrupted" => {
-            RunState::Failed(text("error"))
-        }
+        "cancelled" => RunState::Stopped,
+        "failed" | "interrupted" => RunState::Failed(text("error")),
         "waiting_for_approval" => v
             .get("approval")
             .and_then(|a| serde_json::from_value(a.clone()).ok())
@@ -426,6 +468,10 @@ impl HermesClient {
 
     pub fn key(&self) -> &str {
         &self.key
+    }
+
+    pub fn events_url(&self, run_id: &str) -> String {
+        format!("{}/v1/runs/{run_id}/events", self.base)
     }
 
     fn get(&self, path: &str) -> reqwest::RequestBuilder {
@@ -768,6 +814,43 @@ impl HermesClient {
         checked(sent).await.map(|_| ())
     }
 
+    /// Interrupts the run; its stream then ends with `run.cancelled`.
+    pub async fn stop_run(&self, run_id: &str) -> Result<(), HermesError> {
+        checked(
+            self.post(&format!("/v1/runs/{run_id}/stop"))
+                .timeout(REQUEST_TIMEOUT)
+                .send()
+                .await,
+        )
+        .await
+        .map(|_| ())
+    }
+
+    /// Guidance for the running turn, taken at its next tool boundary.
+    pub async fn steer_run(
+        &self,
+        run_id: &str,
+        text: &str,
+    ) -> Result<(), HermesError> {
+        let sent = self
+            .post(&format!("/v1/runs/{run_id}/steer"))
+            .json(&serde_json::json!({ "input": text }))
+            .timeout(REQUEST_TIMEOUT)
+            .send()
+            .await;
+        if sent
+            .as_ref()
+            .is_ok_and(|r| r.status() == reqwest::StatusCode::CONFLICT)
+        {
+            return Err(HermesError::NotRunning);
+        }
+        checked(sent).await.map(|_| ())
+    }
+
+    pub async fn capabilities(&self) -> Result<Capabilities, HermesError> {
+        Ok(parse_capabilities(&self.json_at("/v1/capabilities").await?))
+    }
+
     pub async fn run_state(
         &self,
         run_id: &str,
@@ -795,7 +878,10 @@ impl HermesClient {
         mut on_event: impl FnMut(i64, RunEvent),
     ) -> Result<(), HermesError> {
         use futures::StreamExt;
-        let mut req = self.get(&format!("/v1/runs/{run_id}/events"));
+        let mut req = self
+            .http
+            .get(self.events_url(run_id))
+            .bearer_auth(&self.key);
         if after_seq >= 0 {
             req = req.header("Last-Event-ID", after_seq.to_string());
         }

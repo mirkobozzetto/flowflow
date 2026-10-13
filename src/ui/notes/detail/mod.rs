@@ -116,7 +116,7 @@ pub fn NoteDetail() -> Element {
         updated_from_peer,
     );
 
-    use_delete_exit(app, local_note_id, deleted);
+    use_delete_exit(app, deleted);
 
     let attachments_version = (app.attachments_version)();
     let attachments: Vec<Attachment> = {

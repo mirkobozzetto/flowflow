@@ -2,6 +2,7 @@ pub mod continued_task;
 pub mod dialog;
 pub mod glass_burger;
 pub mod gpu_lifecycle;
+pub mod hermes_watch;
 mod keyboard;
 pub mod live_activity;
 mod native_menu;

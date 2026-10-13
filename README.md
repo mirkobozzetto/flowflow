@@ -43,8 +43,13 @@ No manual searching. No folders to dig through. Just talk, and find it later.
 **Ask your notes**
 
 - RAG chat with tappable sources: hybrid search (BM25 + vector + rerank)
-- Chat through an OpenAI API key or a ChatGPT subscription; embeddings still
-  use the OpenAI API
+- Answer with Claude or OpenAI: pick the model (Claude Haiku, Sonnet or Opus,
+  GPT Sol or Luna) and how hard it thinks, from the `+` or the empty chat;
+  each conversation keeps its own, a new one starts from the last
+- Chat through a Claude or OpenAI API key, or a ChatGPT subscription;
+  embeddings still use the OpenAI API
+- Settings > AI: one row per provider (Claude, OpenAI, Exa), its keys and
+  subscription one level down
 - Optional web search ([Exa](https://exa.ai)) fused into the same answer
 - Save any answer or thread back as a note
 
@@ -180,7 +185,7 @@ the Live Activity and background transcription, and the web sites in Astro.
 | Account site (`account/`) | Astro - passkeys, plan and devices at account.flowflow.be |
 | Landing (`landing-page/`) | Astro - flowflow.be |
 | Backend | Rust (separate repo) - accounts, entitlements, governed connector proxy |
-| AI services | OpenAI (embeddings + API-key chat), ChatGPT subscription (chat), Anthropic (chat), Soniox (cloud STT), Exa (web search), your own Hermes Agent (chat) |
+| AI services | OpenAI (embeddings + API-key chat), ChatGPT subscription (chat), Anthropic Claude (API-key chat), Soniox (cloud STT), Exa (web search), your own Hermes Agent (chat) |
 | Targets | iOS 16+ (aarch64-apple-ios), macOS (Apple Silicon) |
 
 ## Build
@@ -192,8 +197,8 @@ cp .env.example .env   # add your API keys (or set them in-app)
 ```
 
 API keys can be set in-app via Settings and are stored in SQLite. ChatGPT
-subscription tokens are stored in Apple Keychain. Chat can use either an
-OpenAI API key or a ChatGPT subscription. An OpenAI API key remains required
+subscription tokens are stored in Apple Keychain. Chat can use a Claude or
+OpenAI API key, or a ChatGPT subscription. An OpenAI API key remains required
 for semantic search and embeddings. Transcription works with a Soniox key or a
 downloaded local Whisper model.
 
