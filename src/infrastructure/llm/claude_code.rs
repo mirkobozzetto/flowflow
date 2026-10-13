@@ -26,12 +26,15 @@ pub fn client(access_token: &str) -> http_client::Result<ClaudeCodeClient> {
     );
     headers.insert("user-agent", HeaderValue::from_static(USER_AGENT));
     headers.insert("x-app", HeaderValue::from_static("cli"));
-    anthropic::Client::builder()
+    let builder = anthropic::Client::builder()
         .http_client(ClaudeCodeHttp::default())
         .http_headers(headers)
         .api_key(access_token)
-        .anthropic_betas(&BETAS)
-        .build()
+        .anthropic_betas(&BETAS);
+    match std::env::var("FLOWFLOW_CLAUDE_API_BASE") {
+        Ok(base) if !base.is_empty() => builder.base_url(base).build(),
+        _ => builder.build(),
+    }
 }
 
 /// rig always sends the token as `x-api-key` too: dropped here, and the
