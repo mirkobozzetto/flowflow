@@ -13,6 +13,7 @@ pub mod approvals;
 pub mod authorship;
 pub mod backup;
 pub mod chain;
+pub mod chat_source;
 pub mod chat_surface;
 pub mod connector_module;
 pub mod connector_pins;
