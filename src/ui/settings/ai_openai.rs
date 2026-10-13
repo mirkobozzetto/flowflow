@@ -31,9 +31,8 @@ pub fn OpenAiSettings() -> Element {
     let lang = (app.current_lang)();
     let mut active = use_signal(|| chat_source::active(&db()));
     let mut key = use_signal(|| db().get_setting(KEY).unwrap_or_default());
-    let mut key_ready =
+    let key_ready =
         use_signal(|| chat_source::is_ready(&db(), Provider::OpenAi));
-    let mut saved = use_signal(|| false);
     let mut connection = use_signal(|| {
         if chatgpt_auth::is_connected() {
             Connection::Connected
@@ -142,7 +141,6 @@ pub fn OpenAiSettings() -> Element {
                         value: "{key}",
                         oninput: move |evt| {
                             key.set(evt.value());
-                            saved.set(false);
                         },
                     }
                     p { class: "mt-2 text-xs text-stone-400", {t(&lang, "settings-openai-memory-hint")} }
@@ -156,14 +154,9 @@ pub fn OpenAiSettings() -> Element {
                     if !value.is_empty() {
                         let _ = db().set_setting(KEY, &value);
                     }
-                    key_ready.set(chat_source::is_ready(&db(), Provider::OpenAi));
-                    saved.set(true);
+                    super::ai_card::back_to_ai(app);
                 },
-                if saved() {
-                    {t(&lang, "settings-saved")}
-                } else {
-                    {t(&lang, "settings-save")}
-                }
+                {t(&lang, "settings-save")}
             }
         }
     }

@@ -14,8 +14,7 @@ pub fn ExaSettings() -> Element {
     let app: AppState = use_context();
     let lang = (app.current_lang)();
     let mut key = use_signal(|| db().get_setting(KEY).unwrap_or_default());
-    let mut configured = use_signal(|| !key().trim().is_empty());
-    let mut saved = use_signal(|| false);
+    let configured = use_signal(|| !key().trim().is_empty());
 
     rsx! {
         div { class: "space-y-6 pb-20",
@@ -33,7 +32,6 @@ pub fn ExaSettings() -> Element {
                         value: "{key}",
                         oninput: move |evt| {
                             key.set(evt.value());
-                            saved.set(false);
                         },
                     }
                 }
@@ -45,15 +43,10 @@ pub fn ExaSettings() -> Element {
                     let value = key().trim().to_string();
                     if !value.is_empty() {
                         let _ = db().set_setting(KEY, &value);
-                        configured.set(true);
                     }
-                    saved.set(true);
+                    super::ai_card::back_to_ai(app);
                 },
-                if saved() {
-                    {t(&lang, "settings-saved")}
-                } else {
-                    {t(&lang, "settings-save")}
-                }
+                {t(&lang, "settings-save")}
             }
         }
     }

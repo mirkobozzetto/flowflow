@@ -18,9 +18,8 @@ pub fn ClaudeSettings() -> Element {
     let lang = (app.current_lang)();
     let active = use_signal(|| chat_source::active(&db()));
     let mut key = use_signal(|| db().get_setting(KEY).unwrap_or_default());
-    let mut key_ready =
+    let key_ready =
         use_signal(|| chat_source::is_ready(&db(), Provider::Anthropic));
-    let mut saved = use_signal(|| false);
 
     rsx! {
         div { class: "space-y-6 pb-20",
@@ -40,7 +39,6 @@ pub fn ClaudeSettings() -> Element {
                         value: "{key}",
                         oninput: move |evt| {
                             key.set(evt.value());
-                            saved.set(false);
                         },
                     }
                     UseForChat { source: Provider::Anthropic, ready: key_ready(), active }
@@ -54,14 +52,9 @@ pub fn ClaudeSettings() -> Element {
                     if !value.is_empty() {
                         let _ = db().set_setting(KEY, &value);
                     }
-                    key_ready.set(chat_source::is_ready(&db(), Provider::Anthropic));
-                    saved.set(true);
+                    super::ai_card::back_to_ai(app);
                 },
-                if saved() {
-                    {t(&lang, "settings-saved")}
-                } else {
-                    {t(&lang, "settings-save")}
-                }
+                {t(&lang, "settings-save")}
             }
         }
     }

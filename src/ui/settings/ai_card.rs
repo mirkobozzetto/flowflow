@@ -164,3 +164,11 @@ pub fn UseForChat(
         }
     }
 }
+
+/// A provider page, once saved, goes back to the AI screen.
+pub fn back_to_ai(mut app: crate::ui::AppState) {
+    use crate::ui::{SettingsSection, View};
+    app.previous_view.set(Some(View::Settings));
+    app.view
+        .set(View::SettingsSection(SettingsSection::Intelligence));
+}
