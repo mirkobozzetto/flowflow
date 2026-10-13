@@ -12,6 +12,7 @@ mod hermes_view;
 mod markdown;
 pub(crate) mod mention_menu;
 mod menu;
+pub(crate) mod model_menu;
 pub(crate) mod models;
 pub(crate) mod new_chat_menu;
 pub(crate) mod skill_suggest;

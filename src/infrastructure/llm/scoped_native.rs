@@ -36,10 +36,7 @@ impl LlmClient {
             .scoped_to(allowed.to_vec(), "native".into());
         macro_rules! prompt {
             ($builder:expr) => {{
-                let mut builder = $builder
-                    .preamble(preamble)
-                    .temperature(temperature)
-                    .tools(tools);
+                let mut builder = $builder.preamble(preamble).tools(tools);
                 for (tools, peer) in mcp {
                     builder = builder.rmcp_tools(tools, peer);
                 }
@@ -58,7 +55,7 @@ impl LlmClient {
                         "OpenAI client not configured".into(),
                     )
                 })?;
-                prompt!(client.agent(model))
+                prompt!(client.agent(model).temperature(temperature))
             }
             Provider::Anthropic => {
                 let client = self.anthropic.as_ref().ok_or_else(|| {
@@ -72,11 +69,20 @@ impl LlmClient {
             }
             Provider::ChatGpt => {
                 let client = self.chatgpt_client().await?;
-                prompt!(client.agent(CHATGPT_CHAT_MODEL).additional_params(
-                    serde_json::json!({
+                prompt!(client
+                    .agent(CHATGPT_CHAT_MODEL)
+                    .temperature(temperature)
+                    .additional_params(serde_json::json!({
                         "reasoning":{"effort":CHATGPT_REASONING_EFFORT}
-                    })
-                ))
+                    })))
+            }
+            #[cfg(debug_assertions)]
+            Provider::ClaudeSubscription => {
+                let client = self.claude_subscription_client().await?;
+                let reply = prompt!(client
+                    .agent(ANTHROPIC_CHAT_MODEL)
+                    .max_tokens(ANTHROPIC_MAX_TOKENS));
+                self.claude_subscription_reply(reply)
             }
         }
     }

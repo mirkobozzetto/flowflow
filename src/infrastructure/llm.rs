@@ -1,3 +1,5 @@
+#[cfg(debug_assertions)]
+pub mod claude_code;
 mod scoped_native;
 
 use crate::application::constants::{
@@ -22,6 +24,8 @@ pub enum Provider {
     OpenAi,
     Anthropic,
     ChatGpt,
+    #[cfg(debug_assertions)]
+    ClaudeSubscription,
 }
 
 impl Provider {
@@ -30,6 +34,19 @@ impl Provider {
             Provider::OpenAi => "openai",
             Provider::Anthropic => "anthropic",
             Provider::ChatGpt => "chatgpt",
+            #[cfg(debug_assertions)]
+            Provider::ClaudeSubscription => "claude_subscription",
+        }
+    }
+
+    /// A subscription answers the chat without an OpenAI key; embeddings
+    /// still need one.
+    pub fn is_subscription(self) -> bool {
+        match self {
+            Provider::ChatGpt => true,
+            #[cfg(debug_assertions)]
+            Provider::ClaudeSubscription => true,
+            Provider::OpenAi | Provider::Anthropic => false,
         }
     }
 }
@@ -48,6 +65,9 @@ impl FromStr for Provider {
             "openai" | "open_ai" | "open-ai" => Ok(Provider::OpenAi),
             "anthropic" | "claude" => Ok(Provider::Anthropic),
             "chatgpt" | "chat_gpt" | "subscription" => Ok(Provider::ChatGpt),
+            // A release build reads it as unknown: back to the OpenAI key.
+            #[cfg(debug_assertions)]
+            "claude_subscription" => Ok(Provider::ClaudeSubscription),
             _ => Err(()),
         }
     }
@@ -95,6 +115,9 @@ pub struct LlmClient {
     provider: Provider,
     anthropic: Option<anthropic::Client>,
     lang: String,
+    // The model and reasoning level a chat answer runs on (chat_model.rs);
+    // None keeps each provider's default.
+    chat_pick: Option<(String, String)>,
 }
 
 impl LlmClient {
@@ -111,6 +134,17 @@ impl LlmClient {
     pub fn from_db(
         db: &crate::infrastructure::persistence::Database,
     ) -> Result<Self, LlmError> {
+        let provider = db
+            .get_setting("llm_provider")
+            .and_then(|v| Provider::from_str(&v).ok())
+            .unwrap_or_default();
+        Self::for_provider(db, provider)
+    }
+
+    pub fn for_provider(
+        db: &crate::infrastructure::persistence::Database,
+        provider: Provider,
+    ) -> Result<Self, LlmError> {
         let lang = crate::application::i18n::ui_lang(db);
         if db.get_setting("ai_consent") != Some("true".to_string()) {
             return Err(LlmError::NotConfigured(crate::application::i18n::t(
@@ -118,17 +152,13 @@ impl LlmClient {
                 "error-ai-consent",
             )));
         }
-        let provider = db
-            .get_setting("llm_provider")
-            .and_then(|v| Provider::from_str(&v).ok())
-            .unwrap_or_default();
 
         let openai_key = db
             .get_setting("openai_api_key")
             .or_else(|| std::env::var("OPENAI_API_KEY").ok())
             .or_else(|| crate::baked_key!("OPENAI_API_KEY"))
             .filter(|key| !key.is_empty() && key != "your_key_here");
-        if provider != Provider::ChatGpt && openai_key.is_none() {
+        if !provider.is_subscription() && openai_key.is_none() {
             return Err(LlmError::NotConfigured(crate::application::i18n::t(
                 &lang,
                 "llm-error-openai-key",
@@ -163,7 +193,14 @@ impl LlmClient {
             provider,
             anthropic,
             lang,
+            chat_pick: None,
         })
+    }
+
+    /// The model and reasoning level the agent runs on (`run_agent`).
+    pub fn with_chat_model(mut self, model: &str, level: &str) -> Self {
+        self.chat_pick = Some((model.to_owned(), level.to_owned()));
+        self
     }
 
     pub async fn embed(&self, text: &str) -> Result<Vec<f32>, LlmError> {
@@ -216,6 +253,7 @@ impl LlmClient {
                     .await
                     .map_err(|e| LlmError::Completion(e.to_string()))
             }
+            // Claude 5.5 models reject any temperature: none is sent to Anthropic.
             Provider::Anthropic => {
                 let client = self.anthropic.as_ref().ok_or_else(|| {
                     LlmError::NotConfigured(
@@ -225,7 +263,6 @@ impl LlmClient {
                 let agent = client
                     .agent(ANTHROPIC_CHAT_MODEL)
                     .preamble(system)
-                    .temperature(0.3)
                     .max_tokens(ANTHROPIC_MAX_TOKENS)
                     .build();
                 agent
@@ -248,6 +285,20 @@ impl LlmClient {
                     .await
                     .map_err(|e| LlmError::Completion(e.to_string()))
             }
+            #[cfg(debug_assertions)]
+            Provider::ClaudeSubscription => {
+                let client = self.claude_subscription_client().await?;
+                let agent = client
+                    .agent(ANTHROPIC_CHAT_MODEL)
+                    .preamble(system)
+                    .max_tokens(ANTHROPIC_MAX_TOKENS)
+                    .build();
+                let reply = agent
+                    .prompt(user_message)
+                    .await
+                    .map_err(|e| LlmError::Completion(e.to_string()));
+                self.claude_subscription_reply(reply)
+            }
         }
     }
 
@@ -258,12 +309,17 @@ impl LlmClient {
             Provider::OpenAi => openai_model,
             Provider::Anthropic => ANTHROPIC_CHAT_MODEL,
             Provider::ChatGpt => CHATGPT_CHAT_MODEL,
+            #[cfg(debug_assertions)]
+            Provider::ClaudeSubscription => ANTHROPIC_CHAT_MODEL,
         }
     }
 
     /// Model id the chat/agent path actually uses under the configured provider.
-    pub fn chat_model_name(&self) -> &'static str {
-        self.effective_model(CHAT_MODEL)
+    pub fn chat_model_name(&self) -> &str {
+        match &self.chat_pick {
+            Some((model, _)) => model,
+            None => self.effective_model(CHAT_MODEL),
+        }
     }
 
     async fn chatgpt_client(&self) -> Result<chatgpt::Client, LlmError> {
@@ -283,6 +339,52 @@ impl LlmClient {
             })
             .build()
             .map_err(|e| LlmError::NotConfigured(e.to_string()))
+    }
+
+    #[cfg(debug_assertions)]
+    pub(crate) async fn claude_subscription_client(
+        &self,
+    ) -> Result<claude_code::ClaudeCodeClient, LlmError> {
+        use crate::infrastructure::claude_auth::{self, AccessError};
+        let token = claude_auth::access_token().await.map_err(|e| match e {
+            AccessError::NotConnected => {
+                LlmError::NotConfigured(crate::application::i18n::t(
+                    &self.lang,
+                    "llm-error-claude-auth",
+                ))
+            }
+            AccessError::Failed(error) => LlmError::Completion(error),
+        })?;
+        claude_code::client(&token)
+            .map_err(|e| LlmError::NotConfigured(e.to_string()))
+    }
+
+    /// Every subscription answer leaves a log line. Anthropic bills a
+    /// third-party app's call as extra usage when it does not fit the
+    /// subscription: said plainly, never passed off as an answer.
+    #[cfg(debug_assertions)]
+    pub(crate) fn claude_subscription_reply(
+        &self,
+        reply: Result<String, LlmError>,
+    ) -> Result<String, LlmError> {
+        let error = match reply {
+            Ok(answer) => {
+                eprintln!("[claude] answered via subscription ({ANTHROPIC_CHAT_MODEL})");
+                return Ok(answer);
+            }
+            Err(LlmError::Completion(error)) => error,
+            Err(other) => return Err(other),
+        };
+        eprintln!("[claude] request failed: {error}");
+        if error.contains("429 Too Many Requests")
+            || error.to_ascii_lowercase().contains("extra usage")
+        {
+            return Err(LlmError::NotConfigured(crate::application::i18n::t(
+                &self.lang,
+                "llm-error-claude-extra-usage",
+            )));
+        }
+        Err(LlmError::Completion(error))
     }
 
     /// The single agent primitive: one prompt run over an explicit tool surface.
@@ -340,6 +442,33 @@ impl LlmClient {
         // Cloned before the hook is moved into the run: `schedule_reminder` renders as a
         // card, so it needs the same channel the hook reports status on.
         let tool_events = hook.events();
+        let llm = self.clone();
+        macro_rules! surface {
+            ($base:expr) => {{
+                let base = $base;
+                match (notes_tools.scope(), web_key) {
+                    (Some(scope), web) => {
+                        let b = base
+                            .tool(SearchNotes::new(llm.clone(), scope))
+                            .tool(CreateNote::new())
+                            .tool(SummarizeFolder::new(llm.clone()))
+                            .tool(ScheduleReminder::new(
+                                llm.clone(),
+                                tool_events.clone(),
+                            ));
+                        let b = match web {
+                            Some(key) => b.tool(SearchWeb::new(key)),
+                            None => b,
+                        };
+                        mount!(b, mcp)
+                    }
+                    (None, Some(key)) => {
+                        mount!(base.tool(SearchWeb::new(key)), mcp)
+                    }
+                    (None, None) => mount!(base, mcp),
+                }
+            }};
+        }
         match self.provider {
             Provider::OpenAi => {
                 let client = self.openai.as_ref().ok_or_else(|| {
@@ -348,31 +477,21 @@ impl LlmClient {
                         "llm-error-openai-key",
                     ))
                 })?;
-                let base = client
-                    .agent(openai_model)
-                    .preamble(preamble)
-                    .temperature(temperature);
-                match (notes_tools.scope(), web_key) {
-                    (Some(scope), web) => {
-                        let b = base
-                            .tool(SearchNotes::new(self.clone(), scope))
-                            .tool(CreateNote::new())
-                            .tool(SummarizeFolder::new(self.clone()))
-                            .tool(ScheduleReminder::new(
-                                self.clone(),
-                                tool_events.clone(),
-                            ));
-                        let b = match web {
-                            Some(key) => b.tool(SearchWeb::new(key)),
-                            None => b,
-                        };
-                        mount!(b, mcp)
-                    }
-                    (None, Some(key)) => {
-                        mount!(base.tool(SearchWeb::new(key)), mcp)
-                    }
-                    (None, None) => mount!(base, mcp),
-                }
+                // A picked model reasons at its level; the GPT-6 models
+                // take no temperature.
+                let base = match &self.chat_pick {
+                    Some((model, level)) => client
+                        .agent(model)
+                        .preamble(preamble)
+                        .additional_params(serde_json::json!({
+                            "reasoning": { "effort": level }
+                        })),
+                    None => client
+                        .agent(openai_model)
+                        .preamble(preamble)
+                        .temperature(temperature),
+                };
+                surface!(base)
             }
             Provider::Anthropic => {
                 let client = self.anthropic.as_ref().ok_or_else(|| {
@@ -380,64 +499,66 @@ impl LlmClient {
                         "Anthropic client not initialized".into(),
                     )
                 })?;
-                let base = client
-                    .agent(ANTHROPIC_CHAT_MODEL)
-                    .preamble(preamble)
-                    .temperature(temperature)
-                    .max_tokens(ANTHROPIC_MAX_TOKENS);
-                match (notes_tools.scope(), web_key) {
-                    (Some(scope), web) => {
-                        let b = base
-                            .tool(SearchNotes::new(self.clone(), scope))
-                            .tool(CreateNote::new())
-                            .tool(SummarizeFolder::new(self.clone()))
-                            .tool(ScheduleReminder::new(
-                                self.clone(),
-                                tool_events.clone(),
-                            ));
-                        let b = match web {
-                            Some(key) => b.tool(SearchWeb::new(key)),
-                            None => b,
-                        };
-                        mount!(b, mcp)
-                    }
-                    (None, Some(key)) => {
-                        mount!(base.tool(SearchWeb::new(key)), mcp)
-                    }
-                    (None, None) => mount!(base, mcp),
-                }
+                surface!(self.claude_agent(client, preamble))
             }
             Provider::ChatGpt => {
                 let client = self.chatgpt_client().await?;
-                let base = client
-                    .agent(CHATGPT_CHAT_MODEL)
-                    .preamble(preamble)
-                    .temperature(temperature)
-                    .additional_params(serde_json::json!({
-                        "reasoning": { "effort": CHATGPT_REASONING_EFFORT }
-                    }));
-                match (notes_tools.scope(), web_key) {
-                    (Some(scope), web) => {
-                        let b = base
-                            .tool(SearchNotes::new(self.clone(), scope))
-                            .tool(CreateNote::new())
-                            .tool(SummarizeFolder::new(self.clone()))
-                            .tool(ScheduleReminder::new(
-                                self.clone(),
-                                tool_events.clone(),
-                            ));
-                        let b = match web {
-                            Some(key) => b.tool(SearchWeb::new(key)),
-                            None => b,
-                        };
-                        mount!(b, mcp)
-                    }
-                    (None, Some(key)) => {
-                        mount!(base.tool(SearchWeb::new(key)), mcp)
-                    }
-                    (None, None) => mount!(base, mcp),
-                }
+                let base = match &self.chat_pick {
+                    Some((model, level)) => client
+                        .agent(model)
+                        .preamble(preamble)
+                        .additional_params(serde_json::json!({
+                            "reasoning": { "effort": level }
+                        })),
+                    None => client
+                        .agent(CHATGPT_CHAT_MODEL)
+                        .preamble(preamble)
+                        .temperature(temperature)
+                        .additional_params(serde_json::json!({
+                            "reasoning": { "effort": CHATGPT_REASONING_EFFORT }
+                        })),
+                };
+                surface!(base)
             }
+            #[cfg(debug_assertions)]
+            Provider::ClaudeSubscription => {
+                let client = self.claude_subscription_client().await?;
+                let reply = surface!(self.claude_agent(&client, preamble));
+                self.claude_subscription_reply(reply)
+            }
+        }
+    }
+}
+
+impl LlmClient {
+    /// A Claude agent on the picked model and level (Claude 5.5 sets the
+    /// level through `output_config.effort`), else on the default model.
+    fn claude_agent<H>(
+        &self,
+        client: &anthropic::Client<H>,
+        preamble: &str,
+    ) -> rig::agent::AgentBuilder<anthropic::completion::CompletionModel<H>>
+    where
+        H: rig::http_client::HttpClientExt
+            + Clone
+            + Default
+            + std::fmt::Debug
+            + rig::wasm_compat::WasmCompatSend
+            + 'static,
+    {
+        let (model, level) = match &self.chat_pick {
+            Some((model, level)) => (model.as_str(), Some(level)),
+            None => (ANTHROPIC_CHAT_MODEL, None),
+        };
+        let base = client
+            .agent(model)
+            .preamble(preamble)
+            .max_tokens(ANTHROPIC_MAX_TOKENS);
+        match level {
+            Some(level) => base.additional_params(serde_json::json!({
+                "output_config": { "effort": level }
+            })),
+            None => base,
         }
     }
 }

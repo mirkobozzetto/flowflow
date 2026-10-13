@@ -1,5 +1,11 @@
 mod account;
+pub(crate) mod ai_card;
+mod ai_claude;
+mod ai_exa;
+mod ai_openai;
 mod backup;
+#[cfg(debug_assertions)]
+mod claude_subscription_card;
 mod connections;
 mod general;
 pub(crate) mod hermes;
@@ -246,6 +252,15 @@ pub fn SettingsSectionView() -> Element {
         },
         SettingsSection::Spaces => rsx! {
             SpacesSettings {}
+        },
+        SettingsSection::AiClaude => rsx! {
+            ai_claude::ClaudeSettings {}
+        },
+        SettingsSection::AiOpenAi => rsx! {
+            ai_openai::OpenAiSettings {}
+        },
+        SettingsSection::AiExa => rsx! {
+            ai_exa::ExaSettings {}
         },
     }
 }
