@@ -39,6 +39,7 @@ fn has_menu(id: &str) -> bool {
             | "hermes-plus"
             | "hermes-model"
             | "chat-pick"
+            | "chat-source"
     )
 }
 
@@ -53,6 +54,7 @@ fn is_plus(id: &str) -> bool {
             | "chats-plus"
             | "hermes-plus"
             | "hermes-model"
+            | "chat-source"
     )
 }
 
@@ -257,6 +259,7 @@ fn configuration(
             "chats-plus" => "chats-plus",
             "hermes-plus" => "hermes-plus",
             "hermes-model" => "hermes-model",
+            "chat-source" => "chat-source",
             _ => "chat-plus",
         };
         return Some((id, config));

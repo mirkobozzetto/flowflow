@@ -57,7 +57,6 @@ pub const EMBEDDING_MODEL: &str = "text-embedding-3-small";
 pub const EMBEDDING_PROFILE: &str = "openai:text-embedding-3-small:1536";
 pub const CHAT_MODEL: &str = "gpt-5.4-mini";
 pub const CHATGPT_CHAT_MODEL: &str = "gpt-5.6-terra";
-pub const CHATGPT_CHAT_MODEL_NAME: &str = "GPT-5.6 Terra";
 pub const CHATGPT_REASONING_EFFORT: &str = "medium";
 // Simple, high-volume calls (tag + title extraction). Cheaper than the chat model.
 pub const CHEAP_MODEL: &str = "gpt-5.4-nano";

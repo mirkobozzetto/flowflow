@@ -137,8 +137,9 @@ pub fn UseForChat(
     ready: bool,
     active: Signal<Provider>,
 ) -> Element {
-    let db: Signal<std::sync::Arc<crate::infrastructure::persistence::Database>> =
-        use_context();
+    let db: Signal<
+        std::sync::Arc<crate::infrastructure::persistence::Database>,
+    > = use_context();
     let app: crate::ui::AppState = use_context();
     let lang = (app.current_lang)();
     if !ready {

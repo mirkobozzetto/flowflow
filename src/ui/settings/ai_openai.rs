@@ -6,7 +6,9 @@ use crate::application::i18n::t;
 use crate::infrastructure::chatgpt_auth::{self, DeviceLogin};
 use crate::infrastructure::persistence::Database;
 use crate::infrastructure::Provider;
-use crate::ui::kit::{BTN_PRIMARY, INPUT, PILL_GHOST, PILL_PRIMARY, SECTION_LABEL};
+use crate::ui::kit::{
+    BTN_PRIMARY, INPUT, PILL_GHOST, PILL_PRIMARY, SECTION_LABEL,
+};
 use crate::ui::AppState;
 use dioxus::prelude::*;
 use std::sync::Arc;
