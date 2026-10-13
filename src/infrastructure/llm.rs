@@ -236,6 +236,7 @@ impl LlmClient {
                     .await
                     .map_err(|e| LlmError::Completion(e.to_string()))
             }
+            // Claude 5.5 models reject any temperature: none is sent to Anthropic.
             Provider::Anthropic => {
                 let client = self.anthropic.as_ref().ok_or_else(|| {
                     LlmError::NotConfigured(
@@ -245,7 +246,6 @@ impl LlmClient {
                 let agent = client
                     .agent(ANTHROPIC_CHAT_MODEL)
                     .preamble(system)
-                    .temperature(0.3)
                     .max_tokens(ANTHROPIC_MAX_TOKENS)
                     .build();
                 agent
@@ -274,7 +274,6 @@ impl LlmClient {
                 let agent = client
                     .agent(ANTHROPIC_CHAT_MODEL)
                     .preamble(system)
-                    .temperature(0.3)
                     .max_tokens(ANTHROPIC_MAX_TOKENS)
                     .build();
                 agent
@@ -459,7 +458,6 @@ impl LlmClient {
                 surface!(client
                     .agent(ANTHROPIC_CHAT_MODEL)
                     .preamble(preamble)
-                    .temperature(temperature)
                     .max_tokens(ANTHROPIC_MAX_TOKENS))
             }
             Provider::ChatGpt => {
@@ -478,7 +476,6 @@ impl LlmClient {
                 let reply: Result<String, LlmError> = surface!(client
                     .agent(ANTHROPIC_CHAT_MODEL)
                     .preamble(preamble)
-                    .temperature(temperature)
                     .max_tokens(ANTHROPIC_MAX_TOKENS));
                 reply.map_err(|e| match e {
                     LlmError::Completion(error) => {

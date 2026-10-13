@@ -60,8 +60,12 @@ pub const CHATGPT_CHAT_MODEL: &str = "gpt-5.6-terra";
 pub const CHATGPT_REASONING_EFFORT: &str = "medium";
 // Simple, high-volume calls (tag + title extraction). Cheaper than the chat model.
 pub const CHEAP_MODEL: &str = "gpt-5.4-nano";
-pub const ANTHROPIC_CHAT_MODEL: &str = "claude-sonnet-4-6";
-pub const ANTHROPIC_MAX_TOKENS: u64 = 4096;
+pub const ANTHROPIC_HAIKU_MODEL: &str = "claude-haiku-5-5";
+pub const ANTHROPIC_SONNET_MODEL: &str = "claude-sonnet-5-5";
+pub const ANTHROPIC_OPUS_MODEL: &str = "claude-opus-5-5";
+pub const ANTHROPIC_CHAT_MODEL: &str = ANTHROPIC_HAIKU_MODEL;
+// Adaptive thinking is on by default on Claude 5.5 and counts against this.
+pub const ANTHROPIC_MAX_TOKENS: u64 = 16000;
 pub const EMBEDDING_DIMS: usize = 1536;
 pub const CHUNK_SIZE_WORDS: usize = 500;
 pub const CHUNK_OVERLAP_WORDS: usize = 75;

@@ -12,7 +12,7 @@ use tempfile::{tempdir, TempDir};
 
 static ENV_LOCK: Mutex<()> = Mutex::new(());
 
-const ANSWER: &str = r#"{"id":"msg_1","type":"message","role":"assistant","model":"claude-sonnet-4-6","content":[{"type":"text","text":"Bonjour"}],"stop_reason":"end_turn","stop_sequence":null,"usage":{"input_tokens":3,"output_tokens":1}}"#;
+const ANSWER: &str = r#"{"id":"msg_1","type":"message","role":"assistant","model":"claude-haiku-5-5","content":[{"type":"text","text":"Bonjour"}],"stop_reason":"end_turn","stop_sequence":null,"usage":{"input_tokens":3,"output_tokens":1}}"#;
 
 /// A signed-in Claude subscription, no OpenAI key, Anthropic at `base`.
 struct Subscribed {
@@ -100,7 +100,7 @@ async fn chat_goes_out_as_claude_code_with_the_bearer_token() {
     .await;
     let env = Subscribed::at(&base);
     let llm = LlmClient::from_db(&env.db).expect("no OpenAI key needed");
-    assert_eq!(llm.chat_model_name(), "claude-sonnet-4-6");
+    assert_eq!(llm.chat_model_name(), "claude-haiku-5-5");
 
     let reply = llm.chat("Answer from the notes.", "hello").await;
     assert_eq!(reply.expect("reply"), "Bonjour");
@@ -120,6 +120,8 @@ async fn chat_goes_out_as_claude_code_with_the_bearer_token() {
         "You are Claude Code, Anthropic's official CLI for Claude."
     );
     assert_eq!(body["system"][1]["text"], "Answer from the notes.");
+    assert_eq!(body["model"], "claude-haiku-5-5");
+    assert!(body.get("temperature").is_none(), "Claude 5.5 rejects it");
 }
 
 #[tokio::test]
