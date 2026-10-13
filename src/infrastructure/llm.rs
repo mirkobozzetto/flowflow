@@ -276,10 +276,11 @@ impl LlmClient {
                     .preamble(system)
                     .max_tokens(ANTHROPIC_MAX_TOKENS)
                     .build();
-                agent
+                let reply = agent
                     .prompt(user_message)
                     .await
-                    .map_err(|e| self.claude_subscription_error(e.to_string()))
+                    .map_err(|e| LlmError::Completion(e.to_string()));
+                self.claude_subscription_reply(reply)
             }
         }
     }
@@ -338,20 +339,32 @@ impl LlmClient {
             .map_err(|e| LlmError::NotConfigured(e.to_string()))
     }
 
-    /// Anthropic bills a third-party app's call as extra usage when it does
-    /// not fit the subscription: said plainly, never passed off as an answer.
+    /// Every subscription answer leaves a log line. Anthropic bills a
+    /// third-party app's call as extra usage when it does not fit the
+    /// subscription: said plainly, never passed off as an answer.
     #[cfg(debug_assertions)]
-    pub(crate) fn claude_subscription_error(&self, error: String) -> LlmError {
+    pub(crate) fn claude_subscription_reply(
+        &self,
+        reply: Result<String, LlmError>,
+    ) -> Result<String, LlmError> {
+        let error = match reply {
+            Ok(answer) => {
+                eprintln!("[claude] answered via subscription ({ANTHROPIC_CHAT_MODEL})");
+                return Ok(answer);
+            }
+            Err(LlmError::Completion(error)) => error,
+            Err(other) => return Err(other),
+        };
         eprintln!("[claude] request failed: {error}");
         if error.contains("429 Too Many Requests")
             || error.to_ascii_lowercase().contains("extra usage")
         {
-            return LlmError::NotConfigured(crate::application::i18n::t(
+            return Err(LlmError::NotConfigured(crate::application::i18n::t(
                 &self.lang,
                 "llm-error-claude-extra-usage",
-            ));
+            )));
         }
-        LlmError::Completion(error)
+        Err(LlmError::Completion(error))
     }
 
     /// The single agent primitive: one prompt run over an explicit tool surface.
@@ -473,16 +486,11 @@ impl LlmClient {
             #[cfg(debug_assertions)]
             Provider::ClaudeSubscription => {
                 let client = self.claude_subscription_client().await?;
-                let reply: Result<String, LlmError> = surface!(client
+                let reply = surface!(client
                     .agent(ANTHROPIC_CHAT_MODEL)
                     .preamble(preamble)
                     .max_tokens(ANTHROPIC_MAX_TOKENS));
-                reply.map_err(|e| match e {
-                    LlmError::Completion(error) => {
-                        self.claude_subscription_error(error)
-                    }
-                    other => other,
-                })
+                self.claude_subscription_reply(reply)
             }
         }
     }

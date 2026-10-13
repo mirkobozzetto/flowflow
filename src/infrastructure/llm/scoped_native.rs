@@ -79,15 +79,10 @@ impl LlmClient {
             #[cfg(debug_assertions)]
             Provider::ClaudeSubscription => {
                 let client = self.claude_subscription_client().await?;
-                let reply: Result<String, LlmError> = prompt!(client
+                let reply = prompt!(client
                     .agent(ANTHROPIC_CHAT_MODEL)
                     .max_tokens(ANTHROPIC_MAX_TOKENS));
-                reply.map_err(|e| match e {
-                    LlmError::Completion(error) => {
-                        self.claude_subscription_error(error)
-                    }
-                    other => other,
-                })
+                self.claude_subscription_reply(reply)
             }
         }
     }
