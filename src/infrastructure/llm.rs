@@ -1,3 +1,5 @@
+#[cfg(debug_assertions)]
+pub mod claude_code;
 mod scoped_native;
 
 use crate::application::constants::{
