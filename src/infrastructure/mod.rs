@@ -1,6 +1,9 @@
 pub mod audio;
 pub mod backend;
 pub mod chatgpt_auth;
+// Anthropic forbids Claude.ai login in third-party apps: test builds only.
+#[cfg(debug_assertions)]
+pub mod claude_auth;
 pub mod hermes;
 pub mod llm;
 pub mod mcp;
