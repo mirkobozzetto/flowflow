@@ -129,3 +129,37 @@ pub fn KeyBadge(configured: bool) -> Element {
         }
     }
 }
+
+/// "Use for chat" once the source can answer; "Answers the chat" when it does.
+#[component]
+pub fn UseForChat(
+    source: Provider,
+    ready: bool,
+    active: Signal<Provider>,
+) -> Element {
+    let db: Signal<std::sync::Arc<crate::infrastructure::persistence::Database>> =
+        use_context();
+    let app: crate::ui::AppState = use_context();
+    let lang = (app.current_lang)();
+    if !ready {
+        return rsx! {};
+    }
+    if active() == source {
+        return rsx! {
+            p { class: "mt-3 flex items-center gap-1.5 text-xs font-semibold text-ios-orange-dark",
+                crate::ui::icons::IconCheck { size: 14 }
+                {t(&lang, "settings-answers-chat")}
+            }
+        };
+    }
+    rsx! {
+        button {
+            class: "mt-3 text-xs font-semibold text-ios-orange-dark",
+            onclick: move |_| {
+                let _ = crate::application::chat_source::choose(&db(), source);
+                active.set(source);
+            },
+            {t(&lang, "settings-use-for-chat")}
+        }
+    }
+}

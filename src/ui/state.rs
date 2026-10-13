@@ -29,6 +29,9 @@ pub enum SettingsSection {
     Privacy,
     Shortcuts,
     Spaces,
+    AiClaude,
+    AiOpenAi,
+    AiExa,
 }
 
 impl SettingsSection {
@@ -44,6 +47,19 @@ impl SettingsSection {
             Self::Privacy => "settings-section-privacy",
             Self::Shortcuts => "settings-section-shortcuts",
             Self::Spaces => "settings-section-spaces",
+            Self::AiClaude => "settings-provider-claude",
+            Self::AiOpenAi => "settings-provider-openai",
+            Self::AiExa => "settings-provider-exa",
+        }
+    }
+
+    /// The screen a provider's page goes back to.
+    pub fn parent(self) -> Option<Self> {
+        match self {
+            Self::AiClaude | Self::AiOpenAi | Self::AiExa => {
+                Some(Self::Intelligence)
+            }
+            _ => None,
         }
     }
 }

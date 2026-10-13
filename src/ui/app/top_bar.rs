@@ -133,8 +133,17 @@ pub fn TopBar() -> Element {
                             app.view.set(View::HermesJobs);
                             return;
                         }
-                        let target = (app.previous_view)()
-                            .unwrap_or(View::NotesList);
+                        let target = match (app.view)() {
+                            View::SettingsSection(section) => {
+                                section.parent().map(View::SettingsSection)
+                            }
+                            _ => None,
+                        }
+                        .or_else(|| (app.previous_view)())
+                        .unwrap_or(View::NotesList);
+                        // Back on a settings section, its own back is Settings.
+                        let target_back = matches!(target, View::SettingsSection(_))
+                            .then_some(View::Settings);
                         // Note -> note back needs the NotesList bounce, else the
                         // mounted NoteDetail keeps the previous note's state.
                         if matches!((app.view)(), View::NoteDetail { .. })
@@ -156,7 +165,7 @@ pub fn TopBar() -> Element {
                                     | View::ThreadDetail { .. }
                             )
                         {
-                            app.previous_view.set(None);
+                            app.previous_view.set(target_back);
                             app.view.set(target);
                             return;
                         }
@@ -166,7 +175,7 @@ pub fn TopBar() -> Element {
                         dioxus::core::spawn_forever(async move {
                             futures_timer::Delay::new(std::time::Duration::from_millis(150)).await;
                             app.sliding_out.set(false);
-                            app.previous_view.set(None);
+                            app.previous_view.set(target_back);
                             app.view.set(target);
                         });
                     },
