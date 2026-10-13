@@ -7,6 +7,7 @@ pub mod mcp;
 pub mod persistence;
 pub mod platform;
 pub mod sync;
+pub mod token_store;
 pub mod transcription;
 pub mod vectordb;
 
