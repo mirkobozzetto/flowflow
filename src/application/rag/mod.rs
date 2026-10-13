@@ -161,10 +161,18 @@ pub async fn query(
     mention_note_ids: Vec<String>,
     history: Vec<ChatTurn>,
     lang: &str,
+    pick: Option<crate::application::chat_model::ChatPick>,
 ) -> Result<RagResponse, String> {
     let run_started = std::time::Instant::now();
     let mut rag_trace = RagTrace::default();
-    let ai = Arc::new(LlmClient::from_env()?);
+    let ai = Arc::new(match pick {
+        Some(pick) => {
+            let db = Database::open()?;
+            LlmClient::for_provider(&db, pick.source)?
+                .with_chat_model(pick.model, pick.level)
+        }
+        None => LlmClient::from_env()?,
+    });
     let store = VectorStore::open().await?;
 
     let scope_ids: Option<Vec<String>> = match scope {

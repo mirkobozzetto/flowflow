@@ -308,6 +308,14 @@ pub fn send_question(
         let _ = db().add_message(cid, "user", &question, None);
         let _ = db().touch_conversation(cid);
     }
+    // The model this conversation answers with, pinned on it from now on.
+    let pick =
+        crate::application::chat_model::current(&db(), conv_id.as_deref());
+    let _ = crate::application::chat_model::remember(
+        &db(),
+        conv_id.as_deref(),
+        &pick,
+    );
 
     let mut msgs = *messages;
     let mut ld = *loading;
@@ -436,6 +444,7 @@ pub fn send_question(
                 mention_ids,
                 history,
                 &lang_for_query,
+                Some(pick),
             )
             .await
         };

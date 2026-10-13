@@ -115,6 +115,9 @@ pub struct LlmClient {
     provider: Provider,
     anthropic: Option<anthropic::Client>,
     lang: String,
+    // The model and reasoning level a chat answer runs on (chat_model.rs);
+    // None keeps each provider's default.
+    chat_pick: Option<(String, String)>,
 }
 
 impl LlmClient {
@@ -131,6 +134,17 @@ impl LlmClient {
     pub fn from_db(
         db: &crate::infrastructure::persistence::Database,
     ) -> Result<Self, LlmError> {
+        let provider = db
+            .get_setting("llm_provider")
+            .and_then(|v| Provider::from_str(&v).ok())
+            .unwrap_or_default();
+        Self::for_provider(db, provider)
+    }
+
+    pub fn for_provider(
+        db: &crate::infrastructure::persistence::Database,
+        provider: Provider,
+    ) -> Result<Self, LlmError> {
         let lang = crate::application::i18n::ui_lang(db);
         if db.get_setting("ai_consent") != Some("true".to_string()) {
             return Err(LlmError::NotConfigured(crate::application::i18n::t(
@@ -138,10 +152,6 @@ impl LlmClient {
                 "error-ai-consent",
             )));
         }
-        let provider = db
-            .get_setting("llm_provider")
-            .and_then(|v| Provider::from_str(&v).ok())
-            .unwrap_or_default();
 
         let openai_key = db
             .get_setting("openai_api_key")
@@ -183,7 +193,14 @@ impl LlmClient {
             provider,
             anthropic,
             lang,
+            chat_pick: None,
         })
+    }
+
+    /// The model and reasoning level the agent runs on (`run_agent`).
+    pub fn with_chat_model(mut self, model: &str, level: &str) -> Self {
+        self.chat_pick = Some((model.to_owned(), level.to_owned()));
+        self
     }
 
     pub async fn embed(&self, text: &str) -> Result<Vec<f32>, LlmError> {
@@ -298,8 +315,11 @@ impl LlmClient {
     }
 
     /// Model id the chat/agent path actually uses under the configured provider.
-    pub fn chat_model_name(&self) -> &'static str {
-        self.effective_model(CHAT_MODEL)
+    pub fn chat_model_name(&self) -> &str {
+        match &self.chat_pick {
+            Some((model, _)) => model,
+            None => self.effective_model(CHAT_MODEL),
+        }
     }
 
     async fn chatgpt_client(&self) -> Result<chatgpt::Client, LlmError> {
@@ -457,10 +477,21 @@ impl LlmClient {
                         "llm-error-openai-key",
                     ))
                 })?;
-                surface!(client
-                    .agent(openai_model)
-                    .preamble(preamble)
-                    .temperature(temperature))
+                // A picked model reasons at its level; the GPT-6 models
+                // take no temperature.
+                let base = match &self.chat_pick {
+                    Some((model, level)) => client
+                        .agent(model)
+                        .preamble(preamble)
+                        .additional_params(serde_json::json!({
+                            "reasoning": { "effort": level }
+                        })),
+                    None => client
+                        .agent(openai_model)
+                        .preamble(preamble)
+                        .temperature(temperature),
+                };
+                surface!(base)
             }
             Provider::Anthropic => {
                 let client = self.anthropic.as_ref().ok_or_else(|| {
@@ -468,30 +499,66 @@ impl LlmClient {
                         "Anthropic client not initialized".into(),
                     )
                 })?;
-                surface!(client
-                    .agent(ANTHROPIC_CHAT_MODEL)
-                    .preamble(preamble)
-                    .max_tokens(ANTHROPIC_MAX_TOKENS))
+                surface!(self.claude_agent(client, preamble))
             }
             Provider::ChatGpt => {
                 let client = self.chatgpt_client().await?;
-                surface!(client
-                    .agent(CHATGPT_CHAT_MODEL)
-                    .preamble(preamble)
-                    .temperature(temperature)
-                    .additional_params(serde_json::json!({
-                        "reasoning": { "effort": CHATGPT_REASONING_EFFORT }
-                    })))
+                let base = match &self.chat_pick {
+                    Some((model, level)) => client
+                        .agent(model)
+                        .preamble(preamble)
+                        .additional_params(serde_json::json!({
+                            "reasoning": { "effort": level }
+                        })),
+                    None => client
+                        .agent(CHATGPT_CHAT_MODEL)
+                        .preamble(preamble)
+                        .temperature(temperature)
+                        .additional_params(serde_json::json!({
+                            "reasoning": { "effort": CHATGPT_REASONING_EFFORT }
+                        })),
+                };
+                surface!(base)
             }
             #[cfg(debug_assertions)]
             Provider::ClaudeSubscription => {
                 let client = self.claude_subscription_client().await?;
-                let reply = surface!(client
-                    .agent(ANTHROPIC_CHAT_MODEL)
-                    .preamble(preamble)
-                    .max_tokens(ANTHROPIC_MAX_TOKENS));
+                let reply = surface!(self.claude_agent(&client, preamble));
                 self.claude_subscription_reply(reply)
             }
+        }
+    }
+}
+
+impl LlmClient {
+    /// A Claude agent on the picked model and level (Claude 5.5 sets the
+    /// level through `output_config.effort`), else on the default model.
+    fn claude_agent<H>(
+        &self,
+        client: &anthropic::Client<H>,
+        preamble: &str,
+    ) -> rig::agent::AgentBuilder<anthropic::completion::CompletionModel<H>>
+    where
+        H: rig::http_client::HttpClientExt
+            + Clone
+            + Default
+            + std::fmt::Debug
+            + rig::wasm_compat::WasmCompatSend
+            + 'static,
+    {
+        let (model, level) = match &self.chat_pick {
+            Some((model, level)) => (model.as_str(), Some(level)),
+            None => (ANTHROPIC_CHAT_MODEL, None),
+        };
+        let base = client
+            .agent(model)
+            .preamble(preamble)
+            .max_tokens(ANTHROPIC_MAX_TOKENS);
+        match level {
+            Some(level) => base.additional_params(serde_json::json!({
+                "output_config": { "effort": level }
+            })),
+            None => base,
         }
     }
 }

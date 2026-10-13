@@ -21,13 +21,19 @@ fn each_conversation_keeps_its_pick_and_new_ones_start_from_the_latest() {
         (Provider::Anthropic, "claude-haiku-5-5", "medium")
     );
 
-    chat_model::choose_model(&db, Some("a"), Provider::Anthropic, "claude-opus-5-5")
-        .expect("pick opus");
+    chat_model::choose_model(
+        &db,
+        Some("a"),
+        Provider::Anthropic,
+        "claude-opus-5-5",
+    )
+    .expect("pick opus");
     chat_model::choose_level(&db, Some("a"), "max").expect("pick max");
     let new = chat_model::current(&db, Some("b"));
     assert_eq!((new.model, new.level), ("claude-opus-5-5", "max"));
 
-    db.set_setting("openai_api_key", "sk-test").expect("openai key");
+    db.set_setting("openai_api_key", "sk-test")
+        .expect("openai key");
     let groups = chat_model::options(&db, &new);
     let offered: Vec<_> = groups
         .iter()
@@ -46,9 +52,13 @@ fn each_conversation_keeps_its_pick_and_new_ones_start_from_the_latest() {
         ]
     );
 
-    let luna =
-        chat_model::choose_model(&db, Some("b"), Provider::OpenAi, "gpt-6-luna")
-            .expect("pick luna");
+    let luna = chat_model::choose_model(
+        &db,
+        Some("b"),
+        Provider::OpenAi,
+        "gpt-6-luna",
+    )
+    .expect("pick luna");
     assert_eq!((luna.model, luna.level), ("gpt-6-luna", "max"));
     assert_eq!(chat_source::active(&db), Provider::OpenAi);
     assert!(chat_model::choose_level(&db, Some("b"), "none").is_ok());
