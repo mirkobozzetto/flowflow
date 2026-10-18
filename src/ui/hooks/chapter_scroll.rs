@@ -29,7 +29,7 @@ pub fn use_chapter_scroll(bar_id: &'static str) -> ChapterScroll {
     let mut eval: Signal<Option<Eval>> = use_signal(|| None);
     use_future(move || async move {
         let mut channel = dioxus::document::eval(&build_chapter_scroll(bar_id));
-        eval.set(Some(channel.clone()));
+        eval.set(Some(channel));
         while let Ok(n) = channel.recv::<usize>().await {
             current.set(n);
         }
