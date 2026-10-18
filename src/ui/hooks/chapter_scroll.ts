@@ -8,12 +8,16 @@
 //
 // Source of truth: this .ts; `make js` -> .js, filled by build_chapter_scroll.
 
-(function () {
-  const CFG = { barId: "__BAR__" };
-  // A heading this close under the bar already counts as the current chapter,
-  // so a jump that tucks it just under the bar reports that chapter.
-  const LEAD_PX = 8;
+// A module, for the top-level await below; bun emits no export for it.
+export {};
 
+const CFG = { barId: "__BAR__" };
+// A heading this close under the bar already counts as the current chapter,
+// so a jump that tucks it just under the bar reports that chapter.
+const LEAD_PX = 8;
+const TEXT_NODE = 3;
+
+function controller(): ((n: number) => void) | null {
   // The reading view remounts after each edit: drop the previous listener.
   const w0 = window as unknown as Record<string, (() => void) | undefined>;
   const KEY = "__chapters_" + CFG.barId;
@@ -21,35 +25,58 @@
   if (prev) prev();
 
   const scroller = document.querySelector<HTMLElement>(".note-scroll");
-  if (!scroller) return;
+  if (!scroller) return null;
   const sc: HTMLElement = scroller;
 
   function headings(): HTMLElement[] {
     return Array.from(sc.querySelectorAll<HTMLElement>("[data-chapter]"));
   }
-  function barBottom(): number {
-    const bar = document.getElementById(CFG.barId);
-    return bar
-      ? bar.getBoundingClientRect().bottom
-      : sc.getBoundingClientRect().top;
+  function bar(): HTMLElement | null {
+    return document.getElementById(CFG.barId);
   }
-  function current(): number {
-    const line = barBottom() + LEAD_PX;
+  function current(hs: HTMLElement[]): number {
+    const b = bar();
+    const line =
+      (b ? b.getBoundingClientRect().bottom : sc.getBoundingClientRect().top) +
+      LEAD_PX;
     let cur = 0;
-    for (const h of headings()) {
+    for (const h of hs) {
       if (h.getBoundingClientRect().top > line) break;
       cur = Number(h.dataset.chapter);
     }
     return cur;
   }
 
+  // Writes the bar's label in the same frame as the scroll, ahead of the
+  // Rust round trip. In place: Dioxus keeps a handle on each text node and
+  // patches it with the same value right after.
+  function write(b: HTMLElement, key: string, text: string | null): void {
+    const node = b.querySelector(`[data-bar="${key}"]`)?.firstChild;
+    if (text !== null && node && node.nodeType === TEXT_NODE) {
+      node.nodeValue = text;
+    }
+  }
+  function paint(hs: HTMLElement[], n: number): void {
+    const b = bar();
+    const h = hs[n];
+    if (!b || !h) return;
+    const read = (key: string) =>
+      h.querySelector(`[data-heading="${key}"]`)?.textContent ?? null;
+    write(b, "title", read("title"));
+    write(b, "count", `${n + 1}/${hs.length}`);
+    // While a clip is loaded, the clock follows the audio instead.
+    if (b.dataset.idle === "true") write(b, "clock", read("clock"));
+  }
+
   let last = -1;
   let raf = 0;
   function report(): void {
     raf = 0;
-    const c = current();
+    const hs = headings();
+    const c = current(hs);
     if (c !== last) {
       last = c;
+      paint(hs, c);
       dioxus.send(c);
     }
   }
@@ -63,20 +90,24 @@
   };
   report();
 
-  function jump(n: number): void {
+  return (n: number) => {
     if (n < 0) {
       sc.scrollTo({ top: 0, behavior: "smooth" });
       return;
     }
-    const h = sc.querySelector<HTMLElement>('[data-chapter="' + n + '"]');
+    const h = sc.querySelector<HTMLElement>(`[data-chapter="${n}"]`);
     if (!h) return;
-    const bar = document.getElementById(CFG.barId);
-    const barH = bar ? bar.offsetHeight : 0;
+    const b = bar();
+    const barH = b ? b.offsetHeight : 0;
     const y = h.getBoundingClientRect().top - sc.getBoundingClientRect().top;
-    sc.scrollTo({ top: sc.scrollTop + y - barH + LEAD_PX / 2, behavior: "smooth" });
-  }
+    sc.scrollTo({
+      top: sc.scrollTop + y - barH + LEAD_PX / 2,
+      behavior: "smooth",
+    });
+  };
+}
 
-  (async () => {
-    for (;;) jump(Number(await dioxus.recv()));
-  })();
-})();
+const jump = controller();
+// Awaiting keeps this eval alive: Dioxus closes its channel as soon as the
+// script returns, and Rust's jumps would then go nowhere.
+while (jump) jump(Number(await dioxus.recv()));

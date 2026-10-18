@@ -1,7 +1,8 @@
 // src/ui/hooks/chapter_scroll.ts
-(function() {
-  const CFG = { barId: "__BAR__" };
-  const LEAD_PX = 8;
+var CFG = { barId: "__BAR__" };
+var LEAD_PX = 8;
+var TEXT_NODE = 3;
+function controller() {
   const w0 = window;
   const KEY = "__chapters_" + CFG.barId;
   const prev = w0[KEY];
@@ -9,32 +10,51 @@
     prev();
   const scroller = document.querySelector(".note-scroll");
   if (!scroller)
-    return;
+    return null;
   const sc = scroller;
   function headings() {
     return Array.from(sc.querySelectorAll("[data-chapter]"));
   }
-  function barBottom() {
-    const bar = document.getElementById(CFG.barId);
-    return bar ? bar.getBoundingClientRect().bottom : sc.getBoundingClientRect().top;
+  function bar() {
+    return document.getElementById(CFG.barId);
   }
-  function current() {
-    const line = barBottom() + LEAD_PX;
+  function current(hs) {
+    const b = bar();
+    const line = (b ? b.getBoundingClientRect().bottom : sc.getBoundingClientRect().top) + LEAD_PX;
     let cur = 0;
-    for (const h of headings()) {
+    for (const h of hs) {
       if (h.getBoundingClientRect().top > line)
         break;
       cur = Number(h.dataset.chapter);
     }
     return cur;
   }
+  function write(b, key, text) {
+    const node = b.querySelector(`[data-bar="${key}"]`)?.firstChild;
+    if (text !== null && node && node.nodeType === TEXT_NODE) {
+      node.nodeValue = text;
+    }
+  }
+  function paint(hs, n) {
+    const b = bar();
+    const h = hs[n];
+    if (!b || !h)
+      return;
+    const read = (key) => h.querySelector(`[data-heading="${key}"]`)?.textContent ?? null;
+    write(b, "title", read("title"));
+    write(b, "count", `${n + 1}/${hs.length}`);
+    if (b.dataset.idle === "true")
+      write(b, "clock", read("clock"));
+  }
   let last = -1;
   let raf = 0;
   function report() {
     raf = 0;
-    const c = current();
+    const hs = headings();
+    const c = current(hs);
     if (c !== last) {
       last = c;
+      paint(hs, c);
       dioxus.send(c);
     }
   }
@@ -49,21 +69,23 @@
       cancelAnimationFrame(raf);
   };
   report();
-  function jump(n) {
+  return (n) => {
     if (n < 0) {
       sc.scrollTo({ top: 0, behavior: "smooth" });
       return;
     }
-    const h = sc.querySelector('[data-chapter="' + n + '"]');
+    const h = sc.querySelector(`[data-chapter="${n}"]`);
     if (!h)
       return;
-    const bar = document.getElementById(CFG.barId);
-    const barH = bar ? bar.offsetHeight : 0;
+    const b = bar();
+    const barH = b ? b.offsetHeight : 0;
     const y = h.getBoundingClientRect().top - sc.getBoundingClientRect().top;
-    sc.scrollTo({ top: sc.scrollTop + y - barH + LEAD_PX / 2, behavior: "smooth" });
-  }
-  (async () => {
-    for (;; )
-      jump(Number(await dioxus.recv()));
-  })();
-})();
+    sc.scrollTo({
+      top: sc.scrollTop + y - barH + LEAD_PX / 2,
+      behavior: "smooth"
+    });
+  };
+}
+var jump = controller();
+while (jump)
+  jump(Number(await dioxus.recv()));

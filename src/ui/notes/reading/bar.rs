@@ -62,6 +62,7 @@ pub fn ReadingBar(
             // and no text shows above it.
             class: "sticky z-10 -mx-4 px-4 pt-3 pb-2 bg-stone-100",
             style: "top: -0.75rem;",
+            "data-idle": if loaded { "false" } else { "true" },
             div { class: "w-full h-11 flex items-center gap-1 pl-1.5 pr-1 rounded-full bg-warm-white border border-stone-200 shadow-card",
                 if loaded || start.is_some() {
                     button {
@@ -95,14 +96,20 @@ pub fn ReadingBar(
                     class: "pressable flex-1 min-w-0 h-full flex items-center gap-2 pl-1 pr-2 rounded-full text-left",
                     disabled: marks.is_empty(),
                     onclick: move |_| sheet_open.set(true),
-                    span { class: "w-10 shrink-0 text-xs tabular-nums font-medium text-ios-orange-dark",
+                    span {
+                        class: "w-10 shrink-0 text-xs tabular-nums font-medium text-ios-orange-dark",
+                        "data-bar": "clock",
                         "{clock(time_ms)}"
                     }
                     if let Some(mark) = current {
-                        span { class: "flex-1 min-w-0 truncate text-sm font-medium text-stone-900",
+                        span {
+                            class: "flex-1 min-w-0 truncate text-sm font-medium text-stone-900",
+                            "data-bar": "title",
                             "{mark.chapter.title}"
                         }
-                        span { class: "text-xs tabular-nums text-stone-400",
+                        span {
+                            class: "text-xs tabular-nums text-stone-400",
+                            "data-bar": "count",
                             "{n + 1}/{marks.len()}"
                         }
                         span { class: "inline-block w-1.5 h-1.5 ml-1 -mt-1 border-r-[1.5px] border-b-[1.5px] border-stone-400 rotate-45" }
