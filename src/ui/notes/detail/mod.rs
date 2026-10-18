@@ -97,6 +97,26 @@ pub fn NoteDetail() -> Element {
     let composer_input = use_signal(String::new);
     let mut audios_version = use_signal(|| 0u32);
     let player = use_note_player();
+    // The pill under the body and the "…" menu copy the same text.
+    let copy_note = use_callback(move |_: ()| {
+        if note_copied() {
+            return;
+        }
+        let note_title = title();
+        let body = content();
+        let text = if note_title.trim().is_empty() {
+            body
+        } else {
+            format!("{note_title}\n\n{body}")
+        };
+        crate::ui::clipboard::copy_text(&text);
+        note_copied.set(true);
+        spawn(async move {
+            futures_timer::Delay::new(std::time::Duration::from_millis(1500))
+                .await;
+            note_copied.set(false);
+        });
+    });
 
     use_effect(move || {
         if !deleted() {
@@ -254,6 +274,8 @@ pub fn NoteDetail() -> Element {
                 note_id: local_note_id(),
                 import_requested,
                 deleted,
+                editing,
+                on_copy: copy_note,
             }
         }
         div {
@@ -352,27 +374,7 @@ pub fn NoteDetail() -> Element {
                     } else {
                         "pressable flex items-center gap-1 min-h-[32px] px-2 rounded-full text-xs text-stone-400 hover:text-stone-600 hover:bg-stone-100 transition-colors duration-150"
                     },
-                    onclick: move |_| {
-                        if note_copied() {
-                            return;
-                        }
-                        let note_title = title();
-                        let body = content();
-                        let text = if note_title.trim().is_empty() {
-                            body
-                        } else {
-                            format!("{note_title}\n\n{body}")
-                        };
-                        crate::ui::clipboard::copy_text(&text);
-                        note_copied.set(true);
-                        spawn(async move {
-                            futures_timer::Delay::new(
-                                std::time::Duration::from_millis(1500),
-                            )
-                            .await;
-                            note_copied.set(false);
-                        });
-                    },
+                    onclick: move |_| copy_note.call(()),
                     if note_copied() {
                         IconCheck { size: 12 }
                         {t(&lang, "common-copied")}

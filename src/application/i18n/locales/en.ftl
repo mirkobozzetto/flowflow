@@ -442,6 +442,7 @@ folder-menu-delete-warning = Notes in this theme are not deleted.
 note-menu-import = Import a document
 note-menu-import-audio = Import an audio
 note-menu-delete = Delete note
+note-menu-edit-text = Edit text
 note-delete-pending = Deleting note...
 note-delete-failed = The note could not be deleted. Your content has been kept. Please try again.
 note-delete-revoke-failed = The note was deleted locally, but its public link could not be revoked.

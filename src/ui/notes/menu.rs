@@ -120,6 +120,8 @@ pub fn NoteMenu(
     note_id: String,
     import_requested: Signal<bool>,
     deleted: Signal<bool>,
+    editing: Option<Signal<bool>>,
+    on_copy: Option<EventHandler<()>>,
 ) -> Element {
     let mut app: AppState = use_context();
     let db: Signal<Arc<crate::infrastructure::persistence::Database>> =
@@ -290,6 +292,40 @@ pub fn NoteMenu(
                         }
                     }
                     div { class: kit::MENU_SEP }
+                    if let Some(mut editing) = editing {
+                        button {
+                            class: kit::MENU_ITEM,
+                            "data-native-action": "edit-text",
+                            "data-native-symbol": if editing() { "checkmark" } else { "pencil" },
+                            onclick: move |_| {
+                                editing.set(!editing());
+                                app.show_note_menu.set(false);
+                            },
+                            if editing() {
+                                IconCheck { size: 16 }
+                                {t(&lang, "note-preview")}
+                            } else {
+                                IconPencil { size: 16 }
+                                {t(&lang, "note-menu-edit-text")}
+                            }
+                        }
+                    }
+                    if let Some(on_copy) = on_copy {
+                        button {
+                            class: kit::MENU_ITEM,
+                            "data-native-action": "copy",
+                            "data-native-symbol": "doc.on.doc",
+                            onclick: move |_| {
+                                on_copy.call(());
+                                app.show_note_menu.set(false);
+                            },
+                            IconCopy { size: 16 }
+                            {t(&lang, "common-copy")}
+                        }
+                    }
+                    if editing.is_some() || on_copy.is_some() {
+                        div { class: kit::MENU_SEP }
+                    }
                     if in_thread {
                         button {
                             class: kit::MENU_ITEM,
