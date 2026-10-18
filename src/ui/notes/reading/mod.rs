@@ -198,10 +198,11 @@ pub fn ReadingView(
         if words == 0 {
             return;
         }
+        let id = local_note_id.peek().clone();
         spawn(async move {
             let _ = document::eval(PAINTED_JS).await;
             device_log(&format!(
-                "[reading] {paragraphs} paragraphs, {words} words shown in {} ms",
+                "[reading] {id}: {paragraphs} paragraphs, {words} words shown in {} ms",
                 created.elapsed().as_millis()
             ));
         });

@@ -3,7 +3,7 @@ use crate::application::i18n::{t, t_args};
 use crate::application::sharing;
 use crate::domain::share::share_link;
 use crate::infrastructure::persistence::Database;
-use crate::infrastructure::platform::haptic;
+use crate::infrastructure::platform::{device_log, haptic};
 use crate::ui::hooks::swipe::use_sheet_dismiss;
 use crate::ui::icons::{IconCheck, IconLink, IconLockSimple, IconX};
 use crate::ui::AppState;
@@ -108,10 +108,14 @@ fn ShareSheet(
         busy.set(true);
         error.set(None);
         spawn(async move {
-            if let Err(e) = sharing::publish_note(&db(), &local_note_id()).await
-            {
-                let lang = (app.current_lang)();
-                error.set(Some(t(&lang, share_error_key(&e))));
+            let id = local_note_id();
+            match sharing::publish_note(&db(), &id).await {
+                Ok(_) => device_log(&format!("[share] {id}: public")),
+                Err(e) => {
+                    device_log(&format!("[share] {id}: publish failed: {e}"));
+                    let lang = (app.current_lang)();
+                    error.set(Some(t(&lang, share_error_key(&e))));
+                }
             }
             busy.set(false);
             version += 1;
@@ -131,9 +135,14 @@ fn ShareSheet(
         error.set(None);
         spawn(async move {
             let mut close = close;
-            match sharing::revoke(&db(), &local_note_id()).await {
-                Ok(()) => close(),
+            let id = local_note_id();
+            match sharing::revoke(&db(), &id).await {
+                Ok(()) => {
+                    device_log(&format!("[share] {id}: private"));
+                    close();
+                }
                 Err(e) => {
+                    device_log(&format!("[share] {id}: revoke failed: {e}"));
                     let lang = (app.current_lang)();
                     error.set(Some(t(&lang, share_error_key(&e))));
                 }
@@ -150,6 +159,7 @@ fn ShareSheet(
                 return;
             };
             crate::ui::clipboard::copy_text(&share_link(code));
+            device_log(&format!("[share] {}: link copied", local_note_id()));
             haptic("light");
             close();
         }
