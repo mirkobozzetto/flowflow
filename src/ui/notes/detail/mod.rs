@@ -4,7 +4,6 @@ use crate::application::transcription_manager::TranscriptionManager;
 use crate::domain::{generate_auto_title, Attachment};
 use crate::infrastructure::audio::RecordingState;
 use crate::infrastructure::persistence::Database;
-use crate::ui::chat::md_to_html;
 use crate::ui::composer::{Composer, ComposerRole};
 use crate::ui::icons::{IconCheck, IconCopy, IconPencil};
 use crate::ui::notes::attachments::AttachmentSection;
@@ -12,6 +11,7 @@ use crate::ui::notes::audio_section::{AudioJobBanner, AudioSection};
 use crate::ui::notes::dates::{format_absolute_short, format_relative_date};
 use crate::ui::notes::menu::NoteMenu;
 use crate::ui::notes::playback::use_note_player;
+use crate::ui::notes::reading::ReadingView;
 use crate::ui::notes::reminders::{ActiveReminders, ReminderSuggestions};
 use crate::ui::notes::tags::TagsSection;
 use crate::ui::{AppState, View};
@@ -322,14 +322,13 @@ pub fn NoteDetail() -> Element {
                     oninput: move |evt| content.set(evt.value()),
                 }
             } else {
-                div {
-                    class: "w-full min-h-[300px] p-3 mt-3 rounded-xl border border-stone-300/60 bg-transparent shadow-none text-sm prose prose-sm max-w-none text-stone-900 break-words overflow-x-hidden [&_*]:[overflow-wrap:anywhere] [&_pre]:whitespace-pre-wrap [&_pre]:break-words",
-                    onclick: move |_| editing.set(true),
-                    if content().trim().is_empty() {
-                        span { class: "text-stone-400", "{content_placeholder}" }
-                    } else {
-                        div { dangerous_inner_html: md_to_html(&content()) }
-                    }
+                ReadingView {
+                    content,
+                    local_note_id,
+                    audios_version,
+                    player,
+                    placeholder: content_placeholder.clone(),
+                    on_edit: move |_| editing.set(true),
                 }
             }
             // In the flow under the body, not sticky: pinned to the viewport

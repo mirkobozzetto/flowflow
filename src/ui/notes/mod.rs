@@ -7,6 +7,7 @@ pub(crate) mod menu;
 mod note_actions;
 pub(crate) mod note_tools_menu;
 mod playback;
+mod reading;
 mod related;
 mod reminders;
 pub(crate) mod share_section;
