@@ -12,6 +12,7 @@ use crate::ui::notes::dates::{format_absolute_short, format_relative_date};
 use crate::ui::notes::menu::NoteMenu;
 use crate::ui::notes::playback::use_note_player;
 use crate::ui::notes::reading::ReadingView;
+use crate::ui::notes::summary_card::SummaryCard;
 use crate::ui::notes::reminders::{ActiveReminders, ReminderSuggestions};
 use crate::ui::notes::tags::TagsSection;
 use crate::ui::{AppState, View};
@@ -336,6 +337,7 @@ pub fn NoteDetail() -> Element {
             div { class: "border-t border-stone-200/70 pt-3 pb-2",
                 TagsSection { tags, tag_input, tagging, content }
             }
+            SummaryCard { local_note_id, content, audios_version, player }
             if editing() || is_transcribing {
                 textarea {
                     class: "note-content-field w-full min-h-[300px] border border-stone-300/60 rounded-xl p-3 mt-3 text-sm resize-none font-sans outline-none text-stone-900 bg-transparent placeholder:text-stone-300 focus:border-stone-400/60 focus-visible:outline-none shadow-none",

@@ -99,7 +99,9 @@ pub fn SummaryCard(
         let id = local_note_id();
         let _ = version();
         let _ = (app.notes_version)();
-        (!id.is_empty()).then(|| db().summary_for_note(&id)).flatten()
+        (!id.is_empty())
+            .then(|| db().summary_for_note(&id))
+            .flatten()
     });
 
     let summarize = use_callback(move |_: ()| {
@@ -132,7 +134,14 @@ pub fn SummaryCard(
     };
 
     let Some(kept) = summary().filter(|_| !busy()) else {
-        let label = t(&lang, if busy() { "summary-busy" } else { "summary-action" });
+        let label = t(
+            &lang,
+            if busy() {
+                "summary-busy"
+            } else {
+                "summary-action"
+            },
+        );
         return rsx! {
             button {
                 class: "pressable w-full h-11 mt-1 mb-2 flex items-center gap-2.5 px-4 rounded-full bg-warm-white border border-stone-200 shadow-card text-left",
@@ -251,18 +260,23 @@ pub fn SummaryCard(
                                         span { class: "flex-1",
                                             "{item.text}"
                                             if let Some(at) = item.at.clone() {
-                                                " "
-                                                button {
-                                                    class: "text-xs tabular-nums font-medium text-ios-orange-dark",
-                                                    onclick: move |_| {
-                                                        let Some(clip) = playback_at(&db(), &local_note_id(), &at) else {
-                                                            return;
-                                                        };
-                                                        haptic("light");
-                                                        let mut player = player;
-                                                        player.play(clip, f64::from(at.ms) / 1000.0);
-                                                    },
-                                                    {clock(at.ms)}
+                                                {
+                                                    let label = clock(at.ms);
+                                                    rsx! {
+                                                        " "
+                                                        button {
+                                                            class: "text-xs tabular-nums font-medium text-ios-orange-dark",
+                                                            onclick: move |_| {
+                                                                let Some(clip) = playback_at(&db(), &local_note_id(), &at) else {
+                                                                    return;
+                                                                };
+                                                                haptic("light");
+                                                                let mut player = player;
+                                                                player.play(clip, f64::from(at.ms) / 1000.0);
+                                                            },
+                                                            "{label}"
+                                                        }
+                                                    }
                                                 }
                                             }
                                         }

@@ -76,7 +76,7 @@ fn with_lengths(
 }
 
 /// A time in the recording, `m:ss`; past an hour the minutes keep counting.
-fn clock(ms: u32) -> String {
+pub(crate) fn clock(ms: u32) -> String {
     let secs = ms / 1000;
     format!("{}:{:02}", secs / 60, secs % 60)
 }
