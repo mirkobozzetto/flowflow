@@ -11,6 +11,7 @@ mod reading;
 mod related;
 mod reminders;
 pub(crate) mod share_section;
+mod share_sheet;
 mod summary_card;
 mod tags;
 

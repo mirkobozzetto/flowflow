@@ -12,8 +12,9 @@ use crate::ui::notes::dates::{format_absolute_short, format_relative_date};
 use crate::ui::notes::menu::NoteMenu;
 use crate::ui::notes::playback::use_note_player;
 use crate::ui::notes::reading::ReadingView;
-use crate::ui::notes::summary_card::SummaryCard;
 use crate::ui::notes::reminders::{ActiveReminders, ReminderSuggestions};
+use crate::ui::notes::share_sheet::NoteShare;
+use crate::ui::notes::summary_card::SummaryCard;
 use crate::ui::notes::tags::TagsSection;
 use crate::ui::{AppState, View};
 use dioxus::prelude::*;
@@ -332,6 +333,7 @@ pub fn NoteDetail() -> Element {
                         }
                     }
                 }
+                NoteShare { local_note_id }
                 ActiveReminders { local_note_id }
             }
             div { class: "border-t border-stone-200/70 pt-3 pb-2",
@@ -404,10 +406,6 @@ pub fn NoteDetail() -> Element {
             }
             crate::ui::notes::share_section::ProvenanceCard {
                 note_id: local_note_id(),
-            }
-            crate::ui::notes::share_section::ShareSection {
-                source_id: local_note_id(),
-                kind_thread: false,
             }
             AudioSection { local_note_id, audios_version, player }
             AttachmentSection { attachments, confirm_delete_att }

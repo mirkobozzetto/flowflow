@@ -21,7 +21,8 @@ const CLOSE_MS: u64 = 300;
 
 const OPTION: &str = "pressable w-full flex items-center gap-3 min-h-[52px] px-3.5 rounded-2xl bg-stone-900/[0.045] text-[15px] text-stone-900 text-left active:bg-stone-900/[0.09] disabled:opacity-60";
 const DOT_ON: &str = "w-[22px] h-[22px] shrink-0 rounded-full border-[1.5px] border-ios-orange bg-ios-orange flex items-center justify-center text-white";
-const DOT_OFF: &str = "w-[22px] h-[22px] shrink-0 rounded-full border-[1.5px] border-stone-300";
+const DOT_OFF: &str =
+    "w-[22px] h-[22px] shrink-0 rounded-full border-[1.5px] border-stone-300";
 
 /// A note's sharing: the « Partagée » chip under its date while a link
 /// lives, and the sheet that the chip or « … › Partager cette note » opens.
