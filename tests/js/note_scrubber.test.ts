@@ -20,10 +20,14 @@ const AsyncFunction = async function () {}.constructor as new (
 
 const SCROLLER_TOP = 100;
 const BAR_H = 50;
+// The bar's sticky top (bar.rs), as getComputedStyle reports it.
+const STICK_PX = -12;
 const CLIENT_H = 600;
-const ZONE_TOP = 158;
 const ZONE_H = 400;
 const KNOB_H = 40;
+// Half the held knob: the knob's center stays this far inside the rail.
+const KNOB_HALF = 26;
+const TRAVEL = ZONE_H - 2 * KNOB_HALF;
 // Where each heading sits in the note's content.
 const OFFSETS = [300, 1500, 3000];
 const TITLES = ["Intro", "Budget", "Next steps"];
@@ -74,11 +78,15 @@ function setup(contentH = 6000) {
             : null,
     }),
   );
+  // At the note's top the bar sits lower, under the title; it sticks once
+  // the note has scrolled past it.
   const bar = {
     offsetHeight: BAR_H,
-    getBoundingClientRect: () => ({ bottom: SCROLLER_TOP + BAR_H }),
+    getBoundingClientRect: () => ({
+      bottom: SCROLLER_TOP + BAR_H + Math.max(0, 250 - scroller.scrollTop),
+    }),
   };
-  const knob = node({ offsetHeight: KNOB_H });
+  const knob = node({ offsetHeight: KNOB_H, setPointerCapture: () => {} });
   const labels = { n: node(), clock: node(), title: node() };
   const bubble = node({
     querySelector: (sel: string) =>
@@ -92,8 +100,6 @@ function setup(contentH = 6000) {
   });
   const zone = node({
     clientHeight: ZONE_H,
-    getBoundingClientRect: () => ({ top: ZONE_TOP, height: ZONE_H }),
-    setPointerCapture: () => {},
     querySelector: (sel: string) =>
       sel === "[data-scrub=knob]"
         ? knob
@@ -109,6 +115,7 @@ function setup(contentH = 6000) {
     getElementById: (id: string) =>
       id === "reading-bar" ? bar : id === "note-scrubber" ? zone : null,
   };
+  g.getComputedStyle = () => ({ top: `${STICK_PX}px` });
   g.requestAnimationFrame = (f: FrameRequestCallback) => frames.push(f);
   g.cancelAnimationFrame = () => {};
   const dioxus = {
@@ -124,11 +131,11 @@ function setup(contentH = 6000) {
     scroller.on.get("scroll")?.();
     frames.splice(0).forEach((f) => f(0));
   };
-  // A finger at `r` of the zone's height.
-  const at = (r: number) => ({ clientY: ZONE_TOP + r * ZONE_H, pointerId: 1 });
-  const press = (r: number) => zone.on.get("pointerdown")!(at(r));
-  const drag = (r: number) => zone.on.get("pointermove")!(at(r));
-  const lift = () => zone.on.get("pointerup")!();
+  // A finger on the knob at screen height `y`.
+  const at = (y: number) => ({ clientY: y, pointerId: 1 });
+  const press = (y: number) => knob.on.get("pointerdown")!(at(y));
+  const drag = (y: number) => knob.on.get("pointermove")!(at(y));
+  const lift = () => knob.on.get("pointerup")!();
   return {
     sent,
     scroller,
@@ -147,6 +154,7 @@ function setup(contentH = 6000) {
 const MAX = 6000 - CLIENT_H;
 // Where the jump to heading `i` lands, as a share of the scroll.
 const mark = (i: number) => (OFFSETS[i] - BAR_H + 4) / MAX;
+const FINGER = 300;
 
 let env: ReturnType<typeof setup>;
 beforeEach(() => {
@@ -164,33 +172,74 @@ test("a long note shows the knob at the scroll's height", async () => {
   await env.run();
   env.scroll(MAX / 2);
   expect(env.zone.attrs.has("data-on")).toBe(true);
-  expect(env.knob.style.top).toBe(`${ZONE_H / 2 - KNOB_H / 2}px`);
-  expect(env.zone.style.top).toBe(`${SCROLLER_TOP + BAR_H + 8}px`);
+  expect(env.knob.style.top).toBe(`${KNOB_HALF + TRAVEL / 2 - KNOB_H / 2}px`);
 });
 
-test("a grab taps, dims the note, and near the bottom lands on the end", async () => {
+test("the rail keeps one length at the note's top and further down", async () => {
+  await env.run();
+  env.scroll(10);
+  const atTop = env.zone.style.top;
+  env.scroll(MAX / 2);
+  expect(env.zone.style.top).toBe(atTop);
+  expect(atTop).toBe(`${SCROLLER_TOP + STICK_PX + BAR_H + 8}px`);
+});
+
+test("the knob stays in the rail at both ends", async () => {
+  await env.run();
+  env.scroll(0.0001);
+  expect(parseFloat(env.knob.style.top)).toBeGreaterThanOrEqual(0);
+  env.scroll(MAX);
+  expect(parseFloat(env.knob.style.top) + KNOB_H).toBeLessThanOrEqual(ZONE_H);
+});
+
+test("only the knob takes the finger", async () => {
+  await env.run();
+  expect(env.zone.on.has("pointerdown")).toBe(false);
+  expect(env.knob.on.has("pointerdown")).toBe(true);
+});
+
+test("a grab taps and stops the note's own scrolling, without moving it", async () => {
   await env.run();
   env.scroll(1000);
-  env.press(0.99);
+  env.press(FINGER);
   expect(env.sent).toEqual(["grab"]);
   expect(env.scroller.attrs.has("data-scrubbing")).toBe(true);
+  expect(env.scroller.scrollTop).toBe(1000);
+});
+
+test("dragging moves the note by as much as the finger moves", async () => {
+  await env.run();
+  env.scroll(1000);
+  env.press(FINGER);
+  env.drag(FINGER + 0.3 * TRAVEL);
+  expect(env.scroller.scrollTop).toBeCloseTo(1000 + 0.3 * MAX);
+  expect(env.labels.title.textContent).toBe("Budget");
+});
+
+test("dragged past the bottom it lands on the end", async () => {
+  await env.run();
+  env.scroll(1000);
+  env.press(FINGER);
+  env.drag(FINGER + ZONE_H);
   expect(env.scroller.scrollTop).toBe(MAX);
   expect(env.labels.n.textContent).toBe("↓");
   expect(env.labels.title.textContent).toBe("Fin de la note");
 });
 
-test("near the top it lands on the start of the note", async () => {
+test("dragged past the top it lands on the start", async () => {
   await env.run();
   env.scroll(1000);
-  env.press(0.01);
+  env.press(FINGER);
+  env.drag(FINGER - ZONE_H);
   expect(env.scroller.scrollTop).toBe(0);
   expect(env.labels.title.textContent).toBe("Début de la note");
 });
 
 test("close to a chapter mark it snaps onto that chapter", async () => {
   await env.run();
-  env.scroll(1000);
-  env.press(mark(1) + 0.01);
+  env.scroll((mark(1) - 0.05) * MAX);
+  env.press(FINGER);
+  env.drag(FINGER + 0.04 * TRAVEL);
   expect(env.scroller.scrollTop).toBeCloseTo(OFFSETS[1] - BAR_H + 4);
   expect(env.labels.n.textContent).toBe("Chapitre 2/3");
   expect(env.labels.clock.textContent).toBe("25:00");
@@ -199,28 +248,19 @@ test("close to a chapter mark it snaps onto that chapter", async () => {
   expect(env.ticks[0].attrs.has("data-current")).toBe(false);
 });
 
-test("the track marks each chapter where its jump lands", async () => {
+test("the rail marks each chapter where the knob would show it", async () => {
   await env.run();
   env.scroll(1000);
-  env.press(0.5);
+  env.press(FINGER);
   env.ticks.forEach((t, i) => {
-    expect(parseFloat(t.style.top)).toBeCloseTo(mark(i) * ZONE_H);
+    expect(parseFloat(t.style.top)).toBeCloseTo(KNOB_HALF + mark(i) * TRAVEL);
   });
 });
 
-test("dragging follows the finger between marks", async () => {
+test("letting go gives the note back its scrolling", async () => {
   await env.run();
   env.scroll(1000);
-  env.press(0.5);
-  env.drag(0.8);
-  expect(env.scroller.scrollTop).toBeCloseTo(0.8 * MAX);
-  expect(env.labels.title.textContent).toBe("Next steps");
-});
-
-test("letting go undims the note", async () => {
-  await env.run();
-  env.scroll(1000);
-  env.press(0.5);
+  env.press(FINGER);
   env.lift();
   expect(env.scroller.attrs.has("data-scrubbing")).toBe(false);
   expect(env.zone.attrs.has("data-drag")).toBe(false);

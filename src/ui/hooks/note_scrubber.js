@@ -11,6 +11,7 @@ var HIDE_MS = 1800;
 var SNAP = 0.018;
 var LEAD_PX = 4;
 var GAP_PX = 8;
+var KNOB_HALF_PX = 26;
 var BUBBLE_EDGE_PX = 28;
 function start() {
   const w0 = window;
@@ -33,6 +34,8 @@ function start() {
   const max = () => Math.max(1, sc.scrollHeight - sc.clientHeight);
   const long = () => sc.scrollHeight >= sc.clientHeight * LONG_SCREENS;
   const bar = () => document.getElementById(CFG.barId);
+  const travel = () => Math.max(1, zone.clientHeight - 2 * KNOB_HALF_PX);
+  const center = (r) => KNOB_HALF_PX + r * travel();
   function headings() {
     return Array.from(sc.querySelectorAll("[data-chapter]"));
   }
@@ -46,14 +49,15 @@ function start() {
   }
   function anchor() {
     const b = bar();
-    const top = b ? b.getBoundingClientRect().bottom : sc.getBoundingClientRect().top;
+    const stuck = b ? parseFloat(getComputedStyle(b).top) || 0 : 0;
+    const top = sc.getBoundingClientRect().top + stuck + (b?.offsetHeight ?? 0);
     zone.style.top = `${top + GAP_PX}px`;
   }
   function place(r) {
+    const y = center(r);
+    kn.style.top = `${y - kn.offsetHeight / 2}px`;
     const h = zone.clientHeight;
-    kn.style.top = `${r * h - kn.offsetHeight / 2}px`;
-    const y = Math.min(h - BUBBLE_EDGE_PX, Math.max(BUBBLE_EDGE_PX, r * h));
-    bu.style.top = `${y}px`;
+    bu.style.top = `${Math.min(h - BUBBLE_EDGE_PX, Math.max(BUBBLE_EDGE_PX, y))}px`;
   }
   function text(key, value) {
     const node = bu.querySelector(`[data-scrub=${key}]`);
@@ -88,6 +92,8 @@ function start() {
   let timer;
   let raf = 0;
   let at = [];
+  let y0 = 0;
+  let r0 = 0;
   function show() {
     zone.setAttribute("data-on", "");
     clearTimeout(timer);
@@ -109,9 +115,28 @@ function start() {
     if (!raf)
       raf = requestAnimationFrame(follow);
   }
-  function to(e) {
-    const box = zone.getBoundingClientRect();
-    let r = Math.min(1, Math.max(0, (e.clientY - box.top) / box.height));
+  function grab(e) {
+    held = true;
+    at = marks();
+    y0 = e.clientY;
+    r0 = Math.min(1, Math.max(0, sc.scrollTop / max()));
+    zone.querySelectorAll("[data-tick]").forEach((t) => {
+      const m = at[Number(t.dataset.tick)];
+      if (m !== undefined)
+        t.style.top = `${center(m)}px`;
+    });
+    zone.setAttribute("data-drag", "");
+    sc.setAttribute("data-scrubbing", "");
+    kn.setPointerCapture(e.pointerId);
+    show();
+    dioxus.send("grab");
+    place(r0);
+    label(r0, at);
+  }
+  function move(e) {
+    if (!held)
+      return;
+    let r = Math.min(1, Math.max(0, r0 + (e.clientY - y0) / travel()));
     if (r < SNAP)
       r = 0;
     else if (r > 1 - SNAP)
@@ -124,26 +149,6 @@ function start() {
     place(r);
     label(r, at);
   }
-  function grab(e) {
-    held = true;
-    at = marks();
-    const h = zone.clientHeight;
-    zone.querySelectorAll("[data-tick]").forEach((t) => {
-      const m = at[Number(t.dataset.tick)];
-      if (m !== undefined)
-        t.style.top = `${m * h}px`;
-    });
-    zone.setAttribute("data-drag", "");
-    sc.setAttribute("data-scrubbing", "");
-    zone.setPointerCapture(e.pointerId);
-    show();
-    dioxus.send("grab");
-    to(e);
-  }
-  function move(e) {
-    if (held)
-      to(e);
-  }
   function release() {
     if (!held)
       return;
@@ -153,16 +158,16 @@ function start() {
     show();
   }
   sc.addEventListener("scroll", onScroll, { passive: true });
-  zone.addEventListener("pointerdown", grab);
-  zone.addEventListener("pointermove", move);
-  zone.addEventListener("pointerup", release);
-  zone.addEventListener("pointercancel", release);
+  kn.addEventListener("pointerdown", grab);
+  kn.addEventListener("pointermove", move);
+  kn.addEventListener("pointerup", release);
+  kn.addEventListener("pointercancel", release);
   w0[KEY] = () => {
     sc.removeEventListener("scroll", onScroll);
-    zone.removeEventListener("pointerdown", grab);
-    zone.removeEventListener("pointermove", move);
-    zone.removeEventListener("pointerup", release);
-    zone.removeEventListener("pointercancel", release);
+    kn.removeEventListener("pointerdown", grab);
+    kn.removeEventListener("pointermove", move);
+    kn.removeEventListener("pointerup", release);
+    kn.removeEventListener("pointercancel", release);
     clearTimeout(timer);
     if (raf)
       cancelAnimationFrame(raf);

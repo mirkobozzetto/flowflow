@@ -1090,9 +1090,10 @@
 }
 
 /* The note's scrubber: a glass knob on the right edge while a long note
-   scrolls. Held, a hairline track marked at each chapter and a bubble naming
-   where it lands, the paragraphs dimmed behind. The script sets its top
-   under the reading bar; its bottom clears the composer. */
+   scrolls, the only part that takes the finger. Held, a hairline track
+   marked at each chapter and a bubble naming where it lands, the paragraphs
+   dimmed behind. The script sets its top under the stuck reading bar; its
+   bottom clears the composer. */
 .note-scrubber {
     position: fixed;
     right: 0;
@@ -1101,9 +1102,6 @@
     z-index: 20;
     touch-action: none;
     pointer-events: none;
-}
-.note-scrubber[data-on] {
-    pointer-events: auto;
 }
 .note-scrubber-track {
     position: absolute;
@@ -1148,6 +1146,8 @@
     align-items: center;
     justify-content: center;
     gap: 3px;
+    pointer-events: none;
+    touch-action: none;
     background: --alpha(var(--color-warm-white) / 94%);
     box-shadow:
         0 0 0 1px var(--color-stone-300),
@@ -1159,6 +1159,12 @@
         height 200ms var(--ease-soft),
         right 200ms var(--ease-soft);
 }
+/* A finger-sized hit area around the thin knob. */
+.note-scrubber-knob::before {
+    content: "";
+    position: absolute;
+    inset: -12px -8px -12px -18px;
+}
 .note-scrubber-knob > i {
     width: 5px;
     height: 1.5px;
@@ -1167,6 +1173,7 @@
 }
 .note-scrubber[data-on] .note-scrubber-knob {
     opacity: 1;
+    pointer-events: auto;
 }
 .note-scrubber[data-drag] .note-scrubber-knob {
     right: 4px;
@@ -1200,6 +1207,11 @@
 }
 .note-scroll[data-scrubbing] [data-audio] {
     opacity: 0.35;
+}
+/* Held, the knob alone moves the note: its own scrolling, momentum
+   included, stops. */
+.note-scroll[data-scrubbing] {
+    overflow-y: hidden;
 }
 /* The knob replaces the system scroll indicator on a long note. */
 .note-scroll[data-scrubber] {
