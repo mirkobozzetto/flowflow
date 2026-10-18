@@ -89,15 +89,18 @@ pub fn AudioSection(
                                                         // Read on tap: the words only drive the
                                                         // highlight, which lives in the note body.
                                                         let transcript = db().words_for_audio(&audio_id_play).unwrap_or_default();
-                                                        player.play(Playback {
+                                                        player.toggle(Playback {
                                                             audio_id: audio_id_play.clone(),
                                                             path: path_play.clone(),
                                                             transcript,
                                                             duration_secs: duration_play,
                                                         }, 0.0);
                                                     },
-                                                    on_stop: move |_| player.stop(),
+                                                    on_stop: move |_| player.pause(),
                                                     on_delete: move |_| {
+                                                        if player.is_current(&audio_id) {
+                                                            player.stop();
+                                                        }
                                                         let fp = file_path.clone();
                                                         let _ = std::fs::remove_file(audio::resolve_audio_path(&fp));
                                                         let _ = db().delete_audio(&audio_id);

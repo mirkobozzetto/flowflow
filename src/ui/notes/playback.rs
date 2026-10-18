@@ -22,14 +22,21 @@ pub struct NotePlayer {
     pub playback: Signal<Option<Playback>>,
     /// Index into the playing clip's words.
     pub active_word: Signal<Option<usize>>,
+    /// Where the current clip was paused, so playing it again resumes there.
+    pub paused_at: Signal<Option<f64>>,
 }
 
 impl NotePlayer {
-    pub fn is_playing(&self, audio_id: &str) -> bool {
+    /// The clip is loaded, playing or paused.
+    pub fn is_current(&self, audio_id: &str) -> bool {
         self.playback
             .read()
             .as_ref()
             .is_some_and(|p| p.audio_id == audio_id)
+    }
+
+    pub fn is_playing(&self, audio_id: &str) -> bool {
+        self.is_current(audio_id) && self.paused_at.read().is_none()
     }
 
     /// Play `clip` from `from_secs`, moving in place when it already plays.
@@ -39,20 +46,47 @@ impl NotePlayer {
             return;
         }
         start_playback(&clip.path, from_secs);
-        self.active_word.set(None);
-        self.playback.set(Some(clip));
+        self.paused_at.set(None);
+        if !self.is_current(&clip.audio_id) {
+            self.active_word.set(None);
+            self.playback.set(Some(clip));
+        }
+    }
+
+    /// Stops the audio but keeps the clip and its highlighted word.
+    pub fn pause(&mut self) {
+        if self.playback.peek().is_none() || self.paused_at.peek().is_some() {
+            return;
+        }
+        let at = playhead_secs().unwrap_or(0.0);
+        stop_playback();
+        self.paused_at.set(Some(at));
+    }
+
+    /// A play/pause button: pauses `clip` while it plays, resumes it where it
+    /// was paused, and otherwise plays it from `from_secs`.
+    pub fn toggle(&mut self, clip: Playback, from_secs: f64) {
+        if self.is_playing(&clip.audio_id) {
+            self.pause();
+            return;
+        }
+        let resume_at = (*self.paused_at.peek())
+            .filter(|_| self.is_current(&clip.audio_id));
+        self.play(clip, resume_at.unwrap_or(from_secs));
     }
 
     pub fn stop(&mut self) {
         stop_playback();
         self.playback.set(None);
         self.active_word.set(None);
+        self.paused_at.set(None);
     }
 }
 
 pub fn use_note_player() -> NotePlayer {
     let mut playback: Signal<Option<Playback>> = use_signal(|| None);
     let mut active_word: Signal<Option<usize>> = use_signal(|| None);
+    let paused_at: Signal<Option<f64>> = use_signal(|| None);
 
     use_future(move || async move {
         loop {
@@ -66,6 +100,9 @@ pub fn use_note_player() -> NotePlayer {
                 }
                 continue;
             };
+            if paused_at.peek().is_some() {
+                continue;
+            }
             let Some(elapsed) = playhead_secs() else {
                 continue;
             };
@@ -88,6 +125,7 @@ pub fn use_note_player() -> NotePlayer {
     NotePlayer {
         playback,
         active_word,
+        paused_at,
     }
 }
 
