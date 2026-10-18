@@ -135,6 +135,25 @@ final period.\n\
 - summary: one sentence of at most 20 words saying what is said or decided.\n\
 - Write title and summary in the language the transcript is spoken in.";
 
+pub const SUMMARY_SYSTEM_PROMPT: &str = "\
+You summarize a recorded meeting for the people who were in it.\n\
+The note comes as numbered paragraphs: \"[n] m:ss text\", m:ss being where \
+the paragraph starts in the recording. Lines without a number were typed or \
+corrected by hand.\n\
+Return ONLY this JSON, nothing else:\n\
+{\"key_points\":[{\"text\":\"...\",\"at\":3}],\"decisions\":[],\
+\"actions\":[],\"questions\":[]}\n\
+- key_points: the 3 to 6 things to remember.\n\
+- decisions: what was decided. Empty when nothing was.\n\
+- actions: who does what, written \"Who: what\"; without a named person, \
+only what.\n\
+- questions: what was left open.\n\
+- at: the number of the paragraph the item comes from. Always give it for an \
+action; leave it out when no single paragraph says the item.\n\
+- Specific to this meeting: the names, figures and dates said. Never generic \
+advice, never anything the note does not say.\n\
+- One short sentence per item, at most 25 words.";
+
 pub const TAGS_SYSTEM_PROMPT: &str = "\
 Extract exactly 3 single-word keyword tags from the text below.\n\
 Each tag must be exactly one word, lowercase, no spaces, no hyphens.\n\
