@@ -1,16 +1,16 @@
-// Share card (proposal 0001 T15) shown under a note or thread the user
-// published, plus the frozen provenance card a KEPT note carries. Mockup
-// section 3: no code ever displayed, actions = Copy link / Revoke.
+// Share card shown under a thread the user published, plus the frozen
+// provenance card a KEPT note carries. No code ever displayed, actions =
+// Copy link / Revoke. A note shares from its sheet (share_sheet.rs).
 
 use crate::application::i18n::{t, t_args};
 use crate::application::sharing::{self, ShareError};
-use crate::domain::share::{share_link, ShareKind, PROVENANCE_GONE};
+use crate::domain::share::{share_link, PROVENANCE_GONE};
 use crate::infrastructure::persistence::Database;
 use crate::ui::AppState;
 use dioxus::prelude::*;
 use std::sync::Arc;
 
-fn expiry_label(iso: &str) -> String {
+pub(super) fn expiry_label(iso: &str) -> String {
     chrono::DateTime::parse_from_rfc3339(iso)
         .map(|d| {
             d.with_timezone(&chrono::Local)
@@ -20,7 +20,7 @@ fn expiry_label(iso: &str) -> String {
         .unwrap_or_else(|_| iso.chars().take(10).collect())
 }
 
-fn share_error_key(e: &ShareError) -> &'static str {
+pub(super) fn share_error_key(e: &ShareError) -> &'static str {
     match e {
         ShareError::Refused => "share-refused",
         ShareError::NoBackend => "share-offline",
@@ -29,12 +29,9 @@ fn share_error_key(e: &ShareError) -> &'static str {
     }
 }
 
-// The publish/copy/revoke card for one source (a note or an app thread).
+// The publish/copy/revoke card for one app thread.
 #[component]
-pub fn ShareSection(
-    source_id: ReadSignal<String>,
-    kind_thread: bool,
-) -> Element {
+pub fn ShareSection(source_id: ReadSignal<String>) -> Element {
     let mut app: AppState = use_context();
     let db: Signal<Arc<Database>> = use_context();
     let lang = (app.current_lang)();
@@ -47,11 +44,6 @@ pub fn ShareSection(
     // A menu asked to share this source: scroll the card into view, publish
     // if needed, copy the link, flash "Copié". Errors land in the card,
     // which is now on screen.
-    let effect_kind = if kind_thread {
-        ShareKind::Thread
-    } else {
-        ShareKind::Note
-    };
     let effect_lang = lang.clone();
     use_effect(move || {
         let requested = (app.share_request)();
@@ -70,20 +62,12 @@ pub fn ShareSection(
         busy.set(true);
         error.set(None);
         let id = source_id();
-        let kind = effect_kind.clone();
         let lang = effect_lang.clone();
         spawn(async move {
             let database = db();
             let res = match database.get_share(&id) {
                 Some(existing) => Ok(existing),
-                None => match kind {
-                    ShareKind::Thread => {
-                        sharing::publish_thread(&database, &id).await
-                    }
-                    ShareKind::Note => {
-                        sharing::publish_note(&database, &id).await
-                    }
-                },
+                None => sharing::publish_thread(&database, &id).await,
             };
             match res {
                 Ok(s) => {
@@ -116,17 +100,6 @@ pub fn ShareSection(
     if source_id().is_empty() {
         return rsx! {};
     }
-
-    let kind = if kind_thread {
-        ShareKind::Thread
-    } else {
-        ShareKind::Note
-    };
-    let publish_key = if kind_thread {
-        "share-publish-thread"
-    } else {
-        "share-publish-note"
-    };
 
     rsx! {
         div { class: "mt-3", id: "share-section-{source_id}",
@@ -197,19 +170,10 @@ pub fn ShareSection(
                             busy.set(true);
                             error.set(None);
                             let id = source_id();
-                            let kind = kind.clone();
                             let lang = lang.clone();
                             spawn(async move {
                                 let database = db();
-                                let res = match kind {
-                                    ShareKind::Thread => {
-                                        sharing::publish_thread(&database, &id).await
-                                    }
-                                    ShareKind::Note => {
-                                        sharing::publish_note(&database, &id).await
-                                    }
-                                };
-                                if let Err(e) = res {
+                                if let Err(e) = sharing::publish_thread(&database, &id).await {
                                     error.set(Some(t(&lang, share_error_key(&e))));
                                 }
                                 busy.set(false);
@@ -220,7 +184,7 @@ pub fn ShareSection(
                     if busy() {
                         {t(&lang, "share-publishing")}
                     } else {
-                        {t(&lang, publish_key)}
+                        {t(&lang, "share-publish-thread")}
                     }
                 }
             }

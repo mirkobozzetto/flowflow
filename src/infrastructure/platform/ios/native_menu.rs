@@ -3,19 +3,23 @@
 //! and dispatches a click only if the originating view is still mounted.
 use block2::RcBlock;
 use objc2::{msg_send, rc::Retained, runtime::AnyObject};
+use objc2_core_foundation::{CGPoint, CGRect, CGSize};
 use objc2_foundation::{MainThreadMarker, NSArray, NSData, NSString};
 use objc2_ui_kit::{
-    NSObjectUIAccessibility, UIAction, UIButton,
-    UIContextMenuConfigurationElementOrder, UIImage, UIImageRenderingMode,
-    UIMenu, UIMenuElement, UIMenuElementAttributes, UIMenuElementState,
-    UIMenuOptions,
+    NSObjectUIAccessibility, UIAction, UIBezierPath, UIButton,
+    UIContextMenuConfigurationElementOrder, UIGraphicsImageRenderer,
+    UIGraphicsImageRendererContext, UIImage, UIImageRenderingMode, UIMenu,
+    UIMenuElement, UIMenuElementAttributes, UIMenuElementState, UIMenuOptions,
 };
 use serde::Deserialize;
 use std::ptr::NonNull;
 
-// A symbol name the web can send for the app's own chat icon, which has no
+// Symbol names the web can send for the app's own icons, which have no
 // SF Symbol equivalent.
 const CHAT_AI_SYMBOL: &str = "ff.chat.ai";
+const HERMES_SYMBOL: &str = "ff.hermes";
+const HERMES_PNG: &[u8] = include_bytes!("../../../../assets/hermes-agent.png");
+const ICON_PT: f64 = 22.0;
 
 #[derive(Deserialize)]
 pub(super) struct Menu {
@@ -59,13 +63,34 @@ fn bitmap(data_url: &str) -> Option<Retained<UIImage>> {
     Some(image.imageWithRenderingMode(UIImageRenderingMode::AlwaysOriginal))
 }
 
+/// The Hermes avatar, round as in the web menu. Drawn here from the bundled
+/// PNG: the page's rasterising can fail once and leave a generic symbol.
+fn hermes(mtm: MainThreadMarker, size: f64) -> Option<Retained<UIImage>> {
+    let source = UIImage::imageWithData(&NSData::with_bytes(HERMES_PNG))?;
+    let renderer = UIGraphicsImageRenderer::initWithSize(
+        mtm.alloc(),
+        CGSize::new(size, size),
+    );
+    let draw =
+        RcBlock::new(move |_ctx: NonNull<UIGraphicsImageRendererContext>| {
+            let rect =
+                CGRect::new(CGPoint::new(0.0, 0.0), CGSize::new(size, size));
+            UIBezierPath::bezierPathWithOvalInRect(rect).addClip();
+            source.drawInRect(rect);
+        });
+    let image =
+        unsafe { renderer.imageWithActions(&*draw as *const _ as *mut _) };
+    Some(image.imageWithRenderingMode(UIImageRenderingMode::AlwaysOriginal))
+}
+
 fn image(item: &Item, mtm: MainThreadMarker) -> Option<Retained<UIImage>> {
     if let Some(image) = bitmap(&item.image) {
         return Some(image);
     }
     match item.symbol.as_str() {
         "" => None,
-        CHAT_AI_SYMBOL => Some(super::glass_burger::chat_ai(mtm, 22.0)),
+        CHAT_AI_SYMBOL => Some(super::glass_burger::chat_ai(mtm, ICON_PT)),
+        HERMES_SYMBOL => hermes(mtm, ICON_PT),
         name => UIImage::systemImageNamed(&NSString::from_str(name)),
     }
 }

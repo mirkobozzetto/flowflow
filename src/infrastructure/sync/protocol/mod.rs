@@ -16,8 +16,9 @@ pub const DEFAULT_BATCH_ROWS: usize = 100;
 // device_name; an older peer would silently drop the author column, so the
 // same strict gate applies. v5: notes and folders carry the space columns
 // (proposal 0002), which a v4 peer has no schema for - its apply would fail on
-// an unknown column, so the gate moves again.
-pub const PROTOCOL_VERSION: i64 = 5;
+// an unknown column, so the gate moves again. v6: note summaries travel as
+// their own kind, which a v5 peer refuses as unknown.
+pub const PROTOCOL_VERSION: i64 = 6;
 
 /// The applier's entity delete, exposed for the test that guards the vector
 /// purge it queues. Nothing in the app calls it directly: a real deletion

@@ -137,7 +137,7 @@ pub fn ThreadDetail() -> Element {
                     }
                 }
             }
-            crate::ui::notes::share_section::ShareSection { source_id: thread_id.clone(), kind_thread: true }
+            crate::ui::notes::share_section::ShareSection { source_id: thread_id.clone() }
         }
         div { class: "fixed bottom-0 left-0 right-0 px-4 py-2 bg-warm-white border-t border-stone-200 z-30 keyboard-aware lg:left-72",
             div { class: "lg:max-w-3xl lg:mx-auto",

@@ -4,14 +4,17 @@ use crate::application::transcription_manager::TranscriptionManager;
 use crate::domain::{generate_auto_title, Attachment};
 use crate::infrastructure::audio::RecordingState;
 use crate::infrastructure::persistence::Database;
-use crate::ui::chat::md_to_html;
 use crate::ui::composer::{Composer, ComposerRole};
 use crate::ui::icons::{IconCheck, IconCopy, IconPencil};
 use crate::ui::notes::attachments::AttachmentSection;
 use crate::ui::notes::audio_section::{AudioJobBanner, AudioSection};
 use crate::ui::notes::dates::{format_absolute_short, format_relative_date};
 use crate::ui::notes::menu::NoteMenu;
+use crate::ui::notes::playback::use_note_player;
+use crate::ui::notes::reading::ReadingView;
 use crate::ui::notes::reminders::{ActiveReminders, ReminderSuggestions};
+use crate::ui::notes::share_sheet::NoteShare;
+use crate::ui::notes::summary_card::SummaryCard;
 use crate::ui::notes::tags::TagsSection;
 use crate::ui::{AppState, View};
 use dioxus::prelude::*;
@@ -95,6 +98,27 @@ pub fn NoteDetail() -> Element {
     let mut pending_audio: Signal<Option<(String, f64)>> = use_signal(|| None);
     let composer_input = use_signal(String::new);
     let mut audios_version = use_signal(|| 0u32);
+    let player = use_note_player();
+    // The pill under the body and the "…" menu copy the same text.
+    let copy_note = use_callback(move |_: ()| {
+        if note_copied() {
+            return;
+        }
+        let note_title = title();
+        let body = content();
+        let text = if note_title.trim().is_empty() {
+            body
+        } else {
+            format!("{note_title}\n\n{body}")
+        };
+        crate::ui::clipboard::copy_text(&text);
+        note_copied.set(true);
+        spawn(async move {
+            futures_timer::Delay::new(std::time::Duration::from_millis(1500))
+                .await;
+            note_copied.set(false);
+        });
+    });
 
     use_effect(move || {
         if !deleted() {
@@ -252,6 +276,8 @@ pub fn NoteDetail() -> Element {
                 note_id: local_note_id(),
                 import_requested,
                 deleted,
+                editing,
+                on_copy: copy_note,
             }
         }
         div {
@@ -307,11 +333,13 @@ pub fn NoteDetail() -> Element {
                         }
                     }
                 }
+                NoteShare { local_note_id }
                 ActiveReminders { local_note_id }
             }
             div { class: "border-t border-stone-200/70 pt-3 pb-2",
                 TagsSection { tags, tag_input, tagging, content }
             }
+            SummaryCard { local_note_id, content, audios_version, player }
             if editing() || is_transcribing {
                 textarea {
                     class: "note-content-field w-full min-h-[300px] border border-stone-300/60 rounded-xl p-3 mt-3 text-sm resize-none font-sans outline-none text-stone-900 bg-transparent placeholder:text-stone-300 focus:border-stone-400/60 focus-visible:outline-none shadow-none",
@@ -320,14 +348,13 @@ pub fn NoteDetail() -> Element {
                     oninput: move |evt| content.set(evt.value()),
                 }
             } else {
-                div {
-                    class: "w-full min-h-[300px] p-3 mt-3 rounded-xl border border-stone-300/60 bg-transparent shadow-none text-sm prose prose-sm max-w-none text-stone-900 break-words overflow-x-hidden [&_*]:[overflow-wrap:anywhere] [&_pre]:whitespace-pre-wrap [&_pre]:break-words",
-                    onclick: move |_| editing.set(true),
-                    if content().trim().is_empty() {
-                        span { class: "text-stone-400", "{content_placeholder}" }
-                    } else {
-                        div { dangerous_inner_html: md_to_html(&content()) }
-                    }
+                ReadingView {
+                    content,
+                    local_note_id,
+                    audios_version,
+                    player,
+                    placeholder: content_placeholder.clone(),
+                    on_edit: move |_| editing.set(true),
                 }
             }
             // In the flow under the body, not sticky: pinned to the viewport
@@ -351,27 +378,7 @@ pub fn NoteDetail() -> Element {
                     } else {
                         "pressable flex items-center gap-1 min-h-[32px] px-2 rounded-full text-xs text-stone-400 hover:text-stone-600 hover:bg-stone-100 transition-colors duration-150"
                     },
-                    onclick: move |_| {
-                        if note_copied() {
-                            return;
-                        }
-                        let note_title = title();
-                        let body = content();
-                        let text = if note_title.trim().is_empty() {
-                            body
-                        } else {
-                            format!("{note_title}\n\n{body}")
-                        };
-                        crate::ui::clipboard::copy_text(&text);
-                        note_copied.set(true);
-                        spawn(async move {
-                            futures_timer::Delay::new(
-                                std::time::Duration::from_millis(1500),
-                            )
-                            .await;
-                            note_copied.set(false);
-                        });
-                    },
+                    onclick: move |_| copy_note.call(()),
                     if note_copied() {
                         IconCheck { size: 12 }
                         {t(&lang, "common-copied")}
@@ -400,11 +407,7 @@ pub fn NoteDetail() -> Element {
             crate::ui::notes::share_section::ProvenanceCard {
                 note_id: local_note_id(),
             }
-            crate::ui::notes::share_section::ShareSection {
-                source_id: local_note_id(),
-                kind_thread: false,
-            }
-            AudioSection { local_note_id, audios_version }
+            AudioSection { local_note_id, audios_version, player }
             AttachmentSection { attachments, confirm_delete_att }
             crate::ui::notes::related::RelatedSection { local_note_id }
             if let Some(ref status) = import_status() {
