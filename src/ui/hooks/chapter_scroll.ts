@@ -2,9 +2,10 @@
 //
 // Reports which chapter heading ([data-chapter="n"]) sits under the sticky
 // reading bar (#<barId>) as the note scrolls, and scrolls to a chapter when
-// Rust sends its number (-1 = top of the note). Positions are read with
-// getBoundingClientRect on rAF, so headings that arrive later (chapters are
-// generated after the note opens) are picked up without a re-eval.
+// Rust sends its number (-1 = top of the note). A string is the id of the
+// chapter list just opened, to center on its [data-current] row. Positions
+// are read with getBoundingClientRect on rAF, so headings that arrive later
+// (chapters are generated after the note opens) need no re-eval.
 //
 // Source of truth: this .ts; `make js` -> .js, filled by build_chapter_scroll.
 
@@ -16,6 +17,15 @@ const CFG = { barId: "__BAR__" };
 // so a jump that tucks it just under the bar reports that chapter.
 const LEAD_PX = 8;
 const TEXT_NODE = 3;
+
+// The list opens on the current chapter instead of its top.
+function center(listId: string): void {
+  const list = document.getElementById(listId);
+  const row = list?.querySelector<HTMLElement>("[data-current]");
+  if (!list || !row) return;
+  list.scrollTop =
+    row.offsetTop - list.clientHeight / 2 + row.offsetHeight / 2;
+}
 
 function controller(): ((n: number) => void) | null {
   // The reading view remounts after each edit: drop the previous listener.
@@ -110,4 +120,8 @@ function controller(): ((n: number) => void) | null {
 const jump = controller();
 // Awaiting keeps this eval alive: Dioxus closes its channel as soon as the
 // script returns, and Rust's jumps would then go nowhere.
-while (jump) jump(Number(await dioxus.recv()));
+while (jump) {
+  const msg = await dioxus.recv();
+  if (typeof msg === "string") center(msg);
+  else jump(Number(msg));
+}

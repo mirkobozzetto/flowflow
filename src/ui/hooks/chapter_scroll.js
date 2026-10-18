@@ -2,6 +2,13 @@
 var CFG = { barId: "__BAR__" };
 var LEAD_PX = 8;
 var TEXT_NODE = 3;
+function center(listId) {
+  const list = document.getElementById(listId);
+  const row = list?.querySelector("[data-current]");
+  if (!list || !row)
+    return;
+  list.scrollTop = row.offsetTop - list.clientHeight / 2 + row.offsetHeight / 2;
+}
 function controller() {
   const w0 = window;
   const KEY = "__chapters_" + CFG.barId;
@@ -87,5 +94,10 @@ function controller() {
   };
 }
 var jump = controller();
-while (jump)
-  jump(Number(await dioxus.recv()));
+while (jump) {
+  const msg = await dioxus.recv();
+  if (typeof msg === "string")
+    center(msg);
+  else
+    jump(Number(msg));
+}
