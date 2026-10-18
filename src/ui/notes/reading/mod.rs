@@ -1,14 +1,21 @@
-use crate::domain::reading::{locate_paragraphs, Segment, PAUSE_PARAGRAPH_MS};
+use crate::application::chapters::generate_chapters;
+use crate::domain::reading::{
+    locate_paragraphs, Chapter, Segment, PAUSE_PARAGRAPH_MS,
+};
 use crate::domain::Word;
 use crate::infrastructure::audio;
+use crate::infrastructure::platform::device_log;
 use crate::infrastructure::persistence::Database;
 use crate::ui::chat::md_to_html;
 use crate::ui::notes::playback::{NotePlayer, Playback};
 use dioxus::prelude::*;
+use std::collections::HashSet;
 use std::rc::Rc;
 use std::sync::Arc;
 
+mod heading;
 mod paragraph;
+use heading::ChapterHeading;
 use paragraph::TimedParagraph;
 
 const TEXT_BOX: &str = "w-full min-h-[300px] p-3 mt-3 rounded-xl border border-stone-300/60 bg-transparent shadow-none text-sm prose prose-sm max-w-none text-stone-900 break-words overflow-x-hidden [&_*]:[overflow-wrap:anywhere] [&_pre]:whitespace-pre-wrap [&_pre]:break-words";
@@ -19,6 +26,7 @@ const TEXT_SEGMENT: &str = "prose mb-3 text-[15px] leading-relaxed text-stone-80
 struct TimedClip {
     playback: Playback,
     seekable: bool,
+    chapters: Option<Vec<Chapter>>,
 }
 
 #[derive(Clone, PartialEq)]
@@ -28,6 +36,8 @@ enum Piece {
         clip: usize,
         first: usize,
         words: Rc<[Word]>,
+        /// The chapter this paragraph opens, with its start in the audio.
+        chapter: Option<(Chapter, u32)>,
     },
 }
 
@@ -40,6 +50,7 @@ fn timed_clips(db: &Database, note_id: &str) -> Vec<TimedClip> {
             let path = audio::resolve_audio_path(&clip.file_path);
             let seekable =
                 cfg!(target_os = "ios") && std::path::Path::new(&path).exists();
+            let chapters = db.chapters_for_audio(&clip.id);
             Some(TimedClip {
                 playback: Playback {
                     audio_id: clip.id,
@@ -48,6 +59,7 @@ fn timed_clips(db: &Database, note_id: &str) -> Vec<TimedClip> {
                     duration_secs: clip.duration_secs.unwrap_or(0.0),
                 },
                 seekable,
+                chapters,
             })
         })
         .collect()
@@ -58,15 +70,34 @@ fn pieces(content: &str, clips: &[TimedClip]) -> Vec<Piece> {
         .iter()
         .map(|c| c.playback.transcript.words.as_slice())
         .collect();
+    let mut next_chapter = vec![0; clips.len()];
     locate_paragraphs(content, &transcripts, PAUSE_PARAGRAPH_MS)
         .into_iter()
         .map(|segment| match segment {
             Segment::Text(text) => Piece::Text(text),
-            Segment::Paragraph { audio, words } => Piece::Paragraph {
-                clip: audio,
-                first: words.start,
-                words: transcripts[audio][words].into(),
-            },
+            Segment::Paragraph { audio, words } => {
+                // The last chapter opened by now: when the paragraph opening
+                // a chapter was edited by hand, its heading moves down to the
+                // next timed one instead of disappearing.
+                let chapters =
+                    clips[audio].chapters.as_deref().unwrap_or_default();
+                let mut chapter = None;
+                while let Some(c) = chapters
+                    .get(next_chapter[audio])
+                    .filter(|c| c.start_word <= words.start)
+                {
+                    chapter = transcripts[audio]
+                        .get(c.start_word)
+                        .map(|w| (c.clone(), w.start_ms));
+                    next_chapter[audio] += 1;
+                }
+                Piece::Paragraph {
+                    clip: audio,
+                    first: words.start,
+                    words: transcripts[audio][words].into(),
+                    chapter,
+                }
+            }
         })
         .collect()
 }
@@ -83,9 +114,11 @@ pub fn ReadingView(
     on_edit: EventHandler<()>,
 ) -> Element {
     let db: Signal<Arc<Database>> = use_context();
+    let mut chapters_version = use_signal(|| 0u32);
     let clips = use_memo(move || {
         let id = local_note_id();
         let _ = audios_version();
+        let _ = chapters_version();
         if id.is_empty() {
             Vec::new()
         } else {
@@ -93,6 +126,34 @@ pub fn ReadingView(
         }
     });
     let pieces = use_memo(move || pieces(&content(), &clips.read()));
+
+    // Chapters come on their own: right after a transcription, or when a
+    // note transcribed before is opened. One try per transcript and opening,
+    // so a refusal (no AI consent, offline) leaves plain paragraphs.
+    let mut tried = use_signal(HashSet::<(String, usize)>::new);
+    use_effect(move || {
+        for clip in clips.read().iter().filter(|c| c.chapters.is_none()) {
+            let audio_id = clip.playback.audio_id.clone();
+            let words = &clip.playback.transcript.words;
+            if !tried.write().insert((audio_id.clone(), words.len())) {
+                continue;
+            }
+            let words = words.clone();
+            spawn(async move {
+                let db = db();
+                match generate_chapters(&db, &audio_id, &words).await {
+                    Ok(chapters) => {
+                        device_log(&format!(
+                            "[chapters] {audio_id}: {} chapters",
+                            chapters.len()
+                        ));
+                        chapters_version.set(chapters_version() + 1);
+                    }
+                    Err(e) => device_log(&format!("[chapters] {audio_id}: {e}")),
+                }
+            });
+        }
+    });
 
     let has_timed = pieces
         .read()
@@ -140,7 +201,7 @@ pub fn ReadingView(
                             dangerous_inner_html: md_to_html(&text),
                         }
                     },
-                    Piece::Paragraph { clip, first, words } => {
+                    Piece::Paragraph { clip, first, words, chapter } => {
                         let active = active_word
                             .filter(|_| playing == Some(clip))
                             .and_then(|w| w.checked_sub(first))
@@ -148,15 +209,19 @@ pub fn ReadingView(
                         let seekable = clips.read()[clip].seekable;
                         let mut player = player;
                         rsx! {
-                            TimedParagraph {
-                                key: "{clip}-{first}",
-                                words,
-                                active,
-                                seekable,
-                                on_seek: move |secs: f64| {
-                                    let playback = clips.read()[clip].playback.clone();
-                                    player.play(playback, secs);
-                                },
+                            div { key: "{clip}-{first}",
+                                if let Some((chapter, start_ms)) = chapter {
+                                    ChapterHeading { chapter, start_ms, first: i == 0 }
+                                }
+                                TimedParagraph {
+                                    words,
+                                    active,
+                                    seekable,
+                                    on_seek: move |secs: f64| {
+                                        let playback = clips.read()[clip].playback.clone();
+                                        player.play(playback, secs);
+                                    },
+                                }
                             }
                         }
                     }
