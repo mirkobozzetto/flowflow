@@ -1,11 +1,11 @@
 use crate::application::chapters::generate_chapters;
 use crate::domain::reading::{
-    locate_paragraphs, Chapter, Segment, PAUSE_PARAGRAPH_MS,
+    chapter_lengths, locate_paragraphs, Chapter, Segment, PAUSE_PARAGRAPH_MS,
 };
 use crate::domain::Word;
 use crate::infrastructure::audio;
 use crate::infrastructure::persistence::Database;
-use crate::infrastructure::platform::device_log;
+use crate::infrastructure::platform::{device_log, haptic};
 use crate::ui::chat::md_to_html;
 use crate::ui::notes::playback::{NotePlayer, Playback};
 use dioxus::prelude::*;
@@ -40,6 +40,7 @@ struct ChapterMark {
     start_ms: u32,
     /// Its rank in the note, the number the scroll script reports.
     n: usize,
+    len_ms: u32,
 }
 
 #[derive(Clone, PartialEq)]
@@ -52,6 +53,26 @@ enum Piece {
         /// The chapter this paragraph opens.
         chapter: Option<ChapterMark>,
     },
+}
+
+fn with_lengths(
+    mut marks: Vec<ChapterMark>,
+    clips: &[TimedClip],
+) -> Rc<[ChapterMark]> {
+    // A clip ends at its recorded duration, or its last word when unknown.
+    let ends: Vec<u32> = clips
+        .iter()
+        .map(|c| {
+            let last = c.playback.transcript.words.last().map_or(0, |w| w.end_ms);
+            last.max((c.playback.duration_secs * 1000.0) as u32)
+        })
+        .collect();
+    let starts: Vec<(usize, u32)> =
+        marks.iter().map(|m| (m.clip, m.start_ms)).collect();
+    for (mark, len) in marks.iter_mut().zip(chapter_lengths(&starts, &ends)) {
+        mark.len_ms = len;
+    }
+    marks.into()
 }
 
 /// A time in the recording, `m:ss`; past an hour the minutes keep counting.
@@ -112,6 +133,7 @@ fn pieces(content: &str, clips: &[TimedClip]) -> Vec<Piece> {
                             clip: audio,
                             start_ms: w.start_ms,
                             n: marked,
+                            len_ms: 0,
                         }
                     });
                     next_chapter[audio] += 1;
@@ -213,14 +235,17 @@ pub fn ReadingView(
     // Without a playable clip (desktop, audio file gone) a tap edits, as the
     // plain text box does.
     let any_seekable = clips.read().iter().any(|c| c.seekable);
-    let marks: Rc<[ChapterMark]> = pieces
-        .read()
-        .iter()
-        .filter_map(|p| match p {
-            Piece::Paragraph { chapter, .. } => chapter.clone(),
-            Piece::Text(_) => None,
-        })
-        .collect();
+    let marks = with_lengths(
+        pieces
+            .read()
+            .iter()
+            .filter_map(|p| match p {
+                Piece::Paragraph { chapter, .. } => chapter.clone(),
+                Piece::Text(_) => None,
+            })
+            .collect(),
+        &clips.read(),
+    );
     let with_bar = any_seekable || !marks.is_empty();
 
     rsx! {
@@ -261,6 +286,7 @@ pub fn ReadingView(
                                     active,
                                     seekable,
                                     on_seek: move |secs: f64| {
+                                        haptic("light");
                                         let playback = clips.read()[clip].playback.clone();
                                         player.play(playback, secs);
                                     },
