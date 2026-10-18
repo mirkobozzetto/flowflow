@@ -12,6 +12,7 @@ use dioxus::prelude::*;
 use std::collections::HashSet;
 use std::rc::Rc;
 use std::sync::Arc;
+use std::time::Instant;
 
 mod bar;
 mod heading;
@@ -23,6 +24,9 @@ use paragraph::TimedParagraph;
 
 const TEXT_BOX: &str = "w-full min-h-[300px] p-3 mt-3 rounded-xl border border-stone-300/60 bg-transparent shadow-none text-sm prose prose-sm max-w-none text-stone-900 break-words overflow-x-hidden [&_*]:[overflow-wrap:anywhere] [&_pre]:whitespace-pre-wrap [&_pre]:break-words";
 const TEXT_SEGMENT: &str = "prose mb-3 text-[15px] leading-relaxed text-stone-800 break-words overflow-x-hidden [&_*]:[overflow-wrap:anywhere] [&_pre]:whitespace-pre-wrap [&_pre]:break-words";
+/// Resolves once the webview has painted twice: the first frame after the
+/// edits may still show the previous screen.
+const PAINTED_JS: &str = "await new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r))); return 0;";
 
 /// A recording whose words carry timings, playable from any of them.
 #[derive(Clone, PartialEq)]
@@ -63,7 +67,8 @@ fn with_lengths(
     let ends: Vec<u32> = clips
         .iter()
         .map(|c| {
-            let last = c.playback.transcript.words.last().map_or(0, |w| w.end_ms);
+            let last =
+                c.playback.transcript.words.last().map_or(0, |w| w.end_ms);
             last.max((c.playback.duration_secs * 1000.0) as u32)
         })
         .collect();
@@ -177,6 +182,30 @@ pub fn ReadingView(
         }
     });
     let pieces = use_memo(move || pieces(&content(), &clips.read()));
+
+    // How long a long note takes to show, from this view's creation to its
+    // painted words, in the device log.
+    let created = use_hook(Instant::now);
+    use_effect(move || {
+        let (paragraphs, words) =
+            pieces
+                .peek()
+                .iter()
+                .fold((0, 0), |(p, w), piece| match piece {
+                    Piece::Paragraph { words, .. } => (p + 1, w + words.len()),
+                    Piece::Text(_) => (p, w),
+                });
+        if words == 0 {
+            return;
+        }
+        spawn(async move {
+            let _ = document::eval(PAINTED_JS).await;
+            device_log(&format!(
+                "[reading] {paragraphs} paragraphs, {words} words shown in {} ms",
+                created.elapsed().as_millis()
+            ));
+        });
+    });
 
     // Chapters come on their own: right after a transcription, or when a
     // note transcribed before is opened. One try per transcript and opening,
