@@ -119,18 +119,18 @@ fn push_text(segments: &mut Vec<Segment>, text: &str) {
 /// How long each chapter lasts: up to the next chapter of its recording, or
 /// to the recording's end for its last one. `marks` are `(clip, start_ms)` in
 /// the note's order; `clip_ends_ms[clip]` is where that recording stops.
-pub fn chapter_lengths(marks: &[(usize, u32)], clip_ends_ms: &[u32]) -> Vec<u32> {
+pub fn chapter_lengths(
+    marks: &[(usize, u32)],
+    clip_ends_ms: &[u32],
+) -> Vec<u32> {
     marks
         .iter()
         .enumerate()
         .map(|(i, &(clip, start))| {
-            let end = marks[i + 1..]
-                .iter()
-                .find(|m| m.0 == clip)
-                .map_or_else(
-                    || clip_ends_ms.get(clip).copied().unwrap_or(start),
-                    |m| m.1,
-                );
+            let end = marks[i + 1..].iter().find(|m| m.0 == clip).map_or_else(
+                || clip_ends_ms.get(clip).copied().unwrap_or(start),
+                |m| m.1,
+            );
             end.saturating_sub(start)
         })
         .collect()
