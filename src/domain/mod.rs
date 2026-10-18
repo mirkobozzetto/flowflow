@@ -12,6 +12,7 @@ pub mod reminder;
 pub mod scoped_agent_manifest;
 pub mod share;
 pub mod space;
+pub mod summary;
 pub mod thread;
 pub mod transcript;
 

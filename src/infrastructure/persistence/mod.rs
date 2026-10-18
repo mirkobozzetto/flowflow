@@ -16,6 +16,7 @@ mod schema;
 pub use schema::{TableClass, TABLES};
 pub mod settings_repo;
 pub mod share_repo;
+pub mod summary_repo;
 pub mod space_repo;
 pub use space_repo::{DbTx, PublishPending};
 pub mod sync_meta;
@@ -266,7 +267,7 @@ impl Database {
         if version == 17 {
             installed_connector_repo::backfill_sheets_pin(conn)?;
         }
-        if version == 18 || version == 22 {
+        if version == 18 || version == 22 || version == 34 {
             sync_meta::install_sync_triggers(conn)?;
         }
         if version == 23 {
