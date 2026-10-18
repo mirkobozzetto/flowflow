@@ -8,6 +8,14 @@ const CHAPTER_SCROLL_JS: &str = include_str!("chapter_scroll.js");
 /// between, and the pick already gave its own tap.
 const JUMP_QUIET: Duration = Duration::from_millis(900);
 
+/// Where a jump from the chapter sheet lands.
+#[derive(Clone, Copy, PartialEq, Debug)]
+pub enum Spot {
+    Top,
+    Chapter(usize),
+    End,
+}
+
 /// The chapter under the reading bar, and a way to scroll to one.
 #[derive(Clone, Copy)]
 pub struct ChapterScroll {
@@ -17,11 +25,15 @@ pub struct ChapterScroll {
 }
 
 impl ChapterScroll {
-    /// Scroll so chapter `n` sits under the bar; `None` goes to the note's top.
-    pub fn jump(&self, n: Option<usize>) {
+    /// Scroll to `spot`; a chapter lands right under the bar.
+    pub fn jump(&self, spot: Spot) {
         let mut jumped_at = self.jumped_at;
         jumped_at.set(Some(Instant::now()));
-        self.send(n.map_or(-1, |n| n as i64));
+        self.send(match spot {
+            Spot::Top => -1,
+            Spot::End => -2,
+            Spot::Chapter(n) => n as i64,
+        });
     }
 
     /// Scroll so word `word` of clip `audio_id` sits mid-screen.

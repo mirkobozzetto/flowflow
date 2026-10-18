@@ -2,10 +2,10 @@
 //
 // Reports which chapter heading ([data-chapter="n"]) sits under the sticky
 // reading bar (#<barId>) as the note scrolls, and scrolls to a chapter when
-// Rust sends its number (-1 = top of the note). A string is the id of the
-// chapter list just opened, to center on its [data-current] row, and
-// {audio, word} a word to bring mid-screen (a moment played from the
-// summary): its paragraph carries [data-audio][data-first]. Positions
+// Rust sends its number (-1 = top of the note, -2 = its end). A string is
+// the id of the chapter list just opened, to center on its [data-current]
+// row, and {audio, word} a word to bring mid-screen (a moment played from
+// the summary): its paragraph carries [data-audio][data-first]. Positions
 // are read with getBoundingClientRect on rAF, so headings that arrive later
 // (chapters are generated after the note opens) need no re-eval.
 //
@@ -130,7 +130,8 @@ function controller(): ((msg: number | Reveal) => void) | null {
     }
     const n = msg;
     if (n < 0) {
-      sc.scrollTo({ top: 0, behavior: "smooth" });
+      const top = n === -1 ? 0 : sc.scrollHeight - sc.clientHeight;
+      sc.scrollTo({ top, behavior: "smooth" });
       return;
     }
     const h = sc.querySelector<HTMLElement>(`[data-chapter="${n}"]`);

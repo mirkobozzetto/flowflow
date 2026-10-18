@@ -38,6 +38,8 @@ function setup(idle = true) {
     getBoundingClientRect: () => ({ top: SCROLLER_TOP }),
     addEventListener: (_: string, f: Listener) => listeners.add(f),
     removeEventListener: (_: string, f: Listener) => listeners.delete(f),
+    scrollHeight: 3000,
+    clientHeight: 600,
     scrollTo(o: { top: number }) {
       this.scrollTop = o.top;
     },
@@ -176,6 +178,12 @@ test("-1 goes back to the top of the note", async () => {
   env.scroll(900);
   await env.jump(-1);
   expect(env.scroller.scrollTop).toBe(0);
+});
+
+test("-2 goes to the end of the note", async () => {
+  await env.run();
+  await env.jump(-2);
+  expect(env.scroller.scrollTop).toBe(3000 - 600);
 });
 
 test("a remount drops the previous scroll listener", async () => {

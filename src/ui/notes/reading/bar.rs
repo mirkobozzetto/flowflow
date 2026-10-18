@@ -2,7 +2,7 @@ use super::sheet::{ChapterSheet, LIST_ID};
 use super::{clock, ChapterMark, TimedClip};
 use crate::application::i18n::t;
 use crate::infrastructure::platform::haptic;
-use crate::ui::hooks::chapter_scroll::use_chapter_scroll;
+use crate::ui::hooks::chapter_scroll::{use_chapter_scroll, Spot};
 use crate::ui::notes::playback::NotePlayer;
 use crate::ui::AppState;
 use dioxus::prelude::*;
@@ -148,7 +148,7 @@ pub fn ReadingBar(
                 live,
                 playing,
                 on_open: move |_| scroll.center(LIST_ID),
-                on_pick: move |target: Option<usize>| scroll.jump(target),
+                on_pick: move |target: Spot| scroll.jump(target),
                 on_close: move |_| sheet_open.set(false),
             }
         }

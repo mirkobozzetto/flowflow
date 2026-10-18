@@ -100,7 +100,8 @@ function controller() {
     }
     const n = msg;
     if (n < 0) {
-      sc.scrollTo({ top: 0, behavior: "smooth" });
+      const top = n === -1 ? 0 : sc.scrollHeight - sc.clientHeight;
+      sc.scrollTo({ top, behavior: "smooth" });
       return;
     }
     const h = sc.querySelector(`[data-chapter="${n}"]`);

@@ -1,6 +1,7 @@
 use super::{clock, ChapterMark};
 use crate::application::i18n::{t, t_args};
 use crate::infrastructure::platform::haptic;
+use crate::ui::hooks::chapter_scroll::Spot;
 use crate::ui::hooks::swipe::use_sheet_dismiss;
 use crate::ui::icons::{IconArrowUp, IconX};
 use crate::ui::AppState;
@@ -20,9 +21,9 @@ const CLOSE_MS: u64 = 300;
 /// Rows past this one appear together, so a long list never trails in.
 const STAGGER_ROWS: usize = 12;
 
-/// The sheet the reading bar opens: the note's top, then every chapter, the
-/// one under the bar in orange and centered. `on_pick(None)` is the top of
-/// the note; the sheet slides down, then `on_close` unmounts it.
+/// The sheet the reading bar opens: the note's top, every chapter (the one
+/// under the bar in orange and centered), then the note's end. A pick slides
+/// the sheet down, then `on_close` unmounts it.
 #[component]
 pub fn ChapterSheet(
     marks: Rc<[ChapterMark]>,
@@ -31,7 +32,7 @@ pub fn ChapterSheet(
     live: Option<usize>,
     playing: bool,
     on_open: EventHandler<()>,
-    on_pick: EventHandler<Option<usize>>,
+    on_pick: EventHandler<Spot>,
     on_close: EventHandler<()>,
 ) -> Element {
     let app: AppState = use_context();
@@ -44,7 +45,7 @@ pub fn ChapterSheet(
     });
     use_effect(move || on_open.call(()));
 
-    let mut close = move |target: Option<Option<usize>>| {
+    let mut close = move |target: Option<Spot>| {
         if closing() {
             return;
         }
@@ -92,7 +93,7 @@ pub fn ChapterSheet(
                 class: "max-h-[min(58vh,440px)] overflow-y-auto overscroll-contain -mx-2",
                 button {
                     class: "chapter-row pressable w-full flex items-center gap-3 min-h-[48px] px-3 rounded-2xl text-left active:bg-stone-900/5",
-                    onclick: move |_| close(Some(None)),
+                    onclick: move |_| close(Some(Spot::Top)),
                     span { class: "w-12 shrink-0 flex text-stone-400", IconArrowUp { size: 14 } }
                     span { class: "flex-1 min-w-0 truncate text-[15px] text-stone-900",
                         {t(&lang, "reading-note-start")}
@@ -113,7 +114,7 @@ pub fn ChapterSheet(
                                 },
                                 style: "--i: {(n + 1).min(STAGGER_ROWS)}",
                                 "data-current": on.then_some("true"),
-                                onclick: move |_| close(Some(Some(n))),
+                                onclick: move |_| close(Some(Spot::Chapter(n))),
                                 span {
                                     class: if on {
                                         "w-12 shrink-0 pt-0.5 text-xs tabular-nums font-medium text-ios-orange-dark"
@@ -151,6 +152,17 @@ pub fn ChapterSheet(
                                 }
                             }
                         }
+                    }
+                }
+                button {
+                    class: "chapter-row pressable w-full flex items-center gap-3 min-h-[48px] px-3 rounded-2xl text-left active:bg-stone-900/5",
+                    style: "--i: {(marks.len() + 1).min(STAGGER_ROWS)}",
+                    onclick: move |_| close(Some(Spot::End)),
+                    span { class: "w-12 shrink-0 flex text-stone-400",
+                        span { class: "flex rotate-180", IconArrowUp { size: 14 } }
+                    }
+                    span { class: "flex-1 min-w-0 truncate text-[15px] text-stone-900",
+                        {t(&lang, "reading-note-end")}
                     }
                 }
             }
