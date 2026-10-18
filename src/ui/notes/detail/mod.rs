@@ -11,6 +11,7 @@ use crate::ui::notes::attachments::AttachmentSection;
 use crate::ui::notes::audio_section::{AudioJobBanner, AudioSection};
 use crate::ui::notes::dates::{format_absolute_short, format_relative_date};
 use crate::ui::notes::menu::NoteMenu;
+use crate::ui::notes::playback::use_note_player;
 use crate::ui::notes::reminders::{ActiveReminders, ReminderSuggestions};
 use crate::ui::notes::tags::TagsSection;
 use crate::ui::{AppState, View};
@@ -95,6 +96,7 @@ pub fn NoteDetail() -> Element {
     let mut pending_audio: Signal<Option<(String, f64)>> = use_signal(|| None);
     let composer_input = use_signal(String::new);
     let mut audios_version = use_signal(|| 0u32);
+    let player = use_note_player();
 
     use_effect(move || {
         if !deleted() {
@@ -404,7 +406,7 @@ pub fn NoteDetail() -> Element {
                 source_id: local_note_id(),
                 kind_thread: false,
             }
-            AudioSection { local_note_id, audios_version }
+            AudioSection { local_note_id, audios_version, player }
             AttachmentSection { attachments, confirm_delete_att }
             crate::ui::notes::related::RelatedSection { local_note_id }
             if let Some(ref status) = import_status() {
