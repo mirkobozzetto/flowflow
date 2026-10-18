@@ -15,7 +15,7 @@ pub const LIST_ID: &str = "chapter-list";
 /// The grabber and the title: a drag starting there pulls the sheet down.
 const GRAB_PX: f64 = 56.0;
 const DISMISS_AT: f64 = 0.3;
-/// Matches `chapter-sheet-out` in tailwind.css.
+/// Matches `bottom-sheet-out` in tailwind.css.
 const CLOSE_MS: u64 = 300;
 /// Rows past this one appear together, so a long list never trails in.
 const STAGGER_ROWS: usize = 12;
@@ -65,13 +65,13 @@ pub fn ChapterSheet(
     rsx! {
         div {
             id: BACKDROP_ID,
-            class: "chapter-backdrop fixed inset-0 z-40 bg-stone-900/20",
+            class: "bottom-sheet-backdrop fixed inset-0 z-40 bg-stone-900/20",
             "data-closing": closing().then_some("true"),
             onclick: move |_| close(None),
         }
         div {
             id: SHEET_ID,
-            class: "chapter-sheet glass-panel fixed left-2 right-2 z-50 rounded-[38px] px-5 pt-2 pb-[22px]",
+            class: "bottom-sheet glass-panel fixed left-2 right-2 z-50 rounded-[38px] px-5 pt-2 pb-[22px]",
             style: "bottom: calc(env(safe-area-inset-bottom) + 8px);",
             "data-closing": closing().then_some("true"),
             role: "dialog",

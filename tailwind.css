@@ -1033,32 +1033,32 @@
         0 18px 48px rgba(0, 0, 0, 0.18);
 }
 
-/* The chapter sheet (reading/sheet.rs): rises like an iOS sheet, settles
-   back down, nearly opaque so the orange under it never tints the glass. */
-.chapter-sheet {
+/* The chapter and share sheets: rise like an iOS sheet, settle back down,
+   nearly opaque so the orange under them never tints the glass. */
+.bottom-sheet {
     background: --alpha(var(--color-warm-white) / 95%);
-    animation: chapter-sheet-in 500ms cubic-bezier(0.32, 0.72, 0, 1) both;
+    animation: bottom-sheet-in 500ms cubic-bezier(0.32, 0.72, 0, 1) both;
 }
-.chapter-sheet[data-closing] {
-    animation: chapter-sheet-out 300ms cubic-bezier(0.32, 0.72, 0, 1) both;
+.bottom-sheet[data-closing] {
+    animation: bottom-sheet-out 300ms cubic-bezier(0.32, 0.72, 0, 1) both;
 }
-.chapter-backdrop {
+.bottom-sheet-backdrop {
     animation: fadeIn 0.4s ease-out both;
 }
-.chapter-backdrop[data-closing] {
-    animation: chapter-fade-out 0.3s ease-out both;
+.bottom-sheet-backdrop[data-closing] {
+    animation: bottom-sheet-fade-out 0.3s ease-out both;
 }
 .chapter-row {
     animation: fadeInUp 380ms var(--ease-soft) both;
     animation-delay: calc(var(--i, 0) * 18ms + 60ms);
 }
-@keyframes chapter-sheet-in {
+@keyframes bottom-sheet-in {
     from { transform: translateY(calc(100% + 16px)); }
 }
-@keyframes chapter-sheet-out {
+@keyframes bottom-sheet-out {
     to { transform: translateY(calc(100% + 16px)); }
 }
-@keyframes chapter-fade-out {
+@keyframes bottom-sheet-fade-out {
     to { opacity: 0; }
 }
 
@@ -1090,8 +1090,8 @@
 }
 
 @media (prefers-reduced-motion: reduce) {
-    .chapter-sheet,
-    .chapter-sheet[data-closing],
+    .bottom-sheet,
+    .bottom-sheet[data-closing],
     .chapter-row,
     .chapter-wave[data-playing] > i {
         animation-duration: 1ms;
