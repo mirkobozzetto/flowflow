@@ -1,0 +1,113 @@
+// Runs the built chapter script (src/ui/hooks/chapter_scroll.js, filled the
+// way build_chapter_scroll fills it) against a minimal fake DOM: a scroller,
+// a sticky bar and chapter headings laid out from their offsets.
+import { beforeEach, expect, test } from "bun:test";
+import { readFileSync } from "node:fs";
+
+const SCRIPT = readFileSync(
+  new URL("../../src/ui/hooks/chapter_scroll.js", import.meta.url),
+  "utf8",
+).replaceAll("__BAR__", "reading-bar");
+
+const SCROLLER_TOP = 100;
+const BAR_H = 50;
+const OFFSETS = [0, 500, 1200];
+
+type Listener = () => void;
+
+function setup() {
+  const sent: unknown[] = [];
+  const inbox: ((n: unknown) => void)[] = [];
+  const frames: FrameRequestCallback[] = [];
+  const listeners = new Set<Listener>();
+  const scroller = {
+    scrollTop: 0,
+    getBoundingClientRect: () => ({ top: SCROLLER_TOP }),
+    addEventListener: (_: string, f: Listener) => listeners.add(f),
+    removeEventListener: (_: string, f: Listener) => listeners.delete(f),
+    scrollTo(o: { top: number }) {
+      this.scrollTop = o.top;
+    },
+    querySelectorAll: () => headings,
+    querySelector: (sel: string) =>
+      headings.find((h) => sel === `[data-chapter="${h.dataset.chapter}"]`) ?? null,
+  };
+  // The bar is stuck at the top; the content flows right under it.
+  const bar = {
+    offsetHeight: BAR_H,
+    getBoundingClientRect: () => ({ bottom: SCROLLER_TOP + BAR_H }),
+  };
+  const headings = OFFSETS.map((offset, i) => ({
+    dataset: { chapter: String(i) },
+    getBoundingClientRect: () => ({
+      top: SCROLLER_TOP + BAR_H + offset - scroller.scrollTop,
+    }),
+  }));
+  const g = globalThis as Record<string, unknown>;
+  g.window = g.window ?? {};
+  g.document = {
+    querySelector: (sel: string) => (sel === ".note-scroll" ? scroller : null),
+    getElementById: (id: string) => (id === "reading-bar" ? bar : null),
+  };
+  g.requestAnimationFrame = (f: FrameRequestCallback) => frames.push(f);
+  g.cancelAnimationFrame = () => {};
+  g.dioxus = {
+    send: (m: unknown) => sent.push(m),
+    recv: () => new Promise((resolve) => inbox.push(resolve)),
+  };
+  const run = () => new Function(SCRIPT)();
+  const scroll = (top: number) => {
+    scroller.scrollTop = top;
+    listeners.forEach((f) => f());
+    frames.splice(0).forEach((f) => f(0));
+  };
+  const jump = async (n: number) => {
+    inbox.shift()!(n);
+    await Promise.resolve();
+    await Promise.resolve();
+  };
+  return { sent, scroller, listeners, run, scroll, jump };
+}
+
+let env: ReturnType<typeof setup>;
+beforeEach(() => {
+  env = setup();
+});
+
+test("reports the first chapter on load", () => {
+  env.run();
+  expect(env.sent).toEqual([0]);
+});
+
+test("reports a chapter once its heading reaches the bar", () => {
+  env.run();
+  env.scroll(400);
+  expect(env.sent).toEqual([0]);
+  env.scroll(520);
+  expect(env.sent).toEqual([0, 1]);
+  env.scroll(600);
+  expect(env.sent).toEqual([0, 1]);
+  env.scroll(1300);
+  expect(env.sent).toEqual([0, 1, 2]);
+});
+
+test("a jump tucks the heading under the bar and reports it", async () => {
+  env.run();
+  await env.jump(2);
+  expect(env.scroller.scrollTop).toBe(1200 + 4);
+  env.scroll(env.scroller.scrollTop);
+  expect(env.sent).toEqual([0, 2]);
+});
+
+test("-1 goes back to the top of the note", async () => {
+  env.run();
+  env.scroll(900);
+  await env.jump(-1);
+  expect(env.scroller.scrollTop).toBe(0);
+});
+
+test("a remount drops the previous scroll listener", () => {
+  env.run();
+  env.run();
+  expect(env.listeners.size).toBe(1);
+});
