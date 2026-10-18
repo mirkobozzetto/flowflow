@@ -63,8 +63,7 @@ pub fn ReadingBar(
             .position(|c| c.playback.audio_id == p.audio_id)?;
         marks
             .iter()
-            .filter(|m| m.clip == clip && m.start_ms <= time_ms)
-            .last()
+            .rfind(|m| m.clip == clip && m.start_ms <= time_ms)
             .map(|m| m.n)
     });
 
