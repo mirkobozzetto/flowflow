@@ -209,6 +209,30 @@ fn a_cited_paragraph_gives_the_item_its_moment() {
 }
 
 #[test]
+fn an_item_written_as_a_bare_sentence_is_kept_without_a_time() {
+    let reply = "{\"decisions\":[\"Delete the archived repo.\", 42],\
+        \"actions\":[{\"text\":\"Tom: call the venue.\"}]}";
+    let summary = parse_summary(reply, &[]).expect("summary");
+    assert_eq!(summary.decisions.len(), 1, "the number is dropped alone");
+    assert_eq!(summary.decisions[0].text, "Delete the archived repo.");
+    assert_eq!(summary.decisions[0].at, None);
+    assert_eq!(summary.actions.len(), 1);
+}
+
+#[test]
+fn an_action_split_in_who_and_what_with_a_written_number_keeps_its_time() {
+    let moments = vec![Moment {
+        audio_id: "clip-1".into(),
+        ms: 61_000,
+    }];
+    let reply = "{\"actions\":[{\"who\":\"Sarah\",\"what\":\"book the room\",\
+        \"at\":\"[1]\"}]}";
+    let summary = parse_summary(reply, &moments).expect("summary");
+    assert_eq!(summary.actions[0].text, "Sarah: book the room");
+    assert_eq!(summary.actions[0].at, Some(moments[0].clone()));
+}
+
+#[test]
 fn an_answer_without_items_is_an_error() {
     assert!(parse_summary("{\"key_points\":[{\"text\":\" \"}]}", &[]).is_err());
     assert!(parse_summary("not json", &[]).is_err());

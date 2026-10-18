@@ -141,8 +141,11 @@ The note comes as numbered paragraphs: \"[n] m:ss text\", m:ss being where \
 the paragraph starts in the recording. Lines without a number were typed or \
 corrected by hand.\n\
 Return ONLY this JSON, nothing else:\n\
-{\"key_points\":[{\"text\":\"...\",\"at\":3}],\"decisions\":[],\
-\"actions\":[],\"questions\":[]}\n\
+{\"key_points\":[{\"text\":\"...\",\"at\":3}],\
+\"decisions\":[{\"text\":\"...\",\"at\":5}],\
+\"actions\":[{\"text\":\"Who: what\",\"at\":7}],\
+\"questions\":[{\"text\":\"...\",\"at\":9}]}\n\
+- Every item is an object with \"text\" and, when known, \"at\".\n\
 - key_points: the 3 to 6 things to remember.\n\
 - decisions: what was decided. Empty when nothing was.\n\
 - actions: who does what, written \"Who: what\"; without a named person, \

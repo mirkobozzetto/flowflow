@@ -11,6 +11,7 @@ use crate::domain::summary::{
 use crate::domain::Word;
 use crate::infrastructure::llm::LlmClient;
 use crate::infrastructure::persistence::Database;
+use serde_json::Value;
 
 /// Summarize the note as `content` reads now, in the app language `lang`,
 /// and keep it with the note. Without AI consent or a connection this fails
@@ -93,55 +94,71 @@ pub fn numbered_body(
     (lines.join("\n"), moments)
 }
 
-/// The model's answer as a summary. A cited paragraph that does not exist
-/// leaves the item without a time rather than with a wrong one.
+/// The model's answer as a summary. Read item by item: one item the model
+/// wrote in another shape is dropped, never the whole summary. A cited
+/// paragraph that does not exist leaves the item without a time rather than
+/// with a wrong one.
 pub fn parse_summary(
     reply: &str,
     moments: &[Moment],
 ) -> Result<Summary, LlmError> {
-    #[derive(serde::Deserialize)]
-    struct Raw {
-        #[serde(default)]
-        key_points: Vec<RawItem>,
-        #[serde(default)]
-        decisions: Vec<RawItem>,
-        #[serde(default)]
-        actions: Vec<RawItem>,
-        #[serde(default)]
-        questions: Vec<RawItem>,
-    }
-    #[derive(serde::Deserialize)]
-    struct RawItem {
-        text: String,
-        #[serde(default)]
-        at: Option<usize>,
-    }
     let trimmed = reply.trim();
     let json = extract_json_object(trimmed).unwrap_or(trimmed);
-    let raw: Raw = serde_json::from_str(json).map_err(|e| {
+    let raw: Value = serde_json::from_str(json).map_err(|e| {
         LlmError::Completion(format!("Invalid summary JSON: {e}"))
     })?;
-    let items = |raw: Vec<RawItem>| -> Vec<SummaryItem> {
-        raw.into_iter()
-            .filter(|r| !r.text.trim().is_empty())
-            .map(|r| SummaryItem {
-                text: r.text.trim().to_string(),
-                at: r
-                    .at
-                    .and_then(|n| n.checked_sub(1))
-                    .and_then(|i| moments.get(i))
-                    .cloned(),
-            })
+    let part = |key: &str| -> Vec<SummaryItem> {
+        raw.get(key)
+            .and_then(Value::as_array)
+            .into_iter()
+            .flatten()
+            .filter_map(|v| item(v, moments))
             .collect()
     };
     let summary = Summary {
-        key_points: items(raw.key_points),
-        decisions: items(raw.decisions),
-        actions: items(raw.actions),
-        questions: items(raw.questions),
+        key_points: part("key_points"),
+        decisions: part("decisions"),
+        actions: part("actions"),
+        questions: part("questions"),
     };
     if summary.is_empty() {
         return Err(LlmError::Completion("Empty summary".into()));
     }
     Ok(summary)
+}
+
+/// One item as the model wrote it: `{"text", "at"}` as asked, a bare
+/// sentence, or an action split into `who` and `what`. `at` may come as a
+/// number or as text ("12", "[12]").
+fn item(value: &Value, moments: &[Moment]) -> Option<SummaryItem> {
+    let (text, at) = match value {
+        Value::String(s) => (s.clone(), None),
+        Value::Object(o) => {
+            let text = o.get("text").and_then(Value::as_str).map(String::from);
+            let text = text.or_else(|| {
+                let what = o.get("what")?.as_str()?;
+                Some(match o.get("who").and_then(Value::as_str) {
+                    Some(who) => format!("{who}: {what}"),
+                    None => what.to_string(),
+                })
+            })?;
+            (text, o.get("at"))
+        }
+        _ => return None,
+    };
+    let text = text.trim();
+    if text.is_empty() {
+        return None;
+    }
+    let paragraph = at.and_then(|v| {
+        v.as_u64()
+            .or_else(|| v.as_str()?.trim_matches(['[', ']', ' ']).parse().ok())
+    });
+    Some(SummaryItem {
+        text: text.to_string(),
+        at: paragraph
+            .and_then(|n| (n as usize).checked_sub(1))
+            .and_then(|i| moments.get(i))
+            .cloned(),
+    })
 }
