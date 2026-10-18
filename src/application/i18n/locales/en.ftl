@@ -449,6 +449,11 @@ note-delete-revoke-failed = The note was deleted locally, but its public link co
 note-delete-dismiss = Dismiss
 note-menu-copy = Copy text
 note-menu-no-folder = No folder
+reading-chapters = Chapters
+reading-note-start = Start of the note
+reading-play = Play
+reading-pause = Pause
+reading-close = Close
 
 audio-transcribing = Transcribing
 audio-transcribing-percent = Transcribing · { $percent }%

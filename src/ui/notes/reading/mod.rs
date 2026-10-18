@@ -13,8 +13,11 @@ use std::collections::HashSet;
 use std::rc::Rc;
 use std::sync::Arc;
 
+mod bar;
 mod heading;
 mod paragraph;
+mod sheet;
+use bar::ReadingBar;
 use heading::ChapterHeading;
 use paragraph::TimedParagraph;
 
@@ -29,6 +32,16 @@ struct TimedClip {
     chapters: Option<Vec<Chapter>>,
 }
 
+/// A chapter as the note shows it, across all its recordings.
+#[derive(Clone, PartialEq)]
+struct ChapterMark {
+    chapter: Chapter,
+    clip: usize,
+    start_ms: u32,
+    /// Its rank in the note, the number the scroll script reports.
+    n: usize,
+}
+
 #[derive(Clone, PartialEq)]
 enum Piece {
     Text(String),
@@ -36,9 +49,15 @@ enum Piece {
         clip: usize,
         first: usize,
         words: Rc<[Word]>,
-        /// The chapter this paragraph opens, with its start in the audio.
-        chapter: Option<(Chapter, u32)>,
+        /// The chapter this paragraph opens.
+        chapter: Option<ChapterMark>,
     },
+}
+
+/// A time in the recording, `m:ss`; past an hour the minutes keep counting.
+fn clock(ms: u32) -> String {
+    let secs = ms / 1000;
+    format!("{}:{:02}", secs / 60, secs % 60)
 }
 
 fn timed_clips(db: &Database, note_id: &str) -> Vec<TimedClip> {
@@ -71,6 +90,7 @@ fn pieces(content: &str, clips: &[TimedClip]) -> Vec<Piece> {
         .map(|c| c.playback.transcript.words.as_slice())
         .collect();
     let mut next_chapter = vec![0; clips.len()];
+    let mut marked = 0;
     locate_paragraphs(content, &transcripts, PAUSE_PARAGRAPH_MS)
         .into_iter()
         .map(|segment| match segment {
@@ -86,10 +106,19 @@ fn pieces(content: &str, clips: &[TimedClip]) -> Vec<Piece> {
                     .get(next_chapter[audio])
                     .filter(|c| c.start_word <= words.start)
                 {
-                    chapter = transcripts[audio]
-                        .get(c.start_word)
-                        .map(|w| (c.clone(), w.start_ms));
+                    chapter = transcripts[audio].get(c.start_word).map(|w| {
+                        ChapterMark {
+                            chapter: c.clone(),
+                            clip: audio,
+                            start_ms: w.start_ms,
+                            n: marked,
+                        }
+                    });
                     next_chapter[audio] += 1;
+                }
+                // Two chapters on one paragraph keep the later one.
+                if chapter.is_some() {
+                    marked += 1;
                 }
                 Piece::Paragraph {
                     clip: audio,
@@ -182,10 +211,22 @@ pub fn ReadingView(
     // Without a playable clip (desktop, audio file gone) a tap edits, as the
     // plain text box does.
     let any_seekable = clips.read().iter().any(|c| c.seekable);
+    let marks: Rc<[ChapterMark]> = pieces
+        .read()
+        .iter()
+        .filter_map(|p| match p {
+            Piece::Paragraph { chapter, .. } => chapter.clone(),
+            Piece::Text(_) => None,
+        })
+        .collect();
+    let with_bar = any_seekable || !marks.is_empty();
 
     rsx! {
+        if with_bar {
+            ReadingBar { marks, clips, player }
+        }
         div {
-            class: "mt-4",
+            class: if with_bar { "mt-2" } else { "mt-4" },
             onclick: move |_| {
                 if !any_seekable {
                     on_edit.call(());
@@ -210,8 +251,8 @@ pub fn ReadingView(
                         let mut player = player;
                         rsx! {
                             div { key: "{clip}-{first}",
-                                if let Some((chapter, start_ms)) = chapter {
-                                    ChapterHeading { chapter, start_ms, first: i == 0 }
+                                if let Some(mark) = chapter {
+                                    ChapterHeading { mark, first: i == 0 }
                                 }
                                 TimedParagraph {
                                     words,

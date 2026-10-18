@@ -449,6 +449,11 @@ note-delete-revoke-failed = La note a été supprimée localement, mais son lien
 note-delete-dismiss = Fermer
 note-menu-copy = Copier le texte
 note-menu-no-folder = Aucun dossier
+reading-chapters = Chapitres
+reading-note-start = Début de la note
+reading-play = Lecture
+reading-pause = Pause
+reading-close = Fermer
 
 audio-transcribing = Transcription en cours
 audio-transcribing-percent = Transcription en cours · { $percent } %
