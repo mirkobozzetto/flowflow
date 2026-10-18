@@ -66,6 +66,11 @@ pub const ANTHROPIC_OPUS_MODEL: &str = "claude-opus-5-5";
 pub const ANTHROPIC_CHAT_MODEL: &str = ANTHROPIC_HAIKU_MODEL;
 // Adaptive thinking is on by default on Claude 5.5 and counts against this.
 pub const ANTHROPIC_MAX_TOKENS: u64 = 16000;
+// Chapters and summaries. The ChatGPT subscription serves only gpt-6.1-sol,
+// so it runs at the lowest level it accepts. Claude runs on Haiku.
+pub const READING_OPENAI_MODEL: &str = "gpt-6-luna";
+pub const READING_CHATGPT_MODEL: &str = "gpt-6.1-sol";
+pub const READING_CHATGPT_EFFORT: &str = "low";
 pub const EMBEDDING_DIMS: usize = 1536;
 pub const CHUNK_SIZE_WORDS: usize = 500;
 pub const CHUNK_OVERLAP_WORDS: usize = 75;
@@ -114,6 +119,21 @@ Two personal notes are linked. State WHY in ONE short phrase (max 8 words).\n\
 Examples: \"also about Jean\", \"follow-up of the March plan\".\n\
 Write the phrase in the same language as the notes.\n\
 Return ONLY the phrase - no quotes, no punctuation at the end, no preamble.";
+
+pub const CHAPTERS_SYSTEM_PROMPT: &str = "\
+You split a recorded conversation into chapters, one per topic.\n\
+The transcript comes as numbered paragraphs: \"[n] m:ss text\", m:ss being \
+where the paragraph starts in the recording.\n\
+Return ONLY this JSON, nothing else:\n\
+{\"chapters\":[{\"start\":1,\"title\":\"...\",\"summary\":\"...\"}]}\n\
+- start: the number of the paragraph where the chapter begins. The first \
+chapter starts at 1, each next one later.\n\
+- A new chapter begins where the conversation moves to another topic. A \
+chapter usually spans 3 to 10 minutes; a short recording is one chapter.\n\
+- title: 2 to 6 words naming the topic, specific to this conversation, no \
+final period.\n\
+- summary: one sentence of at most 20 words saying what is said or decided.\n\
+- Write title and summary in the language the transcript is spoken in.";
 
 pub const TAGS_SYSTEM_PROMPT: &str = "\
 Extract exactly 3 single-word keyword tags from the text below.\n\

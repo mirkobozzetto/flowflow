@@ -89,7 +89,7 @@ pub fn parse_reminder_intents(
         })
 }
 
-fn extract_json_object(s: &str) -> Option<&str> {
+pub(crate) fn extract_json_object(s: &str) -> Option<&str> {
     let start = s.find('{')?;
     let end = s.rfind('}')?;
     (end > start).then(|| &s[start..=end])

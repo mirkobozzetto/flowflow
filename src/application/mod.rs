@@ -13,6 +13,7 @@ pub mod approvals;
 pub mod authorship;
 pub mod backup;
 pub mod chain;
+pub mod chapters;
 pub mod chat_model;
 pub mod chat_source;
 pub mod chat_surface;

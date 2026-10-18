@@ -1,3 +1,4 @@
+use flowflow::application::chapters::parse_chapters;
 use flowflow::domain::reading::Chapter;
 use flowflow::domain::{NewTextNote, Transcript, Word};
 use flowflow::infrastructure::persistence::Database;
@@ -109,4 +110,50 @@ fn chapters_already_there_are_not_overwritten() {
         db.chapters_for_audio(&audio),
         Some(vec![chapter(0, "First")])
     );
+}
+
+// Three paragraphs: words 0..4, 4..9 and 9..12.
+const PARAGRAPHS: [std::ops::Range<usize>; 3] = [0..4, 4..9, 9..12];
+
+#[test]
+fn a_chapter_starts_on_the_first_word_of_its_paragraph() {
+    let reply = "```json\n{\"chapters\":[\
+        {\"start\":1,\"title\":\" Welcome \",\"summary\":\"Goals.\"},\
+        {\"start\":3,\"title\":\"Budget\",\"summary\":\"Signed off.\"}]}\n```";
+    let chapters = parse_chapters(reply, &PARAGRAPHS).unwrap();
+    assert_eq!(
+        chapters,
+        vec![
+            Chapter {
+                start_word: 0,
+                title: "Welcome".into(),
+                summary: "Goals.".into(),
+            },
+            Chapter {
+                start_word: 9,
+                title: "Budget".into(),
+                summary: "Signed off.".into(),
+            },
+        ]
+    );
+}
+
+#[test]
+fn a_misplaced_chapter_is_dropped() {
+    let reply = r#"{"chapters":[
+        {"start":2,"title":"Kept","summary":""},
+        {"start":1,"title":"Goes back","summary":""},
+        {"start":2,"title":"Same start","summary":""},
+        {"start":0,"title":"Before the first","summary":""},
+        {"start":4,"title":"Past the end","summary":""},
+        {"start":3,"title":"  ","summary":""}]}"#;
+    let chapters = parse_chapters(reply, &PARAGRAPHS).unwrap();
+    let titles: Vec<_> = chapters.iter().map(|c| c.title.as_str()).collect();
+    assert_eq!(titles, ["Kept"]);
+}
+
+#[test]
+fn an_answer_without_chapters_is_an_error() {
+    assert!(parse_chapters("Sorry, I cannot help.", &PARAGRAPHS).is_err());
+    assert!(parse_chapters(r#"{"chapters":[]}"#, &PARAGRAPHS).is_err());
 }
