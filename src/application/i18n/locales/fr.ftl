@@ -453,6 +453,7 @@ reading-chapters = Chapitres
 reading-note-start = Début de la note
 reading-play = Lecture
 reading-pause = Pause
+reading-minutes = { $n } min
 reading-close = Fermer
 
 audio-transcribing = Transcription en cours

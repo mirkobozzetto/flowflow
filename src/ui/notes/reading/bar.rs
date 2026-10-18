@@ -1,6 +1,7 @@
-use super::sheet::ChapterSheet;
+use super::sheet::{ChapterSheet, LIST_ID};
 use super::{clock, ChapterMark, TimedClip};
 use crate::application::i18n::t;
+use crate::infrastructure::platform::haptic;
 use crate::ui::hooks::chapter_scroll::use_chapter_scroll;
 use crate::ui::notes::playback::NotePlayer;
 use crate::ui::AppState;
@@ -54,6 +55,18 @@ pub fn ReadingBar(
         None => (false, current.as_ref().map_or(0, |m| m.start_ms)),
     };
     let playing = loaded && paused_at.is_none();
+    // The chapter the audio is in, for the sheet's wave.
+    let live = player.playback.read().as_ref().and_then(|p| {
+        let clip = clips
+            .read()
+            .iter()
+            .position(|c| c.playback.audio_id == p.audio_id)?;
+        marks
+            .iter()
+            .filter(|m| m.clip == clip && m.start_ms <= time_ms)
+            .last()
+            .map(|m| m.n)
+    });
 
     rsx! {
         div {
@@ -69,6 +82,7 @@ pub fn ReadingBar(
                         class: "pressable w-8 h-8 shrink-0 rounded-full bg-ios-orange/80 text-white flex items-center justify-center",
                         aria_label: if playing { t(&lang, "reading-pause") } else { t(&lang, "reading-play") },
                         onclick: move |_| {
+                            haptic("medium");
                             let mut player = player;
                             let loaded = player.playback.peek().clone();
                             if let Some(clip) = loaded {
@@ -95,7 +109,10 @@ pub fn ReadingBar(
                 button {
                     class: "pressable flex-1 min-w-0 h-full flex items-center gap-2 pl-1 pr-2 rounded-full text-left",
                     disabled: marks.is_empty(),
-                    onclick: move |_| sheet_open.set(true),
+                    onclick: move |_| {
+                        haptic("soft");
+                        sheet_open.set(true);
+                    },
                     span {
                         class: "w-10 shrink-0 text-xs tabular-nums font-medium text-ios-orange-dark",
                         "data-bar": "clock",
@@ -121,10 +138,10 @@ pub fn ReadingBar(
             ChapterSheet {
                 marks: marks.clone(),
                 current: n,
-                on_pick: move |target: Option<usize>| {
-                    sheet_open.set(false);
-                    scroll.jump(target);
-                },
+                live,
+                playing,
+                on_open: move |_| scroll.center(LIST_ID),
+                on_pick: move |target: Option<usize>| scroll.jump(target),
                 on_close: move |_| sheet_open.set(false),
             }
         }
