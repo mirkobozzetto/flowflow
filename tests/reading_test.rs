@@ -1,5 +1,6 @@
 use flowflow::domain::reading::{
-    locate_paragraphs, paragraph_ranges, Segment, PAUSE_PARAGRAPH_MS,
+    chapter_lengths, locate_paragraphs, paragraph_ranges, Segment,
+    PAUSE_PARAGRAPH_MS,
 };
 use flowflow::domain::{Transcript, Word};
 
@@ -119,4 +120,22 @@ fn a_match_inside_a_longer_word_is_rejected() {
     let segments =
         locate_paragraphs("planning ahead", &[&words], PAUSE_PARAGRAPH_MS);
     assert_eq!(segments, vec![Segment::Text("planning ahead".into())]);
+}
+
+#[test]
+fn a_chapter_lasts_until_the_next_one_of_its_recording() {
+    // Two recordings in one note: each one's last chapter runs to its end.
+    let marks = [(0, 0), (0, 60_000), (1, 0), (0, 90_000), (1, 30_000)];
+    let ends = [120_000, 45_000];
+
+    assert_eq!(
+        chapter_lengths(&marks, &ends),
+        vec![60_000, 30_000, 30_000, 30_000, 15_000]
+    );
+}
+
+#[test]
+fn a_chapter_past_its_recording_end_lasts_nothing() {
+    assert_eq!(chapter_lengths(&[(0, 5_000)], &[3_000]), vec![0]);
+    assert_eq!(chapter_lengths(&[(1, 5_000)], &[3_000]), vec![0]);
 }

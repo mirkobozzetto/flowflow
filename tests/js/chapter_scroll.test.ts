@@ -68,11 +68,20 @@ function setup(idle = true) {
           ? { textContent: CLOCKS[i] }
           : null,
   }));
+  // The chapter sheet's list: 9 rows of 50 px in a 200 px window, row 6
+  // current.
+  const current = { offsetTop: 300, offsetHeight: 50 };
+  const list = {
+    scrollTop: 0,
+    clientHeight: 200,
+    querySelector: (sel: string) => (sel === "[data-current]" ? current : null),
+  };
   const g = globalThis as Record<string, unknown>;
   g.window = g.window ?? {};
   g.document = {
     querySelector: (sel: string) => (sel === ".note-scroll" ? scroller : null),
-    getElementById: (id: string) => (id === "reading-bar" ? bar : null),
+    getElementById: (id: string) =>
+      id === "reading-bar" ? bar : id === "chapter-list" ? list : null,
   };
   g.requestAnimationFrame = (f: FrameRequestCallback) => frames.push(f);
   g.cancelAnimationFrame = () => {};
@@ -92,13 +101,14 @@ function setup(idle = true) {
     listeners.forEach((f) => f());
     frames.splice(0).forEach((f) => f(0));
   };
-  const jump = async (n: number) => {
+  const jump = async (n: number | string) => {
     inbox.shift()!(n);
     await Promise.resolve();
     await Promise.resolve();
   };
   return {
     sent,
+    list,
     label,
     scroller,
     listeners,
@@ -172,4 +182,11 @@ test("a remount drops the previous scroll listener", async () => {
   await env.run();
   await env.run();
   expect(env.listeners.size).toBe(1);
+});
+
+test("an opened chapter list is centered on its current row", async () => {
+  await env.run();
+  await env.jump("chapter-list");
+  expect(env.list.scrollTop).toBe(300 - 100 + 25);
+  expect(env.scroller.scrollTop).toBe(0);
 });
