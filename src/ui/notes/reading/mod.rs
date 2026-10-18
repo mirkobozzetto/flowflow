@@ -4,8 +4,8 @@ use crate::domain::reading::{
 };
 use crate::domain::Word;
 use crate::infrastructure::audio;
-use crate::infrastructure::platform::device_log;
 use crate::infrastructure::persistence::Database;
+use crate::infrastructure::platform::device_log;
 use crate::ui::chat::md_to_html;
 use crate::ui::notes::playback::{NotePlayer, Playback};
 use dioxus::prelude::*;
@@ -178,7 +178,9 @@ pub fn ReadingView(
                         ));
                         chapters_version.set(chapters_version() + 1);
                     }
-                    Err(e) => device_log(&format!("[chapters] {audio_id}: {e}")),
+                    Err(e) => {
+                        device_log(&format!("[chapters] {audio_id}: {e}"))
+                    }
                 }
             });
         }
