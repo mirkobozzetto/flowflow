@@ -50,11 +50,9 @@ pub fn NativeNewChatMenu(anchor: &'static str) -> Element {
             }
             button {
                 "data-native-action": "hermes",
-                "data-native-symbol": "person.crop.circle",
+                // Drawn natively (native_menu.rs), never rasterised by the page.
+                "data-native-symbol": "ff.hermes",
                 onclick: move |_| open_hermes_chat(app),
-                span { "data-native-icon": "",
-                    img { src: asset!("/assets/hermes-agent.png"), alt: "" }
-                }
                 {t(&lang, "new-chat-with-hermes")}
             }
         }

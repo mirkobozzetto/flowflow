@@ -282,7 +282,7 @@ pub fn NoteMenu(
                         button {
                             class: kit::MENU_ITEM,
                             "data-native-action": "send-hermes",
-                            "data-native-symbol": "paperplane",
+                            "data-native-symbol": "ff.hermes",
                             onclick: {
                                 let note_id = note_id.clone();
                                 move |_| crate::ui::chat::hermes_attach::send_note(app, &db(), &note_id)
