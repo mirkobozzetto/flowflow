@@ -1,6 +1,7 @@
 use flowflow::application::note_persistence::delete_note;
+use flowflow::application::summary::{numbered_body, parse_summary};
 use flowflow::domain::summary::{source_hash, Moment, Summary, SummaryItem};
-use flowflow::domain::NewTextNote;
+use flowflow::domain::{NewTextNote, Word};
 use flowflow::infrastructure::persistence::Database;
 use flowflow::infrastructure::sync::{peers, protocol};
 use std::net::TcpListener;
@@ -152,4 +153,63 @@ fn a_summary_and_its_removal_reach_the_other_device() {
     db_b.delete_summary(&id).expect("delete on B");
     sync_once(&db_a, &db_b, &id_a);
     assert!(db_a.summary_for_note(&id).is_none(), "removal reached A");
+}
+
+fn words(text: &str, from_ms: u32) -> Vec<Word> {
+    text.split(' ')
+        .enumerate()
+        .map(|(i, w)| {
+            let at = from_ms + i as u32 * 400;
+            Word::new(w, at, at + 300, 0.9)
+        })
+        .collect()
+}
+
+#[test]
+fn the_note_goes_numbered_with_where_each_paragraph_starts() {
+    let mut spoken = words("we ship on friday", 0);
+    spoken.extend(words("sarah books the room", 64_000));
+    let clips = vec![("clip-1".to_string(), spoken)];
+    let content = "we ship on friday\n\nSarah books the big room";
+    let (input, moments) = numbered_body(content, &clips);
+    assert_eq!(
+        input,
+        "[1] 0:00 we ship on friday\nSarah books the big room"
+    );
+    assert_eq!(
+        moments,
+        vec![Moment {
+            audio_id: "clip-1".into(),
+            ms: 0
+        }]
+    );
+}
+
+#[test]
+fn a_cited_paragraph_gives_the_item_its_moment() {
+    let moments = vec![
+        Moment {
+            audio_id: "clip-1".into(),
+            ms: 0,
+        },
+        Moment {
+            audio_id: "clip-1".into(),
+            ms: 724_000,
+        },
+    ];
+    let reply =
+        "```json\n{\"key_points\":[{\"text\":\" Release on Friday. \"}],\
+        \"actions\":[{\"text\":\"Sarah: book the room.\",\"at\":2},\
+        {\"text\":\"Tom: call the venue.\",\"at\":9}],\"questions\":[]}\n```";
+    let summary = parse_summary(reply, &moments).expect("summary");
+    assert_eq!(summary.key_points[0].text, "Release on Friday.");
+    assert_eq!(summary.actions[0].at, Some(moments[1].clone()));
+    assert_eq!(summary.actions[1].at, None, "no paragraph 9");
+    assert!(summary.decisions.is_empty());
+}
+
+#[test]
+fn an_answer_without_items_is_an_error() {
+    assert!(parse_summary("{\"key_points\":[{\"text\":\" \"}]}", &[]).is_err());
+    assert!(parse_summary("not json", &[]).is_err());
 }
