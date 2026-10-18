@@ -7,6 +7,15 @@ use crate::application::constants::{
 };
 
 impl LlmClient {
+    /// The model `chat_reading` asks, kept with what it made.
+    pub fn reading_model(&self) -> &'static str {
+        match self.provider {
+            Provider::OpenAi => READING_OPENAI_MODEL,
+            Provider::ChatGpt => READING_CHATGPT_MODEL,
+            _ => ANTHROPIC_HAIKU_MODEL,
+        }
+    }
+
     pub async fn chat_reading(
         &self,
         system: &str,

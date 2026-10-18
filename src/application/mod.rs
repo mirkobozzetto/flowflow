@@ -41,6 +41,7 @@ pub mod reminders;
 pub mod reminders_extract;
 pub mod share_inbox;
 pub mod sharing;
+pub mod summary;
 pub mod space;
 pub mod tagging;
 pub mod titling;
