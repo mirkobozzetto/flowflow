@@ -8,9 +8,9 @@ use crate::ui::AppState;
 use dioxus::prelude::*;
 use std::rc::Rc;
 
-/// Shared with the scroll script, which measures the bar to know which
-/// chapter heading sits under it.
-const BAR_ID: &str = "reading-bar";
+/// Shared with the scroll scripts, which measure the bar to know which
+/// chapter heading sits under it and where the scrubber starts.
+pub(super) const BAR_ID: &str = "reading-bar";
 
 /// The pill stuck to the top of the note: play and pause from anywhere, the
 /// time, and the chapter under it, which opens the chapter sheet.

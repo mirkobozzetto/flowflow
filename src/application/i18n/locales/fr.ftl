@@ -466,6 +466,7 @@ note-menu-no-folder = Aucun dossier
 reading-chapters = Chapitres
 reading-note-start = Début de la note
 reading-note-end = Fin de la note
+reading-scrub-chapter = Chapitre
 reading-play = Lecture
 reading-pause = Pause
 reading-minutes = { $n } min

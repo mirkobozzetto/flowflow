@@ -17,10 +17,12 @@ use std::time::Instant;
 mod bar;
 mod heading;
 mod paragraph;
+mod scrubber;
 mod sheet;
 use bar::ReadingBar;
 use heading::ChapterHeading;
 use paragraph::TimedParagraph;
+use scrubber::NoteScrubber;
 
 const TEXT_BOX: &str = "w-full min-h-[300px] p-3 mt-3 rounded-xl border border-stone-300/60 bg-transparent shadow-none text-sm prose prose-sm max-w-none text-stone-900 break-words overflow-x-hidden [&_*]:[overflow-wrap:anywhere] [&_pre]:whitespace-pre-wrap [&_pre]:break-words";
 const TEXT_SEGMENT: &str = "prose mb-3 text-[15px] leading-relaxed text-stone-800 break-words overflow-x-hidden [&_*]:[overflow-wrap:anywhere] [&_pre]:whitespace-pre-wrap [&_pre]:break-words";
@@ -280,7 +282,8 @@ pub fn ReadingView(
 
     rsx! {
         if with_bar {
-            ReadingBar { marks, clips, player }
+            ReadingBar { marks: marks.clone(), clips, player }
+            NoteScrubber { marks }
         }
         div {
             class: if with_bar { "mt-2" } else { "mt-4" },

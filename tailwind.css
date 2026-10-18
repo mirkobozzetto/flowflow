@@ -1089,6 +1089,126 @@
     50% { height: 12px; }
 }
 
+/* The note's scrubber: a glass knob on the right edge while a long note
+   scrolls. Held, a hairline track marked at each chapter and a bubble naming
+   where it lands, the paragraphs dimmed behind. The script sets its top
+   under the reading bar; its bottom clears the composer. */
+.note-scrubber {
+    position: fixed;
+    right: 0;
+    bottom: calc(env(safe-area-inset-bottom) + 112px);
+    width: 36px;
+    z-index: 20;
+    touch-action: none;
+    pointer-events: none;
+}
+.note-scrubber[data-on] {
+    pointer-events: auto;
+}
+.note-scrubber-track {
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    right: 11px;
+    width: 2px;
+    border-radius: 2px;
+    background: --alpha(var(--color-stone-500) / 16%);
+    opacity: 0;
+    transition: opacity 250ms var(--ease-soft);
+}
+.note-scrubber[data-drag] .note-scrubber-track {
+    opacity: 1;
+}
+.note-scrubber-tick {
+    position: absolute;
+    right: -3px;
+    width: 8px;
+    height: 2px;
+    border-radius: 2px;
+    background: --alpha(var(--color-stone-500) / 50%);
+    transform: translateY(-50%);
+    transition:
+        background-color 200ms var(--ease-soft),
+        width 200ms var(--ease-soft),
+        right 200ms var(--ease-soft);
+}
+.note-scrubber-tick[data-current] {
+    right: -6px;
+    width: 14px;
+    background: var(--color-ios-orange);
+}
+.note-scrubber-knob {
+    position: absolute;
+    right: 6px;
+    width: 12px;
+    height: 40px;
+    border-radius: 999px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 3px;
+    background: --alpha(var(--color-warm-white) / 94%);
+    box-shadow:
+        0 0 0 1px var(--color-stone-300),
+        0 4px 12px -2px rgba(0, 0, 0, 0.2);
+    opacity: 0;
+    transition:
+        opacity 250ms var(--ease-soft),
+        width 200ms var(--ease-soft),
+        height 200ms var(--ease-soft),
+        right 200ms var(--ease-soft);
+}
+.note-scrubber-knob > i {
+    width: 5px;
+    height: 1.5px;
+    border-radius: 1px;
+    background: var(--color-stone-400);
+}
+.note-scrubber[data-on] .note-scrubber-knob {
+    opacity: 1;
+}
+.note-scrubber[data-drag] .note-scrubber-knob {
+    right: 4px;
+    width: 16px;
+    height: 52px;
+}
+.note-scrubber-bubble {
+    position: absolute;
+    right: 36px;
+    width: 210px;
+    padding: 10px 14px 11px;
+    border-radius: 20px;
+    background: --alpha(var(--color-warm-white) / 96%);
+    box-shadow:
+        0 0 0 0.5px rgba(0, 0, 0, 0.07),
+        0 12px 32px -12px rgba(0, 0, 0, 0.35);
+    opacity: 0;
+    pointer-events: none;
+    transform: translate(8px, -50%) scale(0.96);
+    transform-origin: right center;
+    transition:
+        opacity 200ms var(--ease-soft),
+        transform 200ms var(--ease-soft);
+}
+.note-scrubber[data-drag] .note-scrubber-bubble:not([data-empty]) {
+    opacity: 1;
+    transform: translate(0, -50%);
+}
+.note-scroll [data-audio] {
+    transition: opacity 250ms var(--ease-soft);
+}
+.note-scroll[data-scrubbing] [data-audio] {
+    opacity: 0.35;
+}
+/* The knob replaces the system scroll indicator on a long note. */
+.note-scroll[data-scrubber] {
+    scrollbar-width: none;
+}
+.note-scroll[data-scrubber]::-webkit-scrollbar {
+    display: none;
+}
+
 @media (prefers-reduced-motion: reduce) {
     .bottom-sheet,
     .bottom-sheet[data-closing],

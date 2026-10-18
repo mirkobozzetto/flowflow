@@ -466,6 +466,7 @@ note-menu-no-folder = No folder
 reading-chapters = Chapters
 reading-note-start = Start of the note
 reading-note-end = End of the note
+reading-scrub-chapter = Chapter
 reading-play = Play
 reading-pause = Pause
 reading-minutes = { $n } min
