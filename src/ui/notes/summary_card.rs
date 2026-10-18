@@ -285,7 +285,7 @@ pub fn SummaryCard(
                                                                 };
                                                                 haptic("light");
                                                                 let mut player = player;
-                                                                player.play(clip, f64::from(at.ms) / 1000.0);
+                                                                player.play_and_reveal(clip, f64::from(at.ms) / 1000.0);
                                                             },
                                                             "{label}"
                                                         }

@@ -24,6 +24,9 @@ pub struct NotePlayer {
     pub active_word: Signal<Option<usize>>,
     /// Where the current clip was paused, so playing it again resumes there.
     pub paused_at: Signal<Option<f64>>,
+    /// A word (clip id, index) the reading view scrolls to: played from
+    /// outside the text, the summary, it would otherwise stay off screen.
+    pub reveal: Signal<Option<(String, usize)>>,
 }
 
 impl NotePlayer {
@@ -51,6 +54,15 @@ impl NotePlayer {
             self.active_word.set(None);
             self.playback.set(Some(clip));
         }
+    }
+
+    /// Play `clip` from `from_secs` and bring the word said there into view.
+    pub fn play_and_reveal(&mut self, clip: Playback, from_secs: f64) {
+        let ms = (from_secs * 1000.0) as u32;
+        if let Some(word) = clip.transcript.word_index_at_ms(ms) {
+            self.reveal.set(Some((clip.audio_id.clone(), word)));
+        }
+        self.play(clip, from_secs);
     }
 
     /// Stops the audio but keeps the clip and its highlighted word.
@@ -87,6 +99,7 @@ pub fn use_note_player() -> NotePlayer {
     let mut playback: Signal<Option<Playback>> = use_signal(|| None);
     let mut active_word: Signal<Option<usize>> = use_signal(|| None);
     let paused_at: Signal<Option<f64>> = use_signal(|| None);
+    let reveal: Signal<Option<(String, usize)>> = use_signal(|| None);
 
     use_future(move || async move {
         loop {
@@ -126,6 +139,7 @@ pub fn use_note_player() -> NotePlayer {
         playback,
         active_word,
         paused_at,
+        reveal,
     }
 }
 

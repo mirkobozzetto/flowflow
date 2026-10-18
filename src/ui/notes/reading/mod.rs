@@ -305,9 +305,14 @@ pub fn ReadingView(
                             .and_then(|w| w.checked_sub(first))
                             .filter(|&w| w < words.len());
                         let seekable = clips.read()[clip].seekable;
+                        let audio_id = clips.read()[clip].playback.audio_id.clone();
                         let mut player = player;
                         rsx! {
-                            div { key: "{clip}-{first}",
+                            // Found by the scroll script to reveal a word.
+                            div {
+                                key: "{clip}-{first}",
+                                "data-audio": "{audio_id}",
+                                "data-first": "{first}",
                                 if let Some(mark) = chapter {
                                     ChapterHeading { mark, first: i == 0 }
                                 }

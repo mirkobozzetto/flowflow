@@ -76,7 +76,29 @@ function controller() {
       cancelAnimationFrame(raf);
   };
   report();
-  return (n) => {
+  function reveal({ audio, word }) {
+    let target = null;
+    const ps = sc.querySelectorAll(`[data-audio="${audio}"]`);
+    for (const p of Array.from(ps)) {
+      const first = Number(p.dataset.first);
+      if (first > word)
+        break;
+      target = p.querySelector("p")?.children[word - first] ?? p;
+    }
+    if (!target)
+      return;
+    const y = target.getBoundingClientRect().top - sc.getBoundingClientRect().top;
+    sc.scrollTo({
+      top: sc.scrollTop + y - sc.clientHeight / 2,
+      behavior: "smooth"
+    });
+  }
+  return (msg) => {
+    if (typeof msg === "object") {
+      reveal(msg);
+      return;
+    }
+    const n = msg;
     if (n < 0) {
       sc.scrollTo({ top: 0, behavior: "smooth" });
       return;
@@ -93,11 +115,13 @@ function controller() {
     });
   };
 }
-var jump = controller();
-while (jump) {
+var handle = controller();
+while (handle) {
   const msg = await dioxus.recv();
   if (typeof msg === "string")
     center(msg);
+  else if (msg && typeof msg === "object")
+    handle(msg);
   else
-    jump(Number(msg));
+    handle(Number(msg));
 }

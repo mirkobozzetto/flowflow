@@ -3,7 +3,9 @@
 // Reports which chapter heading ([data-chapter="n"]) sits under the sticky
 // reading bar (#<barId>) as the note scrolls, and scrolls to a chapter when
 // Rust sends its number (-1 = top of the note). A string is the id of the
-// chapter list just opened, to center on its [data-current] row. Positions
+// chapter list just opened, to center on its [data-current] row, and
+// {audio, word} a word to bring mid-screen (a moment played from the
+// summary): its paragraph carries [data-audio][data-first]. Positions
 // are read with getBoundingClientRect on rAF, so headings that arrive later
 // (chapters are generated after the note opens) need no re-eval.
 //
@@ -18,6 +20,8 @@ const CFG = { barId: "__BAR__" };
 const LEAD_PX = 8;
 const TEXT_NODE = 3;
 
+type Reveal = { audio: string; word: number };
+
 // The list opens on the current chapter instead of its top.
 function center(listId: string): void {
   const list = document.getElementById(listId);
@@ -27,7 +31,7 @@ function center(listId: string): void {
     row.offsetTop - list.clientHeight / 2 + row.offsetHeight / 2;
 }
 
-function controller(): ((n: number) => void) | null {
+function controller(): ((msg: number | Reveal) => void) | null {
   // The reading view remounts after each edit: drop the previous listener.
   const w0 = window as unknown as Record<string, (() => void) | undefined>;
   const KEY = "__chapters_" + CFG.barId;
@@ -100,7 +104,31 @@ function controller(): ((n: number) => void) | null {
   };
   report();
 
-  return (n: number) => {
+  // The clip's paragraphs come in word order: the last one starting at or
+  // before the word holds it, as its span child there.
+  function reveal({ audio, word }: Reveal): void {
+    let target: Element | null = null;
+    const ps = sc.querySelectorAll<HTMLElement>(`[data-audio="${audio}"]`);
+    for (const p of Array.from(ps)) {
+      const first = Number(p.dataset.first);
+      if (first > word) break;
+      target = p.querySelector("p")?.children[word - first] ?? p;
+    }
+    if (!target) return;
+    const y =
+      target.getBoundingClientRect().top - sc.getBoundingClientRect().top;
+    sc.scrollTo({
+      top: sc.scrollTop + y - sc.clientHeight / 2,
+      behavior: "smooth",
+    });
+  }
+
+  return (msg: number | Reveal) => {
+    if (typeof msg === "object") {
+      reveal(msg);
+      return;
+    }
+    const n = msg;
     if (n < 0) {
       sc.scrollTo({ top: 0, behavior: "smooth" });
       return;
@@ -117,11 +145,12 @@ function controller(): ((n: number) => void) | null {
   };
 }
 
-const jump = controller();
+const handle = controller();
 // Awaiting keeps this eval alive: Dioxus closes its channel as soon as the
 // script returns, and Rust's jumps would then go nowhere.
-while (jump) {
+while (handle) {
   const msg = await dioxus.recv();
   if (typeof msg === "string") center(msg);
-  else jump(Number(msg));
+  else if (msg && typeof msg === "object") handle(msg as Reveal);
+  else handle(Number(msg));
 }

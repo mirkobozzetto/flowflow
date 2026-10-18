@@ -24,6 +24,13 @@ impl ChapterScroll {
         self.send(n.map_or(-1, |n| n as i64));
     }
 
+    /// Scroll so word `word` of clip `audio_id` sits mid-screen.
+    pub fn reveal(&self, audio_id: &str, word: usize) {
+        let mut jumped_at = self.jumped_at;
+        jumped_at.set(Some(Instant::now()));
+        self.send(serde_json::json!({ "audio": audio_id, "word": word }));
+    }
+
     /// Scroll the chapter list `list_id` to its `[data-current]` row.
     pub fn center(&self, list_id: &str) {
         self.send(list_id);

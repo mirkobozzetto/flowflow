@@ -28,6 +28,14 @@ pub fn ReadingBar(
     let scroll = use_chapter_scroll(BAR_ID);
     let mut sheet_open = use_signal(|| false);
 
+    let mut reveal = player.reveal;
+    use_effect(move || {
+        if let Some((audio, word)) = reveal() {
+            scroll.reveal(&audio, word);
+            reveal.set(None);
+        }
+    });
+
     let n = (scroll.current)().min(marks.len().saturating_sub(1));
     let current = marks.get(n).cloned();
 
