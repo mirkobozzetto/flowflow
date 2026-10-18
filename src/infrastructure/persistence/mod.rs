@@ -1,4 +1,5 @@
 pub mod attachment_repo;
+pub mod chapter_repo;
 pub mod chunk_repo;
 pub mod conflict_repo;
 pub mod conversation_repo;

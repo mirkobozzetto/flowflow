@@ -1,5 +1,15 @@
 use crate::domain::Word;
+use serde::{Deserialize, Serialize};
 use std::ops::Range;
+
+/// A part of one recording on a single topic. It opens at the first word of a
+/// pause paragraph, so its heading lands right above that paragraph.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct Chapter {
+    pub start_word: usize,
+    pub title: String,
+    pub summary: String,
+}
 
 /// A silence at least this long between two words starts a new paragraph.
 /// Measured on three real meetings: 72 to 82 words per paragraph.

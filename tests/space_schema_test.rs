@@ -40,6 +40,7 @@ fn rewind_to_v25(db: &Database) {
          ALTER TABLE chunks DROP COLUMN embed_profile;
          ALTER TABLE pending_transcriptions DROP COLUMN done_ms;
          ALTER TABLE pending_transcriptions DROP COLUMN words_json;
+         ALTER TABLE note_audio_words DROP COLUMN chapters_json;
          DELETE FROM _migrations WHERE version >= 26;",
     )
     .unwrap();
@@ -83,7 +84,7 @@ fn recent_space_migrations_apply_on_a_v25_file() {
         .conn()
         .query_row("SELECT MAX(version) FROM _migrations", [], |r| r.get(0))
         .unwrap();
-    assert_eq!(head, 32);
+    assert_eq!(head, 33);
 }
 
 // A device that consumed space pages before threads existed holds a cursor
@@ -101,6 +102,7 @@ fn v29_rewinds_every_space_cursor_once() {
                 "UPDATE spaces SET cursor = 27, last_pull_at = 'earlier';
                  ALTER TABLE pending_transcriptions DROP COLUMN done_ms;
                  ALTER TABLE pending_transcriptions DROP COLUMN words_json;
+                 ALTER TABLE note_audio_words DROP COLUMN chapters_json;
                  DELETE FROM _migrations WHERE version >= 29;",
             )
             .unwrap();

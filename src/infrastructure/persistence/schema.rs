@@ -31,6 +31,7 @@ pub const MIGRATIONS: &[(i64, &str)] = &[
     (30, V30_SCHEMA),
     (31, V31_SCHEMA),
     (32, V32_SCHEMA),
+    (33, super::chapter_repo::V33_SCHEMA),
 ];
 
 pub enum TableClass {
