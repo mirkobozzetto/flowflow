@@ -1,4 +1,5 @@
 pub mod attachment_repo;
+pub mod chapter_repo;
 pub mod chunk_repo;
 pub mod conflict_repo;
 pub mod conversation_repo;
@@ -16,6 +17,7 @@ pub use schema::{TableClass, TABLES};
 pub mod settings_repo;
 pub mod share_repo;
 pub mod space_repo;
+pub mod summary_repo;
 pub use space_repo::{DbTx, PublishPending};
 pub mod sync_meta;
 pub mod thread_repo;
@@ -265,7 +267,7 @@ impl Database {
         if version == 17 {
             installed_connector_repo::backfill_sheets_pin(conn)?;
         }
-        if version == 18 || version == 22 {
+        if version == 18 || version == 22 || version == 34 {
             sync_meta::install_sync_triggers(conn)?;
         }
         if version == 23 {

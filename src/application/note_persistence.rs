@@ -72,6 +72,7 @@ pub fn delete_note_rows(tx: &DbTx, id: &str) -> Result<Vec<String>, String> {
     if tx.get_share(id).is_some() {
         tx.delete_share(id)?;
     }
+    tx.delete_summary(id)?;
     Ok(paths)
 }
 

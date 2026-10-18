@@ -1032,3 +1032,201 @@
         0 0 0 0.5px rgba(0, 0, 0, 0.07),
         0 18px 48px rgba(0, 0, 0, 0.18);
 }
+
+/* The chapter and share sheets: rise like an iOS sheet, settle back down,
+   nearly opaque so the orange under them never tints the glass. */
+.bottom-sheet {
+    background: --alpha(var(--color-warm-white) / 95%);
+    animation: bottom-sheet-in 500ms cubic-bezier(0.32, 0.72, 0, 1) both;
+}
+.bottom-sheet[data-closing] {
+    animation: bottom-sheet-out 300ms cubic-bezier(0.32, 0.72, 0, 1) both;
+}
+.bottom-sheet-backdrop {
+    animation: fadeIn 0.4s ease-out both;
+}
+.bottom-sheet-backdrop[data-closing] {
+    animation: bottom-sheet-fade-out 0.3s ease-out both;
+}
+.chapter-row {
+    animation: fadeInUp 380ms var(--ease-soft) both;
+    animation-delay: calc(var(--i, 0) * 18ms + 60ms);
+}
+@keyframes bottom-sheet-in {
+    from { transform: translateY(calc(100% + 16px)); }
+}
+@keyframes bottom-sheet-out {
+    to { transform: translateY(calc(100% + 16px)); }
+}
+@keyframes bottom-sheet-fade-out {
+    to { opacity: 0; }
+}
+
+/* The chapter that plays: three orange bars, still while paused. */
+.chapter-wave {
+    display: inline-flex;
+    align-items: flex-end;
+    gap: 2px;
+    height: 12px;
+}
+.chapter-wave > i {
+    width: 2px;
+    height: 4px;
+    border-radius: 2px;
+    background: var(--color-ios-orange);
+}
+.chapter-wave[data-playing] > i {
+    animation: chapter-wave 1s ease-in-out infinite;
+}
+.chapter-wave > i:nth-child(2) {
+    animation-delay: -0.3s;
+}
+.chapter-wave > i:nth-child(3) {
+    animation-delay: -0.6s;
+}
+@keyframes chapter-wave {
+    0%, 100% { height: 4px; }
+    50% { height: 12px; }
+}
+
+/* The note's scrubber: a glass knob on the right edge while a long note
+   scrolls, the only part that takes the finger. Held, a hairline track
+   marked at each chapter and a bubble naming where it lands, the paragraphs
+   dimmed behind. The script sets its top under the stuck reading bar; its
+   bottom clears the composer. */
+.note-scrubber {
+    position: fixed;
+    right: 0;
+    bottom: calc(env(safe-area-inset-bottom) + 112px);
+    width: 36px;
+    z-index: 20;
+    touch-action: none;
+    pointer-events: none;
+}
+.note-scrubber-track {
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    right: 11px;
+    width: 2px;
+    border-radius: 2px;
+    background: --alpha(var(--color-stone-500) / 16%);
+    opacity: 0;
+    transition: opacity 250ms var(--ease-soft);
+}
+.note-scrubber[data-drag] .note-scrubber-track {
+    opacity: 1;
+}
+.note-scrubber-tick {
+    position: absolute;
+    right: -3px;
+    width: 8px;
+    height: 2px;
+    border-radius: 2px;
+    background: --alpha(var(--color-stone-500) / 50%);
+    transform: translateY(-50%);
+    transition:
+        background-color 200ms var(--ease-soft),
+        width 200ms var(--ease-soft),
+        right 200ms var(--ease-soft);
+}
+.note-scrubber-tick[data-current] {
+    right: -6px;
+    width: 14px;
+    background: var(--color-ios-orange);
+}
+.note-scrubber-knob {
+    position: absolute;
+    right: 6px;
+    width: 12px;
+    height: 40px;
+    border-radius: 999px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 3px;
+    pointer-events: none;
+    touch-action: none;
+    background: --alpha(var(--color-warm-white) / 94%);
+    box-shadow:
+        0 0 0 1px var(--color-stone-300),
+        0 4px 12px -2px rgba(0, 0, 0, 0.2);
+    opacity: 0;
+    transition:
+        opacity 250ms var(--ease-soft),
+        width 200ms var(--ease-soft),
+        height 200ms var(--ease-soft),
+        right 200ms var(--ease-soft);
+}
+/* A finger-sized hit area around the thin knob. */
+.note-scrubber-knob::before {
+    content: "";
+    position: absolute;
+    inset: -12px -8px -12px -18px;
+}
+.note-scrubber-knob > i {
+    width: 5px;
+    height: 1.5px;
+    border-radius: 1px;
+    background: var(--color-stone-400);
+}
+.note-scrubber[data-on] .note-scrubber-knob {
+    opacity: 1;
+    pointer-events: auto;
+}
+.note-scrubber[data-drag] .note-scrubber-knob {
+    right: 4px;
+    width: 16px;
+    height: 52px;
+}
+.note-scrubber-bubble {
+    position: absolute;
+    right: 36px;
+    width: 210px;
+    padding: 10px 14px 11px;
+    border-radius: 20px;
+    background: --alpha(var(--color-warm-white) / 96%);
+    box-shadow:
+        0 0 0 0.5px rgba(0, 0, 0, 0.07),
+        0 12px 32px -12px rgba(0, 0, 0, 0.35);
+    opacity: 0;
+    pointer-events: none;
+    transform: translate(8px, -50%) scale(0.96);
+    transform-origin: right center;
+    transition:
+        opacity 200ms var(--ease-soft),
+        transform 200ms var(--ease-soft);
+}
+.note-scrubber[data-drag] .note-scrubber-bubble:not([data-empty]) {
+    opacity: 1;
+    transform: translate(0, -50%);
+}
+.note-scroll [data-audio] {
+    transition: opacity 250ms var(--ease-soft);
+}
+.note-scroll[data-scrubbing] [data-audio] {
+    opacity: 0.35;
+}
+/* Held, the knob alone moves the note: its own scrolling, momentum
+   included, stops. */
+.note-scroll[data-scrubbing] {
+    overflow-y: hidden;
+}
+/* The knob replaces the system scroll indicator on a long note. */
+.note-scroll[data-scrubber] {
+    scrollbar-width: none;
+}
+.note-scroll[data-scrubber]::-webkit-scrollbar {
+    display: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .bottom-sheet,
+    .bottom-sheet[data-closing],
+    .chapter-row,
+    .chapter-wave[data-playing] > i {
+        animation-duration: 1ms;
+        animation-iteration-count: 1;
+    }
+}

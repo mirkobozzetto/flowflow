@@ -187,8 +187,8 @@ pub struct AppState {
     pub picker_kb_up: Signal<u32>,
     pub picker_kb_down: Signal<u32>,
     pub picker_kb_commit: Signal<u32>,
-    // Source id (note or thread) a menu asked to share; consumed by
-    // ShareSection, which scrolls into view, publishes and copies the link.
+    // Source id a menu asked to share; a note opens its share sheet, a
+    // thread's ShareSection scrolls into view, publishes and copies the link.
     pub share_request: Signal<Option<String>>,
     // The open Hermes conversation's models (read from Hermes) and the one
     // picked for it, None following Hermes' default. Shared by the top bar,

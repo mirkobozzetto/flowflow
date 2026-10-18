@@ -40,6 +40,19 @@ No manual searching. No folders to dig through. Just talk, and find it later.
 - Soniox uploads go up compressed (AAC) and are sent again after a kill or lock
 - Personal dictionary: your names and brands spelled right, everywhere
 
+**Read a long meeting**
+
+- A recorded note reads like a document: paragraphs split at pauses, every
+  word plays the audio from there, the word being read highlighted
+- Chapters in the note's language, a reading bar stuck at the top (play,
+  pause, current chapter) and a sheet to jump to any chapter
+- On a long note, a scrubber on the right edge snaps onto each chapter and
+  names where you land
+- "Summarize the meeting": key points, decisions, timed actions and open
+  questions in the app's language, kept with the note and synced; tap a time
+  to play from there
+- Share a note by link from its "…" menu; "Private" cuts the link in one tap
+
 **Ask your notes**
 
 - RAG chat with tappable sources: hybrid search (BM25 + vector + rerank)

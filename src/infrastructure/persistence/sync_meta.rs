@@ -135,6 +135,15 @@ const TRACKED: &[Tracked] = &[
         deleted_seed: "0",
         update_trigger: true,
     },
+    Tracked {
+        table: "note_summaries",
+        kind: "note_summary",
+        new_id: "NEW.id",
+        seed_id: "t.id",
+        deleted_new: "0",
+        deleted_seed: "0",
+        update_trigger: true,
+    },
 ];
 
 // Body shared by AFTER INSERT and AFTER UPDATE triggers: allocate a local

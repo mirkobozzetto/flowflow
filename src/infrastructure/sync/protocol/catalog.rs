@@ -163,6 +163,22 @@ pub(super) const KINDS: &[KindSpec] = &[
         composite_link: false,
         chunk_owner: false,
     },
+    // A note's meeting summary, kept on every device of the cluster.
+    KindSpec {
+        kind: "note_summary",
+        table: "note_summaries",
+        cols: &[
+            "id",
+            "body_json",
+            "lang",
+            "model",
+            "source_hash",
+            "created_at",
+            "modified_at",
+        ],
+        composite_link: false,
+        chunk_owner: false,
+    },
 ];
 
 pub(super) fn spec_for(kind: &str) -> Option<&'static KindSpec> {
