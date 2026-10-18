@@ -7,6 +7,7 @@ pub mod folder;
 pub mod governance;
 pub mod note;
 pub mod orchestration;
+pub mod reading;
 pub mod reminder;
 pub mod scoped_agent_manifest;
 pub mod share;
