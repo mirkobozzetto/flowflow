@@ -3,7 +3,7 @@ use crate::application::summary::summarize_note;
 use crate::domain::summary::{source_hash, Moment, Summary, SummaryItem};
 use crate::infrastructure::audio;
 use crate::infrastructure::persistence::Database;
-use crate::infrastructure::platform::haptic;
+use crate::infrastructure::platform::{device_log, haptic};
 use crate::ui::icons::*;
 use crate::ui::kit;
 use crate::ui::notes::playback::{NotePlayer, Playback};
@@ -115,8 +115,21 @@ pub fn SummaryCard(
         let lang = (app.current_lang)();
         spawn(async move {
             match summarize_note(&db(), &id, &body, &lang).await {
-                Ok(_) => version += 1,
-                Err(e) => error.set(Some(e.to_string())),
+                Ok(s) => {
+                    device_log(&format!(
+                        "[summary] {id}: {} points, {} decisions, {} actions, {} questions ({})",
+                        s.body.key_points.len(),
+                        s.body.decisions.len(),
+                        s.body.actions.len(),
+                        s.body.questions.len(),
+                        s.model
+                    ));
+                    version += 1;
+                }
+                Err(e) => {
+                    device_log(&format!("[summary] {id}: {e}"));
+                    error.set(Some(e.to_string()));
+                }
             }
             busy.set(false);
         });
