@@ -93,6 +93,9 @@ cargo build -q --example demo_store
 target/debug/examples/demo_store hermes "$LANG_CODE" >/dev/null &
 HERMES_PID=$!
 trap 'kill $HERMES_PID 2>/dev/null || true' EXIT
+# A port already taken would leave every Hermes screen on "cannot be reached".
+sleep 1
+kill -0 "$HERMES_PID" 2>/dev/null || { echo "fake Hermes did not start"; exit 1; }
 
 # Fresh store on every start: a take left running must not leak into the
 # next screens.
