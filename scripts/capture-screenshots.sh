@@ -81,8 +81,9 @@ label=$SEE_ALL"
 ---
 tap
 label=$TASKS"
-  "hermes
-photo=$PHOTO"
+  "hermes-new
+photo=$PHOTO
+text=$QUESTION"
   "hermes
 text=/"
   chat

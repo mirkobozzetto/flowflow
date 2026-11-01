@@ -183,8 +183,23 @@ fn skills(t: &Text) -> Value {
     json!({ "data": data })
 }
 
+/// The first day after `today` the cron day-of-week field ("5", "1-5")
+/// allows, so a weekly task's next run matches its schedule.
+fn next_cron_day(expr: &str, today: chrono::NaiveDate) -> chrono::NaiveDate {
+    use chrono::Datelike;
+    let field = expr.split_whitespace().nth(4).unwrap_or("*");
+    let (from, to) = match field.split_once('-') {
+        Some((a, b)) => (a.parse().unwrap_or(0), b.parse().unwrap_or(6)),
+        None => field.parse().map_or((0, 6), |d| (d, d)),
+    };
+    (1..=7)
+        .map(|n| today + chrono::Duration::days(n))
+        .find(|d| (from..=to).contains(&d.weekday().num_days_from_sunday()))
+        .unwrap_or(today)
+}
+
 /// The tasks as Hermes' `/api/jobs` lists them, times on the Mac's clock:
-/// next runs tomorrow, last runs today, so the list reads like real use.
+/// next runs after today, last runs today, so the list reads like real use.
 fn jobs(t: &Text) -> Value {
     use chrono::{Duration as Days, Local, NaiveTime};
     let at = |day: chrono::NaiveDate, hour: u32| {
@@ -194,7 +209,6 @@ fn jobs(t: &Text) -> Value {
             .map(|d| d.to_rfc3339())
     };
     let today = Local::now().date_naive();
-    let tomorrow = today + Days::days(1);
     let data: Vec<Value> = JOBS
         .iter()
         .zip(t.job_names)
@@ -203,7 +217,7 @@ fn jobs(t: &Text) -> Value {
             let (schedule, next, last) = match schedule {
                 Schedule::Cron(expr) => (
                     json!({ "kind": "cron", "expr": expr, "display": expr }),
-                    at(tomorrow, *hour),
+                    at(next_cron_day(expr, today), *hour),
                     at(today, *hour),
                 ),
                 Schedule::Every(minutes) => (
