@@ -30,7 +30,6 @@ FRESH_DB="${TMPDIR:-/tmp}/flowflow-fresh-$LANG_CODE.db"
 case "$LANG_CODE" in
   fr)
     PHOTO=tableau.jpg
-    CHAPTER="Dossier de presse et page d'accueil"
     SEE_ALL="Voir tout"
     TASKS="tâches planifiées"
     QUESTION="Fais-en mon plan de lancement"
@@ -43,7 +42,6 @@ case "$LANG_CODE" in
     ;;
   *)
     PHOTO=whiteboard.jpg
-    CHAPTER="Press kit and landing page"
     SEE_ALL="See all"
     TASKS="scheduled tasks"
     QUESTION="Turn this into my launch plan"
@@ -56,26 +54,20 @@ case "$LANG_CODE" in
     ;;
 esac
 
-# App Store order (docs/release/<version>.md): the long meeting first,
-# Hermes next, the core of the app last. Lines after a screen are the
+# App Store order (docs/release/<version>.md): talk, find, summarize first,
+# then the chapters, Hermes and the themes. Lines after a screen are the
 # watcher's arguments; a "---" line starts the next step of the same shot.
-CHAPTERS_BUTTON="selector=#reading-bar button:last-of-type"
 SHOTS=(
-  "note
----
-tap
-$CHAPTERS_BUTTON
----
-tap
-label=$CHAPTER"
-  "note
----
-tap
-$CHAPTERS_BUTTON"
+  note
+  chat
   "note
 ---
 tap
 label=$SEE_ALL"
+  "note
+---
+tap
+selector=#reading-bar button:last-of-type"
   hermes
   "hermes-new
 ---
@@ -86,8 +78,7 @@ photo=$PHOTO
 text=$QUESTION"
   "hermes
 text=/"
-  chat
-  record
+  menu
 )
 
 cargo build -q --example demo_store
@@ -148,7 +139,6 @@ for i in "${!SHOTS[@]}"; do
     awk '/pixelWidth/{w=$2} /pixelHeight/{h=$2} END{print w "x" h}')
   [ "$size" = "$EXPECTED" ] || echo "WARN $OUT/$n.png is $size, expected $EXPECTED"
   echo "$OUT/$n.png  $screen"
-  if [ "$screen" = record ]; then reset; fi
 done
 
 # A clip plays shots on a timeline: "seconds|shot", one line per step; a
