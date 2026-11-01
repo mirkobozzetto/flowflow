@@ -30,6 +30,22 @@ struct Text {
     lisbon_a: &'static str,
     /// (category, name, description, times used)
     skills: &'static [(&'static str, &'static str, &'static str, u32)],
+    /// Scheduled tasks, see `JOBS`: one name per row, same order.
+    job_names: [&'static str; 4],
+}
+
+/// (cron expression or interval minutes, hour of the next run, paused,
+/// delivered to FlowFlow)
+const JOBS: [(Schedule, u32, bool, bool); 4] = [
+    (Schedule::Cron("0 7 * * 1-5"), 7, false, true),
+    (Schedule::Every(120), 0, false, false),
+    (Schedule::Cron("0 18 * * 5"), 18, false, true),
+    (Schedule::Cron("0 9 * * 1"), 9, true, false),
+];
+
+enum Schedule {
+    Cron(&'static str),
+    Every(u32),
 }
 
 const EN: Text = Text {
@@ -42,7 +58,7 @@ const EN: Text = Text {
     note_title: "Launch plan for the October release",
     note_body: "Beta opens on the 6th for the waitlist. Press kit ready by Friday, landing page copy reviewed by Sarah. Keep the pricing announcement for the keynote, not before.",
     memory: "Launch on October 20, pricing announced at the keynote",
-    plan_a: "Two things from your note are not on the board:\n\n- **Press kit**, also due Friday.\n- **Pricing**: your note keeps the announcement for the keynote. Build the pricing page by Friday, publish it after the keynote.\n\nBoth are now in this week's plan.",
+    plan_a: "Two things from your note are not on the board. Here is the week with them:\n\n| Day | Task | Status |\n|---|---|---|\n| Mon | Home page copy | In progress |\n| Wed | Client photos | To do |\n| Thu | Call Sarah, ask for testimonials | To do |\n| Fri | **Press kit** | Added |\n| Fri | **Pricing page**, published after the keynote | Added |\n\nBoth are now in this week's plan.",
     lisbon_q: "Plan a 3-day weekend in Lisbon, with a day trip to Sintra.",
     lisbon_search: "Sintra day trip from Lisbon by train",
     lisbon_a: "**Friday**: Alfama and the castle at sunset, dinner by the river.\n\n**Saturday**: early train to Sintra from Rossio, 40 minutes. Pena Palace first, before the crowds.\n\n**Sunday**: tram 28 in the morning, pastries in Belém, flight in the evening.",
@@ -60,6 +76,12 @@ const EN: Text = Text {
         ("travel", "trip-planner", "A day by day plan for a trip", 11),
         ("health", "training-plan", "A running or training plan by week", 4),
     ],
+    job_names: [
+        "Morning briefing",
+        "Inbox triage",
+        "Weekly review",
+        "Competitor watch",
+    ],
 };
 
 const FR: Text = Text {
@@ -72,7 +94,7 @@ const FR: Text = Text {
     note_title: "Plan de lancement de la version d'octobre",
     note_body: "La bêta ouvre le 6 pour la liste d'attente. Dossier de presse prêt vendredi, textes de la page d'accueil relus par Sarah. Garder l'annonce des prix pour la keynote, pas avant.",
     memory: "Lancement le 20 octobre, prix annoncés à la keynote",
-    plan_a: "Deux points de ta note ne sont pas sur le tableau :\n\n- **Le dossier de presse**, prévu lui aussi vendredi.\n- **Les prix** : ta note garde l'annonce pour la keynote. Prépare la page des tarifs pour vendredi, publie-la après la keynote.\n\nLes deux sont maintenant dans le plan de la semaine.",
+    plan_a: "Deux points de ta note ne sont pas sur le tableau. Voici la semaine avec eux :\n\n| Jour | Tâche | État |\n|---|---|---|\n| Lun | Texte de l'accueil | En cours |\n| Mer | Photos du client | À faire |\n| Jeu | Appeler Sarah, demander des avis | À faire |\n| Ven | **Dossier de presse** | Ajouté |\n| Ven | **Page des tarifs**, publiée après la keynote | Ajouté |\n\nLes deux sont maintenant dans le plan de la semaine.",
     lisbon_q: "Prépare-moi un week-end de 3 jours à Lisbonne, avec une journée à Sintra.",
     lisbon_search: "Sintra en train depuis Lisbonne",
     lisbon_a: "**Vendredi** : l'Alfama et le château au coucher du soleil, dîner au bord du fleuve.\n\n**Samedi** : train tôt pour Sintra depuis Rossio, 40 minutes. Le palais de Pena d'abord, avant la foule.\n\n**Dimanche** : tram 28 le matin, pâtisseries à Belém, vol en soirée.",
@@ -89,6 +111,12 @@ const FR: Text = Text {
         ("recherche", "veille-concurrents", "Ce qui a changé chez les concurrents", 5),
         ("voyage", "itineraire-voyage", "Un voyage jour par jour", 11),
         ("santé", "plan-entrainement", "Un plan de course ou de sport par semaine", 4),
+    ],
+    job_names: [
+        "Briefing du matin",
+        "Tri de la boîte mail",
+        "Bilan de la semaine",
+        "Veille concurrents",
     ],
 };
 
@@ -153,6 +181,52 @@ fn skills(t: &Text) -> Value {
         })
         .collect();
     json!({ "data": data })
+}
+
+/// The tasks as Hermes' `/api/jobs` lists them, times on the Mac's clock:
+/// next runs tomorrow, last runs today, so the list reads like real use.
+fn jobs(t: &Text) -> Value {
+    use chrono::{Duration as Days, Local, NaiveTime};
+    let at = |day: chrono::NaiveDate, hour: u32| {
+        day.and_time(NaiveTime::from_hms_opt(hour, 0, 0).unwrap())
+            .and_local_timezone(Local)
+            .single()
+            .map(|d| d.to_rfc3339())
+    };
+    let today = Local::now().date_naive();
+    let tomorrow = today + Days::days(1);
+    let data: Vec<Value> = JOBS
+        .iter()
+        .zip(t.job_names)
+        .enumerate()
+        .map(|(i, ((schedule, hour, paused, to_app), name))| {
+            let (schedule, next, last) = match schedule {
+                Schedule::Cron(expr) => (
+                    json!({ "kind": "cron", "expr": expr, "display": expr }),
+                    at(tomorrow, *hour),
+                    at(today, *hour),
+                ),
+                Schedule::Every(minutes) => (
+                    json!({ "kind": "interval", "minutes": minutes,
+                            "display": format!("every {minutes}m") }),
+                    Some((Local::now() + Days::minutes(47)).to_rfc3339()),
+                    Some((Local::now() - Days::minutes(73)).to_rfc3339()),
+                ),
+            };
+            json!({
+                "id": format!("job_demo_{i}"),
+                "name": name,
+                "schedule": schedule,
+                "enabled": !paused,
+                "state": if *paused { "paused" } else { "scheduled" },
+                "next_run_at": next,
+                "last_run_at": last,
+                "last_status": "ok",
+                "deliver": if *to_app { "ntfy" } else { "local" },
+            })
+        })
+        .collect();
+    json!({ "jobs": data })
 }
 
 fn model_options() -> Value {
@@ -280,7 +354,7 @@ async fn handle(mut sock: TcpStream, state: Arc<State>) {
             send_json(&mut sock, "200 OK", model_options()).await
         }
         ("GET", ["api", "jobs"]) => {
-            send_json(&mut sock, "200 OK", json!({ "jobs": [{}, {}] })).await
+            send_json(&mut sock, "200 OK", jobs(t)).await
         }
         ("POST", ["api", "sessions"]) => {
             let v: Value = serde_json::from_slice(&body).unwrap_or_default();

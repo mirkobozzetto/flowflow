@@ -5,6 +5,7 @@
 // The first seeds a store; the second serves a fake Hermes the store points
 // at, so no real Hermes address, key, skill or history reaches a frame.
 mod hermes;
+mod meeting;
 mod seed;
 
 // The simulator shares the Mac's network: the app reaches this directly.
