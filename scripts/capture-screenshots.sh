@@ -30,8 +30,9 @@ FRESH_DB="${TMPDIR:-/tmp}/flowflow-fresh-$LANG_CODE.db"
 case "$LANG_CODE" in
   fr)
     PHOTO=tableau.jpg
-    ASK="Prépare la facture Nordwind"
-    NEW="Prépare mon appel Nordwind"
+    CHAPTER="Dossier de presse et page d'accueil"
+    SEE_ALL="Voir tout"
+    TASKS="tâches planifiées"
     QUESTION="Fais-en mon plan de lancement"
     VOICE=Thomas
     DICTATION="Rappelle-moi d'envoyer la proposition jeudi à neuf heures."
@@ -42,8 +43,9 @@ case "$LANG_CODE" in
     ;;
   *)
     PHOTO=whiteboard.jpg
-    ASK="Draft the Nordwind invoice"
-    NEW="Prep my Nordwind call"
+    CHAPTER="Press kit and landing page"
+    SEE_ALL="See all"
+    TASKS="scheduled tasks"
     QUESTION="Turn this into my launch plan"
     VOICE=Samantha
     DICTATION="Remind me to send the proposal Thursday at nine."
@@ -54,21 +56,37 @@ case "$LANG_CODE" in
     ;;
 esac
 
-# App Store order (docs/release/<version>.md): the core of the app first,
-# Hermes after. Lines after a screen are the watcher's arguments.
+# App Store order (docs/release/<version>.md): the long meeting first,
+# Hermes next, the core of the app last. Lines after a screen are the
+# watcher's arguments; a "---" line starts the next step of the same shot.
+CHAPTERS_BUTTON="selector=#reading-bar button:last-of-type"
 SHOTS=(
-  record
-  note
-  chat
-  menu
+  "note
+---
+tap
+$CHAPTERS_BUTTON
+---
+tap
+label=$CHAPTER"
+  "note
+---
+tap
+$CHAPTERS_BUTTON"
+  "note
+---
+tap
+label=$SEE_ALL"
+  hermes
+  "hermes-new
+---
+tap
+label=$TASKS"
   "hermes
 photo=$PHOTO"
   "hermes
 text=/"
-  "hermes
-text=$ASK"
-  "hermes-new
-text=$NEW"
+  chat
+  record
 )
 
 cargo build -q --example demo_store
@@ -94,8 +112,11 @@ xcrun simctl terminate booted "$BUNDLE" 2>/dev/null || true
 xcrun simctl install booted "$APP"
 xcrun simctl privacy booted grant microphone "$BUNDLE"
 DOCS="$(xcrun simctl get_app_container booted "$BUNDLE" data)/Documents"
-mkdir -p "$DOCS"
+mkdir -p "$DOCS/flowflow"
 cp "examples/demo_store/whiteboard-$LANG_CODE.jpg" "$DOCS/$PHOTO"
+# The meeting's recording (examples/demo_store/meeting.rs): present, so the
+# reading bar shows its play button; never played.
+: > "$DOCS/flowflow/demo-meeting.m4a"
 reset
 # Apple's marketing status bar: 9:41, full battery and signal.
 xcrun simctl status_bar booted override --time 9:41 --batteryState charged \
@@ -110,7 +131,13 @@ for i in "${!SHOTS[@]}"; do
   want screenshots || break
   n=$(printf '%02d' $((i + 1)))
   screen="${SHOTS[$i]%%$'\n'*}"
-  printf '%s\n' "${SHOTS[$i]}" > "$DOCS/shot"
+  rest="${SHOTS[$i]}"
+  while [[ "$rest" == *$'\n---\n'* ]]; do
+    printf '%s\n' "${rest%%$'\n---\n'*}" > "$DOCS/shot"
+    sleep 3
+    rest="${rest#*$'\n---\n'}"
+  done
+  printf '%s\n' "$rest" > "$DOCS/shot"
   sleep 4
   xcrun simctl io booted screenshot "$OUT/$n.png" >/dev/null 2>&1
   size=$(sips -g pixelWidth -g pixelHeight "$OUT/$n.png" |
