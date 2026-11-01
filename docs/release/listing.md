@@ -85,22 +85,41 @@ Available in English and French.
 **App Review notes**
 
 ```
-AI features need either an OpenAI API key or a ChatGPT sign-in, and cloud
-transcription needs a Soniox key. Review keys, capped and revoked after
-approval:
-- OpenAI API key: <paste>
-- Soniox API key: <paste>
+The account is optional. Recording, transcription, local notes, search and
+chat all work without one, and that is enough to review this release.
 
-Setup: Settings > AI > OpenAI, paste the OpenAI key; Settings >
-Transcription, paste the Soniox key. Offline transcription works without
-any key after downloading a model in Settings > Transcription.
+An account unlocks syncing notes between the user's own devices (up to 3)
+directly over the local network, sharing a note or a thread behind a link,
+and the premium plan. Sign-up is open to anyone at account.flowflow.be,
+with an email and a passkey. The device is then linked from Settings >
+Account with a one-time code.
+
+AI features need an OpenAI API key, and cloud transcription needs a Soniox
+key. Review keys, dedicated and capped, revoked after approval:
+
+- OpenAI API key:
+<paste>
+
+- Soniox API key:
+<paste>
+
+Setup:
+1. Launch the app. On the AI consent screen, tap "Enable".
+2. Settings > AI > OpenAI: paste the OpenAI key.
+3. Settings > Transcription: paste the Soniox key.
+4. Back to the notes, tap the mic to record. Microphone permission is
+requested on the first recording.
+
+Offline transcription works without any key after downloading a model in
+Settings > Transcription.
+
 Chats > New conversation > With Hermes, Hermes scheduled tasks and their
 notifications need the user's own self-hosted Hermes Agent on a private
 Tailscale network: it cannot be reached from review and is optional.
 Notifications are only used for Hermes tasks; the app never requires them.
 Everything else works without Hermes.
-Microphone permission is requested on the first recording. Please limit
-testing to about 10 transcriptions or questions.
+
+Please limit testing to about 10 transcriptions or questions.
 ```
 
 ---
