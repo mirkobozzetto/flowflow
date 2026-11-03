@@ -33,7 +33,13 @@ struct Tracked {
     deleted_new: &'static str,
     deleted_seed: &'static str,
     update_trigger: bool,
+    // Extra condition on the seeded rows (`t` is the table), None for all.
+    seed_filter: Option<&'static str>,
 }
+
+// Words and chapters of a clip whose note_audios row is gone stay behind.
+const LIVE_CLIP: &str =
+    "EXISTS (SELECT 1 FROM note_audios a WHERE a.id = t.id)";
 
 const TRACKED: &[Tracked] = &[
     Tracked {
@@ -44,6 +50,7 @@ const TRACKED: &[Tracked] = &[
         deleted_new: "0",
         deleted_seed: "0",
         update_trigger: true,
+        seed_filter: None,
     },
     Tracked {
         table: "folders",
@@ -53,6 +60,7 @@ const TRACKED: &[Tracked] = &[
         deleted_new: "0",
         deleted_seed: "0",
         update_trigger: true,
+        seed_filter: None,
     },
     Tracked {
         table: "threads",
@@ -62,6 +70,7 @@ const TRACKED: &[Tracked] = &[
         deleted_new: "0",
         deleted_seed: "0",
         update_trigger: true,
+        seed_filter: None,
     },
     Tracked {
         table: "notes_folders",
@@ -71,6 +80,7 @@ const TRACKED: &[Tracked] = &[
         deleted_new: "0",
         deleted_seed: "0",
         update_trigger: false,
+        seed_filter: None,
     },
     Tracked {
         table: "conversations",
@@ -80,6 +90,7 @@ const TRACKED: &[Tracked] = &[
         deleted_new: "0",
         deleted_seed: "0",
         update_trigger: true,
+        seed_filter: None,
     },
     Tracked {
         table: "conversation_messages",
@@ -89,6 +100,7 @@ const TRACKED: &[Tracked] = &[
         deleted_new: "0",
         deleted_seed: "0",
         update_trigger: false,
+        seed_filter: None,
     },
     Tracked {
         table: "attachments",
@@ -98,6 +110,7 @@ const TRACKED: &[Tracked] = &[
         deleted_new: "0",
         deleted_seed: "0",
         update_trigger: true,
+        seed_filter: None,
     },
     Tracked {
         table: "note_audios",
@@ -107,6 +120,7 @@ const TRACKED: &[Tracked] = &[
         deleted_new: "0",
         deleted_seed: "0",
         update_trigger: true,
+        seed_filter: None,
     },
     Tracked {
         table: "note_reminders",
@@ -116,6 +130,7 @@ const TRACKED: &[Tracked] = &[
         deleted_new: "CASE WHEN NEW.state='tombstone' THEN 1 ELSE 0 END",
         deleted_seed: "CASE WHEN t.state='tombstone' THEN 1 ELSE 0 END",
         update_trigger: true,
+        seed_filter: None,
     },
     Tracked {
         table: "note_shares",
@@ -125,6 +140,7 @@ const TRACKED: &[Tracked] = &[
         deleted_new: "0",
         deleted_seed: "0",
         update_trigger: true,
+        seed_filter: None,
     },
     Tracked {
         table: "note_provenance",
@@ -134,6 +150,7 @@ const TRACKED: &[Tracked] = &[
         deleted_new: "0",
         deleted_seed: "0",
         update_trigger: true,
+        seed_filter: None,
     },
     Tracked {
         table: "note_summaries",
@@ -143,6 +160,27 @@ const TRACKED: &[Tracked] = &[
         deleted_new: "0",
         deleted_seed: "0",
         update_trigger: true,
+        seed_filter: None,
+    },
+    Tracked {
+        table: "note_audio_words",
+        kind: "note_audio_words",
+        new_id: "NEW.id",
+        seed_id: "t.id",
+        deleted_new: "0",
+        deleted_seed: "0",
+        update_trigger: true,
+        seed_filter: Some(LIVE_CLIP),
+    },
+    Tracked {
+        table: "note_audio_chapters",
+        kind: "note_audio_chapters",
+        new_id: "NEW.id",
+        seed_id: "t.id",
+        deleted_new: "0",
+        deleted_seed: "0",
+        update_trigger: true,
+        seed_filter: Some(LIVE_CLIP),
     },
 ];
 
@@ -274,61 +312,95 @@ pub fn seed_sync_meta(
         return Ok(());
     }
     for t in TRACKED {
-        let missing = format!(
-            "NOT EXISTS (SELECT 1 FROM sync_row_meta m \
-             WHERE m.entity_kind = '{kind}' AND m.entity_id = {id})",
-            kind = t.kind,
-            id = t.seed_id,
-        );
-        let n: i64 = conn
-            .query_row(
-                &format!(
-                    "SELECT count(*) FROM {table} t WHERE {missing}",
-                    table = t.table
-                ),
-                [],
-                |r| r.get(0),
-            )
-            .map_err(|e| format!("seed count {}: {e}", t.table))?;
-        if n == 0 {
-            continue;
-        }
-        let base: i64 = conn
-            .query_row(
-                "SELECT next_seq FROM sync_seq WHERE device_id = ?1",
-                [device_id],
-                |r| r.get(0),
-            )
-            .map_err(|e| format!("seed base: {e}"))?;
-        conn.execute(
-            "UPDATE sync_seq SET next_seq = next_seq + ?2 WHERE device_id = ?1",
-            rusqlite::params![device_id, n],
-        )
-        .map_err(|e| format!("seed reserve {}: {e}", t.table))?;
-        let insert = format!(
-            "INSERT INTO sync_row_meta
-                (entity_kind, entity_id, version_vector, origin_device, origin_seq, deleted, updated_hlc)
-             SELECT '{kind}', {id},
-                json_set('{{}}', '$.\"' || ?1 || '\"', 1),
-                ?1,
-                ?2 + row_number() OVER (ORDER BY t.ROWID),
-                {deleted},
-                strftime('%Y-%m-%dT%H:%M:%fZ','now')
-             FROM {table} t
-             WHERE {missing}",
-            kind = t.kind,
-            id = t.seed_id,
-            deleted = seed_deleted(t),
-            table = t.table,
-        );
-        conn.execute(&insert, rusqlite::params![device_id, base])
-            .map_err(|e| format!("seed insert {}: {e}", t.table))?;
+        seed_table(conn, device_id, t)?;
     }
     conn.execute(
         "INSERT OR IGNORE INTO settings (key, value) VALUES (?1, '1')",
         [SEEDED_KEY],
     )
     .map_err(|e| format!("seed flag: {e}"))?;
+    Ok(())
+}
+
+// Track the rows of one table that have no meta yet, each with a freshly
+// reserved origin_seq, so the next sync sends them.
+fn seed_table(
+    conn: &Connection,
+    device_id: &str,
+    t: &Tracked,
+) -> Result<(), String> {
+    let mut missing = format!(
+        "NOT EXISTS (SELECT 1 FROM sync_row_meta m \
+         WHERE m.entity_kind = '{kind}' AND m.entity_id = {id})",
+        kind = t.kind,
+        id = t.seed_id,
+    );
+    if let Some(filter) = t.seed_filter {
+        missing = format!("{missing} AND {filter}");
+    }
+    let n: i64 = conn
+        .query_row(
+            &format!(
+                "SELECT count(*) FROM {table} t WHERE {missing}",
+                table = t.table
+            ),
+            [],
+            |r| r.get(0),
+        )
+        .map_err(|e| format!("seed count {}: {e}", t.table))?;
+    if n == 0 {
+        return Ok(());
+    }
+    let base: i64 = conn
+        .query_row(
+            "SELECT next_seq FROM sync_seq WHERE device_id = ?1",
+            [device_id],
+            |r| r.get(0),
+        )
+        .map_err(|e| format!("seed base: {e}"))?;
+    conn.execute(
+        "UPDATE sync_seq SET next_seq = next_seq + ?2 WHERE device_id = ?1",
+        rusqlite::params![device_id, n],
+    )
+    .map_err(|e| format!("seed reserve {}: {e}", t.table))?;
+    let insert = format!(
+        "INSERT INTO sync_row_meta
+            (entity_kind, entity_id, version_vector, origin_device, origin_seq, deleted, updated_hlc)
+         SELECT '{kind}', {id},
+            json_set('{{}}', '$.\"' || ?1 || '\"', 1),
+            ?1,
+            ?2 + row_number() OVER (ORDER BY t.ROWID),
+            {deleted},
+            strftime('%Y-%m-%dT%H:%M:%fZ','now')
+         FROM {table} t
+         WHERE {missing}",
+        kind = t.kind,
+        id = t.seed_id,
+        deleted = seed_deleted(t),
+        table = t.table,
+    );
+    conn.execute(&insert, rusqlite::params![device_id, base])
+        .map_err(|e| format!("seed insert {}: {e}", t.table))?;
+    Ok(())
+}
+
+/// Seed the rows of tables that became synced after the first seed. Without a
+/// device_id (a fresh install, mid-migration) there is nothing to seed: the
+/// first seed at open covers them.
+pub fn seed_tables(conn: &Connection, tables: &[&str]) -> Result<(), String> {
+    let device_id: Option<String> = conn
+        .query_row(
+            "SELECT value FROM settings WHERE key = ?1",
+            [DEVICE_ID_KEY],
+            |r| r.get(0),
+        )
+        .ok();
+    let Some(device_id) = device_id else {
+        return Ok(());
+    };
+    for t in TRACKED.iter().filter(|t| tables.contains(&t.table)) {
+        seed_table(conn, &device_id, t)?;
+    }
     Ok(())
 }
 
