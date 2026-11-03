@@ -233,7 +233,18 @@ pub fn install_sync_triggers(conn: &Connection) -> Result<(), String> {
                 |r| r.get(0),
             )
             .unwrap_or(false);
-        if !table_exists {
+        // A table brought into shape by a later migration (note_audio_words
+        // gets its `id` at V35) is tracked from then on: a trigger on the old
+        // shape would break that migration's RENAME COLUMN.
+        let keyed = t.seed_id != "t.id"
+            || conn
+                .query_row(
+                    "SELECT EXISTS(SELECT 1 FROM pragma_table_info(?1) WHERE name = 'id')",
+                    [t.table],
+                    |r| r.get(0),
+                )
+                .unwrap_or(false);
+        if !table_exists || !keyed {
             continue;
         }
         sql.push_str(&format!(

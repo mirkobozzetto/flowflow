@@ -6,7 +6,7 @@
 // `space_publish_pending` stay OUT of it (a pull cursor, a purge intent and a
 // publication owed are device-local).
 
-use flowflow::infrastructure::persistence::Database;
+use flowflow::infrastructure::persistence::{current_schema_version, Database};
 
 fn table_columns(db: &Database, table: &str) -> Vec<String> {
     let conn = db.conn();
@@ -88,7 +88,7 @@ fn recent_space_migrations_apply_on_a_v25_file() {
         .conn()
         .query_row("SELECT MAX(version) FROM _migrations", [], |r| r.get(0))
         .unwrap();
-    assert_eq!(head, 34);
+    assert_eq!(head, current_schema_version());
 }
 
 // A device that consumed space pages before threads existed holds a cursor
