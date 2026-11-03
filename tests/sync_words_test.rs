@@ -62,9 +62,14 @@ fn try_sync(
         client_version,
     );
     let served = server.join().expect("join");
-    let stats = client.map_err(|e| format!("client: {e}"))?;
-    served.map_err(|e| format!("server: {e}"))?;
-    Ok(stats)
+    match (client, served) {
+        (Ok(stats), Ok(_)) => Ok(stats),
+        (client, served) => Err(format!(
+            "client: {:?} / server: {:?}",
+            client.err().map(|e| e.to_string()),
+            served.err().map(|e| e.to_string())
+        )),
+    }
 }
 
 fn sync_once(

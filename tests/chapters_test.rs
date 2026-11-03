@@ -46,19 +46,30 @@ fn chapter(start_word: usize, title: &str) -> Chapter {
     }
 }
 
-#[test]
-fn migration_v33_adds_chapters_next_to_the_words() {
-    let (db, _dir) = open_test_db();
-    let column: i64 = db
-        .conn()
-        .query_row(
-            "SELECT COUNT(*) FROM pragma_table_info('note_audio_words')
-             WHERE name = 'chapters_json'",
-            [],
-            |r| r.get(0),
-        )
+fn columns(db: &Database, table: &str) -> Vec<String> {
+    let conn = db.conn();
+    let mut stmt = conn
+        .prepare(&format!("SELECT name FROM pragma_table_info('{table}')"))
         .expect("pragma");
-    assert_eq!(column, 1);
+    stmt.query_map([], |r| r.get(0))
+        .expect("columns")
+        .flatten()
+        .collect()
+}
+
+// Two synced kinds need two tables: the applier's INSERT OR REPLACE would
+// reset any column of the other kind on the same row.
+#[test]
+fn migration_v35_gives_chapters_their_own_table() {
+    let (db, _dir) = open_test_db();
+    assert_eq!(
+        columns(&db, "note_audio_words"),
+        ["id", "words_json", "author_device"]
+    );
+    assert_eq!(
+        columns(&db, "note_audio_chapters"),
+        ["id", "chapters_json"]
+    );
 }
 
 #[test]
