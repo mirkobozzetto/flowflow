@@ -35,6 +35,7 @@ fn build_window() -> WindowBuilder {
 }
 
 fn main() {
+    flowflow::infrastructure::platform::log_to_file();
     flowflow::application::backup::apply_pending_restore_or_abort();
     dotenvy::dotenv().ok();
     #[cfg(target_os = "ios")]

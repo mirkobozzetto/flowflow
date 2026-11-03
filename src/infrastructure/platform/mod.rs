@@ -15,23 +15,39 @@ pub fn haptic_prepare(kind: &str) {
     let _ = kind;
 }
 
-/// Where `device_log` keeps its lines on iOS, read back from the Mac with
-/// `devicectl device copy from` once the phone is unlocked.
+/// Where `device_log` keeps its lines under HOME. On iOS, read back from the
+/// Mac with `devicectl device copy from` once the phone is unlocked; on the
+/// Mac, where Apple keeps app logs.
 #[cfg(target_os = "ios")]
 const DEVICE_LOG: &str = "Library/Caches/flowflow.log";
+#[cfg(target_os = "macos")]
+const DEVICE_LOG: &str = "Library/Logs/FlowFlow/flowflow.log";
 // ponytail: one file, started over past this size.
-#[cfg(target_os = "ios")]
+#[cfg(any(target_os = "ios", target_os = "macos"))]
 const DEVICE_LOG_MAX: u64 = 512 * 1024;
 
-/// A line in the app's log. On iOS it also goes to the system log and to
-/// DEVICE_LOG: the console drops off as soon as the phone locks.
+/// Off until the app's `main` turns it on: a test run on the Mac must neither
+/// write into the app's log nor start it over.
+static LOG_TO_FILE: std::sync::atomic::AtomicBool =
+    std::sync::atomic::AtomicBool::new(false);
+
+pub fn log_to_file() {
+    LOG_TO_FILE.store(true, std::sync::atomic::Ordering::Relaxed);
+}
+
+/// A line in the app's log, also in DEVICE_LOG once `log_to_file` ran: the
+/// iPhone console drops off as soon as the phone locks, and the Mac app has
+/// no console. On iOS it also goes to the system log.
 pub fn device_log(msg: &str) {
     eprintln!("{msg}");
-    #[cfg(target_os = "ios")]
-    {
+    #[cfg(any(target_os = "ios", target_os = "macos"))]
+    if LOG_TO_FILE.load(std::sync::atomic::Ordering::Relaxed) {
         use std::io::Write;
         if let Ok(home) = std::env::var("HOME") {
             let path = std::path::Path::new(&home).join(DEVICE_LOG);
+            if let Some(dir) = path.parent() {
+                let _ = std::fs::create_dir_all(dir);
+            }
             let full = std::fs::metadata(&path)
                 .is_ok_and(|m| m.len() > DEVICE_LOG_MAX);
             if let Ok(mut file) = std::fs::OpenOptions::new()

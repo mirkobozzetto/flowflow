@@ -224,17 +224,8 @@ pub fn ReadingView(
             let words = words.clone();
             spawn(async move {
                 let db = db();
-                match generate_chapters(&db, &audio_id, &words).await {
-                    Ok(chapters) => {
-                        device_log(&format!(
-                            "[chapters] {audio_id}: {} chapters",
-                            chapters.len()
-                        ));
-                        chapters_version.set(chapters_version() + 1);
-                    }
-                    Err(e) => {
-                        device_log(&format!("[chapters] {audio_id}: {e}"))
-                    }
+                if generate_chapters(&db, &audio_id, &words).await.is_ok() {
+                    chapters_version.set(chapters_version() + 1);
                 }
             });
         }

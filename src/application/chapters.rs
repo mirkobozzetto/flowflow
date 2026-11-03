@@ -8,26 +8,61 @@ use crate::domain::reading::{paragraph_ranges, Chapter, PAUSE_PARAGRAPH_MS};
 use crate::domain::Word;
 use crate::infrastructure::llm::LlmClient;
 use crate::infrastructure::persistence::Database;
+use crate::infrastructure::platform::device_log;
 use std::ops::Range;
+use std::time::Instant;
 
-/// Generate a clip's chapters and store them. Without AI consent or a
-/// connection this fails, and the note reads in paragraphs only.
+/// Generate a clip's chapters and store them: the stored chapters, or `None`
+/// when the store refused them (already there, or the words changed meanwhile).
+/// Without AI consent or a connection this fails, and the note reads in
+/// paragraphs only. Each run logs a start line and an end line, so a run cut
+/// short shows as a start without an end.
 // ponytail: the whole transcript in one call (about 15k tokens an hour);
 // chunk by groups of paragraphs if recordings past 2 h hit the context.
 pub async fn generate_chapters(
     db: &Database,
     audio_id: &str,
     words: &[Word],
-) -> Result<Vec<Chapter>, LlmError> {
-    let client = LlmClient::from_db(db)?;
+) -> Result<Option<Vec<Chapter>>, LlmError> {
     let ranges = paragraph_ranges(words, PAUSE_PARAGRAPH_MS);
+    device_log(&format!(
+        "[chapters] {audio_id}: start, {} words in {} paragraphs",
+        words.len(),
+        ranges.len()
+    ));
+    let started = Instant::now();
+    let outcome = ask_and_store(db, audio_id, words, &ranges).await;
+    let ms = started.elapsed().as_millis();
+    match &outcome {
+        Ok(Some(chapters)) => device_log(&format!(
+            "[chapters] {audio_id}: {} chapters kept in {ms} ms",
+            chapters.len()
+        )),
+        Ok(None) => device_log(&format!(
+            "[chapters] {audio_id}: refused in {ms} ms, chapters already there or words changed"
+        )),
+        Err(e) => {
+            device_log(&format!("[chapters] {audio_id}: failed in {ms} ms: {e}"))
+        }
+    }
+    outcome
+}
+
+async fn ask_and_store(
+    db: &Database,
+    audio_id: &str,
+    words: &[Word],
+    ranges: &[Range<usize>],
+) -> Result<Option<Vec<Chapter>>, LlmError> {
+    let client = LlmClient::from_db(db)?;
     let reply = client
-        .chat_reading(CHAPTERS_SYSTEM_PROMPT, &numbered(words, &ranges))
+        .chat_reading(CHAPTERS_SYSTEM_PROMPT, &numbered(words, ranges))
         .await?;
-    let chapters = parse_chapters(&reply, &ranges)?;
-    db.set_audio_chapters(audio_id, words.len(), &chapters)
+    let chapters = parse_chapters(&reply, ranges)?;
+    let kept = db
+        .set_audio_chapters(audio_id, words.len(), &chapters)
         .map_err(LlmError::Completion)?;
-    Ok(chapters)
+    Ok(kept.then_some(chapters))
 }
 
 /// The model's answer as chapters. A start outside the paragraphs, or not
