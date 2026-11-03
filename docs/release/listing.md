@@ -23,15 +23,13 @@ Voice notes that answer back
 **Promotional text** (170, editable without a new version)
 
 ```
-Speak, and FlowFlow writes it down, titles it, files it and lets you ask
-your notes anything. New: send photos, files and notes to your own Hermes
-Agent.
+New: long meetings read like documents, with chapters and a summary. Talk to your own Hermes Agent, follow its runs live, get its tasks as notifications.
 ```
 
-**Keywords** (100, comma-separated)
+**Keywords** (100 bytes, comma-separated)
 
 ```
-voice,notes,transcription,dictation,memo,AI,chat,whisper,offline,journal,meeting,assistant
+voice,notes,transcription,dictation,meeting,summary,chapters,AI,chat,whisper,offline,hermes,agent
 ```
 
 **Description** (4000)
@@ -46,10 +44,16 @@ Transcribe in the cloud, or fully offline with a Whisper model on your
 iPhone. Hour-long recordings finish, even with the screen locked. A
 personal dictionary spells your names and jargon right.
 
+MEETINGS, READY TO READ
+A recorded meeting reads like a document: paragraphs, chapters, and a
+reading bar that plays from any word. Summarize it into key points,
+decisions and actions, each with the moment it was said.
+
 ASK YOUR NOTES
 Chat with everything you wrote. Answers cite the notes they come from, and
 you tap a source to open it. Add a web search when your notes are not
-enough. Use an OpenAI API key or your ChatGPT subscription.
+enough. Answer with Claude or OpenAI using your own API key, or with your
+ChatGPT subscription, and pick the model.
 
 ORGANIZED FOR YOU
 AI titles, tags and themes as you write. Search your themes, filter notes
@@ -63,8 +67,12 @@ server in between. Back everything up in one archive and restore it safely.
 SHARE AND COLLABORATE
 Publish a note or a thread behind a link you can revoke. Share a theme into
 a team space, or give Hermes Agent scoped, revocable access to one space.
+
+YOUR OWN HERMES AGENT
 Run your own Hermes Agent? Link it with one QR code and talk to it from the
-Chats tab: send it photos, files and notes, and call its skills.
+Chats tab: send it photos, files and notes, call its skills, follow its
+runs live and approve its commands. See, run and create its scheduled
+tasks, and get their results as notifications.
 
 ACT, NOT JUST RECORD
 Turn "call the bank tomorrow at 10" into a reminder. Install verified
@@ -77,19 +85,41 @@ Available in English and French.
 **App Review notes**
 
 ```
-AI features need either an OpenAI API key or a ChatGPT sign-in, and cloud
-transcription needs a Soniox key. Review keys, capped and revoked after
-approval:
-- OpenAI API key: <paste>
-- Soniox API key: <paste>
+The account is optional. Recording, transcription, local notes, search and
+chat all work without one, and that is enough to review this release.
 
-Setup: Settings > AI, paste both keys. Offline transcription works without
-any key after downloading a model in Settings > Transcription.
-Chats > New conversation > With Hermes needs the user's own self-hosted
-Hermes Agent on a private Tailscale network: it cannot be reached from
-review and is optional. Everything else works without it.
-Microphone permission is requested on the first recording. Please limit
-testing to about 10 transcriptions or questions.
+An account unlocks syncing notes between the user's own devices (up to 3)
+directly over the local network, sharing a note or a thread behind a link,
+and the premium plan. Sign-up is open to anyone at account.flowflow.be,
+with an email and a passkey. The device is then linked from Settings >
+Account with a one-time code.
+
+AI features need an OpenAI API key, and cloud transcription needs a Soniox
+key. Review keys, dedicated and capped, revoked after approval:
+
+- OpenAI API key:
+<paste>
+
+- Soniox API key:
+<paste>
+
+Setup:
+1. Launch the app. On the AI consent screen, tap "Enable".
+2. Settings > AI > OpenAI: paste the OpenAI key.
+3. Settings > Transcription: paste the Soniox key.
+4. Back to the notes, tap the mic to record. Microphone permission is
+requested on the first recording.
+
+Offline transcription works without any key after downloading a model in
+Settings > Transcription.
+
+Chats > New conversation > With Hermes, Hermes scheduled tasks and their
+notifications need the user's own self-hosted Hermes Agent on a private
+Tailscale network: it cannot be reached from review and is optional.
+Notifications are only used for Hermes tasks; the app never requires them.
+Everything else works without Hermes.
+
+Please limit testing to about 10 transcriptions or questions.
 ```
 
 ---
@@ -105,14 +135,13 @@ Notes vocales qui répondent
 **Texte promotionnel** (170)
 
 ```
-Parlez : FlowFlow écrit, titre, range, et vous laisse interroger vos notes.
-Nouveau : envoyez photos, fichiers et notes à votre propre Hermes Agent.
+Nouveau : les longues réunions se lisent comme un document, avec chapitres et résumé. Parlez à votre Hermes Agent, suivez-le en direct et recevez ses tâches.
 ```
 
-**Mots-clés** (100)
+**Mots-clés** (100 octets)
 
 ```
-notes,vocal,transcription,dictée,mémo,IA,chat,whisper,hors ligne,journal,réunion,assistant
+notes,vocal,transcription,dictée,réunion,résumé,chapitres,IA,whisper,hors ligne,hermes,agent
 ```
 
 **Description** (4000)
@@ -129,11 +158,18 @@ modèle Whisper sur votre iPhone. Les enregistrements d'une heure vont au
 bout, même écran verrouillé. Un dictionnaire personnel orthographie
 correctement vos noms et votre jargon.
 
+DES RÉUNIONS PRÊTES À LIRE
+Une réunion enregistrée se lit comme un document : des paragraphes, des
+chapitres, et une barre de lecture qui joue depuis n'importe quel mot.
+Résumez-la en points clés, décisions et actions, chacune avec le moment où
+elle est dite.
+
 INTERROGER VOS NOTES
 Discutez avec tout ce que vous avez écrit. Les réponses citent les notes
 d'où elles viennent, et un toucher sur une source l'ouvre. Ajoutez une
-recherche web quand vos notes ne suffisent pas. Utilisez une clé API
-OpenAI ou votre abonnement ChatGPT.
+recherche web quand vos notes ne suffisent pas. Répondez avec Claude ou
+OpenAI grâce à votre propre clé API, ou avec votre abonnement ChatGPT, et
+choisissez le modèle.
 
 RANGÉ POUR VOUS
 Titres, tags et thèmes générés pendant que vous écrivez. Cherchez dans vos
@@ -148,9 +184,14 @@ en sécurité.
 PARTAGER ET COLLABORER
 Publiez une note ou un fil derrière un lien révocable. Partagez un thème
 dans un espace d'équipe, ou donnez à Hermes Agent un accès limité et
-révocable à un espace. Vous avez votre propre Hermes Agent ? Liez-le avec
-un QR code et parlez-lui depuis l'onglet Chats : envoyez-lui photos,
-fichiers et notes, et appelez ses skills.
+révocable à un espace.
+
+VOTRE PROPRE HERMES AGENT
+Vous avez votre propre Hermes Agent ? Liez-le avec un QR code et parlez-lui
+depuis l'onglet Chats : envoyez-lui photos, fichiers et notes, appelez ses
+skills, suivez ses exécutions en direct et acceptez ses commandes. Voyez,
+lancez et créez ses tâches planifiées, et recevez leurs résultats en
+notification.
 
 AGIR, PAS SEULEMENT NOTER
 « Appeler la banque demain à 10 h » devient un rappel. Installez des agents

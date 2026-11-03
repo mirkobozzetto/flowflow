@@ -30,8 +30,8 @@ FRESH_DB="${TMPDIR:-/tmp}/flowflow-fresh-$LANG_CODE.db"
 case "$LANG_CODE" in
   fr)
     PHOTO=tableau.jpg
-    ASK="Prépare la facture Nordwind"
-    NEW="Prépare mon appel Nordwind"
+    SEE_ALL="Voir tout"
+    TASKS="tâches planifiées"
     QUESTION="Fais-en mon plan de lancement"
     VOICE=Thomas
     DICTATION="Rappelle-moi d'envoyer la proposition jeudi à neuf heures."
@@ -42,8 +42,8 @@ case "$LANG_CODE" in
     ;;
   *)
     PHOTO=whiteboard.jpg
-    ASK="Draft the Nordwind invoice"
-    NEW="Prep my Nordwind call"
+    SEE_ALL="See all"
+    TASKS="scheduled tasks"
     QUESTION="Turn this into my launch plan"
     VOICE=Samantha
     DICTATION="Remind me to send the proposal Thursday at nine."
@@ -54,27 +54,40 @@ case "$LANG_CODE" in
     ;;
 esac
 
-# App Store order (docs/release/<version>.md): the core of the app first,
-# Hermes after. Lines after a screen are the watcher's arguments.
+# App Store order (docs/release/<version>.md): talk, find, summarize first,
+# then the chapters, Hermes and the themes. Lines after a screen are the
+# watcher's arguments; a "---" line starts the next step of the same shot.
 SHOTS=(
-  record
   note
   chat
-  menu
-  "hermes
-photo=$PHOTO"
+  "note
+---
+tap
+label=$SEE_ALL"
+  "note
+---
+tap
+selector=#reading-bar button:last-of-type"
+  hermes
+  "hermes-new
+---
+tap
+label=$TASKS"
+  "hermes-new
+photo=$PHOTO
+text=$QUESTION"
   "hermes
 text=/"
-  "hermes
-text=$ASK"
-  "hermes-new
-text=$NEW"
+  menu
 )
 
 cargo build -q --example demo_store
 target/debug/examples/demo_store hermes "$LANG_CODE" >/dev/null &
 HERMES_PID=$!
 trap 'kill $HERMES_PID 2>/dev/null || true' EXIT
+# A port already taken would leave every Hermes screen on "cannot be reached".
+sleep 1
+kill -0 "$HERMES_PID" 2>/dev/null || { echo "fake Hermes did not start"; exit 1; }
 
 # Fresh store on every start: a take left running must not leak into the
 # next screens.
@@ -94,8 +107,11 @@ xcrun simctl terminate booted "$BUNDLE" 2>/dev/null || true
 xcrun simctl install booted "$APP"
 xcrun simctl privacy booted grant microphone "$BUNDLE"
 DOCS="$(xcrun simctl get_app_container booted "$BUNDLE" data)/Documents"
-mkdir -p "$DOCS"
+mkdir -p "$DOCS/flowflow"
 cp "examples/demo_store/whiteboard-$LANG_CODE.jpg" "$DOCS/$PHOTO"
+# The meeting's recording (examples/demo_store/meeting.rs): present, so the
+# reading bar shows its play button; never played.
+: > "$DOCS/flowflow/demo-meeting.m4a"
 reset
 # Apple's marketing status bar: 9:41, full battery and signal.
 xcrun simctl status_bar booted override --time 9:41 --batteryState charged \
@@ -110,14 +126,19 @@ for i in "${!SHOTS[@]}"; do
   want screenshots || break
   n=$(printf '%02d' $((i + 1)))
   screen="${SHOTS[$i]%%$'\n'*}"
-  printf '%s\n' "${SHOTS[$i]}" > "$DOCS/shot"
+  rest="${SHOTS[$i]}"
+  while [[ "$rest" == *$'\n---\n'* ]]; do
+    printf '%s\n' "${rest%%$'\n---\n'*}" > "$DOCS/shot"
+    sleep 3
+    rest="${rest#*$'\n---\n'}"
+  done
+  printf '%s\n' "$rest" > "$DOCS/shot"
   sleep 4
   xcrun simctl io booted screenshot "$OUT/$n.png" >/dev/null 2>&1
   size=$(sips -g pixelWidth -g pixelHeight "$OUT/$n.png" |
     awk '/pixelWidth/{w=$2} /pixelHeight/{h=$2} END{print w "x" h}')
   [ "$size" = "$EXPECTED" ] || echo "WARN $OUT/$n.png is $size, expected $EXPECTED"
   echo "$OUT/$n.png  $screen"
-  if [ "$screen" = record ]; then reset; fi
 done
 
 # A clip plays shots on a timeline: "seconds|shot", one line per step; a

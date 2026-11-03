@@ -131,6 +131,7 @@ pub fn run(path: PathBuf, lang: &str, fresh: bool) {
         note_ids.push((note.id, *title, *content, note.created_at));
     }
     note_ids.reverse();
+    crate::meeting::seed(&db, lang, &theme_ids[1]);
 
     let conversation = db.create_conversation(demo.chat_title).unwrap();
     db.add_message(&conversation.id, "user", demo.question, None)
@@ -158,7 +159,7 @@ pub fn run(path: PathBuf, lang: &str, fresh: bool) {
         std::thread::sleep(std::time::Duration::from_millis(20));
     }
     println!(
-        "seeded {lang}: {} themes, {} notes, 1 chat, {} Hermes chats",
+        "seeded {lang}: {} themes, {} notes and a meeting, 1 chat, {} Hermes chats",
         theme_ids.len(),
         note_ids.len(),
         SESSIONS.len()
