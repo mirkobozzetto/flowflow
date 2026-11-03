@@ -1,6 +1,6 @@
 [package]
 name = "flowflow"
-version = "2.1.1"
+version = "2.1.2"
 edition = "2021"
 
 [dependencies]
@@ -93,3 +93,9 @@ split-debuginfo = "unpacked"
 # opt-level 0, which is what keeps the edit-compile loop short.
 [profile.dev.package."*"]
 opt-level = 2
+
+# tao 0.35.3 returns a released UISceneConfiguration to UIKit, which crashes
+# release builds at launch. Vendored copy with the one-line fix from tao 0.36.0;
+# drop it when dioxus-desktop moves past tao 0.35.
+[patch.crates-io]
+tao = { path = "patches/tao" }

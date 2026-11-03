@@ -237,3 +237,35 @@ fn an_answer_without_items_is_an_error() {
     assert!(parse_summary("{\"key_points\":[{\"text\":\" \"}]}", &[]).is_err());
     assert!(parse_summary("not json", &[]).is_err());
 }
+
+fn point(text: &str) -> SummaryItem {
+    SummaryItem {
+        text: text.into(),
+        at: None,
+    }
+}
+
+#[test]
+fn the_folded_summary_ends_every_point_before_the_next() {
+    let summary = Summary {
+        key_points: vec![
+            point("Beta opens on the 6th"),
+            point("Completion went up to 78%. "),
+        ],
+        decisions: vec![
+            point("Cut the third screen"),
+            point("Ship it in two waves ?"),
+        ],
+        actions: vec![point("Tom: press kit")],
+        questions: vec![point("Who reviews the copy")],
+    };
+    assert_eq!(
+        summary.folded(),
+        "Beta opens on the 6th. Completion went up to 78%. Cut the third screen. Ship it in two waves ?"
+    );
+}
+
+#[test]
+fn an_empty_summary_folds_to_nothing() {
+    assert_eq!(Summary::default().folded(), "");
+}

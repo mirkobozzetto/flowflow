@@ -172,14 +172,7 @@ pub fn SummaryCard(
     };
 
     let stale = kept.source_hash != source_hash(&content());
-    let folded: String = kept
-        .body
-        .key_points
-        .iter()
-        .chain(&kept.body.decisions)
-        .map(|i| i.text.as_str())
-        .collect::<Vec<_>>()
-        .join(" ");
+    let folded = kept.body.folded();
     let copy_text = as_text(&kept.body, &lang);
 
     rsx! {

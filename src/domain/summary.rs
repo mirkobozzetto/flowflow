@@ -28,12 +28,35 @@ pub struct Summary {
     pub questions: Vec<SummaryItem>,
 }
 
+/// Marks that already close a point; any other ending gets a full stop.
+const SENTENCE_ENDS: &[char] = &['.', '!', '?', '\u{2026}'];
+
 impl Summary {
     pub fn is_empty(&self) -> bool {
         self.key_points.is_empty()
             && self.decisions.is_empty()
             && self.actions.is_empty()
             && self.questions.is_empty()
+    }
+
+    /// Key points then decisions as one paragraph, for the folded card. The
+    /// model is asked for one sentence per point but often drops its full
+    /// stop, which would run the points together.
+    pub fn folded(&self) -> String {
+        self.key_points
+            .iter()
+            .chain(&self.decisions)
+            .map(|item| item.text.trim())
+            .filter(|text| !text.is_empty())
+            .map(|text| {
+                if text.ends_with(SENTENCE_ENDS) {
+                    text.to_string()
+                } else {
+                    format!("{text}.")
+                }
+            })
+            .collect::<Vec<_>>()
+            .join(" ")
     }
 }
 

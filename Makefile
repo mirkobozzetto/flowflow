@@ -171,6 +171,7 @@ dmg: desktop-toml
 	cp -R target/dx/flowflow/release/macos/Flowflow.app dist/dmg-staging/
 	ln -s /Applications dist/dmg-staging/Applications
 	hdiutil create -volname "FlowFlow" -srcfolder dist/dmg-staging -ov -format UDZO dist/FlowFlow-$(VERSION)-macos-arm64.dmg
+	bash scripts/sign-dmg.sh dist/FlowFlow-$(VERSION)-macos-arm64.dmg
 	rm -rf dist/dmg-staging
 	@echo ">> dist/FlowFlow-$(VERSION)-macos-arm64.dmg ready"
 
