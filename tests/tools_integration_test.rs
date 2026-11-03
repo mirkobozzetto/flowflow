@@ -122,11 +122,12 @@ async fn test_summarize_folder_missing_folder_returns_error() {
     use flowflow::infrastructure::llm::LlmClient;
     use std::sync::Arc;
 
+    isolate_store();
+
     let llm = match LlmClient::from_env() {
         Ok(c) => Arc::new(c),
         Err(_) => return,
     };
-    isolate_store();
     let _guard = DB_LOCK.lock().await;
     let tool = SummarizeFolder::new(llm);
     let args = SummarizeFolderArgs {
@@ -146,12 +147,12 @@ async fn test_summarize_folder_empty_folder() {
     use flowflow::infrastructure::llm::LlmClient;
     use std::sync::Arc;
 
+    isolate_store();
+
     let llm = match LlmClient::from_env() {
         Ok(c) => Arc::new(c),
         Err(_) => return,
     };
-
-    isolate_store();
     let _guard = DB_LOCK.lock().await;
     let db = Database::open().expect("open db");
     let folder_name = format!("empty-folder-{}", Uuid::new_v4());
@@ -207,8 +208,8 @@ async fn test_summarize_folder_real() {
     use flowflow::infrastructure::llm::LlmClient;
     use std::sync::Arc;
 
-    let llm = Arc::new(LlmClient::from_env().expect("OPENAI_API_KEY required"));
     isolate_store();
+    let llm = Arc::new(LlmClient::from_env().expect("OPENAI_API_KEY required"));
     let _guard = DB_LOCK.lock().await;
     let db = Database::open().expect("open db");
 

@@ -8,7 +8,21 @@ use flowflow::application::share_inbox::{
     url_sources_json, SharedEntry,
 };
 use flowflow::infrastructure::persistence::Database;
+use std::sync::Once;
 use tempfile::tempdir;
+
+static SEAM: Once = Once::new();
+
+// Keeping a note reaches code that opens the default database: point it at a
+// scratch folder, never at the user's own data.
+fn isolate_store() {
+    SEAM.call_once(|| {
+        let dir = std::env::temp_dir()
+            .join(format!("flowflow-test-share-{}", std::process::id()));
+        std::env::set_var("FLOWFLOW_DATA_DIR", &dir);
+        std::env::set_var("FLOWFLOW_VECTORDB_PATH", dir.join("vectordb"));
+    });
+}
 
 #[test]
 fn parses_the_three_envelope_kinds() {
@@ -89,6 +103,7 @@ seule connexion TCP, contrairement au cycle requête-réponse de HTTP. "
 
 #[tokio::test]
 async fn drain_creates_notes_and_attachments_and_empties_inbox() {
+    isolate_store();
     let dir = tempdir().unwrap();
     let db = Database::open_at(dir.path().join("t.db")).unwrap();
     let inbox = dir.path().join("shared-inbox");
@@ -142,6 +157,7 @@ async fn drain_creates_notes_and_attachments_and_empties_inbox() {
 
 #[tokio::test]
 async fn drain_skips_unparseable_files_but_removes_them() {
+    isolate_store();
     let dir = tempdir().unwrap();
     let db = Database::open_at(dir.path().join("t.db")).unwrap();
     let inbox = dir.path().join("shared-inbox");
