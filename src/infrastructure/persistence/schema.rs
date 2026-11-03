@@ -33,6 +33,7 @@ pub const MIGRATIONS: &[(i64, &str)] = &[
     (32, V32_SCHEMA),
     (33, super::chapter_repo::V33_SCHEMA),
     (34, super::summary_repo::V34_SCHEMA),
+    (35, super::chapter_repo::V35_SCHEMA),
 ];
 
 pub enum TableClass {
@@ -45,6 +46,7 @@ pub enum TableClass {
 
 pub const TABLES: &[(&str, TableClass)] = &[
     ("note_audio_words", TableClass::Content),
+    ("note_audio_chapters", TableClass::Content),
     ("note_summaries", TableClass::Content),
     ("note_shares", TableClass::Content),
     ("note_provenance", TableClass::Content),

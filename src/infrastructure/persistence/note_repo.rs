@@ -4,24 +4,10 @@ use crate::domain::{
 use crate::infrastructure::persistence::{
     chunk_repo, now_iso, sync_meta, Database, DbTx, TableClass, TABLES,
 };
+use super::chapter_repo::{delete_chapters, delete_words_for_audio};
 use std::collections::HashSet;
 use std::str::FromStr;
 use uuid::Uuid;
-
-/// The word sidecar deliberately has no foreign key (see migration V20), so every
-/// path that removes a `note_audios` row has to remove its words explicitly. A
-/// missed path is not an orphan nuisance: on the wipe path it is a privacy defect.
-pub(crate) fn delete_words_for_audio(
-    tx: &rusqlite::Connection,
-    audio_id: &str,
-) -> Result<(), String> {
-    tx.execute(
-        "DELETE FROM note_audio_words WHERE audio_id = ?1",
-        [audio_id],
-    )
-    .map_err(|e| format!("Delete audio words: {e}"))?;
-    Ok(())
-}
 
 pub(crate) fn row_to_note(row: &rusqlite::Row) -> rusqlite::Result<Note> {
     let tags_json: String = row.get("tags")?;
@@ -252,8 +238,9 @@ impl Database {
     }
 
     /// Write a transcription and its word timings together. The text keeps its
-    /// existing home on `note_audios` (and stays on the sync wire); the words go
-    /// to the device-local sidecar.
+    /// home on `note_audios`; the words go to their own synced row, signed by
+    /// this device, and the chapters of the previous words are removed
+    /// everywhere.
     ///
     /// A transcript with no timings - dictation, or text coming back from a
     /// provider that returned no tokens - clears any stale word row instead of
@@ -277,11 +264,18 @@ impl Database {
             let words_json = serde_json::to_string(&transcript.words)
                 .map_err(|e| format!("Serialize words: {e}"))?;
             tx.execute(
-                "INSERT OR REPLACE INTO note_audio_words (audio_id, words_json)
-                 VALUES (?1, ?2)",
-                rusqlite::params![audio_id, words_json],
+                "INSERT OR REPLACE INTO note_audio_words
+                    (id, words_json, author_device)
+                 VALUES (?1, ?2,
+                    (SELECT value FROM settings WHERE key = ?3))",
+                rusqlite::params![
+                    audio_id,
+                    words_json,
+                    sync_meta::DEVICE_ID_KEY
+                ],
             )
             .map_err(|e| format!("Insert audio words: {e}"))?;
+            delete_chapters(&tx, audio_id)?;
         } else {
             delete_words_for_audio(&tx, audio_id)?;
         }
@@ -296,7 +290,7 @@ impl Database {
         let json: String = self
             .conn()
             .query_row(
-                "SELECT words_json FROM note_audio_words WHERE audio_id = ?1",
+                "SELECT words_json FROM note_audio_words WHERE id = ?1",
                 [audio_id],
                 |row| row.get(0),
             )
@@ -376,9 +370,8 @@ impl Database {
         };
         for id in ids {
             sync_meta::tombstone_entity(&tx, "note_audio", &id)?;
+            delete_words_for_audio(&tx, &id)?;
         }
-        tx.execute("DELETE FROM note_audio_words", [])
-            .map_err(|e| format!("Delete all audio words: {e}"))?;
         tx.execute("DELETE FROM note_audios", [])
             .map_err(|e| format!("Delete all audios: {e}"))?;
         tx.commit()
