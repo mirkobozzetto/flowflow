@@ -276,8 +276,27 @@ impl Database {
             self.applying.store(was_applying, Ordering::Relaxed);
             result?;
         }
+        if version == 35 {
+            sync_clip_words(conn)?;
+        }
         Ok(())
     }
+}
+
+// Up to protocol v6 words never travelled: every words row was transcribed
+// here, or came back with its audio file in a backup. Sign them with this
+// device, track both tables, then seed what is already there so the next sync
+// sends it. The UPDATE runs before the triggers exist, so it is not tracked.
+fn sync_clip_words(conn: &Connection) -> Result<(), String> {
+    conn.execute(
+        "UPDATE note_audio_words SET author_device =
+            (SELECT value FROM settings WHERE key = ?1)
+         WHERE author_device IS NULL",
+        [sync_meta::DEVICE_ID_KEY],
+    )
+    .map_err(|e| format!("sign clip words: {e}"))?;
+    sync_meta::install_sync_triggers(conn)?;
+    sync_meta::seed_tables(conn, &["note_audio_words", "note_audio_chapters"])
 }
 
 pub fn apply_migrations(

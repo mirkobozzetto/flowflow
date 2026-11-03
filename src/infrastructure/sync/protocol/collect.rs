@@ -1,5 +1,5 @@
 use super::catalog::{entity_key_params, spec_for, KindSpec};
-use super::sql_err;
+use super::{sql_err, MAX_BATCH_BYTES};
 use super::wire::{ChunkPayload, SyncRow};
 use crate::infrastructure::persistence::Database;
 use crate::infrastructure::sync::SyncError;
@@ -135,11 +135,16 @@ pub(super) fn collect_batch(
     Ok(metas)
 }
 
+// Fill each row's payload, then stop the batch after the row that takes it
+// past MAX_BATCH_BYTES: a long history of meetings would otherwise exceed the
+// transport's message limit. A batch keeps at least one row, and the caller's
+// cursor resumes after the last row kept.
 fn fill_payloads(
     tx: &rusqlite::Transaction,
-    metas: &mut [SyncRow],
+    metas: &mut Vec<SyncRow>,
 ) -> Result<(), SyncError> {
-    for row in metas.iter_mut() {
+    let mut bytes = 0;
+    for (i, row) in metas.iter_mut().enumerate() {
         let Some(spec) = spec_for(&row.entity_kind) else {
             continue;
         };
@@ -155,6 +160,11 @@ fn fill_payloads(
             // cancel). None when the row is physically gone - the parent
             // note's tombstone kills the twin by cascade in that case.
             row.payload = load_payload(tx, spec, &row.entity_id)?;
+        }
+        bytes += serde_json::to_vec(&*row).map_or(0, |v| v.len());
+        if bytes > MAX_BATCH_BYTES {
+            metas.truncate(i + 1);
+            break;
         }
     }
     Ok(())
@@ -175,7 +185,7 @@ pub(super) fn collect_full_batch(
         .unchecked_transaction()
         .map_err(|e| sql_err("collect full tx", e))?;
     let mut metas: Vec<SyncRow> = Vec::new();
-    let mut last_rowid = after_rowid;
+    let mut rowids: Vec<i64> = Vec::new();
     {
         let mut stmt = tx
             .prepare(
@@ -208,11 +218,15 @@ pub(super) fn collect_full_batch(
         for r in rows {
             let (rowid, meta) =
                 r.map_err(|e| sql_err("collect full row", e))?;
-            last_rowid = rowid;
+            rowids.push(rowid);
             metas.push(meta);
         }
     }
     fill_payloads(&tx, &mut metas)?;
     tx.commit().map_err(|e| sql_err("collect full commit", e))?;
+    let last_rowid = metas
+        .len()
+        .checked_sub(1)
+        .map_or(after_rowid, |last| rowids[last]);
     Ok((metas, last_rowid))
 }

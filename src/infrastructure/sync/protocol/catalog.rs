@@ -12,6 +12,10 @@ pub(super) struct KindSpec {
     pub cols: &'static [&'static str],
     pub composite_link: bool,
     pub chunk_owner: bool,
+    // Remade from other data (words from the audio, chapters from the words):
+    // a concurrent write settles on the shared tie-break, with no entry in the
+    // conflicts screen, since the losing version can be made again.
+    pub derived: bool,
 }
 
 pub(super) const KINDS: &[KindSpec] = &[
@@ -35,6 +39,7 @@ pub(super) const KINDS: &[KindSpec] = &[
         ],
         composite_link: false,
         chunk_owner: true,
+        derived: false,
     },
     KindSpec {
         kind: "thread",
@@ -42,6 +47,7 @@ pub(super) const KINDS: &[KindSpec] = &[
         cols: &["id", "title", "folder_id", "created_at", "modified_at"],
         composite_link: false,
         chunk_owner: false,
+        derived: false,
     },
     KindSpec {
         kind: "folder",
@@ -59,6 +65,7 @@ pub(super) const KINDS: &[KindSpec] = &[
         ],
         composite_link: false,
         chunk_owner: false,
+        derived: false,
     },
     KindSpec {
         kind: "notes_folders",
@@ -66,6 +73,7 @@ pub(super) const KINDS: &[KindSpec] = &[
         cols: &["folder_id", "note_id", "created_at"],
         composite_link: true,
         chunk_owner: false,
+        derived: false,
     },
     KindSpec {
         kind: "conversation",
@@ -73,6 +81,7 @@ pub(super) const KINDS: &[KindSpec] = &[
         cols: &["id", "title", "created_at", "modified_at"],
         composite_link: false,
         chunk_owner: false,
+        derived: false,
     },
     KindSpec {
         kind: "conversation_message",
@@ -87,6 +96,7 @@ pub(super) const KINDS: &[KindSpec] = &[
         ],
         composite_link: false,
         chunk_owner: false,
+        derived: false,
     },
     KindSpec {
         kind: "attachment",
@@ -94,6 +104,7 @@ pub(super) const KINDS: &[KindSpec] = &[
         cols: &["id", "note_id", "filename", "content_text", "imported_at"],
         composite_link: false,
         chunk_owner: true,
+        derived: false,
     },
     KindSpec {
         kind: "note_audio",
@@ -108,6 +119,7 @@ pub(super) const KINDS: &[KindSpec] = &[
         ],
         composite_link: false,
         chunk_owner: false,
+        derived: false,
     },
     KindSpec {
         kind: "note_reminder",
@@ -131,6 +143,7 @@ pub(super) const KINDS: &[KindSpec] = &[
         ],
         composite_link: false,
         chunk_owner: false,
+        derived: false,
     },
     // Shared publications + kept-content provenance (proposal 0001): the whole
     // cluster sees the same live shares and the same provenance cards.
@@ -147,6 +160,7 @@ pub(super) const KINDS: &[KindSpec] = &[
         ],
         composite_link: false,
         chunk_owner: false,
+        derived: false,
     },
     KindSpec {
         kind: "note_provenance",
@@ -162,6 +176,7 @@ pub(super) const KINDS: &[KindSpec] = &[
         ],
         composite_link: false,
         chunk_owner: false,
+        derived: false,
     },
     // A note's meeting summary, kept on every device of the cluster.
     KindSpec {
@@ -178,6 +193,24 @@ pub(super) const KINDS: &[KindSpec] = &[
         ],
         composite_link: false,
         chunk_owner: false,
+        derived: false,
+    },
+    // A clip's word timings and chapters, on every device of the cluster.
+    KindSpec {
+        kind: "note_audio_words",
+        table: "note_audio_words",
+        cols: &["id", "words_json", "author_device"],
+        composite_link: false,
+        chunk_owner: false,
+        derived: true,
+    },
+    KindSpec {
+        kind: "note_audio_chapters",
+        table: "note_audio_chapters",
+        cols: &["id", "chapters_json"],
+        composite_link: false,
+        chunk_owner: false,
+        derived: true,
     },
 ];
 

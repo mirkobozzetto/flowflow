@@ -5,10 +5,16 @@ mod heal;
 mod session;
 mod wire;
 
-pub use session::{serve_sync_once, sync_with_peer, ServeOutcome};
+pub use session::{
+    serve_sync_once, sync_with_peer, sync_with_peer_speaking, ServeOutcome,
+};
 pub use wire::SyncStats;
 
 pub const DEFAULT_BATCH_ROWS: usize = 100;
+// A quarter of the transport's message limit: a batch stops after the row that
+// crosses it, so one row of words (under a megabyte for 90 minutes) never
+// pushes it near the limit.
+pub const MAX_BATCH_BYTES: usize = 16 * 1024 * 1024;
 // v3: HELLO carries next_seq + restored; full-state sessions push every row
 // by rowid and may author dominating tombstones. A v1/v2 peer half-running
 // those semantics could resurrect deleted rows, so the version gate stays
@@ -17,8 +23,9 @@ pub const DEFAULT_BATCH_ROWS: usize = 100;
 // same strict gate applies. v5: notes and folders carry the space columns
 // (proposal 0002), which a v4 peer has no schema for - its apply would fail on
 // an unknown column, so the gate moves again. v6: note summaries travel as
-// their own kind, which a v5 peer refuses as unknown.
-pub const PROTOCOL_VERSION: i64 = 6;
+// their own kind, which a v5 peer refuses as unknown. v7: clip words and
+// chapters travel as two kinds, and a v6 peer keys its words table otherwise.
+pub const PROTOCOL_VERSION: i64 = 7;
 
 /// The applier's entity delete, exposed for the test that guards the vector
 /// purge it queues. Nothing in the app calls it directly: a real deletion

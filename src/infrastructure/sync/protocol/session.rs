@@ -79,7 +79,11 @@ fn my_next_seq(db: &Database, my_device: &str) -> Result<i64, SyncError> {
         .map_err(|e| sql_err("read own seq", e))
 }
 
-fn my_hello(db: &Database, peer_device: &str) -> Result<Msg, SyncError> {
+fn my_hello(
+    db: &Database,
+    peer_device: &str,
+    protocol_version: i64,
+) -> Result<Msg, SyncError> {
     let device_id = my_device_id(db)?;
     let peer = db
         .get_peer(peer_device)
@@ -88,7 +92,7 @@ fn my_hello(db: &Database, peer_device: &str) -> Result<Msg, SyncError> {
     let next_seq = my_next_seq(db, &device_id)?;
     let backend_host = crate::application::account_heal::my_backend_host(db);
     Ok(Msg::Hello {
-        protocol_version: PROTOCOL_VERSION,
+        protocol_version,
         device_id,
         last_acked_seq: peer.last_acked_seq,
         gc_horizon: peer.gc_horizon,
@@ -496,6 +500,27 @@ pub fn sync_with_peer(
     port: u16,
     batch_rows: usize,
 ) -> Result<SyncStats, SyncError> {
+    sync_with_peer_speaking(
+        db,
+        peer_device,
+        host,
+        port,
+        batch_rows,
+        PROTOCOL_VERSION,
+    )
+}
+
+/// `sync_with_peer` announcing another protocol version, so a test can play a
+/// device that was not updated.
+#[doc(hidden)]
+pub fn sync_with_peer_speaking(
+    db: &Database,
+    peer_device: &str,
+    host: &str,
+    port: u16,
+    batch_rows: usize,
+    protocol_version: i64,
+) -> Result<SyncStats, SyncError> {
     let identity = peers::ensure_sync_identity(db)?;
     if identity.device_id == peer_device {
         return Err(proto_err("cannot sync with self"));
@@ -514,7 +539,7 @@ pub fn sync_with_peer(
         &psk,
         Some(&peer_static),
     )?;
-    send_msg(&mut chan, &my_hello(db, peer_device)?)?;
+    send_msg(&mut chan, &my_hello(db, peer_device, protocol_version)?)?;
     let hello = expect_hello(recv_msg(&mut chan)?)?;
     if hello.device_id != peer_device {
         return Err(proto_err("peer HELLO identity mismatch"));
@@ -604,7 +629,10 @@ pub fn serve_sync_once(
     }
     let mut plan =
         plan_session(db, &identity.device_id, &hint.device_id, &hello)?;
-    send_msg(&mut chan, &my_hello(db, &hint.device_id)?)?;
+    send_msg(
+        &mut chan,
+        &my_hello(db, &hint.device_id, PROTOCOL_VERSION)?,
+    )?;
     let i_declared = send_my_floor_if_restored(&mut chan, db, &hint.device_id)?;
     if hello.restored {
         plan.ctx.exempt_floor =
