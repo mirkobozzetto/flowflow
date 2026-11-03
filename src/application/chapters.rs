@@ -7,10 +7,19 @@ use crate::application::reminders_extract::extract_json_object;
 use crate::domain::reading::{paragraph_ranges, Chapter, PAUSE_PARAGRAPH_MS};
 use crate::domain::Word;
 use crate::infrastructure::llm::LlmClient;
+use crate::infrastructure::persistence::sync_meta::DEVICE_ID_KEY;
 use crate::infrastructure::persistence::Database;
 use crate::infrastructure::platform::device_log;
 use std::ops::Range;
 use std::time::Instant;
+
+/// Whether this device transcribed the clip. Only that one makes its chapters:
+/// the others show the paragraphs and get the chapters through sync, so a clip
+/// never has two sets made at once.
+pub fn transcribed_here(db: &Database, audio_id: &str) -> bool {
+    let me = db.get_setting(DEVICE_ID_KEY);
+    me.is_some() && db.words_author(audio_id) == me
+}
 
 /// Generate a clip's chapters and store them: the stored chapters, or `None`
 /// when the store refused them (already there, or the words changed meanwhile).

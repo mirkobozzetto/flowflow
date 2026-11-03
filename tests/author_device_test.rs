@@ -50,7 +50,11 @@ fn rewind_to_v22(db: &Database) {
          ALTER TABLE chunks DROP COLUMN embed_profile;
          ALTER TABLE pending_transcriptions DROP COLUMN done_ms;
          ALTER TABLE pending_transcriptions DROP COLUMN words_json;
-         ALTER TABLE note_audio_words DROP COLUMN chapters_json;
+         DROP TRIGGER IF EXISTS trg_sync_note_audio_words_ai;
+         DROP TRIGGER IF EXISTS trg_sync_note_audio_words_au;
+         DROP TABLE note_audio_chapters;
+         ALTER TABLE note_audio_words DROP COLUMN author_device;
+         ALTER TABLE note_audio_words RENAME COLUMN id TO audio_id;
          DELETE FROM _migrations WHERE version >= 23;",
     )
     .unwrap();

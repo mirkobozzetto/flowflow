@@ -1,4 +1,4 @@
-use crate::application::chapters::generate_chapters;
+use crate::application::chapters::{generate_chapters, transcribed_here};
 use crate::domain::reading::{
     chapter_lengths, locate_paragraphs, Chapter, Segment, PAUSE_PARAGRAPH_MS,
 };
@@ -211,11 +211,16 @@ pub fn ReadingView(
     });
 
     // Chapters come on their own: right after a transcription, or when a
-    // note transcribed before is opened. One try per transcript and opening,
+    // note transcribed before is opened, on the device that transcribed it;
+    // the others get them through sync. One try per transcript and opening,
     // so a refusal (no AI consent, offline) leaves plain paragraphs.
     let mut tried = use_signal(HashSet::<(String, usize)>::new);
     use_effect(move || {
-        for clip in clips.read().iter().filter(|c| c.chapters.is_none()) {
+        let db_now = db();
+        for clip in clips.read().iter().filter(|c| {
+            c.chapters.is_none()
+                && transcribed_here(&db_now, &c.playback.audio_id)
+        }) {
             let audio_id = clip.playback.audio_id.clone();
             let words = &clip.playback.transcript.words;
             if !tried.write().insert((audio_id.clone(), words.len())) {

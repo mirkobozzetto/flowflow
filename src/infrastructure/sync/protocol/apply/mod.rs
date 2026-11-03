@@ -14,6 +14,7 @@ use serde_json::Value;
 use std::collections::BTreeMap;
 
 mod archive;
+mod derived;
 mod entity;
 
 pub(super) fn delete_entity_for_test(
@@ -282,7 +283,12 @@ fn apply_row(
                 row.entity_kind, row.entity_id
             ));
         }
-        if ctx.authority && row.deleted == 0 && !post_restore_creation {
+        let redelete = ctx.authority && row.deleted == 0 && !post_restore_creation;
+        if redelete && spec.derived {
+            if derived::redeleted_without_clip(conn, my_device, row)? {
+                return Ok(());
+            }
+        } else if redelete {
             archive_conflict(
                 conn,
                 &row.entity_kind,
@@ -403,6 +409,22 @@ fn apply_row(
                     stats.applied += 1;
                 }
             }
+        }
+        MergeOutcome::Concurrent {
+            remote_wins,
+            joined,
+            ..
+        } if spec.derived => {
+            derived::settle_concurrent(
+                conn,
+                my_device,
+                spec,
+                row,
+                &local,
+                remote_wins,
+                &joined,
+                stats,
+            )?;
         }
         MergeOutcome::Concurrent {
             remote_wins,
