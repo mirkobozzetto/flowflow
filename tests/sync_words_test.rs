@@ -214,7 +214,8 @@ fn a_retranscription_replaces_words_and_drops_chapters_on_the_peer() {
     sync_once(&db_a, &db_b, &id_a);
 
     let fresh = words(&["Nouvelle", "version"]);
-    db_a.set_audio_transcript(&audio, &fresh).expect("retranscribe");
+    db_a.set_audio_transcript(&audio, &fresh)
+        .expect("retranscribe");
     sync_once(&db_a, &db_b, &id_a);
 
     assert_eq!(db_b.words_for_audio(&audio), Some(fresh));
@@ -325,7 +326,10 @@ fn an_old_protocol_peer_is_refused_without_consuming_anything() {
     let refused = try_sync(&db_a, &db_b, &id_a, BATCH_ROWS, OLD_PROTOCOL)
         .expect_err("a v6 peer must be refused");
 
-    assert!(refused.contains("update the app on both devices"), "{refused}");
+    assert!(
+        refused.contains("update the app on both devices"),
+        "{refused}"
+    );
     assert_eq!((cursors(&db_a), cursors(&db_b)), before);
 }
 
@@ -444,8 +448,7 @@ fn rewind_words_to_v34(db: &Database) {
 
 fn insert_v34_words(db: &Database, audio: &str, with_chapters: bool) {
     let words_json =
-        serde_json::to_string(&words(&["Bonjour", "à", "tous"]).words)
-            .unwrap();
+        serde_json::to_string(&words(&["Bonjour", "à", "tous"]).words).unwrap();
     let chapters_json =
         with_chapters.then(|| serde_json::to_string(&chapters()).unwrap());
     db.conn()
@@ -459,15 +462,10 @@ fn insert_v34_words(db: &Database, audio: &str, with_chapters: bool) {
         .expect("insert v34 words");
 }
 
-fn reopen(
-    db: Arc<Database>,
-    dir: &tempfile::TempDir,
-) -> Arc<Database> {
+fn reopen(db: Arc<Database>, dir: &tempfile::TempDir) -> Arc<Database> {
     db.checkpoint_wal().expect("checkpoint");
     drop(db);
-    Arc::new(
-        Database::open_at(dir.path().join("flowflow.db")).expect("reopen"),
-    )
+    Arc::new(Database::open_at(dir.path().join("flowflow.db")).expect("reopen"))
 }
 
 /// AC3: clips transcribed before v7 travel at the first sync, chapters
@@ -521,7 +519,8 @@ fn a_hundred_long_meetings_sync_in_one_session() {
             .collect(),
     );
     for audio in &clips {
-        db_a.set_audio_transcript(audio, &meeting).expect("transcript");
+        db_a.set_audio_transcript(audio, &meeting)
+            .expect("transcript");
     }
 
     try_sync(

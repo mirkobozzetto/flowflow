@@ -629,10 +629,7 @@ pub fn serve_sync_once(
     }
     let mut plan =
         plan_session(db, &identity.device_id, &hint.device_id, &hello)?;
-    send_msg(
-        &mut chan,
-        &my_hello(db, &hint.device_id, PROTOCOL_VERSION)?,
-    )?;
+    send_msg(&mut chan, &my_hello(db, &hint.device_id, PROTOCOL_VERSION)?)?;
     let i_declared = send_my_floor_if_restored(&mut chan, db, &hint.device_id)?;
     if hello.restored {
         plan.ctx.exempt_floor =

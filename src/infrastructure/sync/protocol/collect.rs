@@ -1,6 +1,6 @@
 use super::catalog::{entity_key_params, spec_for, KindSpec};
-use super::{sql_err, MAX_BATCH_BYTES};
 use super::wire::{ChunkPayload, SyncRow};
+use super::{sql_err, MAX_BATCH_BYTES};
 use crate::infrastructure::persistence::Database;
 use crate::infrastructure::sync::SyncError;
 use base64::engine::general_purpose::URL_SAFE_NO_PAD;

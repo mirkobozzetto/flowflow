@@ -1,10 +1,10 @@
+use super::chapter_repo::{delete_chapters, delete_words_for_audio};
 use crate::domain::{
     NewTextNote, Note, NoteAudio, NoteType, Transcript, UpdateNote,
 };
 use crate::infrastructure::persistence::{
     chunk_repo, now_iso, sync_meta, Database, DbTx, TableClass, TABLES,
 };
-use super::chapter_repo::{delete_chapters, delete_words_for_audio};
 use std::collections::HashSet;
 use std::str::FromStr;
 use uuid::Uuid;

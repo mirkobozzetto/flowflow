@@ -66,10 +66,7 @@ fn migration_v35_gives_chapters_their_own_table() {
         columns(&db, "note_audio_words"),
         ["id", "words_json", "author_device"]
     );
-    assert_eq!(
-        columns(&db, "note_audio_chapters"),
-        ["id", "chapters_json"]
-    );
+    assert_eq!(columns(&db, "note_audio_chapters"), ["id", "chapters_json"]);
 }
 
 #[test]

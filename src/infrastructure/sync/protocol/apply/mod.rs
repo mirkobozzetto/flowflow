@@ -283,7 +283,8 @@ fn apply_row(
                 row.entity_kind, row.entity_id
             ));
         }
-        let redelete = ctx.authority && row.deleted == 0 && !post_restore_creation;
+        let redelete =
+            ctx.authority && row.deleted == 0 && !post_restore_creation;
         if redelete && spec.derived {
             if derived::redeleted_without_clip(conn, my_device, row)? {
                 return Ok(());
