@@ -60,7 +60,7 @@ Components take `lang: string` and resolve their own copy, except pure presentat
 | `HorizontalShowcase.astro` | `lang`, `fig`, `h2Lead`, `h2Accent`, `panels: Panel[]` | maps `ShowcasePanel`, sticky scroll script |
 | `ShowcasePanel.astro` | `lang`, `time`, `title`, `text`, `clip` | one moment of the day |
 | `AgenticChapter.astro` | `lang` | dark Hermes section, maps `ActionCard` |
-| `ActionCard.astro` | `you`, `then`, `delay?` | request to result |
+| `ActionCard.astro` | `you`, `result`, `delay?` | request to result |
 | `TeamsChapter.astro` | `lang` | shared space section, two `Ticket` |
 | `Ticket.astro` | `tone`, `title`, `body`, `points`, `stub`, `cta`, `href`, `external?`, `delay?` | offer ticket |
 | `Trust.astro` | `lang` | what stays, what leaves, what it costs |

@@ -40,7 +40,7 @@ const delays: Array<0 | 1 | 2 | 3> = [0, 1, 1, 2];
       <div class="grid grid-cols-2 max-[800px]:grid-cols-1 gap-3.5 mt-11">
         {
           t.actions.map((a, i) => (
-            <ActionCard you={a.you} then={a.then} delay={delays[i] ?? 0} />
+            <ActionCard you={a.you} result={a.then} delay={delays[i] ?? 0} />
           ))
         }
       </div>

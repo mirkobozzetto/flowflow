@@ -1,0 +1,284 @@
+---
+import { groups, presets } from "./options";
+---
+
+<aside class="studio" data-studio data-open="true">
+  <button class="studio-toggle" type="button" data-studio-toggle>Options</button>
+  <div class="studio-body">
+    <p class="studio-title">Série de drafts</p>
+    <div class="studio-presets">
+      {
+        presets.map((preset) => (
+          <button type="button" data-preset={preset.id}>
+            {preset.name}
+          </button>
+        ))
+      }
+    </div>
+    {
+      groups.map((group) => (
+        <fieldset>
+          <legend>{group.label}</legend>
+          {group.options.map((option) => (
+            <div class="studio-row">
+              <button
+                type="button"
+                data-group={group.id}
+                data-value={option.value}
+              >
+                {option.label}
+              </button>
+              <label>
+                <input
+                  type="checkbox"
+                  data-keep={`${group.label} : ${option.label}`}
+                />
+                <span>Je garde</span>
+              </label>
+            </div>
+          ))}
+        </fieldset>
+      ))
+    }
+    <button class="studio-copy" type="button" data-copy>Copier mes choix</button>
+    <textarea data-summary rows="4" readonly aria-label="Mes choix"></textarea>
+  </div>
+</aside>
+
+<script>
+  import { groups, presets } from "./options";
+
+  const root = document.documentElement;
+  const panel = document.querySelector<HTMLElement>("[data-studio]");
+  const summary = document.querySelector<HTMLTextAreaElement>("[data-summary]");
+  const KEY = "flowflow-studio";
+
+  const defaults = Object.fromEntries(
+    groups.map((group) => [group.id, group.options[0]?.value ?? ""]),
+  );
+
+  const stage = document.querySelector<HTMLVideoElement>("[data-stage-video]");
+
+  function apply(state: Record<string, string>): void {
+    if (stage) {
+      const name = state.promo === "orange" ? "promo-orange" : "promo";
+      if (!stage.src.endsWith(`${name}.mp4`)) {
+        stage.poster = `/videos/fr/${name}.webp`;
+        stage.src = `/videos/fr/${name}.mp4`;
+        stage.play().catch(() => undefined);
+      }
+    }
+    for (const [group, value] of Object.entries(state)) {
+      root.dataset[group] = value;
+      for (const button of document.querySelectorAll<HTMLElement>(
+        `[data-group="${group}"]`,
+      )) {
+        button.setAttribute(
+          "aria-pressed",
+          String(button.dataset.value === value),
+        );
+      }
+    }
+    try {
+      localStorage.setItem(KEY, JSON.stringify(state));
+    } catch {
+      return;
+    }
+  }
+
+  function read(): Record<string, string> {
+    const fromPreset = presets.find(
+      (preset) => preset.id === location.hash.slice(1),
+    );
+    if (fromPreset) return { ...defaults, ...fromPreset.state };
+    try {
+      return { ...defaults, ...JSON.parse(localStorage.getItem(KEY) ?? "{}") };
+    } catch {
+      return defaults;
+    }
+  }
+
+  let state = read();
+  apply(state);
+  if (panel && innerWidth < 861) panel.dataset.open = "false";
+
+  document.querySelector("[data-studio-toggle]")?.addEventListener("click", () => {
+    if (!panel) return;
+    panel.dataset.open = panel.dataset.open === "true" ? "false" : "true";
+  });
+
+  for (const button of document.querySelectorAll<HTMLElement>("[data-group]")) {
+    button.addEventListener("click", () => {
+      const { group, value } = button.dataset;
+      if (!group || !value) return;
+      state = { ...state, [group]: value };
+      apply(state);
+    });
+  }
+
+  for (const button of document.querySelectorAll<HTMLElement>("[data-preset]")) {
+    button.addEventListener("click", () => {
+      const preset = presets.find((p) => p.id === button.dataset.preset);
+      if (!preset) return;
+      state = { ...defaults, ...preset.state };
+      apply(state);
+      scrollTo({ top: 0, behavior: "smooth" });
+    });
+  }
+
+  function refresh(): void {
+    const kept = [
+      ...document.querySelectorAll<HTMLInputElement>("[data-keep]:checked"),
+    ].map((input) => input.dataset.keep);
+    if (summary) summary.value = kept.join("\n");
+  }
+
+  for (const input of document.querySelectorAll("[data-keep]")) {
+    input.addEventListener("change", refresh);
+  }
+
+  document.querySelector("[data-copy]")?.addEventListener("click", () => {
+    refresh();
+    if (summary) navigator.clipboard?.writeText(summary.value);
+  });
+</script>
+
+<style is:global>
+  .studio {
+    position: fixed;
+    z-index: 200;
+    top: 12px;
+    right: 12px;
+    bottom: 12px;
+    display: flex;
+    flex-direction: column;
+    width: 290px;
+    border: 2px solid #000;
+    border-radius: 14px;
+    background: #fff;
+    color: #000;
+    font-family: Switzer, system-ui, sans-serif;
+    font-size: 13.5px;
+  }
+
+  .studio[data-open="false"] {
+    bottom: auto;
+    width: auto;
+  }
+
+  .studio[data-open="false"] .studio-body {
+    display: none;
+  }
+
+  .studio-toggle {
+    padding: 9px 12px;
+    border: none;
+    border-bottom: 2px solid #000;
+    border-radius: 12px 12px 0 0;
+    background: #ff5c00;
+    color: #000;
+    font: inherit;
+    font-weight: 700;
+    cursor: pointer;
+  }
+
+  .studio-body {
+    overflow-y: auto;
+    padding: 12px;
+  }
+
+  .studio-title {
+    margin: 0 0 8px;
+    font-weight: 700;
+  }
+
+  .studio-presets {
+    display: grid;
+    gap: 5px;
+  }
+
+  .studio button[data-preset],
+  .studio button[data-group] {
+    width: 100%;
+    padding: 7px 9px;
+    border: 1.5px solid #000;
+    border-radius: 8px;
+    background: #fff;
+    color: #000;
+    font: inherit;
+    font-weight: 500;
+    text-align: left;
+    cursor: pointer;
+  }
+
+  .studio button[data-preset]:hover,
+  .studio button[data-group]:hover {
+    background: #ffe7d6;
+  }
+
+  .studio button[aria-pressed="true"] {
+    background: #ff5c00;
+    font-weight: 700;
+  }
+
+  .studio fieldset {
+    margin: 14px 0 0;
+    padding: 0;
+    border: none;
+  }
+
+  .studio legend {
+    margin-bottom: 5px;
+    padding: 0;
+    font-weight: 700;
+  }
+
+  .studio-row {
+    display: grid;
+    grid-template-columns: 1fr auto;
+    gap: 6px;
+    align-items: center;
+    margin-bottom: 4px;
+  }
+
+  .studio-row label {
+    display: flex;
+    align-items: center;
+    gap: 3px;
+    font-size: 11.5px;
+    cursor: pointer;
+  }
+
+  .studio-copy {
+    width: 100%;
+    margin-top: 14px;
+    padding: 10px;
+    border: none;
+    border-radius: 8px;
+    background: #ff5c00;
+    color: #000;
+    font: inherit;
+    font-weight: 700;
+    cursor: pointer;
+  }
+
+  .studio textarea {
+    width: 100%;
+    margin-top: 6px;
+    border: 1.5px solid #000;
+    border-radius: 8px;
+    font: inherit;
+    resize: vertical;
+  }
+
+  @media (max-width: 860px) {
+    .studio {
+      top: auto;
+      left: 8px;
+      right: 8px;
+      bottom: 8px;
+      width: auto;
+      max-height: 58svh;
+    }
+  }
+</style>

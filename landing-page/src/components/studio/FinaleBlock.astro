@@ -1,0 +1,61 @@
+---
+import { appStoreUrl, macDownloadUrl } from "../../lib/links";
+---
+
+<section class="endblock" data-endblock>
+  <img class="endmascot" src="/brand/mascot.webp" alt="" width="760" height="760" />
+  <h2>Aussitôt dit, <em>aussitôt fait</em></h2>
+  <div class="hero-ctas">
+    <a class="endbtn" href={macDownloadUrl}>Télécharger pour Mac</a>
+    <a class="endbtn" href={appStoreUrl("fr")}>App Store</a>
+  </div>
+  <p>Gratuit pour l'instant · tes clés, tes données · iPhone + Mac Apple Silicon</p>
+</section>
+
+<style is:global>
+  .endblock {
+    position: relative;
+    margin: 240px clamp(12px, 2vw, 24px) 24px;
+    padding: 90px 24px 72px;
+    border-radius: 24px;
+    background: var(--orange);
+    color: #000;
+    text-align: center;
+  }
+
+  .endblock h2 {
+    font-size: clamp(42px, 7.4vw, 96px);
+    line-height: 0.98;
+    letter-spacing: -0.035em;
+  }
+
+  .endblock .hero-ctas {
+    margin-top: 28px;
+  }
+
+  .endblock p {
+    margin-top: 16px;
+    font-size: 14px;
+  }
+
+  .endbtn {
+    display: inline-flex;
+    align-items: center;
+    min-height: 52px;
+    padding: 0 26px;
+    border-radius: 14px;
+    background: #fff;
+    color: #000;
+    font-weight: 600;
+    text-decoration: none;
+  }
+
+  .endmascot {
+    position: absolute;
+    top: -190px;
+    left: 50%;
+    width: 300px;
+    height: auto;
+    transform: translateX(-50%) rotate(-7deg);
+  }
+</style>

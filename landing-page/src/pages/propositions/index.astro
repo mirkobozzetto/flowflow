@@ -1,5 +1,6 @@
 ---
 import Fonts from "../../components/propositions/Fonts.astro";
+import { presets } from "../../components/studio/options";
 
 const drafts = [
   {
@@ -57,7 +58,39 @@ const added = [
     <Fonts />
   </head>
   <body>
-    <h1>Trois propositions. Choisis, ou mélange.</h1>
+    <h1>Douze drafts. Coche ce que tu aimes.</h1>
+    <p class="intro">
+      Clique sur une image pour ouvrir le draft. Le panneau à droite change
+      chaque option en direct.
+    </p>
+    <div class="drafts">
+      {
+        presets.map((preset) => (
+          <article>
+            <a href={`/propositions/studio#${preset.id}`}>
+              <img
+                src={`/propositions/drafts/${preset.id}.webp`}
+                alt={preset.name}
+                width="480"
+                height="1200"
+                loading="lazy"
+              />
+            </a>
+            <label>
+              <input type="checkbox" data-like={preset.name} />
+              {preset.name}
+            </label>
+          </article>
+        ))
+      }
+    </div>
+    <p class="actions">
+      <button type="button" data-copy-likes>Copier mes choix</button>
+      <a href="/propositions/studio">Ouvrir le panneau d'options</a>
+    </p>
+    <textarea data-likes rows="3" readonly aria-label="Mes choix"></textarea>
+
+    <h2 class="older">Les trois premières idées, gardées</h2>
     <div class="grid">
       {
         drafts.map((d) => (
@@ -113,6 +146,25 @@ const added = [
       </section>
     </div>
 
+    <script>
+      const output = document.querySelector<HTMLTextAreaElement>("[data-likes]");
+      const refresh = (): void => {
+        const liked = [
+          ...document.querySelectorAll<HTMLInputElement>("[data-like]:checked"),
+        ].map((input) => input.dataset.like);
+        if (output) output.value = liked.join("\n");
+      };
+      for (const input of document.querySelectorAll("[data-like]")) {
+        input.addEventListener("change", refresh);
+      }
+      document
+        .querySelector("[data-copy-likes]")
+        ?.addEventListener("click", () => {
+          refresh();
+          if (output) navigator.clipboard?.writeText(output.value);
+        });
+    </script>
+
     <style is:global>
       * {
         box-sizing: border-box;
@@ -141,6 +193,69 @@ const added = [
         font-size: 26px;
         font-weight: 600;
         letter-spacing: -0.02em;
+      }
+
+      .intro {
+        margin: -14px 0 24px;
+        font-size: 19px;
+      }
+
+      .drafts {
+        display: grid;
+        grid-template-columns: repeat(4, 1fr);
+        gap: 18px;
+      }
+
+      .drafts img {
+        display: block;
+        width: 100%;
+        height: auto;
+        border: 2px solid #000;
+      }
+
+      .drafts a:hover img {
+        border-color: #ff5c00;
+      }
+
+      .drafts label {
+        display: flex;
+        align-items: center;
+        gap: 7px;
+        margin-top: 8px;
+        font-weight: 600;
+        cursor: pointer;
+      }
+
+      .actions {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        gap: 16px;
+        margin: 26px 0 8px;
+      }
+
+      .actions button {
+        min-height: 48px;
+        padding: 0 22px;
+        border: none;
+        border-radius: 8px;
+        background: #ff5c00;
+        color: #000;
+        font: inherit;
+        font-weight: 700;
+        cursor: pointer;
+      }
+
+      textarea {
+        width: 100%;
+        max-width: 560px;
+        border: 2px solid #000;
+        border-radius: 8px;
+        font: inherit;
+      }
+
+      .older {
+        margin: 56px 0 18px;
       }
 
       .grid {
@@ -216,6 +331,10 @@ const added = [
         .grid,
         .cols {
           grid-template-columns: 1fr;
+        }
+
+        .drafts {
+          grid-template-columns: 1fr 1fr;
         }
       }
     </style>
