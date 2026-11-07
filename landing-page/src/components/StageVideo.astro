@@ -1,0 +1,134 @@
+---
+import { section } from "../lib/i18n";
+
+interface Props {
+  lang: string;
+}
+
+const { lang } = Astro.props;
+const { stage } = section(lang, "hero");
+const base = `/videos/${lang}/promo`;
+---
+
+<video
+  data-stage-video
+  src={`${base}.mp4`}
+  poster={`${base}.webp`}
+  aria-label={stage.videoLabel}
+  muted
+  loop
+  autoplay
+  playsinline
+  preload="metadata"></video>
+
+<button
+  class="stage-btn sound"
+  type="button"
+  data-sound
+  data-on={stage.soundOn}
+  data-off={stage.soundOff}
+  aria-label={stage.soundOn}
+  aria-pressed="false"
+>
+  <svg class="off" viewBox="0 0 24 24" aria-hidden="true">
+    <path d="M4 9.5v5h3.5L12 18.5v-13L7.5 9.5H4z"></path>
+    <path d="m16 9.5 5 5m0-5-5 5"></path>
+  </svg>
+  <svg class="on" viewBox="0 0 24 24" aria-hidden="true">
+    <path d="M4 9.5v5h3.5L12 18.5v-13L7.5 9.5H4z"></path>
+    <path d="M15.5 9a4.5 4.5 0 0 1 0 6M18 6.5a8 8 0 0 1 0 11"></path>
+  </svg>
+  <span class="sound-label">{stage.soundOn}</span>
+</button>
+
+<button
+  class="stage-btn play"
+  type="button"
+  data-play
+  aria-label={stage.play}
+  hidden
+>
+  <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 5.5v13l10.5-6.5z"
+    ></path></svg>
+</button>
+
+<script>
+  import "../scripts/heroStage.ts";
+</script>
+
+<style>
+  .stage-btn {
+    position: absolute;
+    z-index: 3;
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
+    border: none;
+    cursor: pointer;
+    font-family: inherit;
+    font-weight: 600;
+    color: white;
+    background: color-mix(in srgb, var(--ink) 82%, transparent);
+    backdrop-filter: blur(10px);
+    transition: background 0.18s ease;
+  }
+
+  .stage-btn:hover {
+    background: var(--orange);
+  }
+
+  .stage-btn[hidden] {
+    display: none;
+  }
+
+  .stage-btn svg {
+    width: 17px;
+    height: 17px;
+    fill: none;
+    stroke: currentColor;
+    stroke-width: 1.8;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+  }
+
+  .sound {
+    left: 50%;
+    bottom: 5%;
+    transform: translateX(-50%);
+    min-height: 40px;
+    padding: 0 14px;
+    border-radius: 99px;
+    font-size: 12.5px;
+    white-space: nowrap;
+  }
+
+  .sound .on,
+  .sound[aria-pressed="true"] .off,
+  .sound[aria-pressed="true"] .sound-label {
+    display: none;
+  }
+
+  .sound[aria-pressed="true"] .on {
+    display: block;
+  }
+
+  .sound[aria-pressed="true"] {
+    padding: 0 12px;
+  }
+
+  .play {
+    inset: 0;
+    margin: auto;
+    width: 68px;
+    height: 68px;
+    justify-content: center;
+    border-radius: 99px;
+    background: var(--orange);
+  }
+
+  .play svg {
+    width: 26px;
+    height: 26px;
+    fill: currentColor;
+  }
+</style>

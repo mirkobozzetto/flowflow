@@ -3,7 +3,8 @@
     "product": "Le produit",
     "agentic": "Agentique",
     "faq": "FAQ",
-    "cta": "Télécharger"
+    "cta": "Télécharger",
+    "teams": "À plusieurs"
   },
   "hero": {
     "logoAlt": "FlowFlow",
@@ -11,15 +12,47 @@
     "h1Accent": "voix",
     "subLead": "Parle,",
     "subStrong": "FlowFlow exécute",
+    "line": "Tes réunions, tes idées et tes suivis : écrits, rangés et prêts à servir.",
     "ctaPrimary": "Télécharger pour Mac",
     "ctaGhost": "App Store"
   },
-  "scene": {
-    "fig": "de la voix à la mémoire",
-    "macTitle": "FlowFlow",
-    "macSlot": "SCREENSHOT RÉEL - app Mac, notes + chat avec sources",
-    "macSlotNote": "capture native de ta fenêtre, ratio 16:9.4 (ou GIF)",
-    "iphoneSlot": "SCREENSHOT RÉEL iPhone",
-    "iphoneSlotNote": "capture native plein écran de TON iPhone, telle quelle"
+  "stage": {
+    "question": "Tu travailles comment ?",
+    "group": "Choisis comment tu travailles",
+    "videoLabel": "FlowFlow en vidéo, sur un iPhone",
+    "soundOn": "Activer le son",
+    "soundOff": "Couper le son",
+    "play": "Lancer la vidéo",
+    "choices": [
+      {
+        "clip": "promo",
+        "label": "Tout voir",
+        "title": "35 secondes pour tout voir",
+        "text": "La dictée, tes notes qui répondent, ton agent."
+      },
+      {
+        "clip": "dictate",
+        "label": "Seul",
+        "title": "Parle, c'est écrit",
+        "text": "Tu sors d'un rendez-vous, tu dictes. La note arrive titrée et rangée."
+      },
+      {
+        "clip": "meeting",
+        "label": "En équipe",
+        "title": "Ta réunion, déjà résumée",
+        "text": "Points clés, décisions, actions : chacun retrouve le moment où ça a été dit."
+      },
+      {
+        "clip": "agent",
+        "label": "Avec mon agent",
+        "title": "Une photo, un plan",
+        "text": "Envoie une photo à ton Hermes et suis son travail depuis ton iPhone."
+      }
+    ],
+    "chips": {
+      "tag": "Décision · 10:15",
+      "source": "2 sources",
+      "reminder": "Rappel · jeudi 9 h"
+    }
   }
 }

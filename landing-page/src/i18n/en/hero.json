@@ -3,7 +3,8 @@
     "product": "Product",
     "agentic": "Agentic",
     "faq": "FAQ",
-    "cta": "Download"
+    "cta": "Download",
+    "teams": "Together"
   },
   "hero": {
     "logoAlt": "FlowFlow",
@@ -11,15 +12,47 @@
     "h1Accent": "away",
     "subLead": "Speak,",
     "subStrong": "FlowFlow runs it",
+    "line": "Your meetings, ideas and follow-ups: written, sorted and ready to use.",
     "ctaPrimary": "Download for Mac",
     "ctaGhost": "App Store"
   },
-  "scene": {
-    "fig": "from voice to memory",
-    "macTitle": "FlowFlow",
-    "macSlot": "REAL SCREENSHOT - Mac app, notes + chat with sources",
-    "macSlotNote": "native capture of your window, 16:9.4 ratio (or GIF)",
-    "iphoneSlot": "REAL SCREENSHOT iPhone",
-    "iphoneSlotNote": "native full-screen capture of YOUR iPhone, as is"
+  "stage": {
+    "question": "How do you work?",
+    "group": "Choose how you work",
+    "videoLabel": "FlowFlow on an iPhone, in video",
+    "soundOn": "Turn sound on",
+    "soundOff": "Turn sound off",
+    "play": "Play the video",
+    "choices": [
+      {
+        "clip": "promo",
+        "label": "See it all",
+        "title": "35 seconds to see it all",
+        "text": "Dictation, notes that answer back, your agent."
+      },
+      {
+        "clip": "dictate",
+        "label": "Solo",
+        "title": "Talk, it's written",
+        "text": "You walk out of a meeting and dictate. The note lands titled and filed."
+      },
+      {
+        "clip": "meeting",
+        "label": "As a team",
+        "title": "Your meeting, already summed up",
+        "text": "Key points, decisions, actions: everyone finds the moment it was said."
+      },
+      {
+        "clip": "agent",
+        "label": "With my agent",
+        "title": "A photo, a plan",
+        "text": "Send a photo to your Hermes and follow its work from your iPhone."
+      }
+    ],
+    "chips": {
+      "tag": "Decision · 10:15",
+      "source": "2 sources",
+      "reminder": "Reminder · Thu 9 am"
+    }
   }
 }

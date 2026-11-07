@@ -32,6 +32,7 @@ const onBeta = Astro.url.pathname.replace(/\/$/, "").endsWith("/beta");
       <div class="hidden lg:flex items-center gap-1">
         <a class="nav-link" href="#product">{t("nav.product")}</a>
         <a class="nav-link" href="#agentic">{t("nav.agentic")}</a>
+        <a class="nav-link" href="#teams">{t("nav.teams")}</a>
         <a class="nav-link" href="#faq">{t("nav.faq")}</a>
         <a class="nav-link" href={betaPath} aria-current={onBeta ? "page" : undefined}>{tb("nav.label")}</a>
       </div>
@@ -78,6 +79,7 @@ const onBeta = Astro.url.pathname.replace(/\/$/, "").endsWith("/beta");
     >
       <a class="nav-link" href="#product">{t("nav.product")}</a>
       <a class="nav-link" href="#agentic">{t("nav.agentic")}</a>
+      <a class="nav-link" href="#teams">{t("nav.teams")}</a>
       <a class="nav-link" href="#faq">{t("nav.faq")}</a>
       <a class="nav-link" href={betaPath}>{tb("nav.label")}</a>
       <span class="h-px bg-stone-200 my-1" aria-hidden="true"></span>

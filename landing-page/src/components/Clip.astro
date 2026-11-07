@@ -1,0 +1,25 @@
+---
+interface Props {
+  lang: string;
+  clip: string;
+  label?: string;
+}
+
+const { lang, clip, label } = Astro.props;
+const base = `/videos/${lang}/${clip}`;
+---
+
+<video
+  data-lazy
+  data-src={`${base}.mp4`}
+  poster={`${base}.webp`}
+  aria-label={label}
+  aria-hidden={label ? undefined : "true"}
+  muted
+  loop
+  playsinline
+  preload="none"></video>
+
+<script>
+  import "../scripts/lazyVideo.ts";
+</script>
