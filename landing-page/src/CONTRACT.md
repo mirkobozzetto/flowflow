@@ -21,7 +21,7 @@ Shared primitives in `src/styles/base.css`: `.container`, `.fig`, `.reveal` (+ `
 
 ## i18n helpers (`src/lib/i18n.ts`)
 
-Per-section strings live in namespaced JSON: `src/i18n/{en,fr}/{hero,showcase,agentic,bento,faq,footer}.json`. Two access patterns, both supported, pick per component:
+Per-section strings live in namespaced JSON: `src/i18n/{en,fr}/{hero,showcase,agentic,bento,teams,trust,letter,faq,footer}.json`. Two access patterns, both supported, pick per component:
 
 1. `useTranslations(lang, namespace)` returns a getter `t(key)` that reads dot-paths and arrays.
 
@@ -51,15 +51,20 @@ Components take `lang: string` and resolve their own copy, except pure presentat
 | `Layout.astro` | `lang` | html shell, head, font preload, `#progress`, global script |
 | `Landing.astro` | `lang` | composes every section in draft order |
 | `Nav.astro` | `lang` | reads `hero` namespace (`nav.*`) |
-| `Hero.astro` | `lang` | renders `ParallaxScene` |
-| `ParallaxScene.astro` | `lang` | mac + iphone mock, `initParallax("scene")` |
+| `Hero.astro` | `lang` | renders `HeroStage` |
+| `HeroStage.astro` | `lang` | iPhone with the promo, clip chooser, captions |
+| `StageVideo.astro` | `lang` | hero video, sound and play buttons |
+| `Phone.astro` | `class?`, slot | iPhone frame, sized by `--phone-width` |
+| `Clip.astro` | `lang`, `clip`, `label?` | muted lazy video from `public/videos` |
 | `Marquee.astro` | `items: string[]` | duplicated track for the loop |
-| `HorizontalShowcase.astro` | `fig: string`, `panels: Panel[]` | maps `ShowcasePanel`, sticky scroll script |
-| `ShowcasePanel.astro` | `num`, `title`, `text`, `slot`, `slotNote` | one numbered step |
-| `AgenticChapter.astro` | `lang`, `captureEndpoint?` | dark section, maps `ActionCard` + `ConnectorChips` + `EmailCapture` |
-| `ActionCard.astro` | `you`, `then`, `soon?`, `soonLabel?`, `delay?` | voice line to result |
-| `ConnectorChips.astro` | `label: string`, `connectors: {name, live}[]` | live vs soon dot |
-| `EmailCapture.astro` | `title`, `blurb`, `placeholder`, `inputLabel`, `submit`, `ok`, `endpoint?` | waitlist form |
+| `HorizontalShowcase.astro` | `lang`, `fig`, `h2Lead`, `h2Accent`, `panels: Panel[]` | maps `ShowcasePanel`, sticky scroll script |
+| `ShowcasePanel.astro` | `lang`, `time`, `title`, `text`, `clip` | one moment of the day |
+| `AgenticChapter.astro` | `lang` | dark Hermes section, maps `ActionCard` |
+| `ActionCard.astro` | `you`, `then`, `delay?` | request to result |
+| `TeamsChapter.astro` | `lang` | shared space section, two `Ticket` |
+| `Ticket.astro` | `tone`, `title`, `body`, `points`, `stub`, `cta`, `href`, `external?`, `delay?` | offer ticket |
+| `Trust.astro` | `lang` | what stays, what leaves, what it costs |
+| `Letter.astro` | `lang` | signed letter from Mirko |
 | `Bento.astro` | `lang` | four feature tiles |
 | `Faq.astro` | `lang` | maps `FaqItem`, `initFaq()` |
 | `FaqItem.astro` | `question`, `answer` | accordion row |
@@ -67,17 +72,22 @@ Components take `lang: string` and resolve their own copy, except pure presentat
 | `Footer.astro` | `lang` | embeds `GithubStars` |
 | `GithubStars.astro` | `label: string` | build-time star count, graceful `★` fallback |
 
-`Panel`: `{ num, title, text, slot, slotNote }`. `QaItem`: `{ q, a }`. `Connector`: `{ name, live }`.
+`Panel`: `{ time, title, text, clip }`. `QaItem`: `{ q, a }`.
 
 ## Client scripts (`src/scripts/`)
 
 Pure TS, no i18n. Imported from the component that needs them.
 
 - `progress.ts`: progress bar width + `.reveal` IntersectionObserver. Loaded once in `Layout.astro`.
-- `parallax.ts`: `initParallax(sceneId)`, mouse-driven 3D tilt, skips on coarse pointer or reduced motion.
+- `heroStage.ts`: hero video, clip chooser, sound, fallback play button.
+- `lazyVideo.ts`: loads and plays `video[data-lazy]` in view, skips on reduced motion.
 - `horizontalScroll.ts`: sticky horizontal track, falls back to a vertical stack on mobile or reduced motion (`data-fallback`).
 - `faq.ts`: `initFaq()`, single-open accordion with `aria-expanded`.
-- `capture.ts`: waitlist submit, optional `data-endpoint`, success swap.
+
+## Media
+
+`scripts/encode-media.sh` rebuilds `public/videos` and `public/shots` from the
+release media. Tests: `bun run test` (Playwright, needs Chrome installed).
 
 ## Tooling
 

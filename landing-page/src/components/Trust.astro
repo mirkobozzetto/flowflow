@@ -1,0 +1,160 @@
+---
+import { section } from "../lib/i18n";
+
+interface Props {
+  lang: string;
+}
+
+const { lang } = Astro.props;
+const t = section(lang, "trust");
+---
+
+<section id="trust" class="container pt-35">
+  <div class="fig reveal">{t.fig}</div>
+  <h2
+    class="reveal mt-4 text-[clamp(30px,4.4vw,50px)] leading-[1.04] tracking-[-0.027em]"
+    data-d="1"
+  >
+    {t.h2Lead}<br /><em class="font-serif font-normal italic text-orange-dark"
+      >{t.h2Accent}</em
+    >
+  </h2>
+
+  <div class="split reveal mt-10">
+    <div class="stay">
+      <h3>{t.stayTitle}</h3>
+      <ul>{t.stay.map((item) => <li>{item}</li>)}</ul>
+    </div>
+    <div class="leave">
+      <h3>{t.leaveTitle}</h3>
+      <ul>
+        {
+          t.leave.map((item) => (
+            <li>
+              {item.what}
+              <b>{item.where}</b>
+            </li>
+          ))
+        }
+      </ul>
+    </div>
+  </div>
+  <p class="reveal mt-4 text-[14px] text-stone-500">{t.duty}</p>
+
+  <div class="cost reveal mt-20">
+    <div>
+      <h3 class="text-[clamp(26px,3vw,34px)] tracking-[-0.022em] text-ink">
+        {t.costTitle}
+      </h3>
+      <p class="mt-3 max-w-85 text-[15px] text-stone-500">{t.costNote}</p>
+      <p class="mt-3 text-[12.5px] text-stone-400">{t.costSource}</p>
+    </div>
+    <dl>
+      {
+        t.cost.map((row) => (
+          <div>
+            <dt>{row.what}</dt>
+            <dd>{row.price}</dd>
+          </div>
+        ))
+      }
+    </dl>
+  </div>
+</section>
+
+<style>
+  .split {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    overflow: hidden;
+    border-radius: 24px;
+    border: 1px solid var(--stone-200);
+  }
+
+  .stay,
+  .leave {
+    padding: clamp(26px, 3.4vw, 40px);
+  }
+
+  .stay {
+    background: var(--stone-50);
+    color: var(--stone-700);
+  }
+
+  .leave {
+    background: var(--ink);
+    color: var(--stone-300);
+  }
+
+  .split h3 {
+    font-size: 21px;
+    letter-spacing: -0.016em;
+    color: var(--ink);
+  }
+
+  .leave h3 {
+    color: var(--warm-white);
+  }
+
+  .split ul {
+    display: grid;
+    gap: 12px;
+    margin: 20px 0 0;
+    padding: 0;
+    list-style: none;
+    font-size: 15.5px;
+  }
+
+  .leave li {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: space-between;
+    gap: 2px 14px;
+  }
+
+  .leave b {
+    font-weight: 500;
+    color: var(--orange-bright);
+  }
+
+  .cost {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1.2fr);
+    gap: clamp(28px, 6vw, 72px);
+    align-items: start;
+  }
+
+  dl {
+    margin: 0;
+    border-top: 1px solid var(--stone-200);
+  }
+
+  dl div {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: space-between;
+    gap: 2px 18px;
+    padding: 14px 0;
+    border-bottom: 1px solid var(--stone-200);
+  }
+
+  dt {
+    font-size: 15.5px;
+    color: var(--stone-600);
+  }
+
+  dd {
+    margin: 0;
+    font-size: 15.5px;
+    font-weight: 600;
+    color: var(--ink);
+    font-variant-numeric: tabular-nums;
+  }
+
+  @media (max-width: 760px) {
+    .split,
+    .cost {
+      grid-template-columns: 1fr;
+    }
+  }
+</style>

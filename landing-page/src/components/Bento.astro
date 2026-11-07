@@ -1,5 +1,8 @@
 ---
+import { Image } from "astro:assets";
+import Phone from "./Phone.astro";
 import { section } from "../lib/i18n";
+import logo from "../assets/logo.png";
 
 interface Props {
   lang: string;
@@ -12,28 +15,42 @@ const t = section(lang, "bento");
 <section class="container pt-35">
   <div class="fig reveal">{t.fig}</div>
   <h2
-    class="reveal mt-4 text-[clamp(30px,4.4vw,50px)] tracking-[-0.027em]"
+    class="reveal mt-4 text-[clamp(30px,4.4vw,50px)] leading-[1.04] tracking-[-0.027em]"
     data-d="1"
   >
-    {t.h2Lead}<br />{t.h2Accent}
+    {t.h2Lead}<br /><em class="font-serif font-normal italic text-orange-dark"
+      >{t.h2Accent}</em
+    >
   </h2>
   <div
-    class="mt-11 grid grid-cols-6 gap-3.5 auto-rows-[96px] max-md:*:col-span-6 max-md:*:row-span-3"
+    class="mt-11 grid grid-cols-6 gap-3.5 auto-rows-[96px] max-md:*:col-span-6 max-md:*:row-span-3 max-md:first:*:row-span-5"
   >
     <div
       class="reveal relative overflow-hidden rounded-[20px] border border-stone-200 bg-stone-50 p-6 transition-[border-color,box-shadow] duration-250 ease-[ease] hover:border-orange-100 hover:shadow-[0_10px_30px_-22px_rgba(22,19,17,0.25)] col-span-4 row-span-3"
     >
       <h3 class="mb-1.25 text-[17px] tracking-[-0.01em]">{t.chat.title}</h3>
-      <p class="max-w-80 text-[13px] text-stone-500">{t.chat.body}</p>
-      <div class="media-fill absolute inset-x-0 bottom-0 top-32 border-t border-stone-200">
-        <div class="slot">{t.chat.macSlot}</div>
-      </div>
-      <div class="iphone-mini tile-phone absolute bottom-4.5 right-5.5 z-2 shrink-0 max-[560px]:hidden">
-        <div class="screen">
-          <div class="slot slot-xs">
-            {t.chat.phoneSlot}<small>{t.chat.phoneSlotNote}</small>
-          </div>
-        </div>
+      <p class="max-w-72 text-[13.5px] text-stone-500">{t.chat.body}</p>
+      <div class="shots">
+        <Phone class="back">
+          <img
+            src={`/shots/${lang}/09.webp`}
+            alt={t.chat.shot2Alt}
+            width="900"
+            height="1955"
+            loading="lazy"
+            decoding="async"
+          />
+        </Phone>
+        <Phone class="front">
+          <img
+            src={`/shots/${lang}/02.webp`}
+            alt={t.chat.shotAlt}
+            width="900"
+            height="1955"
+            loading="lazy"
+            decoding="async"
+          />
+        </Phone>
       </div>
     </div>
 
@@ -44,9 +61,9 @@ const t = section(lang, "bento");
       <h3 class="mb-1.25 text-[17px] tracking-[-0.01em]">{t.sync.title}</h3>
       <p class="max-w-80 text-[13px] text-stone-500">{t.sync.body}</p>
       <div class="sync-visual mt-5.5 flex items-center gap-3">
-        <div class="device"></div>
+        <div class="device"><Image src={logo} alt="" width={22} height={22} /></div>
         <div class="sync-line"><span class="lock">{t.sync.lock}</span></div>
-        <div class="device macd"></div>
+        <div class="device macd"><Image src={logo} alt="" width={26} height={26} /></div>
       </div>
     </div>
 
@@ -55,6 +72,12 @@ const t = section(lang, "bento");
     >
       <h3 class="mb-1.25 text-[17px] tracking-[-0.01em]">{t.offline.title}</h3>
       <p class="max-w-80 text-[13px] text-stone-500">{t.offline.body}</p>
+      <div class="mt-3.5 flex flex-wrap items-center gap-1.75">
+        <svg class="plane" viewBox="0 0 24 24" aria-hidden="true">
+          <path d="M21 15.5v-2l-8-5V4.2a1.7 1.7 0 0 0-3.4 0v4.3l-7.6 5v2l7.6-2.4v4.4l-2.2 1.7V21l3.9-1.1 3.9 1.1v-1.800l-2.2-1.700v-4.400z"></path>
+        </svg>
+        {t.offline.models.map((model) => <kbd>{model}</kbd>)}
+      </div>
     </div>
 
     <div
@@ -72,90 +95,95 @@ const t = section(lang, "bento");
         <kbd>⌘→</kbd>
       </div>
     </div>
+
+    <div
+      class="reveal relative overflow-hidden rounded-[20px] border border-stone-200 bg-stone-50 p-6 transition-[border-color,box-shadow] duration-250 ease-[ease] hover:border-orange-100 hover:shadow-[0_10px_30px_-22px_rgba(22,19,17,0.25)] col-span-3 row-span-2"
+    >
+      <h3 class="mb-1.25 text-[17px] tracking-[-0.01em]">
+        {t.reminders.title}
+      </h3>
+      <p class="max-w-80 text-[13px] text-stone-500">{t.reminders.body}</p>
+      <div class="reminder mt-3.5">
+        <span class="tick" aria-hidden="true"></span>
+        <b>{t.reminders.chip}</b>
+        <span>{t.reminders.when}</span>
+      </div>
+    </div>
+
+    <div
+      class="reveal relative overflow-hidden rounded-[20px] border border-stone-200 bg-stone-50 p-6 transition-[border-color,box-shadow] duration-250 ease-[ease] hover:border-orange-100 hover:shadow-[0_10px_30px_-22px_rgba(22,19,17,0.25)] col-span-3 row-span-2"
+      data-d="1"
+    >
+      <h3 class="mb-1.25 text-[17px] tracking-[-0.01em]">{t.models.title}</h3>
+      <p class="max-w-80 text-[13px] text-stone-500">{t.models.body}</p>
+      <div class="mt-3.5 flex flex-wrap gap-1.75">
+        {t.models.chips.map((chip) => <kbd>{chip}</kbd>)}
+      </div>
+    </div>
   </div>
 </section>
 
 <style>
-  .slot {
-    width: 100%;
-    height: 100%;
+  .shots {
+    --phone-width: 196px;
+    position: absolute;
+    top: 30px;
+    right: 28px;
     display: flex;
-    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .shots :global(.back) {
+    margin-top: 44px;
+    margin-right: -36px;
+    rotate: -4deg;
+  }
+
+  .shots :global(.front) {
+    rotate: 2deg;
+  }
+
+  .reminder {
+    display: inline-flex;
     align-items: center;
-    justify-content: center;
-    gap: 7px;
-    color: var(--stone-400);
-    font-size: 13px;
-    font-weight: 500;
-    text-align: center;
-    padding: 18px;
-    background:
-      radial-gradient(
-        85% 120% at 50% 0%,
-        var(--orange-50) 0%,
-        transparent 60%
-      ),
-      var(--stone-50);
-    border: 2px dashed var(--stone-300);
-    border-radius: inherit;
+    gap: 9px;
+    padding: 9px 14px 9px 11px;
+    border: 1px solid var(--stone-200);
+    border-radius: 13px;
+    background: white;
+    font-size: 13.5px;
+    color: var(--stone-500);
+    box-shadow: 0 14px 28px -20px rgba(22, 19, 17, 0.4);
   }
-  .slot small {
-    font-size: 11px;
-    opacity: 0.85;
+
+  .reminder b {
+    font-weight: 600;
+    color: var(--ink);
   }
-  .slot-xs {
-    font-size: 10px;
-  }
-  .media-fill .slot {
-    border: none;
-    border-radius: 0;
-  }
-  .iphone-mini {
-    width: clamp(150px, 16vw, 196px);
-    aspect-ratio: 9/19.5;
-    border-radius: 30px;
-    padding: 7px;
-    position: relative;
-    background: linear-gradient(160deg, #3a3531, #161311);
-    box-shadow:
-      0 26px 50px -22px rgba(22, 19, 17, 0.45),
-      inset 0 0 0 1.5px rgba(255, 255, 255, 0.14);
-  }
-  .iphone-mini::before {
-    content: "";
-    position: absolute;
-    top: 15px;
-    left: 50%;
-    transform: translateX(-50%);
-    width: 32%;
-    height: 17px;
-    background: #0b0908;
+
+  .tick {
+    width: 16px;
+    height: 16px;
+    border: 2px solid var(--orange);
     border-radius: 99px;
-    z-index: 2;
   }
-  .iphone-mini .screen {
-    width: 100%;
-    height: 100%;
-    border-radius: 23px;
-    overflow: hidden;
-    background: var(--warm-white);
+
+  @media (max-width: 768px) {
+    .shots {
+      top: 158px;
+      right: 50%;
+      transform: translateX(50%);
+    }
+
+    .shots :global(.back) {
+      display: none;
+    }
+
+    .shots :global(.front) {
+      rotate: 0deg;
+    }
   }
-  .tile-phone {
-    position: absolute;
-    right: 22px;
-    bottom: 18px;
-    z-index: 2;
-    width: 124px;
-    border-radius: 22px;
-    padding: 5px;
-  }
-  .tile-phone::before {
-    top: 10px;
-    height: 12px;
-  }
-  .tile-phone .screen {
-    border-radius: 17px;
-  }
+
   kbd {
     font-family: inherit;
     font-size: 12px;
@@ -168,6 +196,8 @@ const t = section(lang, "bento");
     padding: 3px 9px;
   }
   .device {
+    display: grid;
+    place-items: center;
     width: 42px;
     height: 62px;
     border: 1.5px solid var(--stone-300);
@@ -178,6 +208,15 @@ const t = section(lang, "bento");
     width: 84px;
     height: 54px;
     border-radius: 7px;
+  }
+  .device :global(img) {
+    border-radius: 6px;
+  }
+  .plane {
+    width: 18px;
+    height: 18px;
+    margin-right: 3px;
+    fill: var(--orange);
   }
   .sync-line {
     flex: 1;

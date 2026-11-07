@@ -1,0 +1,16 @@
+{
+  "fromLabel": "De :",
+  "from": "Mirko Bozzetto",
+  "subjectLabel": "Objet :",
+  "subject": "Pourquoi FlowFlow",
+  "lines": [
+    "Mes meilleures idées arrivent quand je marche ou entre deux tâches. Et elles disparaissent aussi vite.",
+    "J'ai construit FlowFlow pour ne plus les perdre : je parle, c'est écrit, et je retrouve tout en posant une question.",
+    "Je suis développeur indépendant à Bruxelles. Le code est ouvert, tu peux le lire et l'installer toi-même."
+  ],
+  "highlight": "je parle, c'est écrit",
+  "close": "Un coup de main pour démarrer ?",
+  "closeLink": "Parlons-en.",
+  "sign": "Mirko",
+  "photoAlt": "Mirko Bozzetto"
+}

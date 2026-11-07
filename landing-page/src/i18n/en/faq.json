@@ -4,27 +4,35 @@
   "items": [
     {
       "q": "Where do my notes actually go?",
-      "a": "Nowhere. SQLite and the vector store live on your devices, the iPhone ↔ Mac sync runs directly over your Wi-Fi, encrypted. Only the AI requests (cloud transcription if you choose it, embeddings, chat) leave - with your own API keys."
+      "a": "Your notes, audio and search stay on your devices. Only what you hand to an AI leaves: chat, summaries, titles, and cloud transcription if you choose it. Sharing and spaces go through the FlowFlow server."
     },
     {
       "q": "What does it cost?",
-      "a": "The app is free. You only pay for your API usage (OpenAI, and Soniox if you use cloud transcription) - a few cents per real use. Local Whisper transcription is free and unlimited."
+      "a": "The app is free for now. You pay your usage directly to OpenAI or Anthropic, or use your ChatGPT subscription for chat. An OpenAI key is still needed for memory. Local Whisper transcription costs nothing."
     },
     {
       "q": "Does it work without a connection?",
-      "a": "Capture, transcription (local Whisper model) and reading your notes: yes, airplane mode included. AI chat needs the network to query the model."
+      "a": "Capture, transcription (local Whisper model) and reading your notes: yes, airplane mode included. Chat needs the network to reach the model."
     },
     {
-      "q": "What is the marketplace?",
-      "a": "Tools your voice triggers: connectors (n8n, WhatsApp, email, webhooks), automations, programs. Installable in one tap, some free, some paid - and open to third-party creators, in a controlled way. Under construction."
+      "q": "Does it replace an assistant?",
+      "a": "No, and whether you work alone or you are hiring, that is not the point. FlowFlow writes, sums up, finds and reminds you what to do. It clears the admin around every conversation."
+    },
+    {
+      "q": "Can several people use it?",
+      "a": "Yes. A space brings together notes and the people you invite, and your Hermes can read or write there. Creating a space needs the premium plan, set up by appointment."
+    },
+    {
+      "q": "Do I have to tell people I'm recording?",
+      "a": "Yes, always, before you start. FlowFlow does not join your calls: it records with your device's microphone."
     },
     {
       "q": "Which devices?",
-      "a": "iPhone (iOS 16+, App Store) and Apple Silicon Mac (DMG on GitHub). First launch on Mac: right-click > Open."
+      "a": "iPhone (iOS 16+, App Store) and Apple Silicon Mac (DMG signed and notarized by Apple). Some features, such as reminders and widgets, are iPhone only."
     },
     {
       "q": "Can I see the code?",
-      "a": "Yes, it is all on GitHub (EUPL). 100% Rust, Dioxus for the UI. You can build and install it on your own iPhone with a single make."
+      "a": "Yes, it is all on GitHub under the EUPL. Mainly Rust, with Dioxus for the UI. You can build and install it yourself."
     }
   ]
 }

@@ -1,0 +1,58 @@
+{
+  "fig": "your data, your money",
+  "h2Lead": "What stays,",
+  "h2Accent": "what leaves",
+  "stayTitle": "Stays on your devices",
+  "stay": [
+    "Your notes and audio",
+    "Search across your notes",
+    "Local Whisper transcription",
+    "iPhone ↔ Mac sync on your network",
+    "Your keys, never in a backup"
+  ],
+  "leaveTitle": "Leaves when you use it",
+  "leave": [
+    {
+      "what": "Chat, titles and summaries",
+      "where": "OpenAI or Anthropic"
+    },
+    {
+      "what": "Cloud transcription, if you choose it",
+      "where": "Soniox"
+    },
+    {
+      "what": "Web search, if you turn it on",
+      "where": "Exa"
+    },
+    {
+      "what": "Sharing and spaces",
+      "where": "FlowFlow server"
+    }
+  ],
+  "duty": "You stay responsible for what you hand to an AI. Tell people when you record them.",
+  "costTitle": "What it costs",
+  "cost": [
+    {
+      "what": "The app",
+      "price": "Free for now"
+    },
+    {
+      "what": "Local transcription",
+      "price": "€0"
+    },
+    {
+      "what": "Cloud transcription",
+      "price": "about $0.10 an hour"
+    },
+    {
+      "what": "Chat and memory",
+      "price": "pay as you go, your key"
+    },
+    {
+      "what": "Spaces, agents, connectors",
+      "price": "by appointment"
+    }
+  ],
+  "costNote": "You pay OpenAI, Anthropic or Soniox directly, with no markup. Chat also works with your ChatGPT subscription.",
+  "costSource": "Soniox price read on 7 November 2026"
+}

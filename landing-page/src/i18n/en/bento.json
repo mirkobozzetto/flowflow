@@ -5,9 +5,8 @@
   "chat": {
     "title": "Chat with your notes",
     "body": "Ask a question, the answer cites its sources - clickable, filterable by theme.",
-    "macSlot": "REAL SCREENSHOT Mac - conversation with sources expanded",
-    "phoneSlot": "SCREENSHOT iPhone",
-    "phoneSlotNote": "same conversation"
+    "shotAlt": "A conversation with its sources",
+    "shot2Alt": "FlowFlow themes"
   },
   "sync": {
     "title": "iPhone ↔ Mac, no cloud",
@@ -16,10 +15,22 @@
   },
   "offline": {
     "title": "Offline, for real",
-    "body": "Local transcription with Whisper, from tiny to large-v3-turbo. Airplane mode included, audio never leaves your device."
+    "body": "Local transcription with Whisper, from tiny to large-v3-turbo. Airplane mode included, audio never leaves your device.",
+    "models": ["tiny", "base", "small", "medium", "large-v3-turbo"]
   },
   "keyboard": {
     "title": "Keyboard-first on Mac",
     "body": "Instant navigation, all from the keyboard."
+  },
+  "reminders": {
+    "title": "Say it, it's on your calendar",
+    "body": "\"Call the bank tomorrow at 10\" becomes a reminder, confirmed with one tap on iPhone.",
+    "chip": "Call the bank",
+    "when": "tomorrow, 10:00"
+  },
+  "models": {
+    "title": "Your AI, your rules",
+    "body": "Claude or OpenAI with your key, or your ChatGPT subscription. You pick the model.",
+    "chips": ["Claude", "OpenAI", "ChatGPT", "Whisper"]
   }
 }

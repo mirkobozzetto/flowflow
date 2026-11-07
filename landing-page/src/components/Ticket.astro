@@ -1,0 +1,208 @@
+---
+import { externalLinkAttrs } from "../lib/links";
+
+interface Props {
+  tone: "paper" | "orange";
+  title: string;
+  body: string;
+  points: string[];
+  stub: string;
+  cta: string;
+  href: string;
+  external?: boolean;
+  delay?: "1";
+}
+
+const { tone, title, body, points, stub, cta, href, external, delay } =
+  Astro.props;
+---
+
+<article class="wrap reveal" data-tone={tone} data-d={delay}>
+  <div class="ticket">
+    <div class="main">
+      <h3>{title}</h3>
+      <p>{body}</p>
+      <ul>
+        {
+          points.map((point) => (
+            <li>
+              <svg viewBox="0 0 24 24" aria-hidden="true">
+                <path d="M5 12.5 10 17 19 7" />
+              </svg>
+              {point}
+            </li>
+          ))
+        }
+      </ul>
+      <a
+        class:list={["cta", tone === "paper" ? "btn-primary" : "cta-ink"]}
+        href={href}
+        {...external ? externalLinkAttrs : {}}
+      >
+        {cta}
+      </a>
+    </div>
+    <div class="stub"><span>{stub}</span></div>
+  </div>
+</article>
+
+<style>
+  .wrap {
+    --stub: 76px;
+    --notch: 11px;
+    --tilt: -1.4deg;
+    filter: drop-shadow(0 0 0.6px rgba(22, 19, 17, 0.32))
+      drop-shadow(0 26px 26px rgba(22, 19, 17, 0.13));
+  }
+
+  .wrap[data-tone="orange"] {
+    --tilt: 1.2deg;
+  }
+
+  .ticket {
+    --cut: calc(100% - var(--stub));
+    display: grid;
+    grid-template-columns: 1fr var(--stub);
+    min-height: 100%;
+    rotate: var(--tilt);
+    border-radius: 22px;
+    background: white;
+    color: var(--ink);
+    mask:
+      radial-gradient(
+          circle var(--notch) at var(--cut) 0,
+          transparent 97%,
+          #000
+        )
+        top / 100% 51% no-repeat,
+      radial-gradient(
+          circle var(--notch) at var(--cut) 100%,
+          transparent 97%,
+          #000
+        )
+        bottom / 100% 51% no-repeat;
+    transition: rotate 0.35s cubic-bezier(0.2, 0.7, 0.2, 1);
+  }
+
+  .wrap:hover .ticket {
+    rotate: 0deg;
+  }
+
+  [data-tone="orange"] .ticket {
+    background: linear-gradient(170deg, var(--orange-bright), var(--orange));
+    color: white;
+  }
+
+  .main {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    padding: 30px 28px;
+  }
+
+  h3 {
+    font-size: clamp(26px, 3vw, 34px);
+    line-height: 1.04;
+    letter-spacing: -0.024em;
+  }
+
+  .main p {
+    margin-top: 10px;
+    font-size: 15px;
+    color: var(--stone-600);
+  }
+
+  [data-tone="orange"] .main p {
+    color: rgba(255, 255, 255, 0.92);
+  }
+
+  ul {
+    display: grid;
+    gap: 8px;
+    margin: 20px 0 26px;
+    padding: 0;
+    list-style: none;
+    font-size: 14.5px;
+    font-weight: 600;
+  }
+
+  li {
+    display: flex;
+    align-items: center;
+    gap: 9px;
+  }
+
+  li svg {
+    width: 16px;
+    height: 16px;
+    flex-shrink: 0;
+    fill: none;
+    stroke: currentColor;
+    stroke-width: 2.4;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+  }
+
+  .cta {
+    margin-top: auto;
+  }
+
+  .cta-ink {
+    display: inline-flex;
+    align-items: center;
+    min-height: 52px;
+    padding: 0 26px;
+    border-radius: 14px;
+    background: var(--ink);
+    color: white;
+    font-size: 15.5px;
+    font-weight: 600;
+    text-decoration: none;
+    transition: opacity 0.18s ease;
+  }
+
+  .cta-ink:hover {
+    opacity: 0.86;
+  }
+
+  .stub {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-left: 2px dashed var(--stone-300);
+    background: var(--orange-50);
+  }
+
+  [data-tone="orange"] .stub {
+    border-left-color: rgba(255, 255, 255, 0.55);
+    background: rgba(255, 255, 255, 0.16);
+  }
+
+  .stub span {
+    writing-mode: vertical-rl;
+    font-size: 19px;
+    font-weight: 600;
+    letter-spacing: -0.01em;
+    white-space: nowrap;
+  }
+
+  @media (max-width: 560px) {
+    .wrap {
+      --stub: 60px;
+    }
+
+    .main {
+      padding: 26px 22px;
+    }
+
+    .stub span {
+      font-size: 16px;
+    }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .ticket {
+      transition: none;
+    }
+  }
+</style>

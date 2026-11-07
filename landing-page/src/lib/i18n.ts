@@ -1,17 +1,23 @@
 import enAgentic from "../i18n/en/agentic.json";
-import enBeta from "../i18n/en/beta.json";
 import enBento from "../i18n/en/bento.json";
+import enBeta from "../i18n/en/beta.json";
 import enFaq from "../i18n/en/faq.json";
 import enFooter from "../i18n/en/footer.json";
 import enHero from "../i18n/en/hero.json";
+import enLetter from "../i18n/en/letter.json";
 import enShowcase from "../i18n/en/showcase.json";
+import enTeams from "../i18n/en/teams.json";
+import enTrust from "../i18n/en/trust.json";
 import frAgentic from "../i18n/fr/agentic.json";
-import frBeta from "../i18n/fr/beta.json";
 import frBento from "../i18n/fr/bento.json";
+import frBeta from "../i18n/fr/beta.json";
 import frFaq from "../i18n/fr/faq.json";
 import frFooter from "../i18n/fr/footer.json";
 import frHero from "../i18n/fr/hero.json";
+import frLetter from "../i18n/fr/letter.json";
 import frShowcase from "../i18n/fr/showcase.json";
+import frTeams from "../i18n/fr/teams.json";
+import frTrust from "../i18n/fr/trust.json";
 import { defaultLang, type Lang } from "../i18n/ui";
 
 export type Namespace =
@@ -21,7 +27,10 @@ export type Namespace =
   | "bento"
   | "faq"
   | "footer"
-  | "beta";
+  | "beta"
+  | "teams"
+  | "trust"
+  | "letter";
 
 const sections = {
   en: {
@@ -32,6 +41,9 @@ const sections = {
     faq: enFaq,
     footer: enFooter,
     beta: enBeta,
+    teams: enTeams,
+    trust: enTrust,
+    letter: enLetter,
   },
   fr: {
     hero: frHero,
@@ -41,6 +53,9 @@ const sections = {
     faq: frFaq,
     footer: frFooter,
     beta: frBeta,
+    teams: frTeams,
+    trust: frTrust,
+    letter: frLetter,
   },
 } as const;
 

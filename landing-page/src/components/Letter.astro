@@ -1,0 +1,128 @@
+---
+import { Image } from "astro:assets";
+import GithubStars from "./GithubStars.astro";
+import { section } from "../lib/i18n";
+import { bookingUrl, repoUrl, externalLinkAttrs } from "../lib/links";
+import photo from "../assets/people/mirko.png";
+
+interface Props {
+  lang: string;
+}
+
+const { lang } = Astro.props;
+const t = section(lang, "letter");
+const footer = section(lang, "footer");
+---
+
+<section class="container pt-35">
+  <article class="letter reveal">
+    <header>
+      <Image src={photo} alt={t.photoAlt} width={48} height={48} />
+      <div>
+        <p><span>{t.fromLabel}</span> {t.from}</p>
+        <p><span>{t.subjectLabel}</span> <b>{t.subject}</b></p>
+      </div>
+    </header>
+    <div class="body">
+      {
+        t.lines.map((line) => {
+          const [before, after] = line.split(t.highlight);
+          return after === undefined ? (
+            <p>{line}</p>
+          ) : (
+            <p>
+              {before}<span class="mark">{t.highlight}</span>{after}
+            </p>
+          );
+        })
+      }
+      <p>
+        {t.close}
+        <a href={bookingUrl}><span class="mark">{t.closeLink}</span></a>
+      </p>
+      <p class="sign">{t.sign}</p>
+    </div>
+    <footer>
+      <a href={repoUrl} {...externalLinkAttrs}>GitHub</a>
+      <GithubStars label={footer.footer.starsAlt} />
+      <span>{footer.footer.license}</span>
+    </footer>
+  </article>
+</section>
+
+<style>
+  .letter {
+    max-width: 620px;
+    margin: 0 auto;
+    overflow: hidden;
+    border: 1px solid var(--stone-200);
+    border-radius: 20px;
+    background: white;
+    box-shadow: 0 30px 60px -38px rgba(22, 19, 17, 0.35);
+  }
+
+  header {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    padding: 16px 28px;
+    border-bottom: 1px solid var(--stone-200);
+    background: var(--stone-100);
+    font-size: 14px;
+    color: var(--ink);
+  }
+
+  header img {
+    width: 48px;
+    height: 48px;
+    border-radius: 99px;
+    object-fit: cover;
+  }
+
+  header span {
+    color: var(--stone-500);
+  }
+
+  header b {
+    font-weight: 600;
+  }
+
+  .body {
+    display: grid;
+    gap: 14px;
+    padding: 28px;
+    font-size: 16.5px;
+    line-height: 1.6;
+    color: var(--stone-600);
+  }
+
+  .body a {
+    color: var(--ink);
+    text-decoration: none;
+  }
+
+  .sign {
+    margin-top: 2px;
+    font-family: var(--serif);
+    font-style: italic;
+    font-size: 34px;
+    line-height: 1;
+    color: var(--ink);
+  }
+
+  footer {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 14px 28px;
+    border-top: 1px solid var(--stone-200);
+    font-size: 13px;
+    color: var(--stone-500);
+  }
+
+  footer a {
+    font-weight: 600;
+    color: var(--ink);
+    text-decoration: none;
+  }
+</style>
