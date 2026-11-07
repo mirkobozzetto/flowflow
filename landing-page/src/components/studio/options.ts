@@ -166,7 +166,11 @@ export const groups = [
   },
 ];
 
-export const presets = [
+export const presets: {
+  id: string;
+  name: string;
+  state: Record<string, string>;
+}[] = [
   { id: "draft-1", name: "1. Tes choix", state: {} },
   {
     id: "draft-2",
