@@ -18,7 +18,8 @@ function resize(canvas: HTMLCanvasElement): CanvasRenderingContext2D | null {
 function envelope(x: number, t: number): number {
   const edge = Math.sin(Math.PI * x);
   const speech =
-    0.45 + 0.55 * Math.abs(Math.sin(x * 9 + t * 0.7) * Math.sin(x * 4 - t * 0.4));
+    0.45 +
+    0.55 * Math.abs(Math.sin(x * 9 + t * 0.7) * Math.sin(x * 4 - t * 0.4));
   return edge * speech;
 }
 
@@ -92,7 +93,9 @@ function draw(canvas: HTMLCanvasElement, time: number): void {
 }
 
 function initWaves(): void {
-  const canvases = [...document.querySelectorAll<HTMLCanvasElement>("[data-wave]")];
+  const canvases = [
+    ...document.querySelectorAll<HTMLCanvasElement>("[data-wave]"),
+  ];
   const visible = new Set<HTMLCanvasElement>();
   const observer = new IntersectionObserver((entries) => {
     for (const entry of entries) {

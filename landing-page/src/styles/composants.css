@@ -43,6 +43,18 @@
   grid-template-columns: repeat(auto-fit, minmax(520px, 1fr));
 }
 
+.opts-grid.five {
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+}
+
+.five .choice-stage {
+  padding: 12px;
+}
+
+.five .offer {
+  padding: 20px;
+}
+
 .choice {
   display: flex;
   flex-direction: column;
