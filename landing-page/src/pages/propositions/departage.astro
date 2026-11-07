@@ -1,0 +1,98 @@
+---
+import Landing from "../../components/Landing.astro";
+import Layout from "../../layouts/Layout.astro";
+import "../../styles/composants.css";
+
+const CHOICES = [
+  {
+    title: "Onde sous « voix »",
+    target: "[data-voice-wave]",
+    options: [
+      { name: "Barres fines", wave: "bars" },
+      { name: "Ligne fine", wave: "sine" },
+    ],
+  },
+  {
+    title: "Progression",
+    target: "[data-progress-wave]",
+    options: [
+      { name: "Trait en onde", wave: "sine" },
+      { name: "Petites barres", wave: "bars" },
+    ],
+  },
+];
+---
+
+<Layout lang="fr">
+  <Landing lang="fr" />
+  <form class="opts-bar departage" data-departage>
+    {
+      CHOICES.map((choice) => (
+        <fieldset data-target={choice.target}>
+          <legend>{choice.title}</legend>
+          {choice.options.map((option, i) => (
+            <label>
+              <input
+                type="radio"
+                name={choice.title}
+                value={option.wave}
+                checked={i === 0}
+              />
+              {option.name}
+            </label>
+          ))}
+        </fieldset>
+      ))
+    }
+  </form>
+
+  <script>
+    for (const group of document.querySelectorAll<HTMLElement>(
+      "[data-departage] fieldset",
+    )) {
+      const canvas = document.querySelector<HTMLElement>(
+        group.dataset.target ?? "",
+      );
+      group.addEventListener("change", (event) => {
+        const input = event.target as HTMLInputElement;
+        if (canvas) canvas.dataset.wave = input.value;
+      });
+    }
+  </script>
+
+  <style>
+    .departage {
+      max-width: 620px;
+    }
+
+    fieldset {
+      display: flex;
+      flex: 1;
+      flex-wrap: wrap;
+      gap: 4px 14px;
+      min-width: 240px;
+      margin: 0;
+      padding: 0;
+      border: 0;
+    }
+
+    legend {
+      padding: 0;
+      font-size: 15px;
+      font-weight: 700;
+    }
+
+    label {
+      display: inline-flex;
+      gap: 6px;
+      align-items: center;
+      font-size: 15px;
+      font-weight: 500;
+      cursor: pointer;
+    }
+
+    input {
+      accent-color: #ff5c00;
+    }
+  </style>
+</Layout>

@@ -2,6 +2,7 @@
 import { Image } from "astro:assets";
 import Clip from "./Clip.astro";
 import Phone from "./Phone.astro";
+import VoiceDemo from "./VoiceDemo.astro";
 import { useTranslations } from "../lib/i18n";
 import logo from "../assets/logo.png";
 
@@ -24,6 +25,7 @@ const t = useTranslations(lang, "hero");
       </div>
       <div class="mac-screen">
         <Image src={logo} alt="" width={96} height={96} />
+        <VoiceDemo lang={lang} />
       </div>
     </div>
     <div class="iphone">
@@ -92,14 +94,20 @@ const t = useTranslations(lang, "hero");
   }
 
   .mac-screen {
-    display: grid;
-    place-items: center;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: clamp(14px, 2vw, 24px);
     aspect-ratio: 16 / 9.4;
+    padding: 5% 24% 5% 6%;
     background: white;
   }
 
   .mac-screen :global(img) {
-    border-radius: 22px;
+    width: clamp(56px, 7vw, 84px);
+    height: auto;
+    border-radius: 22%;
   }
 
   .iphone {
@@ -125,7 +133,24 @@ const t = useTranslations(lang, "hero");
     }
 
     .mac {
+      position: static;
+      width: 100%;
+      overflow: visible;
+      border-radius: 0;
+      background: none;
+      box-shadow: none;
+      transform: none;
+    }
+
+    .mac-bar,
+    .mac-screen :global(img) {
       display: none;
+    }
+
+    .mac-screen {
+      aspect-ratio: auto;
+      padding: 0;
+      background: none;
     }
 
     .iphone {

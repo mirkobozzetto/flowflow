@@ -1,0 +1,112 @@
+---
+import { useTranslations } from "../lib/i18n";
+
+interface Props {
+  lang: string;
+}
+
+const { lang } = Astro.props;
+const t = useTranslations(lang, "hero");
+const words = t("scene.spoken").split(" ");
+---
+
+<div class="voice">
+  <p class="spoken" data-spoken>
+    {
+      words.map((word) => (
+        <>
+          <span>{word}</span>{" "}
+        </>
+      ))
+    }
+  </p>
+  <div class="capsule" aria-hidden="true">
+    <canvas data-wave="bars" data-color="#ffffff"></canvas>
+    <b data-voice-clock>0:14</b>
+    <i></i>
+  </div>
+</div>
+
+<script>
+  import "../scripts/spoken.ts";
+</script>
+
+<style>
+  .voice {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: clamp(14px, 2vw, 24px);
+  }
+
+  .spoken {
+    max-width: 19em;
+    font-size: clamp(20px, 2.3vw, 28px);
+    font-weight: 600;
+    line-height: 1.25;
+    letter-spacing: -0.02em;
+    text-align: center;
+    text-wrap: balance;
+    color: black;
+  }
+
+  .spoken span {
+    margin: 0 -0.1em;
+    padding: 0 0.1em;
+    border-radius: 4px;
+    transition:
+      color 0.16s ease,
+      background 0.16s ease;
+  }
+
+  .spoken :global(span.now) {
+    background: var(--orange-dark);
+    color: white;
+  }
+
+  .capsule {
+    display: inline-flex;
+    align-items: center;
+    gap: 10px;
+    height: 56px;
+    padding: 0 8px 0 16px;
+    border-radius: 99px;
+    background: var(--ink-2);
+    color: white;
+  }
+
+  canvas {
+    width: 130px;
+    height: 26px;
+  }
+
+  b {
+    min-width: 2.6em;
+    font-size: 13px;
+    font-weight: 600;
+    font-variant-numeric: tabular-nums;
+  }
+
+  i {
+    display: grid;
+    place-items: center;
+    width: 40px;
+    height: 40px;
+    border-radius: 99px;
+    background: var(--orange-dark);
+  }
+
+  i::after {
+    content: "";
+    width: 12px;
+    height: 12px;
+    border-radius: 3px;
+    background: white;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .spoken span {
+      transition: none;
+    }
+  }
+</style>
