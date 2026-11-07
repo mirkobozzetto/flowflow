@@ -19,6 +19,12 @@ const t = section(lang, "agentic");
   id="agentic"
   class="agentic pt-30 pb-27.5 relative overflow-hidden"
 >
+  <canvas
+    class="bars"
+    data-wave="bars"
+    data-color="rgba(255,255,255,0.22)"
+    data-speed="0.5"
+    aria-hidden="true"></canvas>
   <div class="container layout">
     <div>
       <h2
@@ -64,9 +70,15 @@ const t = section(lang, "agentic");
   .agentic {
     background: var(--gradient);
     color: white;
-    box-shadow:
-      inset 0 1px 0 rgba(255, 255, 255, 0.3),
-      inset 0 -1px 0 rgba(0, 0, 0, 0.08);
+  }
+
+  .bars {
+    position: absolute;
+    right: 0;
+    bottom: 0;
+    left: 0;
+    width: 100%;
+    height: 220px;
   }
 
   .sub {

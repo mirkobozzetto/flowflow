@@ -50,10 +50,13 @@ const m = getMeta(lang);
     />
   </head>
   <body>
-    <div id="progress"></div>
+    <div id="progress" aria-hidden="true">
+      <canvas data-wave="sine" data-flat data-progress-wave></canvas>
+    </div>
     <slot />
     <script>
       import "../scripts/progress.ts";
+      import "../scripts/waves.ts";
     </script>
   </body>
 </html>

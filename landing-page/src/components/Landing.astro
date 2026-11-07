@@ -9,6 +9,7 @@ import Trust from "./Trust.astro";
 import Faq from "./Faq.astro";
 import Finale from "./Finale.astro";
 import Footer from "./Footer.astro";
+import WaveRule from "./WaveRule.astro";
 import { section } from "../lib/i18n";
 
 interface Props {
@@ -25,8 +26,10 @@ const { showcase: steps } = showcase;
 <HorizontalShowcase lang={lang} label={steps.fig} panels={steps.panels} />
 <AgenticChapter lang={lang} />
 <TeamsChapter lang={lang} />
+<WaveRule />
 <Bento lang={lang} />
 <Trust lang={lang} />
+<WaveRule />
 <Faq lang={lang} />
 <Finale lang={lang} />
 <Footer lang={lang} />

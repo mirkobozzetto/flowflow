@@ -26,8 +26,9 @@ const t = useTranslations(lang, "hero");
       class="mt-6.5 text-[clamp(50px,8.4vw,104px)] leading-[0.99] tracking-[-0.035em] font-[760] text-ink"
     >
       {t("hero.h1Lead")}{" "}
-      <em class="font-serif italic font-normal text-orange-dark">
+      <em class="voice-word font-serif italic font-normal text-orange-dark">
         {t("hero.h1Accent")}
+        <canvas data-wave="bars" data-voice-wave aria-hidden="true"></canvas>
       </em>
     </h1>
     <p
@@ -46,6 +47,19 @@ const t = useTranslations(lang, "hero");
 </header>
 
 <style>
+  .voice-word {
+    position: relative;
+    display: inline-block;
+  }
+
+  .voice-word canvas {
+    position: absolute;
+    bottom: -0.16em;
+    left: -2%;
+    width: 104%;
+    height: 0.2em;
+  }
+
   .hero-logo {
     animation: logoFloat 5.5s ease-in-out infinite;
   }

@@ -1,11 +1,13 @@
 const reduced = matchMedia("(prefers-reduced-motion: reduce)").matches;
 const TAU = Math.PI * 2;
+const RIPPLE_PX = 34;
 
 type Kind = "sine" | "voice" | "bars" | "tone";
 
 function resize(canvas: HTMLCanvasElement): CanvasRenderingContext2D | null {
   const ratio = Math.min(devicePixelRatio || 1, 2);
-  const { width, height } = canvas.getBoundingClientRect();
+  const width = canvas.offsetWidth;
+  const height = canvas.offsetHeight;
   if (canvas.width !== Math.round(width * ratio)) {
     canvas.width = Math.round(width * ratio);
     canvas.height = Math.round(height * ratio);
@@ -15,8 +17,8 @@ function resize(canvas: HTMLCanvasElement): CanvasRenderingContext2D | null {
   return context;
 }
 
-function envelope(x: number, t: number): number {
-  const edge = Math.sin(Math.PI * x);
+function envelope(x: number, t: number, flat: boolean): number {
+  const edge = flat ? 1 : Math.sin(Math.PI * x);
   const speech =
     0.45 +
     0.55 * Math.abs(Math.sin(x * 9 + t * 0.7) * Math.sin(x * 4 - t * 0.4));
@@ -30,16 +32,19 @@ function stroke(
   amplitude: number,
   phase: number,
   voice: boolean,
+  flat: boolean,
 ): void {
+  const cycles = flat ? width / RIPPLE_PX : voice ? 7 : 3;
   context.beginPath();
   for (let px = 0; px <= width; px += 2) {
     const x = px / width;
-    const shape = voice ? envelope(x, phase) : Math.sin(Math.PI * x);
+    const taper = flat ? 1 : Math.sin(Math.PI * x);
+    const shape = voice ? envelope(x, phase, flat) : taper;
     const y =
       mid +
       shape *
         amplitude *
-        Math.sin(x * TAU * (voice ? 7 : 3) + phase) *
+        Math.sin(x * TAU * cycles + phase) *
         (voice ? 1 : 0.8);
     if (px === 0) context.moveTo(px, y);
     else context.lineTo(px, y);
@@ -50,8 +55,10 @@ function stroke(
 function draw(canvas: HTMLCanvasElement, time: number): void {
   const context = resize(canvas);
   if (!context) return;
-  const { width, height } = canvas.getBoundingClientRect();
+  const width = canvas.offsetWidth;
+  const height = canvas.offsetHeight;
   const kind = (canvas.dataset.wave ?? "sine") as Kind;
+  const flat = "flat" in canvas.dataset;
   const mid = height / 2;
   const color = canvas.dataset.color ?? "#ff5c00";
   const phase = time * Number(canvas.dataset.speed ?? 1);
@@ -65,7 +72,7 @@ function draw(canvas: HTMLCanvasElement, time: number): void {
     const count = Math.floor(width / 7);
     for (let i = 0; i < count; i += 1) {
       const x = i / count;
-      const size = Math.max(1.5, envelope(x, phase) * height * 0.9);
+      const size = Math.max(1.5, envelope(x, phase, flat) * height * 0.9);
       context.beginPath();
       context.roundRect(i * 7, mid - size / 2, 2.5, size, 2);
       context.fill();
@@ -83,13 +90,14 @@ function draw(canvas: HTMLCanvasElement, time: number): void {
         height * 0.1,
         phase * 0.5 + i * 0.5,
         false,
+        false,
       );
     }
     context.globalAlpha = 1;
     return;
   }
 
-  stroke(context, width, mid, height * 0.42, phase, kind === "voice");
+  stroke(context, width, mid, height * 0.42, phase, kind === "voice", flat);
 }
 
 function initWaves(): void {
@@ -109,7 +117,7 @@ function initWaves(): void {
     observer.observe(canvas);
     draw(canvas, 1);
   }
-  if (reduced) return;
+  if (reduced || canvases.length === 0) return;
 
   const tick = (now: number): void => {
     for (const canvas of visible) draw(canvas, now / 650);
