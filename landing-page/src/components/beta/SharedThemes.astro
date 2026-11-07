@@ -16,7 +16,7 @@ interface Props {
 
 const { lang } = Astro.props;
 const t = useTranslations(lang, "beta");
-const panels = t<Panel[]>("themes.panels");
+const panels = t<[Panel, Panel, Panel]>("themes.panels");
 const s = t<Record<string, string>>("themes.screen");
 ---
 

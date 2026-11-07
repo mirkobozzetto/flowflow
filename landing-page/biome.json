@@ -13,7 +13,8 @@
       "!.astro",
       "!**/*.astro",
       "!node_modules",
-      "!reference"
+      "!reference",
+      "!public"
     ]
   },
   "formatter": {
