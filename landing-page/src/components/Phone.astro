@@ -15,7 +15,7 @@ const { class: className } = Astro.props;
     --unit: var(--phone-base, var(--phone-width, 240px));
     position: relative;
     width: var(--phone-width, 240px);
-    aspect-ratio: 720 / 1564;
+    aspect-ratio: var(--phone-ratio, 720 / 1564);
     flex-shrink: 0;
     padding: calc(var(--unit) * 0.034);
     border-radius: calc(var(--unit) * 0.165);

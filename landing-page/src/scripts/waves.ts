@@ -17,8 +17,8 @@ function resize(canvas: HTMLCanvasElement): CanvasRenderingContext2D | null {
   return context;
 }
 
-function envelope(x: number, t: number, flat: boolean): number {
-  const edge = flat ? 1 : Math.sin(Math.PI * x);
+function envelope(x: number, t: number): number {
+  const edge = Math.sin(Math.PI * x);
   const speech =
     0.45 +
     0.55 * Math.abs(Math.sin(x * 9 + t * 0.7) * Math.sin(x * 4 - t * 0.4));
@@ -39,7 +39,7 @@ function stroke(
   for (let px = 0; px <= width; px += 2) {
     const x = px / width;
     const taper = flat ? 1 : Math.sin(Math.PI * x);
-    const shape = voice ? envelope(x, phase, flat) : taper;
+    const shape = voice ? envelope(x, phase) : taper;
     const y =
       mid +
       shape *
@@ -72,7 +72,7 @@ function draw(canvas: HTMLCanvasElement, time: number): void {
     const count = Math.floor(width / 7);
     for (let i = 0; i < count; i += 1) {
       const x = i / count;
-      const size = Math.max(1.5, envelope(x, phase, flat) * height * 0.9);
+      const size = Math.max(1.5, envelope(x, phase) * height * 0.9);
       context.beginPath();
       context.roundRect(i * 7, mid - size / 2, 2.5, size, 2);
       context.fill();

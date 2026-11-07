@@ -39,6 +39,8 @@ const CAPSULE_BLACK = "rgb(20, 20, 20)";
 const ACCENT = "rgb(255, 92, 0)";
 const CARD_WEIGHT = "600";
 const MIN_SECTION_WAVES = 2;
+const MAX_PROMO_CROP = 0.01;
+const MIN_HERO_PHONE_WIDTH = 280;
 
 async function scrollThrough(page: Page): Promise<void> {
   await page.evaluate(async () => {
@@ -231,6 +233,34 @@ for (const copy of PAGES) {
           true,
         );
       }
+    });
+
+    test("shows the whole promo in a larger hero phone", async ({ page }) => {
+      const clip = page.locator(".iphone video");
+      await clip.evaluate((v) => v.scrollIntoView({ block: "center" }));
+      await expect
+        .poll(() => clip.evaluate((v: HTMLVideoElement) => v.videoWidth))
+        .toBeGreaterThan(0);
+      const crop = await clip.evaluate((v: HTMLVideoElement) => {
+        const frame = v.clientWidth / v.clientHeight;
+        return Math.abs(frame / (v.videoWidth / v.videoHeight) - 1);
+      });
+      expect(crop).toBeLessThan(MAX_PROMO_CROP);
+      const width = await page
+        .locator(".iphone .phone")
+        .evaluate((e) => (e as HTMLElement).offsetWidth);
+      expect(width).toBeGreaterThanOrEqual(MIN_HERO_PHONE_WIDTH);
+    });
+
+    test("uses a thin line for the two small waves", async ({ page }) => {
+      await expect(page.locator("h1 em canvas")).toHaveAttribute(
+        "data-wave",
+        "sine",
+      );
+      await expect(page.locator("#progress canvas")).toHaveAttribute(
+        "data-wave",
+        "sine",
+      );
     });
 
     test("does not scroll sideways", async ({ page }) => {
