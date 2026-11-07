@@ -14,7 +14,8 @@
       "!**/*.astro",
       "!node_modules",
       "!reference",
-      "!public"
+      "!public",
+      "!test-results"
     ]
   },
   "formatter": {
@@ -55,7 +56,9 @@
   },
   "overrides": [
     {
-      "includes": ["**/*.astro"],
+      "includes": [
+        "**/*.astro"
+      ],
       "linter": {
         "enabled": false
       },
