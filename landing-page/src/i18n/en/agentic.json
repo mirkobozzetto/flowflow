@@ -2,76 +2,30 @@
   "fig": "where it gets serious",
   "h2Lead": "From word",
   "h2Accent": "to action",
-  "subLead": "FlowFlow is not a notebook, it is an",
-  "subStrong": "agentic platform",
-  "subTail": ": your voice triggers actions, from your phone or your Mac.",
-  "soonBadge": "soon",
+  "subLead": "Link your own",
+  "subStrong": "Hermes",
+  "subTail": " agent to FlowFlow. Email, quotes, research: it does what you taught it, and you stay in control from your iPhone.",
+  "videoLabel": "Hermes turns a whiteboard photo into a plan, on an iPhone",
   "actions": [
     {
-      "you": "\"Pick up the kid at 5\"",
-      "then": "caught, confirmed with a tap, in your Calendar at the right slot. Available today.",
-      "soon": false
+      "you": "\"Make me a plan from this photo\"",
+      "then": "photos, files and notes go to your Hermes. You follow its work live."
     },
     {
-      "you": "\"File this under the client folder\"",
-      "then": "titled, tagged, sorted into the right theme, indexed for chat. Available today.",
-      "soon": false
+      "you": "\"/meeting-recap\"",
+      "then": "every skill is one slash away, right in the conversation."
     },
     {
-      "you": "\"Send the recap to the client\"",
-      "then": "your n8n workflow fires with the note as payload: email, WhatsApp, CRM, whatever you wire.",
-      "soon": true
+      "you": "It wants to run a command",
+      "then": "nothing runs without you: approve or refuse in the chat."
     },
     {
-      "you": "\"Run my Monday routine\"",
-      "then": "tools you install from the marketplace, run by voice. Open to creators.",
-      "soon": true
+      "you": "Every morning at 7, your briefing",
+      "then": "scheduled tasks: see them, run them, create them."
     }
   ],
-  "connectorsLabel": "Connectors",
-  "connectors": [
-    {
-      "name": "Calendar",
-      "icon": "calendar",
-      "live": true
-    },
-    {
-      "name": "Reminders",
-      "icon": "reminders",
-      "live": true
-    },
-    {
-      "name": "n8n",
-      "icon": "n8n",
-      "live": false
-    },
-    {
-      "name": "WhatsApp",
-      "icon": "whatsapp",
-      "live": false
-    },
-    {
-      "name": "Email",
-      "icon": "email",
-      "live": false
-    },
-    {
-      "name": "Webhooks",
-      "icon": "webhooks",
-      "live": false
-    },
-    {
-      "name": "Tool marketplace",
-      "icon": "marketplace",
-      "live": false
-    }
-  ],
-  "capture": {
-    "title": "Be there when the marketplace ships",
-    "blurb": "One announcement, zero spam. Promise.",
-    "placeholder": "you@email.com",
-    "inputLabel": "Email",
-    "submit": "Notify me",
-    "ok": "Noted. See you soon."
-  }
+  "needsLabel": "What you need",
+  "needs": ["Your Hermes, on your machine", "Tailscale", "One QR code to scan"],
+  "cta": "Link my Hermes",
+  "note": "Hermes is your own agent, it does not come with FlowFlow. Its notifications need the premium plan."
 }

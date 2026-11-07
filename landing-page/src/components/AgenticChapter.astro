@@ -1,69 +1,83 @@
 ---
 import ActionCard from "./ActionCard.astro";
-import ConnectorChips from "./ConnectorChips.astro";
-import EmailCapture from "./EmailCapture.astro";
+import Clip from "./Clip.astro";
+import Phone from "./Phone.astro";
 import { section } from "../lib/i18n";
+import { hermesUrl } from "../lib/links";
 
 interface Props {
   lang: string;
-  captureEndpoint?: string;
 }
 
-const { lang, captureEndpoint = "" } = Astro.props;
+const { lang } = Astro.props;
 const t = section(lang, "agentic");
 const delays: Array<0 | 1 | 2 | 3> = [0, 1, 1, 2];
 ---
 
 <section
   id="agentic"
-  class="agentic mt-37.5 bg-ink text-stone-200 pt-30 pb-27.5 relative overflow-hidden"
+  class="agentic bg-ink text-stone-200 pt-30 pb-27.5 relative overflow-hidden"
 >
-  <div class="container">
-    <div class="fig reveal text-stone-500">{t.fig}</div>
-    <h2
-      class="reveal text-[clamp(40px,6.4vw,80px)] leading-[0.99] tracking-[-0.035em] text-warm-white mt-5"
-      data-d="1"
-    >
-      {t.h2Lead}<br /><em class="font-serif italic font-normal text-orange-bright"
-        >{t.h2Accent}</em
+  <div class="container layout">
+    <div>
+      <div class="fig reveal text-stone-500">{t.fig}</div>
+      <h2
+        class="reveal text-[clamp(40px,6.4vw,80px)] leading-[0.99] tracking-[-0.035em] text-warm-white mt-5"
+        data-d="1"
       >
-    </h2>
-    <p
-      class="sub reveal text-stone-400 text-[17px] max-w-150 mt-5 [&_b]:text-stone-200"
-      data-d="2"
-    >
-      {t.subLead} <b>{t.subStrong}</b>{t.subTail}
-    </p>
+        {t.h2Lead}<br /><em
+          class="font-serif italic font-normal text-orange-bright"
+          >{t.h2Accent}</em
+        >
+      </h2>
+      <p
+        class="reveal text-stone-400 text-[17px] max-w-150 mt-5 [&_b]:text-stone-200"
+        data-d="2"
+      >
+        {t.subLead} <b>{t.subStrong}</b>{t.subTail}
+      </p>
 
-    <div class="actions grid grid-cols-2 max-[800px]:grid-cols-1 gap-3.5 mt-13.5 relative">
-      {
-        t.actions.map((a, i) => (
-          <ActionCard
-            you={a.you}
-            then={a.then}
-            soon={a.soon}
-            soonLabel={t.soonBadge}
-            delay={delays[i] ?? 0}
-          />
-        ))
-      }
+      <div class="grid grid-cols-2 max-[800px]:grid-cols-1 gap-3.5 mt-11">
+        {
+          t.actions.map((a, i) => (
+            <ActionCard you={a.you} then={a.then} delay={delays[i] ?? 0} />
+          ))
+        }
+      </div>
+
+      <div class="needs reveal mt-9 flex flex-wrap items-center gap-x-5 gap-y-2.5">
+        <span class="font-serif italic text-[19px] text-stone-300"
+          >{t.needsLabel}</span
+        >
+        {
+          t.needs.map((need) => (
+            <span class="flex items-center gap-2 text-[14px] text-stone-400">
+              <svg class="check" viewBox="0 0 24 24" aria-hidden="true">
+                <path d="M5 12.5 10 17 19 7" />
+              </svg>
+              {need}
+            </span>
+          ))
+        }
+      </div>
+
+      <div class="reveal mt-7 flex flex-wrap items-center gap-x-5 gap-y-3">
+        <a class="btn-primary" href={hermesUrl}>{t.cta}</a>
+        <p class="max-w-90 text-[13px] text-stone-500">{t.note}</p>
+      </div>
     </div>
 
-    <ConnectorChips label={t.connectorsLabel} connectors={t.connectors} />
-
-    <EmailCapture
-      title={t.capture.title}
-      blurb={t.capture.blurb}
-      placeholder={t.capture.placeholder}
-      inputLabel={t.capture.inputLabel}
-      submit={t.capture.submit}
-      ok={t.capture.ok}
-      endpoint={captureEndpoint}
-    />
+    <div class="device reveal" data-d="2">
+      <Phone><Clip lang={lang} clip="agent" label={t.videoLabel} /></Phone>
+    </div>
   </div>
 </section>
 
 <style>
+  .agentic {
+    margin-top: 40px;
+  }
+
   .agentic::before {
     content: "";
     position: absolute;
@@ -74,7 +88,44 @@ const delays: Array<0 | 1 | 2 | 3> = [0, 1, 1, 2];
       transparent 70%
     );
   }
+
   .agentic :global(.fig::before) {
     background: var(--stone-700);
+  }
+
+  .layout {
+    position: relative;
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    gap: clamp(32px, 6vw, 72px);
+    align-items: start;
+  }
+
+  .device {
+    --phone-width: clamp(240px, 24vw, 300px);
+    position: sticky;
+    top: 104px;
+  }
+
+  .check {
+    width: 15px;
+    height: 15px;
+    flex-shrink: 0;
+    fill: none;
+    stroke: var(--orange-bright);
+    stroke-width: 2.4;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+  }
+
+  @media (max-width: 960px) {
+    .layout {
+      grid-template-columns: 1fr;
+    }
+
+    .device {
+      position: static;
+      justify-self: center;
+    }
   }
 </style>

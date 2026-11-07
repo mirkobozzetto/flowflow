@@ -2,18 +2,10 @@
 interface Props {
   you: string;
   then: string;
-  soon?: boolean;
-  soonLabel?: string;
   delay?: 0 | 1 | 2 | 3;
 }
 
-const {
-  you,
-  then: result,
-  soon = false,
-  soonLabel = "bientôt",
-  delay,
-} = Astro.props;
+const { you, then: result, delay } = Astro.props;
 
 const micPath =
   "M12 3C10 3 10 5 10 5l0 6s0 2 2 2 2-2 2-2V5s0-2-2-2zM5 10s0 7 7 7 " +
@@ -33,17 +25,11 @@ const d = delay ? String(delay) : undefined;
     >
       <path d={micPath} />
     </svg>
-    <span set:text={you} />
-    {
-      soon && (
-        <span class="ml-2 inline-block rounded-[99px] border border-[color-mix(in_srgb,var(--orange-bright)_40%,transparent)] px-2 py-px text-[10px] font-bold uppercase tracking-[0.06em] text-orange-bright">
-          {soonLabel}
-        </span>
-      )
-    }
+    <span>{you}</span>
   </div>
   <div
-    class="then mt-3.25 flex items-center gap-2.25 text-[13.5px] text-stone-400 before:font-bold before:text-orange-bright before:content-['\2192']"
-    set:text={result}
-  />
+    class="then mt-3 flex gap-2.25 text-[13.5px] text-stone-400 before:font-bold before:text-orange-bright before:content-['\2192']"
+  >
+    <span>{result}</span>
+  </div>
 </div>
