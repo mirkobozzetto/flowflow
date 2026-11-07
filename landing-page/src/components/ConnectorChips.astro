@@ -9,9 +9,10 @@ interface Connector {
 interface Props {
   label: string;
   connectors: Connector[];
+  variant?: "wrap" | "grid" | "tight" | "logos";
 }
 
-const { label, connectors } = Astro.props;
+const { label, connectors, variant = "wrap" } = Astro.props;
 
 type BrandName = "sheets" | "gmail" | "calendar";
 
@@ -36,10 +37,10 @@ const glyphs: Record<string, { color: string; path: string }> = {
 
 <div class="mt-10">
   <p class="lbl">{label}</p>
-  <ul>
+  <ul data-variant={variant}>
     {
       connectors.map((c) => (
-        <li>
+        <li title={c.name}>
           {isBrand(c.icon) ? (
             <BrandIcon name={c.icon} />
           ) : (
@@ -51,7 +52,7 @@ const glyphs: Record<string, { color: string; path: string }> = {
               <path d={glyphs[c.icon]?.path} />
             </svg>
           )}
-          {c.name}
+          <span>{c.name}</span>
         </li>
       ))
     }
@@ -94,5 +95,39 @@ const glyphs: Record<string, { color: string; path: string }> = {
   li svg {
     width: 19px;
     height: 19px;
+  }
+
+  [data-variant="grid"] {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+  }
+
+  [data-variant="tight"] {
+    flex-wrap: nowrap;
+    gap: 6px;
+  }
+
+  [data-variant="tight"] li {
+    gap: 6px;
+    min-height: 36px;
+    padding: 0 10px 0 8px;
+    font-size: 12.5px;
+    white-space: nowrap;
+  }
+
+  [data-variant="logos"] li {
+    justify-content: center;
+    width: 52px;
+    height: 52px;
+    padding: 0;
+  }
+
+  [data-variant="logos"] li :global(svg) {
+    width: 24px;
+    height: 24px;
+  }
+
+  [data-variant="logos"] span {
+    display: none;
   }
 </style>
