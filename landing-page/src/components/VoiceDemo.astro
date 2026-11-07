@@ -54,9 +54,6 @@ const words = t("scene.spoken").split(" ");
     margin: 0 -0.1em;
     padding: 0 0.1em;
     border-radius: 4px;
-    transition:
-      color 0.16s ease,
-      background 0.16s ease;
   }
 
   .spoken :global(span.now) {
@@ -102,11 +99,5 @@ const words = t("scene.spoken").split(" ");
     height: 12px;
     border-radius: 3px;
     background: white;
-  }
-
-  @media (prefers-reduced-motion: reduce) {
-    .spoken span {
-      transition: none;
-    }
   }
 </style>

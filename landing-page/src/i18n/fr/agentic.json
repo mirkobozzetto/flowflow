@@ -7,11 +7,11 @@
   "videoLabel": "Hermes transforme la photo d'un tableau en plan, sur un iPhone",
   "actions": [
     {
-      "you": "« Fais-moi un plan avec cette photo »",
+      "you": "« Fais-moi un plan avec cette photo »",
       "then": "photos, fichiers et notes partent à ton Hermes. Tu suis son travail en direct."
     },
     {
-      "you": "« /compte-rendu-reunion »",
+      "you": "« /compte-rendu-reunion »",
       "then": "tous ses skills sont à un slash, directement dans la conversation."
     },
     {

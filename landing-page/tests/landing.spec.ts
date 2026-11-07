@@ -124,9 +124,9 @@ for (const copy of PAGES) {
         SOFT_EDGE,
       );
       const offer = page.locator('.offer[data-tone="white"]');
-      expect(
-        await offer.evaluate((e) => getComputedStyle(e).boxShadow),
-      ).toBe(`${SOFT_EDGE} 0px 0px 0px 1px`);
+      expect(await offer.evaluate((e) => getComputedStyle(e).boxShadow)).toBe(
+        `${SOFT_EDGE} 0px 0px 0px 1px`,
+      );
     });
 
     test("does not lift a button on hover", async ({ page, isMobile }) => {
