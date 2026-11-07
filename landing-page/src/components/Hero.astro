@@ -1,8 +1,8 @@
 ---
 import { Image } from "astro:assets";
-import HeroStage from "./HeroStage.astro";
+import CtaButtons from "./CtaButtons.astro";
+import ParallaxScene from "./ParallaxScene.astro";
 import { useTranslations } from "../lib/i18n";
-import { macDownloadUrl, appStoreUrl, externalLinkAttrs } from "../lib/links";
 import logo from "../assets/logo.png";
 
 interface Props {
@@ -11,21 +11,19 @@ interface Props {
 
 const { lang } = Astro.props;
 const t = useTranslations(lang, "hero");
-const storeUrl = appStoreUrl(lang);
 ---
 
-<header class="hero pt-26 text-center relative">
+<header class="hero pt-29 text-center relative">
   <div class="container">
     <Image
-      class="hero-logo reveal in w-32 h-32 rounded-4xl mx-auto block relative shadow-[0_22px_44px_-16px_color-mix(in_srgb,var(--orange)_45%,transparent),0_4px_14px_rgba(22,19,17,0.12),inset_0_0_0_1px_rgba(255,255,255,0.4)]"
+      class="hero-logo w-44 h-44 rounded-[44px] mx-auto block relative shadow-[0_30px_60px_-18px_rgba(0,0,0,0.22),0_4px_14px_rgba(22,19,17,0.12),inset_0_0_0_1px_rgba(255,255,255,0.4)]"
       src={logo}
       alt={t("hero.logoAlt")}
       width={176}
       height={176}
     />
     <h1
-      class="reveal mt-5 text-[clamp(50px,8.4vw,104px)] leading-[0.99] tracking-[-0.035em] font-[760] text-ink"
-      data-d="1"
+      class="mt-6.5 text-[clamp(50px,8.4vw,104px)] leading-[0.99] tracking-[-0.035em] font-[760] text-ink"
     >
       {t("hero.h1Lead")}{" "}
       <em class="font-serif italic font-normal text-orange-dark">
@@ -33,23 +31,18 @@ const storeUrl = appStoreUrl(lang);
       </em>
     </h1>
     <p
-      class="reveal text-[clamp(15px,1.8vw,17.5px)] text-stone-500 max-w-150 mx-auto mt-4.5"
-      data-d="2"
+      class="text-[clamp(15px,1.8vw,17.5px)] text-stone-500 max-w-150 mx-auto mt-4.5"
     >
-      {t("hero.subLead")} <b class="mark text-ink font-semibold">{t("hero.subStrong")}</b>
-      <span class="block mt-1">{t("hero.line")}</span>
+      {t("hero.subLead")} <b class="text-ink font-semibold">{t("hero.subStrong")}</b>
     </p>
-    <div class="hero-ctas reveal" data-d="3">
-      <a class="btn-primary" href={macDownloadUrl} {...externalLinkAttrs}>
-        {t("hero.ctaPrimary")}
-      </a>
-      <a class="btn-ghost" href={storeUrl} {...externalLinkAttrs}>
-        {t("hero.ctaGhost")}
-      </a>
-    </div>
+    <CtaButtons
+      lang={lang}
+      primary={t("hero.ctaPrimary")}
+      ghost={t("hero.ctaGhost")}
+    />
   </div>
 
-  <HeroStage lang={lang} />
+  <ParallaxScene lang={lang} />
 </header>
 
 <style>

@@ -15,22 +15,10 @@
   },
   "offline": {
     "title": "Hors-ligne, vraiment",
-    "body": "Transcription locale avec Whisper, du tiny au large-v3-turbo. Mode avion compris, l'audio ne sort jamais.",
-    "models": ["tiny", "base", "small", "medium", "large-v3-turbo"]
+    "body": "Transcription locale avec Whisper, du tiny au large-v3-turbo. Mode avion compris, l'audio ne sort jamais."
   },
   "keyboard": {
     "title": "Clavier-first sur Mac",
     "body": "Navigation instantanée, tout au clavier."
-  },
-  "reminders": {
-    "title": "Dis-le, c'est dans ton agenda",
-    "body": "« Appeler la banque demain à 10 h » devient un rappel, confirmé d'un toucher sur iPhone.",
-    "chip": "Appeler la banque",
-    "when": "demain, 10:00"
-  },
-  "models": {
-    "title": "Ton IA, tes règles",
-    "body": "Claude ou OpenAI avec ta clé, ou ton abonnement ChatGPT. Tu choisis le modèle.",
-    "chips": ["Claude", "OpenAI", "ChatGPT", "Whisper"]
   }
 }

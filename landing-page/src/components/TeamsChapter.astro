@@ -1,5 +1,5 @@
 ---
-import Ticket from "./Ticket.astro";
+import Offer from "./Offer.astro";
 import { section } from "../lib/i18n";
 import { appStoreUrl, bookingUrl, externalLinkAttrs } from "../lib/links";
 
@@ -12,53 +12,47 @@ const t = section(lang, "teams");
 ---
 
 <section id="teams" class="container pt-35">
-  <div class="fig reveal justify-center">{t.fig}</div>
   <h2
-    class="reveal mx-auto mt-4 max-w-200 text-center text-[clamp(34px,5.4vw,66px)] leading-[1.02] tracking-[-0.034em]"
-    data-d="1"
+    class="mx-auto max-w-200 text-center text-[clamp(34px,5.4vw,66px)] leading-[1.02] tracking-[-0.034em]"
   >
     {t.h2Lead}<br /><em class="font-serif font-normal italic text-orange-dark"
       >{t.h2Accent}</em
     >
   </h2>
   <p
-    class="reveal mx-auto mt-5 max-w-150 text-center text-[17px] text-stone-500"
-    data-d="2"
+    class="mx-auto mt-5 max-w-150 text-center text-[17px]"
   >
     {t.sub}
   </p>
 
-  <div class="tickets mt-14 grid grid-cols-2 gap-7 max-[860px]:grid-cols-1">
-    <Ticket
-      tone="paper"
+  <div class="mt-14 grid grid-cols-2 gap-7 max-[860px]:grid-cols-1">
+    <Offer
+      tone="white"
       title={t.solo.title}
       body={t.solo.body}
       points={t.solo.points}
-      stub={t.solo.stub}
       cta={t.solo.cta}
       href={appStoreUrl(lang)}
       external
     />
-    <Ticket
+    <Offer
       tone="orange"
       title={t.guided.title}
       body={t.guided.body}
       points={t.guided.points}
-      stub={t.guided.stub}
       cta={t.guided.cta}
       href={bookingUrl}
-      delay="1"
     />
   </div>
 
   <div
-    class="reveal mt-12 flex flex-wrap items-center justify-center gap-x-6 gap-y-3"
+    class="mt-12 flex flex-wrap items-center justify-center gap-x-6 gap-y-3"
   >
     <div class="text-right max-[560px]:text-center">
       <p class="text-[20px] font-semibold tracking-[-0.015em] text-ink">
         {t.unsureTitle}
       </p>
-      <p class="text-[14.5px] text-stone-500">{t.unsureText}</p>
+      <p class="text-[14.5px]">{t.unsureText}</p>
     </div>
     <svg class="arrow max-[560px]:hidden" viewBox="0 0 84 38" aria-hidden="true">
       <path d="M3 26C24 6 52 4 76 19"></path>
@@ -74,7 +68,7 @@ const t = section(lang, "teams");
   .arrow {
     width: 74px;
     fill: none;
-    stroke: var(--ink);
+    stroke: black;
     stroke-width: 1.8;
     stroke-linecap: round;
     stroke-linejoin: round;

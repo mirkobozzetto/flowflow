@@ -1,44 +1,30 @@
 {
-  "marquee": {
-    "items": [
-      "réunions",
-      "idées de pitch",
-      "courses",
-      "brainstorms",
-      "rêves notés à 3h",
-      "trajets en voiture",
-      "standups",
-      "listes infinies"
-    ]
-  },
   "showcase": {
-    "fig": "une journée avec FlowFlow",
-    "h2Lead": "Moins d'administratif,",
-    "h2Accent": "plus de temps pour ce qui te paie",
+    "fig": "de la voix à la mémoire",
     "panels": [
       {
-        "time": "9 h 40",
-        "title": "En sortant du rendez-vous",
-        "text": "Un toucher, et tu dictes sur le parking. Le texte arrive propre, titré et rangé.",
+        "num": "01",
+        "title": "Parle",
+        "text": "Un tap. Waveform en direct, Dynamic Island, ça continue téléphone verrouillé.",
         "clip": "dictate"
       },
       {
-        "time": "11 h 00",
-        "title": "La réunion, déjà résumée",
-        "text": "Chapitres, points clés, décisions et actions, chacun avec le moment où il a été dit.",
+        "num": "02",
+        "title": "Transcrit",
+        "text": "Cloud, ou 100% local avec Whisper - mode avion compris. Les \"euh\" disparaissent.",
         "clip": "meeting"
       },
       {
-        "time": "14 h 15",
-        "title": "Avant d'appeler le client",
-        "text": "« On avait dit quoi ? » Tes notes répondent et citent leurs sources. Un toucher ouvre la note.",
-        "clip": "answer"
+        "num": "03",
+        "title": "Range",
+        "text": "Titre, tags, thème : classé pendant que tu passes à autre chose.",
+        "clip": "themes"
       },
       {
-        "time": "19 h 00",
-        "title": "Ton agent prend le relais",
-        "text": "Une photo du tableau, et ton propre Hermes en fait un plan pendant que tu rentres.",
-        "clip": "agent"
+        "num": "04",
+        "title": "Retrouve",
+        "text": "\"C'était quoi cette idée de pricing ?\" - réponse sourcée, notes cliquables.",
+        "clip": "answer"
       }
     ]
   }

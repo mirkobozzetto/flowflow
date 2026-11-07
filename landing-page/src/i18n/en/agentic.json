@@ -1,5 +1,4 @@
 {
-  "fig": "where it gets serious",
   "h2Lead": "From word",
   "h2Accent": "to action",
   "subLead": "Link your own",
@@ -24,8 +23,33 @@
       "then": "scheduled tasks: see them, run them, create them."
     }
   ],
-  "needsLabel": "What you need",
-  "needs": ["Your Hermes, on your machine", "Tailscale", "One QR code to scan"],
   "cta": "Link my Hermes",
-  "note": "Hermes is your own agent, it does not come with FlowFlow. Its notifications need the premium plan."
+  "note": "Hermes is your own agent, hosted by you with Tailscale.",
+  "connectorsLabel": "Connectors, with the premium plan",
+  "connectors": [
+    {
+      "name": "Google Sheets",
+      "icon": "sheets"
+    },
+    {
+      "name": "Gmail",
+      "icon": "gmail"
+    },
+    {
+      "name": "Google Calendar",
+      "icon": "calendar"
+    },
+    {
+      "name": "Google Drive",
+      "icon": "drive"
+    },
+    {
+      "name": "Google Docs",
+      "icon": "docs"
+    },
+    {
+      "name": "GitHub",
+      "icon": "github"
+    }
+  ]
 }

@@ -1,0 +1,145 @@
+---
+import { Image } from "astro:assets";
+import Clip from "./Clip.astro";
+import Phone from "./Phone.astro";
+import { useTranslations } from "../lib/i18n";
+import logo from "../assets/logo.png";
+
+interface Props {
+  lang: string;
+}
+
+const { lang } = Astro.props;
+const t = useTranslations(lang, "hero");
+---
+
+<div class="container stage">
+  <div class="scene" id="scene">
+    <div class="mac">
+      <div class="mac-bar">
+        <span class="dot" style="background:#ff5f57"></span>
+        <span class="dot" style="background:#febc2e"></span>
+        <span class="dot" style="background:#28c840"></span>
+        <span class="mac-title">{t("scene.macTitle")}</span>
+      </div>
+      <div class="mac-screen">
+        <Image src={logo} alt="" width={96} height={96} />
+      </div>
+    </div>
+    <div class="iphone">
+      <Phone><Clip lang={lang} clip="promo" label={t("scene.videoLabel")} /></Phone>
+    </div>
+  </div>
+</div>
+
+<script>
+  import { initParallax } from "../scripts/parallax";
+  initParallax("scene");
+</script>
+
+<style>
+  .stage {
+    perspective: 1800px;
+    margin-top: 56px;
+    position: relative;
+    height: clamp(380px, 52vw, 640px);
+  }
+
+  .scene {
+    position: absolute;
+    inset: 0;
+    transform-style: preserve-3d;
+    transition: transform 0.25s cubic-bezier(0.2, 0.8, 0.2, 1);
+  }
+
+  .mac {
+    position: absolute;
+    left: 50%;
+    top: 0;
+    width: min(860px, 86vw);
+    transform: translateX(-54%) translateZ(0px) rotateX(6deg);
+    border-radius: 14px;
+    overflow: hidden;
+    background: white;
+    box-shadow:
+      0 0 0 1px rgba(0, 0, 0, 0.14),
+      inset 0 1px 0 rgba(255, 255, 255, 0.9),
+      0 2px 6px rgba(0, 0, 0, 0.08),
+      0 60px 90px -56px rgba(0, 0, 0, 0.5);
+  }
+
+  .mac-bar {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    height: 38px;
+    padding: 0 14px;
+    border-bottom: 1px solid var(--hairline);
+    background: #f6f6f7;
+  }
+
+  .dot {
+    width: 12px;
+    height: 12px;
+    border-radius: 99px;
+    box-shadow: inset 0 0 0 0.5px rgba(0, 0, 0, 0.16);
+  }
+
+  .mac-title {
+    margin: 0 auto;
+    font-size: 12.5px;
+    font-weight: 600;
+    color: black;
+    transform: translateX(-30px);
+  }
+
+  .mac-screen {
+    display: grid;
+    place-items: center;
+    aspect-ratio: 16 / 9.4;
+    background: white;
+  }
+
+  .mac-screen :global(img) {
+    border-radius: 22px;
+  }
+
+  .iphone {
+    --phone-width: clamp(150px, 17vw, 225px);
+    position: absolute;
+    right: max(2%, calc(50% - 480px));
+    bottom: -6%;
+    transform: translateZ(120px) rotateX(4deg) rotate(4deg);
+  }
+
+  @media (max-width: 680px) {
+    .stage {
+      height: auto;
+      perspective: none;
+    }
+
+    .scene {
+      position: static;
+      display: grid;
+      justify-items: center;
+      gap: 24px;
+      transform: none !important;
+    }
+
+    .mac {
+      display: none;
+    }
+
+    .iphone {
+      --phone-width: 62vw;
+      position: static;
+      transform: none;
+    }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .scene {
+      transition: none;
+    }
+  }
+</style>

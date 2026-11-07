@@ -1,21 +1,23 @@
 :root {
-  --warm-white: #fdfcfb;
-  --stone-50: #fafaf9;
+  --warm-white: #ffffff;
+  --stone-50: #ffffff;
   --stone-100: #f5f5f4;
   --stone-200: #e7e5e4;
   --stone-300: #d6d3d1;
-  --stone-400: #a8a29e;
-  --stone-500: #78716c;
-  --stone-600: #57534e;
-  --stone-700: #44403c;
-  --stone-900: #1c1917;
+  --stone-400: #000000;
+  --stone-500: #000000;
+  --stone-600: #000000;
+  --stone-700: #000000;
+  --stone-900: #000000;
   --ink: #000000;
   --ink-2: #141414;
-  --orange: #ff5c00;
-  --orange-bright: #ff7a00;
-  --orange-dark: #ee4b00;
-  --orange-50: #fff1e6;
-  --orange-100: #ffd9bd;
+  --orange: oklch(0.6 0.22 50);
+  --orange-bright: oklch(0.68 0.21 50);
+  --orange-dark: #ff5c00;
+  --orange-50: oklch(0.97 0.04 50);
+  --orange-100: oklch(0.92 0.07 50);
+  --gradient: linear-gradient(180deg, var(--orange-bright), var(--orange));
+  --hairline: rgba(0, 0, 0, 0.09);
   --serif: "Instrument Serif", Georgia, serif;
   --sans: "Clash Grotesk", -apple-system, BlinkMacSystemFont, sans-serif;
 }

@@ -12,7 +12,6 @@
     "h1Accent": "voix",
     "subLead": "Parle,",
     "subStrong": "FlowFlow exécute",
-    "line": "Tes réunions, tes idées et tes suivis : écrits, rangés et prêts à servir.",
     "ctaPrimary": "Télécharger pour Mac",
     "ctaGhost": "App Store"
   },
@@ -54,5 +53,9 @@
       "source": "2 sources",
       "reminder": "Rappel · jeudi 9 h"
     }
+  },
+  "scene": {
+    "macTitle": "FlowFlow",
+    "videoLabel": "FlowFlow en vidéo, sur un iPhone"
   }
 }

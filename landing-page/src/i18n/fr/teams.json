@@ -1,12 +1,15 @@
 {
-  "fig": "à plusieurs",
   "h2Lead": "Toi, ton équipe, ton agent.",
   "h2Accent": "Un seul espace.",
   "sub": "Un espace réunit des notes, les personnes que tu invites et ton Hermes, avec un accès limité à cet espace et révocable.",
   "solo": {
     "title": "Tu testes seul",
     "body": "L'app, tes clés, ton rythme. Sans compte, et le code est ouvert.",
-    "points": ["Gratuite pour l'instant", "iPhone et Mac", "Open source"],
+    "points": [
+      "Gratuite pour l'instant",
+      "iPhone et Mac",
+      "Open source"
+    ],
     "cta": "Télécharger",
     "stub": "Sans compte"
   },

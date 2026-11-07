@@ -1,5 +1,4 @@
 {
-  "fig": "là où ça devient sérieux",
   "h2Lead": "Du dire",
   "h2Accent": "au faire",
   "subLead": "Relie ton propre agent",
@@ -24,8 +23,33 @@
       "then": "tâches planifiées : tu les vois, tu les lances, tu en crées."
     }
   ],
-  "needsLabel": "Il te faut",
-  "needs": ["Ton Hermes, sur ta machine", "Tailscale", "Un QR code à scanner"],
   "cta": "Relier mon Hermes",
-  "note": "Hermes est ton agent, il n'est pas inclus dans FlowFlow. Ses notifications demandent l'offre premium."
+  "note": "Hermes est ton agent, à toi d'héberger avec Tailscale.",
+  "connectorsLabel": "Connecteurs, avec l'offre premium",
+  "connectors": [
+    {
+      "name": "Google Sheets",
+      "icon": "sheets"
+    },
+    {
+      "name": "Gmail",
+      "icon": "gmail"
+    },
+    {
+      "name": "Google Agenda",
+      "icon": "calendar"
+    },
+    {
+      "name": "Google Drive",
+      "icon": "drive"
+    },
+    {
+      "name": "Google Docs",
+      "icon": "docs"
+    },
+    {
+      "name": "GitHub",
+      "icon": "github"
+    }
+  ]
 }

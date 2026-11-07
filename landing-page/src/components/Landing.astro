@@ -1,13 +1,11 @@
 ---
 import Nav from "./Nav.astro";
 import Hero from "./Hero.astro";
-import Marquee from "./Marquee.astro";
 import HorizontalShowcase from "./HorizontalShowcase.astro";
 import AgenticChapter from "./AgenticChapter.astro";
 import TeamsChapter from "./TeamsChapter.astro";
 import Bento from "./Bento.astro";
 import Trust from "./Trust.astro";
-import Letter from "./Letter.astro";
 import Faq from "./Faq.astro";
 import Finale from "./Finale.astro";
 import Footer from "./Footer.astro";
@@ -19,24 +17,16 @@ interface Props {
 
 const { lang } = Astro.props;
 const showcase = section(lang, "showcase");
-const { marquee, showcase: steps } = showcase;
+const { showcase: steps } = showcase;
 ---
 
 <Nav lang={lang} />
 <Hero lang={lang} />
-<Marquee items={marquee.items} />
-<HorizontalShowcase
-  lang={lang}
-  fig={steps.fig}
-  h2Lead={steps.h2Lead}
-  h2Accent={steps.h2Accent}
-  panels={steps.panels}
-/>
+<HorizontalShowcase lang={lang} label={steps.fig} panels={steps.panels} />
 <AgenticChapter lang={lang} />
 <TeamsChapter lang={lang} />
 <Bento lang={lang} />
 <Trust lang={lang} />
-<Letter lang={lang} />
 <Faq lang={lang} />
 <Finale lang={lang} />
 <Footer lang={lang} />

@@ -18,7 +18,7 @@ const onBeta = Astro.url.pathname.replace(/\/$/, "").endsWith("/beta");
 
 <nav class="fixed top-0 left-0 right-0 z-90 px-3">
   <div
-    class="nav-inner relative flex items-center justify-between max-w-295 mx-auto mt-3.5 py-1.75 pr-2 pl-4 max-lg:pr-1 border border-stone-200 rounded-2xl"
+    class="nav-inner relative flex items-center justify-between max-w-295 mx-auto mt-3.5 py-1.75 pr-2 pl-4 max-lg:pr-1 border border-[rgba(0,0,0,0.09)] rounded-2xl"
   >
     <a
       class="brand flex items-center gap-2.5 font-bold text-[15px] text-ink no-underline"
@@ -73,7 +73,7 @@ const onBeta = Astro.url.pathname.replace(/\/$/, "").endsWith("/beta");
     </div>
 
     <div
-      class="mobile-panel lg:hidden absolute left-0 right-0 flex flex-col gap-1 p-3 border border-stone-200 rounded-2xl"
+      class="mobile-panel lg:hidden absolute left-0 right-0 flex flex-col gap-1 p-3 border border-[rgba(0,0,0,0.09)] rounded-2xl"
       id="mobile-menu"
       data-open="false"
     >
@@ -123,7 +123,7 @@ const onBeta = Astro.url.pathname.replace(/\/$/, "").endsWith("/beta");
   .nav-link {
     font-size: 13.5px;
     font-weight: 500;
-    color: var(--stone-500);
+    color: black;
     text-decoration: none;
     padding: 8px 12px;
     border-radius: 9px;
@@ -141,15 +141,21 @@ const onBeta = Astro.url.pathname.replace(/\/$/, "").endsWith("/beta");
     font-size: 13.5px;
     font-weight: 600;
     color: white;
-    background: var(--ink);
+    background: var(--gradient);
     padding: 9px 18px;
     border-radius: 10px;
     text-decoration: none;
     text-align: center;
-    transition: 0.15s;
+    box-shadow:
+      inset 0 1px 0 rgba(255, 255, 255, 0.34),
+      0 0 0 1px color-mix(in srgb, var(--orange) 82%, black);
+    transition:
+      filter 0.2s ease,
+      transform 0.16s ease;
   }
   .nav-cta:hover {
-    opacity: 0.85;
+    filter: brightness(1.05);
+    transform: translateY(-1px);
   }
   .mobile-panel {
     top: calc(100% + 8px);

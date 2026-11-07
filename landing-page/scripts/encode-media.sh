@@ -58,6 +58,9 @@ for lang in en fr; do
     1:4.4:1.4 4.4:9:1
   poster "$out/answer.mp4" 3.8
 
+  cut_clip "$CLIPS/$lang/themes.mp4" "$out/themes.mp4" 2.4:6.4:1.3 6.4:10:1.3
+  poster "$out/themes.mp4" 2
+
   cut_clip "$CLIPS/$lang/hermes.mp4" "$out/agent.mp4" \
     1:4.2:1.3 4.2:12:1.6
   poster "$out/agent.mp4" 6.4

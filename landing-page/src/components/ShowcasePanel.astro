@@ -4,38 +4,38 @@ import Phone from "./Phone.astro";
 
 interface Props {
   lang: string;
-  time: string;
+  num: string;
   title: string;
   text: string;
   clip: string;
 }
 
-const { lang, time, title, text, clip } = Astro.props;
+const { lang, num, title, text, clip } = Astro.props;
 ---
 
 <article
-  class="panel flex w-[min(620px,84vw)] shrink-0 flex-row items-center gap-7 rounded-3xl border border-stone-200 bg-stone-50 p-7.5 max-[560px]:flex-col max-[560px]:items-start"
+  class="panel fine flex w-[min(640px,84vw)] shrink-0 flex-row items-center gap-7 rounded-3xl p-7.5 max-[560px]:flex-col max-[560px]:items-start"
 >
-  <div class="flex flex-1 flex-col gap-3">
-    <div class="font-serif text-[46px] italic leading-none text-orange tabular-nums">
-      {time}
+  <div class="flex flex-1 flex-col gap-3.5">
+    <div class="font-serif text-[58px] italic leading-none text-orange-dark">
+      {num}
     </div>
-    <h3 class="text-[27px] leading-[1.1] tracking-[-0.02em]">{title}</h3>
-    <p class="max-w-107.5 text-[15px] text-stone-500">{text}</p>
+    <h3 class="text-[27px] tracking-[-0.02em]">{title}</h3>
+    <p class="max-w-107.5 text-[14.5px]">{text}</p>
   </div>
-  <Phone class="panel-phone max-[560px]:self-center">
-    <Clip lang={lang} clip={clip} />
+  <Phone class="max-[560px]:self-center">
+    <Clip lang={lang} clip={clip} label={title} />
   </Phone>
 </article>
 
 <style>
   .panel {
-    --phone-width: clamp(170px, 15vw, 206px);
+    --phone-width: clamp(150px, 16vw, 196px);
   }
 
   @media (max-width: 560px) {
     .panel {
-      --phone-width: 230px;
+      --phone-width: 62vw;
     }
   }
 </style>

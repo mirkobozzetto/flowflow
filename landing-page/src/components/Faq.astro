@@ -11,9 +11,8 @@ const t = section(lang, "faq");
 ---
 
 <section id="faq" class="container pt-35">
-  <div class="fig reveal">{t.fig}</div>
-  <h2 class="reveal mt-4 text-[clamp(30px,4.4vw,50px)] tracking-[-0.027em]" data-d="1">{t.title}</h2>
-  <div class="reveal mx-auto mt-11 max-w-190" data-d="2">
+  <h2 class="text-[clamp(30px,4.4vw,50px)] tracking-[-0.027em]">{t.title}</h2>
+  <div class="mx-auto mt-11 max-w-190">
     {t.items.map((item) => <FaqItem question={item.q} answer={item.a} />)}
   </div>
 </section>

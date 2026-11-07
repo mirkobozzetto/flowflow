@@ -10,17 +10,15 @@ const t = section(lang, "trust");
 ---
 
 <section id="trust" class="container pt-35">
-  <div class="fig reveal">{t.fig}</div>
   <h2
-    class="reveal mt-4 text-[clamp(30px,4.4vw,50px)] leading-[1.04] tracking-[-0.027em]"
-    data-d="1"
+    class="text-[clamp(30px,4.4vw,50px)] leading-[1.04] tracking-[-0.027em]"
   >
     {t.h2Lead}<br /><em class="font-serif font-normal italic text-orange-dark"
       >{t.h2Accent}</em
     >
   </h2>
 
-  <div class="split reveal mt-10">
+  <div class="split mt-10">
     <div class="stay">
       <h3>{t.stayTitle}</h3>
       <ul>{t.stay.map((item) => <li>{item}</li>)}</ul>
@@ -39,9 +37,9 @@ const t = section(lang, "trust");
       </ul>
     </div>
   </div>
-  <p class="reveal mt-4 text-[14px] text-stone-500">{t.duty}</p>
+  <p class="mt-4 text-[14px]">{t.duty}</p>
 
-  <div class="cost reveal mt-20">
+  <div class="cost mt-20">
     <div>
       <h3 class="text-[clamp(26px,3vw,34px)] tracking-[-0.022em] text-ink">
         {t.costTitle}
@@ -68,7 +66,9 @@ const t = section(lang, "trust");
     grid-template-columns: 1fr 1fr;
     overflow: hidden;
     border-radius: 24px;
-    border: 1px solid var(--stone-200);
+    box-shadow:
+      0 0 0 1px var(--hairline),
+      0 18px 36px -30px rgba(0, 0, 0, 0.28);
   }
 
   .stay,
@@ -77,13 +77,14 @@ const t = section(lang, "trust");
   }
 
   .stay {
-    background: var(--stone-50);
-    color: var(--stone-700);
+    background: white;
+    color: black;
   }
 
   .leave {
-    background: var(--ink);
-    color: var(--stone-300);
+    background: var(--gradient);
+    color: white;
+    font-weight: 600;
   }
 
   .split h3 {
@@ -93,7 +94,7 @@ const t = section(lang, "trust");
   }
 
   .leave h3 {
-    color: var(--warm-white);
+    color: white;
   }
 
   .split ul {
@@ -113,8 +114,8 @@ const t = section(lang, "trust");
   }
 
   .leave b {
-    font-weight: 500;
-    color: var(--orange-bright);
+    font-weight: 700;
+    color: white;
   }
 
   .cost {

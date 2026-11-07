@@ -1,44 +1,30 @@
 {
-  "marquee": {
-    "items": [
-      "meetings",
-      "pitch ideas",
-      "groceries",
-      "brainstorms",
-      "3am dreams",
-      "car rides",
-      "standups",
-      "endless lists"
-    ]
-  },
   "showcase": {
-    "fig": "a day with FlowFlow",
-    "h2Lead": "Less admin,",
-    "h2Accent": "more time for the work that pays",
+    "fig": "from voice to memory",
     "panels": [
       {
-        "time": "9:40",
-        "title": "Walking out of the meeting",
-        "text": "One tap and you dictate in the car park. The text lands clean, titled and filed.",
+        "num": "01",
+        "title": "Speak",
+        "text": "One tap. Live waveform, Dynamic Island, it keeps going with the phone locked.",
         "clip": "dictate"
       },
       {
-        "time": "11:00",
-        "title": "The meeting, already summed up",
-        "text": "Chapters, key points, decisions and actions, each with the moment it was said.",
+        "num": "02",
+        "title": "Transcribe",
+        "text": "Cloud, or 100% local with Whisper - airplane mode included. The \"ums\" vanish.",
         "clip": "meeting"
       },
       {
-        "time": "14:15",
-        "title": "Before you call the client",
-        "text": "\"What did we agree?\" Your notes answer and cite their sources. One tap opens the note.",
-        "clip": "answer"
+        "num": "03",
+        "title": "Organize",
+        "text": "Title, tags, theme: filed away while you move on to the next thing.",
+        "clip": "themes"
       },
       {
-        "time": "19:00",
-        "title": "Your agent takes over",
-        "text": "A photo of the whiteboard, and your own Hermes turns it into a plan while you head home.",
-        "clip": "agent"
+        "num": "04",
+        "title": "Recall",
+        "text": "\"What was that pricing idea again?\" - a sourced answer, clickable notes.",
+        "clip": "answer"
       }
     ]
   }

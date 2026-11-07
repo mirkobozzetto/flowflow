@@ -12,7 +12,6 @@
     "h1Accent": "away",
     "subLead": "Speak,",
     "subStrong": "FlowFlow runs it",
-    "line": "Your meetings, ideas and follow-ups: written, sorted and ready to use.",
     "ctaPrimary": "Download for Mac",
     "ctaGhost": "App Store"
   },
@@ -54,5 +53,9 @@
       "source": "2 sources",
       "reminder": "Reminder · Thu 9 am"
     }
+  },
+  "scene": {
+    "macTitle": "FlowFlow",
+    "videoLabel": "FlowFlow on an iPhone, in video"
   }
 }
