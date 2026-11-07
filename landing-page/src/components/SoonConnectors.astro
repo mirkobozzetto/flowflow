@@ -1,0 +1,82 @@
+---
+interface Props {
+  label: string;
+}
+
+const { label } = Astro.props;
+
+// No logo file for Sellsy, Axonaut or Pennylane yet: they stay in text.
+const TOOLS = [
+  { name: "Notion", logo: "notion" },
+  { name: "Slack", logo: "slack" },
+  { name: "HubSpot", logo: "hubspot" },
+  { name: "Outlook", logo: "outlook" },
+  { name: "Teams", logo: "teams" },
+  { name: "OneDrive", logo: "onedrive" },
+  { name: "Sellsy" },
+  { name: "Axonaut" },
+  { name: "Pennylane" },
+  { name: "Zapier", logo: "zapier" },
+  { name: "Make", logo: "make" },
+  { name: "n8n", logo: "n8n" },
+];
+---
+
+<div class="mt-7">
+  <p class="soon-label">{label}</p>
+  <ul class="soon">
+    {
+      TOOLS.map((tool) => (
+        <li>
+          {tool.logo && (
+            <img src={`/logos/${tool.logo}.svg`} alt="" width="16" height="16" />
+          )}
+          {tool.name}
+        </li>
+      ))
+    }
+  </ul>
+</div>
+
+<style>
+  .soon-label {
+    margin-bottom: 12px;
+    font-size: 17px;
+    font-weight: 700;
+    color: white;
+  }
+
+  .soon {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 7px;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+  }
+
+  li {
+    display: flex;
+    align-items: center;
+    gap: 7px;
+    min-height: 36px;
+    padding: 0 11px;
+    border-radius: 10px;
+    background: rgba(255, 255, 255, 0.92);
+    color: black;
+    font-size: 13.5px;
+    font-weight: 600;
+  }
+
+  img {
+    width: 16px;
+    height: 16px;
+    object-fit: contain;
+  }
+
+  @media (max-width: 640px) {
+    .soon {
+      grid-template-columns: repeat(3, 1fr);
+    }
+  }
+</style>

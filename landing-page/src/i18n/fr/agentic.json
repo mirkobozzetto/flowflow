@@ -26,6 +26,7 @@
   "cta": "Relier mon Hermes",
   "note": "Hermes est ton agent, à toi d'héberger avec Tailscale.",
   "connectorsLabel": "Connecteurs, avec l'offre premium",
+  "soonLabel": "À venir",
   "connectors": [
     {
       "name": "Google Sheets",

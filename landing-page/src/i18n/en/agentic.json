@@ -26,6 +26,7 @@
   "cta": "Link my Hermes",
   "note": "Hermes is your own agent, hosted by you with Tailscale.",
   "connectorsLabel": "Connectors, with the premium plan",
+  "soonLabel": "Coming next",
   "connectors": [
     {
       "name": "Google Sheets",

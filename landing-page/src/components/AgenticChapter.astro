@@ -1,6 +1,7 @@
 ---
 import ActionCard from "./ActionCard.astro";
 import ConnectorChips from "./ConnectorChips.astro";
+import SoonConnectors from "./SoonConnectors.astro";
 import Clip from "./Clip.astro";
 import Phone from "./Phone.astro";
 import { section } from "../lib/i18n";
@@ -40,7 +41,12 @@ const t = section(lang, "agentic");
         }
       </div>
 
-      <ConnectorChips label={t.connectorsLabel} connectors={t.connectors} />
+      <ConnectorChips
+        label={t.connectorsLabel}
+        connectors={t.connectors}
+        variant="grid"
+      />
+      <SoonConnectors label={t.soonLabel} />
 
       <div class="mt-8 flex flex-wrap items-center gap-x-5 gap-y-3">
         <a class="btn-white" href={hermesUrl}>{t.cta}</a>
