@@ -1,0 +1,503 @@
+---
+import Clip from "../../components/Clip.astro";
+import Phone from "../../components/Phone.astro";
+import StageVideo from "../../components/StageVideo.astro";
+import Fonts from "../../components/propositions/Fonts.astro";
+import { appStoreUrl, bookingUrl, macDownloadUrl } from "../../lib/links";
+import { moments, offers, trust } from "./_copy";
+
+const store = appStoreUrl("fr");
+---
+
+<!doctype html>
+<html lang="fr">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="robots" content="noindex,nofollow" />
+    <title>Proposition - La journée</title>
+    <Fonts />
+  </head>
+  <body data-hour="hero">
+    <nav>
+      <a class="brand" href="/fr/"
+        ><img src="/brand/mascot.webp" alt="" width="34" height="34" />FlowFlow</a
+      >
+      <span class="clock" data-clock>7:30</span>
+      <a class="nav-cta" href={store}>Télécharger</a>
+    </nav>
+
+    <div class="stage" data-stage data-lang="fr">
+      <div class="device" data-device data-format="story">
+        <Phone>
+          <StageVideo lang="fr" />
+        </Phone>
+      </div>
+    </div>
+
+    <main>
+      <section class="ch hero" data-chapter="hero" data-clock-value="7:30" data-clip="promo">
+        <h1><span>À portée</span><span>de voix</span></h1>
+        <div class="hero-foot">
+          <p>Parle, FlowFlow exécute.</p>
+          <div class="ctas">
+            <a class="btn" href={store}>App Store</a>
+            <a class="btn ghost" href={macDownloadUrl}>Mac</a>
+          </div>
+        </div>
+        <img class="peek" src="/brand/mascot.webp" alt="" width="760" height="760" />
+        <Phone class="inline"><Clip lang="fr" clip="promo" /></Phone>
+      </section>
+
+      {
+        moments.map((m) => (
+          <section
+            class="ch"
+            data-chapter={m.id}
+            data-clock-value={m.hour}
+            data-clip={m.clip}
+          >
+            <div class="big" aria-hidden="true">{m.hour}</div>
+            <div class="said">
+              <p class="label">{m.label}</p>
+              <h2>« {m.said} »</h2>
+            </div>
+            <p class="does">{m.does}</p>
+            <Phone class="inline"><Clip lang="fr" clip={m.clip} /></Phone>
+          </section>
+        ))
+      }
+
+      <section class="after" data-chapter="after" data-clock-value="20:00">
+        <h2>{offers.title}</h2>
+        <p class="lead">{offers.text}</p>
+        <div class="pair">
+          <div>
+            <h3>{offers.solo.name}</h3>
+            <p>{offers.solo.text}</p>
+            <a class="btn" href={store}>{offers.solo.cta}</a>
+            <small>{offers.solo.stub}</small>
+          </div>
+          <div>
+            <h3>{offers.guided.name}</h3>
+            <p>{offers.guided.text}</p>
+            <a class="btn" href={bookingUrl}>{offers.guided.cta}</a>
+            <small>{offers.guided.stub}</small>
+          </div>
+        </div>
+        <div class="facts">
+          <p>{trust.stay}</p>
+          <p>{trust.leave}</p>
+          <p>{trust.cost}</p>
+        </div>
+      </section>
+    </main>
+
+    <script>
+      const chapters = document.querySelectorAll<HTMLElement>("[data-chapter]");
+      const clock = document.querySelector<HTMLElement>("[data-clock]");
+      const video = document.querySelector<HTMLVideoElement>(
+        "[data-stage-video]",
+      );
+      const device = document.querySelector<HTMLElement>("[data-device]");
+      const sound = document.querySelector<HTMLElement>("[data-sound]");
+      let current = "promo";
+
+      const observer = new IntersectionObserver(
+        (entries) => {
+          for (const entry of entries) {
+            if (!entry.isIntersecting) continue;
+            const chapter = entry.target as HTMLElement;
+            document.body.dataset.hour = chapter.dataset.chapter;
+            if (clock) clock.textContent = chapter.dataset.clockValue ?? "";
+            const clip = chapter.dataset.clip;
+            if (!video || !clip || clip === current) continue;
+            current = clip;
+            video.poster = `/videos/fr/${clip}.webp`;
+            video.src = `/videos/fr/${clip}.mp4`;
+            video.muted = true;
+            video.play().catch(() => undefined);
+            if (device) {
+              device.dataset.format = clip === "promo" ? "story" : "screen";
+            }
+            if (sound) sound.hidden = clip !== "promo";
+          }
+        },
+        { rootMargin: "-50% 0px -50% 0px" },
+      );
+      for (const chapter of chapters) observer.observe(chapter);
+    </script>
+
+    <style is:global>
+      :root {
+        --ground: #ff5c00;
+        --ink: #000000;
+        --tint: #ff8133;
+      }
+
+      body[data-hour="matin"] {
+        --ground: #ffe500;
+        --ink: #000000;
+        --tint: #fff066;
+      }
+
+      body[data-hour="midi"] {
+        --ground: #00c2ff;
+        --ink: #000000;
+        --tint: #4dd8ff;
+      }
+
+      body[data-hour="aprem"] {
+        --ground: #1f3bff;
+        --ink: #ffffff;
+        --tint: #4a63ff;
+      }
+
+      body[data-hour="soir"] {
+        --ground: #6a00ff;
+        --ink: #ffffff;
+        --tint: #8a3dff;
+      }
+
+      body[data-hour="after"] {
+        --ground: #ff5c00;
+        --ink: #000000;
+        --tint: #ff8133;
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      html {
+        scroll-behavior: smooth;
+      }
+
+      body {
+        margin: 0;
+        background: var(--ground);
+        color: var(--ink);
+        font-family: Switzer, system-ui, sans-serif;
+        font-size: 18px;
+        line-height: 1.45;
+        -webkit-font-smoothing: antialiased;
+        transition:
+          background 0.6s ease,
+          color 0.6s ease;
+      }
+
+      h1,
+      h2,
+      h3 {
+        margin: 0;
+        font-family: "Young Serif", Georgia, serif;
+        font-weight: 400;
+        text-wrap: balance;
+      }
+
+      a {
+        color: inherit;
+      }
+
+      nav {
+        position: fixed;
+        z-index: 20;
+        inset: 0 0 auto;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 16px clamp(18px, 3vw, 36px);
+      }
+
+      .brand {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        font-weight: 700;
+        font-size: 18px;
+        text-decoration: none;
+      }
+
+      .clock {
+        font-variant-numeric: tabular-nums;
+        font-weight: 600;
+      }
+
+      .nav-cta {
+        padding: 9px 16px;
+        border-radius: 8px;
+        background: var(--ink);
+        color: var(--ground);
+        font-size: 15px;
+        font-weight: 600;
+        text-decoration: none;
+        transition:
+          background 0.6s ease,
+          color 0.6s ease;
+      }
+
+      .stage {
+        --phone-base: min(31vh, 23vw);
+        position: sticky;
+        top: 0;
+        z-index: 5;
+        display: grid;
+        place-items: center;
+        height: 100svh;
+        margin-bottom: -100svh;
+        pointer-events: none;
+      }
+
+      .device {
+        --phone-width: var(--phone-base);
+        pointer-events: auto;
+      }
+
+      .inline {
+        display: none !important;
+      }
+
+      .device[data-format="story"] {
+        --phone-width: calc(var(--phone-base) * 1.2219);
+      }
+
+      .device .phone {
+        height: calc(var(--phone-base) * 2.1722);
+        aspect-ratio: auto;
+        transition: width 0.5s cubic-bezier(0.2, 0.8, 0.2, 1);
+      }
+
+      .ch {
+        position: relative;
+        display: grid;
+        grid-template-columns: 1fr minmax(0, calc(min(31vh, 23vw) * 1.2219 + 40px)) 1fr;
+        align-items: center;
+        min-height: 100svh;
+        padding: 80px clamp(18px, 4vw, 56px);
+        overflow: clip;
+      }
+
+      .hero h1 {
+        grid-column: 1 / -1;
+        display: flex;
+        justify-content: space-between;
+        font-size: clamp(56px, 8.2vw, 150px);
+        line-height: 0.95;
+        letter-spacing: -0.03em;
+      }
+
+      .hero-foot {
+        position: absolute;
+        right: clamp(18px, 4vw, 56px);
+        bottom: 40px;
+        z-index: 6;
+        max-width: 300px;
+        text-align: right;
+      }
+
+      .hero-foot p {
+        margin: 0 0 14px;
+        font-size: 22px;
+        font-weight: 600;
+      }
+
+      .peek {
+        position: absolute;
+        left: -6vw;
+        bottom: -17vw;
+        width: 42vw;
+        max-width: 620px;
+        height: auto;
+      }
+
+      .ctas {
+        display: flex;
+        justify-content: flex-end;
+        gap: 8px;
+      }
+
+      .btn {
+        display: inline-flex;
+        align-items: center;
+        min-height: 50px;
+        padding: 0 22px;
+        border-radius: 10px;
+        background: var(--ink);
+        color: var(--ground);
+        font-weight: 600;
+        text-decoration: none;
+      }
+
+      .btn.ghost {
+        background: transparent;
+        border: 2px solid var(--ink);
+        color: var(--ink);
+      }
+
+      .big {
+        position: absolute;
+        inset: 0;
+        display: grid;
+        place-items: center;
+        font-family: "Young Serif", Georgia, serif;
+        font-size: 34vw;
+        letter-spacing: -0.04em;
+        color: var(--tint);
+        font-variant-numeric: lining-nums;
+        pointer-events: none;
+        transition: color 0.6s ease;
+      }
+
+      .said {
+        position: relative;
+        grid-column: 1;
+      }
+
+      .label {
+        margin: 0 0 12px;
+        font-weight: 600;
+      }
+
+      .said h2 {
+        font-size: clamp(30px, 3.5vw, 56px);
+        line-height: 1.06;
+        letter-spacing: -0.015em;
+      }
+
+      .does {
+        position: relative;
+        grid-column: 3;
+        justify-self: end;
+        max-width: 340px;
+        margin: 0;
+        font-size: 20px;
+      }
+
+      .after {
+        position: relative;
+        z-index: 6;
+        padding: 120px clamp(18px, 4vw, 56px) 80px;
+        background: var(--ground);
+        transition: background 0.6s ease;
+      }
+
+      .after > h2 {
+        max-width: 15ch;
+        font-size: clamp(44px, 7.4vw, 124px);
+        line-height: 0.98;
+        letter-spacing: -0.025em;
+      }
+
+      .lead {
+        max-width: 560px;
+        margin: 24px 0 0;
+        font-size: 22px;
+      }
+
+      .pair {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 2px;
+        margin-top: 56px;
+        background: var(--ink);
+        border: 2px solid var(--ink);
+      }
+
+      .pair > div {
+        padding: 32px;
+        background: var(--ground);
+        transition: background 0.6s ease;
+      }
+
+      .pair h3 {
+        font-size: 38px;
+      }
+
+      .pair small {
+        display: block;
+        margin-top: 12px;
+        font-size: 15px;
+        font-weight: 600;
+      }
+
+      .facts {
+        display: grid;
+        grid-template-columns: repeat(3, 1fr);
+        gap: 28px;
+        margin-top: 48px;
+        font-size: 16px;
+      }
+
+      .facts p {
+        margin: 0;
+      }
+
+      @media (max-width: 860px) {
+        .stage {
+          display: none;
+        }
+
+        .inline {
+          --phone-width: 62vw;
+          display: block !important;
+          justify-self: center;
+          margin-top: 28px;
+        }
+
+        .ch {
+          grid-template-columns: 1fr;
+          align-content: start;
+          padding-top: 96px;
+          padding-bottom: 40px;
+        }
+
+        .hero h1 {
+          flex-direction: column;
+          font-size: 19vw;
+        }
+
+        .hero-foot {
+          position: static;
+          grid-row: 2;
+          margin-top: 20px;
+          text-align: left;
+        }
+
+        .ctas {
+          justify-content: flex-start;
+        }
+
+        .peek {
+          display: none;
+        }
+
+        .does {
+          grid-column: 1;
+          justify-self: start;
+          margin-top: 14px;
+          font-size: 18px;
+        }
+
+        .big {
+          font-size: 58vw;
+          place-items: start center;
+          padding-top: 60px;
+        }
+
+        .pair,
+        .facts {
+          grid-template-columns: 1fr;
+        }
+      }
+
+      @media (prefers-reduced-motion: reduce) {
+        body,
+        .big,
+        .after,
+        .pair > div {
+          transition: none;
+        }
+      }
+    </style>
+  </body>
+</html>

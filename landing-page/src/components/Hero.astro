@@ -15,7 +15,6 @@ const storeUrl = appStoreUrl(lang);
 ---
 
 <header class="hero pt-26 text-center relative">
-  <div class="hero-glow"></div>
   <div class="container">
     <Image
       class="hero-logo reveal in w-32 h-32 rounded-4xl mx-auto block relative shadow-[0_22px_44px_-16px_color-mix(in_srgb,var(--orange)_45%,transparent),0_4px_14px_rgba(22,19,17,0.12),inset_0_0_0_1px_rgba(255,255,255,0.4)]"
@@ -54,21 +53,6 @@ const storeUrl = appStoreUrl(lang);
 </header>
 
 <style>
-  .hero-glow {
-    position: absolute;
-    top: -120px;
-    left: 50%;
-    transform: translateX(-50%);
-    width: 900px;
-    height: 700px;
-    pointer-events: none;
-    background: radial-gradient(
-      45% 45% at 50% 38%,
-      color-mix(in srgb, var(--orange) 16%, transparent) 0%,
-      transparent 70%
-    );
-    filter: blur(10px);
-  }
   .hero-logo {
     animation: logoFloat 5.5s ease-in-out infinite;
   }

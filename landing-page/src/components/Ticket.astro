@@ -51,8 +51,6 @@ const { tone, title, body, points, stub, cta, href, external, delay } =
     --stub: 76px;
     --notch: 11px;
     --tilt: -1.4deg;
-    filter: drop-shadow(0 0 0.6px rgba(22, 19, 17, 0.32))
-      drop-shadow(0 26px 26px rgba(22, 19, 17, 0.13));
   }
 
   .wrap[data-tone="orange"] {
@@ -89,7 +87,7 @@ const { tone, title, body, points, stub, cta, href, external, delay } =
   }
 
   [data-tone="orange"] .ticket {
-    background: linear-gradient(170deg, var(--orange-bright), var(--orange));
+    background: var(--orange);
     color: white;
   }
 

@@ -13,8 +13,6 @@ const firstClip = stage.choices[0]?.clip;
 ---
 
 <div class="container stage" data-stage data-lang={lang}>
-  <div class="glow"></div>
-
   <div class="picker reveal" data-d="1">
     <p class="question">
       {stage.question}
@@ -75,16 +73,6 @@ const firstClip = stage.choices[0]?.clip;
     gap: clamp(28px, 5vw, 72px);
     margin-top: 44px;
     text-align: left;
-  }
-
-  .glow {
-    position: absolute;
-    inset: 4% 12% -6%;
-    z-index: -1;
-    border-radius: 50%;
-    filter: blur(70px);
-    background: color-mix(in srgb, var(--orange) 15%, transparent);
-    pointer-events: none;
   }
 
   .picker {

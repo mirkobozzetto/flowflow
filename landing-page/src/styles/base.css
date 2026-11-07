@@ -105,7 +105,7 @@ body::after {
   padding: 0 28px;
   border: none;
   border-radius: 14px;
-  background: linear-gradient(180deg, var(--orange-bright), var(--orange));
+  background: var(--orange);
   color: white;
   font-size: 15.5px;
   font-weight: 600;
