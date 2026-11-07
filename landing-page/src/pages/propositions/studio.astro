@@ -26,13 +26,7 @@ const { showcase: steps } = section(lang, "showcase");
   <Nav lang={lang} />
   <Hero lang={lang} />
   <DayFixed />
-  <HorizontalShowcase
-    lang={lang}
-    fig={steps.fig}
-    h2Lead={steps.h2Lead}
-    h2Accent={steps.h2Accent}
-    panels={steps.panels}
-  />
+  <HorizontalShowcase lang={lang} label={steps.fig} panels={steps.panels} />
   <AgenticChapter lang={lang} />
   <TeamsChapter lang={lang} />
   <Bento lang={lang} />

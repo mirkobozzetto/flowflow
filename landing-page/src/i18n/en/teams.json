@@ -5,11 +5,7 @@
   "solo": {
     "title": "Try it yourself",
     "body": "The app, your keys, your pace. No account needed, and the code is open.",
-    "points": [
-      "Free for now",
-      "iPhone and Mac",
-      "Open source"
-    ],
+    "points": ["Free for now", "iPhone and Mac", "Open source"],
     "cta": "Download",
     "stub": "No account"
   },

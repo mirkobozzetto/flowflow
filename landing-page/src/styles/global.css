@@ -13,6 +13,10 @@
   --color-orange-dark: var(--orange-dark);
   --color-orange-50: var(--orange-50);
   --color-orange-100: var(--orange-100);
+  --color-stone-400: var(--stone-400);
+  --color-stone-500: var(--stone-500);
+  --color-stone-600: var(--stone-600);
+  --color-stone-700: var(--stone-700);
   --font-serif: "Instrument Serif", Georgia, serif;
   --font-sans: "Clash Grotesk", -apple-system, BlinkMacSystemFont, sans-serif;
 }
