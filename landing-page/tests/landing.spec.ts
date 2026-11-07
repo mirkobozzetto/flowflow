@@ -11,6 +11,7 @@ const PAGES = [
     trust: "What stays,",
     free: "Free for now",
     calendar: "Google Calendar",
+    soon: "Coming next",
   },
   {
     path: "/fr/",
@@ -22,6 +23,7 @@ const PAGES = [
     trust: "Ce qui reste,",
     free: "Gratuite pour l'instant",
     calendar: "Google Agenda",
+    soon: "À venir",
   },
 ];
 
@@ -31,6 +33,12 @@ const WHITE = "rgb(255, 255, 255)";
 const BLACK = "rgb(0, 0, 0)";
 const MIN_CLIPS = 7;
 const CONNECTORS = 6;
+const SOON_TOOLS = 12;
+const SOFT_EDGE = "rgba(0, 0, 0, 0.16)";
+const CAPSULE_BLACK = "rgb(20, 20, 20)";
+const ACCENT = "rgb(255, 92, 0)";
+const CARD_WEIGHT = "600";
+const MIN_SECTION_WAVES = 2;
 
 async function scrollThrough(page: Page): Promise<void> {
   await page.evaluate(async () => {
@@ -42,6 +50,16 @@ async function scrollThrough(page: Page): Promise<void> {
     scrollTo(0, 0);
   });
 }
+
+const rowLengths = (page: Page, selector: string): Promise<number[]> =>
+  page.locator(selector).evaluateAll((items) => {
+    const rows = new Map<number, number>();
+    for (const item of items) {
+      const top = Math.round(item.getBoundingClientRect().top);
+      rows.set(top, (rows.get(top) ?? 0) + 1);
+    }
+    return [...rows.values()];
+  });
 
 const colorOf = (page: Page, selector: string): Promise<string> =>
   page
@@ -74,10 +92,99 @@ for (const copy of PAGES) {
     });
 
     test("shows the real connectors", async ({ page }) => {
-      const chips = page.locator("#agentic li");
+      const chips = page.locator("#agentic .chips li");
       await expect(chips).toHaveCount(CONNECTORS);
       await expect(chips.nth(2)).toContainText(copy.calendar);
-      await expect(page.locator("#agentic li svg")).toHaveCount(CONNECTORS);
+      await expect(page.locator("#agentic .chips li svg")).toHaveCount(
+        CONNECTORS,
+      );
+    });
+
+    test("lays the connectors out with no orphan", async ({
+      page,
+      isMobile,
+    }) => {
+      const rows = await rowLengths(page, "#agentic .chips li");
+      expect(rows).toEqual(isMobile ? [2, 2, 2] : [3, 3]);
+    });
+
+    test("lists the coming tools under their own label", async ({ page }) => {
+      await expect(page.locator("#agentic .soon-label")).toHaveText(copy.soon);
+      const tools = page.locator("#agentic .soon li");
+      await expect(tools).toHaveCount(SOON_TOOLS);
+      await expect(tools.nth(1)).toContainText("Slack");
+    });
+
+    test("keeps blocks flat with a soft grey edge", async ({ page }) => {
+      const block = page.locator(".fine").first();
+      expect(await block.evaluate((e) => getComputedStyle(e).boxShadow)).toBe(
+        "none",
+      );
+      expect(await block.evaluate((e) => getComputedStyle(e).borderColor)).toBe(
+        SOFT_EDGE,
+      );
+      const offer = page.locator('.offer[data-tone="white"]');
+      expect(
+        await offer.evaluate((e) => getComputedStyle(e).boxShadow),
+      ).toBe(`${SOFT_EDGE} 0px 0px 0px 1px`);
+    });
+
+    test("does not lift a button on hover", async ({ page, isMobile }) => {
+      test.skip(isMobile, "no hover on touch");
+      const button = page.locator(".btn-primary").first();
+      await button.hover();
+      await page.waitForTimeout(250);
+      expect(await button.evaluate((e) => getComputedStyle(e).transform)).toBe(
+        "none",
+      );
+    });
+
+    test("sets the action cards straight and semi-bold", async ({ page }) => {
+      const you = page.locator("#agentic .action .you").first();
+      expect(await you.evaluate((e) => getComputedStyle(e).fontStyle)).toBe(
+        "normal",
+      );
+      expect(await you.evaluate((e) => getComputedStyle(e).fontWeight)).toBe(
+        CARD_WEIGHT,
+      );
+    });
+
+    test("draws the voice waves", async ({ page }) => {
+      await expect(page.locator("h1 em canvas[data-wave]")).toHaveCount(1);
+      await expect(page.locator("#agentic > canvas")).toHaveAttribute(
+        "data-wave",
+        "bars",
+      );
+      const rules = await page
+        .locator(".wave-rule canvas[data-wave='bars']")
+        .count();
+      expect(rules).toBeGreaterThanOrEqual(MIN_SECTION_WAVES);
+    });
+
+    test("shows the black capsule, one word at a time", async ({ page }) => {
+      const capsule = page.locator(".capsule");
+      await expect(capsule).toBeVisible();
+      expect(
+        await capsule.evaluate((e) => getComputedStyle(e).backgroundColor),
+      ).toBe(CAPSULE_BLACK);
+
+      const word = page.locator("[data-spoken] span.now");
+      await expect(word).toHaveCount(1);
+      const first = await word.textContent();
+      await expect.poll(() => word.textContent()).not.toBe(first);
+      expect(
+        await word.evaluate((e) => getComputedStyle(e).backgroundColor),
+      ).toBe(ACCENT);
+      expect(await word.evaluate((e) => getComputedStyle(e).color)).toBe(WHITE);
+    });
+
+    test("the scroll bar grows with the page", async ({ page }) => {
+      const bar = page.locator("#progress");
+      await expect(bar.locator("canvas[data-wave]")).toHaveCount(1);
+      await page.evaluate(() => scrollTo({ top: 1500, behavior: "instant" }));
+      await expect
+        .poll(() => bar.evaluate((e) => e.getBoundingClientRect().width))
+        .toBeGreaterThan(0);
     });
 
     test("uses white on orange and black on white", async ({ page }) => {

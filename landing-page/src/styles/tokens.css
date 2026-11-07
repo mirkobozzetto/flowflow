@@ -18,6 +18,7 @@
   --orange-100: oklch(0.92 0.07 50);
   --gradient: linear-gradient(180deg, var(--orange-bright), var(--orange));
   --hairline: rgba(0, 0, 0, 0.09);
+  --rule: rgba(0, 0, 0, 0.16);
   --serif: "Instrument Serif", Georgia, serif;
   --sans: "Clash Grotesk", -apple-system, BlinkMacSystemFont, sans-serif;
 }

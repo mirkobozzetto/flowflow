@@ -50,9 +50,7 @@ const { tone, title, body, points, cta, href, external } = Astro.props;
   [data-tone="white"] {
     background: white;
     color: black;
-    box-shadow:
-      0 0 0 1px black,
-      0 18px 36px -30px rgba(0, 0, 0, 0.3);
+    box-shadow: 0 0 0 1px var(--rule);
   }
 
   [data-tone="orange"] {
@@ -60,8 +58,7 @@ const { tone, title, body, points, cta, href, external } = Astro.props;
     color: white;
     box-shadow:
       inset 0 1px 0 rgba(255, 255, 255, 0.32),
-      0 0 0 1px color-mix(in srgb, var(--orange) 82%, black),
-      0 18px 36px -30px rgba(0, 0, 0, 0.4);
+      0 0 0 1px color-mix(in srgb, var(--orange) 82%, black);
   }
 
   h3 {
