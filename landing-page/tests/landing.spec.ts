@@ -4,7 +4,7 @@ const PAGES = [
   {
     path: "/",
     h1: "A word away",
-    sub: "Speak, FlowFlow runs it",
+    sub: "You dictate, FlowFlow transcribes, files and takes action.",
     steps: ["Speak", "Transcribe", "Organize", "Recall"],
     stepTitles: [
       "One tap, and you talk",
@@ -31,7 +31,7 @@ const PAGES = [
   {
     path: "/fr/",
     h1: "À portée de voix",
-    sub: "Parle, FlowFlow exécute",
+    sub: "Tu dictes, FlowFlow transcrit, range et passe à l'action.",
     steps: ["Parle", "Transcrit", "Range", "Retrouve"],
     stepTitles: [
       "Un tap, et tu parles",
@@ -80,6 +80,7 @@ const MASCOT = "/brand/mascot.webp";
 const BODY_WEIGHT = "500";
 const MIN_STEP_TEXT_PX = 16;
 const MIN_NAV_OPACITY = 0.9;
+const MIN_HERO_SUB_PX = 20;
 
 async function scrollThrough(page: Page): Promise<void> {
   await page.evaluate(async () => {
@@ -117,6 +118,11 @@ for (const copy of PAGES) {
     test("keeps the headline and shows the exact copy", async ({ page }) => {
       await expect(page.locator("h1")).toHaveText(copy.h1);
       await expect(page.locator("header p").first()).toContainText(copy.sub);
+      const subSize = await page
+        .locator("header p")
+        .first()
+        .evaluate((e) => Number.parseFloat(getComputedStyle(e).fontSize));
+      expect(subSize).toBeGreaterThanOrEqual(MIN_HERO_SUB_PX);
       await expect(page.locator("#product .step")).toHaveText(copy.steps);
       await expect(page.locator("#product h3")).toHaveText(copy.stepTitles);
       await expect(page.locator("#agentic h2")).toContainText(copy.agentic);

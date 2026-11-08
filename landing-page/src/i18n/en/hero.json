@@ -11,10 +11,11 @@
     "logoAlt": "FlowFlow",
     "h1Lead": "A word",
     "h1Accent": "away",
-    "subLead": "Speak,",
-    "subStrong": "FlowFlow runs it",
+    "subLead": "You dictate,",
+    "subStrong": "FlowFlow",
     "ctaPrimary": "Download for Mac",
-    "ctaGhost": "App Store"
+    "ctaGhost": "App Store",
+    "subTail": "transcribes, files and takes action."
   },
   "stage": {
     "question": "How do you work?",
