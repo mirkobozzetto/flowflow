@@ -24,6 +24,7 @@ const LINK_PAGES = [
       "Give Hermes a space of notes",
     ],
     cta: "Link my Hermes",
+    manual: "Settings → Integrations → Hermes",
     proofs: ["on the Hermes machine", "tests the link", "“With Hermes”"],
   },
   {
@@ -44,6 +45,7 @@ const LINK_PAGES = [
       "Donner un espace de notes à Hermes",
     ],
     cta: "Relier mon Hermes",
+    manual: "Réglages → Intégrations → Hermes",
     proofs: ["sur la machine de Hermes", "teste la liaison", "« Avec Hermes »"],
   },
 ];
@@ -237,6 +239,7 @@ for (const copy of LINK_PAGES) {
         "#relier",
       );
       expect(await texts(page, "#relier .hl")).toEqual(copy.proofs);
+      await expect(page.locator(".needs")).toContainText(copy.manual);
       await expect(page.locator("#relier .num")).toHaveText(["01", "02", "03"]);
       await expect(
         page.locator(`main a[href='${copy.spaces}'].btn-primary`),

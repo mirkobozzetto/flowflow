@@ -40,18 +40,22 @@ const steps = [
 <main>
   <section class="container pt-20">
     <div class="needs paper">
-      <img
-        class="tailscale"
-        src="/logos/tailscale.svg"
-        alt="Tailscale"
-        width="56"
-        height="56"
-      />
-      <div>
-        <h2 class="text-[21px] font-semibold tracking-[-0.016em]">
-          {t.needs.title}
-        </h2>
-        <ul>{t.needs.items.map((item) => <li>{item}</li>)}</ul>
+      <h2 class="text-[21px] font-semibold tracking-[-0.016em]">
+        {t.needs.title}
+      </h2>
+      <ul>{t.needs.items.map((item) => <li>{item}</li>)}</ul>
+      <div class="ways">
+        <p class="way">
+          <img
+            class="tailscale"
+            src="/logos/tailscale.svg"
+            alt="Tailscale"
+            width="48"
+            height="48"
+          />
+          <span set:html={t.needs.tailscale} />
+        </p>
+        <p class="way" set:html={t.needs.manual} />
       </div>
     </div>
   </section>
@@ -177,26 +181,46 @@ const steps = [
 
 <style>
   .needs {
-    display: grid;
-    grid-template-columns: auto minmax(0, 1fr);
-    gap: 22px;
-    align-items: start;
     padding: clamp(22px, 3vw, 32px);
     border-radius: 24px;
   }
 
-  .tailscale {
-    width: 56px;
-    height: 56px;
-    padding: 14px;
-    border-radius: 16px;
+  .ways {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 14px;
+    margin-top: 22px;
+  }
+
+  .way {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    padding: 16px 18px;
+    border-radius: 18px;
     background: var(--paper-button);
     box-shadow: var(--paper-edge);
+    font-size: 15.5px;
+    text-wrap: pretty;
+  }
+
+  .way :global(b) {
+    font-weight: 600;
+  }
+
+  .tailscale {
+    flex-shrink: 0;
+    width: 48px;
+    height: 48px;
+    padding: 12px;
+    border-radius: 14px;
+    background: white;
+    box-shadow: 0 0 0 1px var(--rule);
   }
 
   .needs ul {
     display: grid;
-    grid-template-columns: repeat(2, minmax(0, 1fr));
+    grid-template-columns: repeat(3, minmax(0, 1fr));
     gap: 12px 24px;
     margin: 16px 0 0;
     padding: 0;
@@ -445,13 +469,13 @@ const steps = [
   }
 
   @media (max-width: 640px) {
-    .needs,
     .spaces {
       grid-template-columns: 1fr;
       gap: 16px;
     }
 
     .needs ul,
+    .ways,
     .fix ul {
       grid-template-columns: 1fr;
     }

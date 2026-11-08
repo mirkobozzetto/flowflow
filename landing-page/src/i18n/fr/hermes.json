@@ -24,11 +24,12 @@
     "needs": {
       "title": "Ce qu’il te faut",
       "items": [
-        "Tailscale sur l’iPhone et sur la machine de Hermes",
         "qrencode pour afficher le QR code",
         "Pas de compte FlowFlow nécessaire",
         "La clé reste sur ton iPhone"
-      ]
+      ],
+      "tailscale": "<b>Tailscale, conseillé</b> : seuls tes appareils joignent ton Hermes, jamais Internet. Le script s’en sert pour le QR code.",
+      "manual": "Sans Tailscale : saisis l’adresse HTTPS de ton Hermes et sa clé dans <b>Réglages → Intégrations → Hermes</b>."
     },
     "steps": {
       "h2Lead": "Relier ton Hermes",
@@ -66,7 +67,7 @@
       "items": [
         {
           "message": "« Hermes est injoignable. »",
-          "fix": "Allume Tailscale sur l’iPhone."
+          "fix": "Vérifie l’adresse, et Tailscale sur l’iPhone si tu l’utilises."
         },
         {
           "message": "« Hermes refuse la clé enregistrée. »",

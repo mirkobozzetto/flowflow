@@ -24,11 +24,12 @@
     "needs": {
       "title": "What you need",
       "items": [
-        "Tailscale on the iPhone and on the Hermes machine",
         "qrencode to show the QR code",
         "No FlowFlow account needed",
         "The key stays on your iPhone"
-      ]
+      ],
+      "tailscale": "<b>Tailscale, recommended</b>: only your devices reach your Hermes, never the internet. The script uses it for the QR code.",
+      "manual": "Without Tailscale: enter your Hermes HTTPS address and its key in <b>Settings → Integrations → Hermes</b>."
     },
     "steps": {
       "h2Lead": "Link your Hermes",
@@ -66,7 +67,7 @@
       "items": [
         {
           "message": "“Hermes cannot be reached.”",
-          "fix": "Turn on Tailscale on the iPhone."
+          "fix": "Check the address, and Tailscale on the iPhone if you use it."
         },
         {
           "message": "“Hermes refuses the saved key.”",
