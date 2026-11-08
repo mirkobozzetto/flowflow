@@ -15,7 +15,9 @@ const PAGES = [
     agentic: "From word",
     teams: "You, your team, your agent.",
     trust: "You always know",
-    free: "Free for now",
+    free: "Free to start.",
+    firstPrice: "€0",
+    book: "Book a call",
     calendar: "Google Calendar",
     soon: "Coming next",
     hermes: "Link my Hermes",
@@ -36,7 +38,9 @@ const PAGES = [
     agentic: "Du dire",
     teams: "Toi, ton équipe, ton agent.",
     trust: "Tu sais toujours",
-    free: "Gratuite pour l'instant",
+    free: "Gratuit pour commencer.",
+    firstPrice: "0\u00a0€",
+    book: "Prendre rendez-vous",
     calendar: "Google Agenda",
     soon: "À venir",
     hermes: "Relier mon Hermes",
@@ -62,6 +66,7 @@ const MIN_HERO_PHONE_WIDTH = 280;
 const LEAVE_ROWS = 4;
 const LEAVE_LOGOS = 5;
 const HERMES_MARKS = 2;
+const PRICE_CARDS = 3;
 const BODY_WEIGHT = "500";
 const MIN_STEP_TEXT_PX = 16;
 
@@ -106,7 +111,7 @@ for (const copy of PAGES) {
       await expect(page.locator("#agentic h2")).toContainText(copy.agentic);
       await expect(page.locator("#teams h2")).toContainText(copy.teams);
       await expect(page.locator("#trust h2")).toContainText(copy.trust);
-      await expect(page.locator("#trust dl")).toContainText(copy.free);
+      await expect(page.locator("#trust .cost h3")).toHaveText(copy.free);
     });
 
     test("has no empty frame, form or soon badge", async ({ page }) => {
@@ -150,18 +155,24 @@ for (const copy of PAGES) {
       await expect(tools.nth(1)).toContainText("Slack");
     });
 
-    test("keeps blocks flat with a soft grey edge", async ({ page }) => {
-      const block = page.locator(".fine").first();
-      expect(await block.evaluate((e) => getComputedStyle(e).boxShadow)).toBe(
-        "none",
-      );
-      expect(await block.evaluate((e) => getComputedStyle(e).borderColor)).toBe(
-        SOFT_EDGE,
-      );
-      const offer = page.locator('.offer[data-tone="white"]');
-      expect(await offer.evaluate((e) => getComputedStyle(e).boxShadow)).toBe(
-        `${SOFT_EDGE} 0px 0px 0px 1px`,
-      );
+    test("gives white blocks and buttons a light gradient and a crisp edge", async ({
+      page,
+    }) => {
+      for (const selector of [
+        ".fine",
+        '.offer[data-tone="white"]',
+        "#trust .prices li",
+        ".btn-ghost",
+      ]) {
+        const surface = page.locator(selector).first();
+        const style = await surface.evaluate((e) => {
+          const s = getComputedStyle(e);
+          return { image: s.backgroundImage, shadow: s.boxShadow };
+        });
+        expect(style.image).toContain("linear-gradient");
+        expect(style.shadow).toContain("inset");
+        expect(style.shadow).toContain(SOFT_EDGE);
+      }
     });
 
     test("does not lift a button on hover", async ({ page, isMobile }) => {
@@ -268,6 +279,18 @@ for (const copy of PAGES) {
       const steps = page.locator("#product article");
       await expect(steps.nth(0).locator(".facts li")).toHaveCount(2);
       await expect(steps.nth(1).locator(".facts li")).toHaveCount(3);
+    });
+
+    test("shows the price in three cards and a booking link", async ({
+      page,
+    }) => {
+      const cards = page.locator("#trust .prices li");
+      await expect(cards).toHaveCount(PRICE_CARDS);
+      await expect(cards.first().locator(".price")).toHaveText(copy.firstPrice);
+      await expect(cards.last().locator("img[src$='claude.svg']")).toHaveCount(
+        1,
+      );
+      await expect(page.locator("#trust .cost a")).toHaveText(copy.book);
     });
 
     test("draws the voice waves", async ({ page }) => {

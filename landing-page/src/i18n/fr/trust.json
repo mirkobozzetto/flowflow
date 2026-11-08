@@ -33,29 +33,26 @@
     }
   ],
   "duty": "Tu restes responsable de ce que tu confies à une IA. Préviens les personnes que tu enregistres.",
-  "costTitle": "Ce que ça coûte",
+  "costTitle": "Gratuit pour commencer.",
   "cost": [
     {
-      "what": "L'app",
-      "price": "Gratuite pour l'instant"
+      "price": "0 €",
+      "what": "L'app, pour l'instant, et la transcription locale",
+      "logos": ["/logo.png"]
     },
     {
-      "what": "Transcription locale",
-      "price": "0 €"
+      "price": "~0,10 $/h",
+      "what": "La transcription cloud",
+      "logos": ["/logos/soniox.png"]
     },
     {
-      "what": "Transcription cloud",
-      "price": "environ 0,10 $ de l'heure"
-    },
-    {
-      "what": "Chat et mémoire",
-      "price": "à l'usage, avec ta clé"
-    },
-    {
-      "what": "Espaces, agents, connecteurs",
-      "price": "sur rendez-vous"
+      "price": "Ton abonnement",
+      "what": "Le chat avec Codex/ChatGPT ou Claude, ou ta clé à l'usage",
+      "logos": ["/logos/openai.svg", "/logos/claude.svg"]
     }
   ],
-  "costNote": "Tu paies OpenAI, Anthropic ou Soniox directement, sans marge. Le chat marche aussi avec ton abonnement ChatGPT.",
-  "costSource": "Tarif Soniox lu le 7 novembre 2026"
+  "costNote": "Tu ne paies que les services que tu choisis, directement, sans marge.",
+  "costSource": "Tarif Soniox lu le 7 novembre 2026",
+  "team": "Espaces, agents et connecteurs : sur rendez-vous.",
+  "teamCta": "Prendre rendez-vous"
 }

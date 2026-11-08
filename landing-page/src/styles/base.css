@@ -91,19 +91,30 @@ h3 {
 
 .btn-ghost,
 .btn-white {
-  background: white;
+  background: var(--paper-button);
   color: black;
-  box-shadow: 0 0 0 1px var(--rule);
+  box-shadow: var(--paper-edge);
 }
 
 .btn-ghost:hover,
 .btn-white:hover {
-  box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.32);
+  filter: brightness(1.02);
+  box-shadow:
+    var(--paper-edge),
+    0 0 0 1px rgba(0, 0, 0, 0.28);
 }
 
-.fine {
-  border: 1px solid var(--rule);
-  background: white;
+.btn-ghost:active,
+.btn-white:active {
+  box-shadow:
+    inset 0 2px 4px rgba(0, 0, 0, 0.08),
+    0 0 0 1px var(--rule);
+}
+
+.fine,
+.paper {
+  background: var(--paper);
+  box-shadow: var(--paper-lift);
 }
 
 :focus-visible {

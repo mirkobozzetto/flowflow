@@ -1,5 +1,6 @@
 ---
 import { section } from "../lib/i18n";
+import { bookingUrl, externalLinkAttrs } from "../lib/links";
 
 interface Props {
   lang: string;
@@ -47,23 +48,34 @@ const t = section(lang, "trust");
   <p class="mt-4 text-[14px]">{t.duty}</p>
 
   <div class="cost mt-20">
-    <div>
-      <h3 class="text-[clamp(26px,3vw,34px)] tracking-[-0.022em] text-ink">
-        {t.costTitle}
-      </h3>
-      <p class="mt-3 max-w-85 text-[15px] text-stone-500">{t.costNote}</p>
-      <p class="mt-3 text-[12.5px] text-stone-400">{t.costSource}</p>
-    </div>
-    <dl>
+    <h3
+      class="text-[clamp(30px,4vw,44px)] font-semibold leading-[1.04] tracking-[-0.027em]"
+    >
+      {t.costTitle}
+    </h3>
+    <p class="mt-3 max-w-140 text-[17px] text-pretty">{t.costNote}</p>
+    <ul class="prices mt-8">
       {
-        t.cost.map((row) => (
-          <div>
-            <dt>{row.what}</dt>
-            <dd>{row.price}</dd>
-          </div>
+        t.cost.map((card) => (
+          <li class="paper">
+            <span class="logos">
+              {card.logos.map((src) => (
+                <img src={src} alt="" width="32" height="32" />
+              ))}
+            </span>
+            <span class="price">{card.price}</span>
+            <span class="what">{card.what}</span>
+          </li>
         ))
       }
-    </dl>
+    </ul>
+    <div class="team">
+      <p>{t.team}</p>
+      <a class="btn-ghost" href={bookingUrl} {...externalLinkAttrs}>
+        {t.teamCta}
+      </a>
+    </div>
+    <p class="mt-4 text-[12.5px]">{t.costSource}</p>
   </div>
 </section>
 
@@ -72,8 +84,8 @@ const t = section(lang, "trust");
     display: grid;
     grid-template-columns: 1fr 1fr;
     border-radius: 24px;
-    background: white;
-    box-shadow: 0 0 0 1px var(--rule);
+    background: var(--paper);
+    box-shadow: var(--paper-lift);
   }
 
   .stay,
@@ -150,43 +162,51 @@ const t = section(lang, "trust");
     text-wrap: pretty;
   }
 
-  .cost {
+  .prices {
     display: grid;
-    grid-template-columns: minmax(0, 1fr) minmax(0, 1.2fr);
-    gap: clamp(28px, 6vw, 72px);
-    align-items: start;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 14px;
+    margin-bottom: 0;
+    padding: 0;
+    list-style: none;
   }
 
-  dl {
-    margin: 0;
-    border-top: 1px solid var(--stone-200);
+  .prices li {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    padding: 24px;
+    border-radius: 20px;
   }
 
-  dl div {
+  .price {
+    margin-top: 6px;
+    font-size: clamp(28px, 3vw, 36px);
+    font-weight: 700;
+    line-height: 1;
+    letter-spacing: -0.03em;
+    font-variant-numeric: tabular-nums;
+  }
+
+  .what {
+    font-size: 15.5px;
+    text-wrap: pretty;
+  }
+
+  .team {
     display: flex;
     flex-wrap: wrap;
+    align-items: center;
     justify-content: space-between;
-    gap: 2px 18px;
-    padding: 14px 0;
-    border-bottom: 1px solid var(--stone-200);
-  }
-
-  dt {
-    font-size: 15.5px;
-    color: var(--stone-600);
-  }
-
-  dd {
-    margin: 0;
-    font-size: 15.5px;
+    gap: 12px 20px;
+    margin-top: 18px;
+    font-size: 17px;
     font-weight: 600;
-    color: var(--ink);
-    font-variant-numeric: tabular-nums;
   }
 
   @media (max-width: 760px) {
     .split,
-    .cost {
+    .prices {
       grid-template-columns: 1fr;
     }
 

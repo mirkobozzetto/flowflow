@@ -48,9 +48,9 @@ const { tone, title, body, points, cta, href, external } = Astro.props;
   }
 
   [data-tone="white"] {
-    background: white;
+    background: var(--paper);
     color: black;
-    box-shadow: 0 0 0 1px var(--rule);
+    box-shadow: var(--paper-lift);
   }
 
   [data-tone="orange"] {

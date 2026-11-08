@@ -19,6 +19,12 @@
   --gradient: linear-gradient(180deg, var(--orange-bright), var(--orange));
   --hairline: rgba(0, 0, 0, 0.09);
   --rule: rgba(0, 0, 0, 0.16);
+  --paper: linear-gradient(180deg, white 45%, var(--stone-100));
+  --paper-button: linear-gradient(180deg, white, var(--stone-100));
+  --paper-edge:
+    inset 0 1px 0 white, inset 0 -1px 0 rgba(0, 0, 0, 0.05),
+    0 0 0 1px var(--rule), 0 1px 2px rgba(0, 0, 0, 0.05);
+  --paper-lift: var(--paper-edge), 0 18px 34px -28px rgba(0, 0, 0, 0.3);
   --serif: "Instrument Serif", Georgia, serif;
   --sans: "Clash Grotesk", -apple-system, BlinkMacSystemFont, sans-serif;
 }

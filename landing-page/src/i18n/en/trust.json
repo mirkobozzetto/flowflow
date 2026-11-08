@@ -33,29 +33,26 @@
     }
   ],
   "duty": "You stay responsible for what you hand to an AI. Tell people when you record them.",
-  "costTitle": "What it costs",
+  "costTitle": "Free to start.",
   "cost": [
     {
-      "what": "The app",
-      "price": "Free for now"
+      "price": "€0",
+      "what": "The app, for now, and local transcription",
+      "logos": ["/logo.png"]
     },
     {
-      "what": "Local transcription",
-      "price": "€0"
-    },
-    {
+      "price": "~$0.10/h",
       "what": "Cloud transcription",
-      "price": "about $0.10 an hour"
+      "logos": ["/logos/soniox.png"]
     },
     {
-      "what": "Chat and memory",
-      "price": "pay as you go, your key"
-    },
-    {
-      "what": "Spaces, agents, connectors",
-      "price": "by appointment"
+      "price": "Your subscription",
+      "what": "Chat with Codex/ChatGPT or Claude, or your key, pay as you go",
+      "logos": ["/logos/openai.svg", "/logos/claude.svg"]
     }
   ],
-  "costNote": "You pay OpenAI, Anthropic or Soniox directly, with no markup. Chat also works with your ChatGPT subscription.",
-  "costSource": "Soniox price read on 7 November 2026"
+  "costNote": "You only pay for the services you choose, directly, with no markup.",
+  "costSource": "Soniox price read on 7 November 2026",
+  "team": "Spaces, agents and connectors: by appointment.",
+  "teamCta": "Book a call"
 }
