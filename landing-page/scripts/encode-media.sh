@@ -47,12 +47,12 @@ for lang in en fr; do
   poster "$out/promo.mp4" 4
 
   if [ "$lang" = fr ]; then
-    dictate=(0:1:1 2:4.4:2 4.6:13:4 13:17.5:2.5)
+    dictate=(4:13:4 13:17.5:2.5)
   else
-    dictate=(0:1:1 2:4.4:2 4.6:14:4 14:19.5:3)
+    dictate=(4:14:4 14:19.5:3)
   fi
   cut_clip "$CLIPS/$lang/first-note.mp4" "$out/dictate.mp4" "${dictate[@]}"
-  poster "$out/dictate.mp4" 5.2
+  poster "$out/dictate.mp4" 3.4
 
   cut_clip "$CLIPS/$lang/sources.mp4" "$out/answer.mp4" \
     1:4.4:1.4 4.4:9:1
