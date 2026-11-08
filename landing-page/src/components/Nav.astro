@@ -1,7 +1,7 @@
 ---
 import { Image } from "astro:assets";
 import { useTranslations, localizePath } from "../lib/i18n";
-import { macDownloadUrl, externalLinkAttrs } from "../lib/links";
+import { hermesUrl, macDownloadUrl, externalLinkAttrs } from "../lib/links";
 import LangSwitcher from "./LangSwitcher.astro";
 import logo from "../assets/logo.png";
 
@@ -11,9 +11,6 @@ interface Props {
 
 const { lang } = Astro.props;
 const t = useTranslations(lang, "hero");
-const tb = useTranslations(lang, "beta");
-const betaPath = localizePath("/beta", lang);
-const onBeta = Astro.url.pathname.replace(/\/$/, "").endsWith("/beta");
 ---
 
 <nav class="fixed top-0 left-0 right-0 z-90 px-3">
@@ -34,7 +31,7 @@ const onBeta = Astro.url.pathname.replace(/\/$/, "").endsWith("/beta");
         <a class="nav-link" href="#agentic">{t("nav.agentic")}</a>
         <a class="nav-link" href="#teams">{t("nav.teams")}</a>
         <a class="nav-link" href="#faq">{t("nav.faq")}</a>
-        <a class="nav-link" href={betaPath} aria-current={onBeta ? "page" : undefined}>{tb("nav.label")}</a>
+        <a class="nav-link" href={hermesUrl} {...externalLinkAttrs}>{t("nav.hermes")}</a>
       </div>
 
       <a
@@ -81,7 +78,7 @@ const onBeta = Astro.url.pathname.replace(/\/$/, "").endsWith("/beta");
       <a class="nav-link" href="#agentic">{t("nav.agentic")}</a>
       <a class="nav-link" href="#teams">{t("nav.teams")}</a>
       <a class="nav-link" href="#faq">{t("nav.faq")}</a>
-      <a class="nav-link" href={betaPath}>{tb("nav.label")}</a>
+      <a class="nav-link" href={hermesUrl} {...externalLinkAttrs}>{t("nav.hermes")}</a>
       <span class="h-px bg-stone-200 my-1" aria-hidden="true"></span>
       <a class="nav-cta" href={macDownloadUrl} {...externalLinkAttrs}>
         {t("nav.cta")}

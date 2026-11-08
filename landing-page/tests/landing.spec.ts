@@ -73,6 +73,7 @@ const HERMES_MARKS = 2;
 const PRICE_CARDS = 3;
 const HARD_RING = "rgba(0, 0, 0, 0.28)";
 const MASCOT = "/brand/mascot.webp";
+const HERMES_PATH = "/hermes";
 const BODY_WEIGHT = "500";
 const MIN_STEP_TEXT_PX = 16;
 
@@ -474,6 +475,14 @@ for (const copy of PAGES) {
         "data-wave",
         "bars",
       );
+    });
+
+    test("links Hermes in a new tab instead of Beta", async ({ page }) => {
+      const nav = page.locator("nav");
+      await expect(nav.locator("a[href*='beta']")).toHaveCount(0);
+      const hermes = nav.locator(`a[href='${HERMES_PATH}']`).first();
+      await expect(hermes).toHaveText("Hermes");
+      await expect(hermes).toHaveAttribute("target", "_blank");
     });
 
     test("ends no title with a full stop", async ({ page }) => {
