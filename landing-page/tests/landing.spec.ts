@@ -14,7 +14,7 @@ const PAGES = [
     ],
     agentic: "From word",
     teams: "You, your team, your agent.",
-    trust: "What stays,",
+    trust: "You always know",
     free: "Free for now",
     calendar: "Google Calendar",
     soon: "Coming next",
@@ -33,7 +33,7 @@ const PAGES = [
     ],
     agentic: "Du dire",
     teams: "Toi, ton équipe, ton agent.",
-    trust: "Ce qui reste,",
+    trust: "Tu sais toujours",
     free: "Gratuite pour l'instant",
     calendar: "Google Agenda",
     soon: "À venir",
@@ -195,8 +195,30 @@ for (const copy of PAGES) {
     }) => {
       const rows = page.locator("#trust .leave li");
       await expect(rows).toHaveCount(LEAVE_ROWS);
-      await expect(rows.locator(".who img")).toHaveCount(LEAVE_LOGOS);
+      await expect(rows.locator(".logos img")).toHaveCount(LEAVE_LOGOS);
       await expect(rows.nth(1).locator(".who")).toHaveText("Soniox");
+      const lefts = await rows
+        .locator(".who")
+        .evaluateAll((names) =>
+          names.map((name) => Math.round(name.getBoundingClientRect().left)),
+        );
+      expect(new Set(lefts).size).toBe(1);
+    });
+
+    test("keeps the privacy card white with a tick on each local point", async ({
+      page,
+    }) => {
+      const leave = page.locator("#trust .leave");
+      expect(
+        await leave.evaluate((e) => getComputedStyle(e).backgroundImage),
+      ).toBe("none");
+      const ticks = await page
+        .locator("#trust .stay li")
+        .evaluateAll((items) =>
+          items.map((item) => getComputedStyle(item, "::before").content),
+        );
+      expect(ticks.length).toBeGreaterThan(0);
+      for (const tick of ticks) expect(tick).not.toBe("none");
     });
 
     test("puts Hermes and Tailscale forward with a strong button", async ({
@@ -272,7 +294,7 @@ for (const copy of PAGES) {
       expect(await colorOf(page, "#agentic .sub")).toBe(WHITE);
       expect(await colorOf(page, ".btn-primary")).toBe(WHITE);
       expect(await colorOf(page, '.offer[data-tone="orange"] h3')).toBe(WHITE);
-      expect(await colorOf(page, "#trust .leave h3")).toBe(WHITE);
+      expect(await colorOf(page, "#trust .leave h3")).toBe(BLACK);
       expect(await colorOf(page, '.offer[data-tone="white"] h3')).toBe(BLACK);
       expect(await colorOf(page, "#teams > p")).toBe(BLACK);
       expect(await colorOf(page, "#agentic .action .then")).toBe(BLACK);

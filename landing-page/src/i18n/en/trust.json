@@ -1,7 +1,7 @@
 {
-  "h2Lead": "What stays,",
-  "h2Accent": "what leaves",
-  "stayTitle": "Stays on your devices",
+  "h2Lead": "You always know",
+  "h2Accent": "where your notes go.",
+  "stayTitle": "On your devices, always",
   "stay": [
     "Your notes and audio",
     "Search across your notes",
@@ -9,7 +9,7 @@
     "iPhone ↔ Mac sync on your network",
     "Your keys, never in a backup"
   ],
-  "leaveTitle": "Leaves when you use it",
+  "leaveTitle": "Elsewhere, only when you use it",
   "leave": [
     {
       "what": "Chat, titles and summaries",

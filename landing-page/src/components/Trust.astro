@@ -29,13 +29,15 @@ const t = section(lang, "trust");
         {
           t.leave.map((item) => (
             <li>
-              <span>{item.what}</span>
-              <b class="who">
+              <span class="logos">
                 {item.logos.map((src) => (
-                  <img src={src} alt="" width="18" height="18" />
+                  <img src={src} alt="" width="40" height="40" />
                 ))}
-                {item.where}
-              </b>
+              </span>
+              <span>
+                <b class="who">{item.where}</b>
+                <span class="use">{item.what}</span>
+              </span>
             </li>
           ))
         }
@@ -69,8 +71,8 @@ const t = section(lang, "trust");
   .split {
     display: grid;
     grid-template-columns: 1fr 1fr;
-    overflow: hidden;
     border-radius: 24px;
+    background: white;
     box-shadow: 0 0 0 1px var(--rule);
   }
 
@@ -79,62 +81,78 @@ const t = section(lang, "trust");
     padding: clamp(26px, 3.4vw, 40px);
   }
 
-  .stay {
-    background: white;
-    color: black;
-  }
-
   .leave {
-    background: var(--gradient);
-    color: white;
-    font-weight: 600;
+    box-shadow: -1px 0 0 var(--rule);
   }
 
   .split h3 {
     font-size: 21px;
+    font-weight: 600;
     letter-spacing: -0.016em;
     color: var(--ink);
   }
 
-  .leave h3 {
-    color: white;
-  }
-
   .split ul {
     display: grid;
-    gap: 12px;
-    margin: 20px 0 0;
+    gap: 14px;
+    margin: 22px 0 0;
     padding: 0;
     list-style: none;
-    font-size: 15.5px;
+    font-size: 16px;
+  }
+
+  .stay li {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+
+  .stay li::before {
+    content: "";
+    flex-shrink: 0;
+    width: 22px;
+    height: 22px;
+    border-radius: 50%;
+    background: var(--orange-dark)
+      url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='white' stroke-width='3.2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M5 12.5l4.5 4.5L19 7.5'/%3E%3C/svg%3E")
+      center / 13px no-repeat;
   }
 
   .leave li {
-    display: flex;
-    flex-wrap: wrap;
+    display: grid;
+    grid-template-columns: 70px minmax(0, 1fr);
+    gap: 14px;
     align-items: center;
-    justify-content: space-between;
-    gap: 8px 14px;
+  }
+
+  .logos {
+    display: flex;
+  }
+
+  .logos img {
+    width: 40px;
+    height: 40px;
+    padding: 8px;
+    border-radius: 50%;
+    background: white;
+    box-shadow: 0 0 0 1px var(--rule);
+    object-fit: contain;
+  }
+
+  .logos img + img {
+    margin-left: -10px;
   }
 
   .who {
-    display: inline-flex;
-    align-items: center;
-    gap: 7px;
-    min-height: 38px;
-    padding: 0 13px 0 10px;
-    border-radius: 10px;
-    background: white;
-    color: black;
-    font-size: 14.5px;
+    display: block;
+    font-size: 16.5px;
     font-weight: 600;
   }
 
-  .who img {
-    width: 18px;
-    height: 18px;
-    border-radius: 4px;
-    object-fit: contain;
+  .use {
+    display: block;
+    font-size: 14.5px;
+    text-wrap: pretty;
   }
 
   .cost {
@@ -177,9 +195,8 @@ const t = section(lang, "trust");
       grid-template-columns: 1fr;
     }
 
-    .leave li {
-      flex-direction: column;
-      align-items: flex-start;
+    .leave {
+      box-shadow: 0 -1px 0 var(--rule);
     }
   }
 </style>

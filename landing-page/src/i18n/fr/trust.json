@@ -1,7 +1,7 @@
 {
-  "h2Lead": "Ce qui reste,",
-  "h2Accent": "ce qui sort",
-  "stayTitle": "Reste sur tes appareils",
+  "h2Lead": "Tu sais toujours",
+  "h2Accent": "où vont tes notes.",
+  "stayTitle": "Sur tes appareils, toujours",
   "stay": [
     "Tes notes et tes audios",
     "La recherche dans tes notes",
@@ -9,7 +9,7 @@
     "La sync iPhone ↔ Mac sur ton réseau",
     "Tes clés, jamais dans une sauvegarde"
   ],
-  "leaveTitle": "Sort quand tu t'en sers",
+  "leaveTitle": "Ailleurs, seulement quand tu t'en sers",
   "leave": [
     {
       "what": "Chat, titres et résumés",
@@ -28,7 +28,7 @@
     },
     {
       "what": "Partage et espaces",
-      "where": "serveur FlowFlow",
+      "where": "Serveur FlowFlow",
       "logos": ["/logo.png"]
     }
   ],
