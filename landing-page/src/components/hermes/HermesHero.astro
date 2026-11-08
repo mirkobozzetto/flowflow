@@ -10,9 +10,10 @@ interface Props {
   tail?: string;
   sub: string;
   mascotAlt: string;
+  marker?: boolean;
 }
 
-const { lang, page, lead, accent, tail, sub, mascotAlt } = Astro.props;
+const { lang, page, lead, accent, tail, sub, mascotAlt, marker } = Astro.props;
 const { nav } = section(lang, "hermes");
 const tabs = [
   { href: localizePath(hermesUrl, lang), label: nav.chat, id: "link" },
@@ -56,10 +57,16 @@ const tabs = [
     <h1
       class="mt-6 text-[clamp(44px,7.4vw,92px)] font-semibold leading-[0.99] tracking-[-0.035em] text-ink"
     >
-      {lead}{" "}<em class="voice-word"
-        >{accent}<canvas data-wave="bars" data-speed="2.4" aria-hidden="true"
-        ></canvas></em
-      >{tail ? ` ${tail}` : ""}
+      {lead}{" "}{
+        marker ? (
+          <span class="mark">{accent}</span>
+        ) : (
+          <em class="voice-word">
+            {accent}
+            <canvas data-wave="bars" data-speed="2.4" aria-hidden="true" />
+          </em>
+        )
+      }{tail ? ` ${tail}` : ""}
     </h1>
     <p
       class="mx-auto mt-4.5 max-w-150 text-[clamp(15px,1.8vw,17.5px)]"

@@ -67,6 +67,7 @@ const SPACE_PAGES = [
       "The Hermes kit",
     ],
     copied: "Copied",
+    marked: "space",
     faq: 7,
   },
   {
@@ -88,6 +89,7 @@ const SPACE_PAGES = [
       "Le kit Hermes",
     ],
     copied: "Copié",
+    marked: "espace",
     faq: 7,
   },
 ];
@@ -174,12 +176,6 @@ for (const copy of [...LINK_PAGES, ...SPACE_PAGES]) {
       );
       expect(serif).toBe(false);
       await expect(page.locator("h1 em.say")).toHaveCount(0);
-      const word = page.locator("h1 em.voice-word");
-      await expect(word).toHaveCount(1);
-      expect(await word.evaluate((e) => getComputedStyle(e).color)).toBe(
-        "rgb(0, 0, 0)",
-      );
-      await expect(word.locator("canvas")).toHaveAttribute("data-wave", "bars");
     });
 
     test("loads every image", async ({ page }) => {
@@ -210,6 +206,16 @@ for (const copy of [...LINK_PAGES, ...SPACE_PAGES]) {
 
 for (const copy of LINK_PAGES) {
   test.describe(`${copy.path} steps`, () => {
+    test("sets the hero word on the voice wave", async ({ page }) => {
+      await page.goto(copy.path);
+      const word = page.locator("h1 em.voice-word");
+      await expect(word).toHaveCount(1);
+      expect(await word.evaluate((e) => getComputedStyle(e).color)).toBe(
+        "rgb(0, 0, 0)",
+      );
+      await expect(word.locator("canvas")).toHaveAttribute("data-wave", "bars");
+    });
+
     test("walks through linking in order", async ({ page }) => {
       await page.goto(copy.path);
       expect(await texts(page, "main h3")).toEqual(copy.h3);
@@ -240,6 +246,12 @@ for (const copy of SPACE_PAGES) {
       await expect(button).toHaveText(copy.copied);
       const pasted = await page.evaluate(() => navigator.clipboard.readText());
       expect(pasted).toContain(KIT_PROMPT_FILE);
+    });
+
+    test("marks only the word space", async ({ page }) => {
+      await page.goto(copy.path);
+      await expect(page.locator("h1 .mark")).toHaveText(copy.marked);
+      await expect(page.locator("h1 .voice-word")).toHaveCount(0);
     });
 
     test("opens a common question", async ({ page }) => {

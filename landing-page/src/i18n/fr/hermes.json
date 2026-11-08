@@ -86,8 +86,8 @@
       "description": "Connecte ton agent Hermes à un espace FlowFlow : compte lié, accès Premium, kit d’installation et vérification pas à pas."
     },
     "mascotAlt": "FlowFlow",
-    "h1Lead": "Donner",
-    "h1Accent": "un espace",
+    "h1Lead": "Donner un",
+    "h1Accent": "espace",
     "h1Tail": "à Hermes",
     "lead": "Connecte Hermes à ton espace FlowFlow pour lire, retrouver et enrichir tes notes. Tu choisis l’espace. Tu gardes le contrôle.",
     "cta": "Télécharger le kit Hermes",
