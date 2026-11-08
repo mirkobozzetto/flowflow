@@ -167,7 +167,13 @@ for (const copy of [...LINK_PAGES, ...SPACE_PAGES]) {
         ),
       );
       expect(serif).toBe(false);
-      await expect(page.locator("h1 em.say")).toHaveCount(1);
+      await expect(page.locator("h1 em.say")).toHaveCount(0);
+      const word = page.locator("h1 em.voice-word");
+      await expect(word).toHaveCount(1);
+      expect(await word.evaluate((e) => getComputedStyle(e).color)).toBe(
+        "rgb(0, 0, 0)",
+      );
+      await expect(word.locator("canvas")).toHaveAttribute("data-wave", "bars");
     });
 
     test("loads every image", async ({ page }) => {
