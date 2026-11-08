@@ -1,0 +1,155 @@
+---
+import { localizePath, section } from "../../lib/i18n";
+import { hermesSpacesUrl, hermesUrl } from "../../lib/links";
+
+interface Props {
+  lang: string;
+  page: "link" | "spaces";
+  lead: string;
+  accent: string;
+  tail?: string;
+  sub: string;
+  mascotAlt: string;
+}
+
+const { lang, page, lead, accent, tail, sub, mascotAlt } = Astro.props;
+const { nav } = section(lang, "hermes");
+const tabs = [
+  { href: localizePath(hermesUrl, lang), label: nav.chat, id: "link" },
+  { href: localizePath(hermesSpacesUrl, lang), label: nav.spaces, id: "spaces" },
+];
+---
+
+<header class="hero relative pt-29 text-center">
+  <div class="container">
+    <nav class="hermes-tabs paper-chip" aria-label={nav.label}>
+      {
+        tabs.map((tab) => (
+          <a
+            href={tab.href}
+            aria-current={tab.id === page ? "page" : undefined}
+          >
+            {tab.label}
+          </a>
+        ))
+      }
+    </nav>
+
+    <div class="marks mt-9">
+      <img
+        class="mascot"
+        src="/brand/mascot.webp"
+        alt={mascotAlt}
+        width="128"
+        height="128"
+      />
+      <span aria-hidden="true">+</span>
+      <img
+        class="agent"
+        src="/images/hermes-agent.png"
+        alt="Hermes"
+        width="96"
+        height="96"
+      />
+    </div>
+
+    <h1
+      class="mt-6 text-[clamp(44px,7.4vw,92px)] font-semibold leading-[0.99] tracking-[-0.035em] text-ink"
+    >
+      {lead} <em class="say">{accent}</em>{tail ? ` ${tail}` : ""}
+    </h1>
+    <p
+      class="mx-auto mt-4.5 max-w-150 text-[clamp(15px,1.8vw,17.5px)]"
+      set:html={sub}
+    />
+    <div class="hero-ctas"><slot /></div>
+    <slot name="after" />
+  </div>
+</header>
+
+<style>
+  .hermes-tabs {
+    display: inline-flex;
+    gap: 2px;
+    padding: 4px;
+    border-radius: 13px;
+  }
+
+  .hermes-tabs a {
+    padding: 8px 16px;
+    border-radius: 9px;
+    font-size: 14px;
+    font-weight: 600;
+    color: black;
+    text-decoration: none;
+    transition: background 0.15s;
+  }
+
+  .hermes-tabs a:hover {
+    background: var(--stone-100);
+  }
+
+  .hermes-tabs a[aria-current="page"] {
+    background: var(--orange-dark);
+    color: white;
+  }
+
+  .marks {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 14px;
+  }
+
+  .marks span {
+    font-size: 26px;
+    font-weight: 700;
+  }
+
+  .mascot {
+    width: 128px;
+    height: 128px;
+    animation: logoFloat 5.5s ease-in-out infinite;
+  }
+
+  .agent {
+    width: 96px;
+    height: 96px;
+    border-radius: 26px;
+    box-shadow: var(--paper-lift);
+  }
+
+  .hero :global(b) {
+    font-weight: 600;
+    color: var(--ink);
+  }
+
+  @keyframes logoFloat {
+    0%,
+    100% {
+      transform: translateY(0) rotate(-2deg);
+    }
+    50% {
+      transform: translateY(-8px) rotate(2deg);
+    }
+  }
+
+  @media (max-width: 560px) {
+    .mascot {
+      width: 96px;
+      height: 96px;
+    }
+
+    .agent {
+      width: 72px;
+      height: 72px;
+      border-radius: 20px;
+    }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .mascot {
+      animation: none;
+    }
+  }
+</style>
