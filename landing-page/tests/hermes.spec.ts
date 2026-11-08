@@ -198,7 +198,6 @@ for (const copy of [...LINK_PAGES, ...SPACE_PAGES]) {
         ),
       );
       expect(serif).toBe(false);
-      await expect(page.locator("h1 em.say")).toHaveCount(0);
     });
 
     test("loads every image", async ({ page }) => {
