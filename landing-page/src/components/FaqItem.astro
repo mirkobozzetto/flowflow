@@ -1,7 +1,7 @@
 ---
 interface Props {
   question: string;
-  answer: string;
+  answer?: string;
 }
 
 const { question, answer } = Astro.props;
@@ -25,7 +25,9 @@ const { question, answer } = Astro.props;
   </button>
   <div class="ans grid">
     <div class="ans-in overflow-hidden">
-      <p class="max-w-160 px-1 pb-5.5 text-[14.5px] text-stone-500">{answer}</p>
+      <p class="max-w-160 px-1 pb-5.5 text-[14.5px] text-stone-500">
+        <slot>{answer}</slot>
+      </p>
     </div>
   </div>
 </div>
