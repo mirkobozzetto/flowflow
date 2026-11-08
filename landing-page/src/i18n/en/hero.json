@@ -3,7 +3,7 @@
     "product": "Product",
     "agentic": "Agentic",
     "faq": "FAQ",
-    "cta": "Download",
+    "cta": "App Store",
     "teams": "Together",
     "hermes": "Hermes"
   },
@@ -13,8 +13,8 @@
     "h1Accent": "away",
     "subLead": "You dictate,",
     "subStrong": "FlowFlow",
-    "ctaPrimary": "Download for Mac",
-    "ctaGhost": "App Store",
+    "ctaPrimary": "App Store",
+    "ctaGhost": "Download for Mac",
     "subTail": "transcribes, files and takes action."
   },
   "stage": {

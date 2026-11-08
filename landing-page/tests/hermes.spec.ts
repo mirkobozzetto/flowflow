@@ -146,7 +146,7 @@ for (const copy of [...LINK_PAGES, ...SPACE_PAGES]) {
         return { image: s.backgroundImage, color: s.color };
       });
       expect(active.image).toContain("linear-gradient");
-      expect(active.color).toBe("rgb(255, 255, 255)");
+      expect(active.color).toBe("rgb(0, 0, 0)");
       await expect(page.locator("footer")).toHaveCount(1);
       const other = page.locator("body > nav a[hreflang]");
       await expect(other).toHaveCount(1);

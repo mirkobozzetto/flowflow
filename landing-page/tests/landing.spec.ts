@@ -508,6 +508,27 @@ for (const copy of PAGES) {
       expect(alpha).toBeGreaterThanOrEqual(MIN_NAV_OPACITY);
     });
 
+    test("puts the App Store first, the Mac download second", async ({
+      page,
+      isMobile,
+    }) => {
+      for (const zone of ["header", "#finale"]) {
+        const buttons = page.locator(`${zone} .hero-ctas a`);
+        await expect(buttons.nth(0)).toHaveClass(/btn-primary/);
+        await expect(buttons.nth(0)).toHaveAttribute(
+          "href",
+          /apps\.apple\.com/,
+        );
+        await expect(buttons.nth(1)).toHaveClass(/btn-ghost/);
+        await expect(buttons.nth(1)).toHaveAttribute("href", /\.dmg$/);
+      }
+      test.skip(isMobile, "the nav button sits in the menu on a phone");
+      const navCta = page.locator("nav .nav-cta").first();
+      await expect(navCta).toHaveText("App Store");
+      await expect(navCta.locator("svg")).toHaveCount(1);
+      await expect(navCta).toHaveAttribute("href", /apps\.apple\.com/);
+    });
+
     test("ends no title with a full stop", async ({ page }) => {
       const titles = await page
         .locator("h1, h2, h3")

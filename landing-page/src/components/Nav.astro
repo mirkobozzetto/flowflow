@@ -1,7 +1,8 @@
 ---
 import { Image } from "astro:assets";
 import { useTranslations, localizePath } from "../lib/i18n";
-import { hermesUrl, macDownloadUrl, externalLinkAttrs } from "../lib/links";
+import { APPLE_PATH } from "../lib/icons";
+import { appStoreUrl, externalLinkAttrs, hermesUrl } from "../lib/links";
 import LangSwitcher from "./LangSwitcher.astro";
 import logo from "../assets/logo.png";
 
@@ -43,10 +44,13 @@ const sections = ["product", "agentic", "teams", "faq"] as const;
       </div>
 
       <a
-        class="nav-cta hidden lg:inline-block"
-        href={macDownloadUrl}
+        class="nav-cta hidden lg:inline-flex"
+        href={appStoreUrl(lang)}
         {...externalLinkAttrs}
       >
+        <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+          <path d={APPLE_PATH}></path>
+        </svg>
         {t("nav.cta")}
       </a>
 
@@ -91,7 +95,10 @@ const sections = ["product", "agentic", "teams", "faq"] as const;
       }
       <a class="nav-link" href={hermes} {...hermesAttrs}>{t("nav.hermes")}</a>
       <span class="h-px bg-stone-200 my-1" aria-hidden="true"></span>
-      <a class="nav-cta" href={macDownloadUrl} {...externalLinkAttrs}>
+      <a class="nav-cta flex" href={appStoreUrl(lang)} {...externalLinkAttrs}>
+        <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+          <path d={APPLE_PATH}></path>
+        </svg>
         {t("nav.cta")}
       </a>
     </div>
@@ -138,12 +145,26 @@ const sections = ["product", "agentic", "teams", "faq"] as const;
     transition: 0.15s;
   }
   .nav-link[aria-current="page"] {
-    color: white;
+    color: black;
     font-weight: 600;
-    background: var(--gradient);
-    box-shadow:
-      inset 0 1px 0 rgba(255, 255, 255, 0.34),
-      0 0 0 1px color-mix(in srgb, var(--orange) 82%, black);
+    background: linear-gradient(
+        180deg,
+        transparent 56%,
+        var(--orange-100) 56%,
+        var(--orange-100) 90%,
+        transparent 90%
+      )
+      content-box;
+  }
+  .nav-link[aria-current="page"]:hover {
+    background: linear-gradient(
+        180deg,
+        transparent 30%,
+        var(--orange-100) 30%,
+        var(--orange-100) 92%,
+        transparent 92%
+      )
+      content-box;
   }
   .nav-link:not([aria-current="page"]):hover {
     color: var(--ink);
@@ -158,10 +179,17 @@ const sections = ["product", "agentic", "teams", "faq"] as const;
     border-radius: 10px;
     text-decoration: none;
     text-align: center;
+    align-items: center;
+    justify-content: center;
+    gap: 7px;
     box-shadow:
       inset 0 1px 0 rgba(255, 255, 255, 0.34),
       0 0 0 1px color-mix(in srgb, var(--orange) 82%, black);
     transition: filter 0.2s ease;
+  }
+  .nav-cta svg {
+    width: 15px;
+    height: 15px;
   }
   .nav-cta:hover {
     filter: brightness(1.05);
