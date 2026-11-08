@@ -85,6 +85,15 @@ const MOCK_STARS = "321";
 const MIN_PROMPTER_LINES = 20;
 const EMAIL_PATTERN = /[\w.+-]+@[\w-]+\.[a-z]{2,}/gi;
 const BOOKING_LINKS = 3;
+const EMAIL_FREE_PAGES = [
+  "/",
+  "/fr/",
+  "/hermes",
+  "/fr/hermes",
+  "/hermes/espaces",
+  "/beta",
+  "/fr/beta",
+];
 const RUST_URL = "https://www.rust-lang.org";
 const DIOXUS_URL = "https://dioxuslabs.com";
 
@@ -625,7 +634,7 @@ for (const path of FOOTER_PAGES) {
   });
 }
 
-for (const path of ["/", "/fr/", "/hermes", "/fr/hermes"]) {
+for (const path of EMAIL_FREE_PAGES) {
   test(`keeps every email address out of ${path}`, async ({ page }) => {
     await page.goto(path);
     const html = await page.content();

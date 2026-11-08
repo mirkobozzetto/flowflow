@@ -135,7 +135,8 @@
       "groupSettings": "Réglages",
       "billing": "Abonnement",
       "security": "Sécurité"
-    }
+    },
+    "plan": "Compte personnel"
   },
   "stats": {
     "fig": "À venir",
@@ -143,14 +144,26 @@
     "h2Accent": "sur ton téléphone",
     "lead": "Le serveur ne compte rien",
     "items": [
-      { "label": "Cette année", "value": "41 h", "note": "dictées" },
-      { "label": "Notes", "value": "1 284", "note": "dont 71 % en marchant" },
+      {
+        "label": "Cette année",
+        "value": "41 h",
+        "note": "dictées"
+      },
+      {
+        "label": "Notes",
+        "value": "1 284",
+        "note": "dont 71 % en marchant"
+      },
       {
         "label": "Ton heure",
         "value": "08:12",
         "note": "le moment où tu notes le plus"
       },
-      { "label": "Questions", "value": "412", "note": "à ta propre mémoire" }
+      {
+        "label": "Questions",
+        "value": "412",
+        "note": "à ta propre mémoire"
+      }
     ]
   }
 }
