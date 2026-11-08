@@ -176,6 +176,7 @@ const modes = [
         const all = chosenPhrases();
         const phrase = all[index % all.length];
         index += 1;
+        if (!phrase) return;
         line.replaceChildren(
           ...phrase.say.split(" ").map((word) => {
             const span = document.createElement("span");
@@ -233,6 +234,7 @@ const modes = [
           build();
         }
         const word = words[at];
+        if (!word) return;
         words.forEach((w, i) => {
           w.classList.toggle("said", i < at);
           w.classList.toggle("now", i === at);
