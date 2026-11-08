@@ -2,15 +2,16 @@
   "finale": {
     "lead": "Aussitôt dit",
     "accent": "aussitôt fait",
-    "ctaPrimary": "Télécharger pour Mac",
-    "ctaGhost": "App Store",
-    "note": "Gratuit · tes clés, tes données · macOS Apple Silicon + iPhone"
+    "ctaPrimary": "App Store",
+    "ctaGhost": "Télécharger pour Mac",
+    "note": "Gratuit pour l'instant · tes clés, tes données · iPhone + Mac Apple Silicon"
   },
   "footer": {
     "copyright": "© 2026 Mirko Bozzetto",
     "license": "EUPL v1.2",
     "github": "GitHub",
     "starsAlt": "étoiles GitHub",
-    "madeWith": "Fait en Rust avec Dioxus"
+    "builtLead": "Fait en",
+    "builtJoin": "avec"
   }
 }

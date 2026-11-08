@@ -3,26 +3,27 @@ import ShowcasePanel from "./ShowcasePanel.astro";
 
 interface Panel {
   num: string;
+  step: string;
   title: string;
   text: string;
-  slot: string;
-  slotNote: string;
+  facts: string[];
+  clip: string;
 }
 
 interface Props {
-  fig: string;
+  lang: string;
+  label: string;
   panels: Panel[];
 }
 
-const { fig, panels } = Astro.props;
+const { lang, label, panels } = Astro.props;
 ---
 
-<section id="product" aria-label={fig}>
+<section id="product" aria-label={label}>
   <div id="hscroll">
     <div class="hsticky">
-      <div class="container"><div class="fig">{fig}</div></div>
       <div class="htrack" id="htrack">
-        {panels.map((panel) => <ShowcasePanel {...panel} />)}
+        {panels.map((panel) => <ShowcasePanel lang={lang} {...panel} />)}
       </div>
     </div>
   </div>

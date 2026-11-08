@@ -3,23 +3,85 @@
     "product": "Le produit",
     "agentic": "Agentique",
     "faq": "FAQ",
-    "cta": "Télécharger"
+    "cta": "App Store",
+    "teams": "À plusieurs",
+    "hermes": "Hermes"
   },
   "hero": {
     "logoAlt": "FlowFlow",
     "h1Lead": "À portée de",
     "h1Accent": "voix",
-    "subLead": "Parle,",
-    "subStrong": "FlowFlow exécute",
-    "ctaPrimary": "Télécharger pour Mac",
-    "ctaGhost": "App Store"
+    "subLead": "Tu dictes,",
+    "subStrong": "FlowFlow",
+    "ctaPrimary": "App Store",
+    "ctaGhost": "Télécharger pour Mac",
+    "subTail": "transcrit, range et passe à l'action."
+  },
+  "stage": {
+    "question": "Tu travailles comment ?",
+    "group": "Choisis comment tu travailles",
+    "videoLabel": "FlowFlow en vidéo, sur un iPhone",
+    "soundOn": "Activer le son",
+    "soundOff": "Couper le son",
+    "play": "Lancer la vidéo",
+    "choices": [
+      {
+        "clip": "promo",
+        "label": "Tout voir",
+        "title": "35 secondes pour tout voir",
+        "text": "La dictée, tes notes qui répondent, ton agent."
+      },
+      {
+        "clip": "dictate",
+        "label": "Seul",
+        "title": "Parle, c'est écrit",
+        "text": "Tu sors d'un rendez-vous, tu dictes. La note arrive titrée et rangée."
+      },
+      {
+        "clip": "meeting",
+        "label": "En équipe",
+        "title": "Ta réunion, déjà résumée",
+        "text": "Points clés, décisions, actions : chacun retrouve le moment où ça a été dit."
+      },
+      {
+        "clip": "agent",
+        "label": "Avec mon agent",
+        "title": "Une photo, un plan",
+        "text": "Envoie une photo à ton Hermes et suis son travail depuis ton iPhone."
+      }
+    ],
+    "chips": {
+      "tag": "Décision · 10:15",
+      "source": "2 sources",
+      "reminder": "Rappel · jeudi 9 h"
+    }
   },
   "scene": {
-    "fig": "de la voix à la mémoire",
     "macTitle": "FlowFlow",
-    "macSlot": "SCREENSHOT RÉEL - app Mac, notes + chat avec sources",
-    "macSlotNote": "capture native de ta fenêtre, ratio 16:9.4 (ou GIF)",
-    "iphoneSlot": "SCREENSHOT RÉEL iPhone",
-    "iphoneSlotNote": "capture native plein écran de TON iPhone, telle quelle"
+    "videoLabel": "FlowFlow en vidéo, sur un iPhone",
+    "lines": [
+      "Agenda : appel client à 10 h, puis deux heures sans Slack.",
+      "Rappelle-moi d'envoyer le devis au client avant midi.",
+      "Compte rendu : il veut « juste un petit bouton ». Ça fait trois écrans.",
+      "Compte rendu de l'appel : le client veut tout pour vendredi, le budget pour janvier, et moi des vacances en février.",
+      "Rappelle-moi de facturer les « petits ajustements » de mardi.",
+      "Note : trois heures sur un bug d'une ligne. Je facture la ligne ?",
+      "Note FlowFlow : la build iPhone passe du premier coup. Ferris est fier.",
+      "Rappelle-moi de préparer la démo de lundi : le parcours iPhone, la synchro avec le Mac, et Hermes qui envoie le récap.",
+      "Bloque vendredi après-midi pour la review Apple, rien d'autre.",
+      "Note : ne jamais publier un vendredi soir. Même pas celui-là.",
+      "Déplace le point d'équipe à 14 h, le client a décalé.",
+      "Rappelle-moi d'envoyer la proposition jeudi à 9 h.",
+      "Rappelle-moi de relancer la facture de septembre lundi.",
+      "Le client valide la maquette. Il veut juste le logo plus grand.",
+      "Décision : on livre la v1 sans le mode sombre. Personne ne pleure.",
+      "Note FlowFlow : dicter dans le train sans réseau, et retrouver la note rangée en arrivant. Ça marche.",
+      "Rappelle-moi de répondre aux avis App Store ce soir.",
+      "Leçon du jour : relire le devis avant de l'envoyer. Les deux fois.",
+      "Agenda : pause déjeuner à 13 h. Loin de l'écran.",
+      "Note : boire de l'eau. Le café ne compte pas.",
+      "Rappelle-moi d'appeler ma mère dimanche. Elle demande si l'app est finie.",
+      "Rappelle-moi de fermer l'ordi à 19 h. Vraiment, cette fois."
+    ]
   }
 }

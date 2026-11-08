@@ -1,0 +1,107 @@
+---
+import { externalLinkAttrs } from "../lib/links";
+
+interface Props {
+  tone: "white" | "orange";
+  title: string;
+  body: string;
+  points: string[];
+  cta: string;
+  href: string;
+  external?: boolean;
+}
+
+const { tone, title, body, points, cta, href, external } = Astro.props;
+---
+
+<article class="offer" data-tone={tone}>
+  <h3>{title}</h3>
+  <p>{body}</p>
+  <ul>
+    {
+      points.map((point) => (
+        <li>
+          <svg viewBox="0 0 24 24" aria-hidden="true">
+            <path d="M5 12.5 10 17 19 7" />
+          </svg>
+          {point}
+        </li>
+      ))
+    }
+  </ul>
+  <a
+    class={tone === "white" ? "btn-primary" : "btn-white"}
+    href={href}
+    {...external ? externalLinkAttrs : {}}
+  >
+    {cta}
+  </a>
+</article>
+
+<style>
+  .offer {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    padding: 32px;
+    border-radius: 20px;
+  }
+
+  [data-tone="white"] {
+    background: var(--paper);
+    color: black;
+    box-shadow: var(--paper-lift);
+  }
+
+  [data-tone="orange"] {
+    background: var(--gradient);
+    color: white;
+    box-shadow:
+      inset 0 1px 0 rgba(255, 255, 255, 0.32),
+      0 0 0 1px color-mix(in srgb, var(--orange) 82%, black);
+  }
+
+  h3 {
+    font-size: clamp(26px, 3vw, 34px);
+    font-weight: 600;
+    line-height: 1.05;
+    letter-spacing: -0.024em;
+  }
+
+  p {
+    margin-top: 10px;
+    font-size: 17px;
+    font-weight: 500;
+  }
+
+  ul {
+    display: grid;
+    gap: 8px;
+    margin: 20px 0 26px;
+    padding: 0;
+    list-style: none;
+    font-size: 16px;
+    font-weight: 600;
+  }
+
+  li {
+    display: flex;
+    align-items: center;
+    gap: 9px;
+  }
+
+  svg {
+    width: 17px;
+    height: 17px;
+    flex-shrink: 0;
+    fill: none;
+    stroke: currentColor;
+    stroke-width: 2.4;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+  }
+
+  a {
+    margin-top: auto;
+  }
+</style>

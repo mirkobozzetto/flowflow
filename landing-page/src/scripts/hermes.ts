@@ -1,15 +1,18 @@
-document.querySelectorAll<HTMLButtonElement>("[data-copy]").forEach((button) => {
+const copyStatus = document.getElementById("copy-status");
+
+for (const button of document.querySelectorAll<HTMLButtonElement>(
+  "[data-copy]",
+)) {
   button.addEventListener("click", async () => {
     const source = document.getElementById(button.dataset.copy ?? "");
-    const status = document.getElementById("copy-status");
-    if (!source || !status) return;
+    if (!source || !copyStatus) return;
 
     try {
       await navigator.clipboard.writeText(source.textContent ?? "");
-      button.textContent = "Copié";
-      status.textContent = "Texte copié. Aucun jeton personnel dans cet exemple.";
+      button.textContent = button.dataset.done ?? "";
+      copyStatus.textContent = copyStatus.dataset.done ?? "";
     } catch {
-      status.textContent = "Copie indisponible. Sélectionnez et copiez le texte manuellement.";
+      copyStatus.textContent = copyStatus.dataset.failed ?? "";
       const range = document.createRange();
       range.selectNodeContents(source);
       const selection = window.getSelection();
@@ -17,4 +20,4 @@ document.querySelectorAll<HTMLButtonElement>("[data-copy]").forEach((button) => 
       selection?.addRange(range);
     }
   });
-});
+}

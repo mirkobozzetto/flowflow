@@ -1,0 +1,243 @@
+{
+  "nav": {
+    "label": "Pages Hermes",
+    "chat": "Parler à Hermes",
+    "spaces": "Espaces"
+  },
+  "copy": {
+    "button": "Copier",
+    "done": "Copié",
+    "status": "Texte copié. Aucun jeton personnel dans cet exemple.",
+    "failed": "Copie indisponible. Sélectionne et copie le texte à la main."
+  },
+  "link": {
+    "meta": {
+      "title": "Ton Hermes dans FlowFlow",
+      "description": "Relie ton agent Hermes à FlowFlow et parle-lui depuis l’onglet Chats : un script, un QR code, c’est fait."
+    },
+    "mascotAlt": "FlowFlow",
+    "h1Lead": "Ton Hermes dans",
+    "h1Accent": "FlowFlow",
+    "sub": "Parle à ton propre agent Hermes depuis l’onglet <b>Chats</b>.",
+    "cta": "Relier mon Hermes",
+    "kitCta": "Télécharger le kit",
+    "needs": {
+      "title": "Ce qu’il te faut",
+      "items": [
+        "qrencode pour afficher le QR code",
+        "Pas de compte FlowFlow nécessaire",
+        "La clé reste sur ton iPhone"
+      ],
+      "tailscale": "<b>Tailscale, conseillé</b> : seuls tes appareils joignent ton Hermes, jamais Internet. Le script s’en sert pour le QR code.",
+      "manual": "Sans Tailscale : saisis l’adresse HTTPS de ton Hermes et sa clé dans <b>Réglages → Intégrations → Hermes</b>."
+    },
+    "steps": {
+      "h2Lead": "Relier ton Hermes",
+      "h2Accent": "en trois étapes",
+      "sub": "Une seule fois. Ensuite, Hermes est dans tes Chats.",
+      "run": {
+        "title": "Lance le script",
+        "text": "Dans un terminal, ==sur la machine de Hermes==, depuis le dossier du kit.",
+        "warn": "Jamais depuis une conversation avec Hermes : le QR code contient la clé.",
+        "kit": "Télécharger le kit",
+        "terminalLabel": "Sortie du script",
+        "qrAlt": "Exemple de QR code de liaison"
+      },
+      "scan": {
+        "title": "Scanne le code",
+        "text": "Avec l’appareil photo de l’iPhone. FlowFlow s’ouvre, remplit l’adresse et la clé, et ==teste la liaison==.",
+        "address": "Adresse",
+        "addressValue": "https://hermes.ton-reseau.ts.net:8642",
+        "key": "Clé",
+        "save": "Enregistrer et tester",
+        "ok": "Hermes répond."
+      },
+      "chat": {
+        "title": "Ouvre une conversation",
+        "text": "Chats, puis « Nouvelle conversation », puis ==« Avec Hermes »==.",
+        "new": "Nouvelle conversation",
+        "notes": "Avec tes notes",
+        "notesHint": "Cherche et répond, rien ne sort",
+        "hermes": "Avec Hermes",
+        "hermesHint": "Agit pour toi : web, emails, devis"
+      }
+    },
+    "fix": {
+      "title": "Si FlowFlow affiche",
+      "items": [
+        {
+          "message": "« Hermes est injoignable. »",
+          "fix": "Vérifie l’adresse, et Tailscale sur l’iPhone si tu l’utilises."
+        },
+        {
+          "message": "« Hermes refuse la clé enregistrée. »",
+          "fix": "Relance le script et scanne le code."
+        }
+      ]
+    },
+    "spaces": {
+      "title": "Donner un espace de notes à Hermes",
+      "text": "Il lit et écrit dans l’espace que tu choisis, avec un jeton que tu peux révoquer.",
+      "cta": "Voir le guide"
+    }
+  },
+  "spaces": {
+    "meta": {
+      "title": "Donner un espace à Hermes · FlowFlow",
+      "description": "Connecte ton agent Hermes à un espace FlowFlow : compte lié, accès Premium, kit d’installation et vérification pas à pas."
+    },
+    "mascotAlt": "FlowFlow",
+    "h1Lead": "Donner un",
+    "h1Accent": "espace",
+    "h1Tail": "à Hermes",
+    "lead": "Connecte Hermes à ton espace FlowFlow pour lire, retrouver et enrichir tes notes. Tu choisis l’espace. Tu gardes le contrôle.",
+    "cta": "Télécharger le kit Hermes",
+    "ghost": "Suivre les étapes",
+    "caption": "ZIP · 20 Ko · Guide, skill et scripts · Aucun jeton inclus",
+    "flow": [
+      { "title": "01 · Ton espace", "where": "Dans FlowFlow" },
+      { "title": "02 · Ton accès", "where": "Un jeton privé" },
+      { "title": "03 · Ton Hermes", "where": "Sur sa propre machine" }
+    ],
+    "toc": {
+      "title": "Ton parcours",
+      "items": [
+        { "id": "avant", "label": "Avant de commencer" },
+        { "id": "espace", "label": "01 · Préparer l’espace" },
+        { "id": "acces", "label": "02 · Créer l’accès" },
+        { "id": "kit", "label": "03 · Installer le kit" },
+        { "id": "secret", "label": "04 · Connecter Hermes" },
+        { "id": "verifier", "label": "05 · Vérifier et démarrer" },
+        { "id": "aide", "label": "Questions fréquentes" }
+      ]
+    },
+    "before": {
+      "title": "Ce qu’il faut",
+      "sides": [
+        {
+          "title": "Côté FlowFlow",
+          "text": "L’app iPhone ou Mac, un compte web lié à l’app et un accès Premium actif pour créer l’accès Hermes."
+        },
+        {
+          "title": "Côté Hermes",
+          "text": "Une instance Hermes déjà installée, sur Linux ou macOS, capable de joindre api.flowflow.be en HTTPS."
+        }
+      ],
+      "account": "Pas encore de compte ? <a href=\"https://account.flowflow.be/register\" target=\"_blank\" rel=\"noopener\">Crée ton compte</a>, ou <a href=\"https://account.flowflow.be/login\" target=\"_blank\" rel=\"noopener\">connecte-toi</a>.",
+      "link": "Dans l’app, ouvre <b>Réglages → Compte → Générer un code de liaison</b>. Copie ce code, puis saisis-le sur <a href=\"https://account.flowflow.be/link\" target=\"_blank\" rel=\"noopener\">la page de liaison</a>, connecté au même compte web.",
+      "note": {
+        "title": "La connexion au site ne suffit pas",
+        "text": "La liaison rattache ton application au compte web. Si Premium n’est pas actif, demande son activation à l’administrateur FlowFlow. Cette page ne propose ni achat ni activation automatique."
+      }
+    },
+    "space": {
+      "step": "Dans l’application FlowFlow",
+      "title": "Choisir l’espace",
+      "items": [
+        "Ouvre la barre latérale et crée ou choisis un <b>espace dont tu es propriétaire</b>.",
+        "Places-y les notes que tu veux rendre accessibles.",
+        "Pour autoriser l’écriture, prépare un <b>dossier collaboratif</b> dans cet espace."
+      ],
+      "text": "Un dossier local non partagé reste invisible à Hermes. Le jeton donne accès à un seul espace, pas à l’ensemble de tes notes."
+    },
+    "access": {
+      "step": "Toujours dans FlowFlow",
+      "title": "Créer l’accès",
+      "items": [
+        "Ouvre le menu <b>⋯</b> de l’espace, puis <b>Accès Hermes</b>.",
+        "Choisis <b>Lecture seule</b> ou <b>Lecture et écriture</b>.",
+        "Sélectionne <b>Créer l’accès</b> et copie aussitôt le jeton : il n’est affiché qu’une fois."
+      ],
+      "note": {
+        "title": "Ton jeton reste privé",
+        "text": "Il commence par <code>mcps_</code>. Ne le colle ni sur Discord, ni dans une conversation avec Hermes, ni dans tes notes ou une commande shell. Tu le saisiras dans un fichier privé à l’étape 4. Le code de liaison d’appareil et ce jeton sont deux choses différentes."
+      },
+      "text": "Un accès Hermes existe déjà pour cet espace ? Régénère son jeton plutôt que de créer un doublon."
+    },
+    "kit": {
+      "step": "Sur la machine qui exécute Hermes",
+      "title": "Installer le kit",
+      "text": "Télécharge et décompresse le kit <b>sur la machine où tourne réellement Hermes</b>. S’il est sur un VPS, les fichiers doivent être sur ce VPS, pas seulement sur ton ordinateur.",
+      "contents": [
+        "LIRE-MOI.md",
+        "POUR-HERMES.md",
+        "Skill + 4 références",
+        "Script d’installation",
+        "Script de liaison du chat"
+      ],
+      "give": "Donne le dossier à ton agent, puis envoie-lui cette instruction :",
+      "promptLabel": "À envoyer à Hermes · aucun secret",
+      "prompt": "Lis POUR-HERMES.md dans ce kit et suis les instructions pour configurer FlowFlow sur ton instance actuelle. Préserve la configuration existante. Guide-moi pour saisir mon jeton dans le fichier privé prévu, jamais dans cette conversation. Termine par une vérification en lecture seule, sans créer ni modifier de notes.",
+      "manual": {
+        "summary": "Installation manuelle du skill",
+        "from": "Depuis la racine du dossier décompressé :",
+        "text": "Le script installe le skill et ses références dans <code>~/.hermes/skills/productivity/flowflow-spaces/</code>. Il sauvegarde l’ancienne copie. Il ne configure pas le MCP et n’installe pas Hermes."
+      }
+    },
+    "secret": {
+      "step": "Une configuration, un secret privé",
+      "title": "Configurer Hermes",
+      "text": "Hermes te guide pour compléter sa configuration existante. Sauvegarde-la d’abord et préserve les autres serveurs MCP.",
+      "yamlLabel": "~/.hermes/config.yaml · exemple à fusionner",
+      "env": "Dans un <b>éditeur privé</b>, ajoute la variable <code>FLOWFLOW_TOKEN_MON_ESPACE</code> avec ton vrai jeton dans <code>~/.hermes/.env</code>. Ne remplace pas les autres variables et ne partage pas ce fichier.",
+      "chmodLabel": "Protéger le fichier sur Linux / macOS",
+      "reload": "Recharge ou redémarre <b>la même instance Hermes</b> pour qu’elle relise le skill, la configuration et l’environnement. La procédure dépend de son installation ; ton agent doit te l’indiquer sans lancer une deuxième instance.",
+      "caption": "Répertoire Hermes personnalisé : utilise les chemins réels de cette instance. Sous Windows, suis la procédure dans l’environnement Linux/WSL où Hermes est installé."
+    },
+    "verify": {
+      "step": "D’abord observer, ensuite agir",
+      "title": "Vérifier la connexion",
+      "promptLabel": "Première vérification · lecture seule",
+      "prompt": "Utilise le skill flowflow-spaces et le serveur flowflow_mon_espace. Vérifie space_info, puis pull_changes et list_folders. Donne-moi le nom de l’espace, le contrat, tes permissions, la date d’expiration et les dossiers visibles. Ne crée, ne modifie et ne supprime aucune note.",
+      "items": [
+        "Le nom retourné doit être celui de <b>ton espace</b>.",
+        "Le contrat attendu par ce kit est <b>3</b>. En cas d’écart, Hermes doit suivre la procédure de compatibilité du skill.",
+        "Un espace vide est valide. Une écriture exige <b>read_write</b> et un dossier <b>writable: true</b>."
+      ],
+      "readTitle": "Commence par une lecture",
+      "readPrompt": "Liste les notes du dossier Projets, sans les modifier.",
+      "writeTitle": "Puis autorise une création, si tu le souhaites",
+      "writePrompt": "Crée une note intitulée « Première synthèse » dans le dossier collaboratif Projets, avec ce contenu : …",
+      "text": "Remplace « Projets » par un dossier réellement visible. Aucune surveillance ni routine n’est activée par défaut. Hermes ne doit pas modifier tes notes humaines."
+    },
+    "faq": {
+      "title": "Questions fréquentes",
+      "items": [
+        {
+          "q": "Je suis connecté au site, mais mon compte est vide",
+          "a": "Il manque probablement la liaison d’appareil. Génère un code dans Réglages → Compte de l’app, puis saisis-le sur <a href=\"https://account.flowflow.be/link\" target=\"_blank\" rel=\"noopener\">account.flowflow.be/link</a>. La création du compte web et la liaison sont distinctes."
+        },
+        {
+          "q": "Hermes ne voit aucun serveur FlowFlow",
+          "a": "Le skill décrit la méthode, mais ne crée pas la connexion. Vérifie l’entrée mcp_servers et la variable d’environnement sur la bonne machine, puis recharge Hermes. Ne publie pas ta configuration complète dans un message d’aide."
+        },
+        {
+          "q": "Le serveur répond 404 ou unauthorized",
+          "a": "Le jeton peut être invalide, expiré, régénéré ou révoqué. Vérifie que tu as utilisé le jeton de l’espace, pas le code de liaison. Régénère l’accès si nécessaire, remplace uniquement sa variable privée, puis recharge Hermes."
+        },
+        {
+          "q": "Hermes peut lire, mais pas écrire",
+          "a": "Vérifie le Premium du propriétaire, le scope read_write et un dossier collaboratif writable=true. Hermes n’écrit pas à la racine de l’espace et ne modifie pas les notes humaines. space_read_only signale que les écritures Premium sont indisponibles."
+        },
+        {
+          "q": "Quand faut-il renouveler l’accès ?",
+          "a": "Le Premium et le jeton ont des expirations distinctes. Consulte expires_at renvoyé par space_info. Régénère le jeton avant son expiration et remplace sa valeur dans le fichier privé. Les jetons ont une durée maximale de 365 jours."
+        },
+        {
+          "q": "Comment couper l’accès de Hermes ?",
+          "a": "Dans le menu de l’espace → Accès Hermes → Révoquer. Retire ensuite la configuration et la variable correspondantes sur la machine Hermes. Les notes déjà créées ne sont pas supprimées."
+        },
+        {
+          "q": "Puis-je partager ce kit ?",
+          "a": "Oui. Il ne contient que de la documentation, le skill et ses scripts. Chaque utilisateur génère son propre jeton pour son propre espace. Les empreintes SHA-256 servent à vérifier les fichiers ; elles ne donnent aucun accès."
+        }
+      ]
+    },
+    "closing": {
+      "title": "Le kit Hermes",
+      "text": "Garde le guide et transmets le kit. Jamais le jeton.",
+      "cta": "Télécharger le kit complet",
+      "caption": "Skill 1.2.0 · Contrat 3 · Kit du 9 septembre 2026"
+    }
+  }
+}

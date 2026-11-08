@@ -1,0 +1,228 @@
+---
+import { section } from "../lib/i18n";
+import { highlight } from "../lib/highlight";
+import { bookingUrl, externalLinkAttrs } from "../lib/links";
+
+interface Props {
+  lang: string;
+}
+
+const { lang } = Astro.props;
+const t = section(lang, "trust");
+---
+
+<section id="trust" class="container pt-35">
+  <h2
+    class="text-[clamp(30px,4.4vw,50px)] leading-[1.04] tracking-[-0.027em]"
+  >
+    {t.h2Lead}<br /><em class="say">{t.h2Accent}</em>
+  </h2>
+
+  <div class="split mt-10">
+    <div class="stay">
+      <h3>{t.stayTitle}</h3>
+      <ul>{t.stay.map((item) => <li>{item}</li>)}</ul>
+    </div>
+    <div class="leave">
+      <h3>
+        {
+          highlight(t.leaveTitle).map((part) =>
+            part.hl ? <mark class="hl">{part.text}</mark> : part.text,
+          )
+        }
+      </h3>
+      <ul>
+        {
+          t.leave.map((item) => (
+            <li>
+              <span class="logos">
+                {item.logos.map((src) => (
+                  <img src={src} alt="" width="32" height="32" />
+                ))}
+              </span>
+              <span>
+                <b class="who">{item.where}</b>
+                <span class="use">{item.what}</span>
+              </span>
+            </li>
+          ))
+        }
+      </ul>
+    </div>
+  </div>
+  <p class="mt-4 text-[14px]">{t.duty}</p>
+
+  <div class="cost mt-20">
+    <h3
+      class="text-[clamp(30px,4vw,44px)] font-semibold leading-[1.04] tracking-[-0.027em]"
+    >
+      {t.costTitle}
+    </h3>
+    <p class="mt-3 max-w-140 text-[17px] text-pretty">
+      {
+        highlight(t.costNote).map((part) =>
+          part.hl ? <mark class="hl">{part.text}</mark> : part.text,
+        )
+      }
+    </p>
+    <ul class="prices mt-8">
+      {
+        t.cost.map((card) => (
+          <li class="paper">
+            <span class="logos">
+              {card.logos.map((src) => (
+                <img src={src} alt="" width="32" height="32" />
+              ))}
+            </span>
+            <span class="price">{card.price}</span>
+            <span class="what">{card.what}</span>
+          </li>
+        ))
+      }
+    </ul>
+    <div class="team">
+      <p>{t.team}</p>
+      <a class="btn-ghost" href={bookingUrl} {...externalLinkAttrs}>
+        {t.teamCta}
+      </a>
+    </div>
+    <p class="mt-4 text-[12.5px]">{t.costSource}</p>
+  </div>
+</section>
+
+<style>
+  .split {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    border-radius: 24px;
+    background: var(--paper);
+    box-shadow: var(--paper-lift);
+  }
+
+  .stay,
+  .leave {
+    padding: clamp(26px, 3.4vw, 40px);
+  }
+
+  .leave {
+    box-shadow: -1px 0 0 var(--rule);
+  }
+
+  .split h3 {
+    font-size: 21px;
+    font-weight: 600;
+    letter-spacing: -0.016em;
+    color: var(--ink);
+  }
+
+  .split ul {
+    display: grid;
+    gap: 14px;
+    margin: 22px 0 0;
+    padding: 0;
+    list-style: none;
+    font-size: 16px;
+  }
+
+  .stay li {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+
+  .stay li::before {
+    content: "";
+    flex-shrink: 0;
+    width: 22px;
+    height: 22px;
+    border-radius: 50%;
+    background: var(--orange-dark)
+      url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='white' stroke-width='3.2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M5 12.5l4.5 4.5L19 7.5'/%3E%3C/svg%3E")
+      center / 13px no-repeat;
+  }
+
+  .leave li {
+    display: grid;
+    grid-template-columns: 76px minmax(0, 1fr);
+    gap: 12px;
+    align-items: center;
+  }
+
+  .logos {
+    display: flex;
+    gap: 10px;
+  }
+
+  .logos img {
+    width: 32px;
+    height: 32px;
+    border-radius: 8px;
+    object-fit: contain;
+  }
+
+  .who {
+    display: block;
+    font-size: 17.5px;
+    font-weight: 600;
+    letter-spacing: -0.01em;
+  }
+
+  .use {
+    display: block;
+    font-size: 15px;
+    text-wrap: pretty;
+  }
+
+  .prices {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 14px;
+    margin-bottom: 0;
+    padding: 0;
+    list-style: none;
+  }
+
+  .prices li {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    padding: 24px;
+    border-radius: 20px;
+  }
+
+  .price {
+    margin-top: 6px;
+    font-size: clamp(28px, 3vw, 36px);
+    font-weight: 700;
+    line-height: 1;
+    letter-spacing: -0.03em;
+    font-variant-numeric: tabular-nums;
+  }
+
+  .what {
+    font-size: 15.5px;
+    text-wrap: pretty;
+  }
+
+  .team {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px 20px;
+    margin-top: 18px;
+    font-size: 17px;
+    font-weight: 600;
+  }
+
+  @media (max-width: 760px) {
+    .split,
+    .prices {
+      grid-template-columns: 1fr;
+    }
+
+    .leave {
+      box-shadow: 0 -1px 0 var(--rule);
+    }
+  }
+</style>

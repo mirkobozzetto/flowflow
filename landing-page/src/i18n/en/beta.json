@@ -144,9 +144,21 @@
     "lead": "The server counts nothing",
     "items": [
       { "label": "This year", "value": "41 h", "note": "dictated" },
-      { "label": "Notes", "value": "1,284", "note": "71% of them while walking" },
-      { "label": "Your hour", "value": "08:12", "note": "when you capture the most" },
-      { "label": "Questions", "value": "412", "note": "asked of your own memory" }
+      {
+        "label": "Notes",
+        "value": "1,284",
+        "note": "71% of them while walking"
+      },
+      {
+        "label": "Your hour",
+        "value": "08:12",
+        "note": "when you capture the most"
+      },
+      {
+        "label": "Questions",
+        "value": "412",
+        "note": "asked of your own memory"
+      }
     ]
   }
 }

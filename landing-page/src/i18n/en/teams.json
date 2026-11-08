@@ -1,0 +1,25 @@
+{
+  "h2Lead": "You, your team, your agent",
+  "h2Accent": "One shared space",
+  "sub": "A space brings together notes, the people you invite and your Hermes, with access limited to that space and revocable.",
+  "solo": {
+    "title": "Try it yourself",
+    "body": "The app, your keys, your pace. No account needed, and the code is open.",
+    "points": ["Free for now", "iPhone and Mac", "Open source"],
+    "cta": "Download",
+    "stub": "No account"
+  },
+  "guided": {
+    "title": "We help you start",
+    "body": "Mirko and his agent join your space to see what you can hand off.",
+    "points": [
+      "Spaces and sharing",
+      "Verified agents and connectors",
+      "Every action waits for your approval"
+    ],
+    "cta": "Book a call",
+    "stub": "30 min on us"
+  },
+  "unsureTitle": "Not sure yet?",
+  "unsureText": "30 minutes, no commitment. Stop whenever you like."
+}

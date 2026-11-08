@@ -1,0 +1,487 @@
+---
+import Footer from "../Footer.astro";
+import Nav from "../Nav.astro";
+import HermesHero from "./HermesHero.astro";
+import { highlight } from "../../lib/highlight";
+import { localizePath, section } from "../../lib/i18n";
+import { hermesKitUrl, hermesSpacesUrl } from "../../lib/links";
+
+interface Props {
+  lang: string;
+}
+
+const { lang } = Astro.props;
+const { link: t } = section(lang, "hermes");
+const { run, scan, chat } = t.steps;
+const SCRIPT = "sh scripts/enable-flowflow-chat.sh";
+// The script only prints French; the mock shows its real output.
+const SCRIPT_OUTPUT = ["accès activé, clé créée", "Hermes redémarré"];
+const SCRIPT_SCAN = "Scanne ce code avec l'appareil photo de ton iPhone";
+const steps = [
+  { id: "run", num: "01", title: run.title, text: run.text },
+  { id: "scan", num: "02", title: scan.title, text: scan.text },
+  { id: "chat", num: "03", title: chat.title, text: chat.text },
+];
+---
+
+<Nav lang={lang} />
+<HermesHero
+  lang={lang}
+  page="link"
+  lead={t.h1Lead}
+  accent={t.h1Accent}
+  sub={t.sub}
+  mascotAlt={t.mascotAlt}
+>
+  <a class="btn-primary" href="#relier">{t.cta}</a>
+  <a class="btn-ghost" href={hermesKitUrl} download>{t.kitCta}</a>
+</HermesHero>
+
+<main>
+  <section class="container pt-20">
+    <div class="needs paper">
+      <h2 class="text-[21px] font-semibold tracking-[-0.016em]">
+        {t.needs.title}
+      </h2>
+      <ul>{t.needs.items.map((item) => <li>{item}</li>)}</ul>
+      <div class="ways">
+        <p class="way">
+          <img
+            class="tailscale"
+            src="/logos/tailscale.svg"
+            alt="Tailscale"
+            width="48"
+            height="48"
+          />
+          <span set:html={t.needs.tailscale} />
+        </p>
+        <p class="way" set:html={t.needs.manual} />
+      </div>
+    </div>
+  </section>
+
+  <section id="relier" class="container scroll-mt-24 pt-28">
+    <h2
+      class="text-[clamp(30px,4.4vw,50px)] leading-[1.04] tracking-[-0.027em]"
+    >
+      {t.steps.h2Lead}{" "}<em class="say">{t.steps.h2Accent}</em>
+    </h2>
+    <p class="mt-4 text-[17px]">{t.steps.sub}</p>
+
+    <ol class="steps mt-10">
+      {
+        steps.map((step) => (
+          <li class="step fine">
+            <span class="num">{step.num}</span>
+            <h3 class="mt-3.5 text-[clamp(24px,2.4vw,30px)] font-semibold leading-[1.08] tracking-[-0.028em]">
+              {step.title}
+            </h3>
+            <p class="mt-3 text-[16.5px] leading-[1.45] text-pretty">
+              {highlight(step.text).map((part) =>
+                part.hl ? <mark class="hl">{part.text}</mark> : part.text,
+              )}
+            </p>
+            {step.id === "run" && (
+              <>
+                <p class="mt-2 text-[14.5px]">{run.warn}</p>
+                <a class="kit paper-chip" href={hermesKitUrl} download>
+                  {run.kit}
+                </a>
+                <div class="term" role="img" aria-label={run.terminalLabel}>
+                  <code class="cmd">{SCRIPT}</code>
+                  {SCRIPT_OUTPUT.map((line) => (
+                    <code>
+                      <span class="ok">ok</span> {line}
+                    </code>
+                  ))}
+                  <div class="qr">
+                    <img
+                      src="/images/hermes-link-qr.svg"
+                      alt={run.qrAlt}
+                      width="96"
+                      height="96"
+                    />
+                    <code>{SCRIPT_SCAN}</code>
+                  </div>
+                </div>
+              </>
+            )}
+            {step.id === "scan" && (
+              <div class="screen" aria-hidden="true">
+                <div class="screen-title">
+                  <img src="/images/hermes-agent.png" alt="" width="20" height="20" />
+                  Hermes
+                </div>
+                <span class="label">{scan.address}</span>
+                <span class="field">{scan.addressValue}</span>
+                <span class="label">{scan.key}</span>
+                <span class="field">••••••••••••••••••••</span>
+                <span class="save">{scan.save}</span>
+                <span class="good">{scan.ok}</span>
+              </div>
+            )}
+            {step.id === "chat" && (
+              <div class="screen" aria-hidden="true">
+                <span class="new">+ {chat.new}</span>
+                <span class="choice">
+                  <span>
+                    <b>{chat.notes}</b>
+                    <small>{chat.notesHint}</small>
+                  </span>
+                  <img src="/logo.png" alt="" width="22" height="22" />
+                </span>
+                <span class="choice picked">
+                  <span>
+                    <b>{chat.hermes}</b>
+                    <small>{chat.hermesHint}</small>
+                  </span>
+                  <img src="/images/hermes-agent.png" alt="" width="22" height="22" />
+                </span>
+              </div>
+            )}
+          </li>
+        ))
+      }
+    </ol>
+
+    <div class="fix mt-8">
+      <h3 class="text-[19px] font-semibold tracking-[-0.012em]">
+        {t.fix.title}
+      </h3>
+      <ul>
+        {
+          t.fix.items.map((item) => (
+            <li>
+              <b>{item.message}</b>
+              <span>{item.fix}</span>
+            </li>
+          ))
+        }
+      </ul>
+    </div>
+  </section>
+
+  <section class="container pt-24 pb-30">
+    <div class="spaces paper">
+      <img src="/images/hermes-agent.png" alt="" width="56" height="56" />
+      <div>
+        <h3 class="text-[19px] font-semibold tracking-[-0.012em]">
+          {t.spaces.title}
+        </h3>
+        <p class="mt-1 text-[15.5px] text-pretty">{t.spaces.text}</p>
+      </div>
+      <a class="btn-primary" href={localizePath(hermesSpacesUrl, lang)}>
+        {t.spaces.cta}
+      </a>
+    </div>
+  </section>
+</main>
+
+<Footer lang={lang} />
+
+<style>
+  .needs {
+    padding: clamp(22px, 3vw, 32px);
+    border-radius: 24px;
+  }
+
+  .ways {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 14px;
+    margin-top: 22px;
+  }
+
+  .way {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    padding: 16px 18px;
+    border-radius: 18px;
+    background: var(--paper-button);
+    box-shadow: var(--paper-edge);
+    font-size: 15.5px;
+    text-wrap: pretty;
+  }
+
+  .way :global(b) {
+    font-weight: 600;
+  }
+
+  .tailscale {
+    flex-shrink: 0;
+    width: 48px;
+    height: 48px;
+    padding: 12px;
+    border-radius: 14px;
+    background: white;
+    box-shadow: 0 0 0 1px var(--rule);
+  }
+
+  .needs ul {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 12px 24px;
+    margin: 16px 0 0;
+    padding: 0;
+    list-style: none;
+    font-size: 16px;
+  }
+
+  .needs li {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+
+  .needs li::before {
+    content: "";
+    flex-shrink: 0;
+    width: 22px;
+    height: 22px;
+    border-radius: 50%;
+    background: var(--orange-dark)
+      url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='white' stroke-width='3.2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M5 12.5l4.5 4.5L19 7.5'/%3E%3C/svg%3E")
+      center / 13px no-repeat;
+  }
+
+  .steps {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 14px;
+    margin-bottom: 0;
+    padding: 0;
+    list-style: none;
+  }
+
+  .step {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    padding: clamp(22px, 2.4vw, 28px);
+    border-radius: 24px;
+  }
+
+  .num {
+    padding: 3px 8px;
+    border-radius: 7px;
+    background: var(--orange-dark);
+    color: white;
+    font-size: 15px;
+    font-weight: 700;
+    font-variant-numeric: tabular-nums;
+  }
+
+  .kit {
+    margin-top: 14px;
+    padding: 7px 12px;
+    border-radius: 10px;
+    font-size: 14px;
+    font-weight: 600;
+    color: black;
+    text-decoration: none;
+  }
+
+  .term,
+  .screen {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    width: 100%;
+    margin-top: 18px;
+    padding: 16px;
+    border-radius: 16px;
+  }
+
+  .term {
+    background: var(--ink-2);
+    color: white;
+  }
+
+  .term code {
+    font-family: ui-monospace, "SF Mono", Menlo, monospace;
+    font-size: 12.5px;
+    line-height: 1.5;
+    overflow-wrap: anywhere;
+  }
+
+  .term .cmd {
+    color: var(--orange-bright);
+  }
+
+  .term .ok {
+    color: #34c759;
+  }
+
+  .qr {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-top: 8px;
+  }
+
+  .qr img {
+    flex-shrink: 0;
+    width: 96px;
+    height: 96px;
+    padding: 6px;
+    border-radius: 10px;
+    background: white;
+  }
+
+  .screen {
+    background: var(--paper-button);
+    box-shadow: var(--paper-edge);
+    font-size: 13.5px;
+  }
+
+  .screen img {
+    border-radius: 6px;
+  }
+
+  .screen-title {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 4px;
+    font-size: 15px;
+    font-weight: 600;
+  }
+
+  .label {
+    font-size: 12px;
+    font-weight: 600;
+  }
+
+  .field {
+    padding: 8px 10px;
+    border-radius: 9px;
+    background: white;
+    box-shadow: 0 0 0 1px var(--rule);
+    overflow-wrap: anywhere;
+  }
+
+  .save {
+    margin-top: 6px;
+    padding: 9px;
+    border-radius: 10px;
+    background: var(--gradient);
+    color: white;
+    font-weight: 600;
+    text-align: center;
+  }
+
+  .good {
+    font-weight: 600;
+    color: #1f8f3a;
+  }
+
+  .new {
+    font-weight: 600;
+    color: var(--orange-dark);
+  }
+
+  .choice {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    padding: 10px 12px;
+    border-radius: 11px;
+    background: white;
+    box-shadow: 0 0 0 1px var(--rule);
+  }
+
+  .choice.picked {
+    box-shadow: 0 0 0 2px var(--orange-dark);
+  }
+
+  .choice b,
+  .choice small {
+    display: block;
+  }
+
+  .choice b {
+    font-weight: 600;
+  }
+
+  .choice small {
+    font-size: 12.5px;
+  }
+
+  .fix ul {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 14px;
+    margin: 14px 0 0;
+    padding: 0;
+    list-style: none;
+  }
+
+  .fix li {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    padding: 18px 20px;
+    border-radius: 18px;
+    background: var(--paper-button);
+    box-shadow: var(--paper-edge);
+    font-size: 15.5px;
+  }
+
+  .fix b {
+    font-weight: 600;
+  }
+
+  .fix span::before {
+    content: "→ ";
+    font-weight: 700;
+    color: var(--orange-dark);
+  }
+
+  .spaces {
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr) auto;
+    gap: 22px;
+    align-items: center;
+    padding: 18px 18px 18px 20px;
+    border-radius: 22px;
+  }
+
+  .spaces img {
+    width: 56px;
+    height: 56px;
+    border-radius: 16px;
+    box-shadow: var(--paper-edge);
+  }
+
+  .spaces .btn-primary {
+    min-height: 58px;
+    padding: 0 28px;
+    font-size: 16.5px;
+    white-space: nowrap;
+  }
+
+  @media (max-width: 960px) {
+    .steps {
+      grid-template-columns: 1fr;
+    }
+  }
+
+  @media (max-width: 640px) {
+    .spaces {
+      grid-template-columns: 1fr;
+      gap: 16px;
+    }
+
+    .needs ul,
+    .ways,
+    .fix ul {
+      grid-template-columns: 1fr;
+    }
+
+    .spaces .btn-primary {
+      justify-content: center;
+    }
+  }
+</style>

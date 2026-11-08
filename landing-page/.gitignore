@@ -5,3 +5,6 @@ dist/
 .env.production
 .DS_Store
 *.log
+test-results
+playwright-report
+.impeccable/

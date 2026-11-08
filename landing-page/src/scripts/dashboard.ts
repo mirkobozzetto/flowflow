@@ -7,7 +7,8 @@ function initDashboard(): void {
       const key = item.dataset.pane;
       if (!key) return;
       for (const other of items) other.classList.toggle("on", other === item);
-      for (const pane of panes) pane.classList.toggle("on", pane.dataset.pane === key);
+      for (const pane of panes)
+        pane.classList.toggle("on", pane.dataset.pane === key);
     });
   }
 

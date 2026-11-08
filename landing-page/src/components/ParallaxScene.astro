@@ -1,4 +1,7 @@
 ---
+import Clip from "./Clip.astro";
+import Phone from "./Phone.astro";
+import VoiceDemo from "./VoiceDemo.astro";
 import { useTranslations } from "../lib/i18n";
 
 interface Props {
@@ -10,8 +13,6 @@ const t = useTranslations(lang, "hero");
 ---
 
 <div class="container stage">
-  <div class="orb orb-1"></div>
-  <div class="orb orb-2"></div>
   <div class="scene" id="scene">
     <div class="mac">
       <div class="mac-bar">
@@ -21,19 +22,11 @@ const t = useTranslations(lang, "hero");
         <span class="mac-title">{t("scene.macTitle")}</span>
       </div>
       <div class="mac-screen">
-        <div class="slot">
-          {t("scene.macSlot")}
-          <small>{t("scene.macSlotNote")}</small>
-        </div>
+        <VoiceDemo lang={lang} />
       </div>
     </div>
     <div class="iphone">
-      <div class="iphone-screen">
-        <div class="slot small">
-          {t("scene.iphoneSlot")}
-          <small>{t("scene.iphoneSlotNote")}</small>
-        </div>
-      </div>
+      <Phone><Clip lang={lang} clip="promo" label={t("scene.videoLabel")} /></Phone>
     </div>
   </div>
 </div>
@@ -50,144 +43,115 @@ const t = useTranslations(lang, "hero");
     position: relative;
     height: clamp(380px, 52vw, 640px);
   }
+
   .scene {
     position: absolute;
     inset: 0;
     transform-style: preserve-3d;
     transition: transform 0.25s cubic-bezier(0.2, 0.8, 0.2, 1);
   }
+
   .mac {
     position: absolute;
     left: 50%;
     top: 0;
     width: min(860px, 86vw);
     transform: translateX(-54%) translateZ(0px) rotateX(6deg);
-    border-radius: 16px;
+    border-radius: 14px;
     overflow: hidden;
-    background: var(--warm-white);
-    border: 1px solid var(--stone-200);
+    background: white;
     box-shadow:
-      0 60px 120px -40px rgba(22, 19, 17, 0.45),
-      0 2px 0 rgba(255, 255, 255, 0.6) inset;
+      0 0 0 1px var(--rule),
+      0 28px 48px -36px rgba(0, 0, 0, 0.26);
   }
+
   .mac-bar {
     display: flex;
     align-items: center;
-    gap: 7px;
-    padding: 11px 14px;
-    border-bottom: 1px solid var(--stone-200);
-    background: linear-gradient(var(--warm-white), var(--stone-50));
+    gap: 8px;
+    height: 38px;
+    padding: 0 14px;
+    border-bottom: 1px solid var(--hairline);
+    background: #f6f6f7;
   }
+
   .dot {
-    width: 11px;
-    height: 11px;
+    width: 12px;
+    height: 12px;
     border-radius: 99px;
+    box-shadow: inset 0 0 0 0.5px rgba(0, 0, 0, 0.16);
   }
+
   .mac-title {
     margin: 0 auto;
-    font-size: 11.5px;
-    color: var(--stone-400);
-    transform: translateX(-26px);
+    font-size: 12.5px;
+    font-weight: 600;
+    color: black;
+    transform: translateX(-30px);
   }
+
   .mac-screen {
-    aspect-ratio: 16 / 9.4;
-  }
-  .slot {
-    width: 100%;
-    height: 100%;
     display: flex;
     flex-direction: column;
     align-items: center;
     justify-content: center;
-    gap: 7px;
-    color: var(--stone-400);
-    font-size: 13px;
-    font-weight: 500;
-    text-align: center;
-    padding: 18px;
-    background:
-      radial-gradient(85% 120% at 50% 0%, var(--orange-50) 0%, transparent 60%),
-      var(--stone-50);
-    border: 2px dashed var(--stone-300);
-    border-radius: inherit;
+    gap: clamp(14px, 2vw, 24px);
+    aspect-ratio: 16 / 9.4;
+    padding: 3% 24% 4% 6%;
+    background: white;
   }
-  .slot.small {
-    font-size: 11px;
-  }
-  .slot small {
-    font-size: 11px;
-    opacity: 0.85;
-  }
+
   .iphone {
+    /* Leaves the screen at 9:16, the promo's own shape, so nothing is cropped. */
+    --phone-ratio: 0.5797;
+    --phone-width: clamp(190px, 23vw, 310px);
     position: absolute;
-    right: max(2%, calc(50% - 480px));
+    right: max(5%, calc(50% - 480px));
     bottom: -6%;
-    width: clamp(150px, 17vw, 225px);
-    aspect-ratio: 9 / 19.5;
     transform: translateZ(120px) rotateX(4deg) rotate(4deg);
-    border-radius: 36px;
-    padding: 9px;
-    background: linear-gradient(160deg, #3a3531, #161311);
-    box-shadow:
-      0 50px 90px -30px rgba(22, 19, 17, 0.55),
-      inset 0 0 0 1.5px rgba(255, 255, 255, 0.16);
   }
-  .iphone::before {
-    content: "";
-    position: absolute;
-    top: 19px;
-    left: 50%;
-    transform: translateX(-50%);
-    width: 32%;
-    height: 22px;
-    background: #0b0908;
-    border-radius: 99px;
-    z-index: 2;
-  }
-  .iphone-screen {
-    width: 100%;
-    height: 100%;
-    border-radius: 28px;
-    overflow: hidden;
-    background: var(--warm-white);
-  }
+
   @media (max-width: 680px) {
-    .iphone {
-      display: none;
-    }
     .stage {
       height: auto;
       perspective: none;
     }
+
     .scene {
       position: static;
+      display: grid;
+      justify-items: center;
+      gap: 24px;
       transform: none !important;
     }
+
     .mac {
-      position: relative;
-      left: 0;
-      transform: none;
+      position: static;
       width: 100%;
+      overflow: visible;
+      border-radius: 0;
+      background: none;
+      box-shadow: none;
+      transform: none;
+    }
+
+    .mac-bar,
+      .mac-screen {
+      aspect-ratio: auto;
+      padding: 0;
+      background: none;
+    }
+
+    .iphone {
+      --phone-width: 76vw;
+      position: static;
+      transform: none;
     }
   }
-  .orb {
-    position: absolute;
-    border-radius: 50%;
-    filter: blur(60px);
-    pointer-events: none;
-  }
-  .orb-1 {
-    width: 340px;
-    height: 340px;
-    left: -80px;
-    top: 30%;
-    background: color-mix(in srgb, var(--orange) 12%, transparent);
-  }
-  .orb-2 {
-    width: 280px;
-    height: 280px;
-    right: -60px;
-    top: 5%;
-    background: color-mix(in srgb, var(--orange-bright) 10%, transparent);
+
+  @media (prefers-reduced-motion: reduce) {
+    .scene {
+      transition: none;
+    }
   }
 </style>
