@@ -98,10 +98,9 @@ h3 {
 
 .btn-ghost:hover,
 .btn-white:hover {
-  filter: brightness(1.02);
   box-shadow:
     var(--paper-edge),
-    0 0 0 1px rgba(0, 0, 0, 0.28);
+    0 6px 14px -8px rgba(0, 0, 0, 0.22);
 }
 
 .btn-ghost:active,

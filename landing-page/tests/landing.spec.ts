@@ -67,6 +67,7 @@ const LEAVE_ROWS = 4;
 const LEAVE_LOGOS = 5;
 const HERMES_MARKS = 2;
 const PRICE_CARDS = 3;
+const HARD_RING = "rgba(0, 0, 0, 0.28)";
 const BODY_WEIGHT = "500";
 const MIN_STEP_TEXT_PX = 16;
 
@@ -173,6 +174,24 @@ for (const copy of PAGES) {
         expect(style.shadow).toContain("inset");
         expect(style.shadow).toContain(SOFT_EDGE);
       }
+    });
+
+    test("keeps a white button soft on hover", async ({ page, isMobile }) => {
+      test.skip(isMobile, "no hover on touch");
+      const button = page.locator(".btn-ghost").first();
+      await button.hover();
+      await page.waitForTimeout(300);
+      const style = await button.evaluate((e) => {
+        const s = getComputedStyle(e);
+        return {
+          image: s.backgroundImage,
+          filter: s.filter,
+          shadow: s.boxShadow,
+        };
+      });
+      expect(style.image).toContain("linear-gradient");
+      expect(style.filter).toBe("none");
+      expect(style.shadow).not.toContain(HARD_RING);
     });
 
     test("does not lift a button on hover", async ({ page, isMobile }) => {
