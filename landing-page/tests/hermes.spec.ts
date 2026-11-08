@@ -149,10 +149,16 @@ for (const copy of [...LINK_PAGES, ...SPACE_PAGES]) {
     });
 
     test("puts the cut-out mascot next to Hermes", async ({ page }) => {
-      await expect(page.locator(`header img[src='${MASCOT}']`)).toHaveCount(1);
-      await expect(
-        page.locator("header img[src='/images/hermes-agent.png']"),
-      ).toHaveCount(1);
+      const mascot = page.locator(`header img[src='${MASCOT}']`);
+      const agent = page.locator("header img[src='/images/hermes-agent.png']");
+      await expect(mascot).toHaveCount(1);
+      await expect(agent).toHaveCount(1);
+      expect(
+        await mascot.evaluate((e) => getComputedStyle(e).animationName),
+      ).toBe("none");
+      expect(await agent.evaluate((e) => getComputedStyle(e).boxShadow)).toBe(
+        "none",
+      );
     });
 
     test("offers the kit download", async ({ page }) => {

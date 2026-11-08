@@ -112,29 +112,16 @@ const tabs = [
   .mascot {
     width: 128px;
     height: 128px;
-    animation: logoFloat 5.5s ease-in-out infinite;
   }
 
   .agent {
     width: 96px;
     height: 96px;
-    border-radius: 26px;
-    box-shadow: var(--paper-lift);
   }
 
   .hero :global(b) {
     font-weight: 600;
     color: var(--ink);
-  }
-
-  @keyframes logoFloat {
-    0%,
-    100% {
-      transform: translateY(0) rotate(-2deg);
-    }
-    50% {
-      transform: translateY(-8px) rotate(2deg);
-    }
   }
 
   @media (max-width: 560px) {
@@ -146,13 +133,6 @@ const tabs = [
     .agent {
       width: 72px;
       height: 72px;
-      border-radius: 20px;
-    }
-  }
-
-  @media (prefers-reduced-motion: reduce) {
-    .mascot {
-      animation: none;
     }
   }
 </style>
