@@ -3,7 +3,8 @@ import BrandIcon from "./beta/BrandIcon.astro";
 
 interface Connector {
   name: string;
-  icon: string;
+  icon?: string;
+  logo?: string;
 }
 
 interface Props {
@@ -35,15 +36,17 @@ const glyphs: Record<string, { color: string; path: string }> = {
     {
       connectors.map((c) => (
         <li title={c.name}>
-          {isBrand(c.icon) ? (
-            <BrandIcon name={c.icon} />
+          {c.logo ? (
+            <img src={c.logo} alt="" width="19" height="19" />
+          ) : isBrand(c.icon ?? "") ? (
+            <BrandIcon name={c.icon as BrandName} />
           ) : (
             <svg
               viewBox="0 0 24 24"
               aria-hidden="true"
-              fill={glyphs[c.icon]?.color}
+              fill={glyphs[c.icon ?? ""]?.color}
             >
-              <path d={glyphs[c.icon]?.path} />
+              <path d={glyphs[c.icon ?? ""]?.path} />
             </svg>
           )}
           <span>{c.name}</span>
@@ -83,7 +86,8 @@ const glyphs: Record<string, { color: string; path: string }> = {
     font-weight: 600;
   }
 
-  li svg {
+  li svg,
+  li img {
     width: 19px;
     height: 19px;
   }
@@ -96,6 +100,10 @@ const glyphs: Record<string, { color: string; path: string }> = {
   @media (max-width: 640px) {
     [data-variant="grid"] {
       grid-template-columns: repeat(2, 1fr);
+    }
+
+    [data-variant="grid"] li:last-child:nth-child(odd) {
+      grid-column: 1 / -1;
     }
   }
 

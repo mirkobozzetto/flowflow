@@ -49,6 +49,18 @@
       "icon": "docs"
     },
     {
+      "name": "Google Contacts",
+      "logo": "/logos/google-contacts.png"
+    },
+    {
+      "name": "Google Forms",
+      "logo": "/logos/google-forms.png"
+    },
+    {
+      "name": "Google Tasks",
+      "logo": "/logos/google-tasks.png"
+    },
+    {
       "name": "GitHub",
       "icon": "github"
     }

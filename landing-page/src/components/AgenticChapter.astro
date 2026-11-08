@@ -54,9 +54,20 @@ const t = section(lang, "agentic");
       />
       <SoonConnectors label={t.soonLabel} />
 
-      <div class="mt-8 flex flex-wrap items-center gap-x-5 gap-y-3">
-        <a class="btn-white" href={hermesUrl}>{t.cta}</a>
+      <div class="hermes mt-9">
+        <div class="marks" aria-hidden="true">
+          <img src="/images/hermes-agent.png" alt="" width="56" height="56" />
+          <span>+</span>
+          <img
+            class="tailscale"
+            src="/logos/tailscale.svg"
+            alt=""
+            width="56"
+            height="56"
+          />
+        </div>
         <p class="note">{t.note}</p>
+        <a class="btn-primary" href={hermesUrl}>{t.cta}</a>
       </div>
     </div>
 
@@ -86,12 +97,65 @@ const t = section(lang, "agentic");
     line-height: 1.35;
   }
 
+  .hermes {
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr) auto;
+    gap: 22px;
+    align-items: center;
+    padding: 18px 18px 18px 20px;
+    border-radius: 22px;
+    background: white;
+    color: black;
+  }
+
+  .marks {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .marks img {
+    width: 56px;
+    height: 56px;
+    border-radius: 16px;
+    box-shadow: 0 0 0 1px var(--rule);
+  }
+
+  .marks .tailscale {
+    padding: 14px;
+    background: white;
+  }
+
+  .marks span {
+    font-size: 20px;
+    font-weight: 700;
+    color: var(--stone-400);
+  }
+
   .note {
-    max-width: 420px;
-    font-size: 16px;
+    font-size: 18px;
     font-weight: 600;
     line-height: 1.3;
-    color: white;
+    letter-spacing: -0.012em;
+    text-wrap: balance;
+  }
+
+  .hermes .btn-primary {
+    min-height: 58px;
+    padding: 0 28px;
+    font-size: 16.5px;
+    white-space: nowrap;
+  }
+
+  @media (max-width: 640px) {
+    .hermes {
+      grid-template-columns: 1fr;
+      gap: 16px;
+    }
+
+    .hermes .btn-primary {
+      justify-content: center;
+    }
   }
 
   .layout {

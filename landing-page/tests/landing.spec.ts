@@ -12,6 +12,7 @@ const PAGES = [
     free: "Free for now",
     calendar: "Google Calendar",
     soon: "Coming next",
+    hermes: "Link my Hermes",
   },
   {
     path: "/fr/",
@@ -24,6 +25,7 @@ const PAGES = [
     free: "Gratuite pour l'instant",
     calendar: "Google Agenda",
     soon: "À venir",
+    hermes: "Relier mon Hermes",
   },
 ];
 
@@ -32,7 +34,7 @@ const SOON = /\b(soon|bientôt)\b/i;
 const WHITE = "rgb(255, 255, 255)";
 const BLACK = "rgb(0, 0, 0)";
 const MIN_CLIPS = 7;
-const CONNECTORS = 6;
+const CONNECTORS = 9;
 const SOON_TOOLS = 12;
 const SOFT_EDGE = "rgba(0, 0, 0, 0.16)";
 const CAPSULE_BLACK = "rgb(20, 20, 20)";
@@ -43,6 +45,7 @@ const MAX_PROMO_CROP = 0.01;
 const MIN_HERO_PHONE_WIDTH = 280;
 const LEAVE_ROWS = 4;
 const LEAVE_LOGOS = 5;
+const HERMES_MARKS = 2;
 
 async function scrollThrough(page: Page): Promise<void> {
   await page.evaluate(async () => {
@@ -99,9 +102,10 @@ for (const copy of PAGES) {
       const chips = page.locator("#agentic .chips li");
       await expect(chips).toHaveCount(CONNECTORS);
       await expect(chips.nth(2)).toContainText(copy.calendar);
-      await expect(page.locator("#agentic .chips li svg")).toHaveCount(
-        CONNECTORS,
-      );
+      await expect(
+        page.locator("#agentic .chips li").locator("svg, img"),
+      ).toHaveCount(CONNECTORS);
+      await expect(chips.last()).toContainText("GitHub");
     });
 
     test("lays the connectors out with no orphan", async ({
@@ -109,7 +113,15 @@ for (const copy of PAGES) {
       isMobile,
     }) => {
       const rows = await rowLengths(page, "#agentic .chips li");
-      expect(rows).toEqual(isMobile ? [2, 2, 2] : [3, 3]);
+      expect(rows).toEqual(isMobile ? [2, 2, 2, 2, 1] : [3, 3, 3]);
+      const [last, grid] = await Promise.all([
+        page.locator("#agentic .chips li").last().boundingBox(),
+        page.locator("#agentic .chips").boundingBox(),
+      ]);
+      expect(last?.width).toBeCloseTo(
+        isMobile ? (grid?.width ?? 0) : (last?.width ?? 0),
+        0,
+      );
     });
 
     test("lists the coming tools under their own label", async ({ page }) => {
@@ -170,6 +182,14 @@ for (const copy of PAGES) {
       await expect(rows).toHaveCount(LEAVE_ROWS);
       await expect(rows.locator(".who img")).toHaveCount(LEAVE_LOGOS);
       await expect(rows.nth(1).locator(".who")).toHaveText("Soniox");
+    });
+
+    test("puts Hermes and Tailscale forward with a strong button", async ({
+      page,
+    }) => {
+      const card = page.locator("#agentic .hermes");
+      await expect(card.locator("img")).toHaveCount(HERMES_MARKS);
+      await expect(card.locator("a.btn-primary")).toHaveText(copy.hermes);
     });
 
     test("draws the voice waves", async ({ page }) => {
