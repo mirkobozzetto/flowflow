@@ -21,6 +21,7 @@ const PAGES = [
     calendar: "Google Calendar",
     soon: "Coming next",
     hermes: "Link my Hermes",
+    hermesPath: "/hermes",
     stepProofs: ["each with its timestamp", "cites its notes"],
     trustProofs: ["only when you use it", "with no markup"],
     ai: "Codex/ChatGPT and Claude",
@@ -46,6 +47,7 @@ const PAGES = [
     calendar: "Google Agenda",
     soon: "À venir",
     hermes: "Relier mon Hermes",
+    hermesPath: "/fr/hermes",
     stepProofs: ["chacun à sa minute", "cite ses notes"],
     trustProofs: ["seulement quand tu t'en sers", "sans marge"],
     ai: "Codex/ChatGPT et Claude",
@@ -73,7 +75,6 @@ const HERMES_MARKS = 2;
 const PRICE_CARDS = 3;
 const HARD_RING = "rgba(0, 0, 0, 0.28)";
 const MASCOT = "/brand/mascot.webp";
-const HERMES_PATH = "/hermes";
 const BODY_WEIGHT = "500";
 const MIN_STEP_TEXT_PX = 16;
 
@@ -291,6 +292,10 @@ for (const copy of PAGES) {
       const card = page.locator("#agentic .hermes");
       await expect(card.locator("img")).toHaveCount(HERMES_MARKS);
       await expect(card.locator("a.btn-primary")).toHaveText(copy.hermes);
+      await expect(card.locator("a.btn-primary")).toHaveAttribute(
+        "href",
+        copy.hermesPath,
+      );
     });
 
     test("sets body text in medium and step titles in semi-bold", async ({
@@ -480,7 +485,7 @@ for (const copy of PAGES) {
     test("links Hermes in a new tab instead of Beta", async ({ page }) => {
       const nav = page.locator("nav");
       await expect(nav.locator("a[href*='beta']")).toHaveCount(0);
-      const hermes = nav.locator(`a[href='${HERMES_PATH}']`).first();
+      const hermes = nav.locator(`a[href='${copy.hermesPath}']`).first();
       await expect(hermes).toHaveText("Hermes");
       await expect(hermes).toHaveAttribute("target", "_blank");
     });
