@@ -9,9 +9,17 @@ const appStore = {
   fr: "https://apps.apple.com/be/app/flowflow/id6773033233?l=fr-FR",
 } as const;
 
-// Replaced by the Cal.com page before the PR leaves draft.
-export const bookingUrl =
-  "mailto:mirko.prodev@gmail.com?subject=FlowFlow%20-%2030%20minutes";
+const BOOKING_SUBJECT = "FlowFlow%20-%2030%20minutes";
+
+// The address comes from the CONTACT_EMAIL build variable, never from the
+// repo, and reaches the page only reversed and base64-encoded, so the HTML
+// holds no address to scrape. scripts/contact.ts rebuilds it on click.
+export function bookingCode(): string {
+  const email = import.meta.env.CONTACT_EMAIL ?? "";
+  if (!email) return "";
+  const target = `mailto:${email}?subject=${BOOKING_SUBJECT}`;
+  return btoa([...target].reverse().join(""));
+}
 
 export const hermesUrl = "/hermes";
 
