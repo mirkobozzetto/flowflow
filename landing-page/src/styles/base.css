@@ -89,18 +89,28 @@ h3 {
     0 0 0 1px color-mix(in srgb, var(--orange) 82%, black);
 }
 
-.btn-ghost,
-.btn-white {
+.btn-ghost {
   background: var(--paper-button);
   color: black;
   box-shadow: var(--paper-edge);
 }
 
-.btn-ghost:hover,
-.btn-white:hover {
+.btn-white {
+  background: white;
+  color: black;
+  box-shadow: 0 0 0 1px var(--rule);
+}
+
+.btn-ghost:hover {
   box-shadow:
     var(--paper-edge),
     0 6px 14px -8px rgba(0, 0, 0, 0.22);
+}
+
+.btn-white:hover {
+  box-shadow:
+    0 0 0 1px var(--rule),
+    0 6px 14px -8px rgba(0, 0, 0, 0.28);
 }
 
 .btn-ghost:active,
@@ -136,7 +146,8 @@ h3 {
 }
 
 .say-light {
-  background: white;
+  background: var(--paper-button);
+  box-shadow: var(--paper-edge);
   color: var(--orange-dark);
 }
 

@@ -183,6 +183,16 @@ for (const copy of PAGES) {
       }
     });
 
+    test("keeps the white button on orange plain white", async ({ page }) => {
+      const button = page.locator(".btn-white").first();
+      expect(
+        await button.evaluate((e) => getComputedStyle(e).backgroundImage),
+      ).toBe("none");
+      expect(
+        await button.evaluate((e) => getComputedStyle(e).backgroundColor),
+      ).toBe(WHITE);
+    });
+
     test("keeps a white button soft on hover", async ({ page, isMobile }) => {
       test.skip(isMobile, "no hover on touch");
       const button = page.locator(".btn-ghost").first();
@@ -415,8 +425,14 @@ for (const copy of PAGES) {
     });
 
     test("marks each title's key word as a spoken word", async ({ page }) => {
+      const paper = page.locator("#agentic h2 em.say");
+      const paperStyle = await paper.evaluate((e) => {
+        const s = getComputedStyle(e);
+        return { image: s.backgroundImage, shadow: s.boxShadow };
+      });
+      expect(paperStyle.image).toContain("linear-gradient");
+      expect(paperStyle.shadow).toContain("inset");
       const spoken: [string, string][] = [
-        ["#agentic h2 em.say", WHITE],
         ["#trust h2 em.say", ACCENT],
         ["#teams h2 em.say", ACCENT],
       ];
