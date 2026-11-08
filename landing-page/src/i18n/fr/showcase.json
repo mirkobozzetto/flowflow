@@ -5,7 +5,7 @@
       {
         "num": "01",
         "step": "Parle",
-        "title": "Un tap, et tu parles.",
+        "title": "Un tap, et tu parles",
         "text": "Ça enregistre même téléphone verrouillé.",
         "facts": ["Dynamic Island", "Écran verrouillé"],
         "clip": "dictate"
@@ -13,7 +13,7 @@
       {
         "num": "02",
         "step": "Transcrit",
-        "title": "Ta réunion devient un compte rendu.",
+        "title": "Ta réunion devient un compte rendu",
         "text": "Points clés, décisions et actions, ==chacun à sa minute==.",
         "facts": ["Sans les « euh »", "100 % local", "Mode avion"],
         "clip": "meeting"
@@ -21,7 +21,7 @@
       {
         "num": "03",
         "step": "Range",
-        "title": "Tu ne classes plus rien.",
+        "title": "Tu ne classes plus rien",
         "text": "Titre, tags et thème arrivent seuls, pendant que tu fais autre chose.",
         "facts": [],
         "clip": "themes"
@@ -29,7 +29,7 @@
       {
         "num": "04",
         "step": "Retrouve",
-        "title": "Demande, tu retrouves.",
+        "title": "Demande, tu retrouves",
         "text": "« C'était quoi cette idée de pricing ? » La réponse ==cite ses notes==.",
         "facts": [],
         "clip": "answer"

@@ -7,15 +7,15 @@ const PAGES = [
     sub: "Speak, FlowFlow runs it",
     steps: ["Speak", "Transcribe", "Organize", "Recall"],
     stepTitles: [
-      "One tap, and you talk.",
-      "Your meeting turns into minutes.",
-      "You never file anything again.",
-      "Ask, and it comes back.",
+      "One tap, and you talk",
+      "Your meeting turns into minutes",
+      "You never file anything again",
+      "Ask, and it comes back",
     ],
     agentic: "From word",
-    teams: "You, your team, your agent.",
+    teams: "You, your team, your agent",
     trust: "You always know",
-    free: "Free to start.",
+    free: "Free to start",
     firstPrice: "€0",
     book: "Book a call",
     calendar: "Google Calendar",
@@ -32,15 +32,15 @@ const PAGES = [
     sub: "Parle, FlowFlow exécute",
     steps: ["Parle", "Transcrit", "Range", "Retrouve"],
     stepTitles: [
-      "Un tap, et tu parles.",
-      "Ta réunion devient un compte rendu.",
-      "Tu ne classes plus rien.",
-      "Demande, tu retrouves.",
+      "Un tap, et tu parles",
+      "Ta réunion devient un compte rendu",
+      "Tu ne classes plus rien",
+      "Demande, tu retrouves",
     ],
     agentic: "Du dire",
-    teams: "Toi, ton équipe, ton agent.",
+    teams: "Toi, ton équipe, ton agent",
     trust: "Tu sais toujours",
-    free: "Gratuit pour commencer.",
+    free: "Gratuit pour commencer",
     firstPrice: "0\u00a0€",
     book: "Prendre rendez-vous",
     calendar: "Google Agenda",
@@ -72,6 +72,7 @@ const LEAVE_LOGOS = 5;
 const HERMES_MARKS = 2;
 const PRICE_CARDS = 3;
 const HARD_RING = "rgba(0, 0, 0, 0.28)";
+const MASCOT = "/brand/mascot.webp";
 const BODY_WEIGHT = "500";
 const MIN_STEP_TEXT_PX = 16;
 
@@ -472,6 +473,21 @@ for (const copy of PAGES) {
       await expect(finale.locator("canvas")).toHaveAttribute(
         "data-wave",
         "bars",
+      );
+    });
+
+    test("ends no title with a full stop", async ({ page }) => {
+      const titles = await page
+        .locator("h1, h2, h3")
+        .evaluateAll((all) => all.map((t) => (t.textContent ?? "").trim()));
+      expect(titles.filter((t) => t.endsWith("."))).toEqual([]);
+    });
+
+    test("shows the cut-out mascot without a white tile", async ({ page }) => {
+      const logo = page.locator("header img.hero-logo");
+      await expect(logo).toHaveAttribute("src", MASCOT);
+      expect(await logo.evaluate((e) => getComputedStyle(e).boxShadow)).toBe(
+        "none",
       );
     });
 

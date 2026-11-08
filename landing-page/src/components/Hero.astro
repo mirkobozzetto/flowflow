@@ -1,9 +1,7 @@
 ---
-import { Image } from "astro:assets";
 import CtaButtons from "./CtaButtons.astro";
 import ParallaxScene from "./ParallaxScene.astro";
 import { useTranslations } from "../lib/i18n";
-import logo from "../assets/logo.png";
 
 interface Props {
   lang: string;
@@ -15,12 +13,12 @@ const t = useTranslations(lang, "hero");
 
 <header class="hero pt-29 text-center relative">
   <div class="container">
-    <Image
-      class="hero-logo w-44 h-44 rounded-[44px] mx-auto block relative shadow-[0_14px_24px_-16px_rgba(0,0,0,0.2),inset_0_0_0_1px_rgba(255,255,255,0.4)]"
-      src={logo}
+    <img
+      class="hero-logo w-44 h-44 mx-auto block relative"
+      src="/brand/mascot.webp"
       alt={t("hero.logoAlt")}
-      width={176}
-      height={176}
+      width="176"
+      height="176"
     />
     <h1
       class="mt-6.5 text-[clamp(50px,8.4vw,104px)] leading-[0.99] tracking-[-0.035em] font-semibold text-ink"

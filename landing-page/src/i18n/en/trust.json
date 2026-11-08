@@ -1,6 +1,6 @@
 {
   "h2Lead": "You always know",
-  "h2Accent": "where your notes go.",
+  "h2Accent": "where your notes go",
   "stayTitle": "On your devices, always",
   "stay": [
     "Your notes and audio",
@@ -33,7 +33,7 @@
     }
   ],
   "duty": "You stay responsible for what you hand to an AI. Tell people when you record them.",
-  "costTitle": "Free to start.",
+  "costTitle": "Free to start",
   "cost": [
     {
       "price": "€0",

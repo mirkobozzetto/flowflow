@@ -1,6 +1,6 @@
 {
   "h2Lead": "Tu sais toujours",
-  "h2Accent": "où vont tes notes.",
+  "h2Accent": "où vont tes notes",
   "stayTitle": "Sur tes appareils, toujours",
   "stay": [
     "Tes notes et tes audios",
@@ -33,7 +33,7 @@
     }
   ],
   "duty": "Tu restes responsable de ce que tu confies à une IA. Préviens les personnes que tu enregistres.",
-  "costTitle": "Gratuit pour commencer.",
+  "costTitle": "Gratuit pour commencer",
   "cost": [
     {
       "price": "0 €",
