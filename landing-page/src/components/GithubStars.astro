@@ -27,5 +27,17 @@ const starPath =
   >
     <path d={starPath}></path>
   </svg>
-  <b class="font-semibold text-stone-700">{stars}</b>
+  <b class="font-semibold text-stone-700" data-stars>{stars}</b>
 </span>
+
+<script>
+  import { getStarCount, STARS_FALLBACK } from "../lib/github";
+
+  // The build-time count goes stale; each visit reads the live one.
+  getStarCount().then((stars) => {
+    if (stars === STARS_FALLBACK) return;
+    for (const node of document.querySelectorAll("[data-stars]")) {
+      node.textContent = stars;
+    }
+  });
+</script>

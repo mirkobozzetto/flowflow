@@ -70,7 +70,7 @@ Components take `lang: string` and resolve their own copy, except pure presentat
 | `FaqItem.astro` | `question`, `answer` | accordion row |
 | `Finale.astro` | `lang` | closing headline + CTAs |
 | `Footer.astro` | `lang` | embeds `GithubStars` |
-| `GithubStars.astro` | `label: string` | build-time star count, graceful `★` fallback |
+| `GithubStars.astro` | `label: string` | build-time star count refreshed live in the browser, graceful `★` fallback |
 
 `Panel`: `{ time, title, text, clip }`. `QaItem`: `{ q, a }`.
 

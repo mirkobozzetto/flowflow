@@ -4,6 +4,9 @@ const KIT = "/downloads/FlowFlow-Hermes-kit-2026-10-04.zip";
 const KIT_PROMPT_FILE = "POUR-HERMES.md";
 const MASCOT = "/brand/mascot.webp";
 const LIGHT = 200;
+const GITHUB_REPO_API = "https://api.github.com/repos/mirkobozzetto/flowflow";
+const LIVE_STARS = 1234;
+const LIVE_LABEL = "1.2k";
 
 const LINK_PAGES = [
   {
@@ -217,6 +220,14 @@ for (const copy of [...LINK_PAGES, ...SPACE_PAGES]) {
     });
   });
 }
+
+test("keeps the GitHub star count live", async ({ page }) => {
+  await page.route(GITHUB_REPO_API, (route) =>
+    route.fulfill({ json: { stargazers_count: LIVE_STARS } }),
+  );
+  await page.goto("/hermes");
+  await expect(page.locator("footer [data-stars]")).toHaveText(LIVE_LABEL);
+});
 
 for (const copy of LINK_PAGES) {
   test.describe(`${copy.path} steps`, () => {
