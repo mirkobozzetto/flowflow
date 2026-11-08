@@ -14,9 +14,7 @@ const t = useTranslations(lang, "hero");
 const home = localizePath("/", lang);
 const hermes = localizePath(hermesUrl, lang);
 const onHermes = Astro.url.pathname.startsWith(hermes);
-const hermesAttrs = onHermes
-  ? { "aria-current": "page" as const }
-  : externalLinkAttrs;
+const hermesAttrs = onHermes ? { "aria-current": "page" as const } : {};
 const sections = ["product", "agentic", "teams", "faq"] as const;
 ---
 
@@ -140,10 +138,14 @@ const sections = ["product", "agentic", "teams", "faq"] as const;
     transition: 0.15s;
   }
   .nav-link[aria-current="page"] {
-    color: var(--orange-dark);
-    background: var(--orange-50);
+    color: white;
+    font-weight: 600;
+    background: var(--gradient);
+    box-shadow:
+      inset 0 1px 0 rgba(255, 255, 255, 0.34),
+      0 0 0 1px color-mix(in srgb, var(--orange) 82%, black);
   }
-  .nav-link:hover {
+  .nav-link:not([aria-current="page"]):hover {
     color: var(--ink);
     background: var(--stone-100);
   }

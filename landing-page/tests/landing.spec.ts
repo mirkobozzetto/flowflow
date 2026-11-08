@@ -486,12 +486,12 @@ for (const copy of PAGES) {
       );
     });
 
-    test("links Hermes in a new tab instead of Beta", async ({ page }) => {
+    test("links Hermes in the same tab instead of Beta", async ({ page }) => {
       const nav = page.locator("nav");
       await expect(nav.locator("a[href*='beta']")).toHaveCount(0);
       const hermes = nav.locator(`a[href='${copy.hermesPath}']`).first();
       await expect(hermes).toHaveText("Hermes");
-      await expect(hermes).toHaveAttribute("target", "_blank");
+      await expect(hermes).not.toHaveAttribute("target", "_blank");
     });
 
     test("keeps the nav nearly opaque over dark sections", async ({ page }) => {

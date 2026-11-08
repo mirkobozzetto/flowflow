@@ -141,6 +141,12 @@ for (const copy of [...LINK_PAGES, ...SPACE_PAGES]) {
         .first();
       await expect(hermes).toHaveText("Hermes");
       await expect(hermes).toHaveAttribute("aria-current", "page");
+      const active = await hermes.evaluate((e) => {
+        const s = getComputedStyle(e);
+        return { image: s.backgroundImage, color: s.color };
+      });
+      expect(active.image).toContain("linear-gradient");
+      expect(active.color).toBe("rgb(255, 255, 255)");
       await expect(page.locator("footer")).toHaveCount(1);
       const other = page.locator("body > nav a[hreflang]");
       await expect(other).toHaveCount(1);
@@ -276,7 +282,7 @@ for (const copy of SPACE_PAGES) {
 
     test("marks only the word space", async ({ page }) => {
       await page.goto(copy.path);
-      await expect(page.locator("h1 .mark")).toHaveText(copy.marked);
+      await expect(page.locator("h1 .say")).toHaveText(copy.marked);
       await expect(page.locator("h1 .voice-word")).toHaveCount(0);
     });
 
