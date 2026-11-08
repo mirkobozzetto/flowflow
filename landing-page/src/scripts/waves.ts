@@ -9,12 +9,14 @@ const LIVE_PITCH_PX = 6;
 const LIVE_BAR_PX = 2.5;
 const LIVE_TICK_MS = 70;
 const LIVE_SILENCE = 0.06;
-const LIVE_SMOOTHING = 0.35;
+const LIVE_SMOOTHING = 0.1;
+const LIVE_BLEND = 0.5;
 
 interface LiveState {
   bars: number[];
   last: number;
   level: number;
+  tick: number;
 }
 
 const live = new WeakMap<HTMLCanvasElement, LiveState>();
@@ -32,18 +34,22 @@ function drawLive(
     bars: Array.from({ length: count }, () => LIVE_SILENCE),
     last: now,
     level: LIVE_SILENCE,
+    tick: 0,
   };
   live.set(canvas, state);
   const target = Number(canvas.dataset.level ?? LIVE_SILENCE);
   state.level += (target - state.level) * LIVE_SMOOTHING;
   while (now - state.last >= LIVE_TICK_MS) {
     state.last += LIVE_TICK_MS;
+    state.tick += 1;
+    // A smooth wobble instead of noise, then blended with the bar before,
+    // so heights roll like a voice rather than flicker.
+    const wobble =
+      0.5 + 0.5 * Math.sin(state.tick * 0.8) * Math.cos(state.tick * 0.31);
     const voiced = state.level > LIVE_SILENCE * 2;
-    state.bars.push(
-      voiced
-        ? state.level * (0.3 + Math.random() * 0.7)
-        : LIVE_SILENCE * (0.6 + Math.random() * 0.8),
-    );
+    const raw = voiced ? state.level * (0.55 + 0.45 * wobble) : LIVE_SILENCE;
+    const prev = state.bars.at(-1) ?? LIVE_SILENCE;
+    state.bars.push(prev + (raw - prev) * LIVE_BLEND);
     if (state.bars.length > count) state.bars.shift();
   }
   const glide = ((now - state.last) / LIVE_TICK_MS) * LIVE_PITCH_PX;
