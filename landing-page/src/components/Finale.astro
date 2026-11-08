@@ -10,11 +10,16 @@ const { lang } = Astro.props;
 const t = section(lang, "footer");
 ---
 
-<section class="container relative pt-40 pb-25 text-center">
+<section id="finale" class="container relative pt-40 pb-25 text-center">
   <h2
-    class="text-[clamp(42px,7.4vw,96px)] leading-[0.98] tracking-[-0.037em] text-ink"
+    class="text-[clamp(42px,7.4vw,96px)] leading-[0.98] tracking-[-0.037em] font-semibold text-ink"
   >
-    {t.finale.lead}<br /><em class="say">{t.finale.accent}</em>
+    {t.finale.lead}<br /><em class="voice-word"
+      >{t.finale.accent}<canvas
+        data-wave="bars"
+        data-speed="2.4"
+        aria-hidden="true"></canvas></em
+    >
   </h2>
   <CtaButtons
     lang={lang}

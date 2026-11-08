@@ -110,6 +110,21 @@ h3 {
     0 0 0 1px var(--rule);
 }
 
+.voice-word {
+  position: relative;
+  display: inline-block;
+  margin-bottom: 0.42em;
+  font-style: normal;
+}
+
+.voice-word canvas {
+  position: absolute;
+  bottom: -0.36em;
+  left: -2%;
+  width: 104%;
+  height: 0.34em;
+}
+
 .say {
   padding: 0 0.12em 0.02em;
   border-radius: 0.14em;

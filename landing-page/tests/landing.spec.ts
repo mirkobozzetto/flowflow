@@ -440,9 +440,19 @@ for (const copy of PAGES) {
     }) => {
       const word = page.locator("h1 em");
       expect(await word.evaluate((e) => getComputedStyle(e).color)).toBe(BLACK);
-      await expect(word.locator("canvas")).toHaveAttribute(
+      await expect(word.locator("canvas")).toHaveAttribute("data-wave", "bars");
+      expect(
+        await page
+          .locator("h1")
+          .evaluate((e) => getComputedStyle(e).fontWeight),
+      ).toBe(CARD_WEIGHT);
+      const finale = page.locator("#finale h2 em");
+      expect(await finale.evaluate((e) => getComputedStyle(e).color)).toBe(
+        BLACK,
+      );
+      await expect(finale.locator("canvas")).toHaveAttribute(
         "data-wave",
-        "voice",
+        "bars",
       );
     });
 
