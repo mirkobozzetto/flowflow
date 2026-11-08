@@ -9,9 +9,11 @@ interface Props {
   cta: string;
   href: string;
   external?: boolean;
+  contact?: string;
 }
 
-const { tone, title, body, points, cta, href, external } = Astro.props;
+const { tone, title, body, points, cta, href, external, contact } =
+  Astro.props;
 ---
 
 <article class="offer" data-tone={tone}>
@@ -32,6 +34,7 @@ const { tone, title, body, points, cta, href, external } = Astro.props;
   <a
     class={tone === "white" ? "btn-primary" : "btn-white"}
     href={href}
+    data-contact={contact}
     {...external ? externalLinkAttrs : {}}
   >
     {cta}

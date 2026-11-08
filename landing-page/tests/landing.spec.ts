@@ -83,6 +83,8 @@ const MIN_NAV_OPACITY = 0.9;
 const MIN_HERO_SUB_PX = 20;
 const MOCK_STARS = "321";
 const MIN_PROMPTER_LINES = 20;
+const EMAIL_PATTERN = /[\w.+-]+@[\w-]+\.[a-z]{2,}/gi;
+const BOOKING_LINKS = 3;
 const RUST_URL = "https://www.rust-lang.org";
 const DIOXUS_URL = "https://dioxuslabs.com";
 
@@ -622,3 +624,26 @@ for (const path of FOOTER_PAGES) {
     }
   });
 }
+
+for (const path of ["/", "/fr/", "/hermes", "/fr/hermes"]) {
+  test(`keeps every email address out of ${path}`, async ({ page }) => {
+    await page.goto(path);
+    const html = await page.content();
+    expect(html.match(EMAIL_PATTERN) ?? []).toEqual([]);
+  });
+}
+
+test("books a call through an address rebuilt only on click", async ({
+  page,
+}) => {
+  await page.goto("/");
+  const book = page.locator("[data-contact]");
+  expect(await book.count()).toBeGreaterThanOrEqual(BOOKING_LINKS);
+  await expect(book.first()).not.toHaveAttribute("href", /mailto/);
+  const target = await book
+    .first()
+    .evaluate((link: HTMLElement) =>
+      [...atob(link.dataset.contact ?? "")].reverse().join(""),
+    );
+  expect(target).toMatch(/^mailto:[^@\s]+@[^@\s]+\?subject=/);
+});
