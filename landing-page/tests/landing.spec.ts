@@ -79,6 +79,7 @@ const HARD_RING = "rgba(0, 0, 0, 0.28)";
 const MASCOT = "/brand/mascot.webp";
 const BODY_WEIGHT = "500";
 const MIN_STEP_TEXT_PX = 16;
+const MIN_NAV_OPACITY = 0.9;
 
 async function scrollThrough(page: Page): Promise<void> {
   await page.evaluate(async () => {
@@ -491,6 +492,14 @@ for (const copy of PAGES) {
       const hermes = nav.locator(`a[href='${copy.hermesPath}']`).first();
       await expect(hermes).toHaveText("Hermes");
       await expect(hermes).toHaveAttribute("target", "_blank");
+    });
+
+    test("keeps the nav nearly opaque over dark sections", async ({ page }) => {
+      const fill = await page
+        .locator("nav .nav-inner")
+        .evaluate((e) => getComputedStyle(e).backgroundColor);
+      const alpha = Number(fill.match(/([\d.]+)\)$/)?.[1] ?? 1);
+      expect(alpha).toBeGreaterThanOrEqual(MIN_NAV_OPACITY);
     });
 
     test("ends no title with a full stop", async ({ page }) => {
