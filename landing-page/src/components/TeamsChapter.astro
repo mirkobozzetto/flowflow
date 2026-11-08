@@ -1,7 +1,7 @@
 ---
 import Offer from "./Offer.astro";
 import { section } from "../lib/i18n";
-import { appStoreUrl, bookingUrl, externalLinkAttrs } from "../lib/links";
+import { appStoreUrl, bookingCode } from "../lib/links";
 
 interface Props {
   lang: string;
@@ -39,7 +39,8 @@ const t = section(lang, "teams");
       body={t.guided.body}
       points={t.guided.points}
       cta={t.guided.cta}
-      href={bookingUrl}
+      href="#book"
+      contact={bookingCode()}
     />
   </div>
 
@@ -56,7 +57,12 @@ const t = section(lang, "teams");
       <path d="M3 26C24 6 52 4 76 19"></path>
       <path d="M63 19l14 1-3-14"></path>
     </svg>
-    <a class="btn-ghost" href={bookingUrl} {...externalLinkAttrs}>
+    <a
+      class="btn-ghost"
+      href="#book"
+      data-contact={bookingCode()}
+      hidden={!bookingCode()}
+    >
       {t.guided.cta}
     </a>
   </div>
