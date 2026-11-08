@@ -135,7 +135,8 @@
       "groupSettings": "Settings",
       "billing": "Subscription",
       "security": "Security"
-    }
+    },
+    "plan": "Personal account"
   },
   "stats": {
     "fig": "Coming",
@@ -143,7 +144,11 @@
     "h2Accent": "on your phone",
     "lead": "The server counts nothing",
     "items": [
-      { "label": "This year", "value": "41 h", "note": "dictated" },
+      {
+        "label": "This year",
+        "value": "41 h",
+        "note": "dictated"
+      },
       {
         "label": "Notes",
         "value": "1,284",
