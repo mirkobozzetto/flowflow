@@ -9,7 +9,7 @@
     "iPhone ↔ Mac sync on your network",
     "Your keys, never in a backup"
   ],
-  "leaveTitle": "Elsewhere, only when you use it",
+  "leaveTitle": "Elsewhere, ==only when you use it==",
   "leave": [
     {
       "what": "Chat, titles and summaries, with your key or your subscription",
@@ -51,7 +51,7 @@
       "logos": ["/logos/openai.svg", "/logos/claude.svg"]
     }
   ],
-  "costNote": "You only pay for the services you choose, directly, with no markup.",
+  "costNote": "You only pay for the services you choose, directly, ==with no markup==.",
   "costSource": "Soniox price read on 7 November 2026",
   "team": "Spaces, agents and connectors: by appointment.",
   "teamCta": "Book a call"

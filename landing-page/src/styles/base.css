@@ -110,6 +110,36 @@ h3 {
     0 0 0 1px var(--rule);
 }
 
+.say {
+  padding: 0 0.12em 0.02em;
+  border-radius: 0.14em;
+  background: var(--orange-dark);
+  color: white;
+  font-style: normal;
+  box-decoration-break: clone;
+  -webkit-box-decoration-break: clone;
+}
+
+.say-light {
+  background: white;
+  color: var(--orange-dark);
+}
+
+.hl {
+  padding: 0 0.06em;
+  border-radius: 0.12em;
+  background: linear-gradient(
+    180deg,
+    transparent 54%,
+    var(--orange-100) 54%,
+    var(--orange-100) 94%,
+    transparent 94%
+  );
+  color: inherit;
+  box-decoration-break: clone;
+  -webkit-box-decoration-break: clone;
+}
+
 .fine,
 .paper {
   background: var(--paper);

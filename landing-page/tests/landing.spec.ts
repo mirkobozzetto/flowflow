@@ -21,6 +21,8 @@ const PAGES = [
     calendar: "Google Calendar",
     soon: "Coming next",
     hermes: "Link my Hermes",
+    stepProofs: ["each with its timestamp", "cites its notes"],
+    trustProofs: ["only when you use it", "with no markup"],
     ai: "Codex/ChatGPT and Claude",
     aiUse: "your subscription",
   },
@@ -44,6 +46,8 @@ const PAGES = [
     calendar: "Google Agenda",
     soon: "À venir",
     hermes: "Relier mon Hermes",
+    stepProofs: ["chacun à sa minute", "cite ses notes"],
+    trustProofs: ["seulement quand tu t'en sers", "sans marge"],
     ai: "Codex/ChatGPT et Claude",
     aiUse: "ton abonnement",
   },
@@ -313,7 +317,6 @@ for (const copy of PAGES) {
     });
 
     test("draws the voice waves", async ({ page }) => {
-      await expect(page.locator("h1 em canvas[data-wave]")).toHaveCount(1);
       await expect(page.locator("#agentic > canvas")).toHaveAttribute(
         "data-wave",
         "bars",
@@ -347,7 +350,7 @@ for (const copy of PAGES) {
 
     test("uses white on orange and black on white", async ({ page }) => {
       expect(await colorOf(page, "#agentic h2")).toBe(WHITE);
-      expect(await colorOf(page, "#agentic h2 em")).toBe(WHITE);
+      expect(await colorOf(page, "#agentic h2 em")).toBe(ACCENT);
       expect(await colorOf(page, "#agentic .sub")).toBe(WHITE);
       expect(await colorOf(page, ".btn-primary")).toBe(WHITE);
       expect(await colorOf(page, '.offer[data-tone="orange"] h3')).toBe(WHITE);
@@ -408,11 +411,45 @@ for (const copy of PAGES) {
       expect(width).toBeGreaterThanOrEqual(MIN_HERO_PHONE_WIDTH);
     });
 
-    test("uses a thin line under the hero word", async ({ page }) => {
-      await expect(page.locator("h1 em canvas")).toHaveAttribute(
-        "data-wave",
-        "sine",
+    test("marks each title's key word as a spoken word", async ({ page }) => {
+      const spoken: [string, string][] = [
+        ["#agentic h2 em.say", WHITE],
+        ["#trust h2 em.say", ACCENT],
+        ["#teams h2 em.say", ACCENT],
+      ];
+      for (const [selector, background] of spoken) {
+        const word = page.locator(selector);
+        await expect(word).toHaveCount(1);
+        expect(
+          await word.evaluate((e) => getComputedStyle(e).backgroundColor),
+        ).toBe(background);
+        expect(await word.evaluate((e) => getComputedStyle(e).fontStyle)).toBe(
+          "normal",
+        );
+      }
+      const serif = await page.evaluate(() =>
+        [...document.querySelectorAll("body *")].some((e) =>
+          getComputedStyle(e).fontFamily.includes("Instrument Serif"),
+        ),
       );
+      expect(serif).toBe(false);
+    });
+
+    test("keeps the hero word black over a lively voice wave", async ({
+      page,
+    }) => {
+      const word = page.locator("h1 em");
+      expect(await word.evaluate((e) => getComputedStyle(e).color)).toBe(BLACK);
+      await expect(word.locator("canvas")).toHaveAttribute(
+        "data-wave",
+        "voice",
+      );
+    });
+
+    test("highlights one proof in the cards", async ({ page }) => {
+      await expect(page.locator("#product .hl")).toHaveText(copy.stepProofs);
+      await expect(page.locator("#trust .hl")).toHaveText(copy.trustProofs);
+      await expect(page.locator("#product .num").first()).toHaveText("01");
     });
 
     test("does not scroll sideways", async ({ page }) => {

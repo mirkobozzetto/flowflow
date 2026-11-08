@@ -14,7 +14,7 @@
         "num": "02",
         "step": "Transcribe",
         "title": "Your meeting turns into minutes.",
-        "text": "Key points, decisions and actions, each with its timestamp.",
+        "text": "Key points, decisions and actions, ==each with its timestamp==.",
         "facts": ["No more “ums”", "100% local", "Airplane mode"],
         "clip": "meeting"
       },
@@ -30,7 +30,7 @@
         "num": "04",
         "step": "Recall",
         "title": "Ask, and it comes back.",
-        "text": "“What was that pricing idea?” The answer cites its notes.",
+        "text": "“What was that pricing idea?” The answer ==cites its notes==.",
         "facts": [],
         "clip": "answer"
       }

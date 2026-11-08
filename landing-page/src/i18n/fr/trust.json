@@ -9,7 +9,7 @@
     "La sync iPhone ↔ Mac sur ton réseau",
     "Tes clés, jamais dans une sauvegarde"
   ],
-  "leaveTitle": "Ailleurs, seulement quand tu t'en sers",
+  "leaveTitle": "Ailleurs, ==seulement quand tu t'en sers==",
   "leave": [
     {
       "what": "Chat, titres et résumés, avec ta clé ou ton abonnement",
@@ -51,7 +51,7 @@
       "logos": ["/logos/openai.svg", "/logos/claude.svg"]
     }
   ],
-  "costNote": "Tu ne paies que les services que tu choisis, directement, sans marge.",
+  "costNote": "Tu ne paies que les services que tu choisis, directement, ==sans marge==.",
   "costSource": "Tarif Soniox lu le 7 novembre 2026",
   "team": "Espaces, agents et connecteurs : sur rendez-vous.",
   "teamCta": "Prendre rendez-vous"

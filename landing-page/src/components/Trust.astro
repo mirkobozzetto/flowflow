@@ -1,5 +1,6 @@
 ---
 import { section } from "../lib/i18n";
+import { highlight } from "../lib/highlight";
 import { bookingUrl, externalLinkAttrs } from "../lib/links";
 
 interface Props {
@@ -14,9 +15,7 @@ const t = section(lang, "trust");
   <h2
     class="text-[clamp(30px,4.4vw,50px)] leading-[1.04] tracking-[-0.027em]"
   >
-    {t.h2Lead}<br /><em class="font-serif font-normal italic text-orange-dark"
-      >{t.h2Accent}</em
-    >
+    {t.h2Lead}<br /><em class="say">{t.h2Accent}</em>
   </h2>
 
   <div class="split mt-10">
@@ -25,7 +24,13 @@ const t = section(lang, "trust");
       <ul>{t.stay.map((item) => <li>{item}</li>)}</ul>
     </div>
     <div class="leave">
-      <h3>{t.leaveTitle}</h3>
+      <h3>
+        {
+          highlight(t.leaveTitle).map((part) =>
+            part.hl ? <mark class="hl">{part.text}</mark> : part.text,
+          )
+        }
+      </h3>
       <ul>
         {
           t.leave.map((item) => (
@@ -53,7 +58,13 @@ const t = section(lang, "trust");
     >
       {t.costTitle}
     </h3>
-    <p class="mt-3 max-w-140 text-[17px] text-pretty">{t.costNote}</p>
+    <p class="mt-3 max-w-140 text-[17px] text-pretty">
+      {
+        highlight(t.costNote).map((part) =>
+          part.hl ? <mark class="hl">{part.text}</mark> : part.text,
+        )
+      }
+    </p>
     <ul class="prices mt-8">
       {
         t.cost.map((card) => (

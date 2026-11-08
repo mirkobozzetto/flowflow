@@ -14,7 +14,7 @@
         "num": "02",
         "step": "Transcrit",
         "title": "Ta réunion devient un compte rendu.",
-        "text": "Points clés, décisions et actions, chacun à sa minute.",
+        "text": "Points clés, décisions et actions, ==chacun à sa minute==.",
         "facts": ["Sans les « euh »", "100 % local", "Mode avion"],
         "clip": "meeting"
       },
@@ -30,7 +30,7 @@
         "num": "04",
         "step": "Retrouve",
         "title": "Demande, tu retrouves.",
-        "text": "« C'était quoi cette idée de pricing ? » La réponse cite ses notes.",
+        "text": "« C'était quoi cette idée de pricing ? » La réponse ==cite ses notes==.",
         "facts": [],
         "clip": "answer"
       }

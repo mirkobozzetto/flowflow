@@ -1,6 +1,7 @@
 ---
 import Clip from "./Clip.astro";
 import Phone from "./Phone.astro";
+import { highlight } from "../lib/highlight";
 
 interface Props {
   lang: string;
@@ -19,8 +20,8 @@ const { lang, num, step, title, text, facts, clip } = Astro.props;
   class="panel fine flex w-[min(640px,84vw)] shrink-0 flex-row items-center gap-7 rounded-3xl p-7.5 max-[560px]:flex-col max-[560px]:items-start"
 >
   <div class="flex flex-1 flex-col gap-3.5">
-    <div class="flex items-baseline gap-3 text-orange-dark">
-      <span class="font-serif text-[58px] italic leading-none">{num}</span>
+    <div class="flex items-center gap-2.5">
+      <span class="num">{num}</span>
       <span class="step text-[17px] font-semibold">{step}</span>
     </div>
     <h3
@@ -28,7 +29,13 @@ const { lang, num, step, title, text, facts, clip } = Astro.props;
     >
       {title}
     </h3>
-    <p class="max-w-107.5 text-[16.5px] leading-[1.45] text-pretty">{text}</p>
+    <p class="max-w-107.5 text-[16.5px] leading-[1.45] text-pretty">
+      {
+        highlight(text).map((part) =>
+          part.hl ? <mark class="hl">{part.text}</mark> : part.text,
+        )
+      }
+    </p>
     {
       facts.length > 0 && (
         <ul class="facts">
@@ -47,6 +54,16 @@ const { lang, num, step, title, text, facts, clip } = Astro.props;
 <style>
   .panel {
     --phone-width: clamp(150px, 16vw, 196px);
+  }
+
+  .num {
+    padding: 3px 8px;
+    border-radius: 7px;
+    background: var(--orange-dark);
+    color: white;
+    font-size: 15px;
+    font-weight: 700;
+    font-variant-numeric: tabular-nums;
   }
 
   .facts {
