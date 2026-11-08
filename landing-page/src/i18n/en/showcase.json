@@ -4,26 +4,34 @@
     "panels": [
       {
         "num": "01",
-        "title": "Speak",
-        "text": "One tap. Live waveform, Dynamic Island, it keeps going with the phone locked.",
+        "step": "Speak",
+        "title": "One tap, and you talk.",
+        "text": "It keeps recording with the phone locked.",
+        "facts": ["Dynamic Island", "Locked screen"],
         "clip": "dictate"
       },
       {
         "num": "02",
-        "title": "Transcribe",
-        "text": "Cloud, or 100% local with Whisper - airplane mode included. The \"ums\" vanish.",
+        "step": "Transcribe",
+        "title": "Your meeting turns into minutes.",
+        "text": "Key points, decisions and actions, each with its timestamp.",
+        "facts": ["No more “ums”", "100% local", "Airplane mode"],
         "clip": "meeting"
       },
       {
         "num": "03",
-        "title": "Organize",
-        "text": "Title, tags, theme: filed away while you move on to the next thing.",
+        "step": "Organize",
+        "title": "You never file anything again.",
+        "text": "Title, tags and theme arrive on their own while you move on.",
+        "facts": [],
         "clip": "themes"
       },
       {
         "num": "04",
-        "title": "Recall",
-        "text": "\"What was that pricing idea again?\" - a sourced answer, clickable notes.",
+        "step": "Recall",
+        "title": "Ask, and it comes back.",
+        "text": "“What was that pricing idea?” The answer cites its notes.",
+        "facts": [],
         "clip": "answer"
       }
     ]

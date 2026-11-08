@@ -6,6 +6,12 @@ const PAGES = [
     h1: "A word away",
     sub: "Speak, FlowFlow runs it",
     steps: ["Speak", "Transcribe", "Organize", "Recall"],
+    stepTitles: [
+      "One tap, and you talk.",
+      "Your meeting turns into minutes.",
+      "You never file anything again.",
+      "Ask, and it comes back.",
+    ],
     agentic: "From word",
     teams: "You, your team, your agent.",
     trust: "What stays,",
@@ -19,6 +25,12 @@ const PAGES = [
     h1: "À portée de voix",
     sub: "Parle, FlowFlow exécute",
     steps: ["Parle", "Transcrit", "Range", "Retrouve"],
+    stepTitles: [
+      "Un tap, et tu parles.",
+      "Ta réunion devient un compte rendu.",
+      "Tu ne classes plus rien.",
+      "Demande, tu retrouves.",
+    ],
     agentic: "Du dire",
     teams: "Toi, ton équipe, ton agent.",
     trust: "Ce qui reste,",
@@ -85,7 +97,8 @@ for (const copy of PAGES) {
     test("keeps the headline and shows the exact copy", async ({ page }) => {
       await expect(page.locator("h1")).toHaveText(copy.h1);
       await expect(page.locator("header p").first()).toContainText(copy.sub);
-      await expect(page.locator("#product h3")).toHaveText(copy.steps);
+      await expect(page.locator("#product .step")).toHaveText(copy.steps);
+      await expect(page.locator("#product h3")).toHaveText(copy.stepTitles);
       await expect(page.locator("#agentic h2")).toContainText(copy.agentic);
       await expect(page.locator("#teams h2")).toContainText(copy.teams);
       await expect(page.locator("#trust h2")).toContainText(copy.trust);
@@ -212,6 +225,12 @@ for (const copy of PAGES) {
           Number.parseFloat(getComputedStyle(e).fontSize),
         ),
       ).toBeGreaterThanOrEqual(MIN_STEP_TEXT_PX);
+    });
+
+    test("backs the first two steps with facts", async ({ page }) => {
+      const steps = page.locator("#product article");
+      await expect(steps.nth(0).locator(".facts li")).toHaveCount(2);
+      await expect(steps.nth(1).locator(".facts li")).toHaveCount(3);
     });
 
     test("draws the voice waves", async ({ page }) => {
