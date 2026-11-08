@@ -15,6 +15,10 @@ export const bookingUrl =
 
 export const hermesUrl = "/hermes";
 
+export const rustUrl = "https://www.rust-lang.org";
+
+export const dioxusUrl = "https://dioxuslabs.com";
+
 export const hermesSpacesUrl = "/hermes/espaces";
 
 export const hermesKitUrl = "/downloads/FlowFlow-Hermes-kit-2026-10-04.zip";

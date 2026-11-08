@@ -11,6 +11,7 @@
     "license": "EUPL v1.2",
     "github": "GitHub",
     "starsAlt": "GitHub stars",
-    "madeWith": "Built in Rust with Dioxus"
+    "builtLead": "Built in",
+    "builtJoin": "with"
   }
 }

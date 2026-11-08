@@ -82,6 +82,8 @@ const MIN_STEP_TEXT_PX = 16;
 const MIN_NAV_OPACITY = 0.9;
 const MIN_HERO_SUB_PX = 20;
 const MOCK_STARS = "321";
+const RUST_URL = "https://www.rust-lang.org";
+const DIOXUS_URL = "https://dioxuslabs.com";
 
 async function scrollThrough(page: Page): Promise<void> {
   await page.evaluate(async () => {
@@ -566,5 +568,32 @@ for (const copy of PAGES) {
       );
       expect(overflow).toBeLessThanOrEqual(0);
     });
+  });
+}
+
+const FOOTER_PAGES = [
+  "/",
+  "/fr/",
+  "/hermes",
+  "/fr/hermes",
+  "/hermes/espaces",
+  "/beta",
+];
+
+for (const path of FOOTER_PAGES) {
+  test(`credits Rust and Dioxus with their logos on ${path}`, async ({
+    page,
+  }) => {
+    await page.goto(path);
+    for (const site of [RUST_URL, DIOXUS_URL]) {
+      const link = page.locator(`footer a[href='${site}']`);
+      await expect(link).toHaveCount(1);
+      await expect(link.locator("img")).toBeVisible();
+      expect(
+        await link
+          .locator("img")
+          .evaluate((img: HTMLImageElement) => img.naturalWidth),
+      ).toBeGreaterThan(0);
+    }
   });
 }
