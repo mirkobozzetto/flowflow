@@ -1,0 +1,12 @@
+---
+import HermesLink from "../../components/hermes/HermesLink.astro";
+import Layout from "../../layouts/Layout.astro";
+import { section } from "../../lib/i18n";
+import { hermesUrl } from "../../lib/links";
+
+const { meta } = section("fr", "hermes").link;
+---
+
+<Layout lang="fr" path={hermesUrl} noindex {...meta}>
+  <HermesLink lang="fr" />
+</Layout>
