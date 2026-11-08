@@ -7,7 +7,8 @@ COPY package.json bun.lock ./
 RUN bun install --frozen-lockfile
 
 COPY . .
-RUN bun run build
+ARG CONTACT_EMAIL
+RUN CONTACT_EMAIL="$CONTACT_EMAIL" bun run build
 
 FROM nginx:1.27-alpine AS runtime
 
