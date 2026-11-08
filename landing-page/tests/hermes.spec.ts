@@ -134,9 +134,11 @@ for (const copy of [...LINK_PAGES, ...SPACE_PAGES]) {
       await expect(hermes).toHaveText("Hermes");
       await expect(hermes).toHaveAttribute("aria-current", "page");
       await expect(page.locator("footer")).toHaveCount(1);
-      await expect(
-        page.locator(`body > nav a[href='${copy.other}']`),
-      ).toHaveCount(1);
+      const other = page.locator("body > nav a[hreflang]");
+      await expect(other).toHaveCount(1);
+      expect(await other.getAttribute("href")).toMatch(
+        new RegExp(`^${copy.other}/?$`),
+      );
     });
 
     test("switches between the two Hermes pages", async ({ page }) => {
