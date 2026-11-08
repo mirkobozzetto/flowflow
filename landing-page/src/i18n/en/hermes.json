@@ -1,0 +1,242 @@
+{
+  "nav": {
+    "label": "Hermes pages",
+    "chat": "Talk to Hermes",
+    "spaces": "Spaces"
+  },
+  "copy": {
+    "button": "Copy",
+    "done": "Copied",
+    "status": "Text copied. No personal token in this example.",
+    "failed": "Copy unavailable. Select the text and copy it by hand."
+  },
+  "link": {
+    "meta": {
+      "title": "Your Hermes in FlowFlow",
+      "description": "Link your Hermes agent to FlowFlow and talk to it from the Chats tab: one script, one QR code, done."
+    },
+    "mascotAlt": "FlowFlow",
+    "h1Lead": "Your Hermes",
+    "h1Accent": "in FlowFlow",
+    "sub": "Talk to your own Hermes agent from the <b>Chats</b> tab.",
+    "cta": "Link my Hermes",
+    "kitCta": "Download the kit",
+    "needs": {
+      "title": "What you need",
+      "items": [
+        "Tailscale on the iPhone and on the Hermes machine",
+        "qrencode to show the QR code",
+        "No FlowFlow account needed",
+        "The key stays on your iPhone"
+      ]
+    },
+    "steps": {
+      "h2Lead": "Link your Hermes",
+      "h2Accent": "in three steps",
+      "sub": "Once. Then Hermes is in your Chats.",
+      "run": {
+        "title": "Run the script",
+        "text": "In a terminal, ==on the Hermes machine==, from the kit folder.",
+        "warn": "Never from a Hermes chat: the QR code carries the key.",
+        "kit": "Download the kit",
+        "terminalLabel": "Script output",
+        "qrAlt": "Example link QR code"
+      },
+      "scan": {
+        "title": "Scan the code",
+        "text": "With the iPhone camera. FlowFlow opens, fills in the address and the key, then ==tests the link==.",
+        "address": "Address",
+        "addressValue": "https://hermes.your-network.ts.net:8642",
+        "key": "Key",
+        "save": "Save and test",
+        "ok": "Hermes answers."
+      },
+      "chat": {
+        "title": "Open a conversation",
+        "text": "Chats, then “New conversation”, then ==“With Hermes”==.",
+        "new": "New conversation",
+        "notes": "With your notes",
+        "notesHint": "Searches and answers, nothing leaves",
+        "hermes": "With Hermes",
+        "hermesHint": "Acts for you: web, email, quotes"
+      }
+    },
+    "fix": {
+      "title": "If FlowFlow shows",
+      "items": [
+        {
+          "message": "“Hermes cannot be reached.”",
+          "fix": "Turn on Tailscale on the iPhone."
+        },
+        {
+          "message": "“Hermes refuses the saved key.”",
+          "fix": "Run the script again and scan the code."
+        }
+      ]
+    },
+    "spaces": {
+      "title": "Give Hermes a space of notes",
+      "text": "It reads and writes in the space you choose, with a token you can revoke.",
+      "cta": "See the guide"
+    }
+  },
+  "spaces": {
+    "meta": {
+      "title": "Give Hermes a space · FlowFlow",
+      "description": "Connect your Hermes agent to a FlowFlow space: linked account, Premium access, install kit and a step-by-step check."
+    },
+    "mascotAlt": "FlowFlow",
+    "h1Lead": "Give Hermes",
+    "h1Accent": "a space",
+    "h1Tail": "",
+    "lead": "Connect Hermes to your FlowFlow space to read, find and enrich your notes. You pick the space. You stay in control.",
+    "cta": "Download the Hermes kit",
+    "ghost": "Follow the steps",
+    "caption": "ZIP · 20 KB · Guide, skill and scripts · No token inside · README in French",
+    "flow": [
+      { "title": "01 · Your space", "where": "In FlowFlow" },
+      { "title": "02 · Your access", "where": "A private token" },
+      { "title": "03 · Your Hermes", "where": "On its own machine" }
+    ],
+    "toc": {
+      "title": "Your path",
+      "items": [
+        { "id": "avant", "label": "Before you start" },
+        { "id": "espace", "label": "01 · Prepare the space" },
+        { "id": "acces", "label": "02 · Create the access" },
+        { "id": "kit", "label": "03 · Install the kit" },
+        { "id": "secret", "label": "04 · Connect Hermes" },
+        { "id": "verifier", "label": "05 · Check and start" },
+        { "id": "aide", "label": "Common questions" }
+      ]
+    },
+    "before": {
+      "title": "What you need",
+      "sides": [
+        {
+          "title": "On the FlowFlow side",
+          "text": "The iPhone or Mac app, a web account linked to the app and an active Premium access to create the Hermes access."
+        },
+        {
+          "title": "On the Hermes side",
+          "text": "A Hermes instance already installed, on Linux or macOS, able to reach api.flowflow.be over HTTPS."
+        }
+      ],
+      "account": "No account yet? <a href=\"https://account.flowflow.be/register\" target=\"_blank\" rel=\"noopener\">Create your account</a>, or <a href=\"https://account.flowflow.be/login\" target=\"_blank\" rel=\"noopener\">sign in</a>.",
+      "link": "In the app, open <b>Settings → Account → Generate link code</b>. Copy this code, then enter it on <a href=\"https://account.flowflow.be/link\" target=\"_blank\" rel=\"noopener\">the link page</a>, signed in to the same web account.",
+      "note": {
+        "title": "Signing in to the site is not enough",
+        "text": "Linking attaches your app to the web account. If Premium is not active, ask the FlowFlow administrator to turn it on. This page offers no purchase and no automatic activation."
+      }
+    },
+    "space": {
+      "step": "In the FlowFlow app",
+      "title": "Choose the space",
+      "items": [
+        "Open the sidebar and create or choose a <b>space you own</b>.",
+        "Put in it the notes you want to make reachable.",
+        "To allow writing, prepare a <b>collaborative folder</b> in this space."
+      ],
+      "text": "A local folder that is not shared stays invisible to Hermes. The token opens a single space, not all your notes."
+    },
+    "access": {
+      "step": "Still in FlowFlow",
+      "title": "Create the access",
+      "items": [
+        "Open the <b>⋯</b> menu of the space, then <b>Hermes access</b>.",
+        "Choose <b>Read only</b> or <b>Read and write</b>.",
+        "Select <b>Create access</b> and copy the token right away: it is shown only once."
+      ],
+      "note": {
+        "title": "Your token stays private",
+        "text": "It starts with <code>mcps_</code>. Do not paste it on Discord, in a chat with Hermes, in your notes or in a shell command. You will enter it in a private file at step 4. The device link code and this token are two different things."
+      },
+      "text": "A Hermes access already exists for this space? Regenerate its token instead of creating a duplicate."
+    },
+    "kit": {
+      "step": "On the machine that runs Hermes",
+      "title": "Install the kit",
+      "text": "Download and unzip the kit <b>on the machine where Hermes really runs</b>. If it runs on a VPS, the files must be on that VPS, not only on your computer.",
+      "contents": [
+        "LIRE-MOI.md",
+        "POUR-HERMES.md",
+        "Skill + 4 references",
+        "Install script",
+        "Chat link script"
+      ],
+      "give": "Give the folder to your agent, then send it this instruction:",
+      "promptLabel": "To send to Hermes · no secret",
+      "prompt": "Read POUR-HERMES.md in this kit and follow the instructions to set up FlowFlow on your current instance. Keep the existing configuration. Guide me to enter my token in the private file meant for it, never in this conversation. Finish with a read-only check, without creating or changing any note.",
+      "manual": {
+        "summary": "Install the skill by hand",
+        "from": "From the root of the unzipped folder:",
+        "text": "The script installs the skill and its references in <code>~/.hermes/skills/productivity/flowflow-spaces/</code>. It backs up the old copy. It does not set up the MCP and does not install Hermes."
+      }
+    },
+    "secret": {
+      "step": "One configuration, one private secret",
+      "title": "Set up Hermes",
+      "text": "Hermes guides you to complete its existing configuration. Back it up first and keep the other MCP servers.",
+      "yamlLabel": "~/.hermes/config.yaml · example to merge",
+      "env": "In a <b>private editor</b>, add the variable <code>FLOWFLOW_TOKEN_MON_ESPACE</code> with your real token to <code>~/.hermes/.env</code>. Do not replace the other variables and do not share this file.",
+      "chmodLabel": "Protect the file on Linux / macOS",
+      "reload": "Reload or restart <b>the same Hermes instance</b> so it reads the skill, the configuration and the environment again. How depends on its install; your agent should tell you, without starting a second instance.",
+      "caption": "Custom Hermes folder: use the real paths of this instance. On Windows, follow the steps in the Linux/WSL environment where Hermes is installed."
+    },
+    "verify": {
+      "step": "Look first, act next",
+      "title": "Check the connection",
+      "promptLabel": "First check · read only",
+      "prompt": "Use the flowflow-spaces skill and the flowflow_mon_espace server. Check space_info, then pull_changes and list_folders. Give me the space name, the contract, your permissions, the expiry date and the visible folders. Do not create, change or delete any note.",
+      "items": [
+        "The name returned must be the one of <b>your space</b>.",
+        "The contract this kit expects is <b>3</b>. If it differs, Hermes must follow the skill’s compatibility steps.",
+        "An empty space is valid. Writing needs <b>read_write</b> and a <b>writable: true</b> folder."
+      ],
+      "readTitle": "Start with a read",
+      "readPrompt": "List the notes in the Projects folder, without changing them.",
+      "writeTitle": "Then allow a creation, if you want",
+      "writePrompt": "Create a note titled “First summary” in the collaborative Projects folder, with this content: …",
+      "text": "Replace “Projects” with a folder you really see. No watch or routine is turned on by default. Hermes must not change your human notes."
+    },
+    "faq": {
+      "title": "Common questions",
+      "items": [
+        {
+          "q": "I am signed in to the site, but my account is empty",
+          "a": "The device link is probably missing. Generate a code in Settings → Account in the app, then enter it on <a href=\"https://account.flowflow.be/link\" target=\"_blank\" rel=\"noopener\">account.flowflow.be/link</a>. Creating the web account and linking are two separate steps."
+        },
+        {
+          "q": "Hermes sees no FlowFlow server",
+          "a": "The skill describes the method, but does not create the connection. Check the mcp_servers entry and the environment variable on the right machine, then reload Hermes. Do not post your full configuration in a help message."
+        },
+        {
+          "q": "The server answers 404 or unauthorized",
+          "a": "The token may be invalid, expired, regenerated or revoked. Check that you used the space token, not the link code. Regenerate the access if needed, replace only its private variable, then reload Hermes."
+        },
+        {
+          "q": "Hermes can read, but not write",
+          "a": "Check the owner’s Premium, the read_write scope and a collaborative folder with writable=true. Hermes does not write at the root of the space and does not change human notes. space_read_only means Premium writes are unavailable."
+        },
+        {
+          "q": "When should I renew the access?",
+          "a": "Premium and the token expire separately. Read expires_at returned by space_info. Regenerate the token before it expires and replace its value in the private file. Tokens last 365 days at most."
+        },
+        {
+          "q": "How do I cut Hermes’ access?",
+          "a": "In the space menu → Hermes access → Revoke. Then remove the matching configuration and variable on the Hermes machine. Notes already created are not deleted."
+        },
+        {
+          "q": "Can I share this kit?",
+          "a": "Yes. It only holds documentation, the skill and its scripts. Each user generates their own token for their own space. The SHA-256 fingerprints let you check the files; they grant no access."
+        }
+      ]
+    },
+    "closing": {
+      "title": "The Hermes kit",
+      "text": "Keep the guide and pass the kit on. Never the token.",
+      "cta": "Download the full kit",
+      "caption": "Skill 1.2.0 · Contract 3 · Kit of 9 September 2026"
+    }
+  }
+}
