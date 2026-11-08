@@ -5,9 +5,8 @@
   "chat": {
     "title": "Chat with your notes",
     "body": "Ask a question, the answer cites its sources - clickable, filterable by theme.",
-    "macSlot": "REAL SCREENSHOT Mac - conversation with sources expanded",
-    "phoneSlot": "SCREENSHOT iPhone",
-    "phoneSlotNote": "same conversation"
+    "shotAlt": "A conversation with its sources",
+    "shot2Alt": "FlowFlow themes"
   },
   "sync": {
     "title": "iPhone ↔ Mac, no cloud",

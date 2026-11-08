@@ -1,13 +1,22 @@
 ---
 import "../styles/global.css";
 import { getMeta } from "../i18n/ui";
+import { localizePath } from "../lib/i18n";
 
 interface Props {
   lang: string;
+  title?: string;
+  description?: string;
+  path?: string;
+  noindex?: boolean;
 }
 
-const { lang } = Astro.props;
+const { lang, path = "/", noindex = false } = Astro.props;
 const m = getMeta(lang);
+const title = Astro.props.title ?? m.title;
+const description = Astro.props.description ?? m.description;
+const en = localizePath(path, "en");
+const fr = localizePath(path, "fr");
 ---
 
 <!doctype html>
@@ -16,17 +25,18 @@ const m = getMeta(lang);
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <link rel="icon" type="image/png" href="/logo.png" />
-    <title>{m.title}</title>
-    <meta name="description" content={m.description} />
+    {noindex && <meta name="robots" content="noindex,nofollow" />}
+    <title>{title}</title>
+    <meta name="description" content={description} />
     <meta property="og:type" content="website" />
-    <meta property="og:title" content={m.title} />
-    <meta property="og:description" content={m.description} />
+    <meta property="og:title" content={title} />
+    <meta property="og:description" content={description} />
     <meta property="og:image" content="/logo.png" />
     <meta property="og:locale" content={m.locale} />
     <meta name="twitter:card" content="summary_large_image" />
-    <link rel="alternate" hreflang="en" href="/" />
-    <link rel="alternate" hreflang="fr" href="/fr/" />
-    <link rel="alternate" hreflang="x-default" href="/" />
+    <link rel="alternate" hreflang="en" href={en} />
+    <link rel="alternate" hreflang="fr" href={fr} />
+    <link rel="alternate" hreflang="x-default" href={en} />
     <link
       rel="preload"
       href="/fonts/clash-grotesk-600.woff2"
@@ -43,17 +53,16 @@ const m = getMeta(lang);
     />
     <link
       rel="preload"
-      href="/fonts/instrument-serif-italic-latin.woff2"
+      href="/fonts/clash-grotesk-500.woff2"
       as="font"
       type="font/woff2"
       crossorigin
     />
   </head>
   <body>
-    <div id="progress"></div>
     <slot />
     <script>
-      import "../scripts/progress.ts";
+      import "../scripts/waves.ts";
     </script>
   </body>
 </html>

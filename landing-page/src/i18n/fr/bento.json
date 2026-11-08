@@ -5,9 +5,8 @@
   "chat": {
     "title": "Chat avec tes notes",
     "body": "Pose une question, la réponse cite ses sources - cliquables, filtrables par thème.",
-    "macSlot": "SCREENSHOT RÉEL Mac - conversation avec sources dépliées",
-    "phoneSlot": "SCREENSHOT iPhone",
-    "phoneSlotNote": "même conversation"
+    "shotAlt": "Une conversation avec ses sources",
+    "shot2Alt": "Les thèmes de FlowFlow"
   },
   "sync": {
     "title": "iPhone ↔ Mac, sans cloud",

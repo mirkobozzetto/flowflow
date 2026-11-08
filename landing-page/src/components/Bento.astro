@@ -1,5 +1,9 @@
 ---
+import { Image } from "astro:assets";
+import Clip from "./Clip.astro";
+import Phone from "./Phone.astro";
 import { section } from "../lib/i18n";
+import logo from "../assets/logo.png";
 
 interface Props {
   lang: string;
@@ -10,59 +14,64 @@ const t = section(lang, "bento");
 ---
 
 <section class="container pt-35">
-  <div class="fig reveal">{t.fig}</div>
   <h2
-    class="reveal mt-4 text-[clamp(30px,4.4vw,50px)] tracking-[-0.027em]"
-    data-d="1"
+    class="text-[clamp(30px,4.4vw,50px)] leading-[1.04] tracking-[-0.027em]"
   >
     {t.h2Lead}<br />{t.h2Accent}
   </h2>
   <div
-    class="mt-11 grid grid-cols-6 gap-3.5 auto-rows-[96px] max-md:*:col-span-6 max-md:*:row-span-3"
+    class="mt-11 grid grid-cols-6 gap-3.5 auto-rows-[96px] max-md:*:col-span-6 max-md:*:row-span-3 max-md:first:*:row-span-5"
   >
     <div
-      class="reveal relative overflow-hidden rounded-[20px] border border-stone-200 bg-stone-50 p-6 transition-[border-color,box-shadow] duration-250 ease-[ease] hover:border-orange-100 hover:shadow-[0_10px_30px_-22px_rgba(22,19,17,0.25)] col-span-4 row-span-3"
+      class="fine relative overflow-hidden rounded-[20px] p-6 col-span-4 row-span-3"
     >
       <h3 class="mb-1.25 text-[17px] tracking-[-0.01em]">{t.chat.title}</h3>
-      <p class="max-w-80 text-[13px] text-stone-500">{t.chat.body}</p>
-      <div class="media-fill absolute inset-x-0 bottom-0 top-32 border-t border-stone-200">
-        <div class="slot">{t.chat.macSlot}</div>
+      <p class="max-w-72 text-[13.5px]">{t.chat.body}</p>
+      <div class="shots">
+        <Phone class="back">
+          <img
+            src={`/shots/${lang}/09.webp`}
+            alt={t.chat.shot2Alt}
+            width="900"
+            height="1955"
+            loading="lazy"
+            decoding="async"
+          />
+        </Phone>
+        <Phone class="front">
+          <Clip lang={lang} clip="answer" label={t.chat.shotAlt} />
+        </Phone>
       </div>
-      <div class="iphone-mini tile-phone absolute bottom-4.5 right-5.5 z-2 shrink-0 max-[560px]:hidden">
-        <div class="screen">
-          <div class="slot slot-xs">
-            {t.chat.phoneSlot}<small>{t.chat.phoneSlotNote}</small>
-          </div>
+    </div>
+
+    <div
+      class="fine relative overflow-hidden rounded-[20px] p-6 col-span-2 row-span-3"
+    >
+      <h3 class="mb-1.25 text-[17px] tracking-[-0.01em]">{t.sync.title}</h3>
+      <p class="max-w-80 text-[13.5px]">{t.sync.body}</p>
+      <div class="sync-visual mt-5.5 flex items-center gap-3">
+        <div class="device">
+          <Image src={logo} alt="" width={22} height={22} />
+        </div>
+        <div class="sync-line"><span class="lock">{t.sync.lock}</span></div>
+        <div class="device macd">
+          <Image src={logo} alt="" width={26} height={26} />
         </div>
       </div>
     </div>
 
     <div
-      class="reveal relative overflow-hidden rounded-[20px] border border-stone-200 bg-stone-50 p-6 transition-[border-color,box-shadow] duration-250 ease-[ease] hover:border-orange-100 hover:shadow-[0_10px_30px_-22px_rgba(22,19,17,0.25)] col-span-2 row-span-3"
-      data-d="1"
-    >
-      <h3 class="mb-1.25 text-[17px] tracking-[-0.01em]">{t.sync.title}</h3>
-      <p class="max-w-80 text-[13px] text-stone-500">{t.sync.body}</p>
-      <div class="sync-visual mt-5.5 flex items-center gap-3">
-        <div class="device"></div>
-        <div class="sync-line"><span class="lock">{t.sync.lock}</span></div>
-        <div class="device macd"></div>
-      </div>
-    </div>
-
-    <div
-      class="reveal relative overflow-hidden rounded-[20px] border border-stone-200 bg-stone-50 p-6 transition-[border-color,box-shadow] duration-250 ease-[ease] hover:border-orange-100 hover:shadow-[0_10px_30px_-22px_rgba(22,19,17,0.25)] col-span-3 row-span-2"
+      class="fine relative overflow-hidden rounded-[20px] p-6 col-span-3 row-span-2"
     >
       <h3 class="mb-1.25 text-[17px] tracking-[-0.01em]">{t.offline.title}</h3>
-      <p class="max-w-80 text-[13px] text-stone-500">{t.offline.body}</p>
+      <p class="max-w-80 text-[13.5px]">{t.offline.body}</p>
     </div>
 
     <div
-      class="reveal relative overflow-hidden rounded-[20px] border border-stone-200 bg-stone-50 p-6 transition-[border-color,box-shadow] duration-250 ease-[ease] hover:border-orange-100 hover:shadow-[0_10px_30px_-22px_rgba(22,19,17,0.25)] col-span-3 row-span-2"
-      data-d="1"
+      class="fine relative overflow-hidden rounded-[20px] p-6 col-span-3 row-span-2"
     >
       <h3 class="mb-1.25 text-[17px] tracking-[-0.01em]">{t.keyboard.title}</h3>
-      <p class="max-w-80 text-[13px] text-stone-500">{t.keyboard.body}</p>
+      <p class="max-w-80 text-[13.5px]">{t.keyboard.body}</p>
       <div class="mt-3.5 flex flex-wrap gap-1.75">
         <kbd>⌘N</kbd>
         <kbd>⇧⌘Enter</kbd>
@@ -76,86 +85,41 @@ const t = section(lang, "bento");
 </section>
 
 <style>
-  .slot {
-    width: 100%;
-    height: 100%;
+  .shots {
+    --phone-width: 196px;
+    position: absolute;
+    top: 30px;
+    right: 28px;
     display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    gap: 7px;
-    color: var(--stone-400);
-    font-size: 13px;
-    font-weight: 500;
-    text-align: center;
-    padding: 18px;
-    background:
-      radial-gradient(
-        85% 120% at 50% 0%,
-        var(--orange-50) 0%,
-        transparent 60%
-      ),
-      var(--stone-50);
-    border: 2px dashed var(--stone-300);
-    border-radius: inherit;
+    align-items: flex-start;
   }
-  .slot small {
-    font-size: 11px;
-    opacity: 0.85;
+
+  .shots :global(.back) {
+    margin-top: 44px;
+    margin-right: -36px;
+    rotate: -4deg;
   }
-  .slot-xs {
-    font-size: 10px;
+
+  .shots :global(.front) {
+    rotate: 2deg;
   }
-  .media-fill .slot {
-    border: none;
-    border-radius: 0;
+
+  @media (max-width: 768px) {
+    .shots {
+      top: 158px;
+      right: 50%;
+      transform: translateX(50%);
+    }
+
+    .shots :global(.back) {
+      display: none;
+    }
+
+    .shots :global(.front) {
+      rotate: 0deg;
+    }
   }
-  .iphone-mini {
-    width: clamp(150px, 16vw, 196px);
-    aspect-ratio: 9/19.5;
-    border-radius: 30px;
-    padding: 7px;
-    position: relative;
-    background: linear-gradient(160deg, #3a3531, #161311);
-    box-shadow:
-      0 26px 50px -22px rgba(22, 19, 17, 0.45),
-      inset 0 0 0 1.5px rgba(255, 255, 255, 0.14);
-  }
-  .iphone-mini::before {
-    content: "";
-    position: absolute;
-    top: 15px;
-    left: 50%;
-    transform: translateX(-50%);
-    width: 32%;
-    height: 17px;
-    background: #0b0908;
-    border-radius: 99px;
-    z-index: 2;
-  }
-  .iphone-mini .screen {
-    width: 100%;
-    height: 100%;
-    border-radius: 23px;
-    overflow: hidden;
-    background: var(--warm-white);
-  }
-  .tile-phone {
-    position: absolute;
-    right: 22px;
-    bottom: 18px;
-    z-index: 2;
-    width: 124px;
-    border-radius: 22px;
-    padding: 5px;
-  }
-  .tile-phone::before {
-    top: 10px;
-    height: 12px;
-  }
-  .tile-phone .screen {
-    border-radius: 17px;
-  }
+
   kbd {
     font-family: inherit;
     font-size: 12px;
@@ -170,9 +134,15 @@ const t = section(lang, "bento");
   .device {
     width: 42px;
     height: 62px;
-    border: 1.5px solid var(--stone-300);
     border-radius: 9px;
-    background: var(--warm-white);
+    background: var(--paper-button);
+    box-shadow: var(--paper-edge);
+    display: grid;
+    place-items: center;
+  }
+
+  .device :global(img) {
+    border-radius: 6px;
   }
   .device.macd {
     width: 84px;

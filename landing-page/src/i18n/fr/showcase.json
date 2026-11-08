@@ -1,46 +1,38 @@
 {
-  "marquee": {
-    "items": [
-      "réunions",
-      "idées de pitch",
-      "courses",
-      "brainstorms",
-      "rêves notés à 3h",
-      "trajets en voiture",
-      "standups",
-      "listes infinies"
-    ]
-  },
   "showcase": {
     "fig": "de la voix à la mémoire",
     "panels": [
       {
         "num": "01",
-        "title": "Parle",
-        "text": "Un tap. Waveform en direct, Dynamic Island, ça continue téléphone verrouillé.",
-        "slot": "GIF RÉEL - enregistrement iPhone",
-        "slotNote": "waveform + Dynamic Island"
+        "step": "Parle",
+        "title": "Un tap, et tu parles",
+        "text": "Ça enregistre même téléphone verrouillé.",
+        "facts": ["Dynamic Island", "Écran verrouillé"],
+        "clip": "dictate"
       },
       {
         "num": "02",
-        "title": "Transcrit",
-        "text": "Cloud, ou 100% local avec Whisper - mode avion compris. Les \"euh\" disparaissent.",
-        "slot": "GIF RÉEL - transcription en mode avion",
-        "slotNote": "modèle local + note qui se remplit"
+        "step": "Transcrit",
+        "title": "Ta réunion devient un compte rendu",
+        "text": "Points clés, décisions et actions, ==chacun à sa minute==.",
+        "facts": ["Sans les « euh »", "100 % local", "Mode avion"],
+        "clip": "meeting"
       },
       {
         "num": "03",
-        "title": "Range",
-        "text": "Titre, tags, thème : classé pendant que tu passes à autre chose.",
-        "slot": "GIF RÉEL - auto-titre + tags",
-        "slotNote": "pulse du titre, chips qui apparaissent"
+        "step": "Range",
+        "title": "Tu ne classes plus rien",
+        "text": "Titre, tags et thème arrivent seuls, pendant que tu fais autre chose.",
+        "facts": [],
+        "clip": "themes"
       },
       {
         "num": "04",
-        "title": "Retrouve",
-        "text": "\"C'était quoi cette idée de pricing ?\" - réponse sourcée, notes cliquables.",
-        "slot": "GIF RÉEL - question puis réponse + sources",
-        "slotNote": "tap sur une source, la note s'ouvre"
+        "step": "Retrouve",
+        "title": "Demande, tu retrouves",
+        "text": "« C'était quoi cette idée de pricing ? » La réponse ==cite ses notes==.",
+        "facts": [],
+        "clip": "answer"
       }
     ]
   }

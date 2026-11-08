@@ -112,7 +112,7 @@
 .b-iph {
   position: relative;
   width: clamp(180px, 17vw, 206px);
-  aspect-ratio: 9/19.5;
+  aspect-ratio: 9 / 19.5;
   flex-shrink: 0;
   padding: 7px;
   border-radius: 30px;

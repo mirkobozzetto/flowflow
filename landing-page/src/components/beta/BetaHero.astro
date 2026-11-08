@@ -27,7 +27,7 @@ const marquee = t<string[]>("marquee");
       data-d="1"
     >
       {t("hero.h1Lead")}{" "}
-      <em class="font-serif italic font-normal text-orange-dark">
+      <em class="say">
         {t("hero.h1Accent")}
       </em>
     </h1>
@@ -51,7 +51,7 @@ const marquee = t<string[]>("marquee");
       [0, 1].map((copy) => (
         <span
           aria-hidden={copy === 1 ? "true" : undefined}
-          class="flex items-center gap-12 whitespace-nowrap font-serif text-[21px] italic text-stone-500"
+          class="flex items-center gap-12 whitespace-nowrap text-[21px] font-semibold text-stone-500"
         >
           {marquee.map((item) => (
             <>

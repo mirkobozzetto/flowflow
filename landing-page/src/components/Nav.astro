@@ -1,7 +1,8 @@
 ---
 import { Image } from "astro:assets";
 import { useTranslations, localizePath } from "../lib/i18n";
-import { macDownloadUrl, externalLinkAttrs } from "../lib/links";
+import { APPLE_PATH } from "../lib/icons";
+import { appStoreUrl, externalLinkAttrs, hermesUrl } from "../lib/links";
 import LangSwitcher from "./LangSwitcher.astro";
 import logo from "../assets/logo.png";
 
@@ -11,14 +12,16 @@ interface Props {
 
 const { lang } = Astro.props;
 const t = useTranslations(lang, "hero");
-const tb = useTranslations(lang, "beta");
-const betaPath = localizePath("/beta", lang);
-const onBeta = Astro.url.pathname.replace(/\/$/, "").endsWith("/beta");
+const home = localizePath("/", lang);
+const hermes = localizePath(hermesUrl, lang);
+const onHermes = Astro.url.pathname.startsWith(hermes);
+const hermesAttrs = onHermes ? { "aria-current": "page" as const } : {};
+const sections = ["product", "agentic", "teams", "faq"] as const;
 ---
 
 <nav class="fixed top-0 left-0 right-0 z-90 px-3">
   <div
-    class="nav-inner relative flex items-center justify-between max-w-295 mx-auto mt-3.5 py-1.75 pr-2 pl-4 max-lg:pr-1 border border-stone-200 rounded-2xl"
+    class="nav-inner relative flex items-center justify-between max-w-295 mx-auto mt-3.5 py-1.75 pr-2 pl-4 max-lg:pr-1 border border-[rgba(0,0,0,0.09)] rounded-2xl"
   >
     <a
       class="brand flex items-center gap-2.5 font-bold text-[15px] text-ink no-underline"
@@ -30,17 +33,24 @@ const onBeta = Astro.url.pathname.replace(/\/$/, "").endsWith("/beta");
 
     <div class="flex items-center gap-2">
       <div class="hidden lg:flex items-center gap-1">
-        <a class="nav-link" href="#product">{t("nav.product")}</a>
-        <a class="nav-link" href="#agentic">{t("nav.agentic")}</a>
-        <a class="nav-link" href="#faq">{t("nav.faq")}</a>
-        <a class="nav-link" href={betaPath} aria-current={onBeta ? "page" : undefined}>{tb("nav.label")}</a>
+        {
+          sections.map((id) => (
+            <a class="nav-link" href={`${home}#${id}`}>
+              {t(`nav.${id}`)}
+            </a>
+          ))
+        }
+        <a class="nav-link" href={hermes} {...hermesAttrs}>{t("nav.hermes")}</a>
       </div>
 
       <a
-        class="nav-cta hidden lg:inline-block"
-        href={macDownloadUrl}
+        class="nav-cta hidden lg:inline-flex"
+        href={appStoreUrl(lang)}
         {...externalLinkAttrs}
       >
+        <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+          <path d={APPLE_PATH}></path>
+        </svg>
         {t("nav.cta")}
       </a>
 
@@ -72,16 +82,23 @@ const onBeta = Astro.url.pathname.replace(/\/$/, "").endsWith("/beta");
     </div>
 
     <div
-      class="mobile-panel lg:hidden absolute left-0 right-0 flex flex-col gap-1 p-3 border border-stone-200 rounded-2xl"
+      class="mobile-panel lg:hidden absolute left-0 right-0 flex flex-col gap-1 p-3 border border-[rgba(0,0,0,0.09)] rounded-2xl"
       id="mobile-menu"
       data-open="false"
     >
-      <a class="nav-link" href="#product">{t("nav.product")}</a>
-      <a class="nav-link" href="#agentic">{t("nav.agentic")}</a>
-      <a class="nav-link" href="#faq">{t("nav.faq")}</a>
-      <a class="nav-link" href={betaPath}>{tb("nav.label")}</a>
+      {
+        sections.map((id) => (
+          <a class="nav-link" href={`${home}#${id}`}>
+            {t(`nav.${id}`)}
+          </a>
+        ))
+      }
+      <a class="nav-link" href={hermes} {...hermesAttrs}>{t("nav.hermes")}</a>
       <span class="h-px bg-stone-200 my-1" aria-hidden="true"></span>
-      <a class="nav-cta" href={macDownloadUrl} {...externalLinkAttrs}>
+      <a class="nav-cta flex" href={appStoreUrl(lang)} {...externalLinkAttrs}>
+        <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+          <path d={APPLE_PATH}></path>
+        </svg>
         {t("nav.cta")}
       </a>
     </div>
@@ -110,8 +127,8 @@ const onBeta = Astro.url.pathname.replace(/\/$/, "").endsWith("/beta");
 
 <style>
   .nav-inner {
-    background: color-mix(in srgb, var(--warm-white) 78%, transparent);
-    backdrop-filter: blur(16px);
+    background: color-mix(in srgb, var(--warm-white) 93%, transparent);
+    backdrop-filter: blur(20px) saturate(1.2);
   }
   .brand img {
     width: 26px;
@@ -121,17 +138,35 @@ const onBeta = Astro.url.pathname.replace(/\/$/, "").endsWith("/beta");
   .nav-link {
     font-size: 13.5px;
     font-weight: 500;
-    color: var(--stone-500);
+    color: black;
     text-decoration: none;
     padding: 8px 12px;
     border-radius: 9px;
     transition: 0.15s;
   }
   .nav-link[aria-current="page"] {
-    color: var(--orange-dark);
-    background: var(--orange-50);
+    color: black;
+    font-weight: 600;
+    background: linear-gradient(
+        180deg,
+        transparent 56%,
+        var(--orange-100) 56%,
+        var(--orange-100) 90%,
+        transparent 90%
+      )
+      content-box;
   }
-  .nav-link:hover {
+  .nav-link[aria-current="page"]:hover {
+    background: linear-gradient(
+        180deg,
+        transparent 30%,
+        var(--orange-100) 30%,
+        var(--orange-100) 92%,
+        transparent 92%
+      )
+      content-box;
+  }
+  .nav-link:not([aria-current="page"]):hover {
     color: var(--ink);
     background: var(--stone-100);
   }
@@ -139,19 +174,29 @@ const onBeta = Astro.url.pathname.replace(/\/$/, "").endsWith("/beta");
     font-size: 13.5px;
     font-weight: 600;
     color: white;
-    background: var(--ink);
+    background: var(--gradient);
     padding: 9px 18px;
     border-radius: 10px;
     text-decoration: none;
     text-align: center;
-    transition: 0.15s;
+    align-items: center;
+    justify-content: center;
+    gap: 7px;
+    box-shadow:
+      inset 0 1px 0 rgba(255, 255, 255, 0.34),
+      0 0 0 1px color-mix(in srgb, var(--orange) 82%, black);
+    transition: filter 0.2s ease;
+  }
+  .nav-cta svg {
+    width: 15px;
+    height: 15px;
   }
   .nav-cta:hover {
-    opacity: 0.85;
+    filter: brightness(1.05);
   }
   .mobile-panel {
     top: calc(100% + 8px);
-    background: color-mix(in srgb, var(--warm-white) 92%, transparent);
+    background: color-mix(in srgb, var(--warm-white) 97%, transparent);
     backdrop-filter: blur(20px);
     opacity: 0;
     transform: translateY(-8px);

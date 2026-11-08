@@ -145,7 +145,11 @@
     "items": [
       { "label": "Cette année", "value": "41 h", "note": "dictées" },
       { "label": "Notes", "value": "1 284", "note": "dont 71 % en marchant" },
-      { "label": "Ton heure", "value": "08:12", "note": "le moment où tu notes le plus" },
+      {
+        "label": "Ton heure",
+        "value": "08:12",
+        "note": "le moment où tu notes le plus"
+      },
       { "label": "Questions", "value": "412", "note": "à ta propre mémoire" }
     ]
   }
