@@ -81,6 +81,7 @@ const BODY_WEIGHT = "500";
 const MIN_STEP_TEXT_PX = 16;
 const MIN_NAV_OPACITY = 0.9;
 const MIN_HERO_SUB_PX = 20;
+const MOCK_STARS = "321";
 
 async function scrollThrough(page: Page): Promise<void> {
   await page.evaluate(async () => {
@@ -527,6 +528,14 @@ for (const copy of PAGES) {
       await expect(navCta).toHaveText("App Store");
       await expect(navCta.locator("svg")).toHaveCount(1);
       await expect(navCta).toHaveAttribute("href", /apps\.apple\.com/);
+    });
+
+    test("shows the live GitHub star count", async ({ page }) => {
+      await page.route("**/img.shields.io/**", (route) =>
+        route.fulfill({ json: { value: MOCK_STARS, message: MOCK_STARS } }),
+      );
+      await page.reload();
+      await expect(page.locator("footer [data-stars]")).toHaveText(MOCK_STARS);
     });
 
     test("ends no title with a full stop", async ({ page }) => {

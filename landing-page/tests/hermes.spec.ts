@@ -226,7 +226,8 @@ for (const copy of [...LINK_PAGES, ...SPACE_PAGES]) {
   });
 }
 
-test("keeps the GitHub star count live", async ({ page }) => {
+test("falls back to GitHub for the star count", async ({ page }) => {
+  await page.route("**/img.shields.io/**", (route) => route.abort());
   await page.route(GITHUB_REPO_API, (route) =>
     route.fulfill({ json: { stargazers_count: LIVE_STARS } }),
   );
