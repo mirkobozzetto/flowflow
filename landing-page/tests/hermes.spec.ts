@@ -221,7 +221,7 @@ for (const copy of LINK_PAGES) {
     test("sets the hero word on the voice wave", async ({ page }) => {
       await page.goto(copy.path);
       const word = page.locator("h1 em.voice-word");
-      await expect(word).toHaveCount(1);
+      await expect(word).toHaveText("FlowFlow");
       expect(await word.evaluate((e) => getComputedStyle(e).color)).toBe(
         "rgb(0, 0, 0)",
       );

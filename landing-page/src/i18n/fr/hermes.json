@@ -16,8 +16,8 @@
       "description": "Relie ton agent Hermes à FlowFlow et parle-lui depuis l’onglet Chats : un script, un QR code, c’est fait."
     },
     "mascotAlt": "FlowFlow",
-    "h1Lead": "Ton Hermes",
-    "h1Accent": "dans FlowFlow",
+    "h1Lead": "Ton Hermes dans",
+    "h1Accent": "FlowFlow",
     "sub": "Parle à ton propre agent Hermes depuis l’onglet <b>Chats</b>.",
     "cta": "Relier mon Hermes",
     "kitCta": "Télécharger le kit",
