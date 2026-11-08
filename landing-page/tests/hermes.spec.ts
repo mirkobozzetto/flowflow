@@ -3,6 +3,7 @@ import { expect, type Page, test } from "@playwright/test";
 const KIT = "/downloads/FlowFlow-Hermes-kit-2026-10-04.zip";
 const KIT_PROMPT_FILE = "POUR-HERMES.md";
 const MASCOT = "/brand/mascot.webp";
+const LIGHT = 200;
 
 const LINK_PAGES = [
   {
@@ -161,6 +162,17 @@ for (const copy of [...LINK_PAGES, ...SPACE_PAGES]) {
       expect(await agent.evaluate((e) => getComputedStyle(e).boxShadow)).toBe(
         "none",
       );
+      const edge = await agent.evaluate(async (image: HTMLImageElement) => {
+        await image.decode();
+        const canvas = document.createElement("canvas");
+        canvas.width = image.naturalWidth;
+        canvas.height = image.naturalHeight;
+        const context = canvas.getContext("2d");
+        context?.drawImage(image, 0, 0);
+        const middle = Math.floor(canvas.width / 2);
+        return Array.from(context?.getImageData(middle, 1, 1, 1).data ?? []);
+      });
+      expect(edge[0]).toBeGreaterThan(LIGHT);
     });
 
     test("offers the kit download", async ({ page }) => {
