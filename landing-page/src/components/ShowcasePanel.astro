@@ -20,8 +20,8 @@ const { lang, num, title, text, clip } = Astro.props;
     <div class="font-serif text-[58px] italic leading-none text-orange-dark">
       {num}
     </div>
-    <h3 class="text-[27px] tracking-[-0.02em]">{title}</h3>
-    <p class="max-w-107.5 text-[14.5px]">{text}</p>
+    <h3 class="text-[30px] font-semibold tracking-[-0.025em]">{title}</h3>
+    <p class="max-w-107.5 text-[16.5px] leading-[1.45]">{text}</p>
   </div>
   <Phone class="max-[560px]:self-center">
     <Clip lang={lang} clip={clip} label={title} />

@@ -10,6 +10,7 @@ body {
   font-family: var(--sans);
   background: var(--warm-white);
   color: var(--stone-900);
+  font-weight: 500;
   line-height: 1.5;
   overflow-x: hidden;
   -webkit-font-smoothing: antialiased;

@@ -46,6 +46,8 @@ const MIN_HERO_PHONE_WIDTH = 280;
 const LEAVE_ROWS = 4;
 const LEAVE_LOGOS = 5;
 const HERMES_MARKS = 2;
+const BODY_WEIGHT = "500";
+const MIN_STEP_TEXT_PX = 16;
 
 async function scrollThrough(page: Page): Promise<void> {
   await page.evaluate(async () => {
@@ -190,6 +192,26 @@ for (const copy of PAGES) {
       const card = page.locator("#agentic .hermes");
       await expect(card.locator("img")).toHaveCount(HERMES_MARKS);
       await expect(card.locator("a.btn-primary")).toHaveText(copy.hermes);
+    });
+
+    test("sets body text in medium and step titles in semi-bold", async ({
+      page,
+    }) => {
+      expect(
+        await page
+          .locator("body")
+          .evaluate((e) => getComputedStyle(e).fontWeight),
+      ).toBe(BODY_WEIGHT);
+      const title = page.locator("#product h3").first();
+      expect(await title.evaluate((e) => getComputedStyle(e).fontWeight)).toBe(
+        CARD_WEIGHT,
+      );
+      const text = page.locator("#product article p").first();
+      expect(
+        await text.evaluate((e) =>
+          Number.parseFloat(getComputedStyle(e).fontSize),
+        ),
+      ).toBeGreaterThanOrEqual(MIN_STEP_TEXT_PX);
     });
 
     test("draws the voice waves", async ({ page }) => {
