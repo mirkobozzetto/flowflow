@@ -6,6 +6,7 @@ import Clip from "./Clip.astro";
 import Phone from "./Phone.astro";
 import { section } from "../lib/i18n";
 import { hermesUrl } from "../lib/links";
+import { localizePath } from "../lib/i18n";
 
 interface Props {
   lang: string;
@@ -64,7 +65,7 @@ const t = section(lang, "agentic");
           />
         </div>
         <p class="note">{t.note}</p>
-        <a class="btn-primary" href={hermesUrl}>{t.cta}</a>
+        <a class="btn-primary" href={localizePath(hermesUrl, lang)}>{t.cta}</a>
       </div>
     </div>
 

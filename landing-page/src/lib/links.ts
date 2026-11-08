@@ -15,6 +15,10 @@ export const bookingUrl =
 
 export const hermesUrl = "/hermes";
 
+export const hermesSpacesUrl = "/hermes/espaces";
+
+export const hermesKitUrl = "/downloads/FlowFlow-Hermes-kit-2026-10-04.zip";
+
 export function appStoreUrl(lang: string): string {
   return lang === "fr" ? appStore.fr : appStore.en;
 }

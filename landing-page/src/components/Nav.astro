@@ -11,6 +11,13 @@ interface Props {
 
 const { lang } = Astro.props;
 const t = useTranslations(lang, "hero");
+const home = localizePath("/", lang);
+const hermes = localizePath(hermesUrl, lang);
+const onHermes = Astro.url.pathname.startsWith(hermes);
+const hermesAttrs = onHermes
+  ? { "aria-current": "page" as const }
+  : externalLinkAttrs;
+const sections = ["product", "agentic", "teams", "faq"] as const;
 ---
 
 <nav class="fixed top-0 left-0 right-0 z-90 px-3">
@@ -27,11 +34,14 @@ const t = useTranslations(lang, "hero");
 
     <div class="flex items-center gap-2">
       <div class="hidden lg:flex items-center gap-1">
-        <a class="nav-link" href="#product">{t("nav.product")}</a>
-        <a class="nav-link" href="#agentic">{t("nav.agentic")}</a>
-        <a class="nav-link" href="#teams">{t("nav.teams")}</a>
-        <a class="nav-link" href="#faq">{t("nav.faq")}</a>
-        <a class="nav-link" href={hermesUrl} {...externalLinkAttrs}>{t("nav.hermes")}</a>
+        {
+          sections.map((id) => (
+            <a class="nav-link" href={`${home}#${id}`}>
+              {t(`nav.${id}`)}
+            </a>
+          ))
+        }
+        <a class="nav-link" href={hermes} {...hermesAttrs}>{t("nav.hermes")}</a>
       </div>
 
       <a
@@ -74,11 +84,14 @@ const t = useTranslations(lang, "hero");
       id="mobile-menu"
       data-open="false"
     >
-      <a class="nav-link" href="#product">{t("nav.product")}</a>
-      <a class="nav-link" href="#agentic">{t("nav.agentic")}</a>
-      <a class="nav-link" href="#teams">{t("nav.teams")}</a>
-      <a class="nav-link" href="#faq">{t("nav.faq")}</a>
-      <a class="nav-link" href={hermesUrl} {...externalLinkAttrs}>{t("nav.hermes")}</a>
+      {
+        sections.map((id) => (
+          <a class="nav-link" href={`${home}#${id}`}>
+            {t(`nav.${id}`)}
+          </a>
+        ))
+      }
+      <a class="nav-link" href={hermes} {...hermesAttrs}>{t("nav.hermes")}</a>
       <span class="h-px bg-stone-200 my-1" aria-hidden="true"></span>
       <a class="nav-cta" href={macDownloadUrl} {...externalLinkAttrs}>
         {t("nav.cta")}
