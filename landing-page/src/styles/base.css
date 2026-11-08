@@ -32,23 +32,6 @@ h3 {
   padding-right: clamp(20px, 5vw, 28px) !important;
 }
 
-#progress {
-  position: fixed;
-  top: 0;
-  left: 0;
-  height: 10px;
-  width: 0;
-  overflow: hidden;
-  pointer-events: none;
-  z-index: 100;
-}
-
-#progress canvas {
-  display: block;
-  width: 100vw;
-  height: 100%;
-}
-
 .btn-primary,
 .btn-ghost,
 .btn-white {

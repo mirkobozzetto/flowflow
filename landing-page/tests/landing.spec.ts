@@ -180,13 +180,8 @@ for (const copy of PAGES) {
       expect(await word.evaluate((e) => getComputedStyle(e).color)).toBe(WHITE);
     });
 
-    test("the scroll bar grows with the page", async ({ page }) => {
-      const bar = page.locator("#progress");
-      await expect(bar.locator("canvas[data-wave]")).toHaveCount(1);
-      await page.evaluate(() => scrollTo({ top: 1500, behavior: "instant" }));
-      await expect
-        .poll(() => bar.evaluate((e) => e.getBoundingClientRect().width))
-        .toBeGreaterThan(0);
+    test("has no scroll progress bar", async ({ page }) => {
+      await expect(page.locator("#progress")).toHaveCount(0);
     });
 
     test("uses white on orange and black on white", async ({ page }) => {
@@ -252,12 +247,8 @@ for (const copy of PAGES) {
       expect(width).toBeGreaterThanOrEqual(MIN_HERO_PHONE_WIDTH);
     });
 
-    test("uses a thin line for the two small waves", async ({ page }) => {
+    test("uses a thin line under the hero word", async ({ page }) => {
       await expect(page.locator("h1 em canvas")).toHaveAttribute(
-        "data-wave",
-        "sine",
-      );
-      await expect(page.locator("#progress canvas")).toHaveAttribute(
         "data-wave",
         "sine",
       );

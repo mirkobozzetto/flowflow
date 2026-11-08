@@ -17,7 +17,7 @@ Use these CSS variables, never raw hex for brand surfaces.
 - Brand: `--orange`, `--orange-bright`, `--orange-dark`, `--orange-50`, `--orange-100` (all oklch).
 - Type: `--sans` (Clash Grotesk, body default), `--serif` (Instrument Serif italic, accents only).
 
-Shared primitives in `src/styles/base.css`: `.container`, `.fig`, `.reveal` (+ `[data-d="1|2|3"]`), `.btn-primary`, `.btn-ghost`, `.hero-ctas`, `#progress`, noise overlay, reduced-motion block. Keyframes in `src/styles/animations.css`. Everything is pulled together by `src/styles/global.css`, imported once in `Layout.astro`.
+Shared primitives in `src/styles/base.css`: `.container`, `.fig`, `.reveal` (+ `[data-d="1|2|3"]`), `.btn-primary`, `.btn-ghost`, `.hero-ctas`, noise overlay, reduced-motion block. Keyframes in `src/styles/animations.css`. Everything is pulled together by `src/styles/global.css`, imported once in `Layout.astro`.
 
 ## i18n helpers (`src/lib/i18n.ts`)
 
@@ -48,7 +48,7 @@ Components take `lang: string` and resolve their own copy, except pure presentat
 
 | Component | Props | Notes |
 | --- | --- | --- |
-| `Layout.astro` | `lang` | html shell, head, font preload, `#progress`, global script |
+| `Layout.astro` | `lang` | html shell, head, font preload, global script |
 | `Landing.astro` | `lang` | composes every section in draft order |
 | `Nav.astro` | `lang` | reads `hero` namespace (`nav.*`) |
 | `Hero.astro` | `lang` | renders `HeroStage` |
@@ -78,7 +78,6 @@ Components take `lang: string` and resolve their own copy, except pure presentat
 
 Pure TS, no i18n. Imported from the component that needs them.
 
-- `progress.ts`: progress bar width + `.reveal` IntersectionObserver. Loaded once in `Layout.astro`.
 - `heroStage.ts`: hero video, clip chooser, sound, fallback play button.
 - `lazyVideo.ts`: loads and plays `video[data-lazy]` in view, skips on reduced motion.
 - `horizontalScroll.ts`: sticky horizontal track, falls back to a vertical stack on mobile or reduced motion (`data-fallback`).

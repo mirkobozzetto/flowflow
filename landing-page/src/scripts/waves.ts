@@ -1,6 +1,5 @@
 const reduced = matchMedia("(prefers-reduced-motion: reduce)").matches;
 const TAU = Math.PI * 2;
-const RIPPLE_PX = 34;
 
 type Kind = "sine" | "voice" | "bars" | "tone";
 
@@ -32,14 +31,12 @@ function stroke(
   amplitude: number,
   phase: number,
   voice: boolean,
-  flat: boolean,
 ): void {
-  const cycles = flat ? width / RIPPLE_PX : voice ? 7 : 3;
+  const cycles = voice ? 7 : 3;
   context.beginPath();
   for (let px = 0; px <= width; px += 2) {
     const x = px / width;
-    const taper = flat ? 1 : Math.sin(Math.PI * x);
-    const shape = voice ? envelope(x, phase) : taper;
+    const shape = voice ? envelope(x, phase) : Math.sin(Math.PI * x);
     const y =
       mid +
       shape *
@@ -58,7 +55,6 @@ function draw(canvas: HTMLCanvasElement, time: number): void {
   const width = canvas.offsetWidth;
   const height = canvas.offsetHeight;
   const kind = (canvas.dataset.wave ?? "sine") as Kind;
-  const flat = "flat" in canvas.dataset;
   const mid = height / 2;
   const color = canvas.dataset.color ?? "#ff5c00";
   const phase = time * Number(canvas.dataset.speed ?? 1);
@@ -90,14 +86,13 @@ function draw(canvas: HTMLCanvasElement, time: number): void {
         height * 0.1,
         phase * 0.5 + i * 0.5,
         false,
-        false,
       );
     }
     context.globalAlpha = 1;
     return;
   }
 
-  stroke(context, width, mid, height * 0.42, phase, kind === "voice", flat);
+  stroke(context, width, mid, height * 0.42, phase, kind === "voice");
 }
 
 function initWaves(): void {
