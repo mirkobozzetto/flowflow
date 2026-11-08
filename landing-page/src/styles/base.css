@@ -155,6 +155,11 @@ h3 {
   -webkit-box-decoration-break: clone;
 }
 
+.paper-chip {
+  background: var(--paper-button);
+  box-shadow: var(--paper-edge);
+}
+
 .fine,
 .paper {
   background: var(--paper);

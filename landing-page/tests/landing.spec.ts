@@ -168,6 +168,9 @@ for (const copy of PAGES) {
         '.offer[data-tone="white"]',
         "#trust .prices li",
         ".btn-ghost",
+        "#agentic .chips li",
+        "#agentic .soon li",
+        "footer .paper-chip",
       ]) {
         const surface = page.locator(selector).first();
         const style = await surface.evaluate((e) => {
