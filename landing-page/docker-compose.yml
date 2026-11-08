@@ -3,6 +3,10 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
+      # The booking address stays out of the repo: Dokploy's environment
+      # passes it to the build, where the page only keeps it encoded.
+      args:
+        CONTACT_EMAIL: ${CONTACT_EMAIL:-}
     image: flowflow-web:latest
     restart: unless-stopped
     expose:
