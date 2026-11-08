@@ -41,6 +41,8 @@ const CARD_WEIGHT = "600";
 const MIN_SECTION_WAVES = 2;
 const MAX_PROMO_CROP = 0.01;
 const MIN_HERO_PHONE_WIDTH = 280;
+const LEAVE_ROWS = 4;
+const LEAVE_LOGOS = 5;
 
 async function scrollThrough(page: Page): Promise<void> {
   await page.evaluate(async () => {
@@ -159,6 +161,15 @@ for (const copy of PAGES) {
       await expect(page.locator("#agentic .soon li img")).toHaveCount(
         SOON_TOOLS,
       );
+    });
+
+    test("puts the outside services forward with their logos", async ({
+      page,
+    }) => {
+      const rows = page.locator("#trust .leave li");
+      await expect(rows).toHaveCount(LEAVE_ROWS);
+      await expect(rows.locator(".who img")).toHaveCount(LEAVE_LOGOS);
+      await expect(rows.nth(1).locator(".who")).toHaveText("Soniox");
     });
 
     test("draws the voice waves", async ({ page }) => {

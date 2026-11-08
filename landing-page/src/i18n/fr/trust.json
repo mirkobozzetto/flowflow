@@ -13,19 +13,23 @@
   "leave": [
     {
       "what": "Chat, titres et résumés",
-      "where": "OpenAI ou Anthropic"
+      "where": "OpenAI ou Anthropic",
+      "logos": ["/logos/openai.svg", "/logos/anthropic.svg"]
     },
     {
       "what": "Transcription cloud, si tu la choisis",
-      "where": "Soniox"
+      "where": "Soniox",
+      "logos": ["/logos/soniox.png"]
     },
     {
       "what": "Recherche web, si tu l'actives",
-      "where": "Exa"
+      "where": "Exa",
+      "logos": ["/logos/exa.png"]
     },
     {
       "what": "Partage et espaces",
-      "where": "serveur FlowFlow"
+      "where": "serveur FlowFlow",
+      "logos": ["/logo.png"]
     }
   ],
   "duty": "Tu restes responsable de ce que tu confies à une IA. Préviens les personnes que tu enregistres.",

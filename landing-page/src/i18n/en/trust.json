@@ -13,19 +13,23 @@
   "leave": [
     {
       "what": "Chat, titles and summaries",
-      "where": "OpenAI or Anthropic"
+      "where": "OpenAI or Anthropic",
+      "logos": ["/logos/openai.svg", "/logos/anthropic.svg"]
     },
     {
       "what": "Cloud transcription, if you choose it",
-      "where": "Soniox"
+      "where": "Soniox",
+      "logos": ["/logos/soniox.png"]
     },
     {
       "what": "Web search, if you turn it on",
-      "where": "Exa"
+      "where": "Exa",
+      "logos": ["/logos/exa.png"]
     },
     {
       "what": "Sharing and spaces",
-      "where": "FlowFlow server"
+      "where": "FlowFlow server",
+      "logos": ["/logo.png"]
     }
   ],
   "duty": "You stay responsible for what you hand to an AI. Tell people when you record them.",
