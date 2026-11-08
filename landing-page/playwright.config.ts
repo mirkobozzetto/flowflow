@@ -1,6 +1,7 @@
 import { defineConfig } from "@playwright/test";
 
-const PORT = 4399;
+// Another worktree can run its suite at the same time on its own port.
+const PORT = Number(process.env.TEST_PORT ?? 4399);
 
 // The bundled Chromium has no H.264: videos only play in real Chrome.
 export default defineConfig({
