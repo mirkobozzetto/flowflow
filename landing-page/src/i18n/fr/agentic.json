@@ -24,7 +24,7 @@
     }
   ],
   "cta": "Relier mon Hermes",
-  "note": "Hermes est ton agent, à toi d'héberger avec Tailscale.",
+  "note": "Hermes est ton agent, à toi d'héberger. Tailscale conseillé.",
   "connectorsLabel": "Connecteurs, avec l'offre premium",
   "soonLabel": "À venir",
   "connectors": [

@@ -21,6 +21,7 @@ const PAGES = [
     calendar: "Google Calendar",
     soon: "Coming next",
     hermes: "Link my Hermes",
+    tailscale: "Tailscale recommended",
     hermesPath: "/hermes",
     stepProofs: ["each with its timestamp", "cites its notes"],
     trustProofs: ["only when you use it", "with no markup"],
@@ -47,6 +48,7 @@ const PAGES = [
     calendar: "Google Agenda",
     soon: "À venir",
     hermes: "Relier mon Hermes",
+    tailscale: "Tailscale conseillé",
     hermesPath: "/fr/hermes",
     stepProofs: ["chacun à sa minute", "cite ses notes"],
     trustProofs: ["seulement quand tu t'en sers", "sans marge"],
@@ -292,6 +294,7 @@ for (const copy of PAGES) {
       const card = page.locator("#agentic .hermes");
       await expect(card.locator("img")).toHaveCount(HERMES_MARKS);
       await expect(card.locator("a.btn-primary")).toHaveText(copy.hermes);
+      await expect(card.locator(".note")).toContainText(copy.tailscale);
       await expect(card.locator("a.btn-primary")).toHaveAttribute(
         "href",
         copy.hermesPath,

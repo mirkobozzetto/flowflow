@@ -24,7 +24,7 @@
     }
   ],
   "cta": "Link my Hermes",
-  "note": "Hermes is your own agent, hosted by you with Tailscale.",
+  "note": "Hermes is your own agent, hosted by you. Tailscale recommended.",
   "connectorsLabel": "Connectors, with the premium plan",
   "soonLabel": "Coming next",
   "connectors": [
