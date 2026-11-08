@@ -3,6 +3,7 @@ import enBento from "../i18n/en/bento.json";
 import enBeta from "../i18n/en/beta.json";
 import enFaq from "../i18n/en/faq.json";
 import enFooter from "../i18n/en/footer.json";
+import enHermes from "../i18n/en/hermes.json";
 import enHero from "../i18n/en/hero.json";
 import enLetter from "../i18n/en/letter.json";
 import enShowcase from "../i18n/en/showcase.json";
@@ -13,6 +14,7 @@ import frBento from "../i18n/fr/bento.json";
 import frBeta from "../i18n/fr/beta.json";
 import frFaq from "../i18n/fr/faq.json";
 import frFooter from "../i18n/fr/footer.json";
+import frHermes from "../i18n/fr/hermes.json";
 import frHero from "../i18n/fr/hero.json";
 import frLetter from "../i18n/fr/letter.json";
 import frShowcase from "../i18n/fr/showcase.json";
@@ -30,7 +32,8 @@ export type Namespace =
   | "beta"
   | "teams"
   | "trust"
-  | "letter";
+  | "letter"
+  | "hermes";
 
 const sections = {
   en: {
@@ -44,6 +47,7 @@ const sections = {
     teams: enTeams,
     trust: enTrust,
     letter: enLetter,
+    hermes: enHermes,
   },
   fr: {
     hero: frHero,
@@ -56,6 +60,7 @@ const sections = {
     teams: frTeams,
     trust: frTrust,
     letter: frLetter,
+    hermes: frHermes,
   },
 } as const;
 
