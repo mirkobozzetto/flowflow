@@ -1,0 +1,447 @@
+---
+import FaqItem from "../FaqItem.astro";
+import Footer from "../Footer.astro";
+import Nav from "../Nav.astro";
+import CodeBlock from "./CodeBlock.astro";
+import HermesHero from "./HermesHero.astro";
+import { section } from "../../lib/i18n";
+import { hermesKitUrl } from "../../lib/links";
+
+interface Props {
+  lang: string;
+}
+
+const { lang } = Astro.props;
+const { spaces: t, copy } = section(lang, "hermes");
+const { before, space, access, kit, secret, verify, faq, closing } = t;
+const copyFor = (id: string) => ({ id, button: copy.button, done: copy.done });
+
+const INSTALL = "sh scripts/install-flowflow-hermes-skill.sh";
+const CHMOD = "chmod 600 ~/.hermes/.env";
+const YAML = [
+  "mcp_servers:",
+  "  flowflow_mon_espace:",
+  '    url: "https://api.flowflow.be/v1/mcp-spaces"',
+  "    headers:",
+  '      Authorization: "Bearer ${FLOWFLOW_TOKEN_MON_ESPACE}"',
+  "    timeout: 30",
+].join("\n");
+---
+
+<Nav lang={lang} />
+<HermesHero
+  lang={lang}
+  page="spaces"
+  lead={t.h1Lead}
+  accent={t.h1Accent}
+  tail={t.h1Tail}
+  sub={t.lead}
+  mascotAlt={t.mascotAlt}
+>
+  <a class="btn-primary" href={hermesKitUrl} download>{t.cta}</a>
+  <a class="btn-ghost" href="#parcours">{t.ghost}</a>
+  <Fragment slot="after">
+    <p class="mt-4 text-[13px]">{t.caption}</p>
+    <ol class="flow mt-10">
+      {
+        t.flow.map((item) => (
+          <li class="paper-chip">
+            <b>{item.title}</b>
+            <small>{item.where}</small>
+          </li>
+        ))
+      }
+    </ol>
+  </Fragment>
+</HermesHero>
+
+<main id="parcours" class="guide container scroll-mt-24 pt-20 pb-30">
+  <aside class="toc" aria-label={t.toc.title}>
+    <b>{t.toc.title}</b>
+    {t.toc.items.map((item) => <a href={`#${item.id}`}>{item.label}</a>)}
+  </aside>
+
+  <div class="sections">
+    <section id="avant" class="card paper">
+      <h2>{before.title}</h2>
+      <div class="sides">
+        {
+          before.sides.map((side) => (
+            <div class="side">
+              <h3>{side.title}</h3>
+              <p>{side.text}</p>
+            </div>
+          ))
+        }
+      </div>
+      <p set:html={before.account} />
+      <p set:html={before.link} />
+      <div class="note">
+        <b>{before.note.title}</b>
+        <p>{before.note.text}</p>
+      </div>
+    </section>
+
+    <section id="espace" class="card paper">
+      <div class="where"><span class="num">01</span>{space.step}</div>
+      <h2>{space.title}</h2>
+      <ol class="list">{space.items.map((item) => <li set:html={item} />)}</ol>
+      <p>{space.text}</p>
+    </section>
+
+    <section id="acces" class="card paper">
+      <div class="where"><span class="num">02</span>{access.step}</div>
+      <h2>{access.title}</h2>
+      <ol class="list">{access.items.map((item) => <li set:html={item} />)}</ol>
+      <div class="note">
+        <b>{access.note.title}</b>
+        <p set:html={access.note.text} />
+      </div>
+      <p>{access.text}</p>
+    </section>
+
+    <section id="kit" class="card paper">
+      <div class="where"><span class="num">03</span>{kit.step}</div>
+      <h2>{kit.title}</h2>
+      <p set:html={kit.text} />
+      <ul class="contents">{kit.contents.map((item) => <li>{item}</li>)}</ul>
+      <p>{kit.give}</p>
+      <CodeBlock
+        label={kit.promptLabel}
+        text={kit.prompt}
+        copy={copyFor("installation")}
+      />
+      <details>
+        <summary>{kit.manual.summary}</summary>
+        <p>{kit.manual.from}</p>
+        <CodeBlock text={INSTALL} code />
+        <p set:html={kit.manual.text} />
+      </details>
+    </section>
+
+    <section id="secret" class="card paper">
+      <div class="where"><span class="num">04</span>{secret.step}</div>
+      <h2>{secret.title}</h2>
+      <p>{secret.text}</p>
+      <CodeBlock
+        label={secret.yamlLabel}
+        text={YAML}
+        code
+        copy={copyFor("yaml")}
+      />
+      <p set:html={secret.env} />
+      <CodeBlock
+        label={secret.chmodLabel}
+        text={CHMOD}
+        code
+        copy={copyFor("chmod")}
+      />
+      <p set:html={secret.reload} />
+      <p class="text-[13px]">{secret.caption}</p>
+    </section>
+
+    <section id="verifier" class="card paper">
+      <div class="where"><span class="num">05</span>{verify.step}</div>
+      <h2>{verify.title}</h2>
+      <CodeBlock
+        label={verify.promptLabel}
+        text={verify.prompt}
+        copy={copyFor("verification")}
+      />
+      <ul class="list">{verify.items.map((item) => <li set:html={item} />)}</ul>
+      <h3>{verify.readTitle}</h3>
+      <CodeBlock text={verify.readPrompt} />
+      <h3>{verify.writeTitle}</h3>
+      <CodeBlock text={verify.writePrompt} />
+      <p>{verify.text}</p>
+    </section>
+
+    <section id="aide" class="faq scroll-mt-24">
+      <h2>{faq.title}</h2>
+      <div class="mt-4">
+        {
+          faq.items.map((item) => (
+            <FaqItem question={item.q}>
+              <Fragment set:html={item.a} />
+            </FaqItem>
+          ))
+        }
+      </div>
+    </section>
+
+    <div class="closing paper">
+      <h2>{closing.title}</h2>
+      <p>{closing.text}</p>
+      <a class="btn-primary" href={hermesKitUrl} download>{closing.cta}</a>
+      <p class="text-[13px]">{closing.caption}</p>
+    </div>
+
+    <p
+      class="sr-only"
+      role="status"
+      id="copy-status"
+      data-done={copy.status}
+      data-failed={copy.failed}
+    >
+    </p>
+  </div>
+</main>
+
+<Footer lang={lang} />
+
+<script>
+  import { initFaq } from "../../scripts/faq";
+  import "../../scripts/hermes";
+  initFaq();
+</script>
+
+<style>
+  .flow {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 10px;
+    margin-bottom: 0;
+    padding: 0;
+    list-style: none;
+  }
+
+  .flow li {
+    display: flex;
+    flex-direction: column;
+    min-width: 180px;
+    padding: 12px 18px;
+    border-radius: 16px;
+    text-align: left;
+  }
+
+  .flow b {
+    font-size: 15.5px;
+    font-weight: 600;
+  }
+
+  .flow small {
+    font-size: 13.5px;
+  }
+
+  .guide {
+    display: grid;
+    grid-template-columns: 220px minmax(0, 1fr);
+    gap: clamp(24px, 4vw, 48px);
+    align-items: start;
+  }
+
+  .toc {
+    position: sticky;
+    top: 96px;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    font-size: 14px;
+  }
+
+  .toc b {
+    margin-bottom: 6px;
+    padding: 0 10px;
+    font-weight: 600;
+  }
+
+  .toc a {
+    padding: 7px 10px;
+    border-radius: 9px;
+    color: black;
+    text-decoration: none;
+    transition: background 0.15s;
+  }
+
+  .toc a:hover {
+    background: var(--stone-100);
+  }
+
+  .sections {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+    min-width: 0;
+  }
+
+  .card {
+    scroll-margin-top: 96px;
+    padding: clamp(22px, 3.4vw, 36px);
+    border-radius: 24px;
+    font-size: 16px;
+  }
+
+  .card h2,
+  .faq h2,
+  .closing h2 {
+    font-size: clamp(26px, 3vw, 34px);
+    font-weight: 600;
+    line-height: 1.08;
+    letter-spacing: -0.028em;
+  }
+
+  .card h3 {
+    margin-top: 22px;
+    font-size: 18px;
+    font-weight: 600;
+    letter-spacing: -0.012em;
+  }
+
+  .card > p,
+  .card details > p {
+    margin-top: 14px;
+    text-wrap: pretty;
+  }
+
+  .where {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 12px;
+    font-size: 15px;
+    font-weight: 600;
+  }
+
+  .num {
+    padding: 3px 8px;
+    border-radius: 7px;
+    background: var(--orange-dark);
+    color: white;
+    font-size: 15px;
+    font-weight: 700;
+    font-variant-numeric: tabular-nums;
+  }
+
+  .sides {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 14px;
+    margin-top: 18px;
+  }
+
+  .side {
+    padding: 18px 20px;
+    border-radius: 18px;
+    background: var(--paper-button);
+    box-shadow: var(--paper-edge);
+  }
+
+  .side h3 {
+    margin-top: 0;
+  }
+
+  .side p {
+    margin-top: 6px;
+    font-size: 15px;
+  }
+
+  .note {
+    margin-top: 18px;
+    padding: 16px 18px;
+    border-radius: 16px;
+    background: var(--orange-50);
+    box-shadow: inset 3px 0 0 var(--orange-dark);
+  }
+
+  .note b {
+    font-weight: 600;
+  }
+
+  .note p {
+    margin-top: 4px;
+    font-size: 15px;
+  }
+
+  .list {
+    display: grid;
+    gap: 10px;
+    margin: 16px 0 0;
+    padding-left: 22px;
+  }
+
+  .list li::marker {
+    font-weight: 700;
+    color: var(--orange-dark);
+  }
+
+  .contents {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 7px;
+    margin: 14px 0 0;
+    padding: 0;
+    list-style: none;
+  }
+
+  .contents li {
+    padding: 6px 11px;
+    border-radius: 10px;
+    background: var(--paper-button);
+    box-shadow: var(--paper-edge);
+    font-size: 14px;
+    font-weight: 600;
+  }
+
+  details {
+    margin-top: 18px;
+  }
+
+  summary {
+    font-weight: 600;
+    cursor: pointer;
+  }
+
+  .faq {
+    padding-top: 40px;
+  }
+
+  .closing {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 12px;
+    margin-top: 24px;
+    padding: clamp(22px, 3.4vw, 36px);
+    border-radius: 24px;
+  }
+
+  .guide :global(b) {
+    font-weight: 600;
+  }
+
+  .guide :global(a:not([class])) {
+    color: var(--orange-dark);
+    font-weight: 600;
+    text-underline-offset: 3px;
+  }
+
+  .guide :global(code) {
+    padding: 1px 6px;
+    border-radius: 6px;
+    background: var(--stone-100);
+    font-family: ui-monospace, "SF Mono", Menlo, monospace;
+    font-size: 0.86em;
+    overflow-wrap: anywhere;
+  }
+
+  @media (max-width: 960px) {
+    .guide {
+      grid-template-columns: 1fr;
+    }
+
+    .toc {
+      display: none;
+    }
+  }
+
+  @media (max-width: 640px) {
+    .sides {
+      grid-template-columns: 1fr;
+    }
+
+    .flow li {
+      width: 100%;
+    }
+  }
+</style>

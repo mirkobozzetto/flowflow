@@ -1,0 +1,12 @@
+---
+import HermesSpaces from "../../../components/hermes/HermesSpaces.astro";
+import Layout from "../../../layouts/Layout.astro";
+import { section } from "../../../lib/i18n";
+import { hermesSpacesUrl } from "../../../lib/links";
+
+const { meta } = section("fr", "hermes").spaces;
+---
+
+<Layout lang="fr" path={hermesSpacesUrl} noindex {...meta}>
+  <HermesSpaces lang="fr" />
+</Layout>

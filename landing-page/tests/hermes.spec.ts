@@ -128,11 +128,15 @@ for (const copy of [...LINK_PAGES, ...SPACE_PAGES]) {
     });
 
     test("uses the site nav and footer", async ({ page }) => {
-      const hermes = page.locator(`body > nav a[href='${copy.hermesNav}']`).first();
+      const hermes = page
+        .locator(`body > nav a[href='${copy.hermesNav}']`)
+        .first();
       await expect(hermes).toHaveText("Hermes");
       await expect(hermes).toHaveAttribute("aria-current", "page");
       await expect(page.locator("footer")).toHaveCount(1);
-      await expect(page.locator(`body > nav a[href='${copy.other}']`)).toHaveCount(1);
+      await expect(
+        page.locator(`body > nav a[href='${copy.other}']`),
+      ).toHaveCount(1);
     });
 
     test("switches between the two Hermes pages", async ({ page }) => {
@@ -205,8 +209,9 @@ for (const copy of LINK_PAGES) {
       await expect(
         page.locator(`main a[href='${copy.spaces}'].btn-primary`),
       ).toHaveCount(1);
-      await expect(page.locator("main img[src='/logos/tailscale.svg']"))
-        .toHaveCount(1);
+      await expect(
+        page.locator("main img[src='/logos/tailscale.svg']"),
+      ).toHaveCount(1);
     });
   });
 }
