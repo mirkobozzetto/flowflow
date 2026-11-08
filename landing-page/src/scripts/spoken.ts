@@ -4,8 +4,8 @@ const WORD_MS = 150;
 const LETTER_MS = 16;
 const PAUSE_MS = 420;
 const PAUSE_AT = /[.,:?!»”]$/;
-const SPEAKING_WAVE = 2.2;
-const RESTING_WAVE = "0.7";
+const SILENT = "0.06";
+const SYLLABLE_DIP = 0.55;
 
 function clockLabel(ms: number): string {
   const seconds = Math.floor(ms / 1000);
@@ -36,23 +36,29 @@ function initPrompter(): void {
       w.classList.toggle("now", i === at);
     });
 
+    // The line said before stays whole at the top: no half-cut text.
     const line = word.parentElement as HTMLElement;
-    const offset =
-      line.offsetTop + line.offsetHeight / 2 - view.clientHeight / 2;
-    column.style.transform = `translateY(${-Math.max(0, offset)}px)`;
+    const before = line.previousElementSibling as HTMLElement | null;
+    column.style.transform = `translateY(${-(before ?? line).offsetTop}px)`;
 
     const text = word.textContent?.trim() ?? "";
     const pause = PAUSE_AT.test(text);
+    const spoken =
+      (WORD_MS + text.length * LETTER_MS) * (0.7 + Math.random() * 0.6);
+    const ms = spoken + (pause ? PAUSE_MS : 0);
     if (wave) {
-      wave.dataset.speed = pause
-        ? RESTING_WAVE
-        : String(SPEAKING_WAVE + Math.random() * 1.4);
+      const peak = 0.65 + Math.random() * 0.35;
+      wave.dataset.level = String(peak);
+      setTimeout(() => {
+        wave.dataset.level = String(peak * SYLLABLE_DIP);
+      }, spoken * 0.45);
+      if (pause) {
+        setTimeout(() => {
+          wave.dataset.level = SILENT;
+        }, spoken);
+      }
     }
     if (clock) clock.textContent = clockLabel(performance.now() - started);
-
-    const ms =
-      (WORD_MS + text.length * LETTER_MS) * (0.7 + Math.random() * 0.6) +
-      (pause ? PAUSE_MS : 0);
     at += 1;
     setTimeout(step, ms);
   };

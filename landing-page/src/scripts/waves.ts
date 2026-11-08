@@ -1,7 +1,66 @@
 const reduced = matchMedia("(prefers-reduced-motion: reduce)").matches;
 const TAU = Math.PI * 2;
 
-type Kind = "sine" | "voice" | "bars" | "tone";
+type Kind = "sine" | "voice" | "bars" | "tone" | "live";
+
+// Recorder strip: one bar per tick enters on the right and scrolls left,
+// its height following data-level (0 to 1) set by whoever is "speaking".
+const LIVE_PITCH_PX = 6;
+const LIVE_BAR_PX = 2.5;
+const LIVE_TICK_MS = 70;
+const LIVE_SILENCE = 0.06;
+const LIVE_SMOOTHING = 0.35;
+
+interface LiveState {
+  bars: number[];
+  last: number;
+  level: number;
+}
+
+const live = new WeakMap<HTMLCanvasElement, LiveState>();
+
+function drawLive(
+  canvas: HTMLCanvasElement,
+  context: CanvasRenderingContext2D,
+  width: number,
+  mid: number,
+  height: number,
+): void {
+  const now = performance.now();
+  const count = Math.ceil(width / LIVE_PITCH_PX) + 1;
+  const state = live.get(canvas) ?? {
+    bars: Array.from({ length: count }, () => LIVE_SILENCE),
+    last: now,
+    level: LIVE_SILENCE,
+  };
+  live.set(canvas, state);
+  const target = Number(canvas.dataset.level ?? LIVE_SILENCE);
+  state.level += (target - state.level) * LIVE_SMOOTHING;
+  while (now - state.last >= LIVE_TICK_MS) {
+    state.last += LIVE_TICK_MS;
+    const voiced = state.level > LIVE_SILENCE * 2;
+    state.bars.push(
+      voiced
+        ? state.level * (0.3 + Math.random() * 0.7)
+        : LIVE_SILENCE * (0.6 + Math.random() * 0.8),
+    );
+    if (state.bars.length > count) state.bars.shift();
+  }
+  const glide = ((now - state.last) / LIVE_TICK_MS) * LIVE_PITCH_PX;
+  const start = width - state.bars.length * LIVE_PITCH_PX - glide;
+  state.bars.forEach((amp, i) => {
+    const size = Math.max(2, amp * height);
+    context.beginPath();
+    context.roundRect(
+      start + i * LIVE_PITCH_PX,
+      mid - size / 2,
+      LIVE_BAR_PX,
+      size,
+      2,
+    );
+    context.fill();
+  });
+}
 
 function resize(canvas: HTMLCanvasElement): CanvasRenderingContext2D | null {
   const ratio = Math.min(devicePixelRatio || 1, 2);
@@ -63,6 +122,11 @@ function draw(canvas: HTMLCanvasElement, time: number): void {
   context.fillStyle = color;
   context.lineCap = "round";
   context.lineWidth = Number(canvas.dataset.line ?? 1.5);
+
+  if (kind === "live") {
+    drawLive(canvas, context, width, mid, height);
+    return;
+  }
 
   if (kind === "bars") {
     const count = Math.floor(width / 7);

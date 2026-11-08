@@ -376,6 +376,17 @@ for (const copy of PAGES) {
         await word.evaluate((e) => getComputedStyle(e).backgroundColor),
       ).toBe(ACCENT);
       expect(await word.evaluate((e) => getComputedStyle(e).color)).toBe(WHITE);
+
+      const wave = page.locator(".capsule canvas");
+      await expect(wave).toHaveAttribute("data-wave", "live");
+      const level = await wave.getAttribute("data-level");
+      await expect.poll(() => wave.getAttribute("data-level")).not.toBe(level);
+      const mask = await page
+        .locator(".mac-screen .prompter")
+        .evaluate((e) => getComputedStyle(e).maskImage);
+      expect(mask).not.toMatch(
+        /^linear-gradient\((rgba\(0, 0, 0, 0\)|transparent)/,
+      );
     });
 
     test("scrolls a long day of lines in the Mac window", async ({ page }) => {
