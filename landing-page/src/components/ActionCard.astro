@@ -5,22 +5,11 @@ interface Props {
 }
 
 const { you, result } = Astro.props;
-
-const micPath =
-  "M12 3C10 3 10 5 10 5l0 6s0 2 2 2 2-2 2-2V5s0-2-2-2zM5 10s0 7 7 7 " +
-  "7-7 7-7M12 17v4";
 ---
 
 <div class="action fine rounded-[18px] px-6 py-5.5">
-  <div class="you flex items-center gap-2.5 text-[18px] font-semibold tracking-[-0.012em] text-black">
-    <svg
-      class="h-4.25 w-4.25 shrink-0 fill-none stroke-orange-dark stroke-[1.8]"
-      viewBox="0 0 24 24"
-      aria-hidden="true"
-    >
-      <path d={micPath} />
-    </svg>
-    <span class="text-balance">{you}</span>
+  <div class="you text-balance text-[18px] font-semibold tracking-[-0.012em] text-black">
+    {you}
   </div>
   <div
     class="then mt-3 flex gap-2.25 text-[15.5px] font-medium text-black before:font-bold before:text-orange-dark before:content-['→']"

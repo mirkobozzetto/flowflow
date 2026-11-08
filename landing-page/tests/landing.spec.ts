@@ -151,6 +151,16 @@ for (const copy of PAGES) {
       );
     });
 
+    test("keeps the action cards free of icons", async ({ page }) => {
+      await expect(page.locator("#agentic .action svg")).toHaveCount(0);
+    });
+
+    test("gives every coming tool its logo", async ({ page }) => {
+      await expect(page.locator("#agentic .soon li img")).toHaveCount(
+        SOON_TOOLS,
+      );
+    });
+
     test("draws the voice waves", async ({ page }) => {
       await expect(page.locator("h1 em canvas[data-wave]")).toHaveCount(1);
       await expect(page.locator("#agentic > canvas")).toHaveAttribute(

@@ -5,20 +5,19 @@ interface Props {
 
 const { label } = Astro.props;
 
-// No logo file for Sellsy, Axonaut or Pennylane yet: they stay in text.
 const TOOLS = [
-  { name: "Notion", logo: "notion" },
-  { name: "Slack", logo: "slack" },
-  { name: "HubSpot", logo: "hubspot" },
-  { name: "Outlook", logo: "outlook" },
-  { name: "Teams", logo: "teams" },
-  { name: "OneDrive", logo: "onedrive" },
-  { name: "Zapier", logo: "zapier" },
-  { name: "Make", logo: "make" },
-  { name: "n8n", logo: "n8n" },
-  { name: "Sellsy" },
-  { name: "Axonaut" },
-  { name: "Pennylane" },
+  { name: "Notion", logo: "notion.svg" },
+  { name: "Slack", logo: "slack.svg" },
+  { name: "HubSpot", logo: "hubspot.svg" },
+  { name: "Outlook", logo: "outlook.svg" },
+  { name: "Teams", logo: "teams.svg" },
+  { name: "OneDrive", logo: "onedrive.svg" },
+  { name: "Zapier", logo: "zapier.svg" },
+  { name: "Make", logo: "make.svg" },
+  { name: "n8n", logo: "n8n.svg" },
+  { name: "Sellsy", logo: "sellsy.png" },
+  { name: "Axonaut", logo: "axonaut.png" },
+  { name: "Pennylane", logo: "pennylane.png" },
 ];
 ---
 
@@ -28,9 +27,7 @@ const TOOLS = [
     {
       TOOLS.map((tool) => (
         <li>
-          {tool.logo && (
-            <img src={`/logos/${tool.logo}.svg`} alt="" width="16" height="16" />
-          )}
+          <img src={`/logos/${tool.logo}`} alt="" width="16" height="16" />
           {tool.name}
         </li>
       ))
