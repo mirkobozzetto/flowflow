@@ -1,28 +1,33 @@
 ---
-import { useTranslations } from "../lib/i18n";
+import { section } from "../lib/i18n";
 
 interface Props {
   lang: string;
 }
 
 const { lang } = Astro.props;
-const t = useTranslations(lang, "hero");
-const words = t("scene.spoken").split(" ");
+const { lines } = section(lang, "hero").scene;
 ---
 
 <div class="voice">
-  <p class="spoken" data-spoken>
-    {
-      words.map((word) => (
-        <>
-          <span>{word}</span>{" "}
-        </>
-      ))
-    }
-  </p>
+  <div class="prompter">
+    <div class="column" data-spoken>
+      {
+        lines.map((line) => (
+          <p>
+            {line.split(" ").map((word) => (
+              <>
+                <span>{word}</span>{" "}
+              </>
+            ))}
+          </p>
+        ))
+      }
+    </div>
+  </div>
   <div class="capsule" aria-hidden="true">
-    <canvas data-wave="bars" data-color="#ffffff"></canvas>
-    <b data-voice-clock>0:14</b>
+    <canvas data-wave="bars" data-color="#ffffff" data-speed="2.4"></canvas>
+    <b data-voice-clock>0:00</b>
     <i></i>
   </div>
 </div>
@@ -36,27 +41,49 @@ const words = t("scene.spoken").split(" ");
     display: flex;
     flex-direction: column;
     align-items: center;
-    gap: clamp(14px, 2vw, 24px);
+    gap: clamp(12px, 1.6vw, 20px);
+    width: 100%;
   }
 
-  .spoken {
-    max-width: 19em;
-    font-size: clamp(20px, 2.3vw, 28px);
+  .prompter {
+    width: 100%;
+    height: clamp(150px, 17vw, 250px);
+    overflow: hidden;
+    mask-image: linear-gradient(
+      transparent,
+      black 26%,
+      black 74%,
+      transparent
+    );
+  }
+
+  .column {
+    transition: transform 0.45s cubic-bezier(0.3, 0.7, 0.3, 1);
+  }
+
+  .column p {
+    max-width: 21em;
+    margin: 0 auto 0.6em;
+    font-size: clamp(18px, 2vw, 26px);
     font-weight: 600;
     line-height: 1.25;
     letter-spacing: -0.02em;
     text-align: center;
     text-wrap: balance;
-    color: black;
+    color: rgba(0, 0, 0, 0.26);
   }
 
-  .spoken span {
+  .column span {
     margin: 0 -0.1em;
     padding: 0 0.1em;
     border-radius: 4px;
   }
 
-  .spoken :global(span.now) {
+  .column :global(span.said) {
+    color: black;
+  }
+
+  .column :global(span.now) {
     background: var(--orange-dark);
     color: white;
   }
@@ -73,8 +100,8 @@ const words = t("scene.spoken").split(" ");
   }
 
   canvas {
-    width: 130px;
-    height: 26px;
+    width: 150px;
+    height: 28px;
   }
 
   b {
@@ -99,5 +126,11 @@ const words = t("scene.spoken").split(" ");
     height: 12px;
     border-radius: 3px;
     background: white;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .column :global(span) {
+      color: black;
+    }
   }
 </style>

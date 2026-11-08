@@ -1,10 +1,8 @@
 ---
-import { Image } from "astro:assets";
 import Clip from "./Clip.astro";
 import Phone from "./Phone.astro";
 import VoiceDemo from "./VoiceDemo.astro";
 import { useTranslations } from "../lib/i18n";
-import logo from "../assets/logo.png";
 
 interface Props {
   lang: string;
@@ -24,7 +22,6 @@ const t = useTranslations(lang, "hero");
         <span class="mac-title">{t("scene.macTitle")}</span>
       </div>
       <div class="mac-screen">
-        <Image src={logo} alt="" width={96} height={96} />
         <VoiceDemo lang={lang} />
       </div>
     </div>
@@ -104,12 +101,6 @@ const t = useTranslations(lang, "hero");
     background: white;
   }
 
-  .mac-screen :global(img) {
-    width: clamp(56px, 7vw, 84px);
-    height: auto;
-    border-radius: 22%;
-  }
-
   .iphone {
     /* Leaves the screen at 9:16, the promo's own shape, so nothing is cropped. */
     --phone-ratio: 0.5797;
@@ -145,11 +136,7 @@ const t = useTranslations(lang, "hero");
     }
 
     .mac-bar,
-    .mac-screen :global(img) {
-      display: none;
-    }
-
-    .mac-screen {
+      .mac-screen {
       aspect-ratio: auto;
       padding: 0;
       background: none;

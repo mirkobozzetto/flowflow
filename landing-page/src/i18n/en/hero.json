@@ -58,7 +58,30 @@
   },
   "scene": {
     "macTitle": "FlowFlow",
-    "spoken": "Remind me to send the proposal Thursday at 9.",
-    "videoLabel": "FlowFlow on an iPhone, in video"
+    "videoLabel": "FlowFlow on an iPhone, in video",
+    "lines": [
+      "Calendar: client call at 10, then two hours without Slack.",
+      "Remind me to send the client the quote before noon.",
+      "Meeting notes: he wants “just a small button”. That's three screens.",
+      "Call recap: the client wants everything by Friday, the budget in January, and I want a holiday in February.",
+      "Remind me to bill Tuesday's “small tweaks”.",
+      "Note: three hours on a one-line bug. Do I bill the line?",
+      "FlowFlow note: the iPhone build passes first try. Ferris is proud.",
+      "Remind me to prepare Monday's demo: the iPhone flow, the sync with the Mac, and Hermes sending the recap.",
+      "Block Friday afternoon for the Apple review, nothing else.",
+      "Note: never ship on a Friday night. Not even this one.",
+      "Move the team check-in to 2 pm, the client pushed back.",
+      "Remind me to send the proposal Thursday at 9.",
+      "Remind me to chase September's invoice on Monday.",
+      "The client approves the mockup. He just wants the logo bigger.",
+      "Decision: v1 ships without dark mode. Nobody cries.",
+      "FlowFlow note: dictate on the train with no signal, and find the note filed when I arrive. It works.",
+      "Remind me to answer the App Store reviews tonight.",
+      "Lesson of the day: reread the quote before sending it. Both times.",
+      "Calendar: lunch break at 1 pm. Away from the screen.",
+      "Note: drink water. Coffee doesn't count.",
+      "Remind me to call my mum on Sunday. She asks if the app is finished.",
+      "Remind me to shut the laptop at 7 pm. For real this time."
+    ]
   }
 }

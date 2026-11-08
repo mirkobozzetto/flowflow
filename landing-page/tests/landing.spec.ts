@@ -82,6 +82,7 @@ const MIN_STEP_TEXT_PX = 16;
 const MIN_NAV_OPACITY = 0.9;
 const MIN_HERO_SUB_PX = 20;
 const MOCK_STARS = "321";
+const MIN_PROMPTER_LINES = 20;
 const RUST_URL = "https://www.rust-lang.org";
 const DIOXUS_URL = "https://dioxuslabs.com";
 
@@ -375,6 +376,19 @@ for (const copy of PAGES) {
         await word.evaluate((e) => getComputedStyle(e).backgroundColor),
       ).toBe(ACCENT);
       expect(await word.evaluate((e) => getComputedStyle(e).color)).toBe(WHITE);
+    });
+
+    test("scrolls a long day of lines in the Mac window", async ({ page }) => {
+      const lines = page.locator(".mac-screen [data-spoken] p");
+      expect(await lines.count()).toBeGreaterThanOrEqual(MIN_PROMPTER_LINES);
+      await expect(page.locator(".mac-screen img")).toHaveCount(0);
+      const column = page.locator(".mac-screen [data-spoken]");
+      const start = await column.evaluate((e) => getComputedStyle(e).transform);
+      await expect
+        .poll(() => column.evaluate((e) => getComputedStyle(e).transform), {
+          timeout: 15000,
+        })
+        .not.toBe(start);
     });
 
     test("has no scroll progress bar", async ({ page }) => {
