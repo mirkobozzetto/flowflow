@@ -31,7 +31,7 @@ const t = section(lang, "trust");
             <li>
               <span class="logos">
                 {item.logos.map((src) => (
-                  <img src={src} alt="" width="40" height="40" />
+                  <img src={src} alt="" width="32" height="32" />
                 ))}
               </span>
               <span>
@@ -120,38 +120,33 @@ const t = section(lang, "trust");
 
   .leave li {
     display: grid;
-    grid-template-columns: 70px minmax(0, 1fr);
-    gap: 14px;
+    grid-template-columns: 76px minmax(0, 1fr);
+    gap: 12px;
     align-items: center;
   }
 
   .logos {
     display: flex;
+    gap: 10px;
   }
 
   .logos img {
-    width: 40px;
-    height: 40px;
-    padding: 8px;
-    border-radius: 50%;
-    background: white;
-    box-shadow: 0 0 0 1px var(--rule);
+    width: 32px;
+    height: 32px;
+    border-radius: 8px;
     object-fit: contain;
-  }
-
-  .logos img + img {
-    margin-left: -10px;
   }
 
   .who {
     display: block;
-    font-size: 16.5px;
+    font-size: 17.5px;
     font-weight: 600;
+    letter-spacing: -0.01em;
   }
 
   .use {
     display: block;
-    font-size: 14.5px;
+    font-size: 15px;
     text-wrap: pretty;
   }
 

@@ -19,6 +19,8 @@ const PAGES = [
     calendar: "Google Calendar",
     soon: "Coming next",
     hermes: "Link my Hermes",
+    ai: "Codex/ChatGPT and Claude",
+    aiUse: "your subscription",
   },
   {
     path: "/fr/",
@@ -38,6 +40,8 @@ const PAGES = [
     calendar: "Google Agenda",
     soon: "À venir",
     hermes: "Relier mon Hermes",
+    ai: "Codex/ChatGPT et Claude",
+    aiUse: "ton abonnement",
   },
 ];
 
@@ -197,6 +201,17 @@ for (const copy of PAGES) {
       await expect(rows).toHaveCount(LEAVE_ROWS);
       await expect(rows.locator(".logos img")).toHaveCount(LEAVE_LOGOS);
       await expect(rows.nth(1).locator(".who")).toHaveText("Soniox");
+      await expect(rows.nth(0).locator(".who")).toHaveText(copy.ai);
+      await expect(rows.nth(0).locator(".use")).toContainText(copy.aiUse);
+      await expect(rows.nth(0).locator("img[src$='claude.svg']")).toHaveCount(
+        1,
+      );
+      const rings = await rows
+        .locator(".logos img")
+        .evaluateAll((logos) =>
+          logos.map((l) => getComputedStyle(l).boxShadow),
+        );
+      for (const ring of rings) expect(ring).toBe("none");
       const lefts = await rows
         .locator(".who")
         .evaluateAll((names) =>

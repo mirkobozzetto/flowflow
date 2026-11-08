@@ -12,9 +12,9 @@
   "leaveTitle": "Elsewhere, only when you use it",
   "leave": [
     {
-      "what": "Chat, titles and summaries",
-      "where": "OpenAI or Anthropic",
-      "logos": ["/logos/openai.svg", "/logos/anthropic.svg"]
+      "what": "Chat, titles and summaries, with your key or your subscription",
+      "where": "Codex/ChatGPT and Claude",
+      "logos": ["/logos/openai.svg", "/logos/claude.svg"]
     },
     {
       "what": "Cloud transcription, if you choose it",
