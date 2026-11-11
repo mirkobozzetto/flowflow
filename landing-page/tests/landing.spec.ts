@@ -583,10 +583,7 @@ for (const copy of PAGES) {
       for (const zone of ["header", "#finale"]) {
         const badges = page.locator(`${zone} .hero-ctas a`);
         await expect(badges).toHaveText([copy.appBadge, copy.macBadge]);
-        await expect(badges.nth(0)).toHaveAttribute(
-          "href",
-          /apps\.apple\.com/,
-        );
+        await expect(badges.nth(0)).toHaveAttribute("href", /apps\.apple\.com/);
         await expect(badges.nth(1)).toHaveAttribute("href", /\.dmg$/);
         await expect(badges.nth(0).locator("svg")).toHaveCount(1);
         await expect(badges.nth(1).locator("svg.macbook")).toHaveCount(1);
