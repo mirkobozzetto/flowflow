@@ -5,8 +5,9 @@ const PAGES = [
     path: "/",
     h1: "A word away",
     sub: "From idea to action, no keyboard",
-    heroLine: "One need, one agent. It prepares, you say go",
-    heroGo: "you say go",
+    heroLine:
+      "Email, quote, meeting or anything else: your agent prepares it all, you just say go",
+    heroGo: "you just say go",
     steps: ["Speak", "Transcribe", "Organize", "Recall"],
     stepTitles: [
       "One tap, and you talk",
@@ -58,8 +59,9 @@ const PAGES = [
     path: "/fr/",
     h1: "À portée de voix",
     sub: "De l'idée à l'action, sans clavier",
-    heroLine: "Un besoin, un agent. Il prépare, tu dis go",
-    heroGo: "tu dis go",
+    heroLine:
+      "Mail, devis, rendez-vous ou autre chose : ton agent prépare tout, tu n'as qu'à dire go",
+    heroGo: "tu n'as qu'à dire go",
     steps: ["Parle", "Transcrit", "Range", "Retrouve"],
     stepTitles: [
       "Un tap, et tu parles",
