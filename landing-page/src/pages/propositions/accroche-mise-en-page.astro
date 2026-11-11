@@ -1,0 +1,182 @@
+---
+import Layout from "../../layouts/Layout.astro";
+import Choice from "../../components/studio/Choice.astro";
+import { APPLE_PATH } from "../../lib/icons";
+import "../../styles/retouches.css";
+import "../../styles/boutons.css";
+
+const H1 = "À portée de voix";
+const LEAD = "De l'idée à l'action, sans clavier";
+const LINE_START = "Un besoin, un agent. Il prépare,";
+const LINE_END = "tu dis go";
+const VARIANTS = [
+  { id: "today", name: "Aujourd'hui" },
+  { id: "tight", name: "Bloc serré, deux poids" },
+  { id: "accent", name: "Serré, « tu dis go » en orange" },
+  { id: "marker", name: "Serré, « tu dis go » surligné" },
+  { id: "pill", name: "La 2e ligne en pastille" },
+  { id: "rule", name: "Séparées par une petite onde" },
+];
+---
+
+<Layout lang="fr">
+  <main class="opts">
+    <h1>Mise en page des deux lignes</h1>
+    <p class="opts-intro">
+      Mêmes textes, six façons de les poser entre le titre et les boutons.
+    </p>
+    <div class="opts-grid wide">
+      {
+        VARIANTS.map((v) => (
+          <Choice group="Mise en page" name={v.name} current={v.id === "today"}>
+            <div class:list={["hero-mini", `v-${v.id}`]}>
+              <p class="h1">{H1}</p>
+              <div class="lines">
+                <p class="lead">{LEAD}</p>
+                {v.id === "rule" && (
+                  <canvas class="mini-wave" data-wave="bars" data-speed="1.4" aria-hidden="true" />
+                )}
+                <p class="line">
+                  {LINE_START}{" "}
+                  <span class="end">{LINE_END}</span>
+                </p>
+              </div>
+              <div class="obadges">
+                <a class="obadge" href="#">
+                  <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d={APPLE_PATH} /></svg>
+                  <span><small>Télécharger dans</small>l'App Store</span>
+                </a>
+                <a class="obadge white" href="#">
+                  <span><small>Télécharger pour</small>macOS</span>
+                </a>
+              </div>
+            </div>
+          </Choice>
+        ))
+      }
+    </div>
+  </main>
+
+  <div class="opts-bar">
+    <p data-count>Aucun choix</p>
+    <button class="btn-primary" type="button" data-copy>Copier mes choix</button>
+  </div>
+
+  <script>
+    const boxes = [...document.querySelectorAll<HTMLInputElement>("[data-keep]")];
+    const count = document.querySelector<HTMLElement>("[data-count]");
+    const kept = (): string[] =>
+      boxes.filter((box) => box.checked).map((box) => box.dataset.keep ?? "");
+    for (const box of boxes) {
+      box.addEventListener("change", () => {
+        const total = kept().length;
+        if (count) count.textContent = total ? `${total} choix cochés` : "Aucun choix";
+      });
+    }
+    document.querySelector("[data-copy]")?.addEventListener("click", () => {
+      navigator.clipboard?.writeText(kept().join("\n"));
+      if (count) count.textContent = "Choix copiés";
+    });
+  </script>
+</Layout>
+
+<style>
+  .hero-mini {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 34px 12px 30px;
+    text-align: center;
+    container-type: inline-size;
+  }
+
+  .h1 {
+    color: var(--ink);
+    font-size: clamp(34px, 4.4vw, 50px);
+    font-weight: 600;
+    line-height: 1;
+    letter-spacing: -0.035em;
+  }
+
+  .lines {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    margin: 26px 0 26px;
+  }
+
+  .lead {
+    color: var(--ink);
+    font-size: clamp(20px, 2.2vw, 24px);
+    font-weight: 600;
+    line-height: 1.2;
+    letter-spacing: -0.015em;
+    text-wrap: balance;
+  }
+
+  .line {
+    font-size: 16px;
+    line-height: 1.35;
+    text-wrap: balance;
+  }
+
+  /* Today: the gap seen on the page. */
+  .v-today .line {
+    margin-top: 16px;
+  }
+
+  .v-tight .line {
+    margin-top: 4px;
+    font-size: clamp(18px, 2vw, 21px);
+    font-weight: 500;
+  }
+
+  .v-accent .line,
+  .v-marker .line {
+    margin-top: 4px;
+    font-size: clamp(18px, 2vw, 21px);
+  }
+
+  .v-accent .end {
+    color: var(--orange-dark);
+    font-weight: 600;
+  }
+
+  .v-marker .end {
+    padding: 0 0.06em;
+    background: linear-gradient(
+      180deg,
+      transparent 54%,
+      var(--orange-100) 54%,
+      var(--orange-100) 94%,
+      transparent 94%
+    );
+    font-weight: 600;
+  }
+
+  .v-pill .line {
+    margin-top: 12px;
+    padding: 6px 14px;
+    border-radius: 99px;
+    background: var(--paper-button);
+    box-shadow: var(--paper-edge);
+    font-size: 15px;
+    font-weight: 600;
+  }
+
+  .v-rule .mini-wave {
+    width: 120px;
+    height: 18px;
+    margin: 8px 0 6px;
+  }
+
+  .v-rule .line {
+    font-size: 17px;
+  }
+
+  .obadge.white {
+    background: white;
+    color: black;
+    box-shadow: 0 0 0 1px var(--rule);
+  }
+</style>
