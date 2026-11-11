@@ -235,3 +235,8 @@
     grid-template-columns: minmax(0, 240px);
   }
 }
+
+.obadge .macbook {
+  width: 32px;
+  height: 32px;
+}

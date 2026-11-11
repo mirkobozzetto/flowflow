@@ -8,25 +8,19 @@ import "../../styles/boutons.css";
 
 const finale = section("fr", "footer").finale;
 const NOTE = "Gratuit pour l'instant · tes clés, tes données";
-const LAPTOP_PATH = "M5 5.5h14a1 1 0 0 1 1 1V16H4V6.5a1 1 0 0 1 1-1zM2 18.5h20";
 const devices = ["iphone", "mac"] as const;
 
-const macLabels = [
-  { small: "Télécharger pour", big: "Mac" },
-  { small: "Télécharger pour", big: "macOS" },
-  { small: "Disponible sur", big: "Mac" },
-  { small: "L'app pour", big: "Mac" },
-];
+const macLabels = [{ small: "Télécharger pour", big: "macOS" }];
 ---
 
 <Layout lang="fr">
   <main class="opts">
     <h1>Boutons façon badge, aux couleurs de l'app</h1>
     <p class="opts-intro">
-      Même forme que le badge d'Apple, en orange. Quatre libellés pour le Mac.
+      Même forme que le badge d'Apple, en orange.
     </p>
     <p class="opts-note">
-      Pomme pour l'App Store, ordinateur pour le Mac, texte centré.
+      Pomme pour l'App Store, MacBook pour macOS, texte centré.
     </p>
 
     <div class="opts-grid one-col">
@@ -45,7 +39,7 @@ const macLabels = [
                         <span><small>Télécharger dans</small>l'App Store</span>
                       </a>
                       <a class="obadge" href="#">
-                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d={LAPTOP_PATH}></path></svg>
+                        <svg class="macbook" viewBox="0 0 24 24" aria-hidden="true"><rect x="4.3" y="4.8" width="15.4" height="11.4" rx="1.4" fill="none" stroke="currentColor" stroke-width="1.6"></rect><rect x="10.9" y="4.8" width="2.2" height="1.3" rx="0.5" fill="currentColor"></rect><path d="M1.5 17.2h21v.5c0 1-.8 1.8-1.8 1.8H3.3c-1 0-1.8-.8-1.8-1.8z" fill="currentColor"></path><path d="M10 17.2h4v.5h-4z" fill="black" opacity="0.25"></path></svg>
                         <span><small>{mac.small}</small>{mac.big}</span>
                       </a>
                     </div>
