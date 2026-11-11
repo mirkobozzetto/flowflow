@@ -21,7 +21,7 @@ const { lock, packet } = Astro.props;
     <span class="lock">{lock}</span>
   </div>
   <div class="dev-mac">
-    <div class="mac-screen"><Image src={logo} alt="" width={26} height={26} /></div>
+    <div class="mac-lid"><Image src={logo} alt="" width={26} height={26} /></div>
     <div class="mac-base" aria-hidden="true"></div>
   </div>
 </div>
@@ -63,7 +63,7 @@ const { lock, packet } = Astro.props;
     align-items: center;
   }
 
-  .mac-screen {
+  .mac-lid {
     display: grid;
     place-items: center;
     width: 104px;
