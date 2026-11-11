@@ -74,6 +74,21 @@ const { steps } = Astro.props;
     color: var(--orange-dark);
   }
 
+  /* On a phone the three steps stack, each arrow pointing down. */
+  @media (max-width: 479px) {
+    .hero-steps {
+      flex-direction: column;
+      gap: 24px;
+    }
+
+    li + li::before {
+      top: -20px;
+      left: 50%;
+      rotate: 90deg;
+      translate: -50% 0;
+    }
+  }
+
   @media (prefers-reduced-motion: reduce) {
     li {
       transition: none;
