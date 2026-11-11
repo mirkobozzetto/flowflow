@@ -1,0 +1,179 @@
+---
+import { Image } from "astro:assets";
+import logo from "../../assets/logo.png";
+
+interface Props {
+  lock: string;
+  packet: string;
+}
+
+const { lock, packet } = Astro.props;
+---
+
+<div class="sync-visual mt-6.5 flex items-center gap-3">
+  <div class="dev-phone">
+    <span class="island" aria-hidden="true"></span>
+    <Image src={logo} alt="" width={22} height={22} />
+  </div>
+  <div class="sync-line">
+    <span class="packet go">{packet}</span>
+    <span class="packet back">{packet}</span>
+    <span class="lock">{lock}</span>
+  </div>
+  <div class="dev-mac">
+    <div class="mac-screen"><Image src={logo} alt="" width={26} height={26} /></div>
+    <div class="mac-base" aria-hidden="true"></div>
+  </div>
+</div>
+
+<style>
+  .sync-visual :global(img) {
+    border-radius: 6px;
+  }
+
+  .dev-phone {
+    position: relative;
+    flex-shrink: 0;
+    display: grid;
+    place-items: center;
+    width: 44px;
+    height: 86px;
+    border-radius: 11px;
+    background: white;
+    box-shadow:
+      0 0 0 2.5px #1c1c1e,
+      0 8px 16px -10px rgba(0, 0, 0, 0.45);
+  }
+
+  .island {
+    position: absolute;
+    top: 6px;
+    left: 50%;
+    width: 14px;
+    height: 4px;
+    border-radius: 4px;
+    background: #1c1c1e;
+    translate: -50% 0;
+  }
+
+  .dev-mac {
+    flex-shrink: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+  }
+
+  .mac-screen {
+    display: grid;
+    place-items: center;
+    width: 104px;
+    height: 66px;
+    border-radius: 7px 7px 2px 2px;
+    background: white;
+    box-shadow: 0 0 0 3px #1c1c1e;
+  }
+
+  .mac-base {
+    width: 130px;
+    height: 6px;
+    margin-top: 3px;
+    border-radius: 1px 1px 6px 6px;
+    background: linear-gradient(#d9d9dc, #a7a7ab);
+  }
+
+  .sync-line {
+    position: relative;
+    flex: 1;
+    height: 1.5px;
+    background: repeating-linear-gradient(
+      90deg,
+      var(--orange) 0 6px,
+      transparent 6px 12px
+    );
+    background-size: 12px 100%;
+    animation: dash 1.1s linear infinite;
+  }
+
+  .lock,
+  .packet {
+    position: absolute;
+    border: 1px solid var(--orange-100);
+    border-radius: 99px;
+    background: var(--orange-50);
+    color: var(--orange-dark);
+    font-size: 10px;
+  }
+
+  .lock {
+    top: 9px;
+    left: 50%;
+    padding: 1px 8px;
+    transform: translateX(-50%);
+  }
+
+  .packet {
+    top: 50%;
+    padding: 2px 8px;
+    font-weight: 600;
+    opacity: 0;
+    translate: -50% -50%;
+  }
+
+  .packet.go {
+    animation: go 3.4s ease-in-out infinite;
+  }
+
+  .packet.back {
+    animation: back 3.4s ease-in-out 1.7s infinite;
+  }
+
+  @keyframes go {
+    0% {
+      left: 0;
+      opacity: 0;
+    }
+    10% {
+      opacity: 1;
+    }
+    44% {
+      left: 100%;
+      opacity: 1;
+    }
+    50%,
+    100% {
+      left: 100%;
+      opacity: 0;
+    }
+  }
+
+  @keyframes back {
+    0% {
+      left: 100%;
+      opacity: 0;
+    }
+    10% {
+      opacity: 1;
+    }
+    44% {
+      left: 0;
+      opacity: 1;
+    }
+    50%,
+    100% {
+      left: 0;
+      opacity: 0;
+    }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .sync-line,
+    .packet {
+      animation: none;
+    }
+
+    .packet.go {
+      left: 30%;
+      opacity: 1;
+    }
+  }
+</style>
