@@ -1,4 +1,6 @@
 ---
+// Side buttons placed from a current iPhone photo, seen from the front:
+// three on the left (action, volume up, volume down), one on the right.
 interface Props {
   width: number;
 }
@@ -8,22 +10,19 @@ const { width } = Astro.props;
 
 <div class="iphone-art" style={`--w: ${width}px`} aria-hidden="true">
   <span class="button action"></span>
-  <span class="button volume-up"></span>
-  <span class="button volume-down"></span>
-  <span class="button power"></span>
-  <div class="screen">
-    <span class="island"></span>
-    <slot />
-  </div>
+  <span class="button vol-up"></span>
+  <span class="button vol-down"></span>
+  <span class="button side"></span>
+  <div class="screen"><span class="island"></span><slot /></div>
 </div>
 
 <style>
-  /* Every measure follows the width, so the phone stays crisp from 20px up. */
   .iphone-art {
+    --bump: calc(var(--w) * 0.011);
     position: relative;
     flex-shrink: 0;
     width: var(--w);
-    aspect-ratio: 0.486;
+    aspect-ratio: 0.483;
     padding: max(1.5px, calc(var(--w) * 0.045));
     border-radius: calc(var(--w) * 0.2);
     background: linear-gradient(150deg, #48484c, #121214 38%, #1c1c1e 70%, #3a3a3e);
@@ -33,36 +32,35 @@ const { width } = Astro.props;
         rgba(0, 0, 0, 0.5);
   }
 
-  /* Real iPhone side buttons: hairline thin, barely out of the frame. */
   .button {
     position: absolute;
-    left: calc(max(0.75px, calc(var(--w) * 0.022)) * -1);
-    width: max(0.75px, calc(var(--w) * 0.022));
-    border-radius: 1px 0 0 1px;
-    background: #3a3a3e;
+    left: calc(var(--bump) * -1);
+    width: var(--bump);
+    border-radius: var(--bump) 0 0 var(--bump);
+    background: #4a4a4e;
   }
 
   .action {
-    top: 19%;
+    top: 20.5%;
     height: 5%;
   }
 
-  .volume-up {
-    top: 27%;
-    height: 9%;
+  .vol-up {
+    top: 28.7%;
+    height: 7.9%;
   }
 
-  .volume-down {
-    top: 38%;
-    height: 9%;
+  .vol-down {
+    top: 38.3%;
+    height: 7.9%;
   }
 
-  .power {
-    top: 30%;
-    right: calc(max(0.75px, calc(var(--w) * 0.022)) * -1);
+  .side {
+    top: 31.4%;
+    right: calc(var(--bump) * -1);
     left: auto;
-    height: 15%;
-    border-radius: 0 1px 1px 0;
+    height: 12%;
+    border-radius: 0 var(--bump) var(--bump) 0;
   }
 
   .screen {
