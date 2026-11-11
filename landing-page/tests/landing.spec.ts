@@ -741,7 +741,8 @@ for (const copy of PAGES) {
         await expect(mascot).toBeHidden();
         return;
       }
-      await mascot.scrollIntoViewIfNeeded();
+      // It never stops moving, so no wait for a stable element.
+      await mascot.evaluate((e) => e.scrollIntoView({ block: "center" }));
       await expect(mascot).toBeVisible();
       const box = await mascot.boundingBox();
       const width = await page.evaluate(
