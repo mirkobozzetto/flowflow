@@ -32,7 +32,7 @@
   letter-spacing: -0.015em;
 }
 
-.arrow {
+.u-arrow {
   width: 74px;
   fill: none;
   stroke: black;
@@ -41,7 +41,7 @@
   stroke-linejoin: round;
 }
 
-.arrow.up {
+.u-arrow.up {
   width: 52px;
   stroke: var(--orange-dark);
 }

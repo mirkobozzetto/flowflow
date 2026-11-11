@@ -53,9 +53,9 @@ const offerCards = { solo: teams.solo, guided: teams.guided };
                   <p>{v === "today" ? teams.unsureText : "30 minutes pour cerner ton besoin. L'offre se bâtit avec toi, et je reste en soutien."}</p>
                 </div>
                 {v === "today" ? (
-                  <svg class="arrow" viewBox="0 0 84 38" aria-hidden="true"><path d="M3 26C24 6 52 4 76 19" /><path d="M63 19l14 1-3-14" /></svg>
+                  <svg class="u-arrow" viewBox="0 0 84 38" aria-hidden="true"><path d="M3 26C24 6 52 4 76 19" /><path d="M63 19l14 1-3-14" /></svg>
                 ) : (
-                  <svg class="arrow up" viewBox="0 0 60 70" aria-hidden="true"><path d="M6 64C10 38 24 18 50 8" /><path d="M37 6l14 1-4 13" /></svg>
+                  <svg class="u-arrow up" viewBox="0 0 60 70" aria-hidden="true"><path d="M6 64C10 38 24 18 50 8" /><path d="M37 6l14 1-4 13" /></svg>
                 )}
                 <a class="btn-ghost" href="#">{teams.guided.cta}</a>
               </div>
@@ -119,7 +119,7 @@ const offerCards = { solo: teams.solo, guided: teams.guided };
 
     <section>
       <h2>4. Petites cartes</h2>
-      <div class="opts-grid">
+      <div class="opts-grid wide">
         <Choice group="Visages" name="Aujourd'hui" current>
           <Offer tone="orange" title={offerCards.guided.title} body={offerCards.guided.body} points={offerCards.guided.points} cta={offerCards.guided.cta} href="#" />
         </Choice>
