@@ -229,6 +229,10 @@
   transform: translateX(-50%);
 }
 
+.lock.low {
+  top: 9px;
+}
+
 .dev-phone {
   position: relative;
   flex-shrink: 0;
