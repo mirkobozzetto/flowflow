@@ -11,9 +11,8 @@
     "logoAlt": "FlowFlow",
     "h1Lead": "A word",
     "h1Accent": "away",
-    "subLead": "One voice to run",
-    "subStrong": "all your agents,",
-    "subTail": "and a memory that keeps everything"
+    "lead": "From idea to action, no keyboard",
+    "line": "One need, one agent. It prepares, you say go"
   },
   "stage": {
     "question": "How do you work?",

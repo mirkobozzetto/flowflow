@@ -30,10 +30,12 @@ const t = useTranslations(lang, "hero");
       </em>
     </h1>
     <p
-      class="text-[clamp(20px,2.2vw,22px)] leading-[1.35] text-ink text-balance max-w-160 mx-auto mt-1"
+      class="mx-auto mt-1 max-w-160 text-[clamp(22px,2.6vw,28px)] leading-[1.2] font-semibold tracking-[-0.015em] text-balance text-ink"
     >
-      {t("hero.subLead")} <b class="font-semibold">{t("hero.subStrong")}</b>
-      {t("hero.subTail")}
+      {t("hero.lead")}
+    </p>
+    <p class="hero-line mx-auto mt-4 max-w-140 text-[17px] text-balance">
+      {t("hero.line")}
     </p>
     <CtaButtons lang={lang} />
   </div>

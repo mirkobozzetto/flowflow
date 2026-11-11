@@ -11,9 +11,8 @@
     "logoAlt": "FlowFlow",
     "h1Lead": "À portée de",
     "h1Accent": "voix",
-    "subLead": "Une seule voix pour piloter",
-    "subStrong": "tous tes agents,",
-    "subTail": "et une mémoire qui retient tout"
+    "lead": "De l'idée à l'action, sans clavier",
+    "line": "Un besoin, un agent. Il prépare, tu dis go"
   },
   "stage": {
     "question": "Tu travailles comment ?",
