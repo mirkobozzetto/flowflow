@@ -15,19 +15,20 @@ const LOCK_PATH =
 ---
 
 <div class="sync-visual mt-7 flex items-center gap-3">
-  <IphoneArt width={46}><Image src={logo} alt="" width={22} height={22} /></IphoneArt>
+  <IphoneArt width={46}><Image src={logo} alt="" width={44} height={44} /></IphoneArt>
   <div class="sync-line">
-    <span class="cipher" data-cipher={packet}>{packet}</span>
+    <span class="packet" data-packet role="img" aria-label={packet}>
+      <svg viewBox="0 0 24 18" aria-hidden="true">
+        <rect x="1" y="1" width="22" height="16" rx="3"></rect>
+        <path d="M2.5 3l9.5 7 9.5-7"></path>
+      </svg>
+    </span>
     <span class="sync-lock" role="img" aria-label={lock}>
       <svg viewBox="0 0 24 24" aria-hidden="true"><path d={LOCK_PATH}></path></svg>
     </span>
   </div>
-  <MacbookArt width={104}><Image src={logo} alt="" width={26} height={26} /></MacbookArt>
+  <MacbookArt width={104}><Image src={logo} alt="" width={52} height={52} /></MacbookArt>
 </div>
-
-<script>
-  import "../../scripts/cipher.ts";
-</script>
 
 <style>
   .sync-line {
@@ -50,51 +51,82 @@ const LOCK_PATH =
     z-index: 2;
     display: grid;
     place-items: center;
-    width: 24px;
-    height: 24px;
+    width: 18px;
+    height: 18px;
     border-radius: 50%;
     background: white;
-    box-shadow:
-      0 0 0 1px var(--orange-100),
-      0 3px 8px -4px rgba(0, 0, 0, 0.2);
+    box-shadow: 0 0 0 1px var(--orange-100);
     transform: translate(-50%, -50%);
   }
 
   .sync-lock svg {
-    width: 12px;
-    height: 12px;
+    width: 10px;
+    height: 10px;
     fill: none;
     stroke: var(--orange-dark);
-    stroke-width: 1.7;
+    stroke-width: 2;
     stroke-linecap: round;
     stroke-linejoin: round;
   }
 
-  .cipher {
+  /* A small envelope that crosses quickly from the iPhone to the Mac. */
+  .packet {
     position: absolute;
     top: 50%;
     left: 0;
     z-index: 1;
-    padding: 1px 6px;
-    border: 1px solid var(--orange-100);
-    border-radius: 5px;
-    background: white;
-    color: var(--orange-dark);
-    font-size: 10px;
-    font-variant-numeric: tabular-nums;
-    font-weight: 500;
-    letter-spacing: 0.02em;
-    white-space: nowrap;
+    display: grid;
+    width: 22px;
+    height: 17px;
+    filter: drop-shadow(0 3px 4px rgba(0, 0, 0, 0.18));
     transform: translate(-50%, -50%);
+    animation: deliver 1.8s cubic-bezier(0.45, 0, 0.25, 1) infinite;
+  }
+
+  .packet svg {
+    width: 100%;
+    height: 100%;
+  }
+
+  .packet rect {
+    fill: var(--orange-dark);
+  }
+
+  .packet path {
+    fill: none;
+    stroke: white;
+    stroke-width: 1.8;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+  }
+
+  @keyframes deliver {
+    0% {
+      left: 0;
+      opacity: 0;
+    }
+    12% {
+      opacity: 1;
+    }
+    80% {
+      left: 100%;
+      opacity: 1;
+    }
+    90%,
+    100% {
+      left: 100%;
+      opacity: 0;
+    }
   }
 
   @media (prefers-reduced-motion: reduce) {
-    .sync-line {
+    .sync-line,
+    .packet {
       animation: none;
     }
 
-    .cipher {
-      left: 25%;
+    .packet {
+      left: 28%;
     }
   }
 </style>
