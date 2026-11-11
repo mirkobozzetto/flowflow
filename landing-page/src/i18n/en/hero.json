@@ -13,8 +13,7 @@
     "h1Accent": "away",
     "subLead": "One voice to run",
     "subStrong": "all your agents,",
-    "subTail": "and a memory that keeps everything",
-    "steps": ["You dictate", "FlowFlow understands", "your agents act"]
+    "subTail": "and a memory that keeps everything"
   },
   "stage": {
     "question": "How do you work?",

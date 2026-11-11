@@ -13,8 +13,7 @@
     "h1Accent": "voix",
     "subLead": "Une seule voix pour piloter",
     "subStrong": "tous tes agents,",
-    "subTail": "et une mémoire qui retient tout",
-    "steps": ["Tu dictes", "FlowFlow comprend", "tes agents agissent"]
+    "subTail": "et une mémoire qui retient tout"
   },
   "stage": {
     "question": "Tu travailles comment ?",
