@@ -11,7 +11,7 @@ function play(card: HTMLElement): void {
 
   let at = 0;
   const step = (): void => {
-    keys.forEach((key, i) => key.classList.toggle("on", i === at));
+    for (const [i, key] of keys.entries()) key.classList.toggle("on", i === at);
     label.textContent = keys[at]?.dataset.label ?? "";
     if (screen) {
       screen.classList.remove("pop");

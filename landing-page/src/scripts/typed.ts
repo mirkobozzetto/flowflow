@@ -12,7 +12,9 @@ function type(sentence: HTMLElement): void {
   let at = 0;
   setInterval(() => {
     const shown = at % (words.length + HOLD_STEPS);
-    words.forEach((word, i) => word.classList.toggle("on", i <= shown));
+    for (const [i, word] of words.entries()) {
+      word.classList.toggle("on", i <= shown);
+    }
     at += 1;
   }, WORD_MS);
 }
@@ -25,7 +27,9 @@ function initTyped(): void {
       type(entry.target as HTMLElement);
     }
   });
-  for (const sentence of document.querySelectorAll<HTMLElement>("[data-typed]")) {
+  for (const sentence of document.querySelectorAll<HTMLElement>(
+    "[data-typed]",
+  )) {
     seen.observe(sentence);
   }
 }
