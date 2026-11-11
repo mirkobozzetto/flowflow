@@ -6,6 +6,7 @@ const PAGES = [
     h1: "A word away",
     sub: "From idea to action, no keyboard",
     heroLine: "One need, one agent. It prepares, you say go",
+    heroGo: "you say go",
     steps: ["Speak", "Transcribe", "Organize", "Recall"],
     stepTitles: [
       "One tap, and you talk",
@@ -58,6 +59,7 @@ const PAGES = [
     h1: "À portée de voix",
     sub: "De l'idée à l'action, sans clavier",
     heroLine: "Un besoin, un agent. Il prépare, tu dis go",
+    heroGo: "tu dis go",
     steps: ["Parle", "Transcrit", "Range", "Retrouve"],
     stepTitles: [
       "Un tap, et tu parles",
@@ -193,6 +195,9 @@ for (const copy of PAGES) {
       await expect(page.locator("h1")).toHaveText(copy.h1);
       await expect(page.locator("header p").first()).toHaveText(copy.sub);
       await expect(page.locator("header .hero-line")).toHaveText(copy.heroLine);
+      await expect(page.locator("header .hero-line mark.hl")).toHaveText(
+        copy.heroGo,
+      );
       const subSize = await page
         .locator("header p")
         .first()
