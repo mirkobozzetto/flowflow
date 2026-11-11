@@ -4,7 +4,8 @@ const PAGES = [
   {
     path: "/",
     h1: "A word away",
-    sub: "One voice to run all your agents, and a memory that keeps everything",
+    sub: "From idea to action, no keyboard",
+    heroLine: "One need, one agent. It prepares, you say go",
     steps: ["Speak", "Transcribe", "Organize", "Recall"],
     stepTitles: [
       "One tap, and you talk",
@@ -55,7 +56,8 @@ const PAGES = [
   {
     path: "/fr/",
     h1: "À portée de voix",
-    sub: "Une seule voix pour piloter tous tes agents, et une mémoire qui retient tout",
+    sub: "De l'idée à l'action, sans clavier",
+    heroLine: "Un besoin, un agent. Il prépare, tu dis go",
     steps: ["Parle", "Transcrit", "Range", "Retrouve"],
     stepTitles: [
       "Un tap, et tu parles",
@@ -189,7 +191,8 @@ for (const copy of PAGES) {
 
     test("keeps the headline and shows the exact copy", async ({ page }) => {
       await expect(page.locator("h1")).toHaveText(copy.h1);
-      await expect(page.locator("header p").first()).toContainText(copy.sub);
+      await expect(page.locator("header p").first()).toHaveText(copy.sub);
+      await expect(page.locator("header .hero-line")).toHaveText(copy.heroLine);
       const subSize = await page
         .locator("header p")
         .first()
