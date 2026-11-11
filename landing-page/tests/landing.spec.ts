@@ -124,7 +124,7 @@ const MIN_HERO_SUB_PX = 20;
 const MOCK_STARS = "321";
 const MIN_PROMPTER_LINES = 20;
 const EMAIL_PATTERN = /[\w.+-]+@[\w-]+\.[a-z]{2,}/gi;
-const BOOKING_LINKS = 3;
+const BOOKING_LINKS = 2;
 const EMAIL_FREE_PAGES = [
   "/",
   "/fr/",
