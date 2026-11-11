@@ -1,5 +1,7 @@
 ---
+import { Image } from "astro:assets";
 import Offer from "./Offer.astro";
+import mirko from "../assets/people/mirko.png";
 import { section } from "../lib/i18n";
 import { appStoreUrl, bookingCode } from "../lib/links";
 
@@ -32,7 +34,18 @@ const t = section(lang, "teams");
       cta={t.solo.cta}
       href={appStoreUrl(lang)}
       external
-    />
+    >
+      <img
+        slot="art"
+        class="offer-mascot"
+        src="/brand/mascot-sticker.webp"
+        alt=""
+        width="104"
+        height="104"
+        loading="lazy"
+        decoding="async"
+      />
+    </Offer>
     <Offer
       tone="orange"
       title={t.guided.title}
@@ -41,21 +54,26 @@ const t = section(lang, "teams");
       cta={t.guided.cta}
       href="#book"
       contact={bookingCode()}
-    />
+    >
+      <div slot="art" class="faces">
+        <span class="face mirko"><Image src={mirko} alt="" width={96} height={96} /></span>
+        <span class="face"><img src="/images/hermes-agent.png" alt="" width="96" height="96" /></span>
+      </div>
+    </Offer>
   </div>
 
   <div
-    class="mt-12 flex flex-wrap items-center justify-center gap-x-6 gap-y-3"
+    class="unsure mt-12 flex flex-wrap items-center justify-center gap-x-6 gap-y-3"
   >
-    <div class="text-right max-[560px]:text-center">
-      <p class="text-[20px] font-semibold tracking-[-0.015em] text-ink">
+    <div class="max-w-105 text-right text-balance max-[560px]:text-center">
+      <p class="unsure-title text-[20px] font-semibold tracking-[-0.015em] text-ink">
         {t.unsureTitle}
       </p>
-      <p class="text-[14.5px]">{t.unsureText}</p>
+      <p class="unsure-text text-[14.5px]">{t.unsureText}</p>
     </div>
-    <svg class="arrow max-[560px]:hidden" viewBox="0 0 84 38" aria-hidden="true">
-      <path d="M3 26C24 6 52 4 76 19"></path>
-      <path d="M63 19l14 1-3-14"></path>
+    <svg class="arrow-up max-[560px]:hidden" viewBox="0 0 56 72" aria-hidden="true">
+      <path d="M6 68C30 66 42 50 44 10"></path>
+      <path d="M35 20l9-11 9 11"></path>
     </svg>
     <a
       class="btn-ghost"
@@ -69,8 +87,67 @@ const t = section(lang, "teams");
 </section>
 
 <style>
-  .arrow {
-    width: 74px;
+  .offer-mascot {
+    position: absolute;
+    right: 20px;
+    bottom: 18px;
+    width: 104px;
+    height: 104px;
+    rotate: 8deg;
+  }
+
+  .faces {
+    position: absolute;
+    top: 28px;
+    right: 28px;
+    display: flex;
+  }
+
+  .face {
+    display: grid;
+    place-items: center;
+    width: 52px;
+    height: 52px;
+    overflow: hidden;
+    border-radius: 50%;
+    background: white;
+    box-shadow: 0 0 0 3px white;
+  }
+
+  .face + .face {
+    margin-left: -12px;
+  }
+
+  .face.mirko {
+    background: black;
+  }
+
+  .face :global(img) {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+  }
+
+  /* The portrait is cropped tight: shrinking it on black keeps the whole head. */
+  .face.mirko :global(img) {
+    width: 84%;
+    height: 84%;
+  }
+
+  @media (max-width: 560px) {
+    .faces {
+      position: static;
+      margin-bottom: 14px;
+    }
+
+    .offer-mascot {
+      width: 80px;
+      height: 80px;
+    }
+  }
+
+  .arrow-up {
+    width: 46px;
     fill: none;
     stroke: black;
     stroke-width: 1.8;
