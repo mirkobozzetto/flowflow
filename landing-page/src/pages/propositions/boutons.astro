@@ -1,128 +1,63 @@
 ---
 import Layout from "../../layouts/Layout.astro";
-import CtaButtons from "../../components/CtaButtons.astro";
 import Choice from "../../components/studio/Choice.astro";
 import { section } from "../../lib/i18n";
 import "../../styles/retouches.css";
 import "../../styles/boutons.css";
 
 const finale = section("fr", "footer").finale;
-const BADGE = "/badges/app-store-fr-fr.svg";
-const DOWNLOAD_PATH = "M12 4v11m0 0 4.5-4.5M12 15l-4.5-4.5M5 20h14";
+const NOTE = "Gratuit pour l'instant · tes clés, tes données";
 const PHONE_PATH =
   "M8 2.5h8a2 2 0 0 1 2 2v15a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2v-15a2 2 0 0 1 2-2zM10.5 5h3";
 const LAPTOP_PATH = "M5 5.5h14a1 1 0 0 1 1 1V16H4V6.5a1 1 0 0 1 1-1zM2 18.5h20";
-const NOTE = "Gratuit pour l'instant · tes clés, tes données";
 const devices = ["iphone", "mac"] as const;
+
+const macLabels = [
+  { small: "Télécharger pour", big: "Mac" },
+  { small: "Télécharger pour", big: "macOS" },
+  { small: "Disponible sur", big: "Mac" },
+  { small: "L'app pour", big: "Mac" },
+];
 ---
 
 <Layout lang="fr">
   <main class="opts">
-    <h1>Boutons iPhone et Mac</h1>
+    <h1>Boutons façon badge, aux couleurs de l'app</h1>
     <p class="opts-intro">
-      Chaque piste, vue sur iPhone et sur Mac. Coche celle que tu gardes.
+      Même forme que le badge d'Apple, en orange. Quatre libellés pour le Mac.
     </p>
     <p class="opts-note">
-      Apple demande son badge officiel, et interdit le logo Apple seul dans un
-      bouton (guide marketing de l'App Store).
+      Sans la pomme : Apple interdit son logo seul hors de son badge officiel.
     </p>
 
     <div class="opts-grid one-col">
-      <Choice group="Boutons" name="Aujourd'hui" current>
-        <div class="screens">
-          {
-            devices.map((d) => (
-              <div class:list={["frame", d]}>
-                <span class="frame-label">{d === "iphone" ? "Sur iPhone" : "Sur Mac"}</span>
-                <div class="frame-body">
-                  <h3>{finale.lead}<br />{finale.accent}</h3>
-                  <CtaButtons lang="fr" primary={finale.ctaPrimary} ghost={finale.ctaGhost} />
-                  <p class="fnote">{finale.note}</p>
-                </div>
-              </div>
-            ))
-          }
-        </div>
-      </Choice>
-
-      <Choice group="Boutons" name="Le bon bouton selon l'appareil">
-        <div class="screens">
-          <div class="frame iphone">
-            <span class="frame-label">Sur iPhone</span>
-            <div class="frame-body">
-              <h3>{finale.lead}<br />{finale.accent}</h3>
-              <a class="btn-primary solo" href="#">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d={DOWNLOAD_PATH}></path></svg>
-                Télécharger sur l'App Store
-              </a>
-              <a class="alt" href="#">Aussi sur Mac →</a>
-              <p class="fnote">{NOTE}</p>
-            </div>
-          </div>
-          <div class="frame mac">
-            <span class="frame-label">Sur Mac</span>
-            <div class="frame-body">
-              <h3>{finale.lead}<br />{finale.accent}</h3>
-              <a class="btn-primary solo" href="#">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d={DOWNLOAD_PATH}></path></svg>
-                Télécharger pour Mac
-              </a>
-              <a class="alt" href="#">Aussi sur iPhone, sur l'App Store →</a>
-              <p class="fnote">{NOTE}</p>
-            </div>
-          </div>
-        </div>
-      </Choice>
-
-      <Choice group="Boutons" name="Badge officiel App Store">
-        <div class="screens">
-          {
-            devices.map((d) => (
-              <div class:list={["frame", d]}>
-                <span class="frame-label">{d === "iphone" ? "Sur iPhone" : "Sur Mac"}</span>
-                <div class="frame-body">
-                  <h3>{finale.lead}<br />{finale.accent}</h3>
-                  <div class="badges">
-                    <a href="#"><img class="badge" src={BADGE} alt="Télécharger dans l'App Store" width="177" height="56" /></a>
-                    <a class="mac-badge" href="#">
-                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d={DOWNLOAD_PATH}></path></svg>
-                      <span>Télécharger<br />pour Mac</span>
-                    </a>
+      {
+        macLabels.map((mac) => (
+          <Choice group="Bouton Mac" name={`${mac.small} ${mac.big}`}>
+            <div class="screens">
+              {devices.map((d) => (
+                <div class:list={["frame", d]}>
+                  <span class="frame-label">{d === "iphone" ? "Sur iPhone" : "Sur Mac"}</span>
+                  <div class="frame-body">
+                    <h3>{finale.lead}<br />{finale.accent}</h3>
+                    <div class="obadges">
+                      <a class="obadge" href="#">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d={PHONE_PATH}></path></svg>
+                        <span><small>Télécharger dans</small>l'App Store</span>
+                      </a>
+                      <a class="obadge" href="#">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d={LAPTOP_PATH}></path></svg>
+                        <span><small>{mac.small}</small>{mac.big}</span>
+                      </a>
+                    </div>
+                    <p class="fnote">{NOTE}</p>
                   </div>
-                  <p class="fnote">{NOTE}</p>
                 </div>
-              </div>
-            ))
-          }
-        </div>
-      </Choice>
-
-      <Choice group="Boutons" name="iPhone et Mac en gros">
-        <div class="screens">
-          {
-            devices.map((d) => (
-              <div class:list={["frame", d]}>
-                <span class="frame-label">{d === "iphone" ? "Sur iPhone" : "Sur Mac"}</span>
-                <div class="frame-body">
-                  <h3>{finale.lead}<br />{finale.accent}</h3>
-                  <div class="big-pair">
-                    <a class="btn-primary big" href="#">
-                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d={PHONE_PATH}></path></svg>
-                      iPhone
-                    </a>
-                    <a class="btn-ghost big" href="#">
-                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d={LAPTOP_PATH}></path></svg>
-                      Mac
-                    </a>
-                  </div>
-                  <p class="fcap">iPhone sur l'App Store · Mac en téléchargement direct</p>
-                  <p class="fnote">{NOTE}</p>
-                </div>
-              </div>
-            ))
-          }
-        </div>
-      </Choice>
+              ))}
+            </div>
+          </Choice>
+        ))
+      }
     </div>
   </main>
 
