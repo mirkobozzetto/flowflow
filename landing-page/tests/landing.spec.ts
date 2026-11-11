@@ -16,6 +16,8 @@ const PAGES = [
     agenticSub:
       "Dictate a request and your Hermes agent handles it: emails, quotes, research. Nothing goes out without your OK on the iPhone.",
     teams: "You, your team, your agent",
+    teamsSub:
+      "Invite your team and your Hermes agent into a space: they see its notes, nothing else. You remove access whenever you like.",
     trust: "You always know",
     free: "Free to start",
     firstPrice: "€0",
@@ -65,6 +67,8 @@ const PAGES = [
     agenticSub:
       "Tu dictes une demande, ton agent Hermes s'en occupe : mails, devis, veille. Rien ne part sans ton accord sur l'iPhone.",
     teams: "Toi, ton équipe, ton agent",
+    teamsSub:
+      "Invite ton équipe et ton agent Hermes dans un espace : ils voient ses notes, rien d'autre. Tu retires l'accès quand tu veux.",
     trust: "Tu sais toujours",
     free: "Gratuit pour commencer",
     firstPrice: "0\u00a0€",
@@ -195,6 +199,7 @@ for (const copy of PAGES) {
       await expect(page.locator("#agentic h2")).toContainText(copy.agentic);
       await expect(page.locator("#agentic .sub")).toHaveText(copy.agenticSub);
       await expect(page.locator("#teams h2")).toContainText(copy.teams);
+      await expect(page.locator("#teams h2 + p")).toHaveText(copy.teamsSub);
       await expect(page.locator("#trust h2")).toContainText(copy.trust);
       await expect(page.locator("#trust .cost h3")).toHaveText(copy.free);
     });
