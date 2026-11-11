@@ -27,6 +27,16 @@ const PAGES = [
     trustProofs: ["only when you use it", "with no markup"],
     ai: "Codex/ChatGPT and Claude",
     aiUse: "your subscription",
+    keys: [
+      "New note",
+      "New chat",
+      "Search notes",
+      "Theme picker",
+      "Previous view",
+      "Next view",
+    ],
+    airplane: "Airplane mode",
+    packet: "Note",
   },
   {
     path: "/fr/",
@@ -54,6 +64,16 @@ const PAGES = [
     trustProofs: ["seulement quand tu t'en sers", "sans marge"],
     ai: "Codex/ChatGPT et Claude",
     aiUse: "ton abonnement",
+    keys: [
+      "Nouvelle note",
+      "Nouveau chat",
+      "Rechercher dans les notes",
+      "Sélecteur de thèmes",
+      "Vue précédente",
+      "Vue suivante",
+    ],
+    airplane: "Mode avion",
+    packet: "Note",
   },
 ];
 
@@ -94,6 +114,11 @@ const EMAIL_FREE_PAGES = [
   "/beta",
   "/fr/beta",
 ];
+const CLIP_RATIO = 720 / 1564;
+const MAX_CLIP_CROP = 0.01;
+const HERMES_WAVE_GAP = 56;
+const EDGE_TOLERANCE_PX = 2;
+const TAILSCALE_WHITE = "/logos/tailscale-white.svg";
 const RUST_URL = "https://www.rust-lang.org";
 const DIOXUS_URL = "https://dioxuslabs.com";
 
@@ -595,6 +620,135 @@ for (const copy of PAGES) {
       await expect(page.locator("#product .hl")).toHaveText(copy.stepProofs);
       await expect(page.locator("#trust .hl")).toHaveText(copy.trustProofs);
       await expect(page.locator("#product .num").first()).toHaveText("01");
+    });
+
+    test("keeps every phone screen in its clip's shape", async ({ page }) => {
+      const ratios = await page
+        .locator("#product .phone-screen, #agentic .phone-screen")
+        .evaluateAll((screens) =>
+          screens.map((s) => s.clientWidth / s.clientHeight),
+        );
+      expect(ratios.length).toBeGreaterThan(0);
+      for (const ratio of ratios) {
+        expect(Math.abs(ratio / CLIP_RATIO - 1)).toBeLessThan(MAX_CLIP_CROP);
+      }
+    });
+
+    test("hides the page behind a solid menu on a phone", async ({
+      page,
+      isMobile,
+    }) => {
+      test.skip(!isMobile, "the band only covers the phone menu");
+      const fill = await page
+        .locator("nav .nav-inner")
+        .evaluate((e) => getComputedStyle(e).backgroundColor);
+      expect(fill.startsWith("rgba")).toBe(false);
+      const band = await page.locator("nav").evaluate((nav) => {
+        const inner = nav.querySelector(".nav-inner") as HTMLElement;
+        const before = getComputedStyle(nav, "::before");
+        return {
+          content: before.content,
+          height: Number.parseFloat(before.height),
+          cover: inner.offsetTop + inner.offsetHeight,
+        };
+      });
+      expect(band.content).not.toBe("none");
+      expect(band.height).toBeGreaterThanOrEqual(band.cover);
+    });
+
+    test("sets Tailscale white on a black tile", async ({ page }) => {
+      const mark = page.locator("#agentic .hermes img.tailscale");
+      await expect(mark).toHaveAttribute("src", TAILSCALE_WHITE);
+      expect(
+        await mark.evaluate((e) => getComputedStyle(e).backgroundColor),
+      ).toBe(BLACK);
+    });
+
+    test("leaves air between the Hermes card and the wave", async ({
+      page,
+    }) => {
+      const gap = await page.locator("#agentic").evaluate((section) => {
+        const card = section.querySelector(".hermes") as HTMLElement;
+        const wave = section.querySelector(".bars") as HTMLElement;
+        return (
+          wave.getBoundingClientRect().top - card.getBoundingClientRect().bottom
+        );
+      });
+      expect(gap).toBeGreaterThanOrEqual(HERMES_WAVE_GAP);
+    });
+
+    test("passes a note between an iPhone and a MacBook", async ({ page }) => {
+      const sync = page.locator(".sync-visual");
+      await expect(sync.locator(".dev-phone")).toHaveCount(1);
+      await expect(sync.locator(".dev-mac")).toHaveCount(1);
+      await expect(sync.locator(".packet")).toHaveText([
+        copy.packet,
+        copy.packet,
+      ]);
+    });
+
+    test("plays each shortcut in a small Mac window", async ({ page }) => {
+      const card = page.locator("[data-shortcuts]");
+      await card.scrollIntoViewIfNeeded();
+      await expect(card.locator("kbd")).toHaveCount(copy.keys.length);
+      const label = card.locator("[data-shortcut-label]");
+      await expect(label).toHaveText(copy.keys[0] ?? "");
+      await expect(card.locator("kbd.on")).toHaveCount(1);
+      await expect(label).toHaveText(copy.keys[1] ?? "");
+    });
+
+    test("types the dictated sentence in airplane mode", async ({ page }) => {
+      const card = page.locator("[data-offline]");
+      await card.scrollIntoViewIfNeeded();
+      await expect(card.locator(".air-row")).toContainText(copy.airplane);
+      await expect
+        .poll(() => card.locator("[data-typed] span.on").count())
+        .toBeGreaterThan(1);
+    });
+
+    test("ends the day's cards with the same margin on both sides", async ({
+      page,
+      isMobile,
+    }) => {
+      test.skip(isMobile, "the cards stack on a phone");
+      const end = await page.evaluate(() => {
+        const s = document.getElementById("hscroll") as HTMLElement;
+        return s.offsetTop + s.offsetHeight - innerHeight;
+      });
+      await page.evaluate((y) => scrollTo(0, y), end);
+      await page.waitForTimeout(400);
+      const margins = await page.evaluate(() => {
+        const track = document.getElementById("htrack") as HTMLElement;
+        const last = track.lastElementChild as HTMLElement;
+        return {
+          left: Number.parseFloat(getComputedStyle(track).paddingLeft),
+          right:
+            document.documentElement.clientWidth -
+            last.getBoundingClientRect().right,
+        };
+      });
+      expect(Math.abs(margins.right - margins.left)).toBeLessThanOrEqual(
+        EDGE_TOLERANCE_PX,
+      );
+    });
+
+    test("peeks the mascot from the screen edge on a wide screen", async ({
+      page,
+      isMobile,
+    }) => {
+      const mascot = page.locator(".edge-mascot");
+      if (isMobile) {
+        await expect(mascot).toBeHidden();
+        return;
+      }
+      await mascot.scrollIntoViewIfNeeded();
+      await expect(mascot).toBeVisible();
+      const box = await mascot.boundingBox();
+      const width = await page.evaluate(
+        () => document.documentElement.clientWidth,
+      );
+      expect((box?.x ?? 0) + (box?.width ?? 0)).toBeGreaterThan(width);
+      expect(box?.x ?? width).toBeLessThan(width);
     });
 
     test("does not scroll sideways", async ({ page }) => {
