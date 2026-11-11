@@ -1,5 +1,6 @@
 ---
 import CtaButtons from "./CtaButtons.astro";
+import HeroSteps from "./HeroSteps.astro";
 import ParallaxScene from "./ParallaxScene.astro";
 import { useTranslations } from "../lib/i18n";
 
@@ -35,6 +36,7 @@ const t = useTranslations(lang, "hero");
       {t("hero.subLead")} <b class="font-semibold">{t("hero.subStrong")}</b>
       {t("hero.subTail")}
     </p>
+    <HeroSteps steps={t<string[]>("hero.steps")} />
     <CtaButtons lang={lang} />
   </div>
 

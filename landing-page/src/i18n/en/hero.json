@@ -11,9 +11,10 @@
     "logoAlt": "FlowFlow",
     "h1Lead": "A word",
     "h1Accent": "away",
-    "subLead": "You dictate,",
-    "subStrong": "FlowFlow",
-    "subTail": "transcribes, files and takes action."
+    "subLead": "One voice to run",
+    "subStrong": "all your agents,",
+    "subTail": "and a memory that keeps everything",
+    "steps": ["You dictate", "FlowFlow understands", "your agents act"]
   },
   "stage": {
     "question": "How do you work?",

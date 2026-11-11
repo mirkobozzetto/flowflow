@@ -1,0 +1,82 @@
+---
+interface Props {
+  steps: string[];
+}
+
+const { steps } = Astro.props;
+---
+
+<ol class="hero-steps" data-steps>
+  {steps.map((step, i) => <li class:list={{ on: i === 0 }}>{step}</li>)}
+</ol>
+
+<script>
+  // One step lights at a time, in order, then it starts again.
+  const STEP_MS = 1300;
+  const reduced = matchMedia("(prefers-reduced-motion: reduce)").matches;
+
+  for (const list of document.querySelectorAll<HTMLElement>("[data-steps]")) {
+    const steps = [...list.querySelectorAll<HTMLElement>("li")];
+    if (reduced || steps.length < 2) continue;
+    let at = 0;
+    setInterval(() => {
+      at = (at + 1) % steps.length;
+      for (const [i, step] of steps.entries()) {
+        step.classList.toggle("on", i === at);
+      }
+    }, STEP_MS);
+  }
+</script>
+
+<style>
+  .hero-steps {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px 30px;
+    align-items: center;
+    justify-content: center;
+    margin: 18px 0 0;
+    padding: 0;
+    list-style: none;
+  }
+
+  li {
+    position: relative;
+    padding: 6px 12px;
+    border-radius: 99px;
+    background: var(--paper-button);
+    box-shadow: var(--paper-edge);
+    color: var(--stone-600);
+    font-size: 14px;
+    font-weight: 600;
+    transition:
+      background 0.3s ease,
+      color 0.3s ease,
+      box-shadow 0.3s ease;
+  }
+
+  li + li::before {
+    content: "";
+    position: absolute;
+    top: 50%;
+    left: -23px;
+    width: 16px;
+    height: 16px;
+    background: var(--stone-400);
+    mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2.2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M5 12h13m-5-5 5 5-5 5'/%3E%3C/svg%3E")
+      center / contain no-repeat;
+    translate: 0 -50%;
+  }
+
+  li.on {
+    background: var(--orange-50);
+    box-shadow: 0 0 0 1px var(--orange-100);
+    color: var(--orange-dark);
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    li {
+      transition: none;
+    }
+  }
+</style>
