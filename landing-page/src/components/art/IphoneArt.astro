@@ -18,7 +18,7 @@ const { width } = Astro.props;
 
 <style>
   .iphone-art {
-    --bump: calc(var(--w) * 0.011);
+    --bump: max(0.6px, calc(var(--w) * 0.011));
     position: relative;
     flex-shrink: 0;
     width: var(--w);

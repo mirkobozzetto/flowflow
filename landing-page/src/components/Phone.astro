@@ -39,7 +39,7 @@ const { class: className } = Astro.props;
   /* Side buttons placed from a current iPhone photo, seen from the front:
      three on the left, one on the right, barely out of the frame. */
   .key {
-    --bump: calc(var(--unit) * 0.011);
+    --bump: max(0.6px, calc(var(--unit) * 0.011));
     position: absolute;
     left: calc(var(--bump) * -1);
     width: var(--bump);

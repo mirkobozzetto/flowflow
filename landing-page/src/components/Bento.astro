@@ -24,7 +24,7 @@ const t = section(lang, "bento");
     {t.h2Lead}<br />{t.h2Accent}
   </h2>
   <div
-    class="mt-11 grid grid-cols-6 gap-3.5 auto-rows-[96px] max-md:*:col-span-6 max-md:*:row-span-3 max-md:first:*:row-span-5"
+    class="mt-11 grid grid-cols-6 gap-3.5 auto-rows-[96px] max-md:auto-rows-auto max-md:*:col-span-6 max-md:*:row-span-1"
   >
     <div
       class="fine relative overflow-hidden rounded-[20px] p-6 col-span-4 row-span-3"
@@ -109,11 +109,14 @@ const t = section(lang, "bento");
     rotate: 2deg;
   }
 
+  /* On a phone the card grows to show the whole iPhone. */
   @media (max-width: 768px) {
     .shots {
-      top: 158px;
-      right: 50%;
-      transform: translateX(50%);
+      position: relative;
+      top: auto;
+      right: auto;
+      justify-content: center;
+      margin-top: 24px;
     }
 
     .shots :global(.back) {
