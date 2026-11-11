@@ -1,0 +1,177 @@
+.screens {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 18px;
+  align-items: stretch;
+  justify-content: center;
+}
+
+.frame {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  background: var(--warm-white);
+}
+
+.frame.iphone {
+  width: min(100%, 390px);
+  min-height: 520px;
+  border: 10px solid #1c1c1e;
+  border-radius: 46px;
+}
+
+.frame.mac {
+  flex: 1;
+  min-width: min(100%, 520px);
+  max-width: 760px;
+  border-radius: 12px;
+  box-shadow:
+    0 0 0 1px var(--rule),
+    0 20px 40px -30px rgba(0, 0, 0, 0.4);
+}
+
+.frame.mac::before {
+  content: "";
+  display: block;
+  height: 30px;
+  border-bottom: 1px solid var(--hairline);
+  background:
+    radial-gradient(circle at 16px 15px, #ff5f57 5px, transparent 5.5px),
+    radial-gradient(circle at 34px 15px, #febc2e 5px, transparent 5.5px),
+    radial-gradient(circle at 52px 15px, #28c840 5px, transparent 5.5px),
+    #f6f6f7;
+}
+
+.frame-label {
+  position: absolute;
+  top: 10px;
+  right: 14px;
+  color: var(--stone-500);
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.frame.iphone .frame-label {
+  top: 14px;
+  right: 50%;
+  translate: 50% 0;
+}
+
+.frame-body {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 14px;
+  padding: 56px 20px 40px;
+  text-align: center;
+}
+
+.frame-body h3 {
+  margin-bottom: 8px;
+  color: var(--ink);
+  font-size: 38px;
+  font-weight: 600;
+  line-height: 0.98;
+  letter-spacing: -0.037em;
+}
+
+.frame.mac .frame-body h3 {
+  font-size: 52px;
+}
+
+.frame-body .hero-ctas {
+  margin-top: 0;
+}
+
+.fnote {
+  font-size: 13px;
+}
+
+.fcap {
+  font-size: 15px;
+  font-weight: 600;
+}
+
+.btn-primary.solo {
+  justify-content: center;
+  min-height: 58px;
+  padding: 0 26px;
+  font-size: 17px;
+}
+
+.frame.iphone .solo {
+  width: 100%;
+  max-width: 320px;
+}
+
+.alt {
+  color: var(--orange-dark);
+  font-size: 15px;
+  font-weight: 600;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+.badges {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  justify-content: center;
+}
+
+.badges a {
+  display: block;
+}
+
+.badge {
+  display: block;
+  width: 177px;
+  height: 56px;
+}
+
+.mac-badge {
+  display: flex !important;
+  align-items: center;
+  justify-content: center;
+  gap: 9px;
+  width: 177px;
+  height: 56px;
+  border-radius: 9px;
+  background: black;
+  color: white;
+  font-size: 15px;
+  font-weight: 600;
+  line-height: 1.1;
+  text-align: left;
+  text-decoration: none;
+  box-shadow: 0 0 0 1px #a6a6a6;
+}
+
+.mac-badge svg {
+  width: 22px;
+  height: 22px;
+  flex-shrink: 0;
+}
+
+.big-pair {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 170px));
+  gap: 11px;
+  justify-content: center;
+  width: 100%;
+}
+
+.big-pair .big {
+  justify-content: center;
+  min-height: 64px;
+  padding: 0 14px;
+  font-size: 20px;
+}
+
+.big-pair .big svg {
+  width: 24px;
+  height: 24px;
+}
