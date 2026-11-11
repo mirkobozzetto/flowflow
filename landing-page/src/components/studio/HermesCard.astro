@@ -1,0 +1,101 @@
+---
+import { section } from "../../lib/i18n";
+
+interface Props {
+  tile?: "white" | "black" | "orange";
+}
+
+const { tile = "white" } = Astro.props;
+const t = section("fr", "agentic");
+---
+
+<div class="hcard">
+  <div class="marks" aria-hidden="true">
+    <img src="/images/hermes-agent.png" alt="" width="56" height="56" />
+    <span class="plus">+</span>
+    <span class:list={["ts", `ts-${tile}`]}><i></i></span>
+  </div>
+  <p class="note">{t.note}</p>
+  <a class="btn-primary" href="#">{t.cta}</a>
+</div>
+
+<style>
+  .hcard {
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr) auto;
+    gap: 18px;
+    align-items: center;
+    padding: 16px;
+    border-radius: 22px;
+    background: var(--paper);
+    box-shadow: var(--paper-lift);
+    color: black;
+  }
+
+  .marks {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .marks img,
+  .ts {
+    width: 52px;
+    height: 52px;
+    border-radius: 15px;
+    box-shadow: var(--paper-edge);
+  }
+
+  .ts {
+    display: grid;
+    place-items: center;
+  }
+
+  .ts i {
+    width: 26px;
+    height: 26px;
+    background: currentColor;
+    mask: url("/logos/tailscale.svg") center / contain no-repeat;
+  }
+
+  .ts-white {
+    background: var(--paper-button);
+    color: black;
+  }
+
+  .ts-black {
+    background: #111;
+    color: white;
+    box-shadow: 0 0 0 1px #000;
+  }
+
+  .ts-orange {
+    background: var(--gradient);
+    color: white;
+    box-shadow: 0 0 0 1px color-mix(in srgb, var(--orange) 82%, black);
+  }
+
+  .plus {
+    font-size: 18px;
+    font-weight: 700;
+    color: var(--stone-400);
+  }
+
+  .note {
+    font-size: 16px;
+    font-weight: 600;
+    line-height: 1.3;
+    text-wrap: balance;
+  }
+
+  .btn-primary {
+    justify-content: center;
+    white-space: nowrap;
+  }
+
+  @container (max-width: 560px) {
+    .hcard {
+      grid-template-columns: 1fr;
+    }
+  }
+</style>
