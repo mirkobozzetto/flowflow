@@ -1,0 +1,60 @@
+---
+interface Props {
+  text: string;
+  arrow: "up-left" | "up-right" | "down";
+  class?: string;
+}
+
+const { text, arrow, class: className } = Astro.props;
+const ARROWS = {
+  "up-left": { path: "M44 34C30 34 16 26 10 8", head: "M4 16l6-9 9 5" },
+  "up-right": { path: "M4 34C18 34 32 26 38 8", head: "M29 12l9-5 6 9" },
+  down: { path: "M8 4C26 6 38 16 40 34", head: "M32 28l8 8 7-9" },
+};
+const { path, head } = ARROWS[arrow];
+---
+
+<p class:list={["hand-note", `to-${arrow}`, className]}>
+  <svg viewBox="0 0 48 40" aria-hidden="true">
+    <path d={path}></path>
+    <path d={head}></path>
+  </svg>
+  <span>{text}</span>
+</p>
+
+<style>
+  .hand-note {
+    position: absolute;
+    z-index: 2;
+    display: none;
+    align-items: center;
+    gap: 2px;
+    margin: 0;
+    color: var(--orange-dark);
+    font-size: 14px;
+    font-weight: 600;
+    white-space: nowrap;
+    rotate: -3deg;
+    pointer-events: none;
+  }
+
+  .to-down {
+    flex-direction: row-reverse;
+  }
+
+  svg {
+    width: 44px;
+    height: 36px;
+    fill: none;
+    stroke: var(--orange);
+    stroke-width: 2;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+  }
+
+  @media (min-width: 900px) {
+    .hand-note {
+      display: flex;
+    }
+  }
+</style>
