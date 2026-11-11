@@ -25,4 +25,45 @@ const t = section(lang, "footer");
   <p class="mt-4 text-[13px]">
     {t.finale.note}
   </p>
+  <img
+    class="edge-mascot-left"
+    src="/brand/mascot-sticker.webp"
+    alt=""
+    width="150"
+    height="150"
+    loading="lazy"
+    decoding="async"
+  />
 </section>
+
+<style>
+  .edge-mascot-left {
+    display: none;
+  }
+
+  @media (min-width: 1280px) {
+    .edge-mascot-left {
+      position: absolute;
+      top: 46%;
+      left: calc((100% - 100vw) / 2 - 40px);
+      display: block;
+      width: 150px;
+      height: 150px;
+      rotate: 14deg;
+      animation: peek-left 5s ease-in-out infinite;
+      pointer-events: none;
+    }
+  }
+
+  @keyframes peek-left {
+    50% {
+      transform: translateX(12px) rotate(-4deg);
+    }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .edge-mascot-left {
+      animation: none;
+    }
+  }
+</style>
