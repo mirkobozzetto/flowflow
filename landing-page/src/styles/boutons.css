@@ -69,6 +69,10 @@
   text-align: center;
 }
 
+.frame-body {
+  container-type: inline-size;
+}
+
 .frame-body h3 {
   margin-bottom: 8px;
   color: var(--ink);
@@ -174,4 +178,58 @@
 .big-pair .big svg {
   width: 24px;
   height: 24px;
+}
+
+.obadges {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 200px));
+  gap: 12px;
+  justify-content: center;
+  width: 100%;
+}
+
+.obadge {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 11px;
+  min-height: 60px;
+  padding: 0 14px;
+  border-radius: 13px;
+  background: var(--gradient);
+  color: white;
+  text-align: left;
+  text-decoration: none;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.34),
+    inset 0 -1px 0 rgba(0, 0, 0, 0.1),
+    0 0 0 1px color-mix(in srgb, var(--orange) 82%, black);
+}
+
+.obadge svg {
+  width: 26px;
+  height: 26px;
+  flex-shrink: 0;
+}
+
+.obadge span {
+  display: flex;
+  flex-direction: column;
+  font-size: 21px;
+  font-weight: 600;
+  line-height: 1.05;
+  letter-spacing: -0.015em;
+}
+
+.obadge small {
+  font-size: 13px;
+  font-weight: 500;
+  letter-spacing: 0;
+  opacity: 0.92;
+}
+
+@container (max-width: 420px) {
+  .obadges {
+    grid-template-columns: minmax(0, 240px);
+  }
 }
