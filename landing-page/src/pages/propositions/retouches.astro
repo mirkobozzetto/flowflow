@@ -13,6 +13,10 @@ import "../../styles/retouches.css";
 const bento = section("fr", "bento");
 const finale = section("fr", "footer").finale;
 const SHOTS = "/propositions/retouches";
+const CLIP_POSTER = "/videos/fr/dictate.webp";
+const DOWNLOAD_PATH = "M12 4v11m0 0 4.5-4.5M12 15l-4.5-4.5M5 20h14";
+const PLANE_PATH =
+  "M21 15.5v-2l-8-5V3.6a1.6 1.6 0 0 0-3.2 0v4.9l-8 5v2l8-2.5v5.4l-2 1.5v1.6l3.6-1 3.6 1v-1.6l-2-1.5V13z";
 
 const keys = [
   { key: "⌘N", label: "Nouvelle note" },
@@ -23,36 +27,21 @@ const keys = [
   { key: "⌘→", label: "Vue suivante" },
 ];
 
-const models = [
-  { id: "tiny", size: "78 Mo", label: "le plus rapide" },
-  { id: "base", size: "148 Mo", label: "rapide" },
-  { id: "small", size: "190 Mo", label: "équilibré" },
-  { id: "medium", size: "539 Mo", label: "précis" },
-  { id: "large-v3-turbo", size: "574 Mo", label: "meilleure qualité", on: true },
-];
-
 const spoken = "Rappelle-moi d'envoyer la proposition jeudi à 9 h.".split(" ");
-const noteLead = "Gratuit pour l'instant · tes clés, tes données";
-const noteTail = "iPhone et Mac Apple Silicon";
-const DOWNLOAD_PATH = "M12 4v11m0 0 4.5-4.5M12 15l-4.5-4.5M5 20h14";
-const PHONE_PATH = "M8 2.5h8a2 2 0 0 1 2 2v15a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2v-15a2 2 0 0 1 2-2zM10.5 5h3";
-const LAPTOP_PATH = "M5 5.5h14a1 1 0 0 1 1 1V16H4V6.5a1 1 0 0 1 1-1zM2 18.5h20";
+const decoLead = "Sérieux dedans,";
+const decoAccent = "simple devant";
 ---
 
 <Layout lang="fr">
   <main class="opts">
-    <h1>Retouches à choisir</h1>
+    <h1>Tes choix, à côté de l'actuel</h1>
     <p class="opts-intro">
-      La page en ligne ne bouge pas. Coche ce que tu gardes, puis copie tes
+      Le site en ligne ne bouge pas. Coche ce que tu valides, puis copie tes
       choix en bas.
     </p>
 
     <section>
-      <h2>1. Menu en haut, sur iPhone</h2>
-      <p class="opts-note">
-        Mesuré sur iPhone : le menu est à 12 px de chaque bord. Le défaut
-        visible : le texte et le bouton orange passent à travers le menu.
-      </p>
+      <h2>1. Menu sur iPhone</h2>
       <div class="opts-grid">
         <Choice group="Menu" name="Aujourd'hui" current>
           <img class="shot" src={`${SHOTS}/nav-today.jpg`} alt="" />
@@ -60,38 +49,27 @@ const LAPTOP_PATH = "M5 5.5h14a1 1 0 0 1 1 1V16H4V6.5a1 1 0 0 1 1-1zM2 18.5h20";
         <Choice group="Menu" name="Menu plein, bande blanche au-dessus">
           <img class="shot" src={`${SHOTS}/nav-a.jpg`} alt="" />
         </Choice>
-        <Choice group="Menu" name="Barre pleine largeur">
-          <img class="shot" src={`${SHOTS}/nav-b.jpg`} alt="" />
-        </Choice>
       </div>
     </section>
 
     <section>
-      <h2>2. Écran du téléphone rogné</h2>
-      <p class="opts-note">
-        La vidéo est un peu plus large que l'écran du cadre : ses bords sont
-        coupés, sur iPhone comme sur Mac.
-      </p>
+      <h2>2. Écran du téléphone</h2>
       <div class="opts-grid">
         <Choice group="Écran" name="Aujourd'hui" current>
           <div class="ph">
-            <Phone>
-              <img src="/videos/fr/dictate.webp" alt="" width="720" height="1564" />
-            </Phone>
+            <Phone><img src={CLIP_POSTER} alt="" width="720" height="1564" /></Phone>
           </div>
         </Choice>
-        <Choice group="Écran" name="Écran à la forme exacte de la vidéo">
+        <Choice group="Écran" name="Écran à la forme de la vidéo">
           <div class="ph ratio-fix">
-            <Phone>
-              <img src="/videos/fr/dictate.webp" alt="" width="720" height="1564" />
-            </Phone>
+            <Phone><img src={CLIP_POSTER} alt="" width="720" height="1564" /></Phone>
           </div>
         </Choice>
       </div>
     </section>
 
     <section>
-      <h2>3. Logo Tailscale, plus de contraste</h2>
+      <h2>3. Logo Tailscale</h2>
       <div class="opts-grid wide">
         <Choice group="Tailscale" name="Aujourd'hui" current>
           <div class="on-orange pad"><HermesCard tile="white" /></div>
@@ -99,14 +77,11 @@ const LAPTOP_PATH = "M5 5.5h14a1 1 0 0 1 1 1V16H4V6.5a1 1 0 0 1 1-1zM2 18.5h20";
         <Choice group="Tailscale" name="Tuile noire, points blancs">
           <div class="on-orange pad"><HermesCard tile="black" /></div>
         </Choice>
-        <Choice group="Tailscale" name="Tuile orange, points blancs">
-          <div class="on-orange pad"><HermesCard tile="orange" /></div>
-        </Choice>
       </div>
     </section>
 
     <section>
-      <h2>4. iPhone ↔ Mac : montrer les deux appareils</h2>
+      <h2>4. Carte iPhone ↔ Mac</h2>
       <div class="opts-grid">
         <Choice group="Sync" name="Aujourd'hui" current>
           <div class="tile fine">
@@ -119,27 +94,16 @@ const LAPTOP_PATH = "M5 5.5h14a1 1 0 0 1 1 1V16H4V6.5a1 1 0 0 1 1-1zM2 18.5h20";
             </div>
           </div>
         </Choice>
-        <Choice group="Sync" name="Téléphone et ordinateur dessinés">
+        <Choice group="Sync" name="iPhone et MacBook, une note qui passe">
           <div class="tile fine">
             <h3>{bento.sync.title}</h3>
             <p>{bento.sync.body}</p>
             <div class="sync">
-              <div class="dev-phone"><span class="island"></span><Image src={logo} alt="" width={22} height={22} /></div>
-              <div class="sync-line"><span class="lock">{bento.sync.lock}</span></div>
-              <div class="dev-mac">
-                <div class="mac-scr"><Image src={logo} alt="" width={26} height={26} /></div>
-                <div class="mac-base"></div>
+              <div class="dev-phone">
+                <span class="island"></span>
+                <Image src={logo} alt="" width={22} height={22} />
               </div>
-            </div>
-          </div>
-        </Choice>
-        <Choice group="Sync" name="Avec une note qui passe de l'un à l'autre">
-          <div class="tile fine">
-            <h3>{bento.sync.title}</h3>
-            <p>{bento.sync.body}</p>
-            <div class="sync">
-              <div class="dev-phone"><span class="island"></span><Image src={logo} alt="" width={22} height={22} /></div>
-              <div class="sync-line moving">
+              <div class="sync-line">
                 <span class="packet go">Note</span>
                 <span class="packet back">Note</span>
               </div>
@@ -154,8 +118,7 @@ const LAPTOP_PATH = "M5 5.5h14a1 1 0 0 1 1 1V16H4V6.5a1 1 0 0 1 1-1zM2 18.5h20";
     </section>
 
     <section>
-      <h2>5. Carte « Clavier sur Mac »</h2>
-      <p class="opts-note">Les six raccourcis et leur action viennent de l'app.</p>
+      <h2>5. Carte Clavier sur Mac</h2>
       <div class="opts-grid">
         <Choice group="Clavier" name="Aujourd'hui" current>
           <div class="tile fine">
@@ -167,8 +130,9 @@ const LAPTOP_PATH = "M5 5.5h14a1 1 0 0 1 1 1V16H4V6.5a1 1 0 0 1 1-1zM2 18.5h20";
         <Choice group="Clavier" name="Mini fenêtre Mac qui réagit aux touches">
           <div class="tile fine" data-cycle>
             <h3>{bento.keyboard.title}</h3>
+            <p>{bento.keyboard.body}</p>
             <div class="kwin">
-              <div class="kbar"><i></i><i></i><i></i></div>
+              <div class="kbar"><i></i><i></i><i></i><span>FlowFlow</span></div>
               <div class="kscreen">
                 <div class="kcard" data-act-box>
                   <b data-act>{keys[0]?.label}</b>
@@ -176,23 +140,9 @@ const LAPTOP_PATH = "M5 5.5h14a1 1 0 0 1 1 1V16H4V6.5a1 1 0 0 1 1-1zM2 18.5h20";
                 </div>
               </div>
             </div>
-            <div class="kbds">{keys.map((k) => <kbd data-k data-label={k.label}>{k.key}</kbd>)}</div>
-          </div>
-        </Choice>
-        <Choice group="Clavier" name="Touches qui s'enfoncent, avec leur action">
-          <div class="tile fine" data-cycle>
-            <h3>{bento.keyboard.title}</h3>
-            <p>{bento.keyboard.body}</p>
-            <div class="kbds big">{keys.map((k) => <kbd data-k data-label={k.label}>{k.key}</kbd>)}</div>
-            <p class="kcap"><span data-act-key>{keys[0]?.key}</span> <b data-act>{keys[0]?.label}</b></p>
-          </div>
-        </Choice>
-        <Choice group="Clavier" name="Liste claire : touche et action">
-          <div class="tile fine">
-            <h3>{bento.keyboard.title}</h3>
-            <ul class="klist">
-              {keys.map((k) => <li><kbd>{k.key}</kbd>{k.label}</li>)}
-            </ul>
+            <div class="kbds">
+              {keys.map((k) => <kbd data-k data-label={k.label}>{k.key}</kbd>)}
+            </div>
           </div>
         </Choice>
       </div>
@@ -200,10 +150,6 @@ const LAPTOP_PATH = "M5 5.5h14a1 1 0 0 1 1 1V16H4V6.5a1 1 0 0 1 1-1zM2 18.5h20";
 
     <section>
       <h2>6. Boutons iPhone et Mac</h2>
-      <p class="opts-note">
-        Aujourd'hui les deux boutons n'ont pas la même taille, et « App Store »
-        ne dit pas que c'est l'app iPhone.
-      </p>
       <div class="opts-grid">
         <Choice group="Boutons" name="Aujourd'hui" current>
           <div class="ctas-demo">
@@ -211,7 +157,7 @@ const LAPTOP_PATH = "M5 5.5h14a1 1 0 0 1 1 1V16H4V6.5a1 1 0 0 1 1-1zM2 18.5h20";
             <p class="cnote">{finale.note}</p>
           </div>
         </Choice>
-        <Choice group="Boutons" name="Deux lignes, même taille">
+        <Choice group="Boutons" name="Sur iPhone / Sur Mac, même taille">
           <div class="ctas-demo">
             <div class="pair">
               <a class="btn-primary two" href="#">
@@ -223,37 +169,10 @@ const LAPTOP_PATH = "M5 5.5h14a1 1 0 0 1 1 1V16H4V6.5a1 1 0 0 1 1-1zM2 18.5h20";
                 <span><small>Sur Mac</small>Télécharger</span>
               </a>
             </div>
-            <p class="cnote">{noteLead}<br />{noteTail}</p>
-          </div>
-        </Choice>
-        <Choice group="Boutons" name="Pour iPhone / Pour Mac, avec l'appareil">
-          <div class="ctas-demo">
-            <div class="pair">
-              <a class="btn-primary one" href="#">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d={PHONE_PATH}></path></svg>
-                Pour iPhone
-              </a>
-              <a class="btn-ghost one" href="#">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d={LAPTOP_PATH}></path></svg>
-                Pour Mac
-              </a>
-            </div>
-            <p class="cnote">{noteLead}<br />{noteTail}</p>
-          </div>
-        </Choice>
-        <Choice group="Boutons" name="App Store pour iPhone / Télécharger pour Mac">
-          <div class="ctas-demo">
-            <div class="pair stack">
-              <a class="btn-primary one" href="#">
-                <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d={APPLE_PATH}></path></svg>
-                App Store pour iPhone
-              </a>
-              <a class="btn-ghost one" href="#">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d={DOWNLOAD_PATH}></path></svg>
-                Télécharger pour Mac
-              </a>
-            </div>
-            <p class="cnote">{noteLead}<br />{noteTail}</p>
+            <p class="cnote">
+              Gratuit pour l'instant · tes clés, tes données<br />iPhone et Mac
+              Apple Silicon
+            </p>
           </div>
         </Choice>
       </div>
@@ -261,7 +180,6 @@ const LAPTOP_PATH = "M5 5.5h14a1 1 0 0 1 1 1V16H4V6.5a1 1 0 0 1 1-1zM2 18.5h20";
 
     <section>
       <h2>7. Fin du défilement horizontal</h2>
-      <p class="opts-note">Capture sur Mac, à la dernière carte.</p>
       <div class="opts-grid">
         <Choice group="Défilement" name="Aujourd'hui" current>
           <img class="shot" src={`${SHOTS}/end-today.jpg`} alt="" />
@@ -276,19 +194,22 @@ const LAPTOP_PATH = "M5 5.5h14a1 1 0 0 1 1 1V16H4V6.5a1 1 0 0 1 1-1zM2 18.5h20";
       <h2>8. Onde sous le bloc Hermes</h2>
       <div class="opts-grid wide">
         <Choice group="Onde" name="Aujourd'hui" current>
-          <div class="osec"><HermesCard tile="white" /><canvas class="obars" data-wave="bars" data-color="rgba(255,255,255,0.22)" data-speed="0.5"></canvas></div>
+          <div class="osec">
+            <HermesCard tile="white" />
+            <canvas class="obars" data-wave="bars" data-color="rgba(255,255,255,0.22)" data-speed="0.5"></canvas>
+          </div>
         </Choice>
-        <Choice group="Onde" name="Plus d'air entre le bloc et l'onde">
-          <div class="osec air"><HermesCard tile="white" /><canvas class="obars" data-wave="bars" data-color="rgba(255,255,255,0.22)" data-speed="0.5"></canvas></div>
-        </Choice>
-        <Choice group="Onde" name="Onde plus basse et plus fine">
-          <div class="osec thin"><HermesCard tile="white" /><canvas class="obars" data-wave="bars" data-color="rgba(255,255,255,0.22)" data-speed="0.5"></canvas></div>
+        <Choice group="Onde" name="60 px d'air entre le bloc et l'onde">
+          <div class="osec air">
+            <HermesCard tile="black" />
+            <canvas class="obars" data-wave="bars" data-color="rgba(255,255,255,0.22)" data-speed="0.5"></canvas>
+          </div>
         </Choice>
       </div>
     </section>
 
     <section>
-      <h2>9. Carte « Hors-ligne »</h2>
+      <h2>9. Carte Hors-ligne</h2>
       <div class="opts-grid">
         <Choice group="Hors-ligne" name="Aujourd'hui" current>
           <div class="tile fine">
@@ -296,12 +217,15 @@ const LAPTOP_PATH = "M5 5.5h14a1 1 0 0 1 1 1V16H4V6.5a1 1 0 0 1 1-1zM2 18.5h20";
             <p>{bento.offline.body}</p>
           </div>
         </Choice>
-        <Choice group="Hors-ligne" name="Mode avion : la voix devient texte">
+        <Choice group="Hors-ligne" name="Mode avion, la voix devient texte">
           <div class="tile fine">
             <h3>{bento.offline.title}</h3>
-            <p>Mode avion activé, FlowFlow transcrit quand même. L'audio reste sur ton appareil.</p>
+            <p>
+              Mode avion activé, FlowFlow transcrit quand même. L'audio reste
+              sur ton appareil.
+            </p>
             <div class="air-row">
-              <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M21 15.5v-2l-8-5V3.6a1.6 1.6 0 0 0-3.2 0v4.9l-8 5v2l8-2.5v5.4l-2 1.5v1.6l3.6-1 3.6 1v-1.6l-2-1.5V13z"></path></svg>
+              <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d={PLANE_PATH}></path></svg>
               Mode avion
               <span class="toggle"></span>
             </div>
@@ -311,34 +235,23 @@ const LAPTOP_PATH = "M5 5.5h14a1 1 0 0 1 1 1V16H4V6.5a1 1 0 0 1 1-1zM2 18.5h20";
             </div>
           </div>
         </Choice>
-        <Choice group="Hors-ligne" name="Les modèles, du plus léger au plus précis">
-          <div class="tile fine">
-            <h3>{bento.offline.title}</h3>
-            <p>Transcription sur l'appareil, mode avion compris. L'audio ne sort jamais.</p>
-            <ul class="models">
-              {models.map((m) => (
-                <li class:list={{ on: m.on }}>
-                  <b>{m.id}</b><span>{m.label}</span><em>{m.size}</em>
-                </li>
-              ))}
-            </ul>
-          </div>
-        </Choice>
       </div>
     </section>
 
     <section>
       <h2>10. Petits éléments sur les côtés</h2>
-      <p class="opts-note">Dans les marges, donc visibles sur grand écran seulement.</p>
+      <p class="opts-note">Dans les marges : visibles sur grand écran seulement.</p>
       <div class="opts-grid one-col">
         <Choice group="Décor" name="Aujourd'hui" current>
-          <div class="deco"><div class="deco-mid"><h3>Sérieux dedans,<br />simple devant</h3></div></div>
+          <div class="deco">
+            <div class="deco-mid"><h3>{decoLead}<br />{decoAccent}</h3></div>
+          </div>
         </Choice>
         <Choice group="Décor" name="Fragments d'onde qui flottent">
           <div class="deco">
             <canvas class="dw dw-l" data-wave="bars" data-speed="1.2"></canvas>
             <canvas class="dw dw-r" data-wave="bars" data-speed="0.9"></canvas>
-            <div class="deco-mid"><h3>Sérieux dedans,<br />simple devant</h3></div>
+            <div class="deco-mid"><h3>{decoLead}<br />{decoAccent}</h3></div>
           </div>
         </Choice>
         <Choice group="Décor" name="Étiquettes de notes qui dérivent">
@@ -347,19 +260,23 @@ const LAPTOP_PATH = "M5 5.5h14a1 1 0 0 1 1 1V16H4V6.5a1 1 0 0 1 1-1zM2 18.5h20";
             <span class="chip c2">#lancement</span>
             <span class="chip c3">Rappelle-moi jeudi 9 h</span>
             <span class="chip c4"><i></i>0:42</span>
-            <div class="deco-mid"><h3>Sérieux dedans,<br />simple devant</h3></div>
+            <div class="deco-mid"><h3>{decoLead}<br />{decoAccent}</h3></div>
           </div>
         </Choice>
-        <Choice group="Décor" name="La mascotte qui regarde depuis le bord">
+        <Choice group="Décor" name="La mascotte au bord de l'écran">
           <div class="deco">
             <img class="peek" src="/brand/mascot-sticker.webp" alt="" width="150" height="150" />
-            <div class="deco-mid"><h3>Sérieux dedans,<br />simple devant</h3></div>
+            <div class="deco-mid"><h3>{decoLead}<br />{decoAccent}</h3></div>
           </div>
         </Choice>
         <Choice group="Décor" name="Traits de marqueur à la main">
           <div class="deco">
             <div class="deco-mid">
-              <h3>Sérieux dedans,<br /><span class="circled">simple<svg viewBox="0 0 200 70" preserveAspectRatio="none" aria-hidden="true"><path d="M14 38c6-22 60-30 104-28 44 2 72 12 70 28-2 18-50 26-98 24C42 60 8 52 10 34 12 22 40 12 70 9"></path></svg></span> devant</h3>
+              <h3>
+                {decoLead}<br /><span class="circled"
+                  >simple<svg viewBox="0 0 200 70" preserveAspectRatio="none" aria-hidden="true"><path d="M14 38c6-22 60-30 104-28 44 2 72 12 70 28-2 18-50 26-98 24C42 60 8 52 10 34 12 22 40 12 70 9"></path></svg></span
+                > devant
+              </h3>
               <svg class="arrow" viewBox="0 0 120 80" aria-hidden="true"><path d="M6 10c30 6 62 22 80 50"></path><path d="M70 58l17 4 3-17"></path></svg>
             </div>
           </div>
@@ -395,14 +312,12 @@ const LAPTOP_PATH = "M5 5.5h14a1 1 0 0 1 1 1V16H4V6.5a1 1 0 0 1 1-1zM2 18.5h20";
     for (const card of document.querySelectorAll<HTMLElement>("[data-cycle]")) {
       const caps = [...card.querySelectorAll<HTMLElement>("[data-k]")];
       const label = card.querySelector<HTMLElement>("[data-act]");
-      const key = card.querySelector<HTMLElement>("[data-act-key]");
       const box = card.querySelector<HTMLElement>("[data-act-box]");
       let at = 0;
       const step = (): void => {
         caps.forEach((cap, i) => cap.classList.toggle("on", i === at));
         const cap = caps[at];
         if (label && cap) label.textContent = cap.dataset.label ?? "";
-        if (key && cap) key.textContent = cap.textContent;
         if (box) {
           box.classList.remove("pop");
           void box.offsetWidth;
