@@ -4,7 +4,10 @@ const PAGES = [
   {
     path: "/",
     h1: "A word away",
-    sub: "You dictate, FlowFlow transcribes, files and takes action.",
+    sub: "From idea to action, no keyboard",
+    heroLine:
+      "Email, quote, meeting or anything else: your agent prepares it all, you just say go",
+    heroGo: "you just say go",
     steps: ["Speak", "Transcribe", "Organize", "Recall"],
     stepTitles: [
       "One tap, and you talk",
@@ -12,8 +15,12 @@ const PAGES = [
       "You never file anything again",
       "Ask, and it comes back",
     ],
-    agentic: "From word",
+    agentic: "Your agent",
+    agenticSub:
+      "Dictate a request and your Hermes agent handles it: emails, quotes, research. Nothing goes out without your OK on the iPhone.",
     teams: "You, your team, your agent",
+    teamsSub:
+      "Invite your team and your Hermes agent into a space: they see its notes, nothing else. You remove access whenever you like.",
     trust: "You always know",
     free: "Free to start",
     firstPrice: "€0",
@@ -27,11 +34,34 @@ const PAGES = [
     trustProofs: ["only when you use it", "with no markup"],
     ai: "Codex/ChatGPT and Claude",
     aiUse: "your subscription",
+    keys: [
+      "New note",
+      "New chat",
+      "Search notes",
+      "Theme picker",
+      "Previous view",
+      "Next view",
+    ],
+    airplane: "Airplane mode",
+    packet: "Note",
+    appBadge: "Download on the App Store",
+    macBadge: "Download for macOS",
+    unsureTitle: "Tailored support",
+    unsureText:
+      "30 minutes to scope your needs. We shape the offer together, and I stay on as your support.",
+    notes: [
+      "nobody in between",
+      "even in airplane mode",
+      "the provider's price, nothing on top",
+    ],
   },
   {
     path: "/fr/",
     h1: "À portée de voix",
-    sub: "Tu dictes, FlowFlow transcrit, range et passe à l'action.",
+    sub: "De l'idée à l'action, sans clavier",
+    heroLine:
+      "Mail, devis, rendez-vous ou autre chose : ton agent prépare tout, tu n'as qu'à dire go",
+    heroGo: "tu n'as qu'à dire go",
     steps: ["Parle", "Transcrit", "Range", "Retrouve"],
     stepTitles: [
       "Un tap, et tu parles",
@@ -39,8 +69,12 @@ const PAGES = [
       "Tu ne classes plus rien",
       "Demande, tu retrouves",
     ],
-    agentic: "Du dire",
+    agentic: "Ton agent",
+    agenticSub:
+      "Tu dictes une demande, ton agent Hermes s'en occupe : mails, devis, veille. Rien ne part sans ton accord sur l'iPhone.",
     teams: "Toi, ton équipe, ton agent",
+    teamsSub:
+      "Invite ton équipe et ton agent Hermes dans un espace : ils voient ses notes, rien d'autre. Tu retires l'accès quand tu veux.",
     trust: "Tu sais toujours",
     free: "Gratuit pour commencer",
     firstPrice: "0\u00a0€",
@@ -54,6 +88,26 @@ const PAGES = [
     trustProofs: ["seulement quand tu t'en sers", "sans marge"],
     ai: "Codex/ChatGPT et Claude",
     aiUse: "ton abonnement",
+    keys: [
+      "Nouvelle note",
+      "Nouveau chat",
+      "Rechercher dans les notes",
+      "Sélecteur de thèmes",
+      "Vue précédente",
+      "Vue suivante",
+    ],
+    airplane: "Mode avion",
+    packet: "Note",
+    appBadge: "Télécharger dans l'App Store",
+    macBadge: "Télécharger pour macOS",
+    unsureTitle: "Un accompagnement sur mesure",
+    unsureText:
+      "30 minutes pour cerner ton besoin. L'offre se bâtit avec toi, et je reste en soutien.",
+    notes: [
+      "personne au milieu",
+      "même en mode avion",
+      "le prix du fournisseur, rien de plus",
+    ],
   },
 ];
 
@@ -84,7 +138,7 @@ const MIN_HERO_SUB_PX = 20;
 const MOCK_STARS = "321";
 const MIN_PROMPTER_LINES = 20;
 const EMAIL_PATTERN = /[\w.+-]+@[\w-]+\.[a-z]{2,}/gi;
-const BOOKING_LINKS = 3;
+const BOOKING_LINKS = 2;
 const EMAIL_FREE_PAGES = [
   "/",
   "/fr/",
@@ -94,6 +148,15 @@ const EMAIL_FREE_PAGES = [
   "/beta",
   "/fr/beta",
 ];
+const CLIP_RATIO = 720 / 1564;
+const MAX_CLIP_CROP = 0.01;
+const HERMES_WAVE_GAP = 56;
+const EDGE_TOLERANCE_PX = 2;
+const TAILSCALE_WHITE = "/logos/tailscale-white.svg";
+const MIN_INK_ICONS = 6;
+const CENTER_TOLERANCE_PX = 1.5;
+const MIN_SPOKEN_TITLE_LEADING = 1.15;
+const HERO_MASCOT_PX = 176;
 const RUST_URL = "https://www.rust-lang.org";
 const DIOXUS_URL = "https://dioxuslabs.com";
 
@@ -132,7 +195,11 @@ for (const copy of PAGES) {
 
     test("keeps the headline and shows the exact copy", async ({ page }) => {
       await expect(page.locator("h1")).toHaveText(copy.h1);
-      await expect(page.locator("header p").first()).toContainText(copy.sub);
+      await expect(page.locator("header p").first()).toHaveText(copy.sub);
+      await expect(page.locator("header .hero-line")).toHaveText(copy.heroLine);
+      await expect(page.locator("header .hero-line mark.hl")).toHaveText(
+        copy.heroGo,
+      );
       const subSize = await page
         .locator("header p")
         .first()
@@ -141,7 +208,9 @@ for (const copy of PAGES) {
       await expect(page.locator("#product .step")).toHaveText(copy.steps);
       await expect(page.locator("#product h3")).toHaveText(copy.stepTitles);
       await expect(page.locator("#agentic h2")).toContainText(copy.agentic);
+      await expect(page.locator("#agentic .sub")).toHaveText(copy.agenticSub);
       await expect(page.locator("#teams h2")).toContainText(copy.teams);
+      await expect(page.locator("#teams h2 + p")).toHaveText(copy.teamsSub);
       await expect(page.locator("#trust h2")).toContainText(copy.trust);
       await expect(page.locator("#trust .cost h3")).toHaveText(copy.free);
     });
@@ -431,7 +500,7 @@ for (const copy of PAGES) {
 
     test("loads every image", async ({ page }) => {
       await scrollThrough(page);
-      await page.waitForLoadState("networkidle");
+      // No network-idle wait: looping videos keep the network busy.
       const broken = await page.evaluate(async () => {
         const images = [...document.images];
         for (const image of images) {
@@ -552,14 +621,25 @@ for (const copy of PAGES) {
       isMobile,
     }) => {
       for (const zone of ["header", "#finale"]) {
-        const buttons = page.locator(`${zone} .hero-ctas a`);
-        await expect(buttons.nth(0)).toHaveClass(/btn-primary/);
-        await expect(buttons.nth(0)).toHaveAttribute(
-          "href",
-          /apps\.apple\.com/,
+        const badges = page.locator(`${zone} .hero-ctas a`);
+        await expect(badges).toHaveText([copy.appBadge, copy.macBadge]);
+        await expect(badges.nth(0)).toHaveAttribute("href", /apps\.apple\.com/);
+        await expect(badges.nth(1)).toHaveAttribute("href", /\.dmg$/);
+        await expect(badges.nth(0).locator("svg")).toHaveCount(1);
+        await expect(badges.nth(1).locator("svg.macbook")).toHaveCount(1);
+        expect(
+          await badges
+            .nth(1)
+            .evaluate((e) => getComputedStyle(e).backgroundColor),
+        ).toBe(WHITE);
+        const [app, mac] = await Promise.all([
+          badges.nth(0).boundingBox(),
+          badges.nth(1).boundingBox(),
+        ]);
+        expect(Math.abs((app?.width ?? 0) - (mac?.width ?? 1))).toBeLessThan(1);
+        expect(Math.abs((app?.height ?? 0) - (mac?.height ?? 1))).toBeLessThan(
+          1,
         );
-        await expect(buttons.nth(1)).toHaveClass(/btn-ghost/);
-        await expect(buttons.nth(1)).toHaveAttribute("href", /\.dmg$/);
       }
       test.skip(isMobile, "the nav button sits in the menu on a phone");
       const navCta = page.locator("nav .nav-cta").first();
@@ -595,6 +675,286 @@ for (const copy of PAGES) {
       await expect(page.locator("#product .hl")).toHaveText(copy.stepProofs);
       await expect(page.locator("#trust .hl")).toHaveText(copy.trustProofs);
       await expect(page.locator("#product .num").first()).toHaveText("01");
+    });
+
+    test("keeps every phone screen in its clip's shape", async ({ page }) => {
+      const ratios = await page
+        .locator("#product .phone-screen, #agentic .phone-screen")
+        .evaluateAll((screens) =>
+          screens.map((s) => s.clientWidth / s.clientHeight),
+        );
+      expect(ratios.length).toBeGreaterThan(0);
+      for (const ratio of ratios) {
+        expect(Math.abs(ratio / CLIP_RATIO - 1)).toBeLessThan(MAX_CLIP_CROP);
+      }
+    });
+
+    test("hides the page behind a solid menu on a phone", async ({
+      page,
+      isMobile,
+    }) => {
+      test.skip(!isMobile, "the band only covers the phone menu");
+      const fill = await page
+        .locator("nav .nav-inner")
+        .evaluate((e) => getComputedStyle(e).backgroundColor);
+      expect(fill.startsWith("rgba")).toBe(false);
+      const band = await page.locator("nav").evaluate((nav) => {
+        const inner = nav.querySelector(".nav-inner") as HTMLElement;
+        const before = getComputedStyle(nav, "::before");
+        return {
+          content: before.content,
+          height: Number.parseFloat(before.height),
+          cover: inner.offsetTop + inner.offsetHeight,
+        };
+      });
+      expect(band.content).not.toBe("none");
+      expect(band.height).toBeGreaterThanOrEqual(band.cover);
+    });
+
+    test("sets Tailscale white on a black tile", async ({ page }) => {
+      const mark = page.locator("#agentic .hermes img.tailscale");
+      await expect(mark).toHaveAttribute("src", TAILSCALE_WHITE);
+      expect(
+        await mark.evaluate((e) => getComputedStyle(e).backgroundColor),
+      ).toBe(BLACK);
+    });
+
+    test("leaves air between the Hermes card and the wave", async ({
+      page,
+    }) => {
+      const gap = await page.locator("#agentic").evaluate((section) => {
+        const card = section.querySelector(".hermes") as HTMLElement;
+        const wave = section.querySelector(".bars") as HTMLElement;
+        return (
+          wave.getBoundingClientRect().top - card.getBoundingClientRect().bottom
+        );
+      });
+      expect(gap).toBeGreaterThanOrEqual(HERMES_WAVE_GAP);
+    });
+
+    test("passes a note between an iPhone and a MacBook", async ({ page }) => {
+      const sync = page.locator(".sync-visual");
+      await expect(sync.locator(".iphone-art")).toHaveCount(1);
+      await expect(sync.locator(".macbook-art")).toHaveCount(1);
+      await expect(sync.locator("[data-packet]")).toHaveAttribute(
+        "aria-label",
+        copy.packet,
+      );
+    });
+
+    test("plays each shortcut in a small Mac window", async ({ page }) => {
+      const card = page.locator("[data-shortcuts]");
+      await card.scrollIntoViewIfNeeded();
+      await expect(card.locator("kbd")).toHaveCount(copy.keys.length);
+      const label = card.locator("[data-shortcut-label]");
+      await expect(label).toHaveText(copy.keys[0] ?? "");
+      await expect(card.locator("kbd.on")).toHaveCount(1);
+      await expect(label).toHaveText(copy.keys[1] ?? "");
+    });
+
+    test("types the dictated sentence in airplane mode", async ({ page }) => {
+      const card = page.locator("[data-offline]");
+      await card.scrollIntoViewIfNeeded();
+      await expect(card.locator(".air-row")).toContainText(copy.airplane);
+      await expect
+        .poll(() => card.locator("[data-typed] span.on").count())
+        .toBeGreaterThan(1);
+    });
+
+    test("ends the day's cards with the same margin on both sides", async ({
+      page,
+      isMobile,
+    }) => {
+      test.skip(isMobile, "the cards stack on a phone");
+      const end = await page.evaluate(() => {
+        const s = document.getElementById("hscroll") as HTMLElement;
+        return s.offsetTop + s.offsetHeight - innerHeight;
+      });
+      await page.evaluate((y) => scrollTo(0, y), end);
+      await page.waitForTimeout(400);
+      const margins = await page.evaluate(() => {
+        const track = document.getElementById("htrack") as HTMLElement;
+        const last = track.lastElementChild as HTMLElement;
+        return {
+          left: Number.parseFloat(getComputedStyle(track).paddingLeft),
+          right:
+            document.documentElement.clientWidth -
+            last.getBoundingClientRect().right,
+        };
+      });
+      expect(Math.abs(margins.right - margins.left)).toBeLessThanOrEqual(
+        EDGE_TOLERANCE_PX,
+      );
+    });
+
+    test("peeks the mascot from the screen edge on a wide screen", async ({
+      page,
+      isMobile,
+    }) => {
+      const mascot = page.locator(".edge-mascot");
+      if (isMobile) {
+        await expect(mascot).toBeHidden();
+        return;
+      }
+      // It never stops moving, so no wait for a stable element.
+      await mascot.evaluate((e) => e.scrollIntoView({ block: "center" }));
+      await expect(mascot).toBeVisible();
+      const box = await mascot.boundingBox();
+      const width = await page.evaluate(
+        () => document.documentElement.clientWidth,
+      );
+      expect((box?.x ?? 0) + (box?.width ?? 0)).toBeGreaterThan(width);
+      expect(box?.x ?? width).toBeLessThan(width);
+    });
+
+    test("explains the tailored support under the offers", async ({ page }) => {
+      const unsure = page.locator("#teams .unsure");
+      await expect(unsure.locator(".unsure-title")).toHaveText(
+        copy.unsureTitle,
+      );
+      await expect(unsure.locator(".unsure-text")).toHaveText(copy.unsureText);
+      await expect(unsure.locator("svg.arrow-up")).toHaveCount(1);
+    });
+
+    test("puts my photo on the guided offer and the mascot on the solo one", async ({
+      page,
+    }) => {
+      const faces = page.locator(
+        '#teams .offer[data-tone="orange"] .faces img',
+      );
+      await expect(faces).toHaveCount(1);
+      await expect(
+        page.locator('#teams .offer[data-tone="white"] .offer-mascot'),
+      ).toHaveCount(1);
+    });
+
+    test("encrypts the note between a real iPhone and a MacBook", async ({
+      page,
+    }) => {
+      const sync = page.locator(".sync-visual");
+      await expect(sync.locator(".iphone-art .island")).toHaveCount(1);
+      await expect(sync.locator(".macbook-art .notch")).toHaveCount(1);
+      const offset = await sync.evaluate((root) => {
+        const line = root.querySelector(".sync-line") as HTMLElement;
+        const lock = root.querySelector(".sync-lock") as HTMLElement;
+        const a = line.getBoundingClientRect();
+        const b = lock.getBoundingClientRect();
+        return {
+          x: Math.abs(a.left + a.width / 2 - (b.left + b.width / 2)),
+          y: Math.abs(a.top + a.height / 2 - (b.top + b.height / 2)),
+        };
+      });
+      expect(offset.x).toBeLessThanOrEqual(CENTER_TOLERANCE_PX);
+      expect(offset.y).toBeLessThanOrEqual(CENTER_TOLERANCE_PX);
+      await expect(sync.locator("[data-packet] svg")).toHaveCount(1);
+    });
+
+    test("draws the iPhone and the MacBook next to the local promise", async ({
+      page,
+    }) => {
+      const stay = page.locator("#trust .stay");
+      await expect(stay.locator(".iphone-art .island")).toHaveCount(1);
+      await expect(stay.locator(".macbook-art .notch")).toHaveCount(1);
+    });
+
+    test("scatters app icons, a dot grid and hand notes on a wide screen", async ({
+      page,
+      isMobile,
+    }) => {
+      const icons = page.locator(".ink-icon");
+      expect(await icons.count()).toBeGreaterThanOrEqual(MIN_INK_ICONS);
+      await expect(page.locator(".dot-grid").first()).toBeAttached();
+      await expect(page.locator(".hand-note")).toHaveText(copy.notes);
+      if (isMobile) await expect(icons.first()).toBeHidden();
+    });
+
+    test("gives the orange title blocks room above and below", async ({
+      page,
+    }) => {
+      const leadings = await page
+        .locator("h2:has(em.say)")
+        .evaluateAll((titles) =>
+          titles.map((t) => {
+            const s = getComputedStyle(t);
+            return (
+              Number.parseFloat(s.lineHeight) / Number.parseFloat(s.fontSize)
+            );
+          }),
+        );
+      expect(leadings.length).toBeGreaterThan(0);
+      for (const leading of leadings) {
+        expect(leading).toBeGreaterThanOrEqual(MIN_SPOKEN_TITLE_LEADING);
+      }
+    });
+
+    test("peeks the mascot from the left edge at the finale", async ({
+      page,
+      isMobile,
+    }) => {
+      const mascot = page.locator("#finale .edge-mascot-left");
+      if (isMobile) {
+        await expect(mascot).toBeHidden();
+        return;
+      }
+      await mascot.evaluate((e) => e.scrollIntoView({ block: "center" }));
+      const box = await mascot.boundingBox();
+      expect(await mascot.evaluate((e) => (e as HTMLElement).offsetWidth)).toBe(
+        HERO_MASCOT_PX,
+      );
+      expect(box?.x ?? 0).toBeLessThan(0);
+      expect((box?.x ?? 0) + (box?.width ?? 0)).toBeGreaterThan(0);
+    });
+
+    test("centers the photo and the Hermes marks on a phone", async ({
+      page,
+      isMobile,
+    }) => {
+      test.skip(!isMobile, "only the phone layout stacks them");
+      const offCenter = (selector: string, parent: string) =>
+        page.evaluate(
+          ([child, box]) => {
+            const c = document.querySelector(child as string) as HTMLElement;
+            const p = document.querySelector(box as string) as HTMLElement;
+            const a = c.getBoundingClientRect();
+            const b = p.getBoundingClientRect();
+            return Math.abs(a.left + a.width / 2 - (b.left + b.width / 2));
+          },
+          [selector, parent],
+        );
+      expect(
+        await offCenter("#teams .faces", '#teams .offer[data-tone="orange"]'),
+      ).toBeLessThanOrEqual(CENTER_TOLERANCE_PX);
+      expect(
+        await offCenter("#agentic .hermes .marks", "#agentic .hermes"),
+      ).toBeLessThanOrEqual(CENTER_TOLERANCE_PX);
+    });
+
+    test("shows the whole chat phone in its card on a phone", async ({
+      page,
+      isMobile,
+    }) => {
+      test.skip(!isMobile, "the desktop card crops the phone on purpose");
+      const fits = await page.locator(".shots .front").evaluate((phone) => {
+        const card = phone.closest(".fine") as HTMLElement;
+        const a = phone.getBoundingClientRect();
+        const b = card.getBoundingClientRect();
+        return a.bottom <= b.bottom && a.top >= b.top;
+      });
+      expect(fits).toBe(true);
+    });
+
+    test("keeps the hero line on one line on a wide screen", async ({
+      page,
+      isMobile,
+    }) => {
+      test.skip(isMobile, "the line wraps on a phone");
+      const lines = await page.locator("header .hero-line").evaluate((e) => {
+        const s = getComputedStyle(e);
+        return (
+          e.getBoundingClientRect().height / Number.parseFloat(s.lineHeight)
+        );
+      });
+      expect(Math.round(lines)).toBe(1);
     });
 
     test("does not scroll sideways", async ({ page }) => {

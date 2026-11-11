@@ -21,12 +21,49 @@ const t = section(lang, "footer");
         aria-hidden="true"></canvas></em
     >
   </h2>
-  <CtaButtons
-    lang={lang}
-    primary={t.finale.ctaPrimary}
-    ghost={t.finale.ctaGhost}
-  />
+  <CtaButtons lang={lang} />
   <p class="mt-4 text-[13px]">
     {t.finale.note}
   </p>
+  <img
+    class="edge-mascot-left"
+    src="/brand/mascot-sticker.webp"
+    alt=""
+    width="176"
+    height="176"
+    loading="lazy"
+    decoding="async"
+  />
 </section>
+
+<style>
+  .edge-mascot-left {
+    display: none;
+  }
+
+  @media (min-width: 1280px) {
+    .edge-mascot-left {
+      position: absolute;
+      top: 46%;
+      left: calc((100% - 100vw) / 2 - 48px);
+      display: block;
+      width: 176px;
+      height: 176px;
+      rotate: 14deg;
+      animation: peek-left 5s ease-in-out infinite;
+      pointer-events: none;
+    }
+  }
+
+  @keyframes peek-left {
+    50% {
+      transform: translateX(12px) rotate(-4deg);
+    }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .edge-mascot-left {
+      animation: none;
+    }
+  }
+</style>

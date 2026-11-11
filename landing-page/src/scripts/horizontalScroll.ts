@@ -28,7 +28,11 @@ function initHorizontalScroll(): void {
     if (total <= 0) return;
 
     const progress = Math.min(1, Math.max(0, -rect.top / total));
-    const distance = rail.scrollWidth - innerWidth;
+    // scrollWidth drops a flex row's right padding, so measure from the last card.
+    const last = rail.lastElementChild as HTMLElement | null;
+    const padRight = Number.parseFloat(getComputedStyle(rail).paddingRight);
+    const end = last ? last.offsetLeft + last.offsetWidth + padRight : 0;
+    const distance = end - document.documentElement.clientWidth;
     rail.style.transform = `translateX(${-progress * distance}px)`;
     ticking = false;
   };

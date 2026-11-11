@@ -17,6 +17,7 @@ const { tone, title, body, points, cta, href, external, contact } =
 ---
 
 <article class="offer" data-tone={tone}>
+  <slot name="art" />
   <h3>{title}</h3>
   <p>{body}</p>
   <ul>
@@ -43,6 +44,7 @@ const { tone, title, body, points, cta, href, external, contact } =
 
 <style>
   .offer {
+    position: relative;
     display: flex;
     flex-direction: column;
     align-items: flex-start;

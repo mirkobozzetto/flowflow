@@ -1,0 +1,132 @@
+---
+import { Image } from "astro:assets";
+import IphoneArt from "../art/IphoneArt.astro";
+import MacbookArt from "../art/MacbookArt.astro";
+import logo from "../../assets/logo.png";
+
+interface Props {
+  lock: string;
+  packet: string;
+}
+
+const { lock, packet } = Astro.props;
+const LOCK_PATH =
+  "M7.5 10.5V8a4.5 4.5 0 0 1 9 0v2.5M6.5 10.5h11a1 1 0 0 1 1 1v7.5a1 1 0 0 1-1 1h-11a1 1 0 0 1-1-1v-7.5a1 1 0 0 1 1-1z";
+---
+
+<div class="sync-visual mt-7 flex items-center gap-3">
+  <IphoneArt width={46}><Image src={logo} alt="" width={44} height={44} /></IphoneArt>
+  <div class="sync-line">
+    <span class="packet" data-packet role="img" aria-label={packet}>
+      <svg viewBox="0 0 24 18" aria-hidden="true">
+        <rect x="1" y="1" width="22" height="16" rx="3"></rect>
+        <path d="M2.5 3l9.5 7 9.5-7"></path>
+      </svg>
+    </span>
+    <span class="sync-lock" role="img" aria-label={lock}>
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d={LOCK_PATH}></path></svg>
+    </span>
+  </div>
+  <MacbookArt width={104}><Image src={logo} alt="" width={52} height={52} /></MacbookArt>
+</div>
+
+<style>
+  .sync-line {
+    position: relative;
+    flex: 1;
+    height: 2px;
+    background: repeating-linear-gradient(
+      90deg,
+      var(--orange) 0 6px,
+      transparent 6px 12px
+    );
+    background-size: 12px 100%;
+    animation: dash 1.1s linear infinite;
+  }
+
+  .sync-lock {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    z-index: 2;
+    display: grid;
+    place-items: center;
+    width: 18px;
+    height: 18px;
+    border-radius: 50%;
+    background: white;
+    box-shadow: 0 0 0 1px var(--orange-100);
+    transform: translate(-50%, -50%);
+  }
+
+  .sync-lock svg {
+    width: 10px;
+    height: 10px;
+    fill: none;
+    stroke: var(--orange-dark);
+    stroke-width: 2;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+  }
+
+  /* A small envelope that crosses quickly from the iPhone to the Mac. */
+  .packet {
+    position: absolute;
+    top: 50%;
+    left: 0;
+    z-index: 1;
+    display: grid;
+    width: 22px;
+    height: 17px;
+    filter: drop-shadow(0 3px 4px rgba(0, 0, 0, 0.18));
+    transform: translate(-50%, -50%);
+    animation: deliver 1.8s cubic-bezier(0.45, 0, 0.25, 1) infinite;
+  }
+
+  .packet svg {
+    width: 100%;
+    height: 100%;
+  }
+
+  .packet rect {
+    fill: var(--orange-dark);
+  }
+
+  .packet path {
+    fill: none;
+    stroke: white;
+    stroke-width: 1.8;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+  }
+
+  @keyframes deliver {
+    0% {
+      left: 0;
+      opacity: 0;
+    }
+    12% {
+      opacity: 1;
+    }
+    80% {
+      left: 100%;
+      opacity: 1;
+    }
+    90%,
+    100% {
+      left: 100%;
+      opacity: 0;
+    }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .sync-line,
+    .packet {
+      animation: none;
+    }
+
+    .packet {
+      left: 28%;
+    }
+  }
+</style>

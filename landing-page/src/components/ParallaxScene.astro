@@ -102,8 +102,7 @@ const t = useTranslations(lang, "hero");
   }
 
   .iphone {
-    /* Leaves the screen at 9:16, the promo's own shape, so nothing is cropped. */
-    --phone-ratio: 0.5797;
+    --screen-ratio: 1080 / 1920;
     --phone-width: clamp(190px, 23vw, 310px);
     position: absolute;
     right: max(5%, calc(50% - 480px));
