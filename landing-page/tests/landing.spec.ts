@@ -729,8 +729,8 @@ for (const copy of PAGES) {
       const sync = page.locator(".sync-visual");
       await expect(sync.locator(".iphone-art")).toHaveCount(1);
       await expect(sync.locator(".macbook-art")).toHaveCount(1);
-      await expect(sync.locator("[data-cipher]")).toHaveAttribute(
-        "data-cipher",
+      await expect(sync.locator("[data-packet]")).toHaveAttribute(
+        "aria-label",
         copy.packet,
       );
     });
@@ -839,7 +839,7 @@ for (const copy of PAGES) {
       });
       expect(offset.x).toBeLessThanOrEqual(CENTER_TOLERANCE_PX);
       expect(offset.y).toBeLessThanOrEqual(CENTER_TOLERANCE_PX);
-      await expect(sync.locator("[data-cipher]")).toHaveCount(1);
+      await expect(sync.locator("[data-packet] svg")).toHaveCount(1);
     });
 
     test("draws the iPhone and the MacBook next to the local promise", async ({
@@ -896,6 +896,44 @@ for (const copy of PAGES) {
       );
       expect(box?.x ?? 0).toBeLessThan(0);
       expect((box?.x ?? 0) + (box?.width ?? 0)).toBeGreaterThan(0);
+    });
+
+    test("centers the photo and the Hermes marks on a phone", async ({
+      page,
+      isMobile,
+    }) => {
+      test.skip(!isMobile, "only the phone layout stacks them");
+      const offCenter = (selector: string, parent: string) =>
+        page.evaluate(
+          ([child, box]) => {
+            const c = document.querySelector(child as string) as HTMLElement;
+            const p = document.querySelector(box as string) as HTMLElement;
+            const a = c.getBoundingClientRect();
+            const b = p.getBoundingClientRect();
+            return Math.abs(a.left + a.width / 2 - (b.left + b.width / 2));
+          },
+          [selector, parent],
+        );
+      expect(
+        await offCenter("#teams .faces", '#teams .offer[data-tone="orange"]'),
+      ).toBeLessThanOrEqual(CENTER_TOLERANCE_PX);
+      expect(
+        await offCenter("#agentic .hermes .marks", "#agentic .hermes"),
+      ).toBeLessThanOrEqual(CENTER_TOLERANCE_PX);
+    });
+
+    test("shows the whole chat phone in its card on a phone", async ({
+      page,
+      isMobile,
+    }) => {
+      test.skip(!isMobile, "the desktop card crops the phone on purpose");
+      const fits = await page.locator(".shots .front").evaluate((phone) => {
+        const card = phone.closest(".fine") as HTMLElement;
+        const a = phone.getBoundingClientRect();
+        const b = card.getBoundingClientRect();
+        return a.bottom <= b.bottom && a.top >= b.top;
+      });
+      expect(fits).toBe(true);
     });
 
     test("does not scroll sideways", async ({ page }) => {
