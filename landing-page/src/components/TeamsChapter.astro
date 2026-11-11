@@ -145,6 +145,14 @@ const t = section(lang, "teams");
     mask-image: radial-gradient(circle, black 58%, transparent 71%);
   }
 
+  /* Keep the title and the text clear of the faces in the corner. */
+  @media (min-width: 561px) {
+    #teams :global(.offer[data-tone="orange"] > h3),
+    #teams :global(.offer[data-tone="orange"] > p) {
+      padding-right: 116px;
+    }
+  }
+
   @media (max-width: 560px) {
     .faces {
       position: static;
