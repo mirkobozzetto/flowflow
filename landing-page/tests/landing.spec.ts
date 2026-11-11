@@ -587,6 +587,11 @@ for (const copy of PAGES) {
         await expect(badges.nth(1)).toHaveAttribute("href", /\.dmg$/);
         await expect(badges.nth(0).locator("svg")).toHaveCount(1);
         await expect(badges.nth(1).locator("svg.macbook")).toHaveCount(1);
+        expect(
+          await badges
+            .nth(1)
+            .evaluate((e) => getComputedStyle(e).backgroundColor),
+        ).toBe(WHITE);
         const [app, mac] = await Promise.all([
           badges.nth(0).boundingBox(),
           badges.nth(1).boundingBox(),

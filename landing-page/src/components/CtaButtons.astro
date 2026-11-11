@@ -18,7 +18,7 @@ const { store } = section(lang, "hero");
     </svg>
     <span><small>{store.appLead}</small> {store.appName}</span>
   </a>
-  <a class="store-badge" href={macDownloadUrl} {...externalLinkAttrs}>
+  <a class="store-badge mac" href={macDownloadUrl} {...externalLinkAttrs}>
     <svg class="macbook" viewBox="0 0 24 24" aria-hidden="true">
       <rect
         x="4.3"
@@ -63,6 +63,19 @@ const { store } = section(lang, "hero");
       inset 0 -1px 0 rgba(0, 0, 0, 0.1),
       0 0 0 1px color-mix(in srgb, var(--orange) 82%, black);
     transition: filter 0.2s ease;
+  }
+
+  .store-badge.mac {
+    background: white;
+    color: black;
+    box-shadow: 0 0 0 1px var(--rule);
+  }
+
+  .store-badge.mac:hover {
+    filter: none;
+    box-shadow:
+      0 0 0 1px var(--rule),
+      0 6px 14px -8px rgba(0, 0, 0, 0.28);
   }
 
   .store-badge:hover {
