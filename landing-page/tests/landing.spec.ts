@@ -39,6 +39,10 @@ const PAGES = [
     packet: "Note",
     appBadge: "Download on the App Store",
     macBadge: "Download for macOS",
+    unsureTitle: "Tailored support",
+    unsureText:
+      "30 minutes to scope your needs. We shape the offer together, and I stay on as your support.",
+    notes: ["nobody in between", "even in airplane mode", "no markup"],
   },
   {
     path: "/fr/",
@@ -78,6 +82,10 @@ const PAGES = [
     packet: "Note",
     appBadge: "Télécharger dans l'App Store",
     macBadge: "Télécharger pour macOS",
+    unsureTitle: "Un accompagnement sur mesure",
+    unsureText:
+      "30 minutes pour cerner ton besoin. L'offre se bâtit avec toi, et je reste en soutien.",
+    notes: ["personne au milieu", "même en mode avion", "sans marge"],
   },
 ];
 
@@ -123,6 +131,8 @@ const MAX_CLIP_CROP = 0.01;
 const HERMES_WAVE_GAP = 56;
 const EDGE_TOLERANCE_PX = 2;
 const TAILSCALE_WHITE = "/logos/tailscale-white.svg";
+const MIN_INK_ICONS = 6;
+const CENTER_TOLERANCE_PX = 1.5;
 const RUST_URL = "https://www.rust-lang.org";
 const DIOXUS_URL = "https://dioxuslabs.com";
 
@@ -694,12 +704,12 @@ for (const copy of PAGES) {
 
     test("passes a note between an iPhone and a MacBook", async ({ page }) => {
       const sync = page.locator(".sync-visual");
-      await expect(sync.locator(".dev-phone")).toHaveCount(1);
-      await expect(sync.locator(".dev-mac")).toHaveCount(1);
-      await expect(sync.locator(".packet")).toHaveText([
+      await expect(sync.locator(".iphone-art")).toHaveCount(1);
+      await expect(sync.locator(".macbook-art")).toHaveCount(1);
+      await expect(sync.locator("[data-cipher]")).toHaveAttribute(
+        "data-cipher",
         copy.packet,
-        copy.packet,
-      ]);
+      );
     });
 
     test("plays each shortcut in a small Mac window", async ({ page }) => {
@@ -765,6 +775,67 @@ for (const copy of PAGES) {
       );
       expect((box?.x ?? 0) + (box?.width ?? 0)).toBeGreaterThan(width);
       expect(box?.x ?? width).toBeLessThan(width);
+    });
+
+    test("explains the tailored support under the offers", async ({ page }) => {
+      const unsure = page.locator("#teams .unsure");
+      await expect(unsure.locator(".unsure-title")).toHaveText(
+        copy.unsureTitle,
+      );
+      await expect(unsure.locator(".unsure-text")).toHaveText(copy.unsureText);
+      await expect(unsure.locator("svg.arrow-up")).toHaveCount(1);
+    });
+
+    test("puts faces on the guided offer and the mascot on the solo one", async ({
+      page,
+    }) => {
+      const faces = page.locator(
+        '#teams .offer[data-tone="orange"] .faces img',
+      );
+      await expect(faces).toHaveCount(2);
+      await expect(
+        page.locator('#teams .offer[data-tone="white"] .offer-mascot'),
+      ).toHaveCount(1);
+    });
+
+    test("encrypts the note between a real iPhone and a MacBook", async ({
+      page,
+    }) => {
+      const sync = page.locator(".sync-visual");
+      await expect(sync.locator(".iphone-art .island")).toHaveCount(1);
+      await expect(sync.locator(".macbook-art .notch")).toHaveCount(1);
+      const offset = await sync.evaluate((root) => {
+        const line = root.querySelector(".sync-line") as HTMLElement;
+        const lock = root.querySelector(".sync-lock") as HTMLElement;
+        const a = line.getBoundingClientRect();
+        const b = lock.getBoundingClientRect();
+        return {
+          x: Math.abs(a.left + a.width / 2 - (b.left + b.width / 2)),
+          y: Math.abs(a.top + a.height / 2 - (b.top + b.height / 2)),
+        };
+      });
+      expect(offset.x).toBeLessThanOrEqual(CENTER_TOLERANCE_PX);
+      expect(offset.y).toBeLessThanOrEqual(CENTER_TOLERANCE_PX);
+      await expect(sync.locator("[data-cipher]")).toHaveCount(1);
+    });
+
+    test("draws the iPhone and the MacBook next to the local promise", async ({
+      page,
+    }) => {
+      const stay = page.locator("#trust .stay");
+      await expect(stay.locator(".iphone-art .island")).toHaveCount(1);
+      await expect(stay.locator(".macbook-art .notch")).toHaveCount(1);
+    });
+
+    test("scatters app icons, a dot grid and hand notes on a wide screen", async ({
+      page,
+      isMobile,
+    }) => {
+      const icons = page.locator(".ink-icon");
+      expect(await icons.count()).toBeGreaterThanOrEqual(MIN_INK_ICONS);
+      await expect(page.locator(".dot-grid").first()).toBeAttached();
+      await expect(page.locator(".hand-note")).toHaveText(copy.notes);
+      if (isMobile) await expect(icons.first()).toBeHidden();
     });
 
     test("does not scroll sideways", async ({ page }) => {
