@@ -198,7 +198,7 @@
   border-radius: 13px;
   background: var(--gradient);
   color: white;
-  text-align: left;
+  text-align: center;
   text-decoration: none;
   box-shadow:
     inset 0 1px 0 rgba(255, 255, 255, 0.34),
@@ -215,6 +215,8 @@
 .obadge span {
   display: flex;
   flex-direction: column;
+  align-items: center;
+  text-align: center;
   font-size: 21px;
   font-weight: 600;
   line-height: 1.05;

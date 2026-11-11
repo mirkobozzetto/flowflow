@@ -2,13 +2,12 @@
 import Layout from "../../layouts/Layout.astro";
 import Choice from "../../components/studio/Choice.astro";
 import { section } from "../../lib/i18n";
+import { APPLE_PATH } from "../../lib/icons";
 import "../../styles/retouches.css";
 import "../../styles/boutons.css";
 
 const finale = section("fr", "footer").finale;
 const NOTE = "Gratuit pour l'instant · tes clés, tes données";
-const PHONE_PATH =
-  "M8 2.5h8a2 2 0 0 1 2 2v15a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2v-15a2 2 0 0 1 2-2zM10.5 5h3";
 const LAPTOP_PATH = "M5 5.5h14a1 1 0 0 1 1 1V16H4V6.5a1 1 0 0 1 1-1zM2 18.5h20";
 const devices = ["iphone", "mac"] as const;
 
@@ -27,7 +26,7 @@ const macLabels = [
       Même forme que le badge d'Apple, en orange. Quatre libellés pour le Mac.
     </p>
     <p class="opts-note">
-      Sans la pomme : Apple interdit son logo seul hors de son badge officiel.
+      Pomme pour l'App Store, ordinateur pour le Mac, texte centré.
     </p>
 
     <div class="opts-grid one-col">
@@ -42,7 +41,7 @@ const macLabels = [
                     <h3>{finale.lead}<br />{finale.accent}</h3>
                     <div class="obadges">
                       <a class="obadge" href="#">
-                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d={PHONE_PATH}></path></svg>
+                        <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d={APPLE_PATH}></path></svg>
                         <span><small>Télécharger dans</small>l'App Store</span>
                       </a>
                       <a class="obadge" href="#">
