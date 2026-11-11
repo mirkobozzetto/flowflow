@@ -1,0 +1,56 @@
+---
+import { Image } from "astro:assets";
+import Layout from "../../layouts/Layout.astro";
+import Choice from "../../components/studio/Choice.astro";
+import IphoneDraft from "../../components/studio/IphoneDraft.astro";
+import IphoneToday from "../../components/studio/IphoneToday.astro";
+import logo from "../../assets/logo.png";
+import "../../styles/retouches.css";
+
+const SIZES = [28, 46, 120, 240];
+---
+
+<Layout lang="fr">
+  <main class="opts">
+    <h1>Dessin de l'iPhone</h1>
+    <p class="opts-intro">
+      Boutons placés d'après ta photo : trois à gauche, un à droite, à peine
+      sortis. Les tailles de la page, plus deux grandes pour voir.
+    </p>
+    <div class="opts-grid one-col">
+      <Choice group="iPhone" name="Aujourd'hui" current>
+        <div class="row">
+          {
+            SIZES.map((w) => (
+              <IphoneToday width={w}>
+                <Image src={logo} alt="" width={22} height={22} />
+              </IphoneToday>
+            ))
+          }
+        </div>
+      </Choice>
+      <Choice group="iPhone" name="Boutons d'après la photo">
+        <div class="row">
+          {
+            SIZES.map((w) => (
+              <IphoneDraft width={w}>
+                <Image src={logo} alt="" width={22} height={22} />
+              </IphoneDraft>
+            ))
+          }
+        </div>
+      </Choice>
+    </div>
+  </main>
+</Layout>
+
+<style>
+  .row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 40px;
+    align-items: flex-end;
+    justify-content: center;
+    padding: 30px 10px;
+  }
+</style>
