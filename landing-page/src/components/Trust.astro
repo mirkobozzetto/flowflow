@@ -2,6 +2,8 @@
 import { section } from "../lib/i18n";
 import { highlight } from "../lib/highlight";
 import { bookingCode } from "../lib/links";
+import IphoneArt from "./art/IphoneArt.astro";
+import MacbookArt from "./art/MacbookArt.astro";
 
 interface Props {
   lang: string;
@@ -20,7 +22,13 @@ const t = section(lang, "trust");
 
   <div class="split mt-10">
     <div class="stay">
-      <h3>{t.stayTitle}</h3>
+      <div class="stay-head">
+        <h3>{t.stayTitle}</h3>
+        <div class="stay-devices">
+          <IphoneArt width={22} />
+          <MacbookArt width={52} />
+        </div>
+      </div>
       <ul>{t.stay.map((item) => <li>{item}</li>)}</ul>
     </div>
     <div class="leave">
@@ -111,6 +119,20 @@ const t = section(lang, "trust");
 
   .leave {
     box-shadow: -1px 0 0 var(--rule);
+  }
+
+  .stay-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 14px;
+  }
+
+  .stay-devices {
+    flex-shrink: 0;
+    display: flex;
+    align-items: flex-end;
+    gap: 8px;
   }
 
   .split h3 {
