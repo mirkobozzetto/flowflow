@@ -1,0 +1,181 @@
+---
+import { Image } from "astro:assets";
+import Layout from "../../layouts/Layout.astro";
+import Offer from "../../components/Offer.astro";
+import Choice from "../../components/studio/Choice.astro";
+import LockSync from "../../components/studio/LockSync.astro";
+import { section } from "../../lib/i18n";
+import mirko from "../../assets/people/mirko.png";
+import "../../styles/retouches.css";
+import "../../styles/incrustations.css";
+
+const teams = section("fr", "teams");
+const bento = section("fr", "bento");
+const trust = section("fr", "trust");
+const ICONS = [
+  { box: "0 0 24 24", d: "M12 3C10 3 10 5 10 5L10 11C10 11 10 13 12 13C14 13 14 11 14 11L14 5C14 5 14 3 12 3ZM5 10C5 10 5 17 12 17C19 17 19 10 19 10M12 17L12 21M9 21L15 21", stroke: true },
+  { box: "0 0 256 256", d: "M216,72H130.67L102.93,51.2a16.12,16.12,0,0,0-9.6-3.2H40A16,16,0,0,0,24,64V200a16,16,0,0,0,16,16H216.89A15.13,15.13,0,0,0,232,200.89V88A16,16,0,0,0,216,72Zm0,128H40V64H93.33L123.2,86.4A8,8,0,0,0,128,88h88Z" },
+  { box: "0 0 256 256", d: "M232,96a16,16,0,0,0-16-16H184V48a16,16,0,0,0-16-16H40A16,16,0,0,0,24,48V176a8,8,0,0,0,13,6.22L72,154V176a16,16,0,0,0,16,16h93.59L219,222.22A8,8,0,0,0,232,216Zm-16,0V196L202.41,176H88V80H216Z" },
+  { box: "0 0 256 256", d: "M229.66,58.34l-32-32a8,8,0,0,0-11.32,0l-96,96A8,8,0,0,0,88,128v32a8,8,0,0,0,8,8h32a8,8,0,0,0,5.66-2.34l96-96A8,8,0,0,0,229.66,58.34ZM124.69,152H104V131.31l64-64L188.69,88ZM200,76.69,179.31,56,192,43.31,212.69,64ZM224,128v80a16,16,0,0,1-16,16H48a16,16,0,0,1-16-16V48A16,16,0,0,1,48,32h80a8,8,0,0,1,0,16H48V208H208V128a8,8,0,0,1,16,0Z" },
+  { box: "0 0 256 256", d: "M208,32H48A16,16,0,0,0,32,48V208a16,16,0,0,0,16,16H208a16,16,0,0,0,16-16V48A16,16,0,0,0,208,32ZM48,48H72V208H48ZM208,208H88V48H208Z" },
+];
+const SPOTS = ["i1", "i2", "i3", "i4", "i5", "i6"];
+const BARS = [10, 18, 30, 44, 58, 70, 58, 44, 64, 80, 64, 46, 30, 52, 72, 52, 34, 20, 12];
+const variants = ["today", "relief", "icons", "dots", "notes"] as const;
+const names = {
+  today: "Aujourd'hui",
+  relief: "Relief blanc sur blanc",
+  icons: "Icônes de l'app en filigrane",
+  dots: "Grille de points",
+  notes: "Annotations à la main",
+};
+const offerCards = { solo: teams.solo, guided: teams.guided };
+---
+
+<Layout lang="fr">
+  <main class="opts">
+    <h1>Incrustations et cartes</h1>
+    <p class="opts-intro">Chaque idée à côté de l'actuel. Coche ce que tu gardes.</p>
+
+    <section>
+      <h2>1. Le bloc sous les offres</h2>
+      <div class="opts-grid one-col">
+        {
+          ["today", "custom"].map((v) => (
+            <Choice group="Accompagnement" name={v === "today" ? "Aujourd'hui" : "Un accompagnement sur mesure"} current={v === "today"}>
+              <div class="offers">
+                <Offer tone="white" title={offerCards.solo.title} body={offerCards.solo.body} points={offerCards.solo.points} cta={offerCards.solo.cta} href="#" />
+                <Offer tone="orange" title={offerCards.guided.title} body={offerCards.guided.body} points={offerCards.guided.points} cta={offerCards.guided.cta} href="#" />
+              </div>
+              <div class="unsure">
+                <div class="unsure-text">
+                  <p class="u-title">{v === "today" ? teams.unsureTitle : "Un accompagnement sur mesure"}</p>
+                  <p>{v === "today" ? teams.unsureText : "30 minutes pour cerner ton besoin. L'offre se bâtit avec toi, et je reste en soutien."}</p>
+                </div>
+                {v === "today" ? (
+                  <svg class="arrow" viewBox="0 0 84 38" aria-hidden="true"><path d="M3 26C24 6 52 4 76 19" /><path d="M63 19l14 1-3-14" /></svg>
+                ) : (
+                  <svg class="arrow up" viewBox="0 0 60 70" aria-hidden="true"><path d="M6 64C10 38 24 18 50 8" /><path d="M37 6l14 1-4 13" /></svg>
+                )}
+                <a class="btn-ghost" href="#">{teams.guided.cta}</a>
+              </div>
+            </Choice>
+          ))
+        }
+      </div>
+    </section>
+
+    <section>
+      <h2>2. Carte iPhone ↔ Mac</h2>
+      <div class="opts-grid">
+        <Choice group="Sync" name="Aujourd'hui" current>
+          <div class="tile fine"><h3>{bento.sync.title}</h3><p>{bento.sync.body}</p><LockSync variant="note" /></div>
+        </Choice>
+        <Choice group="Sync" name="Cadenas qui voyage">
+          <div class="tile fine"><h3>{bento.sync.title}</h3><p>{bento.sync.body}</p><LockSync variant="lock" /></div>
+        </Choice>
+      </div>
+    </section>
+
+    <section>
+      <h2>3. Incrustations dans le blanc</h2>
+      <div class="opts-grid one-col">
+        {
+          variants.map((v) => (
+            <Choice group="Incrustation" name={names[v]} current={v === "today"}>
+              <div class:list={["stage", `v-${v}`]}>
+                {v === "relief" && (
+                  <svg class="relief" viewBox="0 0 380 90" preserveAspectRatio="none" aria-hidden="true">
+                    {BARS.map((h, i) => <rect x={i * 20} y={(90 - h) / 2} width="9" height={h} rx="4.5" />)}
+                  </svg>
+                )}
+                {v === "relief" && <span class="relief-key" aria-hidden="true">⌘</span>}
+                {v === "icons" && SPOTS.map((spot, i) => {
+                  const icon = ICONS[i % ICONS.length];
+                  return icon && (
+                    <svg class:list={["mark", spot]} viewBox={icon.box} aria-hidden="true">
+                      <path d={icon.d} class:list={{ stroked: icon.stroke }} />
+                    </svg>
+                  );
+                })}
+                <h3 class="stage-title">{bento.h2Lead}<br />{bento.h2Accent}</h3>
+                <div class="stage-cards">
+                  <div class="fine mini"><b>{bento.offline.title}</b><span>{bento.offline.body}</span></div>
+                  <div class="fine mini"><b>{bento.keyboard.title}</b><span>{bento.keyboard.body}</span></div>
+                </div>
+                {v === "notes" && (
+                  <>
+                    <p class="note n1">tout reste sur ton iPhone</p>
+                    <svg class="hand h1" viewBox="0 0 90 50" aria-hidden="true"><path d="M86 6C60 4 30 14 12 40" /><path d="M8 26l4 15 15-3" /></svg>
+                    <svg class="hand underline" viewBox="0 0 200 14" preserveAspectRatio="none" aria-hidden="true"><path d="M3 9c40-6 90-7 194-3" /></svg>
+                  </>
+                )}
+              </div>
+            </Choice>
+          ))
+        }
+      </div>
+    </section>
+
+    <section>
+      <h2>4. Petites cartes</h2>
+      <div class="opts-grid">
+        <Choice group="Visages" name="Aujourd'hui" current>
+          <Offer tone="orange" title={offerCards.guided.title} body={offerCards.guided.body} points={offerCards.guided.points} cta={offerCards.guided.cta} href="#" />
+        </Choice>
+        <Choice group="Visages" name="Ta photo et Hermes sur l'accompagnement">
+          <div class="with-overlay">
+            <Offer tone="orange" title={offerCards.guided.title} body={offerCards.guided.body} points={offerCards.guided.points} cta={offerCards.guided.cta} href="#" />
+            <div class="faces">
+              <Image src={mirko} alt="" width={96} height={96} />
+              <img src="/images/hermes-agent.png" alt="" width="96" height="96" />
+            </div>
+          </div>
+        </Choice>
+        <Choice group="Mascotte" name="Aujourd'hui" current>
+          <Offer tone="white" title={offerCards.solo.title} body={offerCards.solo.body} points={offerCards.solo.points} cta={offerCards.solo.cta} href="#" />
+        </Choice>
+        <Choice group="Mascotte" name="La mascotte sur « Tu testes seul »">
+          <div class="with-overlay">
+            <Offer tone="white" title={offerCards.solo.title} body={offerCards.solo.body} points={offerCards.solo.points} cta={offerCards.solo.cta} href="#" />
+            <img class="corner-mascot" src="/brand/mascot-sticker.webp" alt="" width="120" height="120" />
+          </div>
+        </Choice>
+        <Choice group="Appareils" name="Aujourd'hui" current>
+          <div class="stay-card"><h3>{trust.stayTitle}</h3><ul>{trust.stay.map((item) => <li>{item}</li>)}</ul></div>
+        </Choice>
+        <Choice group="Appareils" name="iPhone et MacBook à côté du titre">
+          <div class="stay-card">
+            <div class="stay-head">
+              <h3>{trust.stayTitle}</h3>
+              <div class="mini-devices" aria-hidden="true"><span class="mini-phone"></span><span class="mini-mac"><i></i><b></b></span></div>
+            </div>
+            <ul>{trust.stay.map((item) => <li>{item}</li>)}</ul>
+          </div>
+        </Choice>
+      </div>
+    </section>
+  </main>
+
+  <div class="opts-bar">
+    <p data-count>Aucun choix</p>
+    <button class="btn-primary" type="button" data-copy>Copier mes choix</button>
+  </div>
+
+  <script>
+    const boxes = [...document.querySelectorAll<HTMLInputElement>("[data-keep]")];
+    const count = document.querySelector<HTMLElement>("[data-count]");
+    const kept = (): string[] =>
+      boxes.filter((box) => box.checked).map((box) => box.dataset.keep ?? "");
+    for (const box of boxes) {
+      box.addEventListener("change", () => {
+        const total = kept().length;
+        if (count) count.textContent = total ? `${total} choix cochés` : "Aucun choix";
+      });
+    }
+    document.querySelector("[data-copy]")?.addEventListener("click", () => {
+      navigator.clipboard?.writeText(kept().join("\n"));
+      if (count) count.textContent = "Choix copiés";
+    });
+  </script>
+</Layout>
