@@ -42,7 +42,11 @@ const PAGES = [
     unsureTitle: "Tailored support",
     unsureText:
       "30 minutes to scope your needs. We shape the offer together, and I stay on as your support.",
-    notes: ["nobody in between", "even in airplane mode", "no markup"],
+    notes: [
+      "nobody in between",
+      "even in airplane mode",
+      "the provider's price, nothing on top",
+    ],
   },
   {
     path: "/fr/",
@@ -85,7 +89,11 @@ const PAGES = [
     unsureTitle: "Un accompagnement sur mesure",
     unsureText:
       "30 minutes pour cerner ton besoin. L'offre se bâtit avec toi, et je reste en soutien.",
-    notes: ["personne au milieu", "même en mode avion", "sans marge"],
+    notes: [
+      "personne au milieu",
+      "même en mode avion",
+      "le prix du fournisseur, rien de plus",
+    ],
   },
 ];
 
@@ -133,6 +141,7 @@ const EDGE_TOLERANCE_PX = 2;
 const TAILSCALE_WHITE = "/logos/tailscale-white.svg";
 const MIN_INK_ICONS = 6;
 const CENTER_TOLERANCE_PX = 1.5;
+const MIN_SPOKEN_TITLE_LEADING = 1.15;
 const RUST_URL = "https://www.rust-lang.org";
 const DIOXUS_URL = "https://dioxuslabs.com";
 
@@ -836,6 +845,40 @@ for (const copy of PAGES) {
       await expect(page.locator(".dot-grid").first()).toBeAttached();
       await expect(page.locator(".hand-note")).toHaveText(copy.notes);
       if (isMobile) await expect(icons.first()).toBeHidden();
+    });
+
+    test("gives the orange title blocks room above and below", async ({
+      page,
+    }) => {
+      const leadings = await page
+        .locator("h2:has(em.say)")
+        .evaluateAll((titles) =>
+          titles.map((t) => {
+            const s = getComputedStyle(t);
+            return (
+              Number.parseFloat(s.lineHeight) / Number.parseFloat(s.fontSize)
+            );
+          }),
+        );
+      expect(leadings.length).toBeGreaterThan(0);
+      for (const leading of leadings) {
+        expect(leading).toBeGreaterThanOrEqual(MIN_SPOKEN_TITLE_LEADING);
+      }
+    });
+
+    test("peeks the mascot from the left edge at the finale", async ({
+      page,
+      isMobile,
+    }) => {
+      const mascot = page.locator("#finale .edge-mascot-left");
+      if (isMobile) {
+        await expect(mascot).toBeHidden();
+        return;
+      }
+      await mascot.evaluate((e) => e.scrollIntoView({ block: "center" }));
+      const box = await mascot.boundingBox();
+      expect(box?.x ?? 0).toBeLessThan(0);
+      expect((box?.x ?? 0) + (box?.width ?? 0)).toBeGreaterThan(0);
     });
 
     test("does not scroll sideways", async ({ page }) => {
