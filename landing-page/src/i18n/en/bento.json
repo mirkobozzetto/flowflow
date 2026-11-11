@@ -11,14 +11,44 @@
   "sync": {
     "title": "iPhone ↔ Mac, no cloud",
     "body": "Direct sync over your Wi-Fi, end-to-end encrypted. No one in the middle, ever.",
-    "lock": "encrypted"
+    "lock": "encrypted",
+    "packet": "Note"
   },
   "offline": {
     "title": "Offline, for real",
-    "body": "Local transcription with Whisper, from tiny to large-v3-turbo. Airplane mode included, audio never leaves your device."
+    "body": "Airplane mode on, FlowFlow still transcribes. The audio stays on your device.",
+    "airplane": "Airplane mode",
+    "typed": "Remind me to send the proposal Thursday at 9."
   },
   "keyboard": {
     "title": "Keyboard-first on Mac",
-    "body": "Instant navigation, all from the keyboard."
+    "body": "Instant navigation, all from the keyboard.",
+    "window": "FlowFlow",
+    "keys": [
+      {
+        "key": "⌘N",
+        "label": "New note"
+      },
+      {
+        "key": "⇧⌘Enter",
+        "label": "New chat"
+      },
+      {
+        "key": "⌘F",
+        "label": "Search notes"
+      },
+      {
+        "key": "⌃⌃",
+        "label": "Theme picker"
+      },
+      {
+        "key": "⌘←",
+        "label": "Previous view"
+      },
+      {
+        "key": "⌘→",
+        "label": "Next view"
+      }
+    ]
   }
 }
