@@ -4,6 +4,8 @@ import { highlight } from "../lib/highlight";
 import { bookingCode } from "../lib/links";
 import IphoneArt from "./art/IphoneArt.astro";
 import MacbookArt from "./art/MacbookArt.astro";
+import HandNote from "./art/HandNote.astro";
+import InkIcons from "./art/InkIcons.astro";
 
 interface Props {
   lang: string;
@@ -13,7 +15,8 @@ const { lang } = Astro.props;
 const t = section(lang, "trust");
 ---
 
-<section id="trust" class="container pt-35">
+<section id="trust" class="relative overflow-x-clip pt-35">
+ <div class="container">
   <h2
     class="text-[clamp(30px,4.4vw,50px)] leading-[1.04] tracking-[-0.027em]"
   >
@@ -60,7 +63,7 @@ const t = section(lang, "trust");
   </div>
   <p class="mt-4 text-[14px]">{t.duty}</p>
 
-  <div class="cost mt-20">
+  <div class="cost relative mt-20">
     <h3
       class="text-[clamp(30px,4vw,44px)] font-semibold leading-[1.04] tracking-[-0.027em]"
     >
@@ -73,6 +76,7 @@ const t = section(lang, "trust");
         )
       }
     </p>
+    <HandNote text={t.priceNote} arrow="down" class="note-price" />
     <ul class="prices mt-8">
       {
         t.cost.map((card) => (
@@ -101,6 +105,8 @@ const t = section(lang, "trust");
     </div>
     <p class="mt-4 text-[12.5px]">{t.costSource}</p>
   </div>
+ </div>
+  <InkIcons set="right" />
 </section>
 
 <style>
@@ -119,6 +125,11 @@ const t = section(lang, "trust");
 
   .leave {
     box-shadow: -1px 0 0 var(--rule);
+  }
+
+  .note-price {
+    top: 64px;
+    right: 6%;
   }
 
   .stay-head {

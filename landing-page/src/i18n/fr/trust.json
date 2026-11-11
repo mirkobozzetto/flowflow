@@ -54,5 +54,6 @@
   "costNote": "Tu ne paies que les services que tu choisis, directement, ==sans marge==.",
   "costSource": "Tarif Soniox lu le 7 novembre 2026",
   "team": "Espaces, agents et connecteurs : sur rendez-vous.",
-  "teamCta": "Prendre rendez-vous"
+  "teamCta": "Prendre rendez-vous",
+  "priceNote": "sans marge"
 }

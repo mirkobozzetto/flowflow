@@ -54,5 +54,6 @@
   "costNote": "You only pay for the services you choose, directly, ==with no markup==.",
   "costSource": "Soniox price read on 7 November 2026",
   "team": "Spaces, agents and connectors: by appointment.",
-  "teamCta": "Book a call"
+  "teamCta": "Book a call",
+  "priceNote": "no markup"
 }

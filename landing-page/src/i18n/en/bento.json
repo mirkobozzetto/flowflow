@@ -12,13 +12,15 @@
     "title": "iPhone ↔ Mac, no cloud",
     "body": "Direct sync over your Wi-Fi, end-to-end encrypted. No one in the middle, ever.",
     "lock": "encrypted",
-    "packet": "Note"
+    "packet": "Note",
+    "note": "nobody in between"
   },
   "offline": {
     "title": "Offline, for real",
     "body": "Airplane mode on, FlowFlow still transcribes. The audio stays on your device.",
     "airplane": "Airplane mode",
-    "typed": "Remind me to send the proposal Thursday at 9."
+    "typed": "Remind me to send the proposal Thursday at 9.",
+    "note": "even in airplane mode"
   },
   "keyboard": {
     "title": "Keyboard-first on Mac",

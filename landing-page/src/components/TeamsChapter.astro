@@ -13,7 +13,8 @@ const { lang } = Astro.props;
 const t = section(lang, "teams");
 ---
 
-<section id="teams" class="container pt-35">
+<section id="teams" class="container relative isolate pt-35">
+  <div class="dot-grid" aria-hidden="true"></div>
   <h2
     class="mx-auto max-w-200 text-center text-[clamp(34px,5.4vw,66px)] leading-[1.02] tracking-[-0.034em]"
   >
@@ -87,6 +88,22 @@ const t = section(lang, "teams");
 </section>
 
 <style>
+  .dot-grid {
+    position: absolute;
+    top: 60px;
+    right: 0;
+    left: 0;
+    z-index: -1;
+    height: 420px;
+    background-image: radial-gradient(
+      rgba(0, 0, 0, 0.16) 1px,
+      transparent 1.4px
+    );
+    background-size: 18px 18px;
+    mask-image: radial-gradient(ellipse at center, black 20%, transparent 70%);
+    pointer-events: none;
+  }
+
   .offer-mascot {
     position: absolute;
     right: 20px;

@@ -4,6 +4,8 @@ import Phone from "./Phone.astro";
 import AirplaneTyping from "./bento/AirplaneTyping.astro";
 import ShortcutWindow from "./bento/ShortcutWindow.astro";
 import SyncDevices from "./bento/SyncDevices.astro";
+import HandNote from "./art/HandNote.astro";
+import InkIcons from "./art/InkIcons.astro";
 import { section } from "../lib/i18n";
 
 interface Props {
@@ -52,6 +54,7 @@ const t = section(lang, "bento");
       <h3 class="mb-1.25 text-[17px] tracking-[-0.01em]">{t.sync.title}</h3>
       <p class="max-w-80 text-[13.5px]">{t.sync.body}</p>
       <SyncDevices lock={t.sync.lock} packet={t.sync.packet} />
+      <HandNote text={t.sync.note} arrow="up-left" class="note-sync" />
     </div>
 
     <div
@@ -61,6 +64,7 @@ const t = section(lang, "bento");
       <h3 class="mb-1.25 text-[17px] tracking-[-0.01em]">{t.offline.title}</h3>
       <p class="max-w-80 text-[13.5px]">{t.offline.body}</p>
       <AirplaneTyping airplane={t.offline.airplane} typed={t.offline.typed} />
+      <HandNote text={t.offline.note} arrow="up-right" class="note-offline" />
     </div>
 
     <div
@@ -73,6 +77,7 @@ const t = section(lang, "bento");
     </div>
   </div>
  </div>
+  <InkIcons set="left" />
   <img
     class="edge-mascot"
     src="/brand/mascot-sticker.webp"
@@ -118,6 +123,16 @@ const t = section(lang, "bento");
     .shots :global(.front) {
       rotate: 0deg;
     }
+  }
+
+  .note-sync {
+    right: 22%;
+    bottom: 26px;
+  }
+
+  .note-offline {
+    left: 24px;
+    bottom: 22px;
   }
 
   .edge-mascot {
