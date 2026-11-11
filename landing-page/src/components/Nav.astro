@@ -194,6 +194,24 @@ const sections = ["product", "agentic", "teams", "faq"] as const;
   .nav-cta:hover {
     filter: brightness(1.05);
   }
+  @media (max-width: 1023px) {
+    /* On a phone the page must not show through or above the menu. */
+    nav::before {
+      content: "";
+      position: absolute;
+      top: 0;
+      right: 0;
+      left: 0;
+      z-index: -1;
+      height: calc(100% + 12px);
+      background: linear-gradient(var(--warm-white) 62%, transparent);
+      pointer-events: none;
+    }
+    .nav-inner {
+      background: var(--warm-white);
+      backdrop-filter: none;
+    }
+  }
   .mobile-panel {
     top: calc(100% + 8px);
     background: color-mix(in srgb, var(--warm-white) 97%, transparent);

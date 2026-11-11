@@ -1,5 +1,7 @@
 ---
+import { Image } from "astro:assets";
 import Offer from "./Offer.astro";
+import mirko from "../assets/people/mirko.png";
 import { section } from "../lib/i18n";
 import { appStoreUrl, bookingCode } from "../lib/links";
 
@@ -11,7 +13,8 @@ const { lang } = Astro.props;
 const t = section(lang, "teams");
 ---
 
-<section id="teams" class="container pt-35">
+<section id="teams" class="container relative isolate pt-35">
+  <div class="dot-grid" aria-hidden="true"></div>
   <h2
     class="mx-auto max-w-200 text-center text-[clamp(34px,5.4vw,66px)] leading-[1.02] tracking-[-0.034em]"
   >
@@ -32,7 +35,18 @@ const t = section(lang, "teams");
       cta={t.solo.cta}
       href={appStoreUrl(lang)}
       external
-    />
+    >
+      <img
+        slot="art"
+        class="offer-mascot"
+        src="/brand/mascot-sticker.webp"
+        alt=""
+        width="104"
+        height="104"
+        loading="lazy"
+        decoding="async"
+      />
+    </Offer>
     <Offer
       tone="orange"
       title={t.guided.title}
@@ -41,36 +55,101 @@ const t = section(lang, "teams");
       cta={t.guided.cta}
       href="#book"
       contact={bookingCode()}
-    />
+    >
+      <div slot="art" class="faces">
+        <span class="face mirko"><Image src={mirko} alt="" width={96} height={96} /></span>
+      </div>
+    </Offer>
   </div>
 
   <div
-    class="mt-12 flex flex-wrap items-center justify-center gap-x-6 gap-y-3"
+    class="unsure mt-12 flex flex-wrap items-center justify-center gap-x-6 gap-y-3"
   >
-    <div class="text-right max-[560px]:text-center">
-      <p class="text-[20px] font-semibold tracking-[-0.015em] text-ink">
+    <div class="max-w-105 text-right text-balance max-[560px]:text-center">
+      <p class="unsure-title text-[20px] font-semibold tracking-[-0.015em] text-ink">
         {t.unsureTitle}
       </p>
-      <p class="text-[14.5px]">{t.unsureText}</p>
+      <p class="unsure-text text-[14.5px]">{t.unsureText}</p>
     </div>
-    <svg class="arrow max-[560px]:hidden" viewBox="0 0 84 38" aria-hidden="true">
-      <path d="M3 26C24 6 52 4 76 19"></path>
-      <path d="M63 19l14 1-3-14"></path>
+    <svg class="arrow-up max-[560px]:hidden" viewBox="0 0 56 72" aria-hidden="true">
+      <path d="M6 68C30 66 42 50 44 10"></path>
+      <path d="M35 20l9-11 9 11"></path>
     </svg>
-    <a
-      class="btn-ghost"
-      href="#book"
-      data-contact={bookingCode()}
-      hidden={!bookingCode()}
-    >
-      {t.guided.cta}
-    </a>
   </div>
 </section>
 
 <style>
-  .arrow {
-    width: 74px;
+  .dot-grid {
+    position: absolute;
+    top: 60px;
+    right: 0;
+    left: 0;
+    z-index: -1;
+    height: 420px;
+    background-image: radial-gradient(
+      rgba(0, 0, 0, 0.08) 1px,
+      transparent 1.4px
+    );
+    background-size: 18px 18px;
+    mask-image: radial-gradient(ellipse at center, black 20%, transparent 70%);
+    pointer-events: none;
+  }
+
+  .offer-mascot {
+    position: absolute;
+    right: 20px;
+    bottom: 18px;
+    width: 104px;
+    height: 104px;
+    rotate: 8deg;
+  }
+
+  .faces {
+    position: absolute;
+    top: 28px;
+    right: 28px;
+    display: flex;
+  }
+
+  .face {
+    display: block;
+    width: 64px;
+    height: 64px;
+    overflow: hidden;
+    border-radius: 50%;
+    background: black;
+    box-shadow: 0 0 0 3px white;
+  }
+
+  .face :global(img) {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    object-position: 50% 20%;
+  }
+
+  @media (min-width: 561px) {
+    #teams :global(.offer[data-tone="orange"] > h3),
+    #teams :global(.offer[data-tone="orange"] > p) {
+      padding-right: 116px;
+    }
+  }
+
+  @media (max-width: 560px) {
+    .faces {
+      position: static;
+      align-self: center;
+      margin-bottom: 14px;
+    }
+
+    .offer-mascot {
+      width: 80px;
+      height: 80px;
+    }
+  }
+
+  .arrow-up {
+    width: 46px;
     fill: none;
     stroke: black;
     stroke-width: 1.8;

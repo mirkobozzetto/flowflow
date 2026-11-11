@@ -1,35 +1,128 @@
 ---
+import { section } from "../lib/i18n";
 import { APPLE_PATH } from "../lib/icons";
 import { appStoreUrl, externalLinkAttrs, macDownloadUrl } from "../lib/links";
 
 interface Props {
   lang: string;
-  primary: string;
-  ghost: string;
 }
 
-const { lang, primary, ghost } = Astro.props;
+const { lang } = Astro.props;
+const { store } = section(lang, "hero");
 ---
 
-<div class="hero-ctas">
-  <a class="btn-primary" href={appStoreUrl(lang)} {...externalLinkAttrs}>
+<div class="hero-ctas badges">
+  <a class="store-badge" href={appStoreUrl(lang)} {...externalLinkAttrs}>
     <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
       <path d={APPLE_PATH}></path>
     </svg>
-    {primary}
+    <span><small>{store.appLead}</small> {store.appName}</span>
   </a>
-  <a class="btn-ghost" href={macDownloadUrl} {...externalLinkAttrs}>
-    <svg
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      stroke-width="2"
-      stroke-linecap="round"
-      stroke-linejoin="round"
-      aria-hidden="true"
-    >
-      <path d="M12 4v11m0 0 4.5-4.5M12 15l-4.5-4.5M5 20h14"></path>
+  <a class="store-badge mac" href={macDownloadUrl} {...externalLinkAttrs}>
+    <svg class="macbook" viewBox="0 0 24 24" aria-hidden="true">
+      <rect
+        x="4.3"
+        y="4.8"
+        width="15.4"
+        height="11.4"
+        rx="1.4"
+        fill="none"
+        stroke="currentColor"
+        stroke-width="1.6"></rect>
+      <rect x="10.9" y="4.8" width="2.2" height="1.3" rx="0.5" fill="currentColor"
+      ></rect>
+      <path
+        d="M1.5 17.2h21v.5c0 1-.8 1.8-1.8 1.8H3.3c-1 0-1.8-.8-1.8-1.8z"
+        fill="currentColor"></path>
     </svg>
-    {ghost}
+    <span><small>{store.macLead}</small> {store.macName}</span>
   </a>
 </div>
+
+<style>
+  .badges {
+    display: grid;
+    grid-template-columns: repeat(2, 210px);
+    justify-content: center;
+  }
+
+  .store-badge {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 11px;
+    min-height: 60px;
+    padding: 0 14px;
+    border-radius: 14px;
+    background: var(--gradient);
+    color: white;
+    text-align: center;
+    text-decoration: none;
+    box-shadow:
+      inset 0 1px 0 rgba(255, 255, 255, 0.34),
+      inset 0 -1px 0 rgba(0, 0, 0, 0.1),
+      0 0 0 1px color-mix(in srgb, var(--orange) 82%, black);
+    transition: filter 0.2s ease;
+  }
+
+  .store-badge.mac {
+    background: white;
+    color: black;
+    box-shadow: 0 0 0 1px var(--rule);
+  }
+
+  .store-badge.mac:hover {
+    filter: none;
+    box-shadow:
+      0 0 0 1px var(--rule),
+      0 6px 14px -8px rgba(0, 0, 0, 0.28);
+  }
+
+  .store-badge:hover {
+    filter: brightness(1.05);
+  }
+
+  .store-badge:active {
+    filter: brightness(0.97);
+  }
+
+  .store-badge svg {
+    width: 26px;
+    height: 26px;
+    flex-shrink: 0;
+  }
+
+  .store-badge .macbook {
+    width: 32px;
+    height: 32px;
+  }
+
+  .store-badge span {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    font-size: 21px;
+    font-weight: 600;
+    line-height: 1.05;
+    letter-spacing: -0.015em;
+  }
+
+  .store-badge small {
+    font-size: 13px;
+    font-weight: 500;
+    letter-spacing: 0;
+    opacity: 0.92;
+  }
+
+  @media (max-width: 479px) {
+    .badges {
+      grid-template-columns: 250px;
+    }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .store-badge {
+      transition: none;
+    }
+  }
+</style>

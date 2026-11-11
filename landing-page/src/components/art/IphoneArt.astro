@@ -1,0 +1,91 @@
+---
+// Side buttons placed from a current iPhone photo, seen from the front:
+// three on the left (action, volume up, volume down), one on the right.
+interface Props {
+  width: number;
+}
+
+const { width } = Astro.props;
+---
+
+<div class="iphone-art" style={`--w: ${width}px`} aria-hidden="true">
+  <span class="button action"></span>
+  <span class="button vol-up"></span>
+  <span class="button vol-down"></span>
+  <span class="button side"></span>
+  <div class="screen"><span class="island"></span><slot /></div>
+</div>
+
+<style>
+  .iphone-art {
+    --bump: max(0.6px, calc(var(--w) * 0.011));
+    position: relative;
+    flex-shrink: 0;
+    width: var(--w);
+    aspect-ratio: 0.483;
+    padding: max(1.5px, calc(var(--w) * 0.045));
+    border-radius: calc(var(--w) * 0.2);
+    background: linear-gradient(150deg, #48484c, #121214 38%, #1c1c1e 70%, #3a3a3e);
+    box-shadow:
+      inset 0 0 0 max(0.5px, calc(var(--w) * 0.012)) rgba(255, 255, 255, 0.22),
+      0 calc(var(--w) * 0.18) calc(var(--w) * 0.3) calc(var(--w) * -0.2)
+        rgba(0, 0, 0, 0.5);
+  }
+
+  .button {
+    position: absolute;
+    left: calc(var(--bump) * -1);
+    width: var(--bump);
+    border-radius: var(--bump) 0 0 var(--bump);
+    background: #4a4a4e;
+  }
+
+  .action {
+    top: 20.5%;
+    height: 5%;
+  }
+
+  .vol-up {
+    top: 28.7%;
+    height: 7.9%;
+  }
+
+  .vol-down {
+    top: 38.3%;
+    height: 7.9%;
+  }
+
+  .side {
+    top: 31.4%;
+    right: calc(var(--bump) * -1);
+    left: auto;
+    height: 12%;
+    border-radius: 0 var(--bump) var(--bump) 0;
+  }
+
+  .screen {
+    position: relative;
+    display: grid;
+    place-items: center;
+    height: 100%;
+    border-radius: calc(var(--w) * 0.16);
+    background: white;
+  }
+
+  .island {
+    position: absolute;
+    top: calc(var(--w) * 0.065);
+    left: 50%;
+    width: calc(var(--w) * 0.3);
+    height: max(2px, calc(var(--w) * 0.085));
+    border-radius: 99px;
+    background: #0a0a0b;
+    translate: -50% 0;
+  }
+
+  .screen :global(img) {
+    width: calc(var(--w) * 0.46);
+    height: auto;
+    border-radius: calc(var(--w) * 0.1);
+  }
+</style>
