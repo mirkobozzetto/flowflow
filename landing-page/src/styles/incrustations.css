@@ -22,6 +22,7 @@
 .unsure-text {
   max-width: 420px;
   text-align: right;
+  text-wrap: balance;
   font-size: 14.5px;
 }
 
