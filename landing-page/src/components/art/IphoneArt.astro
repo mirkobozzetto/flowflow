@@ -7,7 +7,9 @@ const { width } = Astro.props;
 ---
 
 <div class="iphone-art" style={`--w: ${width}px`} aria-hidden="true">
-  <span class="button volume"></span>
+  <span class="button action"></span>
+  <span class="button volume-up"></span>
+  <span class="button volume-down"></span>
   <span class="button power"></span>
   <div class="screen">
     <span class="island"></span>
@@ -31,23 +33,36 @@ const { width } = Astro.props;
         rgba(0, 0, 0, 0.5);
   }
 
+  /* Real iPhone side buttons: hairline thin, barely out of the frame. */
   .button {
     position: absolute;
-    width: max(1px, calc(var(--w) * 0.03));
-    border-radius: 1px;
-    background: #2c2c2f;
+    left: calc(max(0.75px, calc(var(--w) * 0.022)) * -1);
+    width: max(0.75px, calc(var(--w) * 0.022));
+    border-radius: 1px 0 0 1px;
+    background: #3a3a3e;
   }
 
-  .volume {
-    top: 24%;
-    left: calc(max(1px, calc(var(--w) * 0.03)) * -1);
-    height: 13%;
+  .action {
+    top: 19%;
+    height: 5%;
+  }
+
+  .volume-up {
+    top: 27%;
+    height: 9%;
+  }
+
+  .volume-down {
+    top: 38%;
+    height: 9%;
   }
 
   .power {
     top: 30%;
-    right: calc(max(1px, calc(var(--w) * 0.03)) * -1);
-    height: 17%;
+    right: calc(max(0.75px, calc(var(--w) * 0.022)) * -1);
+    left: auto;
+    height: 15%;
+    border-radius: 0 1px 1px 0;
   }
 
   .screen {
