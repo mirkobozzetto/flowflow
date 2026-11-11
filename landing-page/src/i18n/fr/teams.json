@@ -1,7 +1,7 @@
 {
   "h2Lead": "Toi, ton équipe, ton agent",
   "h2Accent": "Un seul espace",
-  "sub": "Un espace réunit des notes, les personnes que tu invites et ton Hermes, avec un accès limité à cet espace et révocable.",
+  "sub": "Invite ton équipe et ton agent Hermes dans un espace : ils voient ses notes, rien d'autre. Tu retires l'accès quand tu veux.",
   "solo": {
     "title": "Tu testes seul",
     "body": "L'app, tes clés, ton rythme. Sans compte, et le code est ouvert.",
@@ -10,7 +10,7 @@
     "stub": "Sans compte"
   },
   "guided": {
-    "title": "On t'accompagne",
+    "title": "Je t'accompagne",
     "body": "Mirko et son agent rejoignent ton espace pour voir ce que tu peux déléguer.",
     "points": [
       "Espaces et partage",

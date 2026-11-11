@@ -1,9 +1,9 @@
 {
-  "h2Lead": "Du dire",
-  "h2Accent": "au faire",
-  "subLead": "Relie ton propre agent",
+  "h2Lead": "Ton agent",
+  "h2Accent": "passe à l'action",
+  "subLead": "Tu dictes une demande, ton agent",
   "subStrong": "Hermes",
-  "subTail": " à FlowFlow. Mails, devis, veille : il fait ce que tu lui as appris, et tu gardes la main depuis ton iPhone.",
+  "subTail": " s'en occupe : mails, devis, veille. Rien ne part sans ton accord sur l'iPhone.",
   "videoLabel": "Hermes transforme la photo d'un tableau en plan, sur un iPhone",
   "actions": [
     {

@@ -150,6 +150,7 @@ const TAILSCALE_WHITE = "/logos/tailscale-white.svg";
 const MIN_INK_ICONS = 6;
 const CENTER_TOLERANCE_PX = 1.5;
 const MIN_SPOKEN_TITLE_LEADING = 1.15;
+const HERO_MASCOT_PX = 176;
 const RUST_URL = "https://www.rust-lang.org";
 const DIOXUS_URL = "https://dioxuslabs.com";
 
@@ -805,13 +806,13 @@ for (const copy of PAGES) {
       await expect(unsure.locator("svg.arrow-up")).toHaveCount(1);
     });
 
-    test("puts faces on the guided offer and the mascot on the solo one", async ({
+    test("puts my photo on the guided offer and the mascot on the solo one", async ({
       page,
     }) => {
       const faces = page.locator(
         '#teams .offer[data-tone="orange"] .faces img',
       );
-      await expect(faces).toHaveCount(2);
+      await expect(faces).toHaveCount(1);
       await expect(
         page.locator('#teams .offer[data-tone="white"] .offer-mascot'),
       ).toHaveCount(1);
@@ -887,6 +888,9 @@ for (const copy of PAGES) {
       }
       await mascot.evaluate((e) => e.scrollIntoView({ block: "center" }));
       const box = await mascot.boundingBox();
+      expect(await mascot.evaluate((e) => (e as HTMLElement).offsetWidth)).toBe(
+        HERO_MASCOT_PX,
+      );
       expect(box?.x ?? 0).toBeLessThan(0);
       expect((box?.x ?? 0) + (box?.width ?? 0)).toBeGreaterThan(0);
     });
