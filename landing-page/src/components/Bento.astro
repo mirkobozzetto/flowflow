@@ -125,14 +125,15 @@ const t = section(lang, "bento");
     }
   }
 
-  .note-sync {
-    right: 22%;
-    bottom: 26px;
+  /* Notes are child components: reach them past this component's scope. */
+  .edge :global(.note-sync) {
+    right: 9%;
+    bottom: 28px;
   }
 
-  .note-offline {
-    left: 24px;
+  .edge :global(.note-offline) {
     bottom: 22px;
+    left: 24px;
   }
 
   .edge-mascot {
