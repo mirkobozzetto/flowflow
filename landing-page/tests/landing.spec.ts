@@ -4,7 +4,8 @@ const PAGES = [
   {
     path: "/",
     h1: "A word away",
-    sub: "You dictate, FlowFlow transcribes, files and takes action.",
+    sub: "One voice to run all your agents, and a memory that keeps everything",
+    heroSteps: ["You dictate", "FlowFlow understands", "your agents act"],
     steps: ["Speak", "Transcribe", "Organize", "Recall"],
     stepTitles: [
       "One tap, and you talk",
@@ -55,7 +56,8 @@ const PAGES = [
   {
     path: "/fr/",
     h1: "À portée de voix",
-    sub: "Tu dictes, FlowFlow transcrit, range et passe à l'action.",
+    sub: "Une seule voix pour piloter tous tes agents, et une mémoire qui retient tout",
+    heroSteps: ["Tu dictes", "FlowFlow comprend", "tes agents agissent"],
     steps: ["Parle", "Transcrit", "Range", "Retrouve"],
     stepTitles: [
       "Un tap, et tu parles",
@@ -893,6 +895,15 @@ for (const copy of PAGES) {
       );
       expect(box?.x ?? 0).toBeLessThan(0);
       expect((box?.x ?? 0) + (box?.width ?? 0)).toBeGreaterThan(0);
+    });
+
+    test("lights the three hero steps one after another", async ({ page }) => {
+      const steps = page.locator("header [data-steps] li");
+      await expect(steps).toHaveText(copy.heroSteps);
+      const lit = page.locator("header [data-steps] li.on");
+      await expect(lit).toHaveCount(1);
+      const first = await lit.textContent();
+      await expect.poll(() => lit.textContent()).not.toBe(first);
     });
 
     test("does not scroll sideways", async ({ page }) => {
