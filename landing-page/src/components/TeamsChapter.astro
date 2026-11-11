@@ -123,8 +123,8 @@ const t = section(lang, "teams");
   .face {
     display: grid;
     place-items: center;
-    width: 52px;
-    height: 52px;
+    width: 60px;
+    height: 60px;
     overflow: hidden;
     border-radius: 50%;
     background: white;
@@ -145,10 +145,12 @@ const t = section(lang, "teams");
     object-fit: cover;
   }
 
-  /* The portrait is cropped tight: shrinking it on black keeps the whole head. */
+  /* The portrait is cropped tight: a smaller, feathered photo on black keeps
+     the whole head and hides the square edge. */
   .face.mirko :global(img) {
-    width: 84%;
-    height: 84%;
+    width: 92%;
+    height: 92%;
+    mask-image: radial-gradient(circle, black 58%, transparent 71%);
   }
 
   @media (max-width: 560px) {

@@ -50,22 +50,22 @@ const LOCK_PATH =
     z-index: 2;
     display: grid;
     place-items: center;
-    width: 32px;
-    height: 32px;
+    width: 24px;
+    height: 24px;
     border-radius: 50%;
     background: white;
     box-shadow:
-      0 0 0 1.5px var(--orange),
-      0 6px 12px -6px rgba(0, 0, 0, 0.35);
+      0 0 0 1px var(--orange-100),
+      0 3px 8px -4px rgba(0, 0, 0, 0.2);
     transform: translate(-50%, -50%);
   }
 
   .sync-lock svg {
-    width: 16px;
-    height: 16px;
+    width: 12px;
+    height: 12px;
     fill: none;
     stroke: var(--orange-dark);
-    stroke-width: 2.2;
+    stroke-width: 1.7;
     stroke-linecap: round;
     stroke-linejoin: round;
   }
@@ -75,14 +75,14 @@ const LOCK_PATH =
     top: 50%;
     left: 0;
     z-index: 1;
-    padding: 2px 7px;
+    padding: 1px 6px;
     border: 1px solid var(--orange-100);
-    border-radius: 6px;
-    background: var(--orange-50);
+    border-radius: 5px;
+    background: white;
     color: var(--orange-dark);
-    font-size: 10.5px;
+    font-size: 10px;
     font-variant-numeric: tabular-nums;
-    font-weight: 600;
+    font-weight: 500;
     letter-spacing: 0.02em;
     white-space: nowrap;
     transform: translate(-50%, -50%);

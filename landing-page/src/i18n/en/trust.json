@@ -14,31 +14,22 @@
     {
       "what": "Chat, titles and summaries, with your key or your subscription",
       "where": "Codex/ChatGPT and Claude",
-      "logos": [
-        "/logos/openai.svg",
-        "/logos/claude.svg"
-      ]
+      "logos": ["/logos/openai.svg", "/logos/claude.svg"]
     },
     {
       "what": "Cloud transcription, if you choose it",
       "where": "Soniox",
-      "logos": [
-        "/logos/soniox.png"
-      ]
+      "logos": ["/logos/soniox.png"]
     },
     {
       "what": "Web search, if you turn it on",
       "where": "Exa",
-      "logos": [
-        "/logos/exa.png"
-      ]
+      "logos": ["/logos/exa.png"]
     },
     {
       "what": "Sharing and spaces",
       "where": "FlowFlow server",
-      "logos": [
-        "/logo.png"
-      ]
+      "logos": ["/logo.png"]
     }
   ],
   "duty": "You stay responsible for what you hand to an AI. Tell people when you record them.",
@@ -47,24 +38,17 @@
     {
       "price": "€0",
       "what": "The app, for now, and local transcription",
-      "logos": [
-        "/logo.png"
-      ]
+      "logos": ["/logo.png"]
     },
     {
       "price": "~$0.10/h",
       "what": "Cloud transcription",
-      "logos": [
-        "/logos/soniox.png"
-      ]
+      "logos": ["/logos/soniox.png"]
     },
     {
       "price": "Your subscription",
       "what": "Chat with Codex/ChatGPT or Claude, or your key, pay as you go",
-      "logos": [
-        "/logos/openai.svg",
-        "/logos/claude.svg"
-      ]
+      "logos": ["/logos/openai.svg", "/logos/claude.svg"]
     }
   ],
   "costNote": "You only pay for the services you choose, directly, ==with no markup==.",
