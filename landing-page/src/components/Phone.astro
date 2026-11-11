@@ -15,7 +15,6 @@ const { class: className } = Astro.props;
     --unit: var(--phone-base, var(--phone-width, 240px));
     position: relative;
     width: var(--phone-width, 240px);
-    aspect-ratio: var(--phone-ratio, 720 / 1564);
     flex-shrink: 0;
     padding: calc(var(--unit) * 0.034);
     border-radius: calc(var(--unit) * 0.165);
@@ -57,7 +56,8 @@ const { class: className } = Astro.props;
   .phone-screen {
     position: relative;
     width: 100%;
-    height: 100%;
+    /* The screen takes the clip's own shape, so nothing is cropped. */
+    aspect-ratio: var(--screen-ratio, 720 / 1564);
     overflow: hidden;
     border-radius: calc(var(--unit) * 0.132);
     background: white;
