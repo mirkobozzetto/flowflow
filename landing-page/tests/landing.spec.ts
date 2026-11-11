@@ -500,7 +500,7 @@ for (const copy of PAGES) {
 
     test("loads every image", async ({ page }) => {
       await scrollThrough(page);
-      await page.waitForLoadState("networkidle");
+      // No network-idle wait: looping videos keep the network busy.
       const broken = await page.evaluate(async () => {
         const images = [...document.images];
         for (const image of images) {
