@@ -13,8 +13,6 @@
     "h1Accent": "voix",
     "subLead": "Tu dictes,",
     "subStrong": "FlowFlow",
-    "ctaPrimary": "App Store",
-    "ctaGhost": "Télécharger pour Mac",
     "subTail": "transcrit, range et passe à l'action."
   },
   "stage": {
@@ -83,5 +81,11 @@
       "Rappelle-moi d'appeler ma mère dimanche. Elle demande si l'app est finie.",
       "Rappelle-moi de fermer l'ordi à 19 h. Vraiment, cette fois."
     ]
+  },
+  "store": {
+    "appLead": "Télécharger dans",
+    "appName": "l'App Store",
+    "macLead": "Télécharger pour",
+    "macName": "macOS"
   }
 }

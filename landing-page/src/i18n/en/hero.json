@@ -13,8 +13,6 @@
     "h1Accent": "away",
     "subLead": "You dictate,",
     "subStrong": "FlowFlow",
-    "ctaPrimary": "App Store",
-    "ctaGhost": "Download for Mac",
     "subTail": "transcribes, files and takes action."
   },
   "stage": {
@@ -83,5 +81,11 @@
       "Remind me to call my mum on Sunday. She asks if the app is finished.",
       "Remind me to shut the laptop at 7 pm. For real this time."
     ]
+  },
+  "store": {
+    "appLead": "Download on the",
+    "appName": "App Store",
+    "macLead": "Download for",
+    "macName": "macOS"
   }
 }
