@@ -37,6 +37,8 @@ const PAGES = [
     ],
     airplane: "Airplane mode",
     packet: "Note",
+    appBadge: "Download on the App Store",
+    macBadge: "Download for macOS",
   },
   {
     path: "/fr/",
@@ -74,6 +76,8 @@ const PAGES = [
     ],
     airplane: "Mode avion",
     packet: "Note",
+    appBadge: "Télécharger dans l'App Store",
+    macBadge: "Télécharger pour macOS",
   },
 ];
 
@@ -577,14 +581,23 @@ for (const copy of PAGES) {
       isMobile,
     }) => {
       for (const zone of ["header", "#finale"]) {
-        const buttons = page.locator(`${zone} .hero-ctas a`);
-        await expect(buttons.nth(0)).toHaveClass(/btn-primary/);
-        await expect(buttons.nth(0)).toHaveAttribute(
+        const badges = page.locator(`${zone} .hero-ctas a`);
+        await expect(badges).toHaveText([copy.appBadge, copy.macBadge]);
+        await expect(badges.nth(0)).toHaveAttribute(
           "href",
           /apps\.apple\.com/,
         );
-        await expect(buttons.nth(1)).toHaveClass(/btn-ghost/);
-        await expect(buttons.nth(1)).toHaveAttribute("href", /\.dmg$/);
+        await expect(badges.nth(1)).toHaveAttribute("href", /\.dmg$/);
+        await expect(badges.nth(0).locator("svg")).toHaveCount(1);
+        await expect(badges.nth(1).locator("svg.macbook")).toHaveCount(1);
+        const [app, mac] = await Promise.all([
+          badges.nth(0).boundingBox(),
+          badges.nth(1).boundingBox(),
+        ]);
+        expect(Math.abs((app?.width ?? 0) - (mac?.width ?? 1))).toBeLessThan(1);
+        expect(Math.abs((app?.height ?? 0) - (mac?.height ?? 1))).toBeLessThan(
+          1,
+        );
       }
       test.skip(isMobile, "the nav button sits in the menu on a phone");
       const navCta = page.locator("nav .nav-cta").first();
