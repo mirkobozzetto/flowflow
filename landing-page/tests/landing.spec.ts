@@ -943,6 +943,20 @@ for (const copy of PAGES) {
       expect(fits).toBe(true);
     });
 
+    test("keeps the hero line on one line on a wide screen", async ({
+      page,
+      isMobile,
+    }) => {
+      test.skip(isMobile, "the line wraps on a phone");
+      const lines = await page.locator("header .hero-line").evaluate((e) => {
+        const s = getComputedStyle(e);
+        return (
+          e.getBoundingClientRect().height / Number.parseFloat(s.lineHeight)
+        );
+      });
+      expect(Math.round(lines)).toBe(1);
+    });
+
     test("does not scroll sideways", async ({ page }) => {
       await scrollThrough(page);
       const overflow = await page.evaluate(
