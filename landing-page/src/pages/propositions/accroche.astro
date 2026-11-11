@@ -1,0 +1,113 @@
+---
+import Layout from "../../layouts/Layout.astro";
+import Choice from "../../components/studio/Choice.astro";
+import "../../styles/retouches.css";
+
+const H1 = "À portée de voix";
+const VARIANTS = [
+  { angle: "Le résultat", big: "Tu parles, c'est fait", small: "Mails, devis, rendez-vous, rappels : tes agents s'en chargent" },
+  { angle: "La délégation", big: "Dis-le, c'est délégué", small: "Tes agents envoient, planifient et préparent pendant que tu avances" },
+  { angle: "Le contrôle", big: "Tu décides, tes agents exécutent", small: "Ils préparent mails, devis et rendez-vous, puis attendent ton feu vert" },
+  { angle: "L'équipe", big: "Ton équipe d'agents, à la voix", small: "Ils envoient, planifient, préparent. Tu valides d'un geste" },
+  { angle: "Sans clavier", big: "De l'idée à l'action, sans clavier", small: "Le mail part, le rendez-vous se cale, le devis se prépare" },
+  { angle: "Le mouvement", big: "Tu parles, ça avance", small: "Mails envoyés, rendez-vous calés, devis prêts : tes agents s'en occupent" },
+  { angle: "Penser tout haut", big: "Pense tout haut, tes agents font le reste", small: "Mails, devis, rendez-vous, rappels, avec ton accord à chaque fois" },
+  { angle: "Court et franc", big: "Dis-le. C'est parti", small: "Tes agents passent à l'action : mails, devis, rendez-vous, rappels" },
+  { angle: "L'image", big: "Ta voix, leurs mains", small: "Tu dictes, tes agents envoient, planifient et préparent" },
+  { angle: "Le temps", big: "Parle, et passe à autre chose", small: "Tes agents envoient le mail, calent le rendez-vous, préparent le devis" },
+  { angle: "La tâche", big: "Une phrase, une tâche réglée", small: "Mail, devis, rendez-vous ou rappel : tes agents s'en occupent" },
+  { angle: "Celle du formulaire", big: "Tu parles, tes agents passent à l'action", small: "Mails, devis, rendez-vous, rappels" },
+];
+---
+
+<Layout lang="fr">
+  <main class="opts">
+    <h1>Phrase du haut de page</h1>
+    <p class="opts-intro">
+      Douze pistes, présentées sur deux niveaux sous le titre. Coche celles qui
+      te parlent, je les traduis ensuite.
+    </p>
+    <div class="opts-grid wide">
+      {
+        VARIANTS.map((v) => (
+          <Choice group="Phrase" name={`${v.angle} : ${v.big}`}>
+            <div class="hero-mini">
+              <span class="angle">{v.angle}</span>
+              <p class="h1">{H1}</p>
+              <p class="big">{v.big}</p>
+              <p class="small">{v.small}</p>
+            </div>
+          </Choice>
+        ))
+      }
+    </div>
+  </main>
+
+  <div class="opts-bar">
+    <p data-count>Aucun choix</p>
+    <button class="btn-primary" type="button" data-copy>Copier mes choix</button>
+  </div>
+
+  <script>
+    const boxes = [...document.querySelectorAll<HTMLInputElement>("[data-keep]")];
+    const count = document.querySelector<HTMLElement>("[data-count]");
+    const kept = (): string[] =>
+      boxes.filter((box) => box.checked).map((box) => box.dataset.keep ?? "");
+    for (const box of boxes) {
+      box.addEventListener("change", () => {
+        const total = kept().length;
+        if (count) count.textContent = total ? `${total} choix cochés` : "Aucun choix";
+      });
+    }
+    document.querySelector("[data-copy]")?.addEventListener("click", () => {
+      navigator.clipboard?.writeText(kept().join("\n"));
+      if (count) count.textContent = "Choix copiés";
+    });
+  </script>
+</Layout>
+
+<style>
+  .hero-mini {
+    position: relative;
+    display: grid;
+    gap: 10px;
+    justify-items: center;
+    padding: 40px 16px 34px;
+    text-align: center;
+  }
+
+  .angle {
+    position: absolute;
+    top: 0;
+    left: 0;
+    color: var(--orange-dark);
+    font-size: 12px;
+    font-weight: 600;
+  }
+
+  .h1 {
+    margin-bottom: 6px;
+    color: var(--ink);
+    font-size: clamp(34px, 4vw, 46px);
+    font-weight: 600;
+    line-height: 1;
+    letter-spacing: -0.035em;
+  }
+
+  .big {
+    max-width: 30ch;
+    color: var(--ink);
+    font-size: clamp(21px, 2.2vw, 26px);
+    font-weight: 600;
+    line-height: 1.2;
+    letter-spacing: -0.015em;
+    text-wrap: balance;
+  }
+
+  .small {
+    max-width: 44ch;
+    font-size: 16px;
+    line-height: 1.4;
+    text-wrap: balance;
+  }
+</style>
