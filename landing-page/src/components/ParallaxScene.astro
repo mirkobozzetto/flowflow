@@ -6,9 +6,10 @@ import { useTranslations } from "../lib/i18n";
 
 interface Props {
   lang: string;
+  clip?: string;
 }
 
-const { lang } = Astro.props;
+const { lang, clip = "promo" } = Astro.props;
 const t = useTranslations(lang, "hero");
 ---
 
@@ -26,7 +27,7 @@ const t = useTranslations(lang, "hero");
       </div>
     </div>
     <div class="iphone">
-      <Phone><Clip lang={lang} clip="promo" label={t("scene.videoLabel")} /></Phone>
+      <Phone><Clip lang={lang} clip={clip} label={t("scene.videoLabel")} /></Phone>
     </div>
   </div>
 </div>
