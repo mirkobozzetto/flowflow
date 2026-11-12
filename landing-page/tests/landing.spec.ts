@@ -150,6 +150,7 @@ const EMAIL_FREE_PAGES = [
 ];
 const CLIP_RATIO = 720 / 1564;
 const MAX_CLIP_CROP = 0.01;
+const UNSEEN_WAIT_MS = 600;
 const HERMES_WAVE_GAP = 56;
 const EDGE_TOLERANCE_PX = 2;
 const TAILSCALE_WHITE = "/logos/tailscale-white.svg";
@@ -170,6 +171,11 @@ async function scrollThrough(page: Page): Promise<void> {
     scrollTo(0, 0);
   });
 }
+
+const showScene = (page: Page): Promise<void> =>
+  page
+    .locator("#scene .mac")
+    .evaluate((e) => e.scrollIntoView({ block: "center" }));
 
 const rowLengths = (page: Page, selector: string): Promise<number[]> =>
   page.locator(selector).evaluateAll((items) => {
@@ -442,6 +448,7 @@ for (const copy of PAGES) {
     });
 
     test("shows the black capsule, one word at a time", async ({ page }) => {
+      await showScene(page);
       const capsule = page.locator(".capsule");
       await expect(capsule).toBeVisible();
       expect(
@@ -470,6 +477,7 @@ for (const copy of PAGES) {
     });
 
     test("scrolls a long day of lines in the Mac window", async ({ page }) => {
+      await showScene(page);
       const lines = page.locator(".mac-screen [data-spoken] p");
       expect(await lines.count()).toBeGreaterThanOrEqual(MIN_PROMPTER_LINES);
       await expect(page.locator(".mac-screen img")).toHaveCount(0);
@@ -547,6 +555,34 @@ for (const copy of PAGES) {
         .locator(".iphone .phone")
         .evaluate((e) => (e as HTMLElement).offsetWidth);
       expect(width).toBeGreaterThanOrEqual(MIN_HERO_PHONE_WIDTH);
+    });
+
+    test("keeps the Mac and the iPhone below the fold on arrival", async ({
+      page,
+    }) => {
+      const fold = await page.evaluate(() => innerHeight);
+      const tops = await page
+        .locator("#scene .mac, #scene .phone")
+        .evaluateAll((els) => els.map((e) => e.getBoundingClientRect().top));
+      expect(tops).toHaveLength(2);
+      for (const top of tops) expect(top).toBeGreaterThanOrEqual(fold);
+    });
+
+    test("starts the dictation and the promo once the scene is seen", async ({
+      page,
+    }) => {
+      const word = page.locator("[data-spoken] span.now");
+      const promo = page.locator("#scene video");
+      await page.waitForTimeout(UNSEEN_WAIT_MS);
+      await expect(word).toHaveCount(0);
+      expect(await promo.evaluate((v: HTMLVideoElement) => v.currentTime)).toBe(
+        0,
+      );
+      await showScene(page);
+      await expect(word).toHaveCount(1);
+      await expect
+        .poll(() => promo.evaluate((v: HTMLVideoElement) => v.currentTime))
+        .toBeGreaterThan(0.1);
     });
 
     test("marks each title's key word as a spoken word", async ({ page }) => {
