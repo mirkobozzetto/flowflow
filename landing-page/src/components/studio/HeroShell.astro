@@ -7,9 +7,15 @@ import { highlight } from "../../lib/highlight";
 interface Props {
   compact?: boolean;
   dictated?: boolean;
+  chips?: boolean;
+  caret?: boolean;
 }
 
-const { compact = false, dictated = false } = Astro.props;
+const CHIP_WORDS = ["Mail", "devis", "rendez-vous"];
+const { compact = false, dictated = false, chips = false, caret = false } =
+  Astro.props;
+const chipped = (text: string): string[] =>
+  chips ? text.split(new RegExp(`(${CHIP_WORDS.join("|")})`)) : [text];
 const t = useTranslations("fr", "hero");
 const words = t("hero.h1Lead").split(" ");
 ---
@@ -20,6 +26,7 @@ const words = t("hero.h1Lead").split(" ");
     <span class="links">Le produit · Agentique · À plusieurs · FAQ · Hermes</span>
     <span class="store">App Store</span>
   </div>
+  <slot name="eyebrow" />
   <img class="logo" src="/brand/mascot.webp" alt="" width="176" height="176" />
   <p class="title" role="heading" aria-level="1">
     {words.map((w) => <span class="w">{w} </span>)}
@@ -32,9 +39,16 @@ const words = t("hero.h1Lead").split(" ");
   <p class="line">
     {
       highlight(t("hero.line")).map((part) =>
-        part.hl ? <mark class="hl font-semibold">{part.text}</mark> : part.text,
+        part.hl ? (
+          <mark class="hl font-semibold">{part.text}</mark>
+        ) : (
+          chipped(part.text).map((bit) =>
+            CHIP_WORDS.includes(bit) ? <span class="chip">{bit}</span> : bit,
+          )
+        ),
       )
     }
+    {caret && <i class="caret" aria-hidden="true" />}
   </p>
   <CtaButtons lang="fr" />
   <slot />
@@ -144,6 +158,32 @@ const words = t("hero.h1Lead").split(" ");
     max-width: 44rem;
     margin-top: 6px;
     font-size: 15px;
+  }
+
+  .chip {
+    display: inline-block;
+    margin: 0 1px;
+    padding: 0 7px;
+    border-radius: 99px;
+    box-shadow: 0 0 0 1px var(--orange-100);
+    color: var(--orange-dark);
+    line-height: 1.5;
+  }
+
+  .caret {
+    display: inline-block;
+    width: 1.5px;
+    height: 1.05em;
+    margin-left: 3px;
+    vertical-align: -0.15em;
+    background: var(--orange-dark);
+    animation: caretBlink 1.1s steps(1) infinite;
+  }
+
+  @keyframes caretBlink {
+    50% {
+      opacity: 0;
+    }
   }
 
   .fold {
