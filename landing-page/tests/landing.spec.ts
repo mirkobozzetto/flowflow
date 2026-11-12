@@ -155,6 +155,7 @@ const HERMES_WAVE_GAP = 56;
 const EDGE_TOLERANCE_PX = 2;
 const TAILSCALE_WHITE = "/logos/tailscale-white.svg";
 const MIN_INK_ICONS = 6;
+const HERO_INK_ICONS = 6;
 const CENTER_TOLERANCE_PX = 1.5;
 const MIN_SPOKEN_TITLE_LEADING = 1.15;
 const HERO_MASCOT_PX = 176;
@@ -904,6 +905,23 @@ for (const copy of PAGES) {
       await expect(page.locator(".dot-grid").first()).toBeAttached();
       await expect(page.locator(".hand-note")).toHaveText(copy.notes);
       if (isMobile) await expect(icons.first()).toBeHidden();
+    });
+
+    test("draws the app's icons faintly around the hero title", async ({
+      page,
+      isMobile,
+    }) => {
+      const icons = page.locator(".hero .ink-icon");
+      await expect(icons).toHaveCount(HERO_INK_ICONS);
+      if (isMobile) {
+        await expect(icons.first()).toBeHidden();
+        return;
+      }
+      const fold = await page.evaluate(() => innerHeight);
+      const bottoms = await icons.evaluateAll((els) =>
+        els.map((e) => e.getBoundingClientRect().bottom),
+      );
+      for (const bottom of bottoms) expect(bottom).toBeLessThanOrEqual(fold);
     });
 
     test("gives the orange title blocks room above and below", async ({
