@@ -15,6 +15,11 @@ const words = t("hero.h1Lead").split(" ");
 ---
 
 <section class:list={["shell", { compact }]} data-dictated={dictated || undefined}>
+  <div class="nav" aria-hidden="true">
+    <span class="brand"><img src="/brand/mascot.webp" alt="" width="24" height="24" />FlowFlow</span>
+    <span class="links">Le produit · Agentique · À plusieurs · FAQ · Hermes</span>
+    <span class="store">App Store</span>
+  </div>
   <img class="logo" src="/brand/mascot.webp" alt="" width="176" height="176" />
   <p class="title" role="heading" aria-level="1">
     {words.map((w) => <span class="w">{w} </span>)}
@@ -64,6 +69,41 @@ const words = t("hero.h1Lead").split(" ");
     height: 900px;
     padding: 116px 24px 48px;
     text-align: center;
+  }
+
+  .nav {
+    position: absolute;
+    top: 14px;
+    right: 24px;
+    left: 24px;
+    display: flex;
+    align-items: center;
+    gap: 24px;
+    height: 54px;
+    padding: 0 8px 0 16px;
+    border-radius: 16px;
+    background: white;
+    box-shadow: 0 0 0 1px var(--hairline);
+    font-size: 13.5px;
+  }
+
+  .brand {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-weight: 600;
+  }
+
+  .links {
+    margin-left: auto;
+  }
+
+  .store {
+    padding: 9px 16px;
+    border-radius: 10px;
+    background: var(--gradient);
+    color: white;
+    font-weight: 600;
   }
 
   .logo {
