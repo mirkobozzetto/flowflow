@@ -18,8 +18,10 @@ const t = useTranslations(lang, "hero");
   <div
     class="container relative flex min-h-svh flex-col justify-center pt-29 pb-12"
   >
-    <InkIcons set="left" />
-    <InkIcons set="right" />
+    <div class="absolute inset-x-0 top-29 bottom-0" aria-hidden="true">
+      <InkIcons set="left" />
+      <InkIcons set="right" />
+    </div>
     <img
       class="hero-logo w-44 h-44 mx-auto block relative"
       src="/brand/mascot.webp"
