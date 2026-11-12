@@ -12,8 +12,9 @@ const { lang } = Astro.props;
 const t = useTranslations(lang, "hero");
 ---
 
-<header class="hero pt-29 text-center relative">
-  <div class="container">
+<header class="hero text-center relative">
+  <!-- The first screen holds only the pitch: the scene waits below the fold. -->
+  <div class="container flex min-h-svh flex-col justify-center pt-29 pb-12">
     <img
       class="hero-logo w-44 h-44 mx-auto block relative"
       src="/brand/mascot.webp"

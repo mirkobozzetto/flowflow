@@ -1,3 +1,5 @@
+// A clip starts once a third of it is on screen, from its first frame.
+const SEEN_RATIO = 0.3;
 const reduced = matchMedia("(prefers-reduced-motion: reduce)").matches;
 
 function initLazyVideos(): void {
@@ -9,7 +11,7 @@ function initLazyVideos(): void {
     (entries) => {
       for (const entry of entries) {
         const video = entry.target as HTMLVideoElement;
-        if (!entry.isIntersecting) {
+        if (entry.intersectionRatio < SEEN_RATIO) {
           video.pause();
           continue;
         }
@@ -19,7 +21,7 @@ function initLazyVideos(): void {
         video.play().catch(() => undefined);
       }
     },
-    { rootMargin: "160px" },
+    { threshold: SEEN_RATIO },
   );
 
   for (const video of videos) {
