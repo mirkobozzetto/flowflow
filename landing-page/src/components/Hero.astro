@@ -1,6 +1,5 @@
 ---
 import CtaButtons from "./CtaButtons.astro";
-import InkIcons from "./art/InkIcons.astro";
 import ParallaxScene from "./ParallaxScene.astro";
 import { useTranslations } from "../lib/i18n";
 import { highlight } from "../lib/highlight";
@@ -15,11 +14,7 @@ const t = useTranslations(lang, "hero");
 
 <header class="hero text-center relative">
   <!-- The first screen holds only the pitch: the scene waits below the fold. -->
-  <div
-    class="container relative flex min-h-svh flex-col justify-center pt-29 pb-12"
-  >
-    <InkIcons set="left" />
-    <InkIcons set="right" />
+  <div class="container flex min-h-svh flex-col justify-center pt-29 pb-12">
     <img
       class="hero-logo w-44 h-44 mx-auto block relative"
       src="/brand/mascot.webp"
