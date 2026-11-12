@@ -679,7 +679,9 @@ for (const copy of PAGES) {
 
     test("keeps every phone screen in its clip's shape", async ({ page }) => {
       const ratios = await page
-        .locator("#product .phone-screen, #agentic .phone-screen")
+        .locator(
+          "#scene .phone-screen, #product .phone-screen, #agentic .phone-screen",
+        )
         .evaluateAll((screens) =>
           screens.map((s) => s.clientWidth / s.clientHeight),
         );
