@@ -1,0 +1,152 @@
+---
+import Layout from "../../layouts/Layout.astro";
+import Choice from "../../components/studio/Choice.astro";
+import HeroShell from "../../components/studio/HeroShell.astro";
+import "../../styles/retouches.css";
+
+const REF = "/propositions/references";
+const PATTERNS = [
+  {
+    id: "micro",
+    title: "Une ligne grise sous les boutons",
+    seen: "Vu chez Raycast, Wispr Flow, Superwhisper, Granola, Reflect, Monocle",
+    refs: ["raycast-micro", "wispr-micro", "superwhisper-micro", "granola-micro", "reflect-all", "monocle-all"],
+  },
+  {
+    id: "eyebrow",
+    title: "Une mention discrète au-dessus du titre",
+    seen: "Vu chez Linear, Granola, Superlist, Monocle",
+    refs: ["linear-new", "granola-pill", "superlist-eyebrow"],
+  },
+  {
+    id: "chips",
+    title: "Les mots clés du sous-titre cerclés",
+    seen: "Vu chez mymind",
+    refs: ["mymind-chips"],
+  },
+  {
+    id: "caret",
+    title: "Un curseur qui clignote",
+    seen: "Vu chez iA Writer",
+    refs: ["iawriter-caret"],
+  },
+];
+---
+
+<Layout lang="fr">
+  <main class="opts">
+    <h1>Petits détails, vus chez les meilleurs</h1>
+    <p class="opts-intro">
+      Pour chaque détail : les captures des vrais sites, puis notre haut de page
+      avec ce seul détail. Rien d'autre ne change.
+    </p>
+
+    <section class="pattern">
+      <Choice group="Haut de page" name="Aujourd'hui" current>
+        <HeroShell />
+      </Choice>
+    </section>
+
+    {
+      PATTERNS.map((p) => (
+        <section class="pattern">
+          <h2>{p.title}</h2>
+          <p class="seen">{p.seen}</p>
+          <div class="refs">
+            {p.refs.map((r) => (
+              <img src={`${REF}/${r}.jpg`} alt="" loading="lazy" />
+            ))}
+          </div>
+          <Choice group="Haut de page" name={p.title}>
+            {p.id === "micro" && (
+              <HeroShell>
+                <p class="micro">Gratuit pour l'instant · iPhone et Mac Apple Silicon</p>
+              </HeroShell>
+            )}
+            {p.id === "eyebrow" && (
+              <HeroShell>
+                <a slot="eyebrow" class="eyebrow" href="/fr/hermes">
+                  <b>Nouveau</b> Hermes, ton agent <span aria-hidden="true">→</span>
+                </a>
+              </HeroShell>
+            )}
+            {p.id === "chips" && <HeroShell chips />}
+            {p.id === "caret" && <HeroShell caret />}
+          </Choice>
+        </section>
+      ))
+    }
+  </main>
+
+  <div class="opts-bar">
+    <p data-count>Aucun choix</p>
+    <button class="btn-primary" type="button" data-copy>Copier mes choix</button>
+  </div>
+
+  <script>
+    const boxes = [...document.querySelectorAll<HTMLInputElement>("[data-keep]")];
+    const count = document.querySelector<HTMLElement>("[data-count]");
+    const kept = (): string[] =>
+      boxes.filter((box) => box.checked).map((box) => box.dataset.keep ?? "");
+    for (const box of boxes) {
+      box.addEventListener("change", () => {
+        const total = kept().length;
+        if (count) count.textContent = total ? `${total} choix cochés` : "Aucun choix";
+      });
+    }
+    document.querySelector("[data-copy]")?.addEventListener("click", () => {
+      navigator.clipboard?.writeText(kept().join("\n"));
+      if (count) count.textContent = "Choix copiés";
+    });
+  </script>
+</Layout>
+
+<style>
+  .pattern {
+    margin-top: 56px;
+  }
+
+  .pattern h2 {
+    font-size: 26px;
+    font-weight: 600;
+    letter-spacing: -0.02em;
+  }
+
+  .seen {
+    margin-top: 2px;
+    color: rgba(0, 0, 0, 0.5);
+    font-size: 14px;
+  }
+
+  .refs {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+    margin: 16px 0;
+  }
+
+  .refs img {
+    height: 120px;
+    border-radius: 10px;
+    box-shadow: 0 0 0 1px var(--hairline);
+  }
+
+  .micro {
+    margin-top: 14px;
+    color: rgba(0, 0, 0, 0.42);
+    font-size: 12.5px;
+  }
+
+  .eyebrow {
+    margin-bottom: 18px;
+    color: rgba(0, 0, 0, 0.55);
+    font-size: 13.5px;
+    text-decoration: none;
+  }
+
+  .eyebrow b {
+    margin-right: 6px;
+    color: var(--orange-dark);
+    font-weight: 600;
+  }
+</style>
