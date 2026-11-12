@@ -87,6 +87,12 @@ const VARIANTS = [
     display: none;
   }
 
+  /* The draft page's own h1 style must not shrink the hero title. */
+  .hero-box :global(h1) {
+    font-size: clamp(50px, 8.4vw, 104px);
+    line-height: 0.99;
+  }
+
   .pills {
     margin: 0;
     padding: 0;
