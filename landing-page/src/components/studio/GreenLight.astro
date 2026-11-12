@@ -1,0 +1,226 @@
+---
+// Draft: the agent's requests land as iPhone notifications, each waits for Go.
+// Copy source: agentic.json, "Rien ne part sans ton accord sur l'iPhone".
+const NOTES = [
+  { title: "Mail prêt pour le client", body: "Votre devis · devis.pdf", done: "Envoyé" },
+  { title: "Appel client demain, 10 h", body: "Invitation prête · 30 min", done: "Calé" },
+  { title: "Compte rendu de l'appel", body: "4 décisions · dossier Clients", done: "Rangé" },
+];
+---
+
+<div class="stack" data-stack data-notes={JSON.stringify(NOTES)}>
+  {
+    [0, 1, 2].map((slot) => (
+      <article class="note" data-slot={slot}>
+        <img src="/brand/mascot.webp" alt="" width="38" height="38" />
+        <div class="body">
+          <p class="app">
+            <span>FlowFlow · Hermes</span>
+            <time>maintenant</time>
+          </p>
+          <p class="title" data-title />
+          <p class="text" data-text />
+        </div>
+        <div class="actions">
+          <span class="see">Voir</span>
+          <span class="go" data-go>Go</span>
+        </div>
+      </article>
+    ))
+  }
+</div>
+
+<script>
+  type Note = { title: string; body: string; done: string };
+  const sleep = (ms: number) => new Promise((done) => setTimeout(done, ms));
+
+  for (const root of document.querySelectorAll<HTMLElement>("[data-stack]")) {
+    const notes = JSON.parse(root.dataset.notes ?? "[]") as Note[];
+    const cards = [...root.querySelectorAll<HTMLElement>(".note")];
+    const fill = (card: HTMLElement, note: Note): void => {
+      const set = (sel: string, text: string): void => {
+        const el = card.querySelector<HTMLElement>(sel);
+        if (el) el.textContent = text;
+      };
+      set("[data-title]", note.title);
+      set("[data-text]", note.body);
+      set("[data-go]", "Go");
+      card.classList.remove("approved");
+    };
+
+    const run = async (): Promise<void> => {
+      let order = cards.slice();
+      let n = 0;
+      order.forEach((card, i) => {
+        const note = notes[(n + i) % notes.length];
+        if (note) fill(card, note);
+      });
+      for (;;) {
+        order.forEach((card, i) => {
+          card.dataset.slot = String(i);
+        });
+        await sleep(1600);
+        const front = order[0];
+        const note = notes[n % notes.length];
+        if (!front || !note) return;
+        front.classList.add("tap");
+        await sleep(220);
+        front.classList.remove("tap");
+        const go = front.querySelector<HTMLElement>("[data-go]");
+        if (go) go.textContent = `${note.done} ✓`;
+        front.classList.add("approved");
+        await sleep(900);
+        front.dataset.slot = "out";
+        await sleep(450);
+        n += 1;
+        const next = notes[(n + 2) % notes.length];
+        if (next) fill(front, next);
+        order = [...order.slice(1), front];
+        front.dataset.slot = "in";
+        await sleep(30);
+      }
+    };
+    new IntersectionObserver(
+      ([entry], obs) => {
+        if (!entry?.isIntersecting) return;
+        obs.disconnect();
+        run();
+      },
+      { threshold: 0.4 },
+    ).observe(root);
+  }
+</script>
+
+<style>
+  .stack {
+    position: relative;
+    width: min(400px, 100%);
+    height: 112px;
+    margin-top: 30px;
+    text-align: left;
+  }
+
+  .note {
+    position: absolute;
+    top: 0;
+    right: 0;
+    left: 0;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 12px 14px;
+    border-radius: 22px;
+    background: rgba(255, 255, 255, 0.86);
+    box-shadow:
+      0 0 0 1px var(--hairline),
+      0 16px 32px -20px rgba(0, 0, 0, 0.35);
+    backdrop-filter: blur(16px);
+    transition:
+      transform 0.55s cubic-bezier(0.2, 0.8, 0.2, 1),
+      opacity 0.45s ease;
+  }
+
+  .note[data-slot="0"] {
+    z-index: 3;
+  }
+
+  .note[data-slot="1"] {
+    z-index: 2;
+    opacity: 0.75;
+    transform: translateY(12px) scale(0.94);
+  }
+
+  .note[data-slot="2"] {
+    z-index: 1;
+    opacity: 0.45;
+    transform: translateY(23px) scale(0.88);
+  }
+
+  .note[data-slot="out"] {
+    z-index: 4;
+    opacity: 0;
+    transform: translateY(-30px) scale(0.98);
+  }
+
+  .note[data-slot="in"] {
+    z-index: 0;
+    opacity: 0;
+    transform: translateY(30px) scale(0.84);
+    transition: none;
+  }
+
+  .note.tap {
+    transform: scale(0.98);
+  }
+
+  img {
+    flex: none;
+    width: 38px;
+    height: 38px;
+    border-radius: 10px;
+    background: white;
+    box-shadow: 0 0 0 1px var(--hairline);
+  }
+
+  .body {
+    flex: 1;
+    min-width: 0;
+  }
+
+  .app {
+    display: flex;
+    justify-content: space-between;
+    margin: 0;
+    color: rgba(0, 0, 0, 0.45);
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 0.02em;
+    text-transform: uppercase;
+  }
+
+  .title {
+    margin: 1px 0 0;
+    font-size: 14.5px;
+    font-weight: 600;
+  }
+
+  .text {
+    margin: 0;
+    color: rgba(0, 0, 0, 0.6);
+    font-size: 13px;
+  }
+
+  .actions {
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+  }
+
+  .see,
+  .go {
+    display: grid;
+    place-items: center;
+    min-width: 58px;
+    height: 26px;
+    padding: 0 10px;
+    border-radius: 99px;
+    font-size: 12.5px;
+    font-weight: 600;
+    white-space: nowrap;
+  }
+
+  .see {
+    background: var(--paper-button);
+    box-shadow: var(--paper-edge);
+  }
+
+  .go {
+    background: var(--gradient);
+    color: white;
+    transition: background 0.3s ease;
+  }
+
+  .approved .go {
+    background: var(--ink-2);
+  }
+</style>
