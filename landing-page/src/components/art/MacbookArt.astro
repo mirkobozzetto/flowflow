@@ -1,0 +1,80 @@
+---
+interface Props {
+  width: number;
+}
+
+const { width } = Astro.props;
+---
+
+<div class="macbook-art" style={`--w: ${width}px`} aria-hidden="true">
+  <div class="lid">
+    <span class="notch"></span>
+    <div class="screen"><slot /></div>
+  </div>
+  <div class="base"><span class="groove"></span></div>
+</div>
+
+<style>
+  .macbook-art {
+    flex-shrink: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    filter: drop-shadow(0 10px 12px rgba(0, 0, 0, 0.18));
+  }
+
+  .lid {
+    position: relative;
+    width: var(--w);
+    aspect-ratio: 1.55;
+    padding: calc(var(--w) * 0.035);
+    border-radius: calc(var(--w) * 0.06) calc(var(--w) * 0.06) 2px 2px;
+    background: linear-gradient(160deg, #3a3a3e, #121214 55%, #2a2a2d);
+    box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.18);
+  }
+
+  .notch {
+    position: absolute;
+    top: calc(var(--w) * 0.035);
+    left: 50%;
+    z-index: 1;
+    width: calc(var(--w) * 0.15);
+    height: calc(var(--w) * 0.035);
+    border-radius: 0 0 calc(var(--w) * 0.02) calc(var(--w) * 0.02);
+    background: #121214;
+    translate: -50% 0;
+  }
+
+  .screen {
+    display: grid;
+    place-items: center;
+    height: 100%;
+    border-radius: 2px;
+    background: white;
+  }
+
+  .base {
+    position: relative;
+    width: calc(var(--w) * 1.24);
+    height: calc(var(--w) * 0.055);
+    border-radius: 1px 1px calc(var(--w) * 0.05) calc(var(--w) * 0.05);
+    background: linear-gradient(#e4e4e7, #b4b4b8 60%, #8e8e93);
+  }
+
+  .groove {
+    position: absolute;
+    top: 0;
+    left: 50%;
+    width: calc(var(--w) * 0.18);
+    height: 45%;
+    border-radius: 0 0 6px 6px;
+    background: #a1a1a6;
+    translate: -50% 0;
+  }
+
+  .screen :global(img) {
+    width: calc(var(--w) * 0.26);
+    height: auto;
+    border-radius: calc(var(--w) * 0.05);
+  }
+</style>

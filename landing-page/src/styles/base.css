@@ -135,6 +135,11 @@ h3 {
   height: 0.34em;
 }
 
+/* An orange title block needs air so it never touches the lines around it. */
+h2:has(em.say) {
+  line-height: 1.18 !important;
+}
+
 .say {
   padding: 0 0.12em 0.02em;
   border-radius: 0.14em;

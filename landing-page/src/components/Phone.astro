@@ -7,6 +7,10 @@ const { class: className } = Astro.props;
 ---
 
 <div class:list={["phone", className]}>
+  <span class="key action" aria-hidden="true"></span>
+  <span class="key vol-up" aria-hidden="true"></span>
+  <span class="key vol-down" aria-hidden="true"></span>
+  <span class="key side" aria-hidden="true"></span>
   <div class="phone-screen"><slot /></div>
 </div>
 
@@ -15,7 +19,6 @@ const { class: className } = Astro.props;
     --unit: var(--phone-base, var(--phone-width, 240px));
     position: relative;
     width: var(--phone-width, 240px);
-    aspect-ratio: var(--phone-ratio, 720 / 1564);
     flex-shrink: 0;
     padding: calc(var(--unit) * 0.034);
     border-radius: calc(var(--unit) * 0.165);
@@ -33,31 +36,45 @@ const { class: className } = Astro.props;
       0 14px 24px -18px rgba(0, 0, 0, 0.28);
   }
 
-  .phone::before,
-  .phone::after {
-    content: "";
+  /* Side buttons placed from a current iPhone photo, seen from the front:
+     three on the left, one on the right, barely out of the frame. */
+  .key {
+    --bump: max(0.6px, calc(var(--unit) * 0.011));
     position: absolute;
-    width: 2px;
-    border-radius: 2px;
+    left: calc(var(--bump) * -1);
+    width: var(--bump);
+    border-radius: var(--bump) 0 0 var(--bump);
     background: #4a4a4e;
   }
 
-  .phone::before {
-    top: 22%;
-    left: -2px;
-    height: 13%;
+  .action {
+    top: 20.5%;
+    height: 5%;
   }
 
-  .phone::after {
-    top: 26%;
-    right: -2px;
-    height: 17%;
+  .vol-up {
+    top: 28.7%;
+    height: 7.9%;
+  }
+
+  .vol-down {
+    top: 38.3%;
+    height: 7.9%;
+  }
+
+  .side {
+    top: 31.4%;
+    right: calc(var(--bump) * -1);
+    left: auto;
+    height: 12%;
+    border-radius: 0 var(--bump) var(--bump) 0;
   }
 
   .phone-screen {
     position: relative;
     width: 100%;
-    height: 100%;
+    /* The screen takes the clip's own shape, so nothing is cropped. */
+    aspect-ratio: var(--screen-ratio, 720 / 1564);
     overflow: hidden;
     border-radius: calc(var(--unit) * 0.132);
     background: white;

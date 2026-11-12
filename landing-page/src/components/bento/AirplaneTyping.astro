@@ -1,0 +1,102 @@
+---
+interface Props {
+  airplane: string;
+  typed: string;
+}
+
+const { airplane, typed } = Astro.props;
+const words = typed.split(" ");
+const PLANE_PATH =
+  "M21 15.5v-2l-8-5V3.6a1.6 1.6 0 0 0-3.2 0v4.9l-8 5v2l8-2.5v5.4l-2 1.5v1.6l3.6-1 3.6 1v-1.6l-2-1.5V13z";
+---
+
+<div class="air-row">
+  <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+    <path d={PLANE_PATH}></path>
+  </svg>
+  {airplane}
+  <span class="toggle" aria-hidden="true"></span>
+</div>
+<div class="flow">
+  <canvas data-wave="bars" data-speed="2.4" aria-hidden="true"></canvas>
+  <p data-typed aria-label={typed}>
+    {words.map((word) => <span aria-hidden="true">{word} </span>)}
+  </p>
+</div>
+
+<script>
+  import "../../scripts/typed.ts";
+</script>
+
+<style>
+  .air-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-top: 16px;
+    font-size: 13.5px;
+    font-weight: 600;
+    color: black;
+  }
+
+  .air-row svg {
+    width: 18px;
+    height: 18px;
+    color: var(--orange-dark);
+  }
+
+  .toggle {
+    position: relative;
+    width: 38px;
+    height: 22px;
+    margin-left: auto;
+    border-radius: 99px;
+    background: var(--orange);
+  }
+
+  .toggle::after {
+    content: "";
+    position: absolute;
+    top: 2px;
+    right: 2px;
+    width: 18px;
+    height: 18px;
+    border-radius: 99px;
+    background: white;
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.25);
+  }
+
+  .flow {
+    display: grid;
+    grid-template-columns: 64px 1fr;
+    gap: 12px;
+    align-items: center;
+    margin-top: 12px;
+    padding: 12px;
+    border-radius: 12px;
+    background: var(--paper-button);
+    box-shadow: var(--paper-edge);
+  }
+
+  .flow canvas {
+    width: 64px;
+    height: 28px;
+  }
+
+  .flow p {
+    margin: 0;
+    font-size: 14px;
+    font-weight: 600;
+    line-height: 1.35;
+    color: black;
+  }
+
+  .flow span {
+    opacity: 0.18;
+    transition: opacity 0.2s ease;
+  }
+
+  .flow span:global(.on) {
+    opacity: 1;
+  }
+</style>

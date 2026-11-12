@@ -18,7 +18,7 @@ const t = section(lang, "agentic");
 
 <section
   id="agentic"
-  class="agentic pt-30 pb-27.5 relative overflow-hidden"
+  class="agentic pt-30 pb-42.5 relative overflow-hidden"
 >
   <canvas
     class="bars"
@@ -58,7 +58,7 @@ const t = section(lang, "agentic");
           <span>+</span>
           <img
             class="tailscale"
-            src="/logos/tailscale.svg"
+            src="/logos/tailscale-white.svg"
             alt=""
             width="56"
             height="56"
@@ -122,7 +122,8 @@ const t = section(lang, "agentic");
 
   .marks .tailscale {
     padding: 14px;
-    background: var(--paper-button);
+    background: black;
+    box-shadow: 0 0 0 1px black;
   }
 
   .marks span {
@@ -150,6 +151,11 @@ const t = section(lang, "agentic");
     .hermes {
       grid-template-columns: 1fr;
       gap: 16px;
+      text-align: center;
+    }
+
+    .marks {
+      justify-content: center;
     }
 
     .hermes .btn-primary {
