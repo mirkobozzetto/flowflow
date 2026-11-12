@@ -1,0 +1,268 @@
+---
+// Draft: a sentence said into the capsule becomes a ready action, then "Go".
+const SCENES = [
+  {
+    said: "Envoie le devis au client avant midi",
+    kind: "Mail prêt",
+    rows: [
+      ["À", "le client"],
+      ["Objet", "Votre devis"],
+      ["Joint", "devis.pdf"],
+    ],
+    done: "Envoyé",
+  },
+  {
+    said: "Cale l'appel client demain à 10 h",
+    kind: "Rendez-vous prêt",
+    rows: [
+      ["Quoi", "Appel client"],
+      ["Quand", "Demain, 10 h"],
+      ["Rappel", "15 min avant"],
+    ],
+    done: "Calé",
+  },
+  {
+    said: "Prépare le compte rendu de l'appel",
+    kind: "Note prête",
+    rows: [
+      ["Titre", "Compte rendu"],
+      ["Points", "4 décisions"],
+      ["Dossier", "Clients"],
+    ],
+    done: "Rangée",
+  },
+];
+---
+
+<div class="sta" data-sta data-scenes={JSON.stringify(SCENES)}>
+  <div class="capsule">
+    <canvas data-wave="live" data-color="#ffffff" data-level="0.06"></canvas>
+    <span class="said" data-said></span>
+  </div>
+  <article class="card">
+    <header>
+      <img src="/brand/mascot.webp" alt="" width="22" height="22" />
+      <b data-kind></b>
+      <span class="who">Hermes</span>
+    </header>
+    <dl data-rows></dl>
+    <button type="button" class="go" data-go tabindex="-1">Go</button>
+  </article>
+</div>
+
+<script>
+  type Scene = { said: string; kind: string; rows: string[][]; done: string };
+  const WORD_MS = 210;
+  const sleep = (ms: number) => new Promise((done) => setTimeout(done, ms));
+
+  for (const root of document.querySelectorAll<HTMLElement>("[data-sta]")) {
+    const scenes = JSON.parse(root.dataset.scenes ?? "[]") as Scene[];
+    const said = root.querySelector<HTMLElement>("[data-said]");
+    const kind = root.querySelector<HTMLElement>("[data-kind]");
+    const rows = root.querySelector<HTMLElement>("[data-rows]");
+    const go = root.querySelector<HTMLElement>("[data-go]");
+    const wave = root.querySelector<HTMLCanvasElement>("canvas");
+    if (!said || !kind || !rows || !go || !wave) continue;
+
+    const run = async (): Promise<void> => {
+      for (let i = 0; ; i = (i + 1) % scenes.length) {
+        const scene = scenes[i];
+        if (!scene) return;
+        root.dataset.step = "say";
+        said.textContent = "";
+        for (const word of scene.said.split(" ")) {
+          said.textContent += `${word} `;
+          wave.dataset.level = String(0.6 + Math.random() * 0.4);
+          await sleep(WORD_MS);
+        }
+        wave.dataset.level = "0.06";
+        await sleep(450);
+        kind.textContent = scene.kind;
+        rows.innerHTML = scene.rows
+          .map(([k, v]) => `<div><dt>${k}</dt><dd>${v}</dd></div>`)
+          .join("");
+        go.textContent = "Go";
+        root.dataset.step = "card";
+        await sleep(1700);
+        root.dataset.step = "tap";
+        await sleep(260);
+        go.textContent = `${scene.done} ✓`;
+        root.dataset.step = "done";
+        await sleep(1500);
+      }
+    };
+    new IntersectionObserver(
+      ([entry], obs) => {
+        if (!entry?.isIntersecting) return;
+        obs.disconnect();
+        run();
+      },
+      { threshold: 0.4 },
+    ).observe(root);
+  }
+</script>
+
+<style>
+  .sta {
+    position: relative;
+    display: grid;
+    place-items: center;
+    width: min(420px, 100%);
+    height: 150px;
+    margin-top: 30px;
+  }
+
+  .capsule,
+  .card {
+    grid-area: 1 / 1;
+    transition:
+      opacity 0.45s ease,
+      transform 0.55s cubic-bezier(0.2, 0.8, 0.2, 1),
+      filter 0.45s ease;
+  }
+
+  .capsule {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    max-width: 100%;
+    height: 54px;
+    padding: 0 22px 0 18px;
+    border-radius: 99px;
+    background: var(--ink-2);
+    color: white;
+    box-shadow: 0 18px 34px -22px rgba(0, 0, 0, 0.55);
+  }
+
+  .capsule canvas {
+    flex: none;
+    width: 74px;
+    height: 26px;
+  }
+
+  .said {
+    overflow: hidden;
+    font-size: 14.5px;
+    font-weight: 600;
+    white-space: nowrap;
+  }
+
+  .card {
+    width: 100%;
+    padding: 14px 16px 14px;
+    border-radius: 18px;
+    background: var(--paper);
+    box-shadow: var(--paper-lift);
+    text-align: left;
+    opacity: 0;
+    transform: translateY(18px) scale(0.96);
+    filter: blur(4px);
+  }
+
+  [data-step="card"] .capsule,
+  [data-step="tap"] .capsule,
+  [data-step="done"] .capsule {
+    opacity: 0;
+    transform: translateY(-14px) scale(0.92);
+    filter: blur(4px);
+  }
+
+  [data-step="card"] .card,
+  [data-step="tap"] .card,
+  [data-step="done"] .card {
+    opacity: 1;
+    transform: none;
+    filter: none;
+  }
+
+  header {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 13.5px;
+  }
+
+  header img {
+    width: 22px;
+    height: 22px;
+  }
+
+  .who {
+    margin-left: auto;
+    color: rgba(0, 0, 0, 0.45);
+    font-size: 12px;
+    font-weight: 600;
+  }
+
+  .card :global(dl) {
+    display: grid;
+    gap: 3px;
+    margin: 10px 0 0;
+    padding-right: 84px;
+  }
+
+  .card :global(dl div) {
+    display: flex;
+    gap: 10px;
+    font-size: 13px;
+  }
+
+  .card :global(dt) {
+    width: 52px;
+    color: rgba(0, 0, 0, 0.45);
+  }
+
+  .card :global(dd) {
+    margin: 0;
+    font-weight: 600;
+  }
+
+  .go {
+    position: absolute;
+    right: 16px;
+    bottom: 14px;
+    min-width: 64px;
+    height: 38px;
+    padding: 0 14px;
+    border: 0;
+    border-radius: 99px;
+    background: var(--gradient);
+    color: white;
+    font: inherit;
+    font-size: 14px;
+    font-weight: 600;
+    box-shadow:
+      inset 0 1px 0 rgba(255, 255, 255, 0.35),
+      0 8px 18px -10px var(--orange-dark);
+    transition:
+      transform 0.18s ease,
+      background 0.3s ease,
+      color 0.3s ease;
+  }
+
+  [data-step="card"] .go {
+    animation: goPulse 1.2s ease-in-out infinite;
+  }
+
+  [data-step="tap"] .go {
+    transform: scale(0.9);
+  }
+
+  [data-step="done"] .go {
+    background: var(--ink-2);
+  }
+
+  @keyframes goPulse {
+    0%,
+    100% {
+      box-shadow:
+        inset 0 1px 0 rgba(255, 255, 255, 0.35),
+        0 0 0 0 color-mix(in oklch, var(--orange-dark) 45%, transparent);
+    }
+    50% {
+      box-shadow:
+        inset 0 1px 0 rgba(255, 255, 255, 0.35),
+        0 0 0 8px color-mix(in oklch, var(--orange-dark) 0%, transparent);
+    }
+  }
+</style>

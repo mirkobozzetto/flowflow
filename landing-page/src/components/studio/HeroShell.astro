@@ -1,0 +1,131 @@
+---
+// Draft copy of the hero's first screen, with room for one new element.
+import CtaButtons from "../CtaButtons.astro";
+import { useTranslations } from "../../lib/i18n";
+import { highlight } from "../../lib/highlight";
+
+interface Props {
+  compact?: boolean;
+  dictated?: boolean;
+}
+
+const { compact = false, dictated = false } = Astro.props;
+const t = useTranslations("fr", "hero");
+const words = t("hero.h1Lead").split(" ");
+---
+
+<section class:list={["shell", { compact }]} data-dictated={dictated || undefined}>
+  <img class="logo" src="/brand/mascot.webp" alt="" width="176" height="176" />
+  <p class="title" role="heading" aria-level="1">
+    {words.map((w) => <span class="w">{w} </span>)}
+    <em class="voice-word w">
+      {t("hero.h1Accent")}
+      <canvas data-wave="bars" data-speed="2.4" aria-hidden="true"></canvas>
+    </em>
+  </p>
+  <p class="lead">{t("hero.lead")}</p>
+  <p class="line">
+    {
+      highlight(t("hero.line")).map((part) =>
+        part.hl ? <mark class="hl font-semibold">{part.text}</mark> : part.text,
+      )
+    }
+  </p>
+  <CtaButtons lang="fr" />
+  <slot />
+  <span class="fold">Bas du premier écran</span>
+</section>
+
+<script>
+  // Variant: the title is said word by word, then the wave settles.
+  const STEP_MS = 420;
+  for (const shell of document.querySelectorAll<HTMLElement>("[data-dictated]")) {
+    const words = [...shell.querySelectorAll<HTMLElement>(".title .w")];
+    const play = (): void => {
+      words.forEach((w, i) => {
+        w.classList.remove("said");
+        setTimeout(() => w.classList.add("said"), 300 + i * STEP_MS);
+      });
+    };
+    new IntersectionObserver(([entry]) => {
+      if (entry?.isIntersecting) play();
+    }, { threshold: 0.5 }).observe(shell);
+  }
+</script>
+
+<style>
+  .shell {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    width: 100%;
+    height: 900px;
+    padding: 116px 24px 48px;
+    text-align: center;
+  }
+
+  .logo {
+    width: 176px;
+    height: 176px;
+  }
+
+  .compact .logo {
+    width: 104px;
+    height: 104px;
+  }
+
+  .title {
+    margin-top: 26px;
+    color: var(--ink);
+    font-size: clamp(50px, 8.4vw, 104px);
+    font-weight: 600;
+    line-height: 0.99;
+    letter-spacing: -0.035em;
+  }
+
+  .compact .title {
+    margin-top: 18px;
+    font-size: clamp(46px, 7vw, 88px);
+  }
+
+  .lead {
+    max-width: 40rem;
+    margin-top: 4px;
+    color: var(--ink);
+    font-size: clamp(22px, 2.6vw, 28px);
+    font-weight: 600;
+    line-height: 1.2;
+    letter-spacing: -0.015em;
+  }
+
+  .line {
+    max-width: 44rem;
+    margin-top: 6px;
+    font-size: 15px;
+  }
+
+  .fold {
+    position: absolute;
+    right: 0;
+    bottom: 0;
+    left: 0;
+    padding-top: 4px;
+    border-top: 1px dashed var(--rule);
+    color: rgba(0, 0, 0, 0.35);
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+  }
+
+  [data-dictated] .w {
+    opacity: 0.14;
+    transition: opacity 0.35s ease;
+  }
+
+  [data-dictated] .w.said {
+    opacity: 1;
+  }
+</style>
