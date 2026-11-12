@@ -6,6 +6,7 @@ const PAUSE_MS = 420;
 const PAUSE_AT = /[.,:?!»”]$/;
 const SILENT = "0.06";
 const SYLLABLE_DIP = 0.55;
+const SEEN_RATIO = 0.3;
 
 function clockLabel(ms: number): string {
   const seconds = Math.floor(ms / 1000);
@@ -21,8 +22,9 @@ function initPrompter(): void {
   const words = [...column.querySelectorAll<HTMLElement>("span")];
   const wave = document.querySelector<HTMLCanvasElement>(".capsule canvas");
   const clock = document.querySelector<HTMLElement>("[data-voice-clock]");
-  let started = performance.now();
+  let started = 0;
   let at = 0;
+  let timer = 0;
 
   const step = (): void => {
     if (at >= words.length) {
@@ -60,9 +62,26 @@ function initPrompter(): void {
     }
     if (clock) clock.textContent = clockLabel(performance.now() - started);
     at += 1;
-    setTimeout(step, ms);
+    timer = window.setTimeout(step, ms);
   };
-  step();
+
+  // The dictation starts on its first word when the window comes into view.
+  let running = false;
+  new IntersectionObserver(
+    ([entry]) => {
+      const seen = (entry?.intersectionRatio ?? 0) >= SEEN_RATIO;
+      if (seen === running) return;
+      running = seen;
+      if (!seen) {
+        clearTimeout(timer);
+        if (wave) wave.dataset.level = SILENT;
+        return;
+      }
+      if (at === 0) started = performance.now();
+      step();
+    },
+    { threshold: SEEN_RATIO },
+  ).observe(view);
 }
 
 initPrompter();
